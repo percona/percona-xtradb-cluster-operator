@@ -1,0 +1,4 @@
+apiVersion: "pxc.percona.com/v1alpha1"
+kind: "PerconaXtradbCluster"
+metadata:
+  name: "example"

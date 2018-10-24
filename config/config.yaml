@@ -1,0 +1,3 @@
+apiVersion: pxc.percona.com/v1alpha1
+kind: PerconaXtradbCluster
+projectName: percona-xtradb-cluster-operator

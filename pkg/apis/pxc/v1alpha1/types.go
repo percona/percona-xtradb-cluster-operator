@@ -22,7 +22,8 @@ type PerconaXtradbCluster struct {
 }
 
 type PerconaXtradbClusterSpec struct {
-	// Fill me
+	Size  int32  `json:"size"`
+	Image string `json:"image,omitempty"`
 }
 type PerconaXtradbClusterStatus struct {
 	// Fill me

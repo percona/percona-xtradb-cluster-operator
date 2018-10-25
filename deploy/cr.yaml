@@ -1,5 +1,5 @@
 apiVersion: "pxc.percona.com/v1alpha1"
-kind: "PerconaXtradbCluster"
+kind: "PerconaXtraDBCluster"
 metadata:
   name: "set-cluster-name"
 spec:

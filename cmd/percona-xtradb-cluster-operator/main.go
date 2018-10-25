@@ -26,7 +26,7 @@ func main() {
 	sdk.ExposeMetricsPort()
 
 	resource := "pxc.percona.com/v1alpha1"
-	kind := "PerconaXtradbCluster"
+	kind := "PerconaXtraDBCluster"
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
 		logrus.Fatalf("failed to get watch namespace: %v", err)

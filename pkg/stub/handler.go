@@ -25,7 +25,7 @@ type Handler struct {
 
 func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 	switch o := event.Object.(type) {
-	case *v1alpha1.PerconaXtradbCluster:
+	case *v1alpha1.PerconaXtraDBCluster:
 		// Just ignore it for now
 		if event.Deleted {
 			return nil
@@ -58,7 +58,7 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 	return nil
 }
 
-func newServiceNodes(cr *v1alpha1.PerconaXtradbCluster) *corev1.Service {
+func newServiceNodes(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -89,7 +89,7 @@ func newServiceNodes(cr *v1alpha1.PerconaXtradbCluster) *corev1.Service {
 	}
 }
 
-func newServiceProxySQL(cr *v1alpha1.PerconaXtradbCluster) *corev1.Service {
+func newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -130,7 +130,7 @@ func newServiceProxySQL(cr *v1alpha1.PerconaXtradbCluster) *corev1.Service {
 	}
 }
 
-func newStatefulSetNode(cr *v1alpha1.PerconaXtradbCluster) *appsv1.StatefulSet {
+func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) *appsv1.StatefulSet {
 	ls := map[string]string{
 		"component": "pxc-nodes",
 	}
@@ -254,7 +254,7 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtradbCluster) *appsv1.StatefulSet {
 	}
 }
 
-func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtradbCluster) *appsv1.StatefulSet {
+func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *appsv1.StatefulSet {
 	ls := map[string]string{
 		"component": "pxc-proxysql",
 	}

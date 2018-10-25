@@ -6,25 +6,25 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type PerconaXtradbClusterList struct {
+type PerconaXtraDBClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []PerconaXtradbCluster `json:"items"`
+	Items           []PerconaXtraDBCluster `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type PerconaXtradbCluster struct {
+type PerconaXtraDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              PerconaXtradbClusterSpec   `json:"spec"`
-	Status            PerconaXtradbClusterStatus `json:"status,omitempty"`
+	Spec              PerconaXtraDBClusterSpec   `json:"spec"`
+	Status            PerconaXtraDBClusterStatus `json:"status,omitempty"`
 }
 
-type PerconaXtradbClusterSpec struct {
+type PerconaXtraDBClusterSpec struct {
 	Size  int32  `json:"size"`
 	Image string `json:"image,omitempty"`
 }
-type PerconaXtradbClusterStatus struct {
+type PerconaXtraDBClusterStatus struct {
 	// Fill me
 }

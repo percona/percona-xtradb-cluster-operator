@@ -12,7 +12,7 @@ kubectl apply -f deploy/cr.yaml
 ```
 
 ```sh
-OPERATOR_NAME=<operator-name> WATCH_NAMESPACE=<namespace> operator-sdk up local
+OPERATOR_NAME=<operator-name> operator-sdk up local --namespace=<namespace>
 ```
 
 ## Delete

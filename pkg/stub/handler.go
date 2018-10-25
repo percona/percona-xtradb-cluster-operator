@@ -2,6 +2,7 @@ package stub
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
@@ -31,7 +32,12 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 			return nil
 		}
 
-		err := sdk.Create(newStatefulSetNode(o))
+		nodeSet, err := newStatefulSetNode(o)
+		if err != nil {
+			logrus.Error(err)
+			return err
+		}
+		err = sdk.Create(nodeSet)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			logrus.Errorf("failed to create newStatefulSetNode: %v", err)
 			return err
@@ -43,7 +49,12 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 			return err
 		}
 
-		err = sdk.Create(newStatefulSetProxySQL(o))
+		proxySet, err := newStatefulSetProxySQL(o)
+		if err != nil {
+			logrus.Error(err)
+			return err
+		}
+		err = sdk.Create(proxySet)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			logrus.Errorf("failed to create newStatefulSetProxySQL: %v", err)
 			return err
@@ -130,12 +141,27 @@ func newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
 	}
 }
 
-func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) *appsv1.StatefulSet {
+func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	ls := map[string]string{
+		"app":       "pxc",
 		"component": "pxc-nodes",
 	}
 	replicas := cr.Spec.Size
 	var fsgroup int64 = 1001
+
+	rcpuQnt, err := resource.ParseQuantity("100m")
+	if err != nil {
+		return nil, fmt.Errorf("wrong CPU resources: %v", err)
+	}
+	rmemQnt, err := resource.ParseQuantity("256Mi")
+	if err != nil {
+		return nil, fmt.Errorf("wrong memory resources: %v", err)
+	}
+
+	rvolStorage, err := resource.ParseQuantity("8Gi")
+	if err != nil {
+		return nil, fmt.Errorf("wrong storage resources: %v", err)
+	}
 
 	return &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -229,6 +255,12 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) *appsv1.StatefulSet {
 								// },
 							},
 						},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    rcpuQnt,
+								corev1.ResourceMemory: rmemQnt,
+							},
+						},
 					}},
 					Volumes: getConfigVolumes(),
 				},
@@ -244,22 +276,37 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) *appsv1.StatefulSet {
 						},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: *resource.NewQuantity(10, resource.BinarySI),
+								corev1.ResourceStorage: rvolStorage, //*resource.NewQuantity(10, resource.BinarySI),
 							},
 						},
 					},
 				},
 			},
 		},
-	}
+	}, nil
 }
 
-func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *appsv1.StatefulSet {
+func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	ls := map[string]string{
+		"app":       "pxc",
 		"component": "pxc-proxysql",
 	}
 	var replicas int32 = 1
 	var fsgroup int64 = 1001
+
+	rcpuQnt, err := resource.ParseQuantity("100m")
+	if err != nil {
+		return nil, fmt.Errorf("wrong CPU resources: %v", err)
+	}
+	rmemQnt, err := resource.ParseQuantity("256Mi")
+	if err != nil {
+		return nil, fmt.Errorf("wrong memory resources: %v", err)
+	}
+
+	rvolStorage, err := resource.ParseQuantity("2Gi")
+	if err != nil {
+		return nil, fmt.Errorf("wrong storage resources: %v", err)
+	}
 
 	return &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -330,11 +377,11 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *appsv1.StatefulS
 								Value: "proxyuser",
 							},
 							{
-								Name:  "MYSQL_PROXY_PASSWORD",
-								Value: "supapass",
-								// ValueFrom: &corev1.EnvVarSource{
-								// 	SecretKeyRef: secretKeySelector("mysql-passwords", "root"),
-								// },
+								Name: "MYSQL_PROXY_PASSWORD",
+								// Value: "supapass",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: secretKeySelector("pxc-secrets", "proxyuser"),
+								},
 							},
 							{
 								Name:  "MONITOR_PASSWORD",
@@ -346,6 +393,12 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *appsv1.StatefulS
 							{
 								Name:  "PXCSERVICE",
 								Value: "pxc-nodes",
+							},
+						},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    rcpuQnt,
+								corev1.ResourceMemory: rmemQnt,
 							},
 						},
 					}},
@@ -362,14 +415,14 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *appsv1.StatefulS
 						},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: *resource.NewQuantity(2, resource.BinarySI),
+								corev1.ResourceStorage: rvolStorage, // *resource.NewQuantity(2, resource.BinarySI),
 							},
 						},
 					},
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func secretKeySelector(name, key string) *corev1.SecretKeySelector {

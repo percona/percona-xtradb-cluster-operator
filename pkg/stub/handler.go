@@ -107,7 +107,7 @@ func newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pxc-proxysql", //cr.Name,
+			Name:      "pxc-proxysql",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
 				"app": "pxc",
@@ -146,19 +146,26 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 		"app":       "pxc",
 		"component": "pxc-nodes",
 	}
-	replicas := cr.Spec.Size
 	var fsgroup int64 = 1001
 
-	rcpuQnt, err := resource.ParseQuantity("100m")
+	rcpuQnt, err := resource.ParseQuantity(cr.Spec.PXC.Resources.Requests.CPU)
 	if err != nil {
 		return nil, fmt.Errorf("wrong CPU resources: %v", err)
 	}
-	rmemQnt, err := resource.ParseQuantity("256Mi")
+	rmemQnt, err := resource.ParseQuantity(cr.Spec.PXC.Resources.Requests.Memory)
+	if err != nil {
+		return nil, fmt.Errorf("wrong memory resources: %v", err)
+	}
+	lcpuQnt, err := resource.ParseQuantity(cr.Spec.PXC.Resources.Limits.CPU)
+	if err != nil {
+		return nil, fmt.Errorf("wrong CPU resources: %v", err)
+	}
+	lmemQnt, err := resource.ParseQuantity(cr.Spec.PXC.Resources.Limits.Memory)
 	if err != nil {
 		return nil, fmt.Errorf("wrong memory resources: %v", err)
 	}
 
-	rvolStorage, err := resource.ParseQuantity("8Gi")
+	rvolStorage, err := resource.ParseQuantity(cr.Spec.PXC.VolumeSpec.Size)
 	if err != nil {
 		return nil, fmt.Errorf("wrong storage resources: %v", err)
 	}
@@ -173,7 +180,7 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 			Namespace: cr.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: &replicas,
+			Replicas: &cr.Spec.PXC.Size,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: ls,
 			},
@@ -189,7 +196,7 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 					},
 					Containers: []corev1.Container{{
 						Name:            "node",
-						Image:           cr.Spec.Image,
+						Image:           cr.Spec.PXC.Image,
 						ImagePullPolicy: corev1.PullAlways,
 						ReadinessProbe: setProbeCmd(&corev1.Probe{
 							InitialDelaySeconds: 15,
@@ -220,45 +227,44 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 						},
 						Env: []corev1.EnvVar{
 							{
-								Name:  "MYSQL_ROOT_PASSWORD",
-								Value: "supapass",
-								// ValueFrom: &corev1.EnvVarSource{
-								// 	SecretKeyRef: secretKeySelector("mysql-passwords", "root"),
-								// },
+								Name: "MYSQL_ROOT_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "root"),
+								},
 							},
 							{
-								Name:  "CLUSTERCHECK_PASSWORD",
-								Value: "supapass",
-								// ValueFrom: &corev1.EnvVarSource{
-								// 	SecretKeyRef: secretKeySelector("mysql-passwords", "root"),
-								// },
+								Name: "CLUSTERCHECK_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
+								},
 							},
 							{
-								Name:  "XTRABACKUP_PASSWORD",
-								Value: "supapass",
-								// ValueFrom: &corev1.EnvVarSource{
-								// 	SecretKeyRef: secretKeySelector("mysql-passwords", "xtrabackup"),
-								// },
+								Name: "XTRABACKUP_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "xtrabackup"),
+								},
 							},
 							{
-								Name:  "MONITOR_PASSWORD",
-								Value: "supapass",
-								// ValueFrom: &corev1.EnvVarSource{
-								// 	SecretKeyRef: secretKeySelector("mysql-passwords", "monitor"),
-								// },
+								Name: "MONITOR_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
+								},
 							},
 							{
-								Name:  "CLUSTERCHECK_PASSWORD",
-								Value: "supapass",
-								// ValueFrom: &corev1.EnvVarSource{
-								// 	SecretKeyRef: secretKeySelector("mysql-passwords", "clustercheck"),
-								// },
+								Name: "CLUSTERCHECK_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
+								},
 							},
 						},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU:    rcpuQnt,
 								corev1.ResourceMemory: rmemQnt,
+							},
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:    lcpuQnt,
+								corev1.ResourceMemory: lmemQnt,
 							},
 						},
 					}},
@@ -271,12 +277,11 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 						Name: "datadir",
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{
-							corev1.ReadWriteOnce,
-						},
+						// StorageClassName: &cr.Spec.PXC.VolumeSpec.StorageClass,
+						AccessModes: cr.Spec.PXC.VolumeSpec.AccessModes,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: rvolStorage, //*resource.NewQuantity(10, resource.BinarySI),
+								corev1.ResourceStorage: rvolStorage,
 							},
 						},
 					},
@@ -291,19 +296,26 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 		"app":       "pxc",
 		"component": "pxc-proxysql",
 	}
-	var replicas int32 = 1
 	var fsgroup int64 = 1001
 
-	rcpuQnt, err := resource.ParseQuantity("100m")
+	rcpuQnt, err := resource.ParseQuantity(cr.Spec.ProxySQL.Resources.Requests.CPU)
 	if err != nil {
 		return nil, fmt.Errorf("wrong CPU resources: %v", err)
 	}
-	rmemQnt, err := resource.ParseQuantity("256Mi")
+	rmemQnt, err := resource.ParseQuantity(cr.Spec.ProxySQL.Resources.Requests.Memory)
+	if err != nil {
+		return nil, fmt.Errorf("wrong memory resources: %v", err)
+	}
+	lcpuQnt, err := resource.ParseQuantity(cr.Spec.ProxySQL.Resources.Limits.CPU)
+	if err != nil {
+		return nil, fmt.Errorf("wrong CPU resources: %v", err)
+	}
+	lmemQnt, err := resource.ParseQuantity(cr.Spec.ProxySQL.Resources.Limits.Memory)
 	if err != nil {
 		return nil, fmt.Errorf("wrong memory resources: %v", err)
 	}
 
-	rvolStorage, err := resource.ParseQuantity("2Gi")
+	rvolStorage, err := resource.ParseQuantity(cr.Spec.ProxySQL.VolumeSpec.Size)
 	if err != nil {
 		return nil, fmt.Errorf("wrong storage resources: %v", err)
 	}
@@ -314,11 +326,11 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pxc-proxysql", //cr.Name,
+			Name:      "pxc-proxysql",
 			Namespace: cr.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: &replicas,
+			Replicas: &cr.Spec.ProxySQL.Size,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: ls,
 			},
@@ -334,7 +346,7 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 					},
 					Containers: []corev1.Container{{
 						Name:            "node",
-						Image:           cr.Spec.Image,
+						Image:           cr.Spec.ProxySQL.Image,
 						ImagePullPolicy: corev1.PullAlways,
 						ReadinessProbe: setProbeCmd(&corev1.Probe{
 							InitialDelaySeconds: 15,
@@ -366,11 +378,10 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 						},
 						Env: []corev1.EnvVar{
 							{
-								Name:  "MYSQL_ROOT_PASSWORD",
-								Value: "supapass",
-								// ValueFrom: &corev1.EnvVarSource{
-								// 	SecretKeyRef: secretKeySelector("mysql-passwords", "root"),
-								// },
+								Name: "MYSQL_ROOT_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "root"),
+								},
 							},
 							{
 								Name:  "MYSQL_PROXY_USER",
@@ -378,17 +389,15 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 							},
 							{
 								Name: "MYSQL_PROXY_PASSWORD",
-								// Value: "supapass",
 								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: secretKeySelector("pxc-secrets", "proxyuser"),
+									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "proxyuser"),
 								},
 							},
 							{
-								Name:  "MONITOR_PASSWORD",
-								Value: "supapass",
-								// ValueFrom: &corev1.EnvVarSource{
-								// 	SecretKeyRef: secretKeySelector("mysql-passwords", "root"),
-								// },
+								Name: "MONITOR_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
+								},
 							},
 							{
 								Name:  "PXCSERVICE",
@@ -400,6 +409,10 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 								corev1.ResourceCPU:    rcpuQnt,
 								corev1.ResourceMemory: rmemQnt,
 							},
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:    lcpuQnt,
+								corev1.ResourceMemory: lmemQnt,
+							},
 						},
 					}},
 				},
@@ -410,12 +423,11 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 						Name: "proxydata",
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
-						AccessModes: []corev1.PersistentVolumeAccessMode{
-							corev1.ReadWriteOnce,
-						},
+						// StorageClassName: &cr.Spec.PXC.VolumeSpec.StorageClass,
+						AccessModes: cr.Spec.PXC.VolumeSpec.AccessModes,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: rvolStorage, // *resource.NewQuantity(2, resource.BinarySI),
+								corev1.ResourceStorage: rvolStorage,
 							},
 						},
 					},

@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -22,9 +23,38 @@ type PerconaXtraDBCluster struct {
 }
 
 type PerconaXtraDBClusterSpec struct {
-	Size  int32  `json:"size"`
-	Image string `json:"image,omitempty"`
+	SecretsName string   `json:"secretsName,omitempty"`
+	PXC         *PodSpec `json:"pxc,omitempty"`
+	ProxySQL    *PodSpec `json:"proxysql,omitempty"`
 }
+
+type PodSpec struct {
+	Enabled    bool           `json:"enabled,omitempty"`
+	Size       int32          `json:"size,omitempty"`
+	Image      string         `json:"image,omitempty"`
+	Resources  *PodResources  `json:"resources,omitempty"`
+	VolumeSpec *PodVolumeSpec `json:"volumeSpec,omitempty"`
+}
+
+type PodResources struct {
+	Requests *ResourcesList `json:"requests,omitempty"`
+	Limits   *ResourcesList `json:"limits,omitempty"`
+	PMM      *PMMSpec       `json:"pmm,omitempty"`
+}
+type PMMSpec struct {
+	Enabled bool   `json:"enabled,omitempty"`
+	Service string `json:"monitoring-service,omitempty"`
+}
+type ResourcesList struct {
+	Memory string `json:"memory,omitempty"`
+	CPU    string `json:"cpu,omitempty"`
+}
+type PodVolumeSpec struct {
+	AccessModes  []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+	Size         string                              `json:"size,omitempty"`
+	StorageClass string                              `json:"storageClass,omitempty"`
+}
+
 type PerconaXtraDBClusterStatus struct {
 	// Fill me
 }

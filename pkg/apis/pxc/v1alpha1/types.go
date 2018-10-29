@@ -23,6 +23,7 @@ type PerconaXtraDBCluster struct {
 }
 
 type PerconaXtraDBClusterSpec struct {
+	Platform    Platform `json:"platform,omitempty"`
 	SecretsName string   `json:"secretsName,omitempty"`
 	PXC         *PodSpec `json:"pxc,omitempty"`
 	ProxySQL    *PodSpec `json:"proxysql,omitempty"`
@@ -52,9 +53,17 @@ type ResourcesList struct {
 type PodVolumeSpec struct {
 	AccessModes  []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 	Size         string                              `json:"size,omitempty"`
-	StorageClass string                              `json:"storageClass,omitempty"`
+	StorageClass *string                             `json:"storageClass,omitempty"`
 }
 
 type PerconaXtraDBClusterStatus struct {
 	// Fill me
 }
+
+type Platform string
+
+const (
+	PlatformUndef      Platform = ""
+	PlatformKubernetes Platform = "kubernetes"
+	PlatformOpenshif   Platform = "openshift"
+)

@@ -146,7 +146,12 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 		"app":       "pxc",
 		"component": "pxc-nodes",
 	}
-	var fsgroup int64 = 1001
+
+	var fsgroup *int64
+	if cr.Spec.Platform == v1alpha1.PlatformKubernetes {
+		var tp int64 = 1001
+		fsgroup = &tp
+	}
 
 	rcpuQnt, err := resource.ParseQuantity(cr.Spec.PXC.Resources.Requests.CPU)
 	if err != nil {
@@ -176,7 +181,7 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pxc-node", //cr.Name,
+			Name:      "pxc-node",
 			Namespace: cr.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -192,7 +197,7 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 				Spec: corev1.PodSpec{
 					SecurityContext: &corev1.PodSecurityContext{
 						SupplementalGroups: []int64{99},
-						FSGroup:            &fsgroup,
+						FSGroup:            fsgroup,
 					},
 					Containers: []corev1.Container{{
 						Name:            "node",
@@ -277,8 +282,8 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 						Name: "datadir",
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
-						// StorageClassName: &cr.Spec.PXC.VolumeSpec.StorageClass,
-						AccessModes: cr.Spec.PXC.VolumeSpec.AccessModes,
+						StorageClassName: cr.Spec.PXC.VolumeSpec.StorageClass,
+						AccessModes:      cr.Spec.PXC.VolumeSpec.AccessModes,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceStorage: rvolStorage,
@@ -296,7 +301,12 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 		"app":       "pxc",
 		"component": "pxc-proxysql",
 	}
-	var fsgroup int64 = 1001
+
+	var fsgroup *int64
+	if cr.Spec.Platform == v1alpha1.PlatformKubernetes {
+		var tp int64 = 1001
+		fsgroup = &tp
+	}
 
 	rcpuQnt, err := resource.ParseQuantity(cr.Spec.ProxySQL.Resources.Requests.CPU)
 	if err != nil {
@@ -342,7 +352,7 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 				Spec: corev1.PodSpec{
 					SecurityContext: &corev1.PodSecurityContext{
 						SupplementalGroups: []int64{99},
-						FSGroup:            &fsgroup,
+						FSGroup:            fsgroup,
 					},
 					Containers: []corev1.Container{{
 						Name:            "node",
@@ -423,8 +433,8 @@ func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.Stateful
 						Name: "proxydata",
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
-						// StorageClassName: &cr.Spec.PXC.VolumeSpec.StorageClass,
-						AccessModes: cr.Spec.PXC.VolumeSpec.AccessModes,
+						StorageClassName: cr.Spec.PXC.VolumeSpec.StorageClass,
+						AccessModes:      cr.Spec.PXC.VolumeSpec.AccessModes,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceStorage: rvolStorage,

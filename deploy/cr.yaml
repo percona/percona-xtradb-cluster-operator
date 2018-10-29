@@ -3,6 +3,7 @@ kind: "PerconaXtraDBCluster"
 metadata:
   name: "set-cluster-name"
 spec:
+  platform: kubernetes
   secretsName: my-cluster-secrets
   pxc:
     size: 3
@@ -15,7 +16,7 @@ spec:
         memory: 2G
         cpu: "2"
     volumeSpec:
-      storageClass: standard
+      # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
       size: 8Gi
   proxysql:
@@ -30,7 +31,7 @@ spec:
         memory: 2G
         cpu: "2"
     volumeSpec:
-      storageClass: standard
+      # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
   pmm:

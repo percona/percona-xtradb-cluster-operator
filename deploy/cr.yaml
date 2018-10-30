@@ -1,4 +1,39 @@
 apiVersion: "pxc.percona.com/v1alpha1"
-kind: "PerconaXtradbCluster"
+kind: "PerconaXtraDBCluster"
 metadata:
-  name: "example"
+  name: "set-cluster-name"
+spec:
+  platform: kubernetes
+  secretsName: my-cluster-secrets
+  pxc:
+    size: 3
+    image: perconalab/pxc-openshift:latest 
+    resources:
+      requests:
+        memory: 1G
+        cpu: "1"
+      limits:
+        memory: 2G
+        cpu: "2"
+    volumeSpec:
+      # storageClass: standard
+      accessModes: [ "ReadWriteOnce" ]
+      size: 8Gi
+  proxysql:
+    enabled: true
+    size: 1
+    image: perconalab/pxc-openshift:latest
+    resources:
+      requests:
+        memory: 1G
+        cpu: "1"
+      limits:
+        memory: 2G
+        cpu: "2"
+    volumeSpec:
+      # storageClass: standard
+      accessModes: [ "ReadWriteOnce" ]
+      size: 2Gi
+  pmm:
+    enabled: true
+    service: monitoring-service

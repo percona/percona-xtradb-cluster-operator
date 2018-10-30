@@ -5,8 +5,8 @@ metadata:
 spec:
   group: pxc.percona.com
   names:
-    kind: PerconaXtradbCluster
-    listKind: PerconaXtradbClusterList
+    kind: PerconaXtraDBCluster
+    listKind: PerconaXtraDBClusterList
     plural: perconaxtradbclusters
     singular: perconaxtradbcluster
   scope: Namespaced

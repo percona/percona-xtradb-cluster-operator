@@ -1,29 +1,69 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type PerconaXtradbClusterList struct {
+type PerconaXtraDBClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []PerconaXtradbCluster `json:"items"`
+	Items           []PerconaXtraDBCluster `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type PerconaXtradbCluster struct {
+type PerconaXtraDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              PerconaXtradbClusterSpec   `json:"spec"`
-	Status            PerconaXtradbClusterStatus `json:"status,omitempty"`
+	Spec              PerconaXtraDBClusterSpec   `json:"spec"`
+	Status            PerconaXtraDBClusterStatus `json:"status,omitempty"`
 }
 
-type PerconaXtradbClusterSpec struct {
+type PerconaXtraDBClusterSpec struct {
+	Platform    Platform `json:"platform,omitempty"`
+	SecretsName string   `json:"secretsName,omitempty"`
+	PXC         *PodSpec `json:"pxc,omitempty"`
+	ProxySQL    *PodSpec `json:"proxysql,omitempty"`
+}
+
+type PodSpec struct {
+	Enabled    bool           `json:"enabled,omitempty"`
+	Size       int32          `json:"size,omitempty"`
+	Image      string         `json:"image,omitempty"`
+	Resources  *PodResources  `json:"resources,omitempty"`
+	VolumeSpec *PodVolumeSpec `json:"volumeSpec,omitempty"`
+}
+
+type PodResources struct {
+	Requests *ResourcesList `json:"requests,omitempty"`
+	Limits   *ResourcesList `json:"limits,omitempty"`
+	PMM      *PMMSpec       `json:"pmm,omitempty"`
+}
+type PMMSpec struct {
+	Enabled bool   `json:"enabled,omitempty"`
+	Service string `json:"monitoring-service,omitempty"`
+}
+type ResourcesList struct {
+	Memory string `json:"memory,omitempty"`
+	CPU    string `json:"cpu,omitempty"`
+}
+type PodVolumeSpec struct {
+	AccessModes  []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
+	Size         string                              `json:"size,omitempty"`
+	StorageClass *string                             `json:"storageClass,omitempty"`
+}
+
+type PerconaXtraDBClusterStatus struct {
 	// Fill me
 }
-type PerconaXtradbClusterStatus struct {
-	// Fill me
-}
+
+type Platform string
+
+const (
+	PlatformUndef      Platform = ""
+	PlatformKubernetes Platform = "kubernetes"
+	PlatformOpenshif   Platform = "openshift"
+)

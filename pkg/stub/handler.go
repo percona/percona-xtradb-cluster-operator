@@ -45,6 +45,23 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 			return err
 		}
 
+		// Ensure the deployment size is the same as the spec
+		err = sdk.Get(nodeSet)
+		if err != nil {
+			logrus.Errorf("failed to get deployment: %v", err)
+			return err
+		}
+		size := o.Spec.PXC.Size
+		if *nodeSet.Spec.Replicas != size {
+			nodeSet.Spec.Replicas = &size
+			err = sdk.Update(nodeSet)
+			if err != nil {
+				logrus.Errorf("failed to update deployment: %v", err)
+				return err
+			}
+			logrus.Infof("Scaling pxc-nodes to %d", size)
+		}
+
 		err = sdk.Create(h.newServiceNodes(o))
 		if err != nil && !errors.IsAlreadyExists(err) {
 			logrus.Errorf("failed to create PXC Service: %v", err)

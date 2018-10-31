@@ -3,7 +3,6 @@ kind: "PerconaXtraDBCluster"
 metadata:
   name: "set-cluster-name"
 spec:
-  platform: kubernetes
   secretsName: my-cluster-secrets
   pxc:
     size: 3

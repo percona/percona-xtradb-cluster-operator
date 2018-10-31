@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -23,7 +24,6 @@ type PerconaXtraDBCluster struct {
 }
 
 type PerconaXtraDBClusterSpec struct {
-	Platform    Platform `json:"platform,omitempty"`
 	SecretsName string   `json:"secretsName,omitempty"`
 	PXC         *PodSpec `json:"pxc,omitempty"`
 	ProxySQL    *PodSpec `json:"proxysql,omitempty"`
@@ -65,5 +65,11 @@ type Platform string
 const (
 	PlatformUndef      Platform = ""
 	PlatformKubernetes Platform = "kubernetes"
-	PlatformOpenshif   Platform = "openshift"
+	PlatformOpenshift  Platform = "openshift"
 )
+
+// ServerVersion represents info about k8s / openshift server version
+type ServerVersion struct {
+	Platform Platform
+	Info     k8sversion.Info
+}

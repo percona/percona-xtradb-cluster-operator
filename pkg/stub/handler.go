@@ -16,12 +16,14 @@ import (
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func NewHandler() sdk.Handler {
-	return &Handler{}
+func NewHandler(sv v1alpha1.ServerVersion) sdk.Handler {
+	return &Handler{
+		serverVersion: sv,
+	}
 }
 
 type Handler struct {
-	// Fill me
+	serverVersion v1alpha1.ServerVersion
 }
 
 func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
@@ -32,7 +34,7 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 			return nil
 		}
 
-		nodeSet, err := newStatefulSetNode(o)
+		nodeSet, err := h.newStatefulSetNode(o)
 		if err != nil {
 			logrus.Error(err)
 			return err
@@ -43,13 +45,13 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 			return err
 		}
 
-		err = sdk.Create(newServiceNodes(o))
+		err = sdk.Create(h.newServiceNodes(o))
 		if err != nil && !errors.IsAlreadyExists(err) {
 			logrus.Errorf("failed to create PXC Service: %v", err)
 			return err
 		}
 
-		proxySet, err := newStatefulSetProxySQL(o)
+		proxySet, err := h.newStatefulSetProxySQL(o)
 		if err != nil {
 			logrus.Error(err)
 			return err
@@ -60,7 +62,7 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 			return err
 		}
 
-		err = sdk.Create(newServiceProxySQL(o))
+		err = sdk.Create(h.newServiceProxySQL(o))
 		if err != nil && !errors.IsAlreadyExists(err) {
 			logrus.Errorf("failed to create PXC Service: %v", err)
 			return err
@@ -69,7 +71,7 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 	return nil
 }
 
-func newServiceNodes(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
+func (h *Handler) newServiceNodes(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -100,7 +102,7 @@ func newServiceNodes(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
 	}
 }
 
-func newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
+func (h *Handler) newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -141,14 +143,14 @@ func newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
 	}
 }
 
-func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
+func (h *Handler) newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	ls := map[string]string{
 		"app":       "pxc",
 		"component": "pxc-nodes",
 	}
 
 	var fsgroup *int64
-	if cr.Spec.Platform == v1alpha1.PlatformKubernetes {
+	if h.serverVersion.Platform == v1alpha1.PlatformKubernetes {
 		var tp int64 = 1001
 		fsgroup = &tp
 	}
@@ -296,14 +298,14 @@ func newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet,
 	}, nil
 }
 
-func newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
+func (h *Handler) newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	ls := map[string]string{
 		"app":       "pxc",
 		"component": "pxc-proxysql",
 	}
 
 	var fsgroup *int64
-	if cr.Spec.Platform == v1alpha1.PlatformKubernetes {
+	if h.serverVersion.Platform == v1alpha1.PlatformKubernetes {
 		var tp int64 = 1001
 		fsgroup = &tp
 	}

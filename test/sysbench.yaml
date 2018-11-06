@@ -23,7 +23,7 @@ spec:
             - name: MYSQL_PASSWORD
               value: root_password
             - name: MYSQL_HOSTNAME
-              value: 192.168.192.138
+              value: node.host
           command: ["bash"]
           args:
             - "-c"

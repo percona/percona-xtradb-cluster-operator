@@ -29,7 +29,8 @@ type Handler struct {
 func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 	switch o := event.Object.(type) {
 	case *v1alpha1.PerconaXtraDBCluster:
-		// Just ignore it for now
+		// Just ignore it for now.
+		// All resources should be released by the k8s GC
 		if event.Deleted {
 			return nil
 		}
@@ -39,6 +40,7 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 			logrus.Error(err)
 			return err
 		}
+
 		err = sdk.Create(nodeSet)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			logrus.Errorf("failed to create newStatefulSetNode: %v", err)
@@ -53,16 +55,18 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 		}
 		size := o.Spec.PXC.Size
 		if *nodeSet.Spec.Replicas != size {
+			logrus.Infof("Scaling pxc-nodes from %d to %d", *nodeSet.Spec.Replicas, size)
 			nodeSet.Spec.Replicas = &size
+
 			err = sdk.Update(nodeSet)
 			if err != nil {
 				logrus.Errorf("failed to update deployment: %v", err)
 				return err
 			}
-			logrus.Infof("Scaling pxc-nodes to %d", size)
 		}
 
-		err = sdk.Create(h.newServiceNodes(o))
+		nodesService := h.newServiceNodes(o)
+		err = sdk.Create(nodesService)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			logrus.Errorf("failed to create PXC Service: %v", err)
 			return err
@@ -89,13 +93,13 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 }
 
 func (h *Handler) newServiceNodes(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
-	return &corev1.Service{
+	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pxc-nodes", //cr.Name,
+			Name:      "pxc-nodes",
 			Namespace: cr.Namespace,
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
@@ -117,10 +121,12 @@ func (h *Handler) newServiceNodes(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Ser
 			},
 		},
 	}
+	addOwnerRefToObject(obj, asOwner(cr))
+	return obj
 }
 
 func (h *Handler) newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Service {
-	return &corev1.Service{
+	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
@@ -158,6 +164,8 @@ func (h *Handler) newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.
 			},
 		},
 	}
+	addOwnerRefToObject(obj, asOwner(cr))
+	return obj
 }
 
 func (h *Handler) newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
@@ -194,7 +202,107 @@ func (h *Handler) newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1
 		return nil, fmt.Errorf("wrong storage resources: %v", err)
 	}
 
-	return &appsv1.StatefulSet{
+	cfgPV := getConfigVolumes()
+	podObj := corev1.PodSpec{
+		SecurityContext: &corev1.PodSecurityContext{
+			SupplementalGroups: []int64{99},
+			FSGroup:            fsgroup,
+		},
+		Containers: []corev1.Container{{
+			Name:            "node",
+			Image:           cr.Spec.PXC.Image,
+			ImagePullPolicy: corev1.PullAlways,
+			ReadinessProbe: setProbeCmd(&corev1.Probe{
+				InitialDelaySeconds: 15,
+				TimeoutSeconds:      15,
+				PeriodSeconds:       30,
+				FailureThreshold:    5,
+			}, "/usr/bin/clustercheck.sh"),
+			LivenessProbe: setProbeCmd(&corev1.Probe{
+				InitialDelaySeconds: 300,
+				TimeoutSeconds:      5,
+				PeriodSeconds:       10,
+			}, "/usr/bin/clustercheck.sh"),
+			Ports: []corev1.ContainerPort{
+				{
+					ContainerPort: 3306,
+					Name:          "mysql",
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "datadir",
+					MountPath: "/var/lib/mysql",
+				},
+				{
+					Name:      "config-volume",
+					MountPath: "/etc/mysql/conf.d/",
+				},
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name: "MYSQL_ROOT_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "root"),
+					},
+				},
+				{
+					Name: "CLUSTERCHECK_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
+					},
+				},
+				{
+					Name: "XTRABACKUP_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "xtrabackup"),
+					},
+				},
+				{
+					Name: "MONITOR_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
+					},
+				},
+				{
+					Name: "CLUSTERCHECK_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
+					},
+				},
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    rcpuQnt,
+					corev1.ResourceMemory: rmemQnt,
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    lcpuQnt,
+					corev1.ResourceMemory: lmemQnt,
+				},
+			},
+		}},
+		Volumes: []corev1.Volume{
+			cfgPV,
+		},
+	}
+
+	pvcObj := corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "datadir",
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			StorageClassName: cr.Spec.PXC.VolumeSpec.StorageClass,
+			AccessModes:      cr.Spec.PXC.VolumeSpec.AccessModes,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: rvolStorage,
+				},
+			},
+		},
+	}
+
+	obj := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1beta2",
 			Kind:       "StatefulSet",
@@ -213,106 +321,16 @@ func (h *Handler) newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: ls,
 				},
-				Spec: corev1.PodSpec{
-					SecurityContext: &corev1.PodSecurityContext{
-						SupplementalGroups: []int64{99},
-						FSGroup:            fsgroup,
-					},
-					Containers: []corev1.Container{{
-						Name:            "node",
-						Image:           cr.Spec.PXC.Image,
-						ImagePullPolicy: corev1.PullAlways,
-						ReadinessProbe: setProbeCmd(&corev1.Probe{
-							InitialDelaySeconds: 15,
-							TimeoutSeconds:      15,
-							PeriodSeconds:       30,
-							FailureThreshold:    5,
-						}, "/usr/bin/clustercheck.sh"),
-						LivenessProbe: setProbeCmd(&corev1.Probe{
-							InitialDelaySeconds: 300,
-							TimeoutSeconds:      5,
-							PeriodSeconds:       10,
-						}, "/usr/bin/clustercheck.sh"),
-						Ports: []corev1.ContainerPort{
-							{
-								ContainerPort: 3306,
-								Name:          "mysql",
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      "datadir",
-								MountPath: "/var/lib/mysql",
-							},
-							{
-								Name:      "config-volume",
-								MountPath: "/etc/mysql/conf.d/",
-							},
-						},
-						Env: []corev1.EnvVar{
-							{
-								Name: "MYSQL_ROOT_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "root"),
-								},
-							},
-							{
-								Name: "CLUSTERCHECK_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
-								},
-							},
-							{
-								Name: "XTRABACKUP_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "xtrabackup"),
-								},
-							},
-							{
-								Name: "MONITOR_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
-								},
-							},
-							{
-								Name: "CLUSTERCHECK_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
-								},
-							},
-						},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceCPU:    rcpuQnt,
-								corev1.ResourceMemory: rmemQnt,
-							},
-							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    lcpuQnt,
-								corev1.ResourceMemory: lmemQnt,
-							},
-						},
-					}},
-					Volumes: getConfigVolumes(),
-				},
+				Spec: podObj,
 			},
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "datadir",
-					},
-					Spec: corev1.PersistentVolumeClaimSpec{
-						StorageClassName: cr.Spec.PXC.VolumeSpec.StorageClass,
-						AccessModes:      cr.Spec.PXC.VolumeSpec.AccessModes,
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceStorage: rvolStorage,
-							},
-						},
-					},
-				},
+				pvcObj,
 			},
 		},
-	}, nil
+	}
+	addOwnerRefToObject(obj, asOwner(cr))
+
+	return obj, nil
 }
 
 func (h *Handler) newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
@@ -349,7 +367,7 @@ func (h *Handler) newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*ap
 		return nil, fmt.Errorf("wrong storage resources: %v", err)
 	}
 
-	return &appsv1.StatefulSet{
+	obj := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "StatefulSet",
@@ -374,7 +392,7 @@ func (h *Handler) newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*ap
 						FSGroup:            fsgroup,
 					},
 					Containers: []corev1.Container{{
-						Name:            "node",
+						Name:            "proxysql",
 						Image:           cr.Spec.ProxySQL.Image,
 						ImagePullPolicy: corev1.PullAlways,
 						ReadinessProbe: setProbeCmd(&corev1.Probe{
@@ -463,7 +481,10 @@ func (h *Handler) newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*ap
 				},
 			},
 		},
-	}, nil
+	}
+
+	addOwnerRefToObject(obj, asOwner(cr))
+	return obj, nil
 }
 
 func secretKeySelector(name, key string) *corev1.SecretKeySelector {
@@ -481,7 +502,7 @@ func setProbeCmd(pb *corev1.Probe, cmd ...string) *corev1.Probe {
 	return pb
 }
 
-func getConfigVolumes() []corev1.Volume {
+func getConfigVolumes() corev1.Volume {
 	vol1 := corev1.Volume{
 		Name: "config-volume",
 	}
@@ -490,7 +511,22 @@ func getConfigVolumes() []corev1.Volume {
 	vol1.ConfigMap.Name = "pxc"
 	t := true
 	vol1.ConfigMap.Optional = &t
+	return vol1
+}
 
-	volumes := []corev1.Volume{}
-	return append(volumes, vol1)
+// addOwnerRefToObject appends the desired OwnerReference to the object
+func addOwnerRefToObject(obj metav1.Object, ownerRef metav1.OwnerReference) {
+	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
+}
+
+func asOwner(cr *v1alpha1.PerconaXtraDBCluster) metav1.OwnerReference {
+	trueVar := true
+
+	return metav1.OwnerReference{
+		APIVersion: v1alpha1.SchemeGroupVersion.String(),
+		Kind:       cr.Kind,
+		Name:       cr.Name,
+		UID:        cr.UID,
+		Controller: &trueVar,
+	}
 }

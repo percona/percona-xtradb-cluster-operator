@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: sysbench
+spec:
+  replicas: 1
+  minReadySeconds: 20
+  selector:
+    matchLabels:
+      app: sysbench
+  template:
+    metadata:
+      name: sysbench
+      labels:
+        app: sysbench
+    spec:
+      containers:
+        - name: sysbench
+          image: perconalab/sysbench
+          env:
+            - name: MYSQL_USER
+              value: root
+            - name: MYSQL_PASSWORD
+              value: root_password
+            - name: MYSQL_HOSTNAME
+              value: 192.168.192.138
+          command: ["bash"]
+          args:
+            - "-c"
+            - |
+              set -ex
+
+              mysql \
+                --host="${MYSQL_HOSTNAME}" \
+                --port=3306 \
+                --user="${MYSQL_USER}" \
+                --password="${MYSQL_PASSWORD}" \
+                -e 'CREATE DATABASE IF NOT EXISTS sbtest'
+
+              sysbench \
+                --db-driver=mysql \
+                --mysql-host="${MYSQL_HOSTNAME}" \
+                --mysql-port=3306 \
+                --mysql-user="${MYSQL_USER}" \
+                --mysql-password="${MYSQL_PASSWORD}" \
+                --mysql-db=sbtest \
+                --mysql-table-engine=innodb \
+                --oltp-table-size=100 \
+                /usr/share/sysbench/tests/include/oltp_legacy/oltp.lua \
+                prepare
+
+              sysbench \
+                --rate=200 \
+                --threads=64 \
+                --report-interval=10 \
+                --time=7200 \
+                --events=0 \
+                --rand-type=pareto \
+                --db-driver=mysql \
+                --mysql-host="${MYSQL_HOSTNAME}" \
+                --mysql-port=3306 \
+                --mysql-user="${MYSQL_USER}" \
+                --mysql-password="${MYSQL_PASSWORD}" \
+                --mysql-db=sbtest \
+                --mysql-table-engine=innodb \
+                --oltp-reconnect \
+                --oltp-table-size=0 \
+                /usr/share/sysbench/tests/include/oltp_legacy/insert.lua \
+                run

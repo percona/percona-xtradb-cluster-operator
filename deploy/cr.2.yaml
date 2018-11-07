@@ -5,15 +5,15 @@ metadata:
 spec:
   secretsName: my-cluster-secrets
   pxc:
-    size: 2
+    size: 3
     image: perconalab/pxc-openshift:latest 
     resources:
       requests:
         memory: 1G
         cpu: "0.7"
-      limits:
-        memory: 1G
-        cpu: "1"
+      # limits:
+      #   memory: 1G
+      #   cpu: "1"
     volumeSpec:
       # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
@@ -26,9 +26,9 @@ spec:
       requests:
         memory: 1G
         cpu: "0.7"
-      limits:
-        memory: 1G
-        cpu: "0.7"
+      # limits:
+      #   memory: 1G
+      #   cpu: "0.7"
     volumeSpec:
       # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]

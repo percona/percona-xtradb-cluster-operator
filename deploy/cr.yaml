@@ -11,9 +11,9 @@ spec:
       requests:
         memory: 1G
         cpu: "0.7"
-      limits:
-        memory: 1G
-        cpu: "1"
+      # limits:
+      #   memory: 1G
+      #   cpu: "1"
     volumeSpec:
       # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
@@ -26,9 +26,9 @@ spec:
       requests:
         memory: 1G
         cpu: "0.7"
-      limits:
-        memory: 1G
-        cpu: "0.7"
+      # limits:
+      #   memory: 1G
+      #   cpu: "0.7"
     volumeSpec:
       # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]

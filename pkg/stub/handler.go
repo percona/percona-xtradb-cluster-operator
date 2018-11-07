@@ -99,13 +99,14 @@ func (h *Handler) newServiceNodes(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Ser
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pxc-nodes",
+			Name:      cr.Name + "-pxc-nodes",
 			Namespace: cr.Namespace,
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 			},
 			Labels: map[string]string{
-				"app": "pxc",
+				"app":     "pxc",
+				"cluster": cr.Name,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -117,7 +118,7 @@ func (h *Handler) newServiceNodes(cr *v1alpha1.PerconaXtraDBCluster) *corev1.Ser
 			},
 			ClusterIP: "None",
 			Selector: map[string]string{
-				"component": "pxc-nodes",
+				"component": cr.Name + "-pxc-nodes",
 			},
 		},
 	}
@@ -132,10 +133,11 @@ func (h *Handler) newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pxc-proxysql",
+			Name:      cr.Name + "-pxc-proxysql",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app": "pxc",
+				"app":     "pxc",
+				"culster": cr.Name,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -160,7 +162,7 @@ func (h *Handler) newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.
 				},
 			},
 			Selector: map[string]string{
-				"component": "pxc-proxysql",
+				"component": cr.Name + "-pxc-proxysql",
 			},
 		},
 	}
@@ -171,7 +173,8 @@ func (h *Handler) newServiceProxySQL(cr *v1alpha1.PerconaXtraDBCluster) *corev1.
 func (h *Handler) newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	ls := map[string]string{
 		"app":       "pxc",
-		"component": "pxc-nodes",
+		"component": cr.Name + "-pxc-nodes",
+		"cluster":   cr.Name,
 	}
 
 	var fsgroup *int64
@@ -308,7 +311,7 @@ func (h *Handler) newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pxc-node",
+			Name:      cr.Name + "-pxc-node",
 			Namespace: cr.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -316,7 +319,7 @@ func (h *Handler) newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1
 			Selector: &metav1.LabelSelector{
 				MatchLabels: ls,
 			},
-			ServiceName: "pxc-nodes",
+			ServiceName: cr.Name + "-pxc-nodes",
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: ls,
@@ -336,7 +339,8 @@ func (h *Handler) newStatefulSetNode(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1
 func (h *Handler) newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	ls := map[string]string{
 		"app":       "pxc",
-		"component": "pxc-proxysql",
+		"component": cr.Name + "-pxc-proxysql",
+		"cluster":   cr.Name,
 	}
 
 	var fsgroup *int64
@@ -373,7 +377,7 @@ func (h *Handler) newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*ap
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pxc-proxysql",
+			Name:      cr.Name + "-pxc-proxysql",
 			Namespace: cr.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -381,7 +385,7 @@ func (h *Handler) newStatefulSetProxySQL(cr *v1alpha1.PerconaXtraDBCluster) (*ap
 			Selector: &metav1.LabelSelector{
 				MatchLabels: ls,
 			},
-			ServiceName: "pxc-proxysql",
+			ServiceName: cr.Name + "-pxc-proxysql",
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: ls,

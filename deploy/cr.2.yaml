@@ -1,11 +1,11 @@
 apiVersion: "pxc.percona.com/v1alpha1"
 kind: "PerconaXtraDBCluster"
 metadata:
-  name: "cluster1"
+  name: "cluster2"
 spec:
   secretsName: my-cluster-secrets
   pxc:
-    size: 3
+    size: 2
     image: perconalab/pxc-openshift:latest 
     resources:
       requests:

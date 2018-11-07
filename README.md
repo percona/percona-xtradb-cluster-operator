@@ -8,6 +8,7 @@ A Kubernetes operator for [Percona XtraDB Cluster](https://www.percona.com/softw
 ```sh
 kubectl create -f deploy/rbac.yaml
 kubectl create -f deploy/crd.yaml
+kubectl create -f deploy/secrets.yaml
 kubectl apply -f deploy/cr.yaml
 ```
 
@@ -20,4 +21,5 @@ OPERATOR_NAME=<operator-name> operator-sdk up local --namespace=<namespace>
 kubectl delete -f deploy/crd.yaml
 kubectl delete -f deploy/rbac.yaml
 kubectl delete -f deploy/cr.yaml
+kubectl delete -f deploy/secrets.yaml
 ```

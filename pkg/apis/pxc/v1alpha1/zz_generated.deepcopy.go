@@ -99,6 +99,11 @@ func (in *PerconaXtraDBClusterSpec) DeepCopyInto(out *PerconaXtraDBClusterSpec) 
 		*out = new(PodSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PMM != nil {
+		in, out := &in.PMM, &out.PMM
+		*out = new(PMMSpec)
+		**out = **in
+	}
 	return
 }
 
@@ -139,11 +144,6 @@ func (in *PodResources) DeepCopyInto(out *PodResources) {
 	if in.Limits != nil {
 		in, out := &in.Limits, &out.Limits
 		*out = new(ResourcesList)
-		**out = **in
-	}
-	if in.PMM != nil {
-		in, out := &in.PMM, &out.PMM
-		*out = new(PMMSpec)
 		**out = **in
 	}
 	return

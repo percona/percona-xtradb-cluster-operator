@@ -27,6 +27,7 @@ type PerconaXtraDBClusterSpec struct {
 	SecretsName string   `json:"secretsName,omitempty"`
 	PXC         *PodSpec `json:"pxc,omitempty"`
 	ProxySQL    *PodSpec `json:"proxysql,omitempty"`
+	PMM         *PMMSpec `json:"pmm,omitempty"`
 }
 
 type PodSpec struct {
@@ -40,7 +41,6 @@ type PodSpec struct {
 type PodResources struct {
 	Requests *ResourcesList `json:"requests,omitempty"`
 	Limits   *ResourcesList `json:"limits,omitempty"`
-	PMM      *PMMSpec       `json:"pmm,omitempty"`
 }
 type PMMSpec struct {
 	Enabled bool   `json:"enabled,omitempty"`

@@ -15,13 +15,13 @@ func (h *PXC) newServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pxc-nodes",
+			Name:      cr.Name + "-" + appName + "-nodes",
 			Namespace: cr.Namespace,
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 			},
 			Labels: map[string]string{
-				"app":     "pxc",
+				"app":     appName,
 				"cluster": cr.Name,
 			},
 		},
@@ -29,12 +29,12 @@ func (h *PXC) newServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Port: 3306,
-					Name: "mysql-port",
+					Name: "mysql",
 				},
 			},
 			ClusterIP: "None",
 			Selector: map[string]string{
-				"component": cr.Name + "-pxc-nodes",
+				"component": cr.Name + "-" + appName + "-nodes",
 			},
 		},
 	}
@@ -49,11 +49,11 @@ func (h *PXC) newServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pxc-proxysql",
+			Name:      cr.Name + "-" + appName + "-proxysql",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":     "pxc",
-				"culster": cr.Name,
+				"app":     appName,
+				"cluster": cr.Name,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -78,7 +78,7 @@ func (h *PXC) newServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				},
 			},
 			Selector: map[string]string{
-				"component": cr.Name + "-pxc-proxysql",
+				"component": cr.Name + "-" + appName + "-proxysql",
 			},
 		},
 	}

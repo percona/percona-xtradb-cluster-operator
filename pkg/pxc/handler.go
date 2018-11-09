@@ -12,16 +12,6 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-type PXC struct {
-	serverVersion api.ServerVersion
-}
-
-func New(sv api.ServerVersion) *PXC {
-	return &PXC{
-		serverVersion: sv,
-	}
-}
-
 func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
 	switch o := event.Object.(type) {
 	case *api.PerconaXtraDBCluster:

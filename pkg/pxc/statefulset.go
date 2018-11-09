@@ -13,8 +13,8 @@ import (
 
 func (h *PXC) newStatefulSetNode(cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	ls := map[string]string{
-		"app":       "pxc",
-		"component": cr.Name + "-pxc-nodes",
+		"app":       appName,
+		"component": cr.Name + "-" + appName + "-nodes",
 		"cluster":   cr.Name,
 	}
 
@@ -131,7 +131,7 @@ func (h *PXC) newStatefulSetNode(cr *api.PerconaXtraDBCluster) (*appsv1.Stateful
 		Selector: &metav1.LabelSelector{
 			MatchLabels: ls,
 		},
-		ServiceName: cr.Name + "-pxc-nodes",
+		ServiceName: cr.Name + "-" + appName + "-nodes",
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: ls,
@@ -149,8 +149,8 @@ func (h *PXC) newStatefulSetNode(cr *api.PerconaXtraDBCluster) (*appsv1.Stateful
 
 func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	ls := map[string]string{
-		"app":       "pxc",
-		"component": cr.Name + "-pxc-proxysql",
+		"app":       appName,
+		"component": cr.Name + "-" + appName + "-proxysql",
 		"cluster":   cr.Name,
 	}
 
@@ -177,7 +177,7 @@ func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.Stat
 		Selector: &metav1.LabelSelector{
 			MatchLabels: ls,
 		},
-		ServiceName: cr.Name + "-pxc-proxysql",
+		ServiceName: cr.Name + "-" + appName + "-proxysql",
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: ls,
@@ -281,7 +281,7 @@ func (*PXC) NewStatefulSet(objType string, cr *api.PerconaXtraDBCluster) *appsv1
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pxc-" + objType,
+			Name:      cr.Name + "-" + appName + "-" + objType,
 			Namespace: cr.Namespace,
 		},
 	}
@@ -308,7 +308,7 @@ func getConfigVolumes() corev1.Volume {
 	}
 
 	vol1.ConfigMap = &corev1.ConfigMapVolumeSource{}
-	vol1.ConfigMap.Name = "pxc"
+	vol1.ConfigMap.Name = appName
 	t := true
 	vol1.ConfigMap.Optional = &t
 	return vol1

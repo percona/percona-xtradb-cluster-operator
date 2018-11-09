@@ -10,7 +10,7 @@ spec:
     resources:
       requests:
         memory: 1G
-        cpu: "0.7"
+        cpu: 700m
       # limits:
       #   memory: 1G
       #   cpu: "1"
@@ -25,10 +25,10 @@ spec:
     resources:
       requests:
         memory: 1G
-        cpu: "0.7"
+        cpu: 700m
       # limits:
       #   memory: 1G
-      #   cpu: "0.7"
+      #   cpu: 700m
     volumeSpec:
       # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]

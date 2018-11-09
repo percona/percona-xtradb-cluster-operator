@@ -56,16 +56,23 @@ type PodVolumeSpec struct {
 	StorageClass *string                             `json:"storageClass,omitempty"`
 }
 
+type ClusterState string
+
+const (
+	ClusterStateInit    ClusterState = ""
+	ClusterStateRunning              = "running"
+)
+
 type PerconaXtraDBClusterStatus struct {
-	// Fill me
+	State ClusterState
 }
 
 type Platform string
 
 const (
 	PlatformUndef      Platform = ""
-	PlatformKubernetes Platform = "kubernetes"
-	PlatformOpenshift  Platform = "openshift"
+	PlatformKubernetes          = "kubernetes"
+	PlatformOpenshift           = "openshift"
 )
 
 // ServerVersion represents info about k8s / openshift server version

@@ -34,6 +34,43 @@ func (h *PXC) newStatefulSetNode(cr *api.PerconaXtraDBCluster) (*appsv1.Stateful
 		return nil, fmt.Errorf("wrong storage resources: %v", err)
 	}
 
+	pmmEnvs := []corev1.EnvVar{
+		{
+			Name:  "PMM_SERVER",
+			Value: cr.Spec.PMM.ServerHost,
+		},
+		{
+			Name:  "DB_TYPE",
+			Value: "mysql",
+		},
+		{
+			Name:  "DB_USER",
+			Value: "monitor",
+		},
+		{
+			Name: "DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
+			},
+		},
+	}
+
+	if cr.Spec.PMM.ServerUser != "" {
+		pmmEnvs = append(pmmEnvs, []corev1.EnvVar{
+			{
+				Name:  "PMM_USER",
+				Value: cr.Spec.PMM.ServerUser,
+			},
+			{
+				Name: "PMM_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "pmmserver"),
+				},
+			},
+		}...,
+		)
+	}
+
 	cfgPV := getConfigVolumes()
 	podObj := corev1.PodSpec{
 		SecurityContext: &corev1.PodSecurityContext{
@@ -110,26 +147,7 @@ func (h *PXC) newStatefulSetNode(cr *api.PerconaXtraDBCluster) (*appsv1.Stateful
 				Name:            "pmm-client",
 				Image:           cr.Spec.PMM.Image, // "perconalab/pmm-client",
 				ImagePullPolicy: corev1.PullAlways,
-				Env: []corev1.EnvVar{
-					{
-						Name:  "PMM_SERVER",
-						Value: cr.Spec.PMM.ServerHost,
-					},
-					{
-						Name:  "DB_TYPE",
-						Value: "mysql",
-					},
-					{
-						Name:  "DB_USER",
-						Value: "root",
-					},
-					{
-						Name: "DB_PASSWORD",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "root"),
-						},
-					},
-				},
+				Env:             pmmEnvs,
 				VolumeMounts: []corev1.VolumeMount{
 					{
 						Name:      "datadir",
@@ -215,18 +233,18 @@ func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.Stat
 			Value: "proxysql",
 		},
 		{
-			Name:  "PROXY_ADMIN_USER",
-			Value: "proxyadmin",
+			Name:  "MONITOR_USER",
+			Value: "monitor",
 		},
 		{
-			Name: "PROXY_ADMIN_PASSWORD",
+			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "proxyadmin"),
+				SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
 			},
 		},
 		{
 			Name:  "DB_ARGS",
-			Value: "--dsn $(PROXY_ADMIN_USER):$(PROXY_ADMIN_PASSWORD)@tcp(localhost:6032)/",
+			Value: "--dsn $(MONITOR_USER):$(MONITOR_PASSWORD)@tcp(localhost:6032)/",
 		},
 	}
 
@@ -288,16 +306,6 @@ func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.Stat
 								Name: "MYSQL_ROOT_PASSWORD",
 								ValueFrom: &corev1.EnvVarSource{
 									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "root"),
-								},
-							},
-							{
-								Name:  "PROXY_ADMIN_USER",
-								Value: "proxyadmin",
-							},
-							{
-								Name: "PROXY_ADMIN_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "proxyadmin"),
 								},
 							},
 							{

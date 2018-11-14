@@ -35,6 +35,6 @@ spec:
       size: 2Gi
   pmm:
     enabled: true
-    service: monitoring-service
+    serverHost: monitoring-service
     image: perconalab/pmm-client:latest
     serverUser: pmm

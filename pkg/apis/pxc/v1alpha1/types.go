@@ -45,7 +45,7 @@ type PodResources struct {
 
 type PMMSpec struct {
 	Enabled    bool   `json:"enabled,omitempty"`
-	Service    string `json:"service,omitempty"`
+	ServerHost string `json:"serverHost,omitempty"`
 	Image      string `json:"image,omitempty"`
 	ServerUser string `json:"serverUser,omitempty"`
 }

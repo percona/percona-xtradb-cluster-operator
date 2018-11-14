@@ -113,7 +113,7 @@ func (h *PXC) newStatefulSetNode(cr *api.PerconaXtraDBCluster) (*appsv1.Stateful
 				Env: []corev1.EnvVar{
 					{
 						Name:  "PMM_SERVER",
-						Value: cr.Spec.PMM.Service,
+						Value: cr.Spec.PMM.ServerHost,
 					},
 					{
 						Name:  "DB_TYPE",
@@ -208,7 +208,7 @@ func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.Stat
 	pmmEnvs := []corev1.EnvVar{
 		{
 			Name:  "PMM_SERVER",
-			Value: cr.Spec.PMM.Service,
+			Value: cr.Spec.PMM.ServerHost,
 		},
 		{
 			Name:  "DB_TYPE",

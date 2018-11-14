@@ -37,3 +37,4 @@ spec:
     enabled: true
     service: monitoring-service
     image: perconalab/pmm-client:latest
+    serverUser: pmm

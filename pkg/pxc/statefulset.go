@@ -205,6 +205,47 @@ func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.Stat
 
 	obj := h.NewStatefulSet("proxysql", cr)
 
+	pmmEnvs := []corev1.EnvVar{
+		{
+			Name:  "PMM_SERVER",
+			Value: cr.Spec.PMM.Service,
+		},
+		{
+			Name:  "DB_TYPE",
+			Value: "proxysql",
+		},
+		{
+			Name:  "PROXY_ADMIN_USER",
+			Value: "proxyadmin",
+		},
+		{
+			Name: "PROXY_ADMIN_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "proxyadmin"),
+			},
+		},
+		{
+			Name:  "DB_ARGS",
+			Value: "--dsn $(PROXY_ADMIN_USER):$(PROXY_ADMIN_PASSWORD)@tcp(localhost:6032)/",
+		},
+	}
+
+	if cr.Spec.PMM.ServerUser != "" {
+		pmmEnvs = append(pmmEnvs, []corev1.EnvVar{
+			{
+				Name:  "PMM_USER",
+				Value: cr.Spec.PMM.ServerUser,
+			},
+			{
+				Name: "PMM_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "pmmserver"),
+				},
+			},
+		}...,
+		)
+	}
+
 	obj.Spec = appsv1.StatefulSetSpec{
 		Replicas: &cr.Spec.ProxySQL.Size,
 		Selector: &metav1.LabelSelector{
@@ -286,30 +327,7 @@ func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.Stat
 						Name:            "pmm-client",
 						Image:           cr.Spec.PMM.Image,
 						ImagePullPolicy: corev1.PullAlways,
-						Env: []corev1.EnvVar{
-							{
-								Name:  "PMM_SERVER",
-								Value: cr.Spec.PMM.Service,
-							},
-							{
-								Name:  "DB_TYPE",
-								Value: "proxysql",
-							},
-							{
-								Name:  "PROXY_ADMIN_USER",
-								Value: "proxyadmin",
-							},
-							{
-								Name: "PROXY_ADMIN_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "proxyadmin"),
-								},
-							},
-							{
-								Name:  "DB_ARGS",
-								Value: "--dsn $(PROXY_ADMIN_USER):$(PROXY_ADMIN_PASSWORD)@tcp(localhost:6032)/",
-							},
-						},
+						Env:             pmmEnvs,
 					},
 				},
 			},

@@ -21,7 +21,7 @@ spec:
   proxysql:
     enabled: true
     size: 1
-    image: perconalab/pxc-openshift:latest
+    image: perconalab/proxysql-openshift:latest
     resources:
       requests:
         memory: 1G
@@ -35,4 +35,6 @@ spec:
       size: 2Gi
   pmm:
     enabled: true
-    service: monitoring-service
+    serverHost: monitoring-service
+    image: perconalab/pmm-client:latest
+    serverUser: pmm

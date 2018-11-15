@@ -42,14 +42,19 @@ type PodResources struct {
 	Requests *ResourcesList `json:"requests,omitempty"`
 	Limits   *ResourcesList `json:"limits,omitempty"`
 }
+
 type PMMSpec struct {
-	Enabled bool   `json:"enabled,omitempty"`
-	Service string `json:"monitoring-service,omitempty"`
+	Enabled    bool   `json:"enabled,omitempty"`
+	ServerHost string `json:"serverHost,omitempty"`
+	Image      string `json:"image,omitempty"`
+	ServerUser string `json:"serverUser,omitempty"`
 }
+
 type ResourcesList struct {
 	Memory string `json:"memory,omitempty"`
 	CPU    string `json:"cpu,omitempty"`
 }
+
 type PodVolumeSpec struct {
 	AccessModes  []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 	Size         string                              `json:"size,omitempty"`

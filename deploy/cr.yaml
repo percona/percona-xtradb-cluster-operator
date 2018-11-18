@@ -6,11 +6,11 @@ spec:
   secretsName: my-cluster-secrets
   pxc:
     size: 3
-    image: perconalab/pxc-openshift:latest 
+    image: perconalab/pxc-openshift:test-pmm-monitor.0.2 
     resources:
       requests:
         memory: 1G
-        cpu: 700m
+        cpu: 600m
       # limits:
       #   memory: 1G
       #   cpu: "1"
@@ -25,7 +25,7 @@ spec:
     resources:
       requests:
         memory: 1G
-        cpu: 700m
+        cpu: 600m
       # limits:
       #   memory: 1G
       #   cpu: 700m
@@ -35,6 +35,6 @@ spec:
       size: 2Gi
   pmm:
     enabled: true
-    serverHost: monitoring-service
     image: perconalab/pmm-client:latest
+    serverHost: monitoring-service
     serverUser: pmm

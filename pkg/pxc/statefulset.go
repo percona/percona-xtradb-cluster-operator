@@ -11,192 +11,203 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func (h *PXC) newStatefulSetNode(cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
-	ls := map[string]string{
-		"app":       appName,
-		"component": cr.Name + "-" + appName + "-nodes",
-		"cluster":   cr.Name,
-	}
-
+func (h *PXC) StatefulSet(sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	var fsgroup *int64
 	if h.serverVersion.Platform == api.PlatformKubernetes {
 		var tp int64 = 1001
 		fsgroup = &tp
 	}
-
-	resources, err := createResources(cr.Spec.PXC.Resources)
-	if err != nil {
-		return nil, fmt.Errorf("resources: %v", err)
-	}
-
-	rvolStorage, err := resource.ParseQuantity(cr.Spec.PXC.VolumeSpec.Size)
-	if err != nil {
-		return nil, fmt.Errorf("wrong storage resources: %v", err)
-	}
-
-	pmmEnvs := []corev1.EnvVar{
-		{
-			Name:  "PMM_SERVER",
-			Value: cr.Spec.PMM.ServerHost,
-		},
-		{
-			Name:  "DB_TYPE",
-			Value: "mysql",
-		},
-		{
-			Name:  "DB_USER",
-			Value: "monitor",
-		},
-		{
-			Name: "DB_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
-			},
-		},
-	}
-
-	if cr.Spec.PMM.ServerUser != "" {
-		pmmEnvs = append(pmmEnvs, []corev1.EnvVar{
-			{
-				Name:  "PMM_USER",
-				Value: cr.Spec.PMM.ServerUser,
-			},
-			{
-				Name: "PMM_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "pmmserver"),
-				},
-			},
-		}...,
-		)
-	}
-
-	cfgPV := getConfigVolumes()
-	podObj := corev1.PodSpec{
+	pod := corev1.PodSpec{
 		SecurityContext: &corev1.PodSecurityContext{
 			SupplementalGroups: []int64{99},
 			FSGroup:            fsgroup,
 		},
-		Containers: []corev1.Container{
-			{
-				Name:            "node",
-				Image:           cr.Spec.PXC.Image,
-				ImagePullPolicy: corev1.PullAlways,
-				ReadinessProbe: setProbeCmd(&corev1.Probe{
-					InitialDelaySeconds: 15,
-					TimeoutSeconds:      15,
-					PeriodSeconds:       30,
-					FailureThreshold:    5,
-				}, "/usr/bin/clustercheck.sh"),
-				LivenessProbe: setProbeCmd(&corev1.Probe{
-					InitialDelaySeconds: 300,
-					TimeoutSeconds:      5,
-					PeriodSeconds:       10,
-				}, "/usr/bin/clustercheck.sh"),
-				Ports: []corev1.ContainerPort{
-					{
-						ContainerPort: 3306,
-						Name:          "mysql",
-					},
-				},
-				VolumeMounts: []corev1.VolumeMount{
-					{
-						Name:      "datadir",
-						MountPath: "/var/lib/mysql",
-					},
-					{
-						Name:      "config-volume",
-						MountPath: "/etc/mysql/conf.d/",
-					},
-				},
-				Env: []corev1.EnvVar{
-					{
-						Name: "MYSQL_ROOT_PASSWORD",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "root"),
-						},
-					},
-					{
-						Name: "CLUSTERCHECK_PASSWORD",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
-						},
-					},
-					{
-						Name: "XTRABACKUP_PASSWORD",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "xtrabackup"),
-						},
-					},
-					{
-						Name: "MONITOR_PASSWORD",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
-						},
-					},
-					{
-						Name: "CLUSTERCHECK_PASSWORD",
-						ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
-						},
-					},
-				},
-				Resources: resources,
-			},
-			{
-				Name:            "pmm-client",
-				Image:           cr.Spec.PMM.Image, // "perconalab/pmm-client",
-				ImagePullPolicy: corev1.PullAlways,
-				Env:             pmmEnvs,
-				VolumeMounts: []corev1.VolumeMount{
-					{
-						Name:      "datadir",
-						MountPath: "/var/lib/mysql",
-					},
-				},
-			},
-		},
-		Volumes: []corev1.Volume{
-			cfgPV,
-		},
 	}
 
-	pvcObj := corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "datadir",
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			StorageClassName: cr.Spec.PXC.VolumeSpec.StorageClass,
-			AccessModes:      cr.Spec.PXC.VolumeSpec.AccessModes,
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: rvolStorage,
-				},
-			},
-		},
+	var err error
+	appC := sfs.AppContainer(cr.Spec.PXC, cr.Spec.SecretsName)
+	appC.Resources, err = sfs.Resources(cr.Spec.PXC.Resources)
+	if err != nil {
+		return nil, err
+	}
+	pod.Containers = append(pod.Containers, appC)
+
+	if cr.Spec.PMM.Enabled {
+		pod.Containers = append(pod.Containers, sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName))
 	}
 
-	obj := h.NewStatefulSet("node", cr)
+	pod.Volumes = []corev1.Volume{
+		getConfigVolumes(),
+	}
+
+	ls := sfs.Lables()
+	obj := sfs.StatefulSet()
+	pvcs, err := sfs.PVCs(cr.Spec.PXC.VolumeSpec)
+	if err != nil {
+		return nil, err
+	}
+
 	obj.Spec = appsv1.StatefulSetSpec{
 		Replicas: &cr.Spec.PXC.Size,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: ls,
 		},
-		ServiceName: cr.Name + "-" + appName + "-nodes",
+		ServiceName: ls["component"],
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: ls,
 			},
-			Spec: podObj,
+			Spec: pod,
 		},
-		VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-			pvcObj,
-		},
+		VolumeClaimTemplates: pvcs,
 	}
+
 	addOwnerRefToObject(obj, asOwner(cr))
 
 	return obj, nil
 }
+
+// func (h *PXC) newStatefulSetNode(cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
+// 	ls := map[string]string{
+// 		"app":       appName,
+// 		"component": cr.Name + "-" + appName + "-nodes",
+// 		"cluster":   cr.Name,
+// 	}
+
+// 	var fsgroup *int64
+// 	if h.serverVersion.Platform == api.PlatformKubernetes {
+// 		var tp int64 = 1001
+// 		fsgroup = &tp
+// 	}
+
+// 	resources, err := createResources(cr.Spec.PXC.Resources)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("resources: %v", err)
+// 	}
+
+// 	rvolStorage, err := resource.ParseQuantity(cr.Spec.PXC.VolumeSpec.Size)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("wrong storage resources: %v", err)
+// 	}
+
+// 	cfgPV := getConfigVolumes()
+// 	podObj := corev1.PodSpec{
+// 		SecurityContext: &corev1.PodSecurityContext{
+// 			SupplementalGroups: []int64{99},
+// 			FSGroup:            fsgroup,
+// 		},
+// 		Containers: []corev1.Container{
+// 			{
+// 				Name:            "node",
+// 				Image:           cr.Spec.PXC.Image,
+// 				ImagePullPolicy: corev1.PullAlways,
+// 				ReadinessProbe: setProbeCmd(&corev1.Probe{
+// 					InitialDelaySeconds: 15,
+// 					TimeoutSeconds:      15,
+// 					PeriodSeconds:       30,
+// 					FailureThreshold:    5,
+// 				}, "/usr/bin/clustercheck.sh"),
+// 				LivenessProbe: setProbeCmd(&corev1.Probe{
+// 					InitialDelaySeconds: 300,
+// 					TimeoutSeconds:      5,
+// 					PeriodSeconds:       10,
+// 				}, "/usr/bin/clustercheck.sh"),
+// 				Ports: []corev1.ContainerPort{
+// 					{
+// 						ContainerPort: 3306,
+// 						Name:          "mysql",
+// 					},
+// 				},
+// 				VolumeMounts: []corev1.VolumeMount{
+// 					{
+// 						Name:      "datadir",
+// 						MountPath: "/var/lib/mysql",
+// 					},
+// 					{
+// 						Name:      "config-volume",
+// 						MountPath: "/etc/mysql/conf.d/",
+// 					},
+// 				},
+// 				Env: []corev1.EnvVar{
+// 					{
+// 						Name: "MYSQL_ROOT_PASSWORD",
+// 						ValueFrom: &corev1.EnvVarSource{
+// 							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "root"),
+// 						},
+// 					},
+// 					{
+// 						Name: "CLUSTERCHECK_PASSWORD",
+// 						ValueFrom: &corev1.EnvVarSource{
+// 							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
+// 						},
+// 					},
+// 					{
+// 						Name: "XTRABACKUP_PASSWORD",
+// 						ValueFrom: &corev1.EnvVarSource{
+// 							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "xtrabackup"),
+// 						},
+// 					},
+// 					{
+// 						Name: "MONITOR_PASSWORD",
+// 						ValueFrom: &corev1.EnvVarSource{
+// 							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
+// 						},
+// 					},
+// 					{
+// 						Name: "CLUSTERCHECK_PASSWORD",
+// 						ValueFrom: &corev1.EnvVarSource{
+// 							SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "clustercheck"),
+// 						},
+// 					},
+// 				},
+// 				Resources: resources,
+// 			},
+// 		},
+// 		Volumes: []corev1.Volume{
+// 			cfgPV,
+// 		},
+// 	}
+
+// 	if cr.Spec.PMM.Enabled {
+// 		podObj.Containers = append(podObj.Containers, pmmNodeContainer(cr))
+// 	}
+
+// 	pvcObj := corev1.PersistentVolumeClaim{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name: "datadir",
+// 		},
+// 		Spec: corev1.PersistentVolumeClaimSpec{
+// 			StorageClassName: cr.Spec.PXC.VolumeSpec.StorageClass,
+// 			AccessModes:      cr.Spec.PXC.VolumeSpec.AccessModes,
+// 			Resources: corev1.ResourceRequirements{
+// 				Requests: corev1.ResourceList{
+// 					corev1.ResourceStorage: rvolStorage,
+// 				},
+// 			},
+// 		},
+// 	}
+
+// 	obj := h.NewStatefulSet("node", cr)
+// 	obj.Spec = appsv1.StatefulSetSpec{
+// 		Replicas: &cr.Spec.PXC.Size,
+// 		Selector: &metav1.LabelSelector{
+// 			MatchLabels: ls,
+// 		},
+// 		ServiceName: cr.Name + "-" + appName + "-nodes",
+// 		Template: corev1.PodTemplateSpec{
+// 			ObjectMeta: metav1.ObjectMeta{
+// 				Labels: ls,
+// 			},
+// 			Spec: podObj,
+// 		},
+// 		VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+// 			pvcObj,
+// 		},
+// 	}
+// 	addOwnerRefToObject(obj, asOwner(cr))
+
+// 	return obj, nil
+// }
 
 func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	ls := map[string]string{
@@ -222,47 +233,6 @@ func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.Stat
 	}
 
 	obj := h.NewStatefulSet("proxysql", cr)
-
-	pmmEnvs := []corev1.EnvVar{
-		{
-			Name:  "PMM_SERVER",
-			Value: cr.Spec.PMM.ServerHost,
-		},
-		{
-			Name:  "DB_TYPE",
-			Value: "proxysql",
-		},
-		{
-			Name:  "MONITOR_USER",
-			Value: "monitor",
-		},
-		{
-			Name: "MONITOR_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "monitor"),
-			},
-		},
-		{
-			Name:  "DB_ARGS",
-			Value: "--dsn $(MONITOR_USER):$(MONITOR_PASSWORD)@tcp(localhost:6032)/",
-		},
-	}
-
-	if cr.Spec.PMM.ServerUser != "" {
-		pmmEnvs = append(pmmEnvs, []corev1.EnvVar{
-			{
-				Name:  "PMM_USER",
-				Value: cr.Spec.PMM.ServerUser,
-			},
-			{
-				Name: "PMM_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: secretKeySelector(cr.Spec.SecretsName, "pmmserver"),
-				},
-			},
-		}...,
-		)
-	}
 
 	obj.Spec = appsv1.StatefulSetSpec{
 		Replicas: &cr.Spec.ProxySQL.Size,
@@ -331,12 +301,6 @@ func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.Stat
 						},
 						Resources: resources,
 					},
-					{
-						Name:            "pmm-client",
-						Image:           cr.Spec.PMM.Image,
-						ImagePullPolicy: corev1.PullAlways,
-						Env:             pmmEnvs,
-					},
 				},
 			},
 		},
@@ -356,6 +320,13 @@ func (h *PXC) newStatefulSetProxySQL(cr *api.PerconaXtraDBCluster) (*appsv1.Stat
 				},
 			},
 		},
+	}
+
+	if cr.Spec.PMM.Enabled {
+		obj.Spec.Template.Spec.Containers = append(
+			obj.Spec.Template.Spec.Containers,
+			pmmProxySQLContainer(cr),
+		)
 	}
 
 	addOwnerRefToObject(obj, asOwner(cr))

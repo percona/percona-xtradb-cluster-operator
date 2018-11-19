@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// PVCs returns the list of PersistentVolumeClaims for the pod
 func PVCs(name string, vspec *api.PodVolumeSpec) ([]corev1.PersistentVolumeClaim, error) {
 	rvolStorage, err := resource.ParseQuantity(vspec.Size)
 	if err != nil {
@@ -18,7 +19,7 @@ func PVCs(name string, vspec *api.PodVolumeSpec) ([]corev1.PersistentVolumeClaim
 	return []corev1.PersistentVolumeClaim{
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "datadir",
+				Name: name,
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: vspec.StorageClass,

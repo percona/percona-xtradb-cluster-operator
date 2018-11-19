@@ -6,30 +6,36 @@ rules:
 - apiGroups:
   - pxc.percona.com
   resources:
-  - "*"
+  - perconaxtradbclusters
   verbs:
-  - "*"
+  - "list"
+  - "update"
+  - "watch"
 - apiGroups:
   - ""
   resources:
   - pods
+  - pods/exec
   - services
-  - endpoints
   - persistentvolumeclaims
-  - events
-  - configmaps
   - secrets
   verbs:
-  - "*"
+  - "create"
+  - "update"
+  - "delete"
+  - "get"
+  - "list"
 - apiGroups:
   - apps
   resources:
   - deployments
-  - daemonsets
   - replicasets
   - statefulsets
   verbs:
-  - "*"
+  - "create"
+  - "update"
+  - "delete"
+  - "get"
 
 ---
 

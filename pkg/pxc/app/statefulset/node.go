@@ -82,12 +82,6 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 				},
 			},
 			{
-				Name: "CLUSTERCHECK_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "clustercheck"),
-				},
-			},
-			{
 				Name: "XTRABACKUP_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: app.SecretKeySelector(secrets, "xtrabackup"),

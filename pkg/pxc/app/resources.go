@@ -1,4 +1,4 @@
-package pxc
+package app
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-func createResources(r *api.PodResources) (rr corev1.ResourceRequirements, err error) {
+func CreateResources(r *api.PodResources) (rr corev1.ResourceRequirements, err error) {
 	if r == nil {
 		return rr, nil
 	}

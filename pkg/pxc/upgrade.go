@@ -6,64 +6,129 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
-	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
-func (h *PXC) upgradePods(pod *api.PodSpec, sset *appsv1.StatefulSet) error {
-	err := sdk.Get(sset)
+func (h *PXC) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) error {
+	currentSet := sfs.StatefulSet()
+	err := sdk.Get(currentSet)
 	if err != nil {
 		return fmt.Errorf("failed to get sate: %v", err)
 	}
 
-	changes := false
+	newContainers := []corev1.Container{}
+	var currentAppC, currentPMMC *corev1.Container
 
-	resources, err := createResources(pod.Resources)
+	for _, c := range currentSet.Spec.Template.Spec.Containers {
+		if c.Name == "pmm-client" {
+			currentPMMC = &c
+		} else {
+			currentAppC = &c
+		}
+	}
+
+	// app container not deployed yet, so no reason to continue
+	if currentAppC == nil {
+		return nil
+	}
+
+	changed := false
+
+	// change the pod size
+	size := podSpec.Size
+	if *currentSet.Spec.Replicas != size {
+		logrus.Infof("Scaling containers from %d to %d", *currentSet.Spec.Replicas, size)
+		currentSet.Spec.Replicas = &size
+		changed = true
+	}
+
+	if cr.Spec.PMM.Enabled {
+		if currentPMMC == nil {
+			pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName)
+			changed = true
+			newContainers = append(newContainers, pmmC)
+		} else {
+			pmmC, updated := updatePMM(*currentPMMC, cr)
+			if updated {
+				changed = true
+				newContainers = append(newContainers, pmmC)
+			}
+		}
+	}
+
+	appC, updated, err := updateApp(*currentAppC, sfs, podSpec, cr)
 	if err != nil {
-		return fmt.Errorf("createResources error: %v", err)
+		logrus.Errorln("upgradePod/updateApp error:", err)
 	}
-	for i, c := range sset.Spec.Template.Spec.Containers {
-		if !reflect.DeepEqual(c.Resources, resources) {
-			changes = true
-			sset.Spec.Template.Spec.Containers[i].Resources = resources
-		}
-	}
-	if changes {
-		logrus.Info("Update containers resources")
+	newContainers = append(newContainers, appC)
+
+	if updated {
+		changed = true
 	}
 
-	size := pod.Size
-	if *sset.Spec.Replicas != size {
-		changes = true
-		logrus.Infof("Scaling containers from %d to %d", *sset.Spec.Replicas, size)
-		sset.Spec.Replicas = &size
+	if len(currentSet.Spec.Template.Spec.Containers) != len(newContainers) {
+		changed = true
 	}
 
-	// !!! Forbidden: updates to statefulset spec for fields other than 'replicas', 'template', and 'updateStrategy' are forbidden.
-	// if len(sset.Spec.VolumeClaimTemplates) > 0 {
-	// 	pvc := sset.Spec.VolumeClaimTemplates[0]
+	if changed == true && len(newContainers) > 0 {
+		currentSet.Spec.Template.Spec.Containers = newContainers
+	}
 
-	// 	if pvcRes, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok {
-	// 		rvolStorage, err := resource.ParseQuantity(pod.VolumeSpec.Size)
-	// 		if err != nil {
-	// 			return fmt.Errorf("wrong storage resources: %v", err)
-	// 		}
-	// 		// the deployed size is less than in spec
-	// 		if pvcRes.Cmp(rvolStorage) == -1 {
-	// 			changes = true
-	// 			logrus.Infof("Upsizing volume from %v to %v", pvcRes, rvolStorage)
-	// 			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = rvolStorage
-	// 		}
-	// 	}
-	// }
-
-	if changes {
-		err = sdk.Update(sset)
-		if err != nil {
-			return fmt.Errorf("failed to update deployment: %v", err)
-		}
+	if changed {
+		logrus.Infof("update statefulset")
+		return sdk.Update(currentSet)
 	}
 
 	return nil
+}
+
+// updatePMM updateds only allowed properties of the pmm-client container
+func updatePMM(c corev1.Container, with *api.PerconaXtraDBCluster) (corev1.Container, bool) {
+	changed := false
+	pmm := with.Spec.PMM
+	c.Image = pmm.Image
+	for k, v := range c.Env {
+		switch v.Name {
+		case "PMM_SERVER":
+			if c.Env[k].Value != pmm.ServerHost {
+				c.Env[k].Value = pmm.ServerHost
+				changed = true
+			}
+		case "PMM_USER":
+			if c.Env[k].Value != pmm.ServerUser {
+				c.Env[k].Value = pmm.ServerUser
+				changed = true
+			}
+		case "PMM_PASSWORD":
+			c.Env[k].ValueFrom = &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(with.Spec.SecretsName, "pmmserver"),
+			}
+		}
+	}
+	return c, changed
+}
+
+// updatePMM updateds only allowed properties of the app (node, proxy etc.) container
+// it returns initial container on error
+func updateApp(c corev1.Container, sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (corev1.Container, bool, error) {
+	changed := false
+
+	res, err := sfs.Resources(podSpec.Resources)
+	if err != nil {
+		return c, changed, fmt.Errorf("create resources error: %v", err)
+	}
+
+	if !reflect.DeepEqual(c.Resources, res) {
+		c.Resources = res
+		changed = true
+	}
+	if c.Image != podSpec.Image {
+		c.Image = podSpec.Image
+		changed = true
+	}
+
+	return c, changed, nil
 }

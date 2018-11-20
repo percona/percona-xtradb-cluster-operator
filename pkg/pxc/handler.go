@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
 func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
@@ -21,6 +22,8 @@ func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
 			return nil
 		}
 
+		o.Spec.SetDefaults()
+
 		// TODO (ap): the status checking now is fake. Just a stub for further work
 		if o.Status.State == api.ClusterStateInit {
 			err := h.deploy(o)
@@ -30,13 +33,13 @@ func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
 			}
 		}
 
-		err := h.upgradePods(o.Spec.PXC, h.NewStatefulSet("node", o))
+		err := h.updatePod(statefulset.NewNode(o), o.Spec.PXC, o)
 		if err != nil {
 			logrus.Errorf("pxc upgrade error: %v", err)
 		}
 
 		if o.Spec.ProxySQL.Enabled {
-			err = h.upgradePods(o.Spec.ProxySQL, h.NewStatefulSet("proxysql", o))
+			err = h.updatePod(statefulset.NewProxy(o), o.Spec.ProxySQL, o)
 			if err != nil {
 				logrus.Errorf("proxySQL upgrade error: %v", err)
 			}
@@ -47,7 +50,7 @@ func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
 }
 
 func (h *PXC) deploy(cr *api.PerconaXtraDBCluster) error {
-	nodeSet, err := h.newStatefulSetNode(cr)
+	nodeSet, err := h.StatefulSet(statefulset.NewNode(cr), cr.Spec.PXC, cr)
 	if err != nil {
 		return err
 	}
@@ -63,10 +66,11 @@ func (h *PXC) deploy(cr *api.PerconaXtraDBCluster) error {
 	}
 
 	if cr.Spec.ProxySQL.Enabled {
-		proxySet, err := h.newStatefulSetProxySQL(cr)
+		proxySet, err := h.StatefulSet(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr)
 		if err != nil {
 			return fmt.Errorf("failed to create ProxySQL Service: %v", err)
 		}
+
 		err = sdk.Create(proxySet)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create newStatefulSetProxySQL: %v", err)

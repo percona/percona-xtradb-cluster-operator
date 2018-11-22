@@ -25,9 +25,11 @@ func (h *PXC) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.Perco
 
 	for _, c := range currentSet.Spec.Template.Spec.Containers {
 		if c.Name == "pmm-client" {
-			currentPMMC = &c
+			newc := c
+			currentPMMC = &newc
 		} else {
-			currentAppC = &c
+			newc := c
+			currentAppC = &newc
 		}
 	}
 

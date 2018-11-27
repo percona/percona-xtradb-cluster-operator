@@ -43,6 +43,8 @@ func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
 			if err != nil {
 				logrus.Errorf("proxySQL upgrade error: %v", err)
 			}
+		} else {
+			sdk.Delete(statefulset.NewProxy(o).StatefulSet())
 		}
 	}
 

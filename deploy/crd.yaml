@@ -9,5 +9,7 @@ spec:
     listKind: PerconaXtraDBClusterList
     plural: perconaxtradbclusters
     singular: perconaxtradbcluster
+    shortNames:
+    - pxc
   scope: Namespaced
   version: v1alpha1

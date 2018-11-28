@@ -25,10 +25,11 @@ type PerconaXtraDBCluster struct {
 }
 
 type PerconaXtraDBClusterSpec struct {
-	SecretsName string   `json:"secretsName,omitempty"`
-	PXC         *PodSpec `json:"pxc,omitempty"`
-	ProxySQL    *PodSpec `json:"proxysql,omitempty"`
-	PMM         *PMMSpec `json:"pmm,omitempty"`
+	Platform    *Platform `json:"platform,omitempty"`
+	SecretsName string    `json:"secretsName,omitempty"`
+	PXC         *PodSpec  `json:"pxc,omitempty"`
+	ProxySQL    *PodSpec  `json:"proxysql,omitempty"`
+	PMM         *PMMSpec  `json:"pmm,omitempty"`
 }
 
 type PodSpec struct {

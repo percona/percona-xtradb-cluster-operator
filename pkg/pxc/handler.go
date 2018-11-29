@@ -22,6 +22,11 @@ func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
 			return nil
 		}
 
+		// use the CR's defenition of platform in case it has set
+		if o.Spec.Platform != nil {
+			h.serverVersion.Platform = *o.Spec.Platform
+		}
+
 		o.Spec.SetDefaults()
 
 		// TODO (ap): the status checking now is fake. Just a stub for further work

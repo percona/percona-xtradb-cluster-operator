@@ -28,7 +28,7 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("Unable to define server version: %v", err)
 	}
-	logrus.Infof("Server: %s, %v", sv.Platform, sv.Info)
+	// logrus.Infof("Server: %s, %v", sv.Platform, sv.Info)
 
 	sdk.ExposeMetricsPort()
 

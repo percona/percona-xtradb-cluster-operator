@@ -6,7 +6,7 @@ spec:
   secretsName: my-cluster-secrets
   pxc:
     size: 3
-    image: perconalab/pxc-openshift:test-pmm-monitor.0.2 
+    image: perconalab/pxc-openshift:0.1.0 
     resources:
       requests:
         memory: 1G
@@ -21,7 +21,7 @@ spec:
   proxysql:
     enabled: true
     size: 1
-    image: perconalab/proxysql-openshift:latest
+    image: perconalab/proxysql-openshift:0.1.0
     resources:
       requests:
         memory: 1G
@@ -34,7 +34,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
   pmm:
-    enabled: true
+    enabled: false
     image: perconalab/pmm-client:1.17.0
     serverHost: monitoring-service
     serverUser: pmm

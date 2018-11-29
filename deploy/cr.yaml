@@ -3,7 +3,6 @@ kind: "PerconaXtraDBCluster"
 metadata:
   name: "cluster1"
 spec:
-  # platform: openshift
   secretsName: my-cluster-secrets
   pxc:
     size: 3

@@ -4,44 +4,54 @@ import (
 	"encoding/json"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sclient"
-	kapierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8sversion "k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/rest"
 
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
 // Server returns server version and platform (k8s|oc)
-// stolen from: https://github.com/openshift/origin/blob/release-3.11/pkg/oc/cli/version/version.go#L106
-func Server() (*v1alpha1.ServerVersion, error) {
-	version := &v1alpha1.ServerVersion{}
-
+func Server() (*api.ServerVersion, error) {
 	client := k8sclient.GetKubeClient().Discovery().RESTClient()
 
-	kubeVersionBody, err := client.Get().AbsPath("/version").Do().Raw()
-	switch {
-	case err == nil:
-		err = json.Unmarshal(kubeVersionBody, &version.Info)
-		if err != nil && len(kubeVersionBody) > 0 {
-			return nil, err
-		}
-		version.Platform = v1alpha1.PlatformKubernetes
-	case kapierrors.IsNotFound(err) || kapierrors.IsUnauthorized(err) || kapierrors.IsForbidden(err):
-		// this is fine! just try to get /version/openshift
-	default:
-		return nil, err
+	version := &api.ServerVersion{}
+	var err error
+	// oc 3.9
+	version.Info, err = probeAPI("/version/openshift", client)
+	if err == nil {
+		version.Platform = api.PlatformOpenshift
+		return version, nil
 	}
 
-	ocVersionBody, err := client.Get().AbsPath("/version/openshift").Do().Raw()
-	switch {
-	case err == nil:
-		err = json.Unmarshal(ocVersionBody, &version.Info)
-		if err != nil && len(ocVersionBody) > 0 {
-			return nil, err
-		}
-		version.Platform = v1alpha1.PlatformOpenshift
-	case kapierrors.IsNotFound(err) || kapierrors.IsUnauthorized(err) || kapierrors.IsForbidden(err):
-	default:
-		return nil, err
+	// oc 3.11+
+	version.Info, err = probeAPI("/oapi/v1", client)
+	if err == nil {
+		version.Platform = api.PlatformOpenshift
+		version.Info.GitVersion = "undefined (v3.11+)"
+		return version, nil
 	}
 
-	return version, nil
+	// k8s
+	version.Info, err = probeAPI("/version", client)
+	if err == nil {
+		version.Platform = api.PlatformKubernetes
+		return version, nil
+	}
+
+	return version, err
+}
+
+func probeAPI(path string, client rest.Interface) (k8sversion.Info, error) {
+	var vInfo k8sversion.Info
+	vBody, err := client.Get().AbsPath(path).Do().Raw()
+	if err != nil {
+		return vInfo, err
+	}
+
+	err = json.Unmarshal(vBody, &vInfo)
+	if err != nil {
+		return vInfo, err
+	}
+
+	return vInfo, nil
 }

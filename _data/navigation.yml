@@ -1,0 +1,21 @@
+docs:
+  - title: Overview
+    children:
+      - title: "What is it for?"
+        url: ./
+      - title: "How it works?"
+        url: ./architecture
+  - title: Installation
+    children:
+      - title: "Requirements"
+        url: ./install
+      - title: "Install on Kubernetes"
+        url: ./install/kubernetes
+      - title: "Install on OpenShift"
+        url: ./install/openshift
+  - title: Configuration
+    children:
+      - title: "Required secrets"
+        url: ./configure/secrets
+      - title: "Operator options"
+        url: ./configure/operator

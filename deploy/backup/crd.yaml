@@ -1,0 +1,15 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: pxc-backups.pxc.percona.com
+spec:
+  group: pxc.percona.com
+  names:
+    kind: pxc-backup
+    listKind: pxc-backupList
+    plural: pxc-backups
+    singular: pxc-backup
+    # shortNames:
+    # - 
+  scope: Namespaced
+  version: v1alpha1

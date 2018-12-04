@@ -1,0 +1,6 @@
+apiVersion: "pxc.percona.com/v1alpha1"
+kind: "pxc-backup"
+metadata:
+  name: "cluster1"
+spec:
+  storage: 6Gi

@@ -7,6 +7,7 @@ rules:
   - pxc.percona.com
   resources:
   - perconaxtradbclusters
+  - pxc-backups
   verbs:
   - "list"
   - "update"

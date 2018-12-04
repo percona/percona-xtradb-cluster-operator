@@ -114,3 +114,27 @@ func (c *PerconaXtraDBClusterSpec) SetDefaults() {
 		c.PXC.Size++
 	}
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type PXCBackupList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []PXCBackup `json:"items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type PXCBackup struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              PXCBackupSpec   `json:"spec"`
+	Status            PXCBackupStatus `json:"status,omitempty"`
+}
+
+type PXCBackupSpec struct {
+	Storage string `json:"storage,omitempty"`
+}
+
+type PXCBackupStatus struct {
+}

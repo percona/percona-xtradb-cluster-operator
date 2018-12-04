@@ -14,13 +14,14 @@ import (
 )
 
 func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
+	// Just ignore it for now.
+	// All resources should be released by the k8s GC
+	if event.Deleted {
+		return nil
+	}
+
 	switch o := event.Object.(type) {
 	case *api.PerconaXtraDBCluster:
-		// Just ignore it for now.
-		// All resources should be released by the k8s GC
-		if event.Deleted {
-			return nil
-		}
 
 		// use the CR's defenition of platform in case it has set
 		if o.Spec.Platform != nil {
@@ -51,6 +52,8 @@ func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
 		} else {
 			sdk.Delete(statefulset.NewProxy(o).StatefulSet())
 		}
+	case *api.PXCBackup:
+		h.backup(o)
 	}
 
 	return nil

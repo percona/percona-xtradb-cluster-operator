@@ -1,0 +1,194 @@
+#!/bin/bash
+
+GIT_COMMIT=$(git rev-parse HEAD)
+GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD)}
+IMAGE="perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"
+tmp_dir=$(mktemp -d)
+sed=$(which gsed || which sed)
+
+test_name=$(basename $test_dir)
+namespace="${test_name}-${RANDOM}"
+conf_dir=$(realpath $test_dir/../conf)
+src_dir=$(realpath $test_dir/../..)
+
+
+create_namespace() {
+    local namespace="$1"
+    kubectl create namespace "$namespace"
+    kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
+}
+
+get_operator_pod() {
+    kubectl get pods \
+        --selector=name=percona-xtradb-cluster-operator \
+        -o 'jsonpath={.items[].metadata.name}'
+}
+
+wait_pod() {
+    local pod=$1
+
+    set +o xtrace
+    retry=0
+    echo -n $pod
+    #until kubectl get pod/$pod -o jsonpath='{.status.phase}' 2>/dev/null | grep 'Running'; do
+    until kubectl get pod/$pod -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null | grep 'true'; do
+        sleep 1
+        echo -n .
+        let retry+=1
+        if [ $retry -ge 240 ]; then
+            kubectl logs $(get_operator_pod)
+            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+            exit 1
+        fi
+    done
+    set -o xtrace
+}
+
+deploy_operator() {
+    desc 'start operator'
+    sed -e "s^image: .*^image: ${IMAGE}^" \
+        ${src_dir}/deploy/operator.yaml \
+        > ${tmp_dir}/operator.yml
+
+    kubectl apply -f ${src_dir}/deploy/crd.yaml \
+                  -f ${src_dir}/deploy/rbac.yaml \
+                  -f ${tmp_dir}/operator.yml
+
+    wait_pod $(get_operator_pod)
+}
+
+wait_for_running() {
+    local name="$1"
+    let last_pod="$2-1" || :
+
+    for i in $(seq 0 $last_pod); do
+        wait_pod ${name}-${i}
+    done
+}
+
+wait_for_delete() {
+    local res="$1"
+
+    set +o xtrace
+    echo -n "$res - "
+    retry=0
+    until (kubectl get $res || :) 2>&1 | grep NotFound; do
+        sleep 1
+        echo -n .
+        let retry+=1
+        if [ $retry -ge 60 ]; then
+            kubectl logs $(get_operator_pod)
+            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+            exit 1
+        fi
+    done
+    set -o xtrace
+}
+
+compare_kubectl() {
+    local resource="$1"
+    local postfix="$2"
+    local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
+    local new_result="${tmp_dir}/${resource//\//_}.yml"
+
+    kubectl get -o yaml ${resource} \
+        | egrep -v "(Revision:|namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|readyReplicas:|image:|volumeName:|clusterIP:)" \
+        | $sed -e '/^status:$/,+100500d' \
+        | $sed -e '/NAMESPACE/,+1d' \
+        > ${new_result}
+    diff -u ${expected_result} ${new_result}
+}
+
+run_mysql() {
+    local command="$1"
+    local uri="$2"
+    local client_container=$(kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}')
+
+    kubectl exec ${client_container} -- \
+        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
+        | sed -e 's/mysql: //' \
+        | (grep -v 'Using a password on the command line interface can be insecure.' || :)
+}
+
+run_mysql_local() {
+    local command="$1"
+    local uri="$2"
+    local pod="$3"
+
+    kubectl exec $pod -- \
+        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
+        | sed -e 's/mysql: //' \
+        | grep -v 'Using a password on the command line interface can be insecure.'
+}
+
+compare_mysql_cmd() {
+    local command_id="$1"
+    local command="$2"
+    local uri="$3"
+    local postfix="$4"
+
+    run_mysql "$command" "$uri" \
+        > $tmp_dir/${command_id}.sql
+    diff ${test_dir}/compare/${command_id}${postfix}.sql $tmp_dir/${command_id}.sql
+}
+
+get_proxy_primary() {
+    local uri="$1"
+    local pod="$2"
+    local ip=$(run_mysql_local 'SELECT hostname FROM mysql_servers WHERE comment="WRITE";' "$uri" "$pod")
+
+    kubectl get pods -o json | jq -r '.items[] | select(.status.podIP == "'$ip'") | .metadata.name'
+}
+
+compare_mysql_user(){
+    local uri="$1"
+    local postfix="$2"
+    local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
+
+    (run_mysql "SHOW GRANTS;" "$uri" || :) \
+        | sed -e "s/'10[.][0-9][^']*'//" \
+        > $tmp_dir/$user.sql
+    diff $test_dir/compare/$user$postfix.sql $tmp_dir/$user.sql
+}
+
+compare_mysql_user_local(){
+    local uri="$1"
+    local pod="$2"
+    local postfix="$3"
+    local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
+
+    (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" || :) \
+        | sed -e "s/'10[.][0-9][^']*'//" \
+        > $tmp_dir/$user.sql
+    diff $test_dir/compare/$user$postfix.sql $tmp_dir/$user.sql
+}
+
+start_gke() {
+    gcloud container clusters create operator-testing-$RANDOM --zone europe-west3-c --project cloud-dev-112233 --preemptible --cluster-version 1.11
+}
+
+get_pumba() {
+    kubectl get pods \
+        --selector=name=pumba \
+        -o 'jsonpath={.items[].metadata.name}'
+}
+
+run_pumba() {
+    local cmd="$*"
+    kubectl exec -it "$(get_pumba)" -- /pumba -l info ${cmd}
+}
+
+destroy() {
+    local namespace="$1"
+    kubectl delete namespace "$namespace"
+    rm -rf ${tmp_dir}
+}
+
+desc() {
+    set +o xtrace
+    local msg="$@"
+    printf "\n\n-----------------------------------------------------------------------------------\n"
+    printf "$msg"
+    printf "\n-----------------------------------------------------------------------------------\n\n"
+    set -o xtrace
+}

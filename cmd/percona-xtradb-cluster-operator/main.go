@@ -22,6 +22,12 @@ func printVersion() {
 }
 
 func main() {
+	const (
+		resource = "pxc.percona.com/v1alpha1"
+		kindPXC  = "PerconaXtraDBCluster"
+		kindBCP  = "PerconaXtraDBBackup"
+	)
+
 	printVersion()
 
 	sv, err := version.Server()
@@ -35,16 +41,23 @@ func main() {
 
 	sdk.ExposeMetricsPort()
 
-	resource := "pxc.percona.com/v1alpha1"
-	kind := "PerconaXtraDBCluster"
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
 		logrus.Fatalf("failed to get watch namespace: %v", err)
 	}
 
 	resyncPeriod := 5 * time.Second
-	logrus.Infof("Watching %s, %s, %s, %v", resource, kind, namespace, resyncPeriod)
-	sdk.Watch(resource, kind, namespace, resyncPeriod)
+
+	logrus.WithFields(logrus.Fields{
+		"resource":  resource,
+		"objects":   []string{kindPXC, kindBCP},
+		"namespace": namespace,
+		"sync":      resyncPeriod,
+	}).Infof("Watching")
+
+	sdk.Watch(resource, kindPXC, namespace, resyncPeriod)
+	sdk.Watch(resource, kindBCP, namespace, resyncPeriod)
+
 	sdk.Handle(pxc.New(*sv))
 	sdk.Run(context.TODO())
 }

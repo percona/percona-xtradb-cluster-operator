@@ -29,6 +29,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&PerconaXtraDBCluster{},
 		&PerconaXtraDBClusterList{},
+		&PerconaXtraDBBackup{},
+		&PerconaXtraDBBackupList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

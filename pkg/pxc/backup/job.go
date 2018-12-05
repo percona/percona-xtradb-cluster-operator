@@ -9,15 +9,23 @@ import (
 )
 
 // Job returns the backup job
-func Job(spec *api.PXCBackupSpec) batchv1.Job {
+func Job(cr *api.PerconaXtraDBBackup) batchv1.Job {
 	pvc := corev1.Volume{
 		Name: "backup",
 	}
-	pvc.PersistentVolumeClaim.ClaimName = "backup-volume"
+	pvsource := corev1.PersistentVolumeClaimVolumeSource{
+		ClaimName: "backup-volume",
+	}
+	pvc.PersistentVolumeClaim = &pvsource
 
 	return batchv1.Job{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1",
+			Kind:       "Job",
+		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "xtrabackup-job",
+			Name:      "xtrabackup-job",
+			Namespace: cr.Namespace,
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{

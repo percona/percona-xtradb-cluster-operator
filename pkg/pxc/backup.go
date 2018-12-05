@@ -6,17 +6,25 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	"k8s.io/apimachinery/pkg/api/errors"
 )
 
-func (*PXC) backup(bcp *api.PXCBackup) error {
-	pvc, err := backup.PVC(&bcp.Spec)
+func (*PXC) backup(bcp *api.PerconaXtraDBBackup) error {
+	pvc, err := backup.PVC(bcp)
 	if err != nil {
 		return fmt.Errorf("volume error: %v", err)
 	}
 
-	sdk.Create(&pvc)
+	err = sdk.Create(&pvc)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("pvc create: %v", err)
+	}
 
-	sdk.Create(&backup.Job(&bcp.Spec))
+	job := backup.Job(bcp)
+	sdk.Create(&job)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("job create: %v", err)
+	}
 
 	return nil
 }

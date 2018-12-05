@@ -52,8 +52,11 @@ func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
 		} else {
 			sdk.Delete(statefulset.NewProxy(o).StatefulSet())
 		}
-	case *api.PXCBackup:
-		h.backup(o)
+	case *api.PerconaXtraDBBackup:
+		err := h.backup(o)
+		if err != nil {
+			logrus.Errorf("on-demand backup error: %v", err)
+		}
 	}
 
 	return nil

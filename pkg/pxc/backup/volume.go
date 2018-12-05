@@ -10,16 +10,21 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-// PVCs returns the list of PersistentVolumeClaims for the pod
-func PVC(spec *api.PXCBackupSpec) (corev1.PersistentVolumeClaim, error) {
-	rvolStorage, err := resource.ParseQuantity(spec.Storage)
+// PVC returns the list of PersistentVolumeClaims for the backups
+func PVC(cr *api.PerconaXtraDBBackup) (corev1.PersistentVolumeClaim, error) {
+	rvolStorage, err := resource.ParseQuantity(cr.Spec.Storage)
 	if err != nil {
 		return corev1.PersistentVolumeClaim{}, fmt.Errorf("wrong storage resources: %v", err)
 	}
 
 	return corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "PersistentVolumeClaim",
+		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "backup-volume",
+			Name:      "backup-volume",
+			Namespace: cr.Namespace,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{

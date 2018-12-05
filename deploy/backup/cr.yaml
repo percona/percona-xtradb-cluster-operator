@@ -1,5 +1,5 @@
 apiVersion: "pxc.percona.com/v1alpha1"
-kind: "pxc-backup"
+kind: "PerconaXtraDBBackup"
 metadata:
   name: "cluster1"
 spec:

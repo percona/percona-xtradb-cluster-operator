@@ -52,15 +52,23 @@ compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$c
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
 
+desc 'write data to ProxySQL, read from all'
+run_mysql \
+    'INSERT myApp.myApp (id) VALUES (100501)' \
+    "-h $cluster-proxysql -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+
 desc 'kill Primary Pod, check reelection, check data'
 initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uadmin -padmin" "$cluster-proxysql-0")
 kubectl delete pods --grace-period=0 --force $initial_primary
 wait_for_running "$cluster-node" 3
 changed_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uadmin -padmin" "$cluster-proxysql-0")
 [ "$initial_primary" != "$changed_primary" ]
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
 
 desc 'check if possible to create second cluster'
 cluster2="another-name-pxc"

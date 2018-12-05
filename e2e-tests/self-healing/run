@@ -46,6 +46,24 @@ pumba_pod() {
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-nodes -uroot -proot_password"
 }
 
+pumba_all_pods() {
+    local action=$1
+
+    # run chaos for Pod
+    run_pumba $action "re2:$cluster-*"
+    sleep 2
+
+    # check if all 3 Pods started
+    wait_for_running $cluster-node 3
+	sleep 10
+
+    desc 'check data consistency for chaosed Pod'
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+}
+
+
 pause_pod() {
     local pod=$1
 
@@ -102,20 +120,26 @@ main() {
     desc 'start cluster'
     setup_cluster
 
-    desc 'kill some-name-pxc-node-0 pod'
+    desc 'kill node-0 pod'
     pumba_pod kill "$cluster-node-0"
 
-    desc 'rm some-name-pxc-node-0 pod'
+    desc 'rm node-0 pod'
     pumba_pod rm "$cluster-node-0"
 
-    desc 'stop some-name-pxc-node-0 pod'
+    desc 'stop node-0 pod'
     pumba_pod stop "$cluster-node-0"
 
-    desc 'pause some-name-pxc-node-0 pod'
+    desc 'pause node-0 pod'
     pause_pod "$cluster-node-0"
 
-    desc 'emulate bad network'
-    #netem_pod "$cluster-node-0"
+    desc 'emulate bad network node-0 pod'
+    ## TODO: netem_pod "$cluster-node-0"
+
+    desc 'kill all PXC pods'
+	# pumba should be run on all nodes
+	## TODO: pumba_all_pods kill
+	## TODO: pumba_all_pods rm
+	## TODO: pumba_all_pods stop
 
     destroy $namespace
 }

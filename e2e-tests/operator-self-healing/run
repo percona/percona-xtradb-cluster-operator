@@ -77,7 +77,7 @@ netem_pod() {
 
 main() {
     create_namespace $namespace
-    #kubectl apply -f $test_dir/conf/quota.yml
+    ## TODO: kubectl apply -f $test_dir/conf/quota.yml
     deploy_operator
 
     desc 'create PSMDB cluster'

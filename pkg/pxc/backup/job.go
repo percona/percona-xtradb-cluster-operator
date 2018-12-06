@@ -9,22 +9,21 @@ import (
 )
 
 // Job returns the backup job
-func Job(cr *api.PerconaXtraDBBackup) batchv1.Job {
+func Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 	pvc := corev1.Volume{
-		Name: "backup",
+		Name: cr.Spec.PXCCluster + "-backup-" + cr.Name,
 	}
-	pvsource := corev1.PersistentVolumeClaimVolumeSource{
-		ClaimName: "backup-volume",
+	pvc.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
+		ClaimName: cr.Spec.PXCCluster + volumeNamePostfix + "." + cr.Name,
 	}
-	pvc.PersistentVolumeClaim = &pvsource
 
-	return batchv1.Job{
+	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "xtrabackup-job",
+			Name:      cr.Spec.PXCCluster + "-xtrabackup-job." + cr.Name,
 			Namespace: cr.Namespace,
 		},
 		Spec: batchv1.JobSpec{
@@ -37,14 +36,14 @@ func Job(cr *api.PerconaXtraDBBackup) batchv1.Job {
 							Command: []string{"bash", "/usr/bin/backup.sh"},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      "backup",
+									Name:      pvc.Name,
 									MountPath: "/backup",
 								},
 							},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "NODE_NAME",
-									Value: "cluster1-pxc-nodes",
+									Value: cr.Spec.PXCCluster + "-pxc-nodes",
 								},
 							},
 						},

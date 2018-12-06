@@ -63,7 +63,7 @@ func (h *PXC) StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.Per
 		VolumeClaimTemplates: pvcs,
 	}
 
-	addOwnerRefToObject(obj, asOwner(cr))
+	addOwnerRefToObject(obj, cr.OwnerRef())
 
 	return obj, nil
 }

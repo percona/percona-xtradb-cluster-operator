@@ -114,3 +114,16 @@ func (c *PerconaXtraDBClusterSpec) SetDefaults() {
 		c.PXC.Size++
 	}
 }
+
+// OwnerRef returns OwnerReference to object
+func (cr *PerconaXtraDBCluster) OwnerRef() metav1.OwnerReference {
+	trueVar := true
+
+	return metav1.OwnerReference{
+		APIVersion: SchemeGroupVersion.String(),
+		Kind:       cr.Kind,
+		Name:       cr.Name,
+		UID:        cr.UID,
+		Controller: &trueVar,
+	}
+}

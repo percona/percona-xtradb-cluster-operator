@@ -10,18 +10,30 @@ import (
 )
 
 func (*PXC) backup(bcp *api.PerconaXtraDBBackup) error {
-	pvc, err := backup.PVC(bcp)
-	if err != nil {
-		return fmt.Errorf("volume error: %v", err)
-	}
+	// pvc, err := backup.PVCc(bcp)
+	// if err != nil {
+	// 	return fmt.Errorf("volume error: %v", err)
+	// }
+	// addOwnerRefToObject(pvc, bcp.OwnerRef())
 
-	err = sdk.Create(&pvc)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("pvc create: %v", err)
+	// err = sdk.Create(pvc)
+	// if err != nil && !errors.IsAlreadyExists(err) {
+	// 	return fmt.Errorf("pvc create: %v", err)
+	// }
+
+	pvc := backup.NewPVC(bcp)
+	switch pvc.Status() {
+	case backup.VolumeNotExists:
+		err := pvc.Create(&bcp.Spec)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("pvc create: %v", err)
+		}
 	}
 
 	job := backup.Job(bcp)
-	sdk.Create(&job)
+	addOwnerRefToObject(job, bcp.OwnerRef())
+
+	err := sdk.Create(job)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("job create: %v", err)
 	}

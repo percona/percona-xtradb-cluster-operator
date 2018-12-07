@@ -1,65 +1,56 @@
 Custom Resource options
 ==============================================================
 
-The operator is configured via the spec section of the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-server-mongodb-operator/blob/master/deploy/cr.yaml) file. This file contains the following spec sections: 
+The operator is configured via the spec section of the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. This file contains the following spec sections to configure three main subsystems of the cluster: 
 
-| Key | Value Type | Default | Description |
-|-----|------------|---------|-------------|
-|platform | string | kubernetes | Override/set the Kubernetes platform: *kubernetes* or *openshift*. Set openshift on OpenShift 3.11+ |
-| version | string | 3.6.8      | The Dockerhub tag of [percona/percona-server-mongodb](https://hub.docker.com/r/perconalab/percona-server-mongodb-operator/tags/) to deploy |
-| secrets | subdoc |            | Operator secrets section  |
-|replsets | array  |            | Operator MongoDB Replica Set section |
-| mongod  | subdoc |            | Operator MongoDB Mongod configuration section |
+| Key      | Value Type | Description                               |
+|----------|------------|-------------------------------------------|
+| pxc      | subdoc     | Percona XtraDB Cluster general section    |
+| proxysql | subdoc     | ProxySQL section                          |
+| pmm      | subdoc     | Percona Monitoring and Management section |
 
-### Secrets section
+### PXC Section
 
-Each spec in its turn may contain some key-value pairs. The secrets one has only two of them:
+The ``pxc`` section in the deploy/cr.yaml file contains general configuration options for the Percona XtraDB Cluster.
 
-| Key | Value Type | Default | Description |
-|-----|------------|---------|-------------|
-|key  | string     | my-cluster-name-mongodb-key   | The secret name for the [MongoDB Internal Auth Key](https://docs.mongodb.com/manual/core/security-internal-authentication/). This secret is auto-created by the operator if it doesn't exist |
-|users| string     | my-cluster-name-mongodb-users | The secret name for the MongoDB users required to run the operator. **This secret is required to run the operator!** |
+| Key                            | Value Type | Default   | Description |
+|--------------------------------|------------|-----------|-------------|
+|size                            | int        | `3`       |  The size of the Percona XtraDB Cluster, must be >= 3 for [High-Availability](hhttps://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html) |
+|image                           | string     |`perconalab/pxc-openshift:0.1.0` | Percona XtraDB Cluster docker image to use                                                                     |
+|resources.requests.memory       | string     | `1G`      | [Kubernetes Memory requests](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for a PXC container                                                               |
+|resources.requests.cpu          | string     | `600m`    | [Kubernetes CPU requests](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for a PXC container |
+|resources.requests.limits.memory| string     | `1G`      | [Kubernetes Memory limit](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for a PXC container |
+|resources.requests.limits.cpu   | string     | `1`       | [Kubernetes CPU limit](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for a PXC container |
+|volumeSpec.storageClass         | string     | `standard`| Set the [Kubernetes Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use with the PXC [Persistent Volume Claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)                     |
+|volumeSpec.accessModes          | array      | `[ "ReadWriteOnce" ]` | [Kubernetes Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) access modes for the PerconaXtraDB Cluster  |
+|volumeSpec.size                 | string     | `6Gi`     | The [Kubernetes Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) size for the Percona XtraDB Cluster                            |
 
-### Replsets section
 
-The replsets section controls the MongoDB Replica Set. 
+### ProxySQL Section
 
-| Key | Value Type | Default | Description |
-|-----|------------|---------|-------------|
-|name | string     | rs0     | The name of the [MongoDB Replica Set](https://docs.mongodb.com/manual/replication/) |
-|size | int        | 3       | The size of the MongoDB Replica Set, must be >= 3 for [High-Availability](https://docs.mongodb.com/manual/replication/#redundancy-and-data-availability) |
-|storageClass|string|        | Set the [Kubernetes Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use with the MongoDB [Persistent Volume Claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims) |
-|resources.limits.cpu|string| |[Kubernetes CPU limit](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for MongoDB container |
-|resources.limits.memory|string| | [Kubernetes Memory limit](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for MongoDB container |
-|resources.limits.storage|string| | [Kubernetes Storage limit](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for [Persistent Volume Claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims) |
-|resources.requests.cpu |string|  | [Kubernetes CPU requests](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for MongoDB container |
-|resources.requests.memory|string| | [Kubernetes Memory requests](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for MongoDB container |
+The ``proxysql`` section in the deploy/cr.yaml file contains configuration options for the ProxySQL daemon.
 
-### Mongod Section
+| Key                            | Value Type | Default   | Description |
+|--------------------------------|------------|-----------|-------------|
+|enabled                         | boolean    | `true`    | Enables or disables [load balancing with ProxySQL](https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html)    |
+|size                            | int        | `1`       | The number of the ProxySQL daemons [to provide load balancing](https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html), must be = 1 in current release|
+|image                           | string     |`perconalab/proxysql-openshift:0.1.0` | ProxySQL docker image to use |
+|resources.requests.memory       | string     | `1G`      | [Kubernetes Memory requests](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for a ProxySQL container                                                      |
+|resources.requests.cpu          | string     | `600m`    | [Kubernetes CPU requests](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for a ProxySQL container                                                               |
+|resources.requests.limits.memory| string     | `1G`      | [Kubernetes Memory limit](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for a ProxySQL container                                                               |
+|resources.requests.limits.cpu   | string     | `700m`    | [Kubernetes CPU limit](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for a ProxySQL container                                                               |
+|volumeSpec.storageClass         | string     | `standard`| The [Kubernetes Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use with the ProxySQL [Persistent Volume Claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)            |
+|volumeSpec.accessModes          | array      | `[ "ReadWriteOnce" ]` | [Kubernetes Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) access modes for ProxySQL  |
+|volumeSpec.size                 | string     | `2Gi`     | The [Kubernetes Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) size for ProxySQL                             |
 
-The largest section in the deploy/cr.yaml file contains the Mongod configuration options.
+### PMM Section
 
-| Key | Value Type | Default | Description |
-|-----|------------|---------|-------------|
-|net.port |       int | 27017    | Sets the MongoDB ['net.port' option](https://docs.mongodb.com/manual/reference/configuration-options/#net.port)    |
-|net.hostPort|    int | 0        | Sets the Kubernetes ['hostPort' option](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#support-hostport) |
-security.redactClientLogData|bool|false|Enables/disables [PSMDB Log Redaction](https://www.percona.com/doc/percona-server-for-mongodb/LATEST/log-redaction.html)|
-|setParameter.ttlMonitorSleepSecs|int|60|Sets the PSMDB 'ttlMonitorSleepSecs' option|
-|setParameter.wiredTigerConcurrentReadTransactions| int|128|Sets the ['wiredTigerConcurrentReadTransactions' option](https://docs.mongodb.com/manual/reference/parameters/#param.wiredTigerConcurrentReadTransactions) |
-|setParameter.wiredTigerConcurrentWriteTransactions|int|128|Sets the ['wiredTigerConcurrentWriteTransactions' option](https://docs.mongodb.com/manual/reference/parameters/#param.wiredTigerConcurrentWriteTransactions)|
-|storage.engine|string|wiredTiger| Sets the ['storage.engine' option](https://docs.mongodb.com/manual/reference/configuration-options/#storage.engine)|
-|storage.inMemory.inMemorySizeRatio|float|0.9|Ratio used to compute the ['storage.engine.inMemory.inMemorySizeGb' option|
-|storage.mmapv1.nsSize|int|16    | Sets the 'storage.mmapv1.nsSize' option](https://www.percona.com/doc/percona-server-for-mongodb/LATEST/inmemory.html#--inMemorySizeGB)|
-|storage.mmapv1.smallfiles|bool|false| Sets the ['storage.mmapv1.smallfiles' option](https://docs.mongodb.com/manual/reference/configuration-options/#storage.mmapv1.smallFiles) |
-|storage.wiredTiger.engineConfig.cacheSizeRatio|float|0.5|Ratio used to compute the ['storage.wiredTiger.engineConfig.cacheSizeGB' option](https://docs.mongodb.com/manual/reference/configuration-options/#storage.wiredTiger.engineConfig.cacheSizeGB) |
-|storage.wiredTiger.engineConfig.directoryForIndexes|bool|false|Sets the ['storage.wiredTiger.engineConfig.directoryForIndexes' option](https://docs.mongodb.com/manual/reference/configuration-options/#storage.wiredTiger.engineConfig.directoryForIndexes)|
-|storage.wiredTiger.engineConfig.journalCompressor|string|snappy|Sets the ['storage.wiredTiger.engineConfig.journalCompressor' option](https://docs.mongodb.com/manual/reference/configuration-options/#storage.wiredTiger.engineConfig.journalCompressor)|
-|storage.wiredTiger.collectionConfig.blockCompressor|string|snappy|Sets the ['storage.wiredTiger.collectionConfig.blockCompressor' option](https://docs.mongodb.com/manual/reference/configuration-options/#storage.wiredTiger.collectionConfig.blockCompressor)|
-|storage.wiredTiger.indexConfig.prefixCompression|bool|true|Sets the ['storage.wiredTiger.indexConfig.prefixCompression' option](https://docs.mongodb.com/manual/reference/configuration-options/#storage.wiredTiger.indexConfig.prefixCompression)|
-|operationProfiling.mode|string|slowOp|Sets the ['operationProfiling.mode' option](https://docs.mongodb.com/manual/reference/configuration-options/#operationProfiling.mode)|
-|operationProfiling.slowOpThresholdMs|int|100| Sets the ['operationProfiling.slowOpThresholdMs'](https://docs.mongodb.com/manual/reference/configuration-options/#operationProfiling.slowOpThresholdMs) option |
-|operationProfiling.rateLimit|int|1|Sets the ['operationProfiling.rateLimit' option](https://www.percona.com/doc/percona-server-for-mongodb/LATEST/rate-limit.html)|
-|auditLog.destination|string| | Sets the ['auditLog.destination' option](https://www.percona.com/doc/percona-server-for-mongodb/LATEST/audit-logging.html)|
-|auditLog.format |string|BSON|Sets the ['auditLog.format' option](https://www.percona.com/doc/percona-server-for-mongodb/LATEST/audit-logging.html)|
-|auditLog.filter |string|{}  | Sets the ['auditLog.filter' option](https://www.percona.com/doc/percona-server-for-mongodb/LATEST/audit-logging.html)|
+The ``pmm`` section in the deploy/cr.yaml file contains configuration options for Percona Monitoring and Management.
 
+| Key       | Value Type | Default               | Description                    |
+|-----------|------------|-----------------------|--------------------------------|
+|enabled    | boolean    | `false`               | Enables or disables [monitoring Percona XtraDB Cluster with PMM](https://www.percona.com/doc/percona-xtradb-cluster/LATEST/manual/monitoring.html#using-pmm) |
+|size       | int        | `1`                   | The number of [PMM Client](https://www.percona.com/doc/percona-monitoring-and-management/architecture.html) images to use                        |
+|image      | string     |`perconalab/pmm-client`| PMM Client docker image to use |
+|serverHost | string     | `monitoring-service`  | Address of the PMM Server to collect data from the Cluster |
+|serverUser | string     | `pmm`                 | The [PMM Server user](https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html#term-server-user)                             |

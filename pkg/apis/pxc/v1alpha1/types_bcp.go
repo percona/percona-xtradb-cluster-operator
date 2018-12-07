@@ -22,8 +22,13 @@ type PerconaXtraDBBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster string `json:"pxcCluster"`
-	Storage    string `json:"storage,omitempty"`
+	PXCCluster string          `json:"pxcCluster"`
+	Volume     PXCBackupVolume `json:"volume,omitempty"`
+}
+
+type PXCBackupVolume struct {
+	Size         string  `json:"size,omitempty"`
+	StorageClass *string `json:"storageClass,omitempty"`
 }
 
 type PXCBackupStatus struct {

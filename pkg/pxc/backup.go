@@ -9,34 +9,25 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 )
 
-func (*PXC) backup(bcp *api.PerconaXtraDBBackup) error {
-	// pvc, err := backup.PVCc(bcp)
-	// if err != nil {
-	// 	return fmt.Errorf("volume error: %v", err)
-	// }
-	// addOwnerRefToObject(pvc, bcp.OwnerRef())
-
-	// err = sdk.Create(pvc)
-	// if err != nil && !errors.IsAlreadyExists(err) {
-	// 	return fmt.Errorf("pvc create: %v", err)
-	// }
-
+func (h *PXC) backup(bcp *api.PerconaXtraDBBackup) error {
 	pvc := backup.NewPVC(bcp)
-	switch pvc.Status() {
-	case backup.VolumeNotExists:
-		err := pvc.Create(&bcp.Spec)
+
+	vstatus, err := pvc.Create(bcp.Spec.Volume)
+	if err != nil {
+		return fmt.Errorf("pvc create: %v", err)
+	}
+
+	switch vstatus {
+	case backup.VolumeBound:
+		job := backup.Job(bcp)
+		addOwnerRefToObject(job, bcp.OwnerRef())
+
+		err = sdk.Create(job)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("pvc create: %v", err)
+			return fmt.Errorf("job create: %v", err)
 		}
+	default:
+		return fmt.Errorf("volume not ready, status: %s", vstatus)
 	}
-
-	job := backup.Job(bcp)
-	addOwnerRefToObject(job, bcp.OwnerRef())
-
-	err := sdk.Create(job)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("job create: %v", err)
-	}
-
 	return nil
 }

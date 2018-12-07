@@ -4,4 +4,6 @@ metadata:
   name: "backup1"
 spec:
   pxcCluster: "cluster1"
-  storage: 6Gi
+  volume:
+    # storageClass: standard
+    size: 6Gi

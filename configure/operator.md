@@ -52,4 +52,4 @@ The ``pmm`` section in the deploy/cr.yaml file contains configuration options fo
 |enabled    | boolean    | `false`               | Enables or disables [monitoring Percona XtraDB Cluster with PMM](https://www.percona.com/doc/percona-xtradb-cluster/LATEST/manual/monitoring.html#using-pmm) |
 |image      | string     |`perconalab/pmm-client`| PMM Client docker image to use |
 |serverHost | string     | `monitoring-service`  | Address of the PMM Server to collect data from the Cluster |
-|serverUser | string     | `pmm`                 | The [PMM Server user](https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html#term-server-user)                             |
+|serverUser | string     | `pmm`                 | The [PMM Server user](https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html#term-server-user). The PMM Server Password should be configured via secrets. |

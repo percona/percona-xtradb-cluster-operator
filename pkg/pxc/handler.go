@@ -102,15 +102,3 @@ func (h *PXC) deploy(cr *api.PerconaXtraDBCluster) error {
 func addOwnerRefToObject(obj metav1.Object, ownerRef metav1.OwnerReference) {
 	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
 }
-
-func asOwner(cr *api.PerconaXtraDBCluster) metav1.OwnerReference {
-	trueVar := true
-
-	return metav1.OwnerReference{
-		APIVersion: api.SchemeGroupVersion.String(),
-		Kind:       cr.Kind,
-		Name:       cr.Name,
-		UID:        cr.UID,
-		Controller: &trueVar,
-	}
-}

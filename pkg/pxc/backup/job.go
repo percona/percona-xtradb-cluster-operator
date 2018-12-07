@@ -23,7 +23,7 @@ func Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Spec.PXCCluster + "-xtrabackup-job." + cr.Name,
+			Name:      cr.Spec.PXCCluster + "-xtrabackup." + cr.Name,
 			Namespace: cr.Namespace,
 		},
 		Spec: batchv1.JobSpec{

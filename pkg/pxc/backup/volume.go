@@ -12,7 +12,7 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-const volumeNamePostfix = "-backup-volume"
+const volumeNamePostfix = "-backup"
 
 // PVC is a PersistentVolumeClaim for backup
 type PVC struct {

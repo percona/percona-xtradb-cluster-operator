@@ -32,7 +32,7 @@ The ``proxysql`` section in the deploy/cr.yaml file contains configuration optio
 
 | Key                            | Value Type | Default   | Description |
 |--------------------------------|------------|-----------|-------------|
-|enabled                         | boolean    | `true`    | Enables or disables [load balancing with ProxySQL](https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html)    |
+|enabled                         | boolean    | `true`    | Enables or disables [load balancing with ProxySQL](https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html) [Service](https://kubernetes.io/docs/concepts/services-networking/service/) |
 |size                            | int        | `1`       | The number of the ProxySQL daemons [to provide load balancing](https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html), must be = 1 in current release|
 |image                           | string     |`perconalab/proxysql-openshift:0.1.0` | ProxySQL docker image to use |
 |resources.requests.memory       | string     | `1G`      | [Kubernetes Memory requests](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) for a ProxySQL container                                                      |

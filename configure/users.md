@@ -1,4 +1,4 @@
-Secrets
+Users
 ------------------------
 
 As it was already written in the installation part, the operator requires Kubernetes Secrets to be deployed before it is started. The name of the required secrets can be set in `deploy/cr.yaml` under the `spec.secrets` section.

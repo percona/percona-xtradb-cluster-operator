@@ -15,7 +15,7 @@ docs:
         url: ./install/openshift
   - title: Configuration
     children:
-      - title: "Required secrets"
-        url: ./configure/secrets
+      - title: "Users"
+        url: ./configure/users
       - title: "Operator options"
         url: ./configure/operator

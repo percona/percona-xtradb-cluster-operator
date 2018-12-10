@@ -25,7 +25,7 @@ Install Percona XtraDB Cluster on Kubernetes
    $ kubectl apply -f deploy/secrets.yaml
    ```
 
-   More details about secrets can be found in a [separate section](../configure/secrets).
+   More details about secrets can be found in a [separate section](../configure/users).
 
 3. Now RBAC (role-based access control) and Custom Resource Definition for PXC should be created from the following two files: `deploy/rbac.yaml` and `deploy/crd.yaml`. Briefly speaking, role-based access is based on specifically defined roles and actions corresponding to them, allowed to be done on specific Kubernetes resources (details about users and roles can be found in [Kubernetes documentation](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings)). Custom Resource Definition extends the standard set of resources which Kubernetes “knows” about with the new items (in our case ones which are the core of the operator).
 

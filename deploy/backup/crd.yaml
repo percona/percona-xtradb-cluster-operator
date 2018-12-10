@@ -13,3 +13,20 @@ spec:
     - pxc-backup
   scope: Namespaced
   version: v1alpha1
+  additionalPrinterColumns:
+    - name: Cluster
+      type: string
+      description: Cluster name
+      JSONPath: .spec.pxcCluster
+    - name: Status
+      type: string
+      description: Job status
+      JSONPath: .status.state
+    - name: Completed
+      description: Completed time
+      type: date
+      JSONPath: .status.completed
+    - name: Age
+      type: date
+      JSONPath: .metadata.creationTimestamp
+      

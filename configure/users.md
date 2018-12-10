@@ -1,12 +1,12 @@
 Users
 ------------------------
 
-As it was already written in the installation part, the operator requires Kubernetes Secrets to be deployed before it is started. The name of the required secrets can be set in `deploy/cr.yaml` under the `spec.secrets` section.
+As it is written in the installation part, the operator requires Kubernetes Secrets to be deployed before it is started. The name of the required secrets can be set in `deploy/cr.yaml` under the `spec.secrets` section.
 
-### General purpose users
+### Unprivileged users
 
-Only one general purpose user is created - `proxyuser`.
-If you need more general purpose users please run commands below:
+Only one unprivileged (general purpose) user account is created by default - a `proxyuser` one.
+If you need more general purpose users, please run commands below:
 ```bash
 $ kubectl exec -it cluster1-pxc-proxysql-0 -- mysql -h127.0.0.1 -P6032 -uproxyadmin -padmin_password
 mysql> INSERT INTO mysql_users(username,password,default_hostgroup) VALUES ('user1','password1',10);
@@ -15,7 +15,7 @@ mysql> SAVE MYSQL USERS TO MEMORY;
 mysql> SAVE MYSQL USERS TO DISK;
 ```
 
-check newly created user
+Now check the newly created user:
 ```bash
    $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
    percona-client:/$ mysql -h cluster1-pxc-proxysql -uuser1 -ppassword1
@@ -27,7 +27,7 @@ check newly created user
 
 *Secret name field:* `spec.secretsName`
 
-The operator requires system-level PXC Users to automate the PXC deployment.
+The Operator requires system-level PXC users to automate the PXC deployment.
 
 **Warning:** *These users should not be used to run an application.*
 
@@ -43,20 +43,20 @@ The operator requires system-level PXC Users to automate the PXC deployment.
 
 ### Development Mode
 
-To make development and testing easier, a secrets file with default PXC System User/Passwords is located at `deploy/secrets.yaml`.
+To make development and testing easier, `deploy/secrets.yaml` secrets file contains default passwords for PXC system users.
 
-The development-mode credentials from `deploy/secrets.yaml` are:
+These development mode credentials from `deploy/secrets.yaml` are:
 
-|Secret Key   | Secret Value                    |
-|-------------|---------------------------------|
-|root         | <pre>root_password</pre>        |
-|xtrabackup   | <pre>backup_password</pre>      |
-|monitor      | <pre>monitor</pre>              |
-|clustercheck | <pre>clustercheckpassword</pre> |
-|proxyuser    | <pre>s3cret</pre>               |
-|proxyadmin   | <pre>admin_password</pre>       |
-|pmmserver    | <pre>supa|^|pazz</pre>          |
+|Secret Key   | Secret Value           |
+|-------------|------------------------|
+|root         | `root_password`        |
+|xtrabackup   | `backup_password`      |
+|monitor      | `monitor`              |
+|clustercheck | `clustercheckpassword` |
+|proxyuser    | `s3cret`               |
+|proxyadmin   | `admin_password`       |
+|pmmserver    | `supa|^|pazz`          |
 
-**Warning:** *Do not use the default PXC Users in production!*
+**Warning:** *Do not use the default PXC user passwords in production!*
 
 

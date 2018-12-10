@@ -13,7 +13,7 @@ Being a regular MySQL Server instance, each node contains the same set of data s
 
 To provide high availability operator uses [node affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity) to run PXC instances on separate worker nodes if possible. If some node fails, the pod with it is automatically re-created on another node.
 
-![Operator](./assets/images/operator.png "Percona Server for MongoDB operator"){: .align-center}
+![The Operator](./assets/images/operator.png "Percona XtraDB Cluster Operator"){: .align-center}
 
 To provide data storage for stateful applications, Kubernetes uses Persistent Volumes. A *PersistentVolumeClaim* (PVC) is used to implement the automatic storage provisioning to pods.  If a failure occurs, the Container Storage Interface (CSI) should be able to re-mount storage on a different node. The PVC StorageClass must support this feature (Kubernetes and OpenShift support this in versions 1.9 and 3.9 respectively).
 

@@ -44,8 +44,7 @@ func (h *PXC) backup(bcp *api.PerconaXtraDBBackup) error {
 	case job.Status.Failed == 1:
 		status.State = api.BackupFailed
 	}
-	// jjj, _ := json.Marshal(job.Status)
-	// fmt.Printf("\n\n%s\n\n", jjj)
+
 	updateBackupStatus(bcp, status)
 
 	return nil

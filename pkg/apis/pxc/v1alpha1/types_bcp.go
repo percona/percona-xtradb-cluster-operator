@@ -22,12 +22,28 @@ type PerconaXtraDBBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster string `json:"pxcCluster"`
-	Storage    string `json:"storage,omitempty"`
+	PXCCluster string          `json:"pxcCluster"`
+	Volume     PXCBackupVolume `json:"volume,omitempty"`
+}
+
+type PXCBackupVolume struct {
+	Size         string  `json:"size,omitempty"`
+	StorageClass *string `json:"storageClass,omitempty"`
 }
 
 type PXCBackupStatus struct {
+	State       PXCBackupState `json:"state,omitempty"`
+	CompletedAt *metav1.Time   `json:"completed,omitempty"`
 }
+
+type PXCBackupState string
+
+const (
+	BackupStarting  PXCBackupState = "Starting"
+	BackupRunning                  = "Running"
+	BackupFailed                   = "Failed"
+	BackupSucceeded                = "Succeeded"
+)
 
 // OwnerRef returns OwnerReference to object
 func (cr *PerconaXtraDBBackup) OwnerRef() metav1.OwnerReference {

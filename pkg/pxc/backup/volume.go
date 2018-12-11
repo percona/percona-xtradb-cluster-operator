@@ -2,10 +2,11 @@ package backup
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
-
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -46,25 +47,32 @@ type VolumeStatus string
 
 const (
 	VolumeNotExists VolumeStatus = "NotExists"
-	VolumeBound                  = corev1.ClaimBound
-	VolumePending                = corev1.ClaimPending
-	VolumeLost                   = corev1.ClaimLost
+	VolumeBound                  = VolumeStatus(corev1.ClaimBound)
+	VolumePending                = VolumeStatus(corev1.ClaimPending)
+	VolumeLost                   = VolumeStatus(corev1.ClaimLost)
 )
 
 // Status returns the volume status
-func (p *PVC) Status() VolumeStatus {
+func (p *PVC) Status() (VolumeStatus, error) {
+	err := sdk.Get(p.obj)
+	if err != nil {
+		return VolumeNotExists, err
+	}
 
-	return VolumeNotExists
+	return VolumeStatus(p.obj.Status.Phase), nil
 }
 
 // Create creates PVC object via sdk
-func (p *PVC) Create(spec *api.PXCBackupSpec) error {
-	rvolStorage, err := resource.ParseQuantity(spec.Storage)
+func (p *PVC) Create(spec api.PXCBackupVolume) (VolumeStatus, error) {
+	status := VolumeNotExists
+
+	rvolStorage, err := resource.ParseQuantity(spec.Size)
 	if err != nil {
-		return fmt.Errorf("wrong storage resources: %v", err)
+		return status, fmt.Errorf("wrong storage resources: %v", err)
 	}
 
 	p.obj.Spec = corev1.PersistentVolumeClaimSpec{
+		StorageClassName: spec.StorageClass,
 		AccessModes: []corev1.PersistentVolumeAccessMode{
 			corev1.ReadWriteOnce,
 		},
@@ -75,5 +83,23 @@ func (p *PVC) Create(spec *api.PXCBackupSpec) error {
 		},
 	}
 
-	return sdk.Create(p.obj)
+	err = sdk.Create(p.obj)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return status, fmt.Errorf("sdk create: %v", err)
+	}
+
+	for i := time.Duration(1); i <= 5; i++ {
+		status, err = p.Status()
+		if err != nil {
+			return status, fmt.Errorf("get status: %v", err)
+		}
+
+		if status != VolumePending {
+			return status, nil
+		}
+
+		time.Sleep(time.Second * i)
+	}
+
+	return status, nil
 }

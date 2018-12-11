@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"fmt"
+	"reflect"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/backup"
@@ -9,34 +10,51 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 )
 
-func (*PXC) backup(bcp *api.PerconaXtraDBBackup) error {
-	// pvc, err := backup.PVCc(bcp)
-	// if err != nil {
-	// 	return fmt.Errorf("volume error: %v", err)
-	// }
-	// addOwnerRefToObject(pvc, bcp.OwnerRef())
-
-	// err = sdk.Create(pvc)
-	// if err != nil && !errors.IsAlreadyExists(err) {
-	// 	return fmt.Errorf("pvc create: %v", err)
-	// }
-
+func (h *PXC) backup(bcp *api.PerconaXtraDBBackup) error {
 	pvc := backup.NewPVC(bcp)
-	switch pvc.Status() {
-	case backup.VolumeNotExists:
-		err := pvc.Create(&bcp.Spec)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("pvc create: %v", err)
-		}
-	}
-
 	job := backup.Job(bcp)
 	addOwnerRefToObject(job, bcp.OwnerRef())
 
-	err := sdk.Create(job)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("job create: %v", err)
+	vstatus, err := pvc.Create(bcp.Spec.Volume)
+	if err != nil {
+		return fmt.Errorf("pvc create: %v", err)
 	}
 
+	switch vstatus {
+	case backup.VolumeBound:
+		err = sdk.Create(job)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("job create: %v", err)
+		}
+	default:
+		return fmt.Errorf("volume not ready, status: %s", vstatus)
+	}
+
+	sdk.Get(job)
+	status := &api.PXCBackupStatus{
+		State: api.BackupStarting,
+	}
+
+	switch {
+	case job.Status.Active == 1:
+		status.State = api.BackupRunning
+	case job.Status.Succeeded == 1:
+		status.State = api.BackupSucceeded
+		status.CompletedAt = job.Status.CompletionTime
+	case job.Status.Failed == 1:
+		status.State = api.BackupFailed
+	}
+
+	updateBackupStatus(bcp, status)
+
 	return nil
+}
+
+func updateBackupStatus(bcp *api.PerconaXtraDBBackup, status *api.PXCBackupStatus) error {
+	// don't update the status if there aren't any changes.
+	if reflect.DeepEqual(bcp.Status, *status) {
+		return nil
+	}
+	bcp.Status = *status
+	return sdk.Update(bcp)
 }

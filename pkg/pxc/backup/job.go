@@ -1,60 +1,64 @@
 package backup
 
 import (
+	"reflect"
+
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-// Job returns the backup job
-func Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
+type Jobster interface {
+	Create(spec api.PXCBackupSpec) error
+	UpdateStatus(cr *api.PerconaXtraDBBackup)
+}
+
+func jobSpec(spec api.PXCBackupSpec, name string) batchv1.JobSpec {
 	pvc := corev1.Volume{
-		Name: cr.Spec.PXCCluster + "-backup-" + cr.Name,
+		Name: spec.PXCCluster + "-backup-" + name,
 	}
 	pvc.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-		ClaimName: cr.Spec.PXCCluster + volumeNamePostfix + "." + cr.Name,
+		ClaimName: spec.PXCCluster + volumeNamePostfix + "." + name,
 	}
 
-	return &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "batch/v1",
-			Kind:       "Job",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Spec.PXCCluster + "-xtrabackup." + cr.Name,
-			Namespace: cr.Namespace,
-		},
-		Spec: batchv1.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:    "xtrabackup",
-							Image:   "perconalab/backupjob-openshift",
-							Command: []string{"bash", "/usr/bin/backup.sh"},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      pvc.Name,
-									MountPath: "/backup",
-								},
+	return batchv1.JobSpec{
+		Template: corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:    "xtrabackup",
+						Image:   "perconalab/backupjob-openshift",
+						Command: []string{"bash", "/usr/bin/backup.sh"},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      pvc.Name,
+								MountPath: "/backup",
 							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "NODE_NAME",
-									Value: cr.Spec.PXCCluster + "-pxc-nodes",
-								},
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "NODE_NAME",
+								Value: spec.PXCCluster + "-pxc-nodes",
 							},
 						},
 					},
-					RestartPolicy: corev1.RestartPolicyNever,
-					Volumes: []corev1.Volume{
-						pvc,
-					},
+				},
+				RestartPolicy: corev1.RestartPolicyNever,
+				Volumes: []corev1.Volume{
+					pvc,
 				},
 			},
-			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
 	}
+}
+
+func updateStatus(bcp *api.PerconaXtraDBBackup, status *api.PXCBackupStatus) error {
+	// don't update the status if there aren't any changes.
+	if reflect.DeepEqual(bcp.Status, *status) {
+		return nil
+	}
+	bcp.Status = *status
+	return sdk.Update(bcp)
 }

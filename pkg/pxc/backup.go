@@ -12,17 +12,23 @@ import (
 
 func (h *PXC) backup(bcp *api.PerconaXtraDBBackup) error {
 	pvc := backup.NewPVC(bcp)
-	job := backup.Job(bcp)
-	addOwnerRefToObject(job, bcp.OwnerRef())
 
 	vstatus, err := pvc.Create(bcp.Spec.Volume)
 	if err != nil {
 		return fmt.Errorf("pvc create: %v", err)
 	}
 
+	var job backup.Jobster
+
+	if bcp.Spec.Schedule == nil {
+		job = backup.NewJob(bcp)
+	} else {
+		job = backup.NewJobScheduled(bcp)
+	}
+
 	switch vstatus {
 	case backup.VolumeBound:
-		err = sdk.Create(job)
+		err = job.Create(bcp.Spec)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("job create: %v", err)
 		}
@@ -30,22 +36,7 @@ func (h *PXC) backup(bcp *api.PerconaXtraDBBackup) error {
 		return fmt.Errorf("volume not ready, status: %s", vstatus)
 	}
 
-	sdk.Get(job)
-	status := &api.PXCBackupStatus{
-		State: api.BackupStarting,
-	}
-
-	switch {
-	case job.Status.Active == 1:
-		status.State = api.BackupRunning
-	case job.Status.Succeeded == 1:
-		status.State = api.BackupSucceeded
-		status.CompletedAt = job.Status.CompletionTime
-	case job.Status.Failed == 1:
-		status.State = api.BackupFailed
-	}
-
-	updateBackupStatus(bcp, status)
+	job.UpdateStatus(bcp)
 
 	return nil
 }

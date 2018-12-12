@@ -15,7 +15,7 @@ Install Percona XtraDB Cluster on Kubernetes
    $ kubectl config set-context $(kubectl config current-context) --namespace=pxc
    ```
 
-2. Now that’s time to add the PXC Users secrets to Kubernetes. They should be placed in the data section of the `deploy/secrets.yaml` file as base64-encoded logins and passwords for the user accounts (see https://kubernetes.io/docs/concepts/configuration/secret/ for details).
+2. Now that’s time to add the PXC Users secrets to Kubernetes. They should be placed in the data section of the `deploy/secrets.yaml` file as base64-encoded logins and passwords for the user accounts (see [Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/secret/) for details).
 
    **Note:** *the following command can be used to get base64-encoded password from a plain text string:* `$ echo -n 'plain-text-password' | base64`
 

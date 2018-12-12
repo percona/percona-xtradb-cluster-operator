@@ -12,19 +12,33 @@ spec:
       labels:
         name: percona-xtradb-cluster-operator
     spec:
+      serviceAccountName: percona-xtradb-cluster-operator
       containers:
         - name: percona-xtradb-cluster-operator
-          image: percona/percona-xtradb-cluster-operator:0.1.0
+          # Replace this with the built image name
+          image: REPLACE_IMAGE
           ports:
           - containerPort: 60000
             name: metrics
           command:
           - percona-xtradb-cluster-operator
           imagePullPolicy: Always
+          readinessProbe:
+            exec:
+              command:
+                - stat
+                - /tmp/operator-sdk-ready
+            initialDelaySeconds: 4
+            periodSeconds: 10
+            failureThreshold: 1
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "percona-xtradb-cluster-operator"

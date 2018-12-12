@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ResourceQuota
-metadata:
-  name: simple-quota
-spec:
-  hard:
-    requests.memory: "100M"
-    limits.memory: "2G"

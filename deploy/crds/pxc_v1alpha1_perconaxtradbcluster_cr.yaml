@@ -1,0 +1,7 @@
+apiVersion: pxc.percona.com/v1alpha1
+kind: PerconaXtraDBCluster
+metadata:
+  name: example-perconaxtradbcluster
+spec:
+  # Add fields here
+  size: 3

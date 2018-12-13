@@ -2,21 +2,26 @@ package perconaxtradbcluster
 
 import (
 	"context"
+	"fmt"
 
-	pxcv1alpha1 "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+	// corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	// "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/version"
 )
 
 var log = logf.Log.WithName("controller_perconaxtradbcluster")
@@ -29,12 +34,26 @@ var log = logf.Log.WithName("controller_perconaxtradbcluster")
 // Add creates a new PerconaXtraDBCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	r, err := newReconciler(mgr)
+	if err != nil {
+		return err
+	}
+
+	return add(mgr, r)
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcilePerconaXtraDBCluster{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
+	sv, err := version.Server()
+	if err != nil {
+		return nil, fmt.Errorf("get version: %v", err)
+	}
+
+	return &ReconcilePerconaXtraDBCluster{
+		client:        mgr.GetClient(),
+		scheme:        mgr.GetScheme(),
+		serverVersion: sv,
+	}, nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -46,20 +65,20 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource PerconaXtraDBCluster
-	err = c.Watch(&source.Kind{Type: &pxcv1alpha1.PerconaXtraDBCluster{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &api.PerconaXtraDBCluster{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner PerconaXtraDBCluster
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &pxcv1alpha1.PerconaXtraDBCluster{},
-	})
-	if err != nil {
-		return err
-	}
+	// err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	// 	IsController: true,
+	// 	OwnerType:    &api.PerconaXtraDBCluster{},
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -72,6 +91,8 @@ type ReconcilePerconaXtraDBCluster struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+
+	serverVersion *api.ServerVersion
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBCluster object and makes changes based on the state read
@@ -86,8 +107,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	reqLogger.Info("Reconciling PerconaXtraDBCluster")
 
 	// Fetch the PerconaXtraDBCluster instance
-	instance := &pxcv1alpha1.PerconaXtraDBCluster{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	o := &api.PerconaXtraDBCluster{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, o)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -99,54 +120,152 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	// sv, err := version.Server()
+	// if err != nil {
+	// 	return reconcile.Result{}, fmt.Errorf("get version: %v", err)
+	// }
+	// h := pxc.New(*sv)
 
-	// Set PerconaXtraDBCluster instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
+	// 	// use the CR's defenition of platform in case it has set
+	// 	if o.Spec.Platform != nil {
+	// 		h.serverVersion.Platform = *o.Spec.Platform
+	// 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+	o.Spec.SetDefaults()
+
+	// TODO (ap): the status checking now is fake. Just a stub for further work
+	if o.Status.State == api.ClusterStateInit {
+		err := r.deploy(o)
 		if err != nil {
+			// log.Error(err, "cluster deploy error:")
 			return reconcile.Result{}, err
 		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
 	}
 
+	err = r.updatePod(statefulset.NewNode(o), o.Spec.PXC, o)
+	if err != nil {
+		log.Error(err, "pxc upgrade error")
+	}
+
+	if o.Spec.ProxySQL.Enabled {
+		err = r.updatePod(statefulset.NewProxy(o), o.Spec.ProxySQL, o)
+		if err != nil {
+			log.Error(err, "proxySQL upgrade error:")
+		}
+	} else {
+		r.client.Delete(context.TODO(), statefulset.NewProxy(o).StatefulSet())
+	}
+
+	// // Define a new Pod object
+	// pod := newPodForCR(instance)
+
+	// // Set PerconaXtraDBCluster instance as the owner and controller
+	// if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	// 	return reconcile.Result{}, err
+	// }
+
+	// // Check if this Pod already exists
+	// found := &corev1.Pod{}
+	// err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	// if err != nil && errors.IsNotFound(err) {
+	// 	reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
+	// 	err = r.client.Create(context.TODO(), pod)
+	// 	if err != nil {
+	// 		return reconcile.Result{}, err
+	// 	}
+
+	// 	// Pod created successfully - don't requeue
+	// 	return reconcile.Result{}, nil
+	// } else if err != nil {
+	// 	return reconcile.Result{}, err
+	// }
+
 	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *pxcv1alpha1.PerconaXtraDBCluster) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
+	serverVersion := r.serverVersion
+	if cr.Spec.Platform != nil {
+		serverVersion.Platform = *cr.Spec.Platform
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
+
+	nodeSet, err := pxc.StatefulSet(statefulset.NewNode(cr), cr.Spec.PXC, cr, serverVersion)
+	if err != nil {
+		return err
 	}
+
+	// err = controllerutil.SetControllerReference(cr, nodeSet, r.scheme)
+	// if err != nil {
+	// 	return err
+	// }
+
+	err = r.client.Create(context.TODO(), nodeSet)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create newStatefulSetNode: %v", err)
+	}
+
+	nodesService := pxc.NewServiceNodes(cr)
+	// err = controllerutil.SetControllerReference(cr, nodesService, r.scheme)
+	// if err != nil {
+	// 	return err
+	// }
+
+	err = r.client.Create(context.TODO(), nodesService)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create PXC Service: %v", err)
+	}
+
+	if cr.Spec.ProxySQL.Enabled {
+		proxySet, err := pxc.StatefulSet(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr, serverVersion)
+		if err != nil {
+			return fmt.Errorf("failed to create ProxySQL Service: %v", err)
+		}
+		// err = controllerutil.SetControllerReference(cr, proxySet, r.scheme)
+		// if err != nil {
+		// 	return err
+		// }
+
+		err = r.client.Create(context.TODO(), proxySet)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create newStatefulSetProxySQL: %v", err)
+		}
+
+		proxys := pxc.NewServiceProxySQL(cr)
+		// err = controllerutil.SetControllerReference(cr, proxys, r.scheme)
+		// if err != nil {
+		// 	return err
+		// }
+
+		err = r.client.Create(context.TODO(), proxys)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create PXC Service: %v", err)
+		}
+	}
+
+	return nil
 }
+
+// // newPodForCR returns a busybox pod with the same name/namespace as the cr
+// func newPodForCR(cr *api.PerconaXtraDBCluster) *corev1.Pod {
+// 	labels := map[string]string{
+// 		"app": cr.Name,
+// 	}
+// 	return &corev1.Pod{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      cr.Name + "-pod",
+// 			Namespace: cr.Namespace,
+// 			Labels:    labels,
+// 		},
+// 		Spec: corev1.PodSpec{
+// 			Containers: []corev1.Container{
+// 				{
+// 					Name:    "busybox",
+// 					Image:   "busybox",
+// 					Command: []string{"sleep", "3600"},
+// 				},
+// 			},
+// 		},
+// 	}
+// }

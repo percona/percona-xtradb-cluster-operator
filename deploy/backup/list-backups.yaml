@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: list-backups
+spec:
+  containers:
+  - image: busybox
+    imagePullPolicy: IfNotPresent
+    name: list-backups
+    volumeMounts:
+    - name: backup
+      mountPath: /backup
+    stdin: true
+    stdinOnce: true
+  volumes:
+  - name: backup
+    persistentVolumeClaim:
+      claimName: backup-volume

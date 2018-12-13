@@ -7,8 +7,9 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/percona-xtradb-cluster-operator/pkg/apis"
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/percona-xtradb-cluster-operator/pkg/controller"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/controller"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/version"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
@@ -36,6 +37,13 @@ func main() {
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
 	logf.SetLogger(logf.ZapLogger(false))
+
+	sv, err := version.Server()
+	if err != nil {
+		log.Error(err, "unable to define server version")
+		os.Exit(1)
+	}
+	log.Info("Runs on", "platform", sv.Platform, "version", sv.Info)
 
 	printVersion()
 

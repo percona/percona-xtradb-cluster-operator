@@ -3,15 +3,13 @@ package perconaxtradbcluster
 import (
 	"context"
 	"fmt"
+	"time"
 
-	// corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	// "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -106,6 +104,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling PerconaXtraDBCluster")
 
+	rr := reconcile.Result{
+		RequeueAfter: time.Second * 5,
+	}
 	// Fetch the PerconaXtraDBCluster instance
 	o := &api.PerconaXtraDBCluster{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, o)
@@ -114,15 +115,21 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			return reconcile.Result{}, nil
+			return rr, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return rr, err
 	}
 
+	// gvk, err := apiutil.GVKForObject(o, r.scheme)
+	// if err != nil {
+	// 	return rr, err
+	// }
+
+	// fmt.Println("KIND3=>>", gvk.Kind)
 	// sv, err := version.Server()
 	// if err != nil {
-	// 	return reconcile.Result{}, fmt.Errorf("get version: %v", err)
+	// 	return rr, fmt.Errorf("get version: %v", err)
 	// }
 	// h := pxc.New(*sv)
 
@@ -138,7 +145,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		err := r.deploy(o)
 		if err != nil {
 			// log.Error(err, "cluster deploy error:")
-			return reconcile.Result{}, err
+			return rr, err
 		}
 	}
 
@@ -156,14 +163,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		r.client.Delete(context.TODO(), statefulset.NewProxy(o).StatefulSet())
 	}
 
-	// // Define a new Pod object
-	// pod := newPodForCR(instance)
-
-	// // Set PerconaXtraDBCluster instance as the owner and controller
-	// if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-	// 	return reconcile.Result{}, err
-	// }
-
 	// // Check if this Pod already exists
 	// found := &corev1.Pod{}
 	// err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
@@ -171,18 +170,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	// 	reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
 	// 	err = r.client.Create(context.TODO(), pod)
 	// 	if err != nil {
-	// 		return reconcile.Result{}, err
+	// 		return rr, err
 	// 	}
 
 	// 	// Pod created successfully - don't requeue
-	// 	return reconcile.Result{}, nil
+	// 	return rr, nil
 	// } else if err != nil {
-	// 	return reconcile.Result{}, err
+	// 	return rr, err
 	// }
 
 	// Pod already exists - don't requeue
 	// reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
-	return reconcile.Result{}, nil
+	return rr, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
@@ -196,10 +195,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	// err = controllerutil.SetControllerReference(cr, nodeSet, r.scheme)
-	// if err != nil {
-	// 	return err
-	// }
+	err = setControllerReference(cr, nodeSet, r.scheme)
+	if err != nil {
+		return err
+	}
 
 	err = r.client.Create(context.TODO(), nodeSet)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -207,10 +206,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	nodesService := pxc.NewServiceNodes(cr)
-	// err = controllerutil.SetControllerReference(cr, nodesService, r.scheme)
-	// if err != nil {
-	// 	return err
-	// }
+	err = setControllerReference(cr, nodesService, r.scheme)
+	if err != nil {
+		return err
+	}
 
 	err = r.client.Create(context.TODO(), nodesService)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -222,10 +221,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if err != nil {
 			return fmt.Errorf("failed to create ProxySQL Service: %v", err)
 		}
-		// err = controllerutil.SetControllerReference(cr, proxySet, r.scheme)
-		// if err != nil {
-		// 	return err
-		// }
+		err = setControllerReference(cr, proxySet, r.scheme)
+		if err != nil {
+			return err
+		}
 
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !errors.IsAlreadyExists(err) {
@@ -233,10 +232,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 
 		proxys := pxc.NewServiceProxySQL(cr)
-		// err = controllerutil.SetControllerReference(cr, proxys, r.scheme)
-		// if err != nil {
-		// 	return err
-		// }
+		err = setControllerReference(cr, proxys, r.scheme)
+		if err != nil {
+			return err
+		}
 
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
@@ -247,25 +246,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
-// // newPodForCR returns a busybox pod with the same name/namespace as the cr
-// func newPodForCR(cr *api.PerconaXtraDBCluster) *corev1.Pod {
-// 	labels := map[string]string{
-// 		"app": cr.Name,
-// 	}
-// 	return &corev1.Pod{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      cr.Name + "-pod",
-// 			Namespace: cr.Namespace,
-// 			Labels:    labels,
-// 		},
-// 		Spec: corev1.PodSpec{
-// 			Containers: []corev1.Container{
-// 				{
-// 					Name:    "busybox",
-// 					Image:   "busybox",
-// 					Command: []string{"sleep", "3600"},
-// 				},
-// 			},
-// 		},
-// 	}
-// }
+func setControllerReference(cr *api.PerconaXtraDBCluster, obj metav1.Object, scheme *runtime.Scheme) error {
+	ownerRef, err := cr.OwnerRef(scheme)
+	if err != nil {
+		return err
+	}
+	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
+	return nil
+}

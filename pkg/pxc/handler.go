@@ -1,16 +1,14 @@
 package pxc
 
-import (
-	// 	"context"
-	// 	"fmt"
+// 	"context"
+// 	"fmt"
 
-	// 	"github.com/operator-framework/operator-sdk/pkg/sdk"
-	// 	"github.com/sirupsen/logrus"
-	// 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
-	// 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-)
+// 	"github.com/operator-framework/operator-sdk/pkg/sdk"
+// 	"github.com/sirupsen/logrus"
+// 	"k8s.io/apimachinery/pkg/api/errors"
+
+// 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+// 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 
 // func (h *PXC) Handle(ctx context.Context, event sdk.Event) error {
 // 	// Just ignore it for now.
@@ -98,6 +96,6 @@ import (
 // }
 
 // addOwnerRefToObject appends the desired OwnerReference to the object
-func addOwnerRefToObject(obj metav1.Object, ownerRef metav1.OwnerReference) {
-	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
-}
+// func addOwnerRefToObject(obj metav1.Object, ownerRef metav1.OwnerReference) {
+// 	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
+// }

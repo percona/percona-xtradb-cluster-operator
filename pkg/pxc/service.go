@@ -38,7 +38,7 @@ func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 		},
 	}
-	addOwnerRefToObject(obj, cr.OwnerRef())
+	// addOwnerRefToObject(obj, cr.OwnerRef())
 	return obj
 }
 
@@ -82,6 +82,6 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 		},
 	}
-	addOwnerRefToObject(obj, cr.OwnerRef())
+	// addOwnerRefToObject(obj, cr.OwnerRef())
 	return obj
 }

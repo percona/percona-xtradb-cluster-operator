@@ -9,9 +9,13 @@ rules:
   - perconaxtradbclusters
   - perconaxtradbbackups
   verbs:
-  - "list"
-  - "update"
-  - "watch"
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 - apiGroups:
   - ""
   resources:
@@ -21,11 +25,13 @@ rules:
   - persistentvolumeclaims
   - secrets
   verbs:
-  - "create"
-  - "update"
-  - "delete"
-  - "get"
-  - "list"
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 - apiGroups:
   - apps
   resources:
@@ -33,10 +39,25 @@ rules:
   - replicasets
   - statefulsets
   verbs:
-  - "create"
-  - "update"
-  - "delete"
-  - "get"
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 
 ---
 

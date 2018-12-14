@@ -82,6 +82,6 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 		},
 	}
-	// addOwnerRefToObject(obj, cr.OwnerRef())
+
 	return obj
 }

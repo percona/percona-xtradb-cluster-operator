@@ -132,8 +132,6 @@ func (cr *PerconaXtraDBCluster) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerRe
 
 	trueVar := true
 
-	// fmt.Printf("\n\nKind: %v\nName: %v\nUID: %v\n\n", cr.Kind, cr.Name, cr.UID)
-
 	return metav1.OwnerReference{
 		APIVersion: gvk.GroupVersion().String(),
 		Kind:       gvk.Kind,
@@ -141,8 +139,4 @@ func (cr *PerconaXtraDBCluster) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerRe
 		UID:        cr.GetUID(),
 		Controller: &trueVar,
 	}, nil
-}
-
-func init() {
-	SchemeBuilder.Register(&PerconaXtraDBCluster{}, &PerconaXtraDBClusterList{})
 }

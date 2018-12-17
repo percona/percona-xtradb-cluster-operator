@@ -163,24 +163,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		r.client.Delete(context.TODO(), statefulset.NewProxy(o).StatefulSet())
 	}
 
-	// // Check if this Pod already exists
-	// found := &corev1.Pod{}
-	// err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	// if err != nil && errors.IsNotFound(err) {
-	// 	reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-	// 	err = r.client.Create(context.TODO(), pod)
-	// 	if err != nil {
-	// 		return rr, err
-	// 	}
-
-	// 	// Pod created successfully - don't requeue
-	// 	return rr, nil
-	// } else if err != nil {
-	// 	return rr, err
-	// }
-
-	// Pod already exists - don't requeue
-	// reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
 	return rr, nil
 }
 

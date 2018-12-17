@@ -3,7 +3,6 @@ kind: "PerconaXtraDBBackup"
 metadata:
   name: "backup1"
 spec:
-  schedule: "*/1 * * * *"
   pxcCluster: "cluster1"
   volume:
     # storageClass: standard

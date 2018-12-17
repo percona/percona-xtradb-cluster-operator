@@ -15,4 +15,4 @@ spec:
   volumes:
   - name: backup
     persistentVolumeClaim:
-      claimName: backup-volume
+      claimName: cluster1-backup.backup1

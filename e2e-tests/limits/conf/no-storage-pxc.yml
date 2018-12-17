@@ -1,0 +1,22 @@
+apiVersion: "pxc.percona.com/v1alpha1"
+kind: "PerconaXtraDBCluster"
+metadata:
+  name: no-storage
+spec:
+  secretsName: my-cluster-secrets
+  pxc:
+    size: 3
+    image: perconalab/pxc-openshift:0.1.0
+    volumeSpec:
+      accessModes: [ "ReadWriteOnce" ]
+  proxysql:
+    enabled: true
+    size: 1
+    image: perconalab/proxysql-openshift:0.1.0
+    volumeSpec:
+      accessModes: [ "ReadWriteOnce" ]
+  pmm:
+    enabled: false
+    image: perconalab/pmm-client:1.17.0
+    serverHost: monitoring-service
+    serverUser: pmm

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: kubernetes.io/gce-pd
+  finalizers:
+  - kubernetes.io/pvc-protection
+  labels:
+    app: pxc
+    cluster: some-name
+    component: some-name-pxc-nodes
+  name: datadir-some-name-pxc-node-3
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 6Gi
+  storageClassName: standard

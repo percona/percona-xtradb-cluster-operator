@@ -24,11 +24,6 @@ import (
 
 var log = logf.Log.WithName("controller_perconaxtradbcluster")
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new PerconaXtraDBCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -68,16 +63,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner PerconaXtraDBCluster
-	// err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-	// 	IsController: true,
-	// 	OwnerType:    &api.PerconaXtraDBCluster{},
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-
 	return nil
 }
 
@@ -95,8 +80,6 @@ type ReconcilePerconaXtraDBCluster struct {
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBCluster object and makes changes based on the state read
 // and what is in the PerconaXtraDBCluster.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -118,46 +101,25 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return rr, nil
 		}
 		// Error reading the object - requeue the request.
-		return rr, err
+		return reconcile.Result{}, err
 	}
-
-	// gvk, err := apiutil.GVKForObject(o, r.scheme)
-	// if err != nil {
-	// 	return rr, err
-	// }
-
-	// fmt.Println("KIND3=>>", gvk.Kind)
-	// sv, err := version.Server()
-	// if err != nil {
-	// 	return rr, fmt.Errorf("get version: %v", err)
-	// }
-	// h := pxc.New(*sv)
-
-	// 	// use the CR's defenition of platform in case it has set
-	// 	if o.Spec.Platform != nil {
-	// 		h.serverVersion.Platform = *o.Spec.Platform
-	// 	}
 
 	o.Spec.SetDefaults()
 
-	// TODO (ap): the status checking now is fake. Just a stub for further work
-	if o.Status.State == api.ClusterStateInit {
-		err := r.deploy(o)
-		if err != nil {
-			// log.Error(err, "cluster deploy error:")
-			return rr, err
-		}
+	err = r.deploy(o)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	err = r.updatePod(statefulset.NewNode(o), o.Spec.PXC, o)
 	if err != nil {
-		log.Error(err, "pxc upgrade error")
+		return reconcile.Result{}, fmt.Errorf("pxc upgrade error: %v", err)
 	}
 
 	if o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(statefulset.NewProxy(o), o.Spec.ProxySQL, o)
 		if err != nil {
-			log.Error(err, "proxySQL upgrade error:")
+			return reconcile.Result{}, fmt.Errorf("proxySQL upgrade error: %v", err)
 		}
 	} else {
 		r.client.Delete(context.TODO(), statefulset.NewProxy(o).StatefulSet())

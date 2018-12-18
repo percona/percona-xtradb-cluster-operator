@@ -8,7 +8,7 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func (h *PXC) newServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
+func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -38,11 +38,11 @@ func (h *PXC) newServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 		},
 	}
-	addOwnerRefToObject(obj, cr.OwnerRef())
+	// addOwnerRefToObject(obj, cr.OwnerRef())
 	return obj
 }
 
-func (h *PXC) newServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
+func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -82,6 +82,6 @@ func (h *PXC) newServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 		},
 	}
-	addOwnerRefToObject(obj, cr.OwnerRef())
+
 	return obj
 }

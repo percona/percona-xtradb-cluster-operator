@@ -8,16 +8,8 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-// Job returns the backup job
-func Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
-	pvc := corev1.Volume{
-		Name: cr.Spec.PXCCluster + "-backup-" + cr.Name,
-	}
-	pvc.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-		ClaimName: cr.Spec.PXCCluster + volumeNamePostfix + "." + cr.Name,
-	}
-
-	return &batchv1.Job{
+func NewJob(cr *api.PerconaXtraDBBackup) *batchv1.Job {
+	jb := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
 			Kind:       "Job",
@@ -26,35 +18,47 @@ func Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 			Name:      cr.Spec.PXCCluster + "-xtrabackup." + cr.Name,
 			Namespace: cr.Namespace,
 		},
-		Spec: batchv1.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:    "xtrabackup",
-							Image:   "perconalab/backupjob-openshift",
-							Command: []string{"bash", "/usr/bin/backup.sh"},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      pvc.Name,
-									MountPath: "/backup",
-								},
+		Spec: jobSpec(cr.Spec, cr.Name),
+	}
+
+	return jb
+}
+
+func jobSpec(spec api.PXCBackupSpec, name string) batchv1.JobSpec {
+	pvc := corev1.Volume{
+		Name: spec.PXCCluster + "-backup-" + name,
+	}
+	pvc.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
+		ClaimName: spec.PXCCluster + volumeNamePostfix + "." + name,
+	}
+
+	return batchv1.JobSpec{
+		Template: corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:    "xtrabackup",
+						Image:   "perconalab/backupjob-openshift",
+						Command: []string{"bash", "/usr/bin/backup.sh"},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      pvc.Name,
+								MountPath: "/backup",
 							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "NODE_NAME",
-									Value: cr.Spec.PXCCluster + "-pxc-nodes",
-								},
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "NODE_NAME",
+								Value: spec.PXCCluster + "-pxc-nodes",
 							},
 						},
 					},
-					RestartPolicy: corev1.RestartPolicyNever,
-					Volumes: []corev1.Volume{
-						pvc,
-					},
+				},
+				RestartPolicy: corev1.RestartPolicyNever,
+				Volumes: []corev1.Volume{
+					pvc,
 				},
 			},
-			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
 	}
 }

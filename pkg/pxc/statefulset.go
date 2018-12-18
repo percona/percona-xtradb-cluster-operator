@@ -9,9 +9,10 @@ import (
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
-func (h *PXC) StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
+// StatefulSet returns StatefulSet according for app to podSpec
+func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, sv *api.ServerVersion) (*appsv1.StatefulSet, error) {
 	var fsgroup *int64
-	if h.serverVersion.Platform == api.PlatformKubernetes {
+	if sv.Platform == api.PlatformKubernetes {
 		var tp int64 = 1001
 		fsgroup = &tp
 	}
@@ -62,8 +63,6 @@ func (h *PXC) StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.Per
 		},
 		VolumeClaimTemplates: pvcs,
 	}
-
-	addOwnerRefToObject(obj, cr.OwnerRef())
 
 	return obj, nil
 }

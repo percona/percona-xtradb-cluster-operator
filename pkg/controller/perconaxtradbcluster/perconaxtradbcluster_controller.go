@@ -19,6 +19,7 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/version"
 )
 
@@ -184,6 +185,20 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create PXC Service: %v", err)
+		}
+	}
+
+	if cr.Spec.Backup != nil {
+		for _, bcp := range *cr.Spec.Backup {
+			bcpjob := backup.NewScheduled(cr, &bcp)
+			err = setControllerReference(cr, bcpjob, r.scheme)
+			if err != nil {
+				return err
+			}
+			err := r.client.Create(context.TODO(), bcpjob)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				return fmt.Errorf("failed to create scheduled backup '%s': %v", bcp.Name, err)
+			}
 		}
 	}
 

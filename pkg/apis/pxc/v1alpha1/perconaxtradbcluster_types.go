@@ -22,7 +22,7 @@ type PerconaXtraDBClusterSpec struct {
 type PXCScheduledBackup struct {
 	Name     string          `json:"name,omitempty"`
 	Schedule string          `json:"schedule,omitempty"`
-	Keep     *int32          `json:"keep,omitempty"`
+	Keep     int             `json:"keep,omitempty"`
 	Volume   PXCBackupVolume `json:"volume,omitempty"`
 }
 

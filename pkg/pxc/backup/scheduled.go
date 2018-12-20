@@ -75,7 +75,7 @@ cat <<-EOF | kubectl apply -f -
 		metadata:
 		  name: "cron-${pxcCluster}-$(date -u "+%Y%m%d%H%M%S")"
 		  labels:
-		    parentCron: "` + spec.Name + `"
+		    ancestor: "` + spec.Name + `"
 		    cluster: "` + cluster + `"
 		spec:
 		  pxcCluster: "${pxcCluster}"

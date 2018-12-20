@@ -8,7 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -20,7 +19,6 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/version"
 )
 
@@ -127,7 +125,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		r.client.Delete(context.TODO(), statefulset.NewProxy(o).StatefulSet())
 	}
 
-	return rr, nil
+	err = r.reconcileBackups(o)
+
+	return rr, err
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
@@ -186,36 +186,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("create PXC Service: %v", err)
-		}
-	}
-
-	if cr.Spec.Backup != nil {
-		for _, bcp := range *cr.Spec.Backup {
-			bcpjob := backup.NewScheduled(cr, &bcp)
-			err = setControllerReference(cr, bcpjob, r.scheme)
-			if err != nil {
-				return fmt.Errorf("set owner ref to backup %s: %v", bcp.Name, err)
-			}
-
-			// Check if this Job already exists
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: bcpjob.Name, Namespace: bcpjob.Namespace}, bcpjob)
-			if err != nil && errors.IsNotFound(err) {
-				// reqLogger.Info("Creating a new backup job", "Namespace", bcpjob.Namespace, "Name", bcpjob.Name)
-				err = r.client.Create(context.TODO(), bcpjob)
-				if err != nil {
-					return fmt.Errorf("create scheduled backup '%s': %v", bcp.Name, err)
-				}
-			} else if err != nil {
-				return fmt.Errorf("create scheduled backup '%s': %v", bcp.Name, err)
-			}
-
-			if bcp.Schedule != bcpjob.Spec.Schedule {
-				bcpjob.Spec.Schedule = bcp.Schedule
-				err = r.client.Update(context.TODO(), bcpjob)
-				if err != nil {
-					return fmt.Errorf("update backup schedule '%s': %v", bcp.Name, err)
-				}
-			}
 		}
 	}
 

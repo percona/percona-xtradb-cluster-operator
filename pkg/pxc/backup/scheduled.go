@@ -74,6 +74,9 @@ cat <<-EOF | kubectl apply -f -
 		kind: PerconaXtraDBBackup
 		metadata:
 		  name: "cron-${pxcCluster}-$(date -u "+%Y%m%d%H%M%S")"
+		  labels:
+		    parentCron: "` + spec.Name + `"
+		    cluster: "` + cluster + `"
 		spec:
 		  pxcCluster: "${pxcCluster}"
 		  volume:

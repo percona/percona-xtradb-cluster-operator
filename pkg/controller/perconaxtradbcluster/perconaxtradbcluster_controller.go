@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -147,7 +148,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.client.Create(context.TODO(), nodeSet)
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("failed to create newStatefulSetNode: %v", err)
+		return fmt.Errorf("create newStatefulSetNode: %v", err)
 	}
 
 	nodesService := pxc.NewServiceNodes(cr)
@@ -158,13 +159,13 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.client.Create(context.TODO(), nodesService)
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("failed to create PXC Service: %v", err)
+		return fmt.Errorf("create PXC Service: %v", err)
 	}
 
 	if cr.Spec.ProxySQL.Enabled {
 		proxySet, err := pxc.StatefulSet(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr, serverVersion)
 		if err != nil {
-			return fmt.Errorf("failed to create ProxySQL Service: %v", err)
+			return fmt.Errorf("create ProxySQL Service: %v", err)
 		}
 		err = setControllerReference(cr, proxySet, r.scheme)
 		if err != nil {
@@ -173,7 +174,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create newStatefulSetProxySQL: %v", err)
+			return fmt.Errorf("create newStatefulSetProxySQL: %v", err)
 		}
 
 		proxys := pxc.NewServiceProxySQL(cr)
@@ -184,7 +185,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create PXC Service: %v", err)
+			return fmt.Errorf("create PXC Service: %v", err)
 		}
 	}
 
@@ -193,11 +194,27 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			bcpjob := backup.NewScheduled(cr, &bcp)
 			err = setControllerReference(cr, bcpjob, r.scheme)
 			if err != nil {
-				return err
+				return fmt.Errorf("set owner ref to backup %s: %v", bcp.Name, err)
 			}
-			err := r.client.Create(context.TODO(), bcpjob)
-			if err != nil && !errors.IsAlreadyExists(err) {
-				return fmt.Errorf("failed to create scheduled backup '%s': %v", bcp.Name, err)
+
+			// Check if this Job already exists
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: bcpjob.Name, Namespace: bcpjob.Namespace}, bcpjob)
+			if err != nil && errors.IsNotFound(err) {
+				// reqLogger.Info("Creating a new backup job", "Namespace", bcpjob.Namespace, "Name", bcpjob.Name)
+				err = r.client.Create(context.TODO(), bcpjob)
+				if err != nil {
+					return fmt.Errorf("create scheduled backup '%s': %v", bcp.Name, err)
+				}
+			} else if err != nil {
+				return fmt.Errorf("create scheduled backup '%s': %v", bcp.Name, err)
+			}
+
+			if bcp.Schedule != bcpjob.Spec.Schedule {
+				bcpjob.Spec.Schedule = bcp.Schedule
+				err = r.client.Update(context.TODO(), bcpjob)
+				if err != nil {
+					return fmt.Errorf("update backup schedule '%s': %v", bcp.Name, err)
+				}
 			}
 		}
 	}

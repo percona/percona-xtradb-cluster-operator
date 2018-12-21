@@ -69,20 +69,20 @@ func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec 
 						Args: []string{
 							"sh", "-c",
 							`
-cat <<-EOF | kubectl apply -f -
-		apiVersion: pxc.percona.com/v1alpha1
-		kind: PerconaXtraDBBackup
-		metadata:
-		  name: "cron-${pxcCluster}-$(date -u "+%Y%m%d%H%M%S")"
-		  labels:
-		    ancestor: "` + spec.Name + `"
-		    cluster: "` + cluster + `"
-		spec:
-		  pxcCluster: "${pxcCluster}"
-		  volume:
-		    size: "${size}"
-		    ${storageClass:+storageClass: "$storageClass"}
-EOF
+							cat <<-EOF | kubectl apply -f -
+									apiVersion: pxc.percona.com/v1alpha1
+									kind: PerconaXtraDBBackup
+									metadata:
+									name: "cron-${pxcCluster}-$(date -u "+%Y%m%d%H%M%S")"
+									labels:
+										ancestor: "` + spec.Name + `"
+										cluster: "` + cluster + `"
+									spec:
+									pxcCluster: "${pxcCluster}"
+									volume:
+										size: "${size}"
+										${storageClass:+storageClass: "$storageClass"}
+							EOF
 							`,
 						},
 					},

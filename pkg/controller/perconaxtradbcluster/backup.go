@@ -108,11 +108,9 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledJobs(cr *api.PerconaXtraDBCl
 	// just build an ordered by creationTimestamp min-heap from items and return top "len(items) - keep" items
 	heap := minHeap{}
 	for _, bcp := range bcpList.Items {
-		if bcp.Status.State != api.BackupSucceeded {
-			continue
+		if bcp.Status.State == api.BackupSucceeded {
+			heap.Push(bcp)
 		}
-
-		heap.Push(bcp)
 	}
 
 	if heap.Len() <= keep {

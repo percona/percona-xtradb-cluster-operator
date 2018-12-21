@@ -40,7 +40,7 @@ spec:
     serverUser: pmm
   backup:
     - name: "every-5mins-backup"
-      schedule: "*/5 * * * *"
+      schedule: "0 0 * * 6"
       keep: 5
       volume:
       # storageClass: standard

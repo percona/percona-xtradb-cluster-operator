@@ -25,7 +25,6 @@ type PerconaXtraDBBackup struct {
 
 type PXCBackupSpec struct {
 	PXCCluster string          `json:"pxcCluster"`
-	Schedule   *string         `json:"schedule,omitempty"`
 	Volume     PXCBackupVolume `json:"volume,omitempty"`
 }
 

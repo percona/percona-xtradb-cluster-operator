@@ -1,0 +1,99 @@
+package backup
+
+import (
+	"strings"
+
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+)
+
+func NewScheduled(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *batchv1beta1.CronJob {
+	jb := &batchv1beta1.CronJob{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1beta1",
+			Kind:       "CronJob",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      spec.Name,
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"type":     "cron",
+				"cluster":  cr.Name,
+				"schedule": genScheduleLabel(spec.Schedule),
+			},
+		},
+		Spec: batchv1beta1.CronJobSpec{
+			Schedule:                   spec.Schedule,
+			SuccessfulJobsHistoryLimit: func(i int32) *int32 { return &i }(1),
+		},
+	}
+
+	jb.Spec.JobTemplate.Labels = jb.Labels
+	jb.Spec.JobTemplate.Spec = scheduledJob(cr.Name, spec)
+
+	return jb
+}
+
+func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec {
+	env := []corev1.EnvVar{
+		{
+			Name:  "pxcCluster",
+			Value: cluster,
+		},
+		{
+			Name:  "size",
+			Value: spec.Volume.Size,
+		},
+	}
+
+	if spec.Volume.StorageClass != nil {
+		env = append(env, corev1.EnvVar{
+			Name:  "storageClass",
+			Value: *spec.Volume.StorageClass,
+		},
+		)
+	}
+
+	return batchv1.JobSpec{
+		Template: corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "run-backup",
+						Image: "delgod/kubectl:1.13.1",
+						Env:   env,
+						Args: []string{
+							"sh", "-c",
+							`
+							cat <<-EOF | kubectl apply -f -
+									apiVersion: pxc.percona.com/v1alpha1
+									kind: PerconaXtraDBBackup
+									metadata:
+									  name: "cron-${pxcCluster}-$(date -u "+%Y%m%d%H%M%S")"
+									  labels:
+									    ancestor: "` + spec.Name + `"
+									    cluster: "` + cluster + `"
+									spec:
+									  pxcCluster: "${pxcCluster}"
+									  volume:
+									    size: "${size}"
+									    ${storageClass:+storageClass: "$storageClass"}
+							EOF
+							`,
+						},
+					},
+				},
+				RestartPolicy: corev1.RestartPolicyNever,
+			},
+		},
+	}
+}
+
+func genScheduleLabel(sched string) string {
+	r := strings.NewReplacer("*", "N", "/", "E", " ", "_")
+	return r.Replace(sched)
+}

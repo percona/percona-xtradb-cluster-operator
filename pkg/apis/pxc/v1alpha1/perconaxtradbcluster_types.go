@@ -11,11 +11,19 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform    *Platform `json:"platform,omitempty"`
-	SecretsName string    `json:"secretsName,omitempty"`
-	PXC         *PodSpec  `json:"pxc,omitempty"`
-	ProxySQL    *PodSpec  `json:"proxysql,omitempty"`
-	PMM         *PMMSpec  `json:"pmm,omitempty"`
+	Platform    *Platform             `json:"platform,omitempty"`
+	SecretsName string                `json:"secretsName,omitempty"`
+	PXC         *PodSpec              `json:"pxc,omitempty"`
+	ProxySQL    *PodSpec              `json:"proxysql,omitempty"`
+	PMM         *PMMSpec              `json:"pmm,omitempty"`
+	Backup      *[]PXCScheduledBackup `json:"backup,omitempty"`
+}
+
+type PXCScheduledBackup struct {
+	Name     string          `json:"name,omitempty"`
+	Schedule string          `json:"schedule,omitempty"`
+	Keep     int             `json:"keep,omitempty"`
+	Volume   PXCBackupVolume `json:"volume,omitempty"`
 }
 
 type ClusterState string

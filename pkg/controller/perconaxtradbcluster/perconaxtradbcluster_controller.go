@@ -125,7 +125,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		r.client.Delete(context.TODO(), statefulset.NewProxy(o).StatefulSet())
 	}
 
-	return rr, nil
+	err = r.reconcileBackups(o)
+
+	return rr, err
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
@@ -146,7 +148,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.client.Create(context.TODO(), nodeSet)
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("failed to create newStatefulSetNode: %v", err)
+		return fmt.Errorf("create newStatefulSetNode: %v", err)
 	}
 
 	nodesService := pxc.NewServiceNodes(cr)
@@ -157,13 +159,13 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.client.Create(context.TODO(), nodesService)
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("failed to create PXC Service: %v", err)
+		return fmt.Errorf("create PXC Service: %v", err)
 	}
 
 	if cr.Spec.ProxySQL.Enabled {
 		proxySet, err := pxc.StatefulSet(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr, serverVersion)
 		if err != nil {
-			return fmt.Errorf("failed to create ProxySQL Service: %v", err)
+			return fmt.Errorf("create ProxySQL Service: %v", err)
 		}
 		err = setControllerReference(cr, proxySet, r.scheme)
 		if err != nil {
@@ -172,7 +174,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create newStatefulSetProxySQL: %v", err)
+			return fmt.Errorf("create newStatefulSetProxySQL: %v", err)
 		}
 
 		proxys := pxc.NewServiceProxySQL(cr)
@@ -183,7 +185,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create PXC Service: %v", err)
+			return fmt.Errorf("create PXC Service: %v", err)
 		}
 	}
 

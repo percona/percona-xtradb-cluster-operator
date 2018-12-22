@@ -55,7 +55,7 @@ pumba_all_pods() {
 
     # check if all 3 Pods started
     wait_for_running $cluster-node 3
-	sleep 10
+    sleep 10
 
     desc 'check data consistency for chaosed Pod'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
@@ -105,7 +105,7 @@ netem_pod() {
     wait $pid || :
 
     # check if all 3 Pods started
-    wait_for_running $cluster 3
+    wait_for_running $cluster-node 3
     sleep 10
 
     desc 'check data consistency for chaosed Pod'
@@ -133,13 +133,15 @@ main() {
     pause_pod "$cluster-node-0"
 
     desc 'emulate bad network node-0 pod'
-    ## TODO: netem_pod "$cluster-node-0"
+    netem_pod "$cluster-node-0"
 
-    desc 'kill all PXC pods'
-	# pumba should be run on all nodes
-	## TODO: pumba_all_pods kill
-	## TODO: pumba_all_pods rm
-	## TODO: pumba_all_pods stop
+    # pumba should be run on all nodes
+    #desc 'kill all PXC pods'
+    ## TODO: pumba_all_pods kill
+    #desc 'rm all PXC pods'
+    ## TODO: pumba_all_pods rm
+    #desc 'stop all PXC pods'
+    ## TODO: pumba_all_pods stop
 
     destroy $namespace
 }

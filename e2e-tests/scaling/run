@@ -10,7 +10,7 @@ cluster="some-name-pxc"
 create_namespace $namespace
 deploy_operator
 
-desc 'create PSMDB cluster'
+desc 'create PXC cluster'
 kubectl apply \
     -f $conf_dir/secrets.yml \
     -f $conf_dir/client.yml \

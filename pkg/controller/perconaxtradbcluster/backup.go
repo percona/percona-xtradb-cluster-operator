@@ -1,6 +1,7 @@
 package perconaxtradbcluster
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
 
@@ -106,26 +107,35 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledJobs(cr *api.PerconaXtraDBCl
 	}
 
 	// just build an ordered by creationTimestamp min-heap from items and return top "len(items) - keep" items
-	heap := minHeap{}
+	h := &minHeap{}
+	heap.Init(h)
 	for _, bcp := range bcpList.Items {
 		if bcp.Status.State == api.BackupSucceeded {
-			heap.Push(bcp)
+			heap.Push(h, bcp)
 		}
 	}
 
-	if heap.Len() <= keep {
+	if h.Len() <= keep {
 		return []api.PerconaXtraDBBackup{}, nil
 	}
 
-	return heap[0 : heap.Len()-keep], nil
+	ret := make([]api.PerconaXtraDBBackup, 0, h.Len()-keep)
+	for i := h.Len() - keep; i > 0; i-- {
+		o := heap.Pop(h).(api.PerconaXtraDBBackup)
+		ret = append(ret, o)
+	}
+
+	return ret, nil
 }
 
 // A minHeap is a min-heap of backup jobs.
 type minHeap []api.PerconaXtraDBBackup
 
-func (h minHeap) Len() int           { return len(h) }
-func (h minHeap) Less(i, j int) bool { return h[i].CreationTimestamp.Before(&h[j].CreationTimestamp) }
-func (h minHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h minHeap) Len() int { return len(h) }
+func (h minHeap) Less(i, j int) bool {
+	return h[i].CreationTimestamp.Before(&h[j].CreationTimestamp)
+}
+func (h minHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 
 func (h *minHeap) Push(x interface{}) {
 	*h = append(*h, x.(api.PerconaXtraDBBackup))

@@ -39,9 +39,10 @@ spec:
     serverHost: monitoring-service
     serverUser: pmm
   backup:
-    - name: "every-5mins-backup"
-      schedule: "0 0 * * 6"
-      keep: 5
+    - name: "sat-night-backup"
+      # schedule: "0 0 * * 6"
+      schedule: "*/1 * * * *"
+      keep: 3
       volume:
       # storageClass: standard
         size: 6Gi

@@ -15,16 +15,20 @@ build() {
     docker run --rm -v ${src_dir}:/go/src/${repo} golang sh -c "
         set -o errexit
         set -o xtrace
-        export GO_LDFLAGS='-w -s'
-        export GIT_COMMIT='$GIT_COMMIT'
-        export GIT_BRANCH='$GIT_BRANCH'
 
         cd /go/src/${repo}
-        bash -x tmp/build/build.sh
+        mkdir -p build/_output/bin
+        GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
+            -ldflags '-w -s -X main.GitCommit=${GIT_COMMIT} -X main.GitBranch=${GIT_BRANCH}' \
+            -o build/_output/bin/percona-xtradb-cluster-operator \
+            cmd/manager/main.go
     "
     export IMAGE
     pushd ${src_dir}
-        bash -x ${src_dir}/tmp/build/docker_build.sh
+        docker build \
+            --squash \
+            --no-cache \
+            -t "${IMAGE}" -f build/Dockerfile .
     popd
     docker push ${IMAGE}
 }

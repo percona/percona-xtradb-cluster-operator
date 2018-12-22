@@ -9,7 +9,7 @@ cluster="some-name-pxc"
 
 
 setup_cluster() {
-    # create first PSMDB cluster
+    # create cluster
     kubectl apply \
         -f $conf_dir/secrets.yml \
         -f $conf_dir/$cluster.yml \

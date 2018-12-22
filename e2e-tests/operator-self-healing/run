@@ -9,7 +9,7 @@ cluster="some-name-pxc"
 
 
 setup_cluster() {
-    # create first PSMDB cluster
+    # create cluster
     kubectl apply \
         -f $conf_dir/secrets.yml \
         -f $conf_dir/$cluster.yml \
@@ -80,7 +80,7 @@ main() {
     ## TODO: kubectl apply -f $test_dir/conf/quota.yml
     deploy_operator
 
-    desc 'create PSMDB cluster'
+    desc 'create PXC cluster'
     setup_cluster
 
     desc 'kill operator'

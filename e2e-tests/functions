@@ -8,7 +8,7 @@ sed=$(which gsed || which sed)
 
 test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
-conf_dir=$(realpath $test_dir/../conf)
+conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
 
 
@@ -161,10 +161,6 @@ compare_mysql_user_local(){
         | sed -e "s/'10[.][0-9][^']*'//" \
         > $tmp_dir/$user.sql
     diff $test_dir/compare/$user$postfix.sql $tmp_dir/$user.sql
-}
-
-start_gke() {
-    gcloud container clusters create operator-testing-$RANDOM --zone europe-west3-c --project cloud-dev-112233 --preemptible --cluster-version 1.11
 }
 
 get_pumba() {

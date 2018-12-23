@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -67,7 +68,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 	for _, item := range bcpList.Items {
 		if spec, ok := backups[item.Name]; ok {
 			if spec.Keep > 0 {
-				oldjobs, err := r.oldScheduledJobs(cr, item.Name, spec.Keep)
+				oldjobs, err := r.oldScheduledBackups(cr, item.Name, spec.Keep)
 				if err != nil {
 					return fmt.Errorf("remove old backups: %v", err)
 				}
@@ -81,11 +82,49 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 		}
 	}
 
+	// TODO(ap): there is some strange behavior with this clean-up. Jobs are deleted but linked pods remains untouched and become orphant zombie
+	// err = r.cleanCompletedJobs(cr)
+	// if err != nil {
+	// 	return fmt.Errorf("completed backup jobs clean-up: %v", err)
+	// }
+
 	return nil
 }
 
-// oldScheduledJobs returns list of the most old bakup jobs that execeed `keep` limit
-func (r *ReconcilePerconaXtraDBCluster) oldScheduledJobs(cr *api.PerconaXtraDBCluster, ancestor string, keep int) ([]api.PerconaXtraDBBackup, error) {
+func (r *ReconcilePerconaXtraDBCluster) cleanCompletedJobs(cr *api.PerconaXtraDBCluster) error {
+	jobList := batchv1.JobList{}
+	err := r.client.List(context.TODO(),
+		&client.ListOptions{
+			Namespace: cr.Namespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"cluster": cr.Name,
+				"type":    "xtrabackup",
+			}),
+		},
+		&jobList,
+	)
+	if err != nil {
+		return fmt.Errorf("get list: %v", err)
+	}
+
+	for _, job := range jobList.Items {
+		if job.Status.Succeeded == 1 {
+			for _, c := range job.Status.Conditions {
+				if c.Type == batchv1.JobComplete {
+					err := r.client.Delete(context.TODO(), &job)
+					if err != nil {
+						return fmt.Errorf("delete: %v", err)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// oldScheduledBackups returns list of the most old pxc-bakups that execeed `keep` limit
+func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraDBCluster, ancestor string, keep int) ([]api.PerconaXtraDBBackup, error) {
 	bcpList := api.PerconaXtraDBBackupList{}
 	err := r.client.List(context.TODO(),
 		&client.ListOptions{

@@ -32,8 +32,23 @@ func NewScheduled(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *b
 		},
 	}
 
+	jb.Spec.JobTemplate.ObjectMeta.Labels = map[string]string{
+		"cluster": cr.Name,
+		"type":    "xtrabackup",
+	}
 	jb.Spec.JobTemplate.Labels = jb.Labels
 	jb.Spec.JobTemplate.Spec = scheduledJob(cr.Name, spec)
+
+	jb.Spec.JobTemplate.SetOwnerReferences(
+		append(jb.Spec.JobTemplate.GetOwnerReferences(),
+			metav1.OwnerReference{
+				APIVersion: jb.APIVersion,
+				Kind:       jb.Kind,
+				Name:       jb.GetName(),
+				UID:        jb.GetUID(),
+			},
+		),
+	)
 
 	return jb
 }

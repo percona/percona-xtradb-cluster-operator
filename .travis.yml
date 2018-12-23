@@ -36,12 +36,17 @@ before_script:
 - kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin
   --user travis-ci@$GCP_PROJECT.iam.gserviceaccount.com
 - kubectl version
-script:
-- ./e2e-tests/init-deploy/run
-- ./e2e-tests/limits/run
-- ./e2e-tests/scaling/run
-- ./e2e-tests/self-healing/run
-- ./e2e-tests/operator-self-healing/run
+matrix:
+  include:
+  - name: "Basic"
+    script:
+    - ./e2e-tests/init-deploy/run
+    - ./e2e-tests/limits/run
+    - ./e2e-tests/scaling/run
+  - name: "Self-Healing"
+    script:
+    - ./e2e-tests/self-healing/run
+    - ./e2e-tests/operator-self-healing/run
 after_success:
 - gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME
 after_failure:

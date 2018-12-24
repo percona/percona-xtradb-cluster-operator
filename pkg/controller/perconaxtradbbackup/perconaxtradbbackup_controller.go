@@ -91,6 +91,11 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	err = r.checkInput(instance)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("invalid backup config: %v", err)
+	}
+
 	pvc, err := backup.NewPVC(instance)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -152,6 +157,30 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	err = r.updateJobStatus(instance, job)
 
 	return rr, err
+}
+
+func (r *ReconcilePerconaXtraDBBackup) checkInput(cr *api.PerconaXtraDBBackup) error {
+	clusterList := api.PerconaXtraDBClusterList{}
+	err := r.client.List(context.TODO(),
+		&client.ListOptions{
+			Namespace: cr.Namespace,
+		},
+		&clusterList,
+	)
+
+	if err != nil {
+		return fmt.Errorf("get clusters list: %v", err)
+	}
+
+	avaliableClusters := make([]string, 0)
+	for _, cluster := range clusterList.Items {
+		if cluster.Name == cr.Spec.PXCCluster {
+			return nil
+		}
+		avaliableClusters = append(avaliableClusters, cluster.Name)
+	}
+
+	return fmt.Errorf("wrong PXCCluster. Clusters avaliable: %q", avaliableClusters)
 }
 
 // VolumeStatus describe the status backup PVC

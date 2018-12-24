@@ -18,6 +18,9 @@ spec:
       # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
       size: 6Gi
+    affinity:
+      topologyKey: "failure-domain.beta.kubernetes.io/zone"
+      # advanced:
   proxysql:
     enabled: true
     size: 1
@@ -33,16 +36,19 @@ spec:
       # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
+    # affinity:
+    #   topologyKey: "failure-domain.beta.kubernetes.io/zone"
+    #   # advanced:
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0
     serverHost: monitoring-service
     serverUser: pmm
-  backup:
-    - name: "sat-night-backup"
-      # schedule: "0 0 * * 6"
-      schedule: "*/1 * * * *"
-      keep: 3
-      volume:
-      # storageClass: standard
-        size: 6Gi
+  # backup:
+  #   - name: "sat-night-backup"
+  #     # schedule: "0 0 * * 6"
+  #     schedule: "*/1 * * * *"
+  #     keep: 3
+  #     volume:
+  #     # storageClass: standard
+  #       size: 6Gi

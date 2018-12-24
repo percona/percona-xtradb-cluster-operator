@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
@@ -57,6 +58,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	currentSet.Spec.Template.Spec.Containers = newContainers
+
+	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity)
 
 	return r.client.Update(context.TODO(), currentSet)
 }

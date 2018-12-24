@@ -65,6 +65,12 @@ type PodSpec struct {
 	Image      string         `json:"image,omitempty"`
 	Resources  *PodResources  `json:"resources,omitempty"`
 	VolumeSpec *PodVolumeSpec `json:"volumeSpec,omitempty"`
+	Affinity   *PodAffinity   `json:"affinity,omitempty"`
+}
+
+type PodAffinity struct {
+	TopologyKey *string          `json:"topologyKey,omitempty"`
+	Advanced    *corev1.Affinity `json:"advanced,omitempty"`
 }
 
 type PodResources struct {
@@ -118,6 +124,14 @@ type StatefulApp interface {
 	StatefulSet() *appsv1.StatefulSet
 }
 
+var affinityValidTopologyKeys = map[string]struct{}{
+	"kubernetes.io/hostname":                   struct{}{},
+	"failure-domain.beta.kubernetes.io/zone":   struct{}{},
+	"failure-domain.beta.kubernetes.io/region": struct{}{},
+}
+
+var defaultAffinityTopologyKey = "failure-domain.beta.kubernetes.io/zone"
+
 // SetDefaults sets defaults options and overwrites obviously wrong settings
 func (c *PerconaXtraDBClusterSpec) SetDefaults() {
 	// pxc replicas shouldn't be less than 3
@@ -128,6 +142,18 @@ func (c *PerconaXtraDBClusterSpec) SetDefaults() {
 	// number of pxc replicas should be an odd
 	if c.PXC.Size%2 == 0 {
 		c.PXC.Size++
+	}
+
+	if c.PXC.Affinity.TopologyKey != nil {
+		if _, ok := affinityValidTopologyKeys[*c.PXC.Affinity.TopologyKey]; !ok {
+			c.PXC.Affinity.TopologyKey = &defaultAffinityTopologyKey
+		}
+	}
+
+	if c.ProxySQL.Affinity.TopologyKey != nil {
+		if _, ok := affinityValidTopologyKeys[*c.ProxySQL.Affinity.TopologyKey]; !ok {
+			c.ProxySQL.Affinity.TopologyKey = &defaultAffinityTopologyKey
+		}
 	}
 }
 

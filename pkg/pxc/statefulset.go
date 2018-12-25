@@ -23,7 +23,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		},
 	}
 
-	pod.Affinity = PodAffinity(podSpec.Affinity)
+	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 
 	var err error
 	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName)
@@ -70,7 +70,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 }
 
 // PodAffinity returns podAffinity options for the pod
-func PodAffinity(af *api.PodAffinity) *corev1.Affinity {
+func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 	if af == nil {
 		return nil
 	}
@@ -79,6 +79,7 @@ func PodAffinity(af *api.PodAffinity) *corev1.Affinity {
 	case af.Advanced != nil:
 		return af.Advanced
 	case af.TopologyKey != nil:
+		lables := app.Lables()
 		return &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -88,7 +89,17 @@ func PodAffinity(af *api.PodAffinity) *corev1.Affinity {
 								{
 									Key:      "app",
 									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{"store"},
+									Values:   []string{lables["app"]},
+								},
+								{
+									Key:      "cluster",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{lables["cluster"]},
+								},
+								{
+									Key:      "component",
+									Operator: metav1.LabelSelectorOpIn,
+									Values:   []string{lables["component"]},
 								},
 							},
 						},

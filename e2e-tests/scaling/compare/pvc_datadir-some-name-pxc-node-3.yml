@@ -4,9 +4,6 @@ metadata:
   annotations:
     pv.kubernetes.io/bind-completed: "yes"
     pv.kubernetes.io/bound-by-controller: "yes"
-    volume.beta.kubernetes.io/storage-provisioner: kubernetes.io/gce-pd
-  finalizers:
-  - kubernetes.io/pvc-protection
   labels:
     app: pxc
     cluster: some-name
@@ -18,4 +15,3 @@ spec:
   resources:
     requests:
       storage: 6Gi
-  storageClassName: standard

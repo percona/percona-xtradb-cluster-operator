@@ -10,12 +10,19 @@ test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
+OPENSHIFT=${OPENSHIFT:-0}
 
 
 create_namespace() {
     local namespace="$1"
-    kubectl create namespace "$namespace"
-    kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
+    if [ $OPENSHIFT == 1 ]; then
+        oc new-project "$namespace"
+        oc project "$namespace"
+        oc adm policy add-scc-to-user hostaccess -z default
+    else
+        kubectl create namespace "$namespace"
+        kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
+    fi
 }
 
 get_operator_pod() {
@@ -91,8 +98,13 @@ compare_kubectl() {
     local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
     local new_result="${tmp_dir}/${resource//\//_}.yml"
 
+    if [ $OPENSHIFT = 1 -a -f ${expected_result//.yml/-oc.yml} ]; then
+        local expected_result=${expected_result//.yml/-oc.yml}
+    fi
+
     kubectl get -o yaml ${resource} \
-        | egrep -v "(Revision:|namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|readyReplicas:|image:|volumeName:|clusterIP:)" \
+        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|image:|clusterIP:" \
+        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:" \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
         > ${new_result}
@@ -146,7 +158,7 @@ compare_mysql_user(){
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
 
     (run_mysql "SHOW GRANTS;" "$uri" || :) \
-        | sed -e "s/'10[.][0-9][^']*'//" \
+        | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
     diff $test_dir/compare/$user$postfix.sql $tmp_dir/$user.sql
 }
@@ -158,7 +170,7 @@ compare_mysql_user_local(){
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
 
     (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" || :) \
-        | sed -e "s/'10[.][0-9][^']*'//" \
+        | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
     diff $test_dir/compare/$user$postfix.sql $tmp_dir/$user.sql
 }
@@ -176,7 +188,11 @@ run_pumba() {
 
 destroy() {
     local namespace="$1"
-    kubectl delete namespace "$namespace"
+    if [ $OPENSHIFT == 1 ]; then
+        oc delete project "$namespace"
+    else
+        kubectl delete namespace "$namespace"
+    fi
     rm -rf ${tmp_dir}
 }
 

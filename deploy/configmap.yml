@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pxc
+data:
+  init.cnf: |
+    [mysqld]
+    wsrep_debug=ON
+    [sst]
+    wsrep_debug=ON

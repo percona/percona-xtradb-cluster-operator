@@ -106,6 +106,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	o.Spec.SetDefaults()
 
+	if o.Spec.PXC == nil {
+		return reconcile.Result{}, fmt.Errorf("pxc not specified")
+	}
+
 	err = r.deploy(o)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -116,7 +120,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, fmt.Errorf("pxc upgrade error: %v", err)
 	}
 
-	if o.Spec.ProxySQL.Enabled {
+	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(statefulset.NewProxy(o), o.Spec.ProxySQL, o)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("proxySQL upgrade error: %v", err)
@@ -165,7 +169,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf("create PXC Service: %v", err)
 	}
 
-	if cr.Spec.ProxySQL.Enabled {
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		proxySet, err := pxc.StatefulSet(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr, serverVersion)
 		if err != nil {
 			return fmt.Errorf("create ProxySQL Service: %v", err)

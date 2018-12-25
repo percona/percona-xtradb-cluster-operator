@@ -11,6 +11,10 @@ import (
 
 // PVCs returns the list of PersistentVolumeClaims for the pod
 func PVCs(name string, vspec *api.PodVolumeSpec) ([]corev1.PersistentVolumeClaim, error) {
+	if vspec == nil {
+		return nil, nil
+	}
+
 	rvolStorage, err := resource.ParseQuantity(vspec.Size)
 	if err != nil {
 		return nil, fmt.Errorf("wrong storage resources: %v", err)

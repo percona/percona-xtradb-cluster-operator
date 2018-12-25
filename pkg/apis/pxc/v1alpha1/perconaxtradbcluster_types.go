@@ -164,11 +164,11 @@ func (p *PodSpec) reconcileAffinity() {
 			TopologyKey: &defaultAffinityTopologyKey,
 		}
 
-	case p.Affinity.Advanced != nil:
-		p.Affinity.TopologyKey = nil
-
 	case p.Affinity.TopologyKey == nil:
 		p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+
+	case p.Affinity.Advanced != nil:
+		p.Affinity.TopologyKey = nil
 
 	case strings.ToLower(*p.Affinity.TopologyKey) == affinityOff:
 		p.Affinity = nil

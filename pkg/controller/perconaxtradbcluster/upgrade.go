@@ -59,7 +59,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	currentSet.Spec.Template.Spec.Containers = newContainers
 
-	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity)
+	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
 
 	return r.client.Update(context.TODO(), currentSet)
 }

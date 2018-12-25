@@ -126,8 +126,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	err = r.reconcileBackups(o)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
-	return rr, err
+	return rr, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {

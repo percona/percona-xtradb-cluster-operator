@@ -144,13 +144,13 @@ func (c *PerconaXtraDBClusterSpec) SetDefaults() {
 		c.PXC.Size++
 	}
 
-	if c.PXC.Affinity.TopologyKey != nil {
+	if c.PXC.Affinity != nil && c.PXC.Affinity.TopologyKey != nil {
 		if _, ok := affinityValidTopologyKeys[*c.PXC.Affinity.TopologyKey]; !ok {
 			c.PXC.Affinity.TopologyKey = &defaultAffinityTopologyKey
 		}
 	}
 
-	if c.ProxySQL.Affinity.TopologyKey != nil {
+	if c.ProxySQL.Affinity != nil && c.ProxySQL.Affinity.TopologyKey != nil {
 		if _, ok := affinityValidTopologyKeys[*c.ProxySQL.Affinity.TopologyKey]; !ok {
 			c.ProxySQL.Affinity.TopologyKey = &defaultAffinityTopologyKey
 		}

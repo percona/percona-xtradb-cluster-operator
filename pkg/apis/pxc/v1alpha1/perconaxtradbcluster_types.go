@@ -128,18 +128,23 @@ type StatefulApp interface {
 
 // SetDefaults sets defaults options and overwrites obviously wrong settings
 func (c *PerconaXtraDBClusterSpec) SetDefaults() {
-	// pxc replicas shouldn't be less than 3
-	if c.PXC.Size < 3 {
-		c.PXC.Size = 3
+	if c.PXC != nil {
+		// pxc replicas shouldn't be less than 3
+		if c.PXC.Size < 3 {
+			c.PXC.Size = 3
+		}
+
+		// number of pxc replicas should be an odd
+		if c.PXC.Size%2 == 0 {
+			c.PXC.Size++
+		}
+
+		c.PXC.reconcileAffinity()
 	}
 
-	// number of pxc replicas should be an odd
-	if c.PXC.Size%2 == 0 {
-		c.PXC.Size++
+	if c.ProxySQL != nil {
+		c.ProxySQL.reconcileAffinity()
 	}
-
-	c.PXC.reconcileAffinity()
-	c.ProxySQL.reconcileAffinity()
 }
 
 var affinityValidTopologyKeys = map[string]struct{}{

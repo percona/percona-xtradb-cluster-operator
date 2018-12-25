@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"strings"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,14 +126,6 @@ type StatefulApp interface {
 	StatefulSet() *appsv1.StatefulSet
 }
 
-var affinityValidTopologyKeys = map[string]struct{}{
-	"kubernetes.io/hostname":                   struct{}{},
-	"failure-domain.beta.kubernetes.io/zone":   struct{}{},
-	"failure-domain.beta.kubernetes.io/region": struct{}{},
-}
-
-var defaultAffinityTopologyKey = "failure-domain.beta.kubernetes.io/zone"
-
 // SetDefaults sets defaults options and overwrites obviously wrong settings
 func (c *PerconaXtraDBClusterSpec) SetDefaults() {
 	// pxc replicas shouldn't be less than 3
@@ -144,15 +138,44 @@ func (c *PerconaXtraDBClusterSpec) SetDefaults() {
 		c.PXC.Size++
 	}
 
-	if c.PXC.Affinity != nil && c.PXC.Affinity.TopologyKey != nil {
-		if _, ok := affinityValidTopologyKeys[*c.PXC.Affinity.TopologyKey]; !ok {
-			c.PXC.Affinity.TopologyKey = &defaultAffinityTopologyKey
-		}
-	}
+	c.PXC.reconcileAffinity()
+	c.ProxySQL.reconcileAffinity()
+}
 
-	if c.ProxySQL.Affinity != nil && c.ProxySQL.Affinity.TopologyKey != nil {
-		if _, ok := affinityValidTopologyKeys[*c.ProxySQL.Affinity.TopologyKey]; !ok {
-			c.ProxySQL.Affinity.TopologyKey = &defaultAffinityTopologyKey
+var affinityValidTopologyKeys = map[string]struct{}{
+	"kubernetes.io/hostname":                   struct{}{},
+	"failure-domain.beta.kubernetes.io/zone":   struct{}{},
+	"failure-domain.beta.kubernetes.io/region": struct{}{},
+}
+
+var defaultAffinityTopologyKey = "failure-domain.beta.kubernetes.io/zone"
+
+const affinityOff = "off"
+
+// reconcileAffinity ensures that the affinity is set to the valid values.
+// - if the affinity doesn't set at all - set topology key to `defaultAffinityTopologyKey`
+// - if topology key is set and the value not the one of `affinityValidTopologyKeys` - set to `defaultAffinityTopologyKey`
+// - if topology key set to valuse of `affinityOff` - disable the affinity at all
+// - if `Advanced` affinity is set - leave everything as it is and set topology key to nil (Advanced options has a higher priority)
+func (p *PodSpec) reconcileAffinity() {
+	switch {
+	case p.Affinity == nil:
+		p.Affinity = &PodAffinity{
+			TopologyKey: &defaultAffinityTopologyKey,
+		}
+
+	case p.Affinity.Advanced != nil:
+		p.Affinity.TopologyKey = nil
+
+	case p.Affinity.TopologyKey == nil:
+		p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+
+	case strings.ToLower(*p.Affinity.TopologyKey) == affinityOff:
+		p.Affinity = nil
+
+	case p.Affinity != nil && p.Affinity.TopologyKey != nil:
+		if _, ok := affinityValidTopologyKeys[*p.Affinity.TopologyKey]; !ok {
+			p.Affinity.TopologyKey = &defaultAffinityTopologyKey
 		}
 	}
 }

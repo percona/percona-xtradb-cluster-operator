@@ -155,7 +155,7 @@ var affinityValidTopologyKeys = map[string]struct{}{
 
 var defaultAffinityTopologyKey = "failure-domain.beta.kubernetes.io/zone"
 
-const affinityOff = "off"
+const affinityOff = "none"
 
 // reconcileAffinity ensures that the affinity is set to the valid values.
 // - if the affinity doesn't set at all - set topology key to `defaultAffinityTopologyKey`

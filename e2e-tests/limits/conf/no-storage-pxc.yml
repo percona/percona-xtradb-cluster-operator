@@ -9,12 +9,16 @@ spec:
     image: perconalab/pxc-openshift:0.1.0
     volumeSpec:
       accessModes: [ "ReadWriteOnce" ]
+    affinity:
+      topologyKey: none
   proxysql:
     enabled: true
     size: 1
     image: perconalab/proxysql-openshift:0.1.0
     volumeSpec:
       accessModes: [ "ReadWriteOnce" ]
+    affinity:
+      topologyKey: none
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0

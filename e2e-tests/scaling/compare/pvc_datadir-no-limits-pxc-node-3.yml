@@ -6,9 +6,9 @@ metadata:
     pv.kubernetes.io/bound-by-controller: "yes"
   labels:
     app: pxc
-    cluster: some-name
-    component: some-name-pxc-nodes
-  name: datadir-some-name-pxc-node-4
+    cluster: no-limits
+    component: no-limits-pxc-nodes
+  name: datadir-no-limits-pxc-node-3
 spec:
   accessModes:
   - ReadWriteOnce

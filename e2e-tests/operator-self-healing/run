@@ -5,14 +5,14 @@ set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
-cluster="some-name-pxc"
+cluster="no-limits-pxc"
 
 
 setup_cluster() {
     # create cluster
     kubectl apply \
         -f $conf_dir/secrets.yml \
-        -f $conf_dir/$cluster.yml \
+        -f $test_dir/conf/$cluster.yml \
         -f $test_dir/conf/pumba.yml
 
     # check if all 3 Pods started
@@ -39,7 +39,7 @@ pause_pod() {
     sleep 10
 
     desc 'check if operator works fine: scale down from 4 to 3'
-    sed -e 's/size: 4/size: 3/' $conf_dir/$cluster.yml \
+    sed -e 's/size: 4/size: 3/' $test_dir/conf/$cluster.yml \
         | kubectl apply -f-
 
     # wait for unpause
@@ -61,7 +61,7 @@ netem_pod() {
     sleep 10
 
     desc 'check if operator works fine: scale up from 3 to 4'
-    sed -e 's/size: 3/size: 4/' $conf_dir/$cluster.yml \
+    sed -e 's/size: 3/size: 4/' $test_dir/conf/$cluster.yml \
         | kubectl apply -f-
 
     # wait for unpause
@@ -86,21 +86,21 @@ main() {
     desc 'kill operator'
     pumba_pod kill
     desc 'check if operator works fine: scale up from 3 to 4'
-    sed -e 's/size: 3/size: 4/' $conf_dir/$cluster.yml \
+    sed -e 's/size: 3/size: 4/' $test_dir/conf/$cluster.yml \
         | kubectl apply -f-
     wait_for_running "$cluster-node" 4
 
     desc 'rm operator'
     pumba_pod rm
     desc 'check if operator works fine: scale down from 4 to 3'
-    sed -e 's/size: 4/size: 3/' $conf_dir/$cluster.yml \
+    sed -e 's/size: 4/size: 3/' $test_dir/conf/$cluster.yml \
         | kubectl apply -f-
     wait_for_delete pod/$cluster-node-3
 
     desc 'stop operator'
     pumba_pod stop
     desc 'check if operator works fine: scale up from 3 to 4'
-    sed -e 's/size: 3/size: 4/' $conf_dir/$cluster.yml \
+    sed -e 's/size: 3/size: 4/' $test_dir/conf/$cluster.yml \
         | kubectl apply -f-
     wait_for_running "$cluster-node" 4
 

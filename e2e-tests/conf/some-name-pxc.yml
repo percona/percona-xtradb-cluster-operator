@@ -17,6 +17,8 @@ spec:
     volumeSpec:
       accessModes: [ "ReadWriteOnce" ]
       size: 6Gi
+    affinity:
+      topologyKey: "kubernetes.io/hostname"
   proxysql:
     enabled: true
     size: 1
@@ -32,6 +34,8 @@ spec:
       # storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
+    affinity:
+      topologyKey: "kubernetes.io/hostname"
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0

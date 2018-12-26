@@ -5,7 +5,7 @@ set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
-cluster="some-name-pxc"
+cluster="no-limits-pxc"
 
 create_namespace $namespace
 deploy_operator
@@ -14,7 +14,7 @@ desc 'create PXC cluster'
 kubectl apply \
     -f $conf_dir/secrets.yml \
     -f $conf_dir/client.yml \
-    -f $conf_dir/$cluster.yml
+    -f $test_dir/conf/$cluster.yml
 desc 'check if all 3 Pods started'
 wait_for_running $cluster-node 3
 
@@ -30,7 +30,7 @@ compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$c
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
 
 desc 'scale up from 3 to 5'
-sed -e 's/size: 3/size: 5/' $conf_dir/$cluster.yml \
+sed -e 's/size: 3/size: 5/' $test_dir/conf/$cluster.yml \
     | kubectl apply -f-
 
 desc 'check if all 5 Pods started'
@@ -45,7 +45,7 @@ compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-3.$c
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-4.$cluster-nodes -uroot -proot_password"
 
 desc 'scale down from 5 to 3'
-kubectl apply -f $conf_dir/$cluster.yml
+kubectl apply -f $test_dir/conf/$cluster.yml
 
 desc 'check if Pod deleted'
 wait_for_delete pod/$cluster-node-3

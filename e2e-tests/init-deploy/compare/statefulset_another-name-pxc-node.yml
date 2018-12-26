@@ -25,6 +25,24 @@ spec:
         cluster: another-name
         component: another-name-pxc-nodes
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - pxc
+              - key: cluster
+                operator: In
+                values:
+                - another-name
+              - key: component
+                operator: In
+                values:
+                - another-name-pxc-nodes
+            topologyKey: failure-domain.beta.kubernetes.io/zone
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD

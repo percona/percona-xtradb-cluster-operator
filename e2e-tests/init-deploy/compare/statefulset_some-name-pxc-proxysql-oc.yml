@@ -29,6 +29,24 @@ spec:
         cluster: some-name
         component: some-name-pxc-proxysql
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - pxc
+              - key: cluster
+                operator: In
+                values:
+                - some-name
+              - key: component
+                operator: In
+                values:
+                - some-name-pxc-proxysql
+            topologyKey: kubernetes.io/hostname
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD

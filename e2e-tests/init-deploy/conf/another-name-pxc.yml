@@ -23,8 +23,8 @@ spec:
         cpu: "1"
     volumeSpec:
       storageClass: local-storage
-      accessModes: [ "ReadWriteOnce" ]
-      size: 6Gi
+      accessModes: [ "ReadOnlyMany" ]
+      size: 7Gi
   proxysql:
     enabled: true
     size: 1
@@ -39,7 +39,7 @@ spec:
     volumeSpec:
       storageClass: local-storage
       accessModes: [ "ReadWriteOnce" ]
-      size: 2Gi
+      size: 3Gi
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0

@@ -1,7 +1,7 @@
 apiVersion: "pxc.percona.com/v1alpha1"
 kind: "PerconaXtraDBCluster"
 metadata:
-  name: "some-name"
+  name: "no-proxysql"
 spec:
   secretsName: my-cluster-secrets
   pxc:
@@ -9,32 +9,26 @@ spec:
     image: perconalab/pxc-openshift:0.1.0
     resources:
       requests:
-        memory: 1G
-        cpu: 600m
-      limits:
-        memory: "1G"
-        cpu: "1"
+        memory: 10M
+        cpu: 100m
     volumeSpec:
       accessModes: [ "ReadWriteOnce" ]
       size: 6Gi
     affinity:
-      topologyKey: "kubernetes.io/hostname"
+      topologyKey: none
   proxysql:
-    enabled: true
+    enabled: false
     size: 1
     image: perconalab/proxysql-openshift:0.1.0
     resources:
       requests:
-        memory: 1G
-        cpu: 600m
-      limits:
-        memory: 1G
-        cpu: 700m
+        memory: 10M
+        cpu: 100m
     volumeSpec:
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
     affinity:
-      topologyKey: "kubernetes.io/hostname"
+      topologyKey: none
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0

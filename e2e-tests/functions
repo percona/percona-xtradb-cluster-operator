@@ -149,7 +149,17 @@ get_proxy_primary() {
     local pod="$2"
     local ip=$(run_mysql_local 'SELECT hostname FROM mysql_servers WHERE comment="WRITE";' "$uri" "$pod")
 
+    get_pod_name "$ip"
+}
+
+get_pod_name() {
+    local ip=$1
     kubectl get pods -o json | jq -r '.items[] | select(.status.podIP == "'$ip'") | .metadata.name'
+}
+
+get_pod_ip() {
+    local name=$1
+    kubectl get pods -o json | jq -r '.items[] | select(.metadata.name == "'$name'") | .status.podIP'
 }
 
 compare_mysql_user(){

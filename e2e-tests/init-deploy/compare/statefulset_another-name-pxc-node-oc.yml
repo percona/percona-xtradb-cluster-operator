@@ -129,10 +129,10 @@ spec:
       name: datadir
     spec:
       accessModes:
-      - ReadWriteOnce
+      - ReadOnlyMany
       resources:
         requests:
-          storage: 6Gi
+          storage: 7Gi
       storageClassName: local-storage
     status:
       phase: Pending

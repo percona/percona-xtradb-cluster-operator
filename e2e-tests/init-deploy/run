@@ -63,12 +63,15 @@ compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$c
 desc 'kill Primary Pod, check reelection, check data'
 initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uadmin -padmin" "$cluster-proxysql-0")
 kubectl delete pods --grace-period=0 --force $initial_primary
+run_mysql \
+    'INSERT myApp.myApp (id) VALUES (100502)' \
+    "-h $cluster-proxysql -uroot -proot_password"
 wait_for_running "$cluster-node" 3
 changed_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uadmin -padmin" "$cluster-proxysql-0")
 [ "$initial_primary" != "$changed_primary" ]
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
 
 desc 'check if possible to create second cluster'
 cluster2="another-name-pxc"
@@ -81,5 +84,28 @@ desc 'check if storageClass changed'
 compare_kubectl statefulset/$cluster2-node
 compare_kubectl statefulset/$cluster2-proxysql
 kubectl delete -f $test_dir/conf/$cluster2.yml
+
+desc 'check if possible to create no-proxysql cluster'
+cluster3="no-proxysql-pxc"
+kubectl apply -f $test_dir/conf/$cluster3.yml
+wait_for_running "$cluster3-node" 3
+desc 'check if service and statefulset created'
+compare_kubectl service/$cluster3-nodes
+compare_kubectl service/$cluster3-proxysql
+desc 'check if storageClass changed'
+compare_kubectl statefulset/$cluster3-node
+compare_kubectl statefulset/$cluster3-proxysql
+
+desc 'write data, read from all'
+run_mysql \
+    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+    "-h $cluster3-nodes -uroot -proot_password"
+run_mysql \
+    'INSERT myApp.myApp (id) VALUES (100500)' \
+    "-h $cluster3-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-node-0.$cluster3-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-node-1.$cluster3-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-node-2.$cluster3-nodes -uroot -proot_password"
+kubectl delete -f $test_dir/conf/$cluster3.yml
 
 destroy $namespace

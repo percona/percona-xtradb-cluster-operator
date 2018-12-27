@@ -44,6 +44,14 @@ desc 'check data consistency for new Pods'
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-3.$cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-4.$cluster-nodes -uroot -proot_password"
 
+desc 'check new Pods exists in ProxySQL'
+pod3_ip=$(get_pod_ip $cluster-node-3)
+pod4_ip=$(get_pod_ip $cluster-node-4)
+run_mysql_local 'SELECT hostname FROM mysql_servers WHERE comment="READ";' "-h127.0.0.1 -P6032 -uadmin -padmin" "$cluster-proxysql-0" \
+    | grep "$pod3_ip"
+run_mysql_local 'SELECT hostname FROM mysql_servers WHERE comment="READ";' "-h127.0.0.1 -P6032 -uadmin -padmin" "$cluster-proxysql-0" \
+    | grep "$pod4_ip"
+
 desc 'scale down from 5 to 3'
 kubectl apply -f $test_dir/conf/$cluster.yml
 
@@ -54,5 +62,11 @@ wait_for_delete pod/$cluster-node-4
 desc 'check if PVC not deleted'
 compare_kubectl pvc/datadir-$cluster-node-3
 compare_kubectl pvc/datadir-$cluster-node-4
+
+desc 'check if Pod deleted from ProxySQL'
+run_mysql_local 'SELECT hostname FROM mysql_servers WHERE status="OFFLINE_HARD";' "-h127.0.0.1 -P6032 -uadmin -padmin" "$cluster-proxysql-0" \
+    | grep "$pod3_ip"
+run_mysql_local 'SELECT hostname FROM mysql_servers WHERE status="OFFLINE_HARD";' "-h127.0.0.1 -P6032 -uadmin -padmin" "$cluster-proxysql-0" \
+    | grep "$pod4_ip"
 
 destroy $namespace

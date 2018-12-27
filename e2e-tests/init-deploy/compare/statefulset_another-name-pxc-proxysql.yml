@@ -106,7 +106,7 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 2Gi
+          storage: 3Gi
       storageClassName: local-storage
     status:
       phase: Pending

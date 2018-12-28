@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net"
 	"os"
+	"sync"
 
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
@@ -13,8 +14,32 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
+var (
+	cVersion *api.ServerVersion
+	mx       sync.Mutex
+)
+
 // Server returns server version and platform (k8s|oc)
+// it performs API requests for the first invocation and then returns "cached" value
 func Server() (*api.ServerVersion, error) {
+	mx.Lock()
+	defer mx.Unlock()
+	if cVersion != nil {
+		return cVersion, nil
+	}
+
+	v, err := GetServer()
+	if err != nil {
+		return nil, err
+	}
+
+	cVersion = v
+
+	return cVersion, nil
+}
+
+// GetServer make request to platform server and returns server version and platform (k8s|oc)
+func GetServer() (*api.ServerVersion, error) {
 	kubeClient, _ := mustNewKubeClientAndConfig()
 	client := kubeClient.Discovery().RESTClient()
 

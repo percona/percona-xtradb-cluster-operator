@@ -5,6 +5,7 @@ GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD)}
 IMAGE="perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
+date=$(which gdate || which date)
 
 test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
@@ -62,6 +63,34 @@ deploy_operator() {
                   -f ${tmp_dir}/operator.yml
 
     wait_pod $(get_operator_pod)
+}
+
+deploy_helm() {
+    local namespace="$1"
+    if [ $OPENSHIFT == 1 ]; then
+        oc new-project tiller || :
+        oc project tiller
+        oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=v2.12.1 | oc apply -f -
+    else
+        kubectl --namespace kube-system create sa tiller || :
+        kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller || :
+        helm init --service-account tiller
+        kubectl config set-context $(kubectl config current-context) --namespace="kube-system"
+    fi
+
+    tiller_pod=$(
+        kubectl get pods \
+            --selector=name=tiller \
+            -o 'jsonpath={.items[].metadata.name}'
+    )
+    wait_pod $tiller_pod
+
+    if [ $OPENSHIFT == 1 ]; then
+        oc project "$namespace"
+        oc policy add-role-to-user edit "system:serviceaccount:tiller:tiller"
+    else
+        kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
+    fi
 }
 
 wait_for_running() {
@@ -213,4 +242,56 @@ desc() {
     printf "$msg"
     printf "\n-----------------------------------------------------------------------------------\n\n"
     set -o xtrace
+}
+
+get_service_endpoint() {
+    local service=$1
+
+    local hostname=$(
+        kubectl get service/$service -o json \
+            | jq '.status.loadBalancer.ingress[].hostname' \
+            | sed -e 's/^"//; s/"$//;'
+    )
+    if [ $hostname != "null" ]; then
+        echo $hostname
+        return
+    fi
+
+    local ip=$(
+        kubectl get service/$service -o json \
+            | jq '.status.loadBalancer.ingress[].ip' \
+            | sed -e 's/^"//; s/"$//;'
+    )
+    if [ $ip != "null" ]; then
+        echo $ip
+        return
+    fi
+
+    exit 1
+}
+
+get_metric_values() {
+    local metric=$1
+    local instance=$2
+    local start=$($date -u "+%s" -d "-1 minute")
+    local end=$($date -u "+%s")
+    local endpoint=$(get_service_endpoint monitoring-service)
+    curl -s -k "https://$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7Binstance%3D%22$instance%22%7D&start=$start&end=$end&step=60" \
+        | jq '.data.result[0].values[][1]'
+}
+
+get_qan_values() {
+    local instance=$1
+    local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-3 minute")
+    local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
+    local endpoint=$(get_service_endpoint monitoring-service)
+
+    local uuid=$(
+        curl -s -k "https://$endpoint/qan-api/instances?deleted=no" \
+            | jq '.[] | select(.Subsystem == "mysql" and .Name == "'$instance'") | .UUID' \
+            | sed -e 's/^"//; s/"$//;'
+    )
+
+    curl -s -k "https://$endpoint/qan-api/qan/profile/$uuid?begin=$start&end=$end&offset=0" \
+        | jq '.Query[].Fingerprint'
 }

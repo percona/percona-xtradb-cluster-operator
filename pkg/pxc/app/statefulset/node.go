@@ -123,6 +123,10 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container 
 				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 			},
 		},
+		{
+			Name:  "DB_ARGS",
+			Value: "--query-source=perfschema",
+		},
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 

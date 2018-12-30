@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+check_affinity() {
+    local cluster="$1-pxc"
+
+    # apply cr config
+    kubectl apply \
+        -f $test_dir/conf/$cluster.yml
+
+    # check if at least 1 Pod started
+    wait_for_running $cluster-node 1
+
+    # check if statefulset created with expected config
+    compare_kubectl statefulset/$cluster-node
+    compare_kubectl statefulset/$cluster-proxysql
+
+    # delete cluster
+    kubectl delete \
+        -f $test_dir/conf/$cluster.yml
+}
+
+main() {
+    create_namespace $namespace
+    deploy_operator
+    kubectl apply -f $conf_dir/secrets.yml
+
+    desc 'check hostname anti-affinity'
+    check_affinity "hostname"
+
+    desc 'check zone anti-affinity'
+    check_affinity "zone"
+
+    desc 'check region anti-affinity'
+    #check_affinity "region"
+
+    desc 'check custom anti-affinity'
+    check_affinity "custom"
+
+    destroy $namespace
+}
+
+main

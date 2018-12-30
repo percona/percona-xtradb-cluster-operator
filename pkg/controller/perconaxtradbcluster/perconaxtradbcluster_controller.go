@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -97,10 +99,27 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
 			return rr, nil
 		}
 		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	if o.ObjectMeta.DeletionTimestamp != nil {
+		finalizers := []string{}
+		for _, fnlz := range o.GetFinalizers() {
+			switch fnlz {
+			case "pvc.proxysql":
+				err = r.deleteProxySQL(o)
+				if err != nil {
+					finalizers = append(finalizers, fnlz)
+				}
+			}
+		}
+
+		o.SetFinalizers(finalizers)
+		r.client.Update(context.TODO(), o)
+		// object is beign deleted, no need in further actions
 		return reconcile.Result{}, err
 	}
 
@@ -126,7 +145,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, fmt.Errorf("proxySQL upgrade error: %v", err)
 		}
 	} else {
-		r.client.Delete(context.TODO(), statefulset.NewProxy(o).StatefulSet())
+		err = r.deleteProxySQL(o)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	err = r.reconcileBackups(o)
@@ -193,6 +215,44 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("create PXC Service: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) deleteProxySQL(cr *api.PerconaXtraDBCluster) error {
+	proxy := statefulset.NewProxy(cr)
+
+	err := r.client.Delete(context.TODO(), proxy.StatefulSet())
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("delete proxysql: %v", err)
+	}
+	err = r.deleteProxyPVC(cr.Namespace, proxy.Lables())
+	if err != nil {
+		return fmt.Errorf("delete proxysql pvc: %v", err)
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) deleteProxyPVC(namespace string, lbls map[string]string) error {
+	list := corev1.PersistentVolumeClaimList{}
+	err := r.client.List(context.TODO(),
+		&client.ListOptions{
+			Namespace:     namespace,
+			LabelSelector: labels.SelectorFromSet(lbls),
+		},
+		&list,
+	)
+	if err != nil {
+		return fmt.Errorf("get list: %v", err)
+	}
+
+	for _, pvc := range list.Items {
+		err := r.client.Delete(context.TODO(), &pvc)
+		if err != nil {
+			return fmt.Errorf("delete: %v", err)
 		}
 	}
 

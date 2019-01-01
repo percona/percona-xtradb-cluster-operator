@@ -64,6 +64,10 @@ func jobSpec(spec api.PXCBackupSpec, name string, sv *api.ServerVersion) batchv1
 								Name:  "NODE_NAME",
 								Value: spec.PXCCluster + "-pxc-nodes",
 							},
+							{
+								Name:  "BACKUP_DIR",
+								Value: "/backup",
+							},
 						},
 					},
 				},

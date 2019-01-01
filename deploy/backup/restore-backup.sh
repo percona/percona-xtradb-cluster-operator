@@ -1,82 +1,147 @@
 #!/bin/bash
 
-ctrl="oc"
+tmp_dir=$(mktemp -d)
 
-function usage {
-  cat << EOF
- usage: $0 [-h] -r "new restored pvc" -v "backup pvc" -d "backup directory (under /backup, do not include "/backup")"
- 
- OPTIONS:
-    -h        Show this message
-    -r string new restored cluster persistent volume claim
-    -d string backup path (run list_backups.sh to see the current directory)
-    -v string persistent volume claim with backup
-EOF
+usage() {
+    cat - <<-EOF
+		usage: $0 <backup-name> <cluster-name>
 
+		OPTIONS:
+		    <backup-name>  the backup name
+		                   it can be obtained with the "kubectl get pxc-backup" command
+		    <cluster-name> the name of an existing Percona XtraDB Cluster
+		                   it can be obtained with the "kubectl get pxc" command
+	EOF
+    exit 1
 }
 
-while getopts :d:r:v: flag; do
-  case $flag in
-    d)
-      backupDir="${OPTARG}";
-      ;;
-    r)
-      restorePVC="${OPTARG}";
-      ;;
-    v)
-      backupPVC="${OPTARG}";
-      ;;
-    h)
-      usage;
-      exit 0;
-      ;;
-    *)
-      usage;
-      exit 1;
-      ;;
-  esac
-done
-shift $((OPTIND -1))
+get_backup_pvc() {
+    local backup=$1
 
-if [ "$backupDir"  == "" ]; then echo "backupDir is not defined, use -d <backup dir>"; usage; exit 1; fi
-if [ "$backupPVC"  == "" ]; then echo "backupPVC is not defined, use -v <backup PVC>"; usage; exit 1; fi
-if [ "$restorePVC"  == "" ]; then echo "restorePVC is not defined, use -d <restore PVC>"; usage; exit 1; fi
+    if kubectl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
+        echo -n "$cluster-backup.$backup"
+    else
+        # support direct PVC name here
+        echo -n "$backup"
+    fi
+}
 
-cat <<EOF | $ctrl apply -f -
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: xtrabackup-restore-job
-spec:
-  template:
-    spec:
-      containers:
-      - name: xtrabackup
-        image: perconalab/backupjob-openshift
-        command:
-        - bash
-        - "-c"
-        - |
-          set -ex
-          cd /datadir
-          rm -fr *
-          cat /backup/\$BACKUPSRC/xtrabackup.stream | xbstream -x 
-          xtrabackup --prepare --target-dir=/datadir
-        env:
-          - name: BACKUPSRC
-            value: $backupDir
-        volumeMounts:
-        - name: backup
-          mountPath: /backup
-        - name: datadir
-          mountPath: /datadir
-      restartPolicy: Never
-      volumes:
-      - name: backup
-        persistentVolumeClaim:
-          claimName: $backupPVC
-      - name: datadir
-        persistentVolumeClaim:
-          claimName: $restorePVC
-  backoffLimit: 4
-EOF
+check_input() {
+    local backup_pvc=$1
+    local cluster=$2
+
+    BASH_VER=$(echo "$BASH_VERSION" | cut -d . -f 1,2)
+    if (( $(echo "$BASH_VER >= 4.1" |bc -l) )); then
+        exec 5>"$tmp_dir/log"
+        BASH_XTRACEFD=5
+        set -o xtrace
+        echo "Log: $tmp_dir/log"
+    fi
+
+    if [ -z "$backup_pvc" ] || [ -z "$cluster" ]; then
+        usage
+    fi
+
+    if ! kubectl get "pxc/$cluster" 1>/dev/null; then
+        printf "[ERROR] '%s' Percona XtraDB Cluster doesn't exists.\n\n" "$cluster"
+        usage
+    fi
+
+    if ! kubectl get "pvc/$backup_pvc" 1>/dev/null; then
+        printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_pvc"
+        usage
+    fi
+
+    echo "All data in '$cluster' Percona XtraDB Cluster will be deleted during the backup restoration."
+    while read -r -p "Are you sure? [y/N] " answer; do
+        case "$answer" in
+            [Yy]|[Yy][Ee][Ss]) break;;
+            ""|[Nn]|[Nn][Oo])  exit 0;;
+        esac
+    done
+}
+
+stop_pxc() {
+    local cluster=$1
+
+    kubectl get "pxc/$cluster" -o yaml > "$tmp_dir/cluster.yaml"
+    kubectl delete -f "$tmp_dir/cluster.yaml"
+}
+
+start_pxc() {
+    kubectl apply -f "$tmp_dir/cluster.yaml"
+}
+
+recover() {
+    local backup_pvc=$1
+    local cluster=$2
+
+    kubectl delete "job/xtrabackup-restore-job-$cluster" 2>/dev/null
+    cat - <<-EOF | kubectl apply -f -
+		apiVersion: batch/v1
+		kind: Job
+		metadata:
+		  name: xtrabackup-restore-job-$cluster
+		spec:
+		  template:
+		    spec:
+		      containers:
+		      - name: xtrabackup
+		        image: perconalab/backupjob-openshift
+		        command:
+		        - bash
+		        - "-exc"
+		        - |
+		          cd /backup
+		          md5sum -c md5sum.txt
+
+		          rm -rf /datadir/*
+		          cat /backup/xtrabackup.stream | xbstream -x -C /datadir
+		          xtrabackup --prepare --target-dir=/datadir
+		        volumeMounts:
+		        - name: backup
+		          mountPath: /backup
+		        - name: datadir
+		          mountPath: /datadir
+		      restartPolicy: Never
+		      volumes:
+		      - name: backup
+		        persistentVolumeClaim:
+		          claimName: $backup_pvc
+		      - name: datadir
+		        persistentVolumeClaim:
+		          claimName: datadir-$cluster-pxc-node-0
+		  backoffLimit: 4
+	EOF
+
+    echo -n "Recovering."
+    until kubectl get "job/xtrabackup-restore-job-$cluster" -o jsonpath='{.status.completionTime}' 2>/dev/null | grep -q 'T'; do
+        sleep 1
+        echo -n .
+    done
+    echo "[done]"
+}
+
+main() {
+    local backup=$1
+    local cluster=$2
+    local backup_pvc
+    backup_pvc=$(get_backup_pvc "$backup")
+
+    check_input "$backup_pvc" "$cluster"
+
+    stop_pxc "$cluster"
+    recover "$backup_pvc" "$cluster"
+    start_pxc
+
+    cat - <<-EOF
+
+		You can view xtrabackup log:
+		    $ kubectl logs job/xtrabackup-restore-job-$cluster
+		If everything is fine, you can cleanup the job:
+		    $ kubectl delete job/xtrabackup-restore-job-$cluster
+	EOF
+}
+
+main "$@"
+exit 0

@@ -55,14 +55,14 @@ func (r *ReconcilePerconaXtraDBBackup) SelectNode(cr *api.PerconaXtraDBBackup) (
 		err = cl.Exec(
 			proxyPod,
 			"proxysql",
-			[]string{"mysql", "-sN", "-h127.0.0.1", "-P6032", "-uadmin", "-padmin", "-e", `SELECT hostname FROM mysql_servers WHERE comment="WRITE";`},
+			[]string{"bash", "-c", `mysql -sN -h127.0.0.1 -P6032 -uadmin -p$MYSQL_ADMIN_PASSWORD -e "SELECT hostname FROM mysql_servers WHERE comment='WRITE';"`},
 			nil,
 			&outb,
 			&errb,
 			false,
 		)
 		if err != nil {
-			return "", fmt.Errorf("define write pod: %v / exec: %v", err, errb)
+			return "", fmt.Errorf("define write pod: %v / exec: %s", err, errb.String())
 		}
 
 		rwNodeIP = strings.TrimSpace(outb.String())

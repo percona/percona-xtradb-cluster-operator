@@ -162,7 +162,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	err = r.updateJobStatus(instance, job)
+	err = r.updateJobStatus(instance, job, pvc.Name)
 
 	return rr, err
 }
@@ -210,7 +210,7 @@ func (r *ReconcilePerconaXtraDBBackup) pvcStatus(pvc *corev1.PersistentVolumeCla
 	return VolumeStatus(pvc.Status.Phase), nil
 }
 
-func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job) error {
+func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job, volume string) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 
 	if err != nil {
@@ -218,7 +218,8 @@ func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBac
 	}
 
 	status := &api.PXCBackupStatus{
-		State: api.BackupStarting,
+		State:  api.BackupStarting,
+		Volume: volume,
 	}
 
 	switch {

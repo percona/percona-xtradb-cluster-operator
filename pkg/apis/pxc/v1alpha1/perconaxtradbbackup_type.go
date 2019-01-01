@@ -37,6 +37,7 @@ type PXCBackupStatus struct {
 	State         PXCBackupState `json:"state,omitempty"`
 	CompletedAt   *metav1.Time   `json:"completed,omitempty"`
 	LastScheduled *metav1.Time   `json:"lastscheduled,omitempty"`
+	Volume        string         `json:"volume,omitempty"`
 }
 
 type PXCBackupState string

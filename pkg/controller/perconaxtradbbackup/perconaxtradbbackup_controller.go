@@ -22,6 +22,7 @@ import (
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/version"
 )
 
 var log = logf.Log.WithName("controller_perconaxtradbbackup")
@@ -29,12 +30,26 @@ var log = logf.Log.WithName("controller_perconaxtradbbackup")
 // Add creates a new PerconaXtraDBBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	r, err := newReconciler(mgr)
+	if err != nil {
+		return err
+	}
+
+	return add(mgr, r)
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcilePerconaXtraDBBackup{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
+	sv, err := version.Server()
+	if err != nil {
+		return nil, fmt.Errorf("get version: %v", err)
+	}
+
+	return &ReconcilePerconaXtraDBBackup{
+		client:        mgr.GetClient(),
+		scheme:        mgr.GetScheme(),
+		serverVersion: sv,
+	}, nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -62,6 +77,8 @@ type ReconcilePerconaXtraDBBackup struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+
+	serverVersion *api.ServerVersion
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBBackup object and makes changes based on the state read
@@ -136,7 +153,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("pvc not ready, status: %s", pvcStatus)
 	}
 
-	job := backup.NewJob(instance)
+	job := backup.NewJob(instance, r.serverVersion)
 	// Set PerconaXtraDBBackup instance as the owner and controller
 	if err := setControllerReference(instance, job, r.scheme); err != nil {
 		return reconcile.Result{}, fmt.Errorf("job/setControllerReference: %v", err)

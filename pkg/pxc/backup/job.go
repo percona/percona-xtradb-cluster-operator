@@ -8,7 +8,7 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func NewJob(cr *api.PerconaXtraDBBackup) *batchv1.Job {
+func NewJob(cr *api.PerconaXtraDBBackup, pxcNode string) *batchv1.Job {
 	jb := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -22,13 +22,13 @@ func NewJob(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 				"type":    "xtrabackup",
 			},
 		},
-		Spec: jobSpec(cr.Spec, cr.Name),
+		Spec: jobSpec(cr.Spec, cr.Name, pxcNode),
 	}
 
 	return jb
 }
 
-func jobSpec(spec api.PXCBackupSpec, name string) batchv1.JobSpec {
+func jobSpec(spec api.PXCBackupSpec, name string, pxcNode string) batchv1.JobSpec {
 	pvc := corev1.Volume{
 		Name: spec.PXCCluster + "-backup-" + name,
 	}
@@ -53,7 +53,7 @@ func jobSpec(spec api.PXCBackupSpec, name string) batchv1.JobSpec {
 						Env: []corev1.EnvVar{
 							{
 								Name:  "NODE_NAME",
-								Value: spec.PXCCluster + "-pxc-nodes",
+								Value: pxcNode,
 							},
 						},
 					},

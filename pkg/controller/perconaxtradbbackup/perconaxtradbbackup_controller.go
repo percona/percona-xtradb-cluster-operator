@@ -96,6 +96,14 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("invalid backup config: %v", err)
 	}
 
+	bcpNode, err := r.SelectNode(instance)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("select backup node: %v", err)
+	}
+	if bcpNode == "" {
+		return rr, fmt.Errorf("no backup-ready node")
+	}
+
 	pvc, err := backup.NewPVC(instance)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -136,7 +144,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("pvc not ready, status: %s", pvcStatus)
 	}
 
-	job := backup.NewJob(instance)
+	job := backup.NewJob(instance, bcpNode)
 	// Set PerconaXtraDBBackup instance as the owner and controller
 	if err := setControllerReference(instance, job, r.scheme); err != nil {
 		return reconcile.Result{}, fmt.Errorf("job/setControllerReference: %v", err)

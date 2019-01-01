@@ -72,7 +72,11 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 				},
 			},
 			{
-				Name: "MYSQL_ADMIN_PASSWORD",
+				Name:  "PROXY_ADMIN_USER",
+				Value: "admin",
+			},
+			{
+				Name: "PROXY_ADMIN_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
 				},

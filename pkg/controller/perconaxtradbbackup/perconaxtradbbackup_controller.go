@@ -100,9 +100,6 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("select backup node: %v", err)
 	}
-	if bcpNode == "" {
-		return rr, fmt.Errorf("no backup-ready node")
-	}
 
 	pvc, err := backup.NewPVC(instance)
 	if err != nil {

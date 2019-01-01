@@ -36,6 +36,12 @@ func jobSpec(spec api.PXCBackupSpec, name string, pxcNode string) batchv1.JobSpe
 		ClaimName: spec.PXCCluster + volumeNamePostfix + "." + name,
 	}
 
+	// if a suitable node hasn't been chosen - try to make a lucky shot.
+	// it's better than the failed backup at all
+	if pxcNode == "" {
+		pxcNode = spec.PXCCluster + "-pxc-nodes"
+	}
+
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{

@@ -108,12 +108,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
 		for _, fnlz := range o.GetFinalizers() {
+			var sfs api.StatefulApp
 			switch fnlz {
-			case "pvc.proxysql":
-				err = r.deleteProxySQL(o)
-				if err != nil {
-					finalizers = append(finalizers, fnlz)
-				}
+			case "delete-proxysql-pvc":
+				sfs = statefulset.NewProxy(o)
+			case "delete-pxc-pvc":
+				sfs = statefulset.NewNode(o)
+			}
+			// deletePVC is always true on this stage
+			// because we never reach this point without finalizers
+			err = r.deleteStatfulSet(o.Namespace, sfs, true)
+			if err != nil {
+				finalizers = append(finalizers, fnlz)
 			}
 		}
 
@@ -139,13 +145,23 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, fmt.Errorf("pxc upgrade error: %v", err)
 	}
 
+	proxysqlSet := statefulset.NewProxy(o)
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
-		err = r.updatePod(statefulset.NewProxy(o), o.Spec.ProxySQL, o)
+		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("proxySQL upgrade error: %v", err)
 		}
 	} else {
-		err = r.deleteProxySQL(o)
+		// check if there is need to delete pvc
+		deletePVC := false
+		for _, fnlz := range o.GetFinalizers() {
+			if fnlz == "delete-proxysql-pvc" {
+				deletePVC = true
+				break
+			}
+		}
+
+		err = r.deleteStatfulSet(o.Namespace, proxysqlSet, deletePVC)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -221,22 +237,22 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteProxySQL(cr *api.PerconaXtraDBCluster) error {
-	proxy := statefulset.NewProxy(cr)
-
-	err := r.client.Delete(context.TODO(), proxy.StatefulSet())
+func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error { // cr *api.PerconaXtraDBCluster) error {
+	err := r.client.Delete(context.TODO(), sfs.StatefulSet())
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("delete proxysql: %v", err)
 	}
-	err = r.deleteProxyPVC(cr.Namespace, proxy.Lables())
-	if err != nil {
-		return fmt.Errorf("delete proxysql pvc: %v", err)
+	if deletePVC {
+		err = r.deletePVC(namespace, sfs.Lables())
+		if err != nil {
+			return fmt.Errorf("delete proxysql pvc: %v", err)
+		}
 	}
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteProxyPVC(namespace string, lbls map[string]string) error {
+func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[string]string) error {
 	list := corev1.PersistentVolumeClaimList{}
 	err := r.client.List(context.TODO(),
 		&client.ListOptions{

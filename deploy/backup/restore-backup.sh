@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -o errexit
 tmp_dir=$(mktemp -d)
 
 usage() {
@@ -19,17 +20,14 @@ get_backup_pvc() {
     local backup=$1
 
     if kubectl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
-        echo -n "$cluster-backup.$backup"
+        kubectl get "pxc-backup/$backup" -o jsonpath='{.status.volume}'
     else
         # support direct PVC name here
         echo -n "$backup"
     fi
 }
 
-check_input() {
-    local backup_pvc=$1
-    local cluster=$2
-
+enable_logging() {
     BASH_VER=$(echo "$BASH_VERSION" | cut -d . -f 1,2)
     if (( $(echo "$BASH_VER >= 4.1" |bc -l) )); then
         exec 5>"$tmp_dir/log"
@@ -37,6 +35,11 @@ check_input() {
         set -o xtrace
         echo "Log: $tmp_dir/log"
     fi
+}
+
+check_input() {
+    local backup_pvc=$1
+    local cluster=$2
 
     if [ -z "$backup_pvc" ] || [ -z "$cluster" ]; then
         usage
@@ -76,7 +79,7 @@ recover() {
     local backup_pvc=$1
     local cluster=$2
 
-    kubectl delete "job/xtrabackup-restore-job-$cluster" 2>/dev/null
+    kubectl delete "job/xtrabackup-restore-job-$cluster" 2>/dev/null || :
     cat - <<-EOF | kubectl apply -f -
 		apiVersion: batch/v1
 		kind: Job
@@ -126,8 +129,9 @@ main() {
     local backup=$1
     local cluster=$2
     local backup_pvc
-    backup_pvc=$(get_backup_pvc "$backup")
 
+    enable_logging
+    backup_pvc=$(get_backup_pvc "$backup")
     check_input "$backup_pvc" "$cluster"
 
     stop_pxc "$cluster"
@@ -140,6 +144,7 @@ main() {
 		    $ kubectl logs job/xtrabackup-restore-job-$cluster
 		If everything is fine, you can cleanup the job:
 		    $ kubectl delete job/xtrabackup-restore-job-$cluster
+
 	EOF
 }
 

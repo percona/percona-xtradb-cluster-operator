@@ -8,7 +8,7 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func NewJob(cr *api.PerconaXtraDBBackup, pxcNode string) *batchv1.Job {
+func NewJob(cr *api.PerconaXtraDBBackup, pxcNode string, sv *api.ServerVersion) *batchv1.Job {
 	jb := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -22,13 +22,13 @@ func NewJob(cr *api.PerconaXtraDBBackup, pxcNode string) *batchv1.Job {
 				"type":    "xtrabackup",
 			},
 		},
-		Spec: jobSpec(cr.Spec, cr.Name, pxcNode),
+		Spec: jobSpec(cr.Spec, cr.Name, pxcNode, sv),
 	}
 
 	return jb
 }
 
-func jobSpec(spec api.PXCBackupSpec, name string, pxcNode string) batchv1.JobSpec {
+func jobSpec(spec api.PXCBackupSpec, name string, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
 	pvc := corev1.Volume{
 		Name: spec.PXCCluster + "-backup-" + name,
 	}
@@ -42,9 +42,18 @@ func jobSpec(spec api.PXCBackupSpec, name string, pxcNode string) batchv1.JobSpe
 		pxcNode = spec.PXCCluster + "-pxc-nodes"
 	}
 
+	var fsgroup *int64
+	if sv.Platform == api.PlatformKubernetes {
+		var tp int64 = 1001
+		fsgroup = &tp
+	}
+
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
+				SecurityContext: &corev1.PodSecurityContext{
+					FSGroup: fsgroup,
+				},
 				Containers: []corev1.Container{
 					{
 						Name:    "xtrabackup",
@@ -60,6 +69,10 @@ func jobSpec(spec api.PXCBackupSpec, name string, pxcNode string) batchv1.JobSpe
 							{
 								Name:  "NODE_NAME",
 								Value: pxcNode,
+							},
+							{
+								Name:  "BACKUP_DIR",
+								Value: "/backup",
 							},
 						},
 					},

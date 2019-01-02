@@ -9,5 +9,6 @@ $dir/init-deploy/run
 $dir/limits/run
 $dir/scaling/run
 $dir/monitoring/run
+$dir/affinity/run
 $dir/self-healing/run
 $dir/operator-self-healing/run

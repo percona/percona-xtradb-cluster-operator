@@ -50,6 +50,9 @@ matrix:
     script:
     - ./e2e-tests/self-healing/run
     - ./e2e-tests/operator-self-healing/run
+  - name: "Backups"
+    script:
+    - ./e2e-tests/demand-backup/run
 after_success:
 - gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME
 after_failure:

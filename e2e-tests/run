@@ -10,5 +10,6 @@ $dir/limits/run
 $dir/scaling/run
 $dir/monitoring/run
 $dir/affinity/run
+$dir/demand-backup/run
 $dir/self-healing/run
 $dir/operator-self-healing/run

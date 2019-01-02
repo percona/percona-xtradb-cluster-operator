@@ -13,10 +13,6 @@ spec:
         name: pxc-client
     spec:
       containers:
-        - name: pxc-client
-          image: percona/percona-server:5.7
-          imagePullPolicy: IfNotPresent
-          command:
-          - sleep
-          args:
-          - "100500"
+      - name: pxc-client
+        image: perconalab/backupjob-openshift
+        imagePullPolicy: IfNotPresent

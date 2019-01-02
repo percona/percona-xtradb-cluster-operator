@@ -73,7 +73,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 			},
 			{
 				Name:  "PROXY_ADMIN_USER",
-				Value: "admin",
+				Value: "proxyadmin",
 			},
 			{
 				Name: "PROXY_ADMIN_PASSWORD",

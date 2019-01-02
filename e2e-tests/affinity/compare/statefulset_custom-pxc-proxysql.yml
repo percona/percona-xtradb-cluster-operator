@@ -70,6 +70,13 @@ spec:
             secretKeyRef:
               key: root
               name: my-cluster-secrets
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: proxyadmin
+              name: my-cluster-secrets
         - name: MYSQL_PROXY_USER
           value: proxyuser
         - name: MYSQL_PROXY_PASSWORD

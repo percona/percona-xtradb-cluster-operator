@@ -237,7 +237,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error { // cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {
 	err := r.client.Delete(context.TODO(), sfs.StatefulSet())
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("delete proxysql: %v", err)

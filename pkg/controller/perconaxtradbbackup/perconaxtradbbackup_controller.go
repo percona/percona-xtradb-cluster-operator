@@ -113,6 +113,11 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("invalid backup config: %v", err)
 	}
 
+	bcpNode, err := r.SelectNode(instance)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("select backup node: %v", err)
+	}
+
 	pvc, err := backup.NewPVC(instance)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -152,8 +157,9 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	if pvcStatus != VolumeBound {
 		return reconcile.Result{}, fmt.Errorf("pvc not ready, status: %s", pvcStatus)
 	}
+  
+  job := backup.NewJob(instance, bcpNode, r.serverVersion)
 
-	job := backup.NewJob(instance, r.serverVersion)
 	// Set PerconaXtraDBBackup instance as the owner and controller
 	if err := setControllerReference(instance, job, r.scheme); err != nil {
 		return reconcile.Result{}, fmt.Errorf("job/setControllerReference: %v", err)
@@ -171,7 +177,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	err = r.updateJobStatus(instance, job)
+	err = r.updateJobStatus(instance, job, pvc.Name)
 
 	return rr, err
 }
@@ -219,7 +225,7 @@ func (r *ReconcilePerconaXtraDBBackup) pvcStatus(pvc *corev1.PersistentVolumeCla
 	return VolumeStatus(pvc.Status.Phase), nil
 }
 
-func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job) error {
+func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job, volume string) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 
 	if err != nil {
@@ -227,7 +233,8 @@ func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBac
 	}
 
 	status := &api.PXCBackupStatus{
-		State: api.BackupStarting,
+		State:  api.BackupStarting,
+		Volume: volume,
 	}
 
 	switch {

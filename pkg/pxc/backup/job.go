@@ -8,7 +8,7 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func NewJob(cr *api.PerconaXtraDBBackup, sv *api.ServerVersion) *batchv1.Job {
+func NewJob(cr *api.PerconaXtraDBBackup, pxcNode string, sv *api.ServerVersion) *batchv1.Job {
 	jb := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -22,18 +22,24 @@ func NewJob(cr *api.PerconaXtraDBBackup, sv *api.ServerVersion) *batchv1.Job {
 				"type":    "xtrabackup",
 			},
 		},
-		Spec: jobSpec(cr.Spec, cr.Name, sv),
+		Spec: jobSpec(cr.Spec, cr.Name, pxcNode, sv),
 	}
 
 	return jb
 }
 
-func jobSpec(spec api.PXCBackupSpec, name string, sv *api.ServerVersion) batchv1.JobSpec {
+func jobSpec(spec api.PXCBackupSpec, name string, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
 	pvc := corev1.Volume{
 		Name: spec.PXCCluster + "-backup-" + name,
 	}
 	pvc.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
 		ClaimName: spec.PXCCluster + volumeNamePostfix + "." + name,
+	}
+
+	// if a suitable node hasn't been chosen - try to make a lucky shot.
+	// it's better than the failed backup at all
+	if pxcNode == "" {
+		pxcNode = spec.PXCCluster + "-pxc-nodes"
 	}
 
 	var fsgroup *int64
@@ -62,7 +68,7 @@ func jobSpec(spec api.PXCBackupSpec, name string, sv *api.ServerVersion) batchv1
 						Env: []corev1.EnvVar{
 							{
 								Name:  "NODE_NAME",
-								Value: spec.PXCCluster + "-pxc-nodes",
+								Value: pxcNode,
 							},
 							{
 								Name:  "BACKUP_DIR",

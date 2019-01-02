@@ -19,7 +19,7 @@ create_namespace() {
     if [ $OPENSHIFT == 1 ]; then
         oc new-project "$namespace"
         oc project "$namespace"
-        oc adm policy add-scc-to-user hostaccess -z default
+        oc adm policy add-scc-to-user hostaccess -z default || :
     else
         kubectl create namespace "$namespace"
         kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
@@ -52,15 +52,35 @@ wait_pod() {
     set -o xtrace
 }
 
+wait_backup() {
+    local backup=$1
+
+    set +o xtrace
+    retry=0
+    echo -n $backup
+    until kubectl get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+        sleep 1
+        echo -n .
+        let retry+=1
+        if [ $retry -ge 60 ]; then
+            kubectl logs $(get_operator_pod)
+            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+            exit 1
+        fi
+    done
+    set -o xtrace
+}
+
 deploy_operator() {
     desc 'start operator'
     sed -e "s^image: .*^image: ${IMAGE}^" \
         ${src_dir}/deploy/operator.yaml \
         > ${tmp_dir}/operator.yml
 
-    kubectl apply -f ${src_dir}/deploy/crd.yaml \
-                  -f ${src_dir}/deploy/rbac.yaml \
-                  -f ${tmp_dir}/operator.yml
+    kubectl apply -f ${src_dir}/deploy/crd.yaml || :
+    kubectl apply \
+        -f ${src_dir}/deploy/rbac.yaml \
+        -f ${tmp_dir}/operator.yml
 
     wait_pod $(get_operator_pod)
 }
@@ -140,12 +160,19 @@ compare_kubectl() {
     diff -u ${expected_result} ${new_result}
 }
 
+get_client_pod() {
+    kubectl get pods \
+        --selector=name=pxc-client \
+        -o 'jsonpath={.items[].metadata.name}'
+}
+
 run_mysql() {
     local command="$1"
     local uri="$2"
-    local client_container=$(kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}')
 
-    kubectl exec ${client_container} -- \
+    client_pod=$(get_client_pod)
+    wait_pod $client_pod 1>&2
+    kubectl exec $client_pod -- \
         bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
         | sed -e 's/mysql: //' \
         | (grep -v 'Using a password on the command line interface can be insecure.' || :)

@@ -6,7 +6,7 @@ spec:
   secretsName: my-cluster-secrets
   pxc:
     size: 3
-    image: perconalab/pxc-openshift:0.1.0
+    image: perconalab/pxc-openshift:0.2.0
     resources:
       requests:
         memory: 10M
@@ -19,7 +19,7 @@ spec:
   proxysql:
     enabled: false
     size: 1
-    image: perconalab/proxysql-openshift:0.1.0
+    image: perconalab/proxysql-openshift:0.2.0
     resources:
       requests:
         memory: 10M

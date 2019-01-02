@@ -73,3 +73,7 @@ func (c *Client) Exec(pod *corev1.Pod, containerName string, command []string, s
 		Tty:    tty,
 	})
 }
+
+func (c *Client) REST() restclient.Interface {
+	return c.client.RESTClient()
+}

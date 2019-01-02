@@ -3,7 +3,8 @@ kind: "PerconaXtraDBCluster"
 metadata:
   name: "cluster1"
   finalizers:
-  - pvc.proxysql
+  # - delete-proxysql-pvc
+  - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
   pxc:
@@ -24,7 +25,7 @@ spec:
       topologyKey: "kubernetes.io/hostname"
       # advanced:
   proxysql:
-    enabled: true
+    enabled: false
     size: 1
     image: perconalab/proxysql-openshift:0.1.0
     resources:

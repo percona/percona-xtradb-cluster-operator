@@ -108,6 +108,16 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	job := backup.NewJob(instance)
+
+	// Check if this Job already exists
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
+	// continue only if job not found - we need to creat it just once.
+	if !errors.IsNotFound(err) {
+		err = r.updateJobStatus(instance, job, backup.NewPVC(instance).Name)
+		return rr, err
+	}
+
 	err = r.checkInput(instance)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("invalid backup config: %v", err)
@@ -118,7 +128,8 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("select backup node: %v", err)
 	}
 
-	pvc, err := backup.NewPVC(instance)
+	pvc := backup.NewPVC(instance)
+	pvc.Spec, err = backup.PVCSpec(instance.Spec)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -144,11 +155,11 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	var pvcStatus VolumeStatus
 	for i := time.Duration(1); i <= 5; i++ {
 		pvcStatus, err = r.pvcStatus(pvc)
-		if err != nil {
+		if err != nil && !errors.IsNotFound(err) {
 			return reconcile.Result{}, fmt.Errorf("get pvc status: %v", err)
 		}
 
-		if pvcStatus != VolumePending {
+		if pvcStatus == VolumeBound {
 			break
 		}
 		time.Sleep(time.Second * i)
@@ -157,23 +168,17 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	if pvcStatus != VolumeBound {
 		return reconcile.Result{}, fmt.Errorf("pvc not ready, status: %s", pvcStatus)
 	}
-  
-  job := backup.NewJob(instance, bcpNode, r.serverVersion)
 
 	// Set PerconaXtraDBBackup instance as the owner and controller
 	if err := setControllerReference(instance, job, r.scheme); err != nil {
 		return reconcile.Result{}, fmt.Errorf("job/setControllerReference: %v", err)
 	}
 
-	// Check if this Job already exists
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new backup job", "Namespace", job.Namespace, "Name", job.Name)
-		err = r.client.Create(context.TODO(), job)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	} else if err != nil {
+	job.Spec = backup.JobSpec(instance.Spec, instance.Name, bcpNode, r.serverVersion)
+
+	reqLogger.Info("Creating a new backup job", "Namespace", job.Namespace, "Name", job.Name)
+	err = r.client.Create(context.TODO(), job)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 

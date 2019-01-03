@@ -254,6 +254,14 @@ run_pumba() {
 
 destroy() {
     local namespace="$1"
+
+    kubectl logs $(get_operator_pod) \
+        | grep -v '"level":"info"' \
+        | $sed -r 's/"ts":[0-9.]+//' \
+        | sort -u \
+        | tee $tmp_dir/operator.log
+    #diff $test_dir/compare/operator.log $tmp_dir/operator.log
+
     if [ $OPENSHIFT == 1 ]; then
         oc delete project "$namespace"
     else

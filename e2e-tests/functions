@@ -263,14 +263,12 @@ destroy() {
 
     kubectl logs $(get_operator_pod) \
         | grep -v '"level":"info"' \
+        | grep -v 'the object has been modified' \
         | $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
         | sort -u \
         | tee $tmp_dir/operator.log
 
-    # "if" due to https://jira.percona.com/browse/CLOUD-77
-    if [ "$test_name" != "limits" ]; then
-        diff $test_dir/compare/operator.log $tmp_dir/operator.log
-    fi
+    diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
     if [ "$OPENSHIFT" == 1 ]; then
         oc delete project "$namespace"

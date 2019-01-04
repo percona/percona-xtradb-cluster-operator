@@ -69,6 +69,13 @@ stop_pxc() {
 
     kubectl get "pxc/$cluster" -o yaml > "$tmp_dir/cluster.yaml"
     kubectl delete -f "$tmp_dir/cluster.yaml"
+
+    echo -n "Deleting."
+    until (kubectl get pod/$cluster-pxc-node-0 || :) 2>&1 | grep -q NotFound; do
+        sleep 1
+        echo -n .
+    done
+    echo "[done]"
 }
 
 start_pxc() {

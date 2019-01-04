@@ -11,16 +11,20 @@ test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
-OPENSHIFT=${OPENSHIFT:-0}
+if oc version | grep -q openshift; then
+    OPENSHIFT=1
+fi
 
 
 create_namespace() {
     local namespace="$1"
-    if [ $OPENSHIFT == 1 ]; then
+    if [ "$OPENSHIFT" == 1 ]; then
+        oc delete project "$namespace" && sleep 10 || :
         oc new-project "$namespace"
         oc project "$namespace"
         oc adm policy add-scc-to-user hostaccess -z default || :
     else
+        kubectl delete namespace "$namespace" && sleep 10 || :
         kubectl create namespace "$namespace"
         kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
     fi
@@ -87,7 +91,8 @@ deploy_operator() {
 
 deploy_helm() {
     local namespace="$1"
-    if [ $OPENSHIFT == 1 ]; then
+    if [ "$OPENSHIFT" == 1 ]; then
+        export TILLER_NAMESPACE=tiller
         oc new-project tiller || :
         oc project tiller
         oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=v2.12.1 | oc apply -f -
@@ -105,7 +110,7 @@ deploy_helm() {
     )
     wait_pod $tiller_pod
 
-    if [ $OPENSHIFT == 1 ]; then
+    if [ "$OPENSHIFT" == 1 ]; then
         oc project "$namespace"
         oc policy add-role-to-user edit "system:serviceaccount:tiller:tiller"
     else
@@ -147,7 +152,7 @@ compare_kubectl() {
     local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
     local new_result="${tmp_dir}/${resource//\//_}.yml"
 
-    if [ $OPENSHIFT = 1 -a -f ${expected_result//.yml/-oc.yml} ]; then
+    if [ "$OPENSHIFT" = 1 -a -f ${expected_result//.yml/-oc.yml} ]; then
         local expected_result=${expected_result//.yml/-oc.yml}
     fi
 
@@ -257,12 +262,16 @@ destroy() {
 
     kubectl logs $(get_operator_pod) \
         | grep -v '"level":"info"' \
-        | $sed -r 's/"ts":[0-9.]+//' \
+        | $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
         | sort -u \
         | tee $tmp_dir/operator.log
-    #diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
-    if [ $OPENSHIFT == 1 ]; then
+    # "if" due to https://jira.percona.com/browse/CLOUD-77
+    if [ "$test_name" != "limits" ]; then
+        diff $test_dir/compare/operator.log $tmp_dir/operator.log
+    fi
+
+    if [ "$OPENSHIFT" == 1 ]; then
         oc delete project "$namespace"
     else
         kubectl delete namespace "$namespace"

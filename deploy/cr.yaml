@@ -24,6 +24,13 @@ spec:
     affinity:
       topologyKey: "kubernetes.io/hostname"
       # advanced:
+    # nodeSelector:
+    #   disktype: ssd
+    # tolerations: 
+    # - key: "node.alpha.kubernetes.io/unreachable"
+    #   operator: "Exists"
+    #   effect: "NoExecute"
+    #   tolerationSeconds: 6000
   proxysql:
     enabled: true
     size: 1
@@ -42,6 +49,13 @@ spec:
     # affinity:
     #   topologyKey: "failure-domain.beta.kubernetes.io/zone"
     #   # advanced:
+    # nodeSelector:
+    #   disktype: ssd
+    # tolerations: 
+    # - key: "node.alpha.kubernetes.io/unreachable"
+    #   operator: "Exists"
+    #   effect: "NoExecute"
+    #   tolerationSeconds: 6000
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0

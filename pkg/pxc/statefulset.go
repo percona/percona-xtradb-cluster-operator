@@ -21,6 +21,8 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 			SupplementalGroups: []int64{99},
 			FSGroup:            fsgroup,
 		},
+		NodeSelector: podSpec.NodeSelector,
+		Tolerations:  podSpec.Tolerations,
 	}
 
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)

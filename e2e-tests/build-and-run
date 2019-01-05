@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir="$(dirname $0)"
+. $(dirname $0)/functions
+src_dir="$(realpath $test_dir/..)"
+
+#$test_dir/build
+create_namespace run-$GIT_BRANCH
+deploy_operator
+
+desc 'create PXC cluster'
+kubectl apply -f $src_dir/deploy/secrets.yaml
+
+platform=(kubernetes openshift)
+cat $src_dir/deploy/cr.yaml \
+    | $sed "s/#platform: .*/platform: ${platform[${OPENSHIFT:-0}]}/" \
+    | kubectl apply -f -
+
+wait_for_running cluster1-pxc-node 3

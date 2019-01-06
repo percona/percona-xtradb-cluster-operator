@@ -1,8 +1,6 @@
 package backup
 
 import (
-	"strings"
-
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -54,6 +52,11 @@ func NewScheduled(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *b
 }
 
 func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec {
+	// originClusterName := cluster
+	// if len(cluster) > 16 {
+	// 	cluster = cluster[:16]
+	// }
+
 	env := []corev1.EnvVar{
 		{
 			Name:  "pxcCluster",
@@ -62,6 +65,10 @@ func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec 
 		{
 			Name:  "size",
 			Value: spec.Volume.Size,
+		},
+		{
+			Name:  "suffix",
+			Value: genRandString(5),
 		},
 	}
 
@@ -88,10 +95,11 @@ func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec 
 									apiVersion: pxc.percona.com/v1alpha1
 									kind: PerconaXtraDBBackup
 									metadata:
-									  name: "cron-${pxcCluster}-$(date -u "+%Y%m%d%H%M%S")"
+									  name: "cron-${pxcCluster:0:16}-$(date -u "+%Y%m%d%H%M%S")-${suffix}"
 									  labels:
 									    ancestor: "` + spec.Name + `"
-									    cluster: "` + cluster + `"
+									    cluster: "${pxcCluster}"
+									    type: "cron"
 									spec:
 									  pxcCluster: "${pxcCluster}"
 									  volume:
@@ -106,9 +114,4 @@ func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec 
 			},
 		},
 	}
-}
-
-func genScheduleLabel(sched string) string {
-	r := strings.NewReplacer("*", "N", "/", "E", " ", "_")
-	return r.Replace(sched)
 }

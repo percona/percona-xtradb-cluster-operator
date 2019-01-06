@@ -15,7 +15,7 @@ func NewJob(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Spec.PXCCluster + "-xtrabackup." + cr.Name,
+			Name:      genName63(cr),
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
 				"cluster": cr.Spec.PXCCluster,
@@ -25,12 +25,12 @@ func NewJob(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 	}
 }
 
-func JobSpec(spec api.PXCBackupSpec, name string, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
+func JobSpec(spec api.PXCBackupSpec, pvcName string, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
 	pvc := corev1.Volume{
-		Name: spec.PXCCluster + "-backup-" + name,
+		Name: "xtrabackup",
 	}
 	pvc.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-		ClaimName: spec.PXCCluster + volumeNamePostfix + "." + name,
+		ClaimName: pvcName,
 	}
 
 	// if a suitable node hasn't been chosen - try to make a lucky shot.

@@ -136,7 +136,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 
 	// Set PerconaXtraDBBackup instance as the owner and controller
 	if err := setControllerReference(instance, pvc, r.scheme); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("setControllerReference: %v", err)
 	}
 
 	// Check if this PVC already exists
@@ -145,10 +145,10 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		reqLogger.Info("Creating a new volume for backup", "Namespace", pvc.Namespace, "Name", pvc.Name)
 		err = r.client.Create(context.TODO(), pvc)
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, fmt.Errorf("create backup pvc: %v", err)
 		}
 	} else if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("get backup pvc: %v", err)
 	}
 
 	// getting the volume status
@@ -174,12 +174,12 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("job/setControllerReference: %v", err)
 	}
 
-	job.Spec = backup.JobSpec(instance.Spec, instance.Name, bcpNode, r.serverVersion)
+	job.Spec = backup.JobSpec(instance.Spec, pvc.GetName(), bcpNode, r.serverVersion)
 
 	reqLogger.Info("Creating a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	err = r.client.Create(context.TODO(), job)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("create backup job: %v", err)
 	}
 
 	err = r.updateJobStatus(instance, job, pvc.Name)
@@ -208,7 +208,7 @@ func (r *ReconcilePerconaXtraDBBackup) checkInput(cr *api.PerconaXtraDBBackup) e
 		avaliableClusters = append(avaliableClusters, cluster.Name)
 	}
 
-	return fmt.Errorf("wrong PXCCluster. Clusters avaliable: %q", avaliableClusters)
+	return fmt.Errorf("wrong cluster name: %q. Clusters avaliable: %q", cr.Spec.PXCCluster, avaliableClusters)
 }
 
 // VolumeStatus describe the status backup PVC

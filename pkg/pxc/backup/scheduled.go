@@ -86,7 +86,7 @@ func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec 
 				Containers: []corev1.Container{
 					{
 						Name:  "run-backup",
-						Image: "delgod/kubectl:1.13.1",
+						Image: "perconalab/backupjob-openshift",
 						Env:   env,
 						Args: []string{
 							"sh", "-c",

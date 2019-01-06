@@ -5,13 +5,12 @@ tmp_dir=$(mktemp -d)
 
 usage() {
     cat - <<-EOF
-		usage: $0 <backup-name> local/directory/
+		usage: $0 <backup-name> <local/dir>
 
 		OPTIONS:
 		    <backup-name>  the backup name
 		                   it can be obtained with the "kubectl get pxc-backup" command
-		    <cluster-name> the name of an existing Percona XtraDB Cluster
-		                   it can be obtained with the "kubectl get pxc" command
+		    <local/dir>    the name of destination directory on local machine
 	EOF
     exit 1
 }

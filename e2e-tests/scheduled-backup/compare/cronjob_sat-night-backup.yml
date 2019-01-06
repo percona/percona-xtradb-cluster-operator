@@ -1,0 +1,60 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  labels:
+    cluster: sc
+    schedule: 0_0_N_N_6
+    type: cron
+  name: sat-night-backup
+  ownerReferences:
+  - apiVersion: pxc.percona.com/v1alpha1
+    controller: true
+    kind: PerconaXtraDBCluster
+    name: sc
+spec:
+  concurrencyPolicy: Allow
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        cluster: sc
+        schedule: 0_0_N_N_6
+        type: cron
+      ownerReferences:
+      - apiVersion: batch/v1beta1
+        kind: CronJob
+        name: sat-night-backup
+    spec:
+      template:
+        metadata:
+        spec:
+          containers:
+          - args:
+            - sh
+            - -c
+            - "\n\t\t\t\t\t\t\tcat <<-EOF | kubectl apply -f -\n\t\t\t\t\t\t\t\t\tapiVersion:
+              pxc.percona.com/v1alpha1\n\t\t\t\t\t\t\t\t\tkind: PerconaXtraDBBackup\n\t\t\t\t\t\t\t\t\tmetadata:\n\t\t\t\t\t\t\t\t\t
+              \ name: \"cron-${pxcCluster}-$(date -u \"+%Y%m%d%H%M%S\")\"\n\t\t\t\t\t\t\t\t\t
+              \ labels:\n\t\t\t\t\t\t\t\t\t    ancestor: \"sat-night-backup\"\n\t\t\t\t\t\t\t\t\t
+              \   cluster: \"sc\"\n\t\t\t\t\t\t\t\t\tspec:\n\t\t\t\t\t\t\t\t\t  pxcCluster:
+              \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  volume:\n\t\t\t\t\t\t\t\t\t    size:
+              \"${size}\"\n\t\t\t\t\t\t\t\t\t    ${storageClass:+storageClass: \"$storageClass\"}\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
+            env:
+            - name: pxcCluster
+              value: sc
+            - name: size
+              value: 1Gi
+            imagePullPolicy: Always
+            name: run-backup
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+          dnsPolicy: ClusterFirst
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+  schedule: 0 0 * * 6
+  successfulJobsHistoryLimit: 1
+  suspend: false
+status: {}

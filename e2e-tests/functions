@@ -264,6 +264,7 @@ destroy() {
     kubectl logs $(get_operator_pod) \
         | grep -v '"level":"info"' \
         | grep -v 'the object has been modified' \
+        | grep -v 'get backup status: Job.batch' \
         | $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
         | sort -u \
         | tee $tmp_dir/operator.log

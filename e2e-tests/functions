@@ -162,6 +162,7 @@ compare_kubectl() {
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:" \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
+        | $sed -e '/name: suffix/,+1d' \
         > ${new_result}
     diff -u ${expected_result} ${new_result}
 }

@@ -54,6 +54,7 @@ matrix:
   - name: "Backups"
     script:
     - ./e2e-tests/demand-backup/run
+    - ./e2e-tests/scheduled-backup/run
 after_success:
 - gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME
 after_failure:

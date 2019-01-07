@@ -10,7 +10,7 @@ create_namespace $namespace
 deploy_operator
 
 desc 'create cluster without backups'
-cluster="sc-pxc"
+cluster="scheduled-backup-pxc"
 kubectl apply \
     -f $conf_dir/secrets.yml \
     -f $conf_dir/client.yml \
@@ -18,7 +18,6 @@ kubectl apply \
 desc 'check if all 3 Pods started'
 wait_for_running "$cluster-node" 3
 compare_kubectl statefulset/$cluster-node
-compare_kubectl cronjob/sat-night-backup
 
 desc 'write data'
 run_mysql \
@@ -34,7 +33,7 @@ compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$c
 desc 'add backups schedule, wait for the first backup'
 kubectl apply \
     -f $test_dir/conf/${cluster}2.yml
-sleep 60
+sleep 90
 compare_kubectl statefulset/$cluster-node
 compare_kubectl cronjob/sat-night-backup
 compare_kubectl cronjob/each-min
@@ -61,7 +60,7 @@ desc 'delete backups schedule, wait for job deleting'
 kubectl apply \
     -f $test_dir/conf/${cluster}1.yml
 compare_kubectl statefulset/$cluster-node
-compare_kubectl cronjob/sat-night-backup
+wait_for_delete cronjob/sat-night-backup
 wait_for_delete cronjob/each-min
 
 desc 'recover backup'

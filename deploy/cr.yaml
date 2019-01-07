@@ -31,6 +31,13 @@ spec:
     #   operator: "Exists"
     #   effect: "NoExecute"
     #   tolerationSeconds: 6000
+    # priorityClassName: high-priority
+    # annotations:
+    #   iam.amazonaws.com/role: role-arn
+    # imagePullSecrets:
+    #   - name: private-registry-credentials
+    # labels:
+    #   rack: rack-22
   proxysql:
     enabled: true
     size: 1

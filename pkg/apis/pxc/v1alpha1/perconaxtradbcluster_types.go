@@ -64,14 +64,18 @@ type PerconaXtraDBClusterList struct {
 }
 
 type PodSpec struct {
-	Enabled      bool                `json:"enabled,omitempty"`
-	Size         int32               `json:"size,omitempty"`
-	Image        string              `json:"image,omitempty"`
-	Resources    *PodResources       `json:"resources,omitempty"`
-	VolumeSpec   *VolumeSpec         `json:"volumeSpec,omitempty"`
-	Affinity     *PodAffinity        `json:"affinity,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+	Enabled           bool                          `json:"enabled,omitempty"`
+	Size              int32                         `json:"size,omitempty"`
+	Image             string                        `json:"image,omitempty"`
+	Resources         *PodResources                 `json:"resources,omitempty"`
+	VolumeSpec        *VolumeSpec                   `json:"volumeSpec,omitempty"`
+	Affinity          *PodAffinity                  `json:"affinity,omitempty"`
+	NodeSelector      map[string]string             `json:"nodeSelector,omitempty"`
+	Tolerations       []corev1.Toleration           `json:"tolerations,omitempty"`
+	PriorityClassName string                        `json:"priorityClassName,omitempty"`
+	Annotations       map[string]string             `json:"annotations,omitempty"`
+	Labels            map[string]string             `json:"labels,omitempty"`
+	ImagePullSecrets  []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 type PodAffinity struct {

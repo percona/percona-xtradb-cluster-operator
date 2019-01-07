@@ -2,7 +2,7 @@ apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
   labels:
-    cluster: sc
+    cluster: scheduled-backup
     schedule: N_N_N_N_N
     type: cron
   name: each-min
@@ -10,14 +10,14 @@ metadata:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: sc
+    name: scheduled-backup
 spec:
   concurrencyPolicy: Allow
   failedJobsHistoryLimit: 1
   jobTemplate:
     metadata:
       labels:
-        cluster: sc
+        cluster: scheduled-backup
         schedule: N_N_N_N_N
         type: cron
       ownerReferences:
@@ -34,14 +34,15 @@ spec:
             - -c
             - "\n\t\t\t\t\t\t\tcat <<-EOF | kubectl apply -f -\n\t\t\t\t\t\t\t\t\tapiVersion:
               pxc.percona.com/v1alpha1\n\t\t\t\t\t\t\t\t\tkind: PerconaXtraDBBackup\n\t\t\t\t\t\t\t\t\tmetadata:\n\t\t\t\t\t\t\t\t\t
-              \ name: \"cron-${pxcCluster}-$(date -u \"+%Y%m%d%H%M%S\")\"\n\t\t\t\t\t\t\t\t\t
+              \ name: \"cron-${pxcCluster:0:16}-$(date -u \"+%Y%m%d%H%M%S\")-${suffix}\"\n\t\t\t\t\t\t\t\t\t
               \ labels:\n\t\t\t\t\t\t\t\t\t    ancestor: \"each-min\"\n\t\t\t\t\t\t\t\t\t
-              \   cluster: \"sc\"\n\t\t\t\t\t\t\t\t\tspec:\n\t\t\t\t\t\t\t\t\t  pxcCluster:
-              \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  volume:\n\t\t\t\t\t\t\t\t\t    size:
-              \"${size}\"\n\t\t\t\t\t\t\t\t\t    ${storageClass:+storageClass: \"$storageClass\"}\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
+              \   cluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t    type: \"cron\"\n\t\t\t\t\t\t\t\t\tspec:\n\t\t\t\t\t\t\t\t\t
+              \ pxcCluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  volume:\n\t\t\t\t\t\t\t\t\t
+              \   size: \"${size}\"\n\t\t\t\t\t\t\t\t\t    ${storageClass:+storageClass:
+              \"$storageClass\"}\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
             env:
             - name: pxcCluster
-              value: sc
+              value: scheduled-backup
             - name: size
               value: 1Gi
             imagePullPolicy: Always

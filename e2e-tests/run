@@ -11,6 +11,7 @@ $dir/scaling/run
 $dir/monitoring/run
 $dir/affinity/run
 $dir/demand-backup/run
+$dir/scheduled-backup/run
 
 $dir/storage/run
 $dir/self-healing/run

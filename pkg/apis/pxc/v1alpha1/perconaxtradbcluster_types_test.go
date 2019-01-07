@@ -79,7 +79,7 @@ func TestReconcileAffinity(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c.pod.reconcileAffinity()
+		c.pod.reconcileAffinityOpts()
 		if !reflect.DeepEqual(c.desiered.Affinity, c.pod.Affinity) {
 			t.Errorf("case %q:\n want: %#v\n have: %#v", c.name, c.desiered.Affinity, c.pod.Affinity)
 		}

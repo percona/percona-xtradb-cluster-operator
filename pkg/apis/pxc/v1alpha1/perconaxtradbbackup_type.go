@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -24,13 +26,8 @@ type PerconaXtraDBBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster string          `json:"pxcCluster"`
-	Volume     PXCBackupVolume `json:"volume,omitempty"`
-}
-
-type PXCBackupVolume struct {
-	Size         string  `json:"size,omitempty"`
-	StorageClass *string `json:"storageClass,omitempty"`
+	PXCCluster string      `json:"pxcCluster"`
+	Volume     *VolumeSpec `json:"volume,omitempty"`
 }
 
 type PXCBackupStatus struct {
@@ -65,4 +62,19 @@ func (cr *PerconaXtraDBBackup) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerRef
 		UID:        cr.GetUID(),
 		Controller: &trueVar,
 	}, nil
+}
+
+// CheckNSetDefaults sets defaults options and overwrites wrong settings
+// and checks if other options' values are allowable
+func (cr *PerconaXtraDBBackup) CheckNSetDefaults() error {
+	if cr.Spec.Volume == nil {
+		return fmt.Errorf("Volume can't be empty")
+	}
+
+	err := cr.Spec.Volume.reconcileOpts()
+	if err != nil {
+		return fmt.Errorf("Volume: %v", err)
+	}
+
+	return nil
 }

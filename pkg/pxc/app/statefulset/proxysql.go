@@ -139,7 +139,7 @@ func (c *Proxy) Resources(spec *api.PodResources) (corev1.ResourceRequirements, 
 	return app.CreateResources(spec)
 }
 
-func (c *Proxy) PVCs(spec *api.PodVolumeSpec) ([]corev1.PersistentVolumeClaim, error) {
+func (c *Proxy) PVCs(spec *api.VolumeSpec) []corev1.PersistentVolumeClaim {
 	return app.PVCs("proxydata", spec)
 }
 

@@ -72,7 +72,7 @@ stop_pxc() {
     kubectl get "pxc/$cluster" -o yaml > "$tmp_dir/cluster.yaml"
     kubectl delete -f "$tmp_dir/cluster.yaml"
 
-    for i in $(seq "$((size-1))" 0); do
+    for i in $(seq 0 "$((size-1))" | sort -r); do
         echo -n "Deleting $cluster-pxc-node-$i."
         until (kubectl get "pod/$cluster-pxc-node-$i" || :) 2>&1 | grep -q NotFound; do
             sleep 1
@@ -82,7 +82,7 @@ stop_pxc() {
     done
 
     if [ "$size" -gt 1 ]; then
-        for i in $(seq "$((size-1))" 1); do
+        for i in $(seq 1 "$((size-1))" | sort -r); do
             kubectl delete "pvc/datadir-$cluster-pxc-node-$i"
         done
     fi

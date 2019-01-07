@@ -43,7 +43,7 @@ no_storage() {
         -f $test_dir/conf/$cluster.yml
 
     kubectl logs $(get_operator_pod) \
-        | grep "wrong storage resources: quantities must match the regular expression"
+        | grep "volume.Size can't be empty"
 
     # delete cluster
     kubectl delete \

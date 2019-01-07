@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -128,8 +129,19 @@ type StatefulApp interface {
 	StatefulSet() *appsv1.StatefulSet
 }
 
-// SetDefaults sets defaults options and overwrites obviously wrong settings
-func (c *PerconaXtraDBClusterSpec) SetDefaults() {
+const clusterNameMaxLen = 22
+
+// ErrClusterNameOverflow upspring when the cluster name is longer than acceptable
+var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no more than %d characters", clusterNameMaxLen)
+
+// CheckNSetDefaults sets defaults options and overwrites wrong settings
+// and checks if other options' values are allowable
+func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
+	if len(cr.Name) > clusterNameMaxLen {
+		return ErrClusterNameOverflow
+	}
+
+	c := cr.Spec
 	if c.PXC != nil {
 		// pxc replicas shouldn't be less than 3
 		if c.PXC.Size < 3 {
@@ -147,6 +159,8 @@ func (c *PerconaXtraDBClusterSpec) SetDefaults() {
 	if c.ProxySQL != nil {
 		c.ProxySQL.reconcileAffinity()
 	}
+
+	return nil
 }
 
 var affinityValidTopologyKeys = map[string]struct{}{

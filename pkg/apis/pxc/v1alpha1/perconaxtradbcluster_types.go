@@ -6,6 +6,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sversion "k8s.io/apimachinery/pkg/version"
@@ -23,10 +24,10 @@ type PerconaXtraDBClusterSpec struct {
 }
 
 type PXCScheduledBackup struct {
-	Name     string          `json:"name,omitempty"`
-	Schedule string          `json:"schedule,omitempty"`
-	Keep     int             `json:"keep,omitempty"`
-	Volume   PXCBackupVolume `json:"volume,omitempty"`
+	Name     string      `json:"name,omitempty"`
+	Schedule string      `json:"schedule,omitempty"`
+	Keep     int         `json:"keep,omitempty"`
+	Volume   *VolumeSpec `json:"volume,omitempty"`
 }
 
 type ClusterState string
@@ -67,7 +68,7 @@ type PodSpec struct {
 	Size         int32               `json:"size,omitempty"`
 	Image        string              `json:"image,omitempty"`
 	Resources    *PodResources       `json:"resources,omitempty"`
-	VolumeSpec   *PodVolumeSpec      `json:"volumeSpec,omitempty"`
+	VolumeSpec   *VolumeSpec         `json:"volumeSpec,omitempty"`
 	Affinity     *PodAffinity        `json:"affinity,omitempty"`
 	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
@@ -95,9 +96,10 @@ type ResourcesList struct {
 	CPU    string `json:"cpu,omitempty"`
 }
 
-type PodVolumeSpec struct {
+type VolumeSpec struct {
 	AccessModes  []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 	Size         string                              `json:"size,omitempty"`
+	SizeParsed   resource.Quantity                   `json:"-"`
 	StorageClass *string                             `json:"storageClass,omitempty"`
 }
 
@@ -118,8 +120,7 @@ type ServerVersion struct {
 type App interface {
 	AppContainer(spec *PodSpec, secrets string) corev1.Container
 	PMMContainer(spec *PMMSpec, secrets string) corev1.Container
-	PVCs(spec *PodVolumeSpec) ([]corev1.PersistentVolumeClaim, error)
-	// Resize(size int32) bool
+	PVCs(spec *VolumeSpec) []corev1.PersistentVolumeClaim
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
 	Lables() map[string]string
 }
@@ -143,6 +144,15 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 
 	c := cr.Spec
 	if c.PXC != nil {
+		if c.PXC.VolumeSpec == nil {
+			return fmt.Errorf("PXC.Volume can't be empty")
+		}
+
+		err := c.PXC.VolumeSpec.reconcileOpts()
+		if err != nil {
+			return fmt.Errorf("PXC.Volume: %v", err)
+		}
+
 		// pxc replicas shouldn't be less than 3
 		if c.PXC.Size < 3 {
 			c.PXC.Size = 3
@@ -153,11 +163,20 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 			c.PXC.Size++
 		}
 
-		c.PXC.reconcileAffinity()
+		c.PXC.reconcileAffinityOpts()
 	}
 
-	if c.ProxySQL != nil {
-		c.ProxySQL.reconcileAffinity()
+	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+		if c.ProxySQL.VolumeSpec == nil {
+			return fmt.Errorf("ProxySQL.Volume can't be empty")
+		}
+
+		err := c.ProxySQL.VolumeSpec.reconcileOpts()
+		if err != nil {
+			return fmt.Errorf("ProxySQL.Volume: %v", err)
+		}
+
+		c.ProxySQL.reconcileAffinityOpts()
 	}
 
 	return nil
@@ -173,12 +192,12 @@ var defaultAffinityTopologyKey = "failure-domain.beta.kubernetes.io/zone"
 
 const affinityOff = "none"
 
-// reconcileAffinity ensures that the affinity is set to the valid values.
+// reconcileAffinityOpts ensures that the affinity is set to the valid values.
 // - if the affinity doesn't set at all - set topology key to `defaultAffinityTopologyKey`
 // - if topology key is set and the value not the one of `affinityValidTopologyKeys` - set to `defaultAffinityTopologyKey`
 // - if topology key set to valuse of `affinityOff` - disable the affinity at all
 // - if `Advanced` affinity is set - leave everything as it is and set topology key to nil (Advanced options has a higher priority)
-func (p *PodSpec) reconcileAffinity() {
+func (p *PodSpec) reconcileAffinityOpts() {
 	switch {
 	case p.Affinity == nil:
 		p.Affinity = &PodAffinity{
@@ -199,6 +218,24 @@ func (p *PodSpec) reconcileAffinity() {
 			p.Affinity.TopologyKey = &defaultAffinityTopologyKey
 		}
 	}
+}
+
+func (v *VolumeSpec) reconcileOpts() error {
+	if v.Size == "" {
+		return fmt.Errorf("volume.Size can't be empty")
+	}
+
+	var err error
+	v.SizeParsed, err = resource.ParseQuantity(v.Size)
+	if err != nil {
+		return fmt.Errorf("wrong volume size value %q: %v", v.Size, err)
+	}
+
+	if v.AccessModes == nil || len(v.AccessModes) == 0 {
+		v.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+	}
+
+	return nil
 }
 
 // OwnerRef returns OwnerReference to object

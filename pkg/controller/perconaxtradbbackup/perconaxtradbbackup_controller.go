@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app"
+
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -108,6 +110,11 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
+	err = instance.CheckNSetDefaults()
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("wrong backup options: %v", err)
+	}
+
 	job := backup.NewJob(instance)
 
 	// Check if this Job already exists
@@ -129,10 +136,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	}
 
 	pvc := backup.NewPVC(instance)
-	pvc.Spec, err = backup.PVCSpec(instance.Spec)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	pvc.Spec = app.VolumeSpec(instance.Spec.Volume)
 
 	// Set PerconaXtraDBBackup instance as the owner and controller
 	if err := setControllerReference(instance, pvc, r.scheme); err != nil {

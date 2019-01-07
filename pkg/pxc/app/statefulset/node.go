@@ -144,7 +144,7 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 	return app.CreateResources(spec)
 }
 
-func (c *Node) PVCs(spec *api.PodVolumeSpec) ([]corev1.PersistentVolumeClaim, error) {
+func (c *Node) PVCs(spec *api.VolumeSpec) []corev1.PersistentVolumeClaim {
 	return app.PVCs("datadir", spec)
 }
 

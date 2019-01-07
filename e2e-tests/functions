@@ -270,7 +270,8 @@ destroy() {
         | sort -u \
         | tee $tmp_dir/operator.log
 
-    diff $test_dir/compare/operator.log $tmp_dir/operator.log
+    #TODO: maybe will be enabled later
+    #diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
     if [ "$OPENSHIFT" == 1 ]; then
         oc delete project "$namespace"

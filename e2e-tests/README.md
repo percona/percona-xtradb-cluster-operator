@@ -7,10 +7,12 @@ curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.12.1-linux-amd64.
     | tar -C /usr/bin --strip-components 1 -zxvpf - '*/helm'
 curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
     | tar -C /usr/bin --strip-components 1 -zxvpf - '*/oc' '*/kubectl'
+helm init --client-only
 ```
 MacOS
 ```
-brew install coreutils gnu-sed jq kubernetes-cli kubernetes-helm
+brew install coreutils gnu-sed jq kubernetes-cli openshift-cli kubernetes-helm
+helm init --client-only
 ```
 ### Build images
 ```

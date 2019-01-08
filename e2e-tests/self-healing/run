@@ -112,6 +112,43 @@ netem_pod() {
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-nodes -uroot -proot_password" "-3rd"
 }
 
+recreate() {
+    run_mysql_local \
+        '
+            SET mysql-connect_timeout_server_max = 100500;
+            LOAD MYSQL VARIABLES TO RUNTIME;
+            SAVE MYSQL VARIABLES TO MEMORY;
+            SAVE MYSQL VARIABLES TO DISK;
+        ' \
+        "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0"
+    run_mysql_local \
+        'SELECT * FROM global_variables ORDER BY variable_name' \
+        "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+        >$tmp_dir/proxy-vars1.sql
+    diff $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars1.sql
+
+    # delete cluster
+    kubectl delete \
+        -f $conf_dir/$cluster.yml
+    wait_for_delete pod/$cluster-node-2
+    wait_for_delete pod/$cluster-node-1
+    wait_for_delete pod/$cluster-node-0
+
+    # recreate cluster
+    kubectl apply \
+        -f $conf_dir/$cluster.yml
+
+    wait_for_running $cluster-node 3
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+
+    run_mysql_local \
+        'SELECT * FROM global_variables ORDER BY variable_name' \
+        "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+        >$tmp_dir/proxy-vars2.sql
+    diff $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars2.sql
+}
 
 main() {
     create_namespace $namespace
@@ -119,6 +156,9 @@ main() {
 
     desc 'start cluster'
     setup_cluster
+
+    desc 'recreate cluster'
+    recreate
 
     desc 'kill node-0 pod'
     pumba_pod kill "$cluster-node-0"

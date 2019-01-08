@@ -50,6 +50,7 @@ wait_pod() {
         let retry+=1
         if [ $retry -ge 240 ]; then
             kubectl describe pod/$pod
+            kubectl logs $pod
             kubectl logs $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
@@ -194,7 +195,7 @@ run_mysql_local() {
     kubectl exec $pod -- \
         bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
         | sed -e 's/mysql: //' \
-        | grep -v 'Using a password on the command line interface can be insecure.'
+        | (grep -v 'Using a password on the command line interface can be insecure.' || :)
 }
 
 compare_mysql_cmd() {

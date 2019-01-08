@@ -3,6 +3,7 @@ package perconaxtradbcluster
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -10,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -86,8 +88,8 @@ type ReconcilePerconaXtraDBCluster struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling PerconaXtraDBCluster")
+	// reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	// reqLogger.Info("Reconciling PerconaXtraDBCluster")
 
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
@@ -117,12 +119,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			switch fnlz {
 			case "delete-proxysql-pvc":
 				sfs = statefulset.NewProxy(o)
+				// deletePVC is always true on this stage
+				// because we never reach this point without finalizers
+				err = r.deleteStatfulSet(o.Namespace, sfs, true)
 			case "delete-pxc-pvc":
 				sfs = statefulset.NewNode(o)
+				err = r.deleteStatfulSet(o.Namespace, sfs, true)
+			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
+			// until than finalizer won't be deleted
+			case "delete-pxc-pods-in-order":
+				sfs = statefulset.NewNode(o)
+				err = r.deleteStatfulSetPods(o.Namespace, sfs)
 			}
-			// deletePVC is always true on this stage
-			// because we never reach this point without finalizers
-			err = r.deleteStatfulSet(o.Namespace, sfs, true)
 			if err != nil {
 				finalizers = append(finalizers, fnlz)
 			}
@@ -130,8 +138,14 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 		o.SetFinalizers(finalizers)
 		r.client.Update(context.TODO(), o)
+
+		// If we're waiting for the pods, technically it's not an error
+		if err == ErrWaitingForDeletingPods {
+			err = nil
+		}
+
 		// object is beign deleted, no need in further actions
-		return reconcile.Result{}, err
+		return rr, err
 	}
 
 	if o.Spec.PXC == nil {
@@ -238,6 +252,63 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	return nil
+}
+
+// ErrWaitingForDeletingPods indicating that the stateful set have more than a one pods left
+var ErrWaitingForDeletingPods = fmt.Errorf("waiting for pods to be deleted")
+
+func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSetPods(namespace string, sfs api.StatefulApp) error {
+	list := corev1.PodList{}
+
+	err := r.client.List(context.TODO(),
+		&client.ListOptions{
+			Namespace:     namespace,
+			LabelSelector: labels.SelectorFromSet(sfs.Lables()),
+		},
+		&list,
+	)
+	if err != nil {
+		return fmt.Errorf("get list: %v", err)
+	}
+
+	// the last pod left - we can leave it for stateful set
+	if len(list.Items) <= 1 {
+		return nil
+	}
+
+	for _, pod := range list.Items {
+		idx, err := strconv.Atoi(pod.Name[len(pod.GenerateName)-1:])
+		if err != nil {
+			return fmt.Errorf("get pod id: %v", err)
+		}
+
+		// leave the 0 pod for
+		if idx == 0 {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), &pod)
+		if err != nil {
+			return fmt.Errorf("delete: %v", err)
+		}
+	}
+
+	// after setting the pods for delete we need to downscale statefulset to 1 under,
+	// otherwise it will be trying to deploy the nodes again to reach the desired replicas count
+	cSet := sfs.StatefulSet()
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cSet.Name, Namespace: cSet.Namespace}, cSet)
+	if err != nil {
+		return fmt.Errorf("get StatefulSet: %v", err)
+	}
+
+	dscaleTo := int32(1)
+	cSet.Spec.Replicas = &dscaleTo
+	err = r.client.Update(context.TODO(), cSet)
+	if err != nil {
+		return fmt.Errorf("downscale StatefulSet: %v", err)
+	}
+
+	return ErrWaitingForDeletingPods
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {

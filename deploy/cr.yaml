@@ -2,9 +2,10 @@ apiVersion: "pxc.percona.com/v1alpha1"
 kind: "PerconaXtraDBCluster"
 metadata:
   name: "cluster1"
-#  finalizers:
-#  - delete-proxysql-pvc
-#  - delete-pxc-pvc
+  finalizers:
+    - delete-pxc-pods-in-order
+    # - delete-proxysql-pvc
+    # - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
   pxc:

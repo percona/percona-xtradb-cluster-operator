@@ -49,6 +49,7 @@ wait_pod() {
         echo -n .
         let retry+=1
         if [ $retry -ge 240 ]; then
+            kubectl describe pod/$pod
             kubectl logs $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1

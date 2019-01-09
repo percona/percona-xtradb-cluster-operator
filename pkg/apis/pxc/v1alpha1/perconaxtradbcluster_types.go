@@ -203,7 +203,7 @@ var affinityValidTopologyKeys = map[string]struct{}{
 	"failure-domain.beta.kubernetes.io/region": struct{}{},
 }
 
-var defaultAffinityTopologyKey = "failure-domain.beta.kubernetes.io/zone"
+var defaultAffinityTopologyKey = "kubernetes.io/hostname"
 
 const affinityOff = "none"
 

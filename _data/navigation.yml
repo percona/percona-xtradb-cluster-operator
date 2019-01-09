@@ -13,6 +13,8 @@ docs:
         url: ./install/kubernetes
       - title: "Install on OpenShift"
         url: ./install/openshift
+      - title: "Scaling Up/Down"
+        url: ./install/scaling
   - title: Configuration
     children:
       - title: "Users"

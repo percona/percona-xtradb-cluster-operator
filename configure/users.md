@@ -5,23 +5,24 @@ As it is written in the installation part, the operator requires Kubernetes Secr
 
 ### Unprivileged users
 
-Only one unprivileged (general purpose) user account is created by default - a `proxyuser` one.
-If you need more general purpose users, please run commands below:
+There are no unprivileged (general purpose) user accounts created by default. If you need general purpose users, please run commands below:
 ```bash
-$ kubectl exec -it cluster1-pxc-proxysql-0 -- mysql -h127.0.0.1 -P6032 -uproxyadmin -padmin_password
-mysql> INSERT INTO mysql_users(username,password,default_hostgroup) VALUES ('user1','password1',10);
-mysql> LOAD MYSQL USERS TO RUNTIME;
-mysql> SAVE MYSQL USERS TO MEMORY;
-mysql> SAVE MYSQL USERS TO DISK;
+$ kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- mysql -hcluster1-pxc-nodes -uroot -proot_password
+mysql> GRANT ALL PRIVILEGES ON database1.* TO 'user1'@'%' IDENTIFIED BY 'password1';
+```
+
+Sync users in ProxySQL
+```bash
+$ kubectl exec -it some-name-pxc-proxysql-0 -- proxysql-admin --config-file=/etc/proxysql-admin.cnf --syncusers
 ```
 
 Now check the newly created user:
 ```bash
-   $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
-   percona-client:/$ mysql -h cluster1-pxc-proxysql -uuser1 -ppassword1
+$ kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- bash -il
+percona-client:/$ mysql -h cluster1-pxc-proxysql -uuser1 -ppassword1
 ```
 
-### PXC System Users
+### System Users
 
 *Default Secret name:* `my-cluster-secrets`
 

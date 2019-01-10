@@ -120,6 +120,10 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("invalid backup cluster: %v", err)
 	}
 
+	if cluster.Spec.Backup == nil {
+		return reconcile.Result{}, fmt.Errorf("a backup image should be set in the PXC config")
+	}
+
 	bcp := backup.New(cluster, cluster.Spec.Backup)
 	job := bcp.Job(instance)
 

@@ -11,7 +11,7 @@ $ kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- mys
 mysql> GRANT ALL PRIVILEGES ON database1.* TO 'user1'@'%' IDENTIFIED BY 'password1';
 ```
 
-Sync users on the ProxySQL node
+Sync users on the ProxySQL node:
 ```bash
 $ kubectl exec -it some-name-pxc-proxysql-0 -- proxysql-admin --config-file=/etc/proxysql-admin.cnf --syncusers
 ```

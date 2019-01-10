@@ -11,12 +11,12 @@ $ kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- mys
 mysql> GRANT ALL PRIVILEGES ON database1.* TO 'user1'@'%' IDENTIFIED BY 'password1';
 ```
 
-Sync users in ProxySQL
+Sync users on the ProxySQL node
 ```bash
 $ kubectl exec -it some-name-pxc-proxysql-0 -- proxysql-admin --config-file=/etc/proxysql-admin.cnf --syncusers
 ```
 
-Now check the newly created user. If everything is Ok with it, the following command will let you successfully login to MySQL shell on the ProxySQL node:
+Now check the newly created user. If everything is Ok with it, the following command will let you successfully login to MySQL shell via ProxySQL:
 ```bash
 $ kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- bash -il
 percona-client:/$ mysql -h cluster1-pxc-proxysql -uuser1 -ppassword1

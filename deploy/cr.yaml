@@ -69,7 +69,7 @@ spec:
     serverHost: monitoring-service
     serverUser: pmm
   backup:
-    image: "perconalab/backupjob-openshift"
+    image: perconalab/backupjob-openshift:0.2.0
     # imagePullSecrets:
     #   - name: private-registry-credentials
     schedule:

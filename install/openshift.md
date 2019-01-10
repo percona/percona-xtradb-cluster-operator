@@ -39,7 +39,7 @@ Install Percona XtraDB Cluster on OpenShift
 4. An extra step is needed if you want to manage PXC cluster from a non-privileged user. Necessary permissions can be granted by applying the next clusterrole:
 
    ```bash
-   $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com
+   $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbbackups.pxc.percona.com
    $ oc adm policy add-cluster-role-to-user pxc-admin <some-user>
    ```
 

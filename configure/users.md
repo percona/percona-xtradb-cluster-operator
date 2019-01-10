@@ -22,7 +22,7 @@ $ kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- bas
 percona-client:/$ mysql -h cluster1-pxc-proxysql -uuser1 -ppassword1
 mysql> SELECT * FROM database1.table1 LIMIT 1;
 ```
-You may also try executing any simple SQL statement to be sure in successfully granted permissions.
+You may also try executing any simple SQL statement to make sure permissions have been successfully granted.
 
 ### System Users
 

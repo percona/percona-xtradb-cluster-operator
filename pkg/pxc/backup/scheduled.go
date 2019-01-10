@@ -9,7 +9,23 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func NewScheduled(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *batchv1beta1.CronJob {
+type Backup struct {
+	cluster          string
+	namespace        string
+	image            string
+	imagePullSecrets []corev1.LocalObjectReference
+}
+
+func New(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *Backup {
+	return &Backup{
+		cluster:          cr.Name,
+		namespace:        cr.Namespace,
+		image:            spec.Image,
+		imagePullSecrets: spec.ImagePullSecrets,
+	}
+}
+
+func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule) *batchv1beta1.CronJob {
 	jb := &batchv1beta1.CronJob{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1beta1",
@@ -17,10 +33,10 @@ func NewScheduled(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *b
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      spec.Name,
-			Namespace: cr.Namespace,
+			Namespace: bcp.namespace,
 			Labels: map[string]string{
 				"type":     "cron",
-				"cluster":  cr.Name,
+				"cluster":  bcp.cluster,
 				"schedule": genScheduleLabel(spec.Schedule),
 			},
 		},
@@ -31,11 +47,11 @@ func NewScheduled(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *b
 	}
 
 	jb.Spec.JobTemplate.ObjectMeta.Labels = map[string]string{
-		"cluster": cr.Name,
+		"cluster": bcp.cluster,
 		"type":    "xtrabackup",
 	}
 	jb.Spec.JobTemplate.Labels = jb.Labels
-	jb.Spec.JobTemplate.Spec = scheduledJob(cr.Name, spec)
+	jb.Spec.JobTemplate.Spec = bcp.scheduledJob(spec)
 
 	jb.Spec.JobTemplate.SetOwnerReferences(
 		append(jb.Spec.JobTemplate.GetOwnerReferences(),
@@ -51,16 +67,11 @@ func NewScheduled(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *b
 	return jb
 }
 
-func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec {
-	// originClusterName := cluster
-	// if len(cluster) > 16 {
-	// 	cluster = cluster[:16]
-	// }
-
+func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule) batchv1.JobSpec {
 	env := []corev1.EnvVar{
 		{
 			Name:  "pxcCluster",
-			Value: cluster,
+			Value: bcp.cluster,
 		},
 		{
 			Name:  "size",
@@ -86,7 +97,7 @@ func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec 
 				Containers: []corev1.Container{
 					{
 						Name:  "run-backup",
-						Image: "perconalab/backupjob-openshift",
+						Image: bcp.image,
 						Env:   env,
 						Args: []string{
 							"sh", "-c",
@@ -110,7 +121,8 @@ func scheduledJob(cluster string, spec *api.PXCScheduledBackup) batchv1.JobSpec 
 						},
 					},
 				},
-				RestartPolicy: corev1.RestartPolicyNever,
+				RestartPolicy:    corev1.RestartPolicyNever,
+				ImagePullSecrets: bcp.imagePullSecrets,
 			},
 		},
 	}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 
-	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -17,11 +16,12 @@ import (
 )
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCluster) error {
-	backups := make(map[string]api.PXCScheduledBackup)
+	backups := make(map[string]api.PXCScheduledBackupSchedule)
 	if cr.Spec.Backup != nil {
-		for _, bcp := range *cr.Spec.Backup {
+		bcpObj := backup.New(cr, cr.Spec.Backup)
+		for _, bcp := range cr.Spec.Backup.Schedule {
 			backups[bcp.Name] = bcp
-			bcpjob := backup.NewScheduled(cr, &bcp)
+			bcpjob := bcpObj.Scheduled(&bcp)
 			err := setControllerReference(cr, bcpjob, r.scheme)
 			if err != nil {
 				return fmt.Errorf("set owner ref to backup %s: %v", bcp.Name, err)
@@ -79,44 +79,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			}
 		} else {
 			r.client.Delete(context.TODO(), &item)
-		}
-	}
-
-	// TODO(ap): there is some strange behavior with this clean-up. Jobs are deleted but linked pods remains untouched and become orphant zombie
-	// err = r.cleanCompletedJobs(cr)
-	// if err != nil {
-	// 	return fmt.Errorf("completed backup jobs clean-up: %v", err)
-	// }
-
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) cleanCompletedJobs(cr *api.PerconaXtraDBCluster) error {
-	jobList := batchv1.JobList{}
-	err := r.client.List(context.TODO(),
-		&client.ListOptions{
-			Namespace: cr.Namespace,
-			LabelSelector: labels.SelectorFromSet(map[string]string{
-				"cluster": cr.Name,
-				"type":    "xtrabackup",
-			}),
-		},
-		&jobList,
-	)
-	if err != nil {
-		return fmt.Errorf("get list: %v", err)
-	}
-
-	for _, job := range jobList.Items {
-		if job.Status.Succeeded == 1 {
-			for _, c := range job.Status.Conditions {
-				if c.Type == batchv1.JobComplete {
-					err := r.client.Delete(context.TODO(), &job)
-					if err != nil {
-						return fmt.Errorf("delete: %v", err)
-					}
-				}
-			}
 		}
 	}
 

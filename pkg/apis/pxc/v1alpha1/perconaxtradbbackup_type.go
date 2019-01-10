@@ -26,8 +26,8 @@ type PerconaXtraDBBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster string      `json:"pxcCluster"`
-	Volume     *VolumeSpec `json:"volume,omitempty"`
+	PXCCluster string     `json:"pxcCluster"`
+	Volume     VolumeSpec `json:"volume,omitempty"`
 }
 
 type PXCBackupStatus struct {
@@ -67,10 +67,6 @@ func (cr *PerconaXtraDBBackup) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerRef
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 func (cr *PerconaXtraDBBackup) CheckNSetDefaults() error {
-	if cr.Spec.Volume == nil {
-		return fmt.Errorf("Volume can't be empty")
-	}
-
 	err := cr.Spec.Volume.reconcileOpts()
 	if err != nil {
 		return fmt.Errorf("Volume: %v", err)

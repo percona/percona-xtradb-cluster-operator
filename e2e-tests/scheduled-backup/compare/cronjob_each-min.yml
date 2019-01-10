@@ -45,7 +45,7 @@ spec:
               value: scheduled-backup
             - name: size
               value: 1Gi
-            imagePullPolicy: Always
+            imagePullPolicy: IfNotPresent
             name: run-backup
             resources: {}
             terminationMessagePath: /dev/termination-log

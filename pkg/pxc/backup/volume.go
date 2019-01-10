@@ -1,10 +1,7 @@
 package backup
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
@@ -22,24 +19,4 @@ func NewPVC(cr *api.PerconaXtraDBBackup) *corev1.PersistentVolumeClaim {
 			Namespace: cr.Namespace,
 		},
 	}
-}
-
-// PVCSpec returns the pvc spec
-func PVCSpec(spec api.PXCBackupSpec) (corev1.PersistentVolumeClaimSpec, error) {
-	rvolStorage, err := resource.ParseQuantity(spec.Volume.Size)
-	if err != nil {
-		return corev1.PersistentVolumeClaimSpec{}, fmt.Errorf("wrong storage resources: %v", err)
-	}
-
-	return corev1.PersistentVolumeClaimSpec{
-		StorageClassName: spec.Volume.StorageClass,
-		AccessModes: []corev1.PersistentVolumeAccessMode{
-			corev1.ReadWriteOnce,
-		},
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: rvolStorage,
-			},
-		},
-	}, nil
 }

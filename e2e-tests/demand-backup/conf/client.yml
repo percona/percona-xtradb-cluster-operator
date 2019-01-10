@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pxc-client
+  name: backup-client
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: pxc-client
+      name: backup-client
   template:
     metadata:
       labels:
-        name: pxc-client
+        name: backup-client
     spec:
       containers:
-      - name: pxc-client
+      - name: backup-client
         image: perconalab/backupjob-openshift
         imagePullPolicy: IfNotPresent
         volumeMounts:
@@ -22,4 +22,4 @@ spec:
       volumes:
       - name: backup
         persistentVolumeClaim:
-          claimName: some-name-backup.on-demand-backup1
+          claimName: some-name-xb-on-demand-backup1

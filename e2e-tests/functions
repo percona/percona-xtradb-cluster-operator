@@ -11,16 +11,21 @@ test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
-OPENSHIFT=${OPENSHIFT:-0}
+if oc version | grep -q openshift; then
+    OPENSHIFT=1
+fi
 
 
 create_namespace() {
     local namespace="$1"
-    if [ $OPENSHIFT == 1 ]; then
+    if [ "$OPENSHIFT" == 1 ]; then
+        oc delete project "$namespace" && sleep 40 || :
         oc new-project "$namespace"
         oc project "$namespace"
         oc adm policy add-scc-to-user hostaccess -z default || :
     else
+        kubectl delete namespace "$namespace" || :
+        wait_for_delete "namespace/$namespace"
         kubectl create namespace "$namespace"
         kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
     fi
@@ -44,6 +49,8 @@ wait_pod() {
         echo -n .
         let retry+=1
         if [ $retry -ge 240 ]; then
+            kubectl describe pod/$pod
+            kubectl logs $pod
             kubectl logs $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
@@ -87,7 +94,8 @@ deploy_operator() {
 
 deploy_helm() {
     local namespace="$1"
-    if [ $OPENSHIFT == 1 ]; then
+    if [ "$OPENSHIFT" == 1 ]; then
+        export TILLER_NAMESPACE=tiller
         oc new-project tiller || :
         oc project tiller
         oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=v2.12.1 | oc apply -f -
@@ -105,7 +113,7 @@ deploy_helm() {
     )
     wait_pod $tiller_pod
 
-    if [ $OPENSHIFT == 1 ]; then
+    if [ "$OPENSHIFT" == 1 ]; then
         oc project "$namespace"
         oc policy add-role-to-user edit "system:serviceaccount:tiller:tiller"
     else
@@ -147,7 +155,7 @@ compare_kubectl() {
     local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
     local new_result="${tmp_dir}/${resource//\//_}.yml"
 
-    if [ $OPENSHIFT = 1 -a -f ${expected_result//.yml/-oc.yml} ]; then
+    if [ "$OPENSHIFT" = 1 -a -f ${expected_result//.yml/-oc.yml} ]; then
         local expected_result=${expected_result//.yml/-oc.yml}
     fi
 
@@ -156,6 +164,7 @@ compare_kubectl() {
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:" \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
+        | $sed -e '/name: suffix/,+1d' \
         > ${new_result}
     diff -u ${expected_result} ${new_result}
 }
@@ -186,7 +195,7 @@ run_mysql_local() {
     kubectl exec $pod -- \
         bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
         | sed -e 's/mysql: //' \
-        | grep -v 'Using a password on the command line interface can be insecure.'
+        | (grep -v 'Using a password on the command line interface can be insecure.' || :)
 }
 
 compare_mysql_cmd() {
@@ -257,12 +266,16 @@ destroy() {
 
     kubectl logs $(get_operator_pod) \
         | grep -v '"level":"info"' \
-        | $sed -r 's/"ts":[0-9.]+//' \
+        | grep -v 'the object has been modified' \
+        | grep -v 'get backup status: Job.batch' \
+        | $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
         | sort -u \
         | tee $tmp_dir/operator.log
+
+    #TODO: maybe will be enabled later
     #diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
-    if [ $OPENSHIFT == 1 ]; then
+    if [ "$OPENSHIFT" == 1 ]; then
         oc delete project "$namespace"
     else
         kubectl delete namespace "$namespace"

@@ -73,18 +73,6 @@ compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$c
 compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
 
-desc 'check if possible to create second cluster'
-cluster2="another-name-pxc"
-kubectl apply -f $test_dir/conf/$cluster2.yml
-sleep 2
-desc 'check if service and statefulset created'
-compare_kubectl service/$cluster2-nodes
-compare_kubectl service/$cluster2-proxysql
-desc 'check if storageClass changed'
-compare_kubectl statefulset/$cluster2-node
-compare_kubectl statefulset/$cluster2-proxysql
-kubectl delete -f $test_dir/conf/$cluster2.yml
-
 desc 'check if possible to create no-proxysql cluster'
 cluster3="no-proxysql-pxc"
 kubectl apply -f $test_dir/conf/$cluster3.yml

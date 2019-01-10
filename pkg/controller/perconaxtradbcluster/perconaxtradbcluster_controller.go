@@ -107,6 +107,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	err = o.CheckNSetDefaults()
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
+	}
+
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
 		for _, fnlz := range o.GetFinalizers() {
@@ -142,8 +147,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		// object is beign deleted, no need in further actions
 		return rr, err
 	}
-
-	o.Spec.SetDefaults()
 
 	if o.Spec.PXC == nil {
 		return reconcile.Result{}, fmt.Errorf("pxc not specified")

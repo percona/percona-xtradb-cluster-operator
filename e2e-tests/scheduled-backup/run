@@ -9,61 +9,64 @@ test_dir=$(realpath $(dirname $0))
 create_namespace $namespace
 deploy_operator
 
-desc 'create first PXC cluster'
-cluster="some-name-pxc"
+desc 'create cluster without backups'
+cluster="scheduled-backup-pxc"
 kubectl apply \
     -f $conf_dir/secrets.yml \
-    -f $conf_dir/$cluster.yml \
-    -f $conf_dir/client.yml
+    -f $conf_dir/client.yml \
+    -f $test_dir/conf/${cluster}1.yml
 desc 'check if all 3 Pods started'
-wait_for_running "$cluster-proxysql" 1
 wait_for_running "$cluster-node" 3
+compare_kubectl statefulset/$cluster-node
 
 desc 'write data'
 run_mysql \
     'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-    "-h $cluster-proxysql -uroot -proot_password"
+    "-h $cluster-nodes -uroot -proot_password"
 run_mysql \
     'INSERT myApp.myApp (id) VALUES (100500)' \
-    "-h $cluster-proxysql -uroot -proot_password"
+    "-h $cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
 
-desc 'make backup'
-backup1=on-demand-backup1
+desc 'add backups schedule, wait for the first backup'
 kubectl apply \
-        -f $test_dir/conf/$backup1.yml
-wait_backup $backup1
+    -f $test_dir/conf/${cluster}2.yml
+sleep 90
+compare_kubectl statefulset/$cluster-node
+compare_kubectl cronjob/sat-night-backup
+compare_kubectl cronjob/each-min
+backup1=$(kubectl get pxc-backup -o jsonpath='{.items[0].metadata.name}')
 
-desc 'check backup file md5sum'
-kubectl apply \
-    -f $test_dir/conf/client.yml
-sleep 10
-bak_client_pod=$(
-    kubectl get pods \
-        --selector=name=backup-client \
-        -o 'jsonpath={.items[].metadata.name}'
-)
-wait_pod $bak_client_pod
-kubectl exec $bak_client_pod -- \
-    bash -c "cd /backup; md5sum -c md5sum.txt"
-kubectl delete \
-    -f $test_dir/conf/client.yml
+set +o xtrace
+echo -n "Waiting."
+until kubectl get "pxc-backup/$backup1" -o jsonpath='{.status.state}' 2>/dev/null | grep -q Succeeded; do
+    sleep 1
+    echo -n .
+done
+echo "[done]"
+set -o xtrace
 
 desc 'write data after backup'
 run_mysql \
     'INSERT myApp.myApp (id) VALUES (100501)' \
-    "-h $cluster-proxysql -uroot -proot_password"
+    "-h $cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+
+desc 'delete backups schedule, wait for job deleting'
+kubectl apply \
+    -f $test_dir/conf/${cluster}1.yml
+compare_kubectl statefulset/$cluster-node
+wait_for_delete cronjob/sat-night-backup
+wait_for_delete cronjob/each-min
 
 desc 'recover backup'
 echo y | $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster%-pxc}
 kubectl logs job/xtrabackup-restore-job-${cluster%-pxc}
 kubectl delete job/xtrabackup-restore-job-${cluster%-pxc}
-wait_for_running "$cluster-proxysql" 1
 wait_for_running "$cluster-node" 3
 
 desc 'check data after backup'
@@ -72,7 +75,7 @@ compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$c
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
 run_mysql \
     'INSERT myApp.myApp (id) VALUES (100501)' \
-    "-h $cluster-proxysql -uroot -proot_password"
+    "-h $cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"

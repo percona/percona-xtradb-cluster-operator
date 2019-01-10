@@ -21,8 +21,10 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 			SupplementalGroups: []int64{99},
 			FSGroup:            fsgroup,
 		},
-		NodeSelector: podSpec.NodeSelector,
-		Tolerations:  podSpec.Tolerations,
+		NodeSelector:      podSpec.NodeSelector,
+		Tolerations:       podSpec.Tolerations,
+		PriorityClassName: podSpec.PriorityClassName,
+		ImagePullSecrets:  podSpec.ImagePullSecrets,
 	}
 
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
@@ -47,11 +49,14 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	ls := sfs.Lables()
-	obj := sfs.StatefulSet()
-	pvcs, err := sfs.PVCs(podSpec.VolumeSpec)
-	if err != nil {
-		return nil, err
+	for k, v := range podSpec.Labels {
+		if _, ok := ls[k]; !ok {
+			ls[k] = v
+		}
 	}
+
+	obj := sfs.StatefulSet()
+	pvcs := sfs.PVCs(podSpec.VolumeSpec)
 
 	obj.Spec = appsv1.StatefulSetSpec{
 		Replicas: &podSpec.Size,
@@ -61,7 +66,8 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		ServiceName: ls["component"],
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: ls,
+				Labels:      ls,
+				Annotations: podSpec.Annotations,
 			},
 			Spec: pod,
 		},

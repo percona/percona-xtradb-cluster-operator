@@ -42,7 +42,7 @@ spec:
                 operator: In
                 values:
                 - another-name-pxc-nodes
-            topologyKey: failure-domain.beta.kubernetes.io/zone
+            topologyKey: kubernetes.io/hostname
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD

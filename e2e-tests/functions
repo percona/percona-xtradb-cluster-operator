@@ -87,6 +87,7 @@ deploy_operator() {
     kubectl apply \
         -f ${src_dir}/deploy/rbac.yaml \
         -f ${tmp_dir}/operator.yml
+    sleep 2
 
     wait_pod $(get_operator_pod)
 }

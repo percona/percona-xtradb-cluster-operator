@@ -17,13 +17,15 @@ spec:
   pmm:
     enabled: false
   backup:
-    - name: each-min
-      schedule: "* * * * *"
-      keep: 3
-      volume:
-        size: 1Gi
-    - name: sat-night-backup
-      schedule: "0 0 * * 6"
-      keep: 1
-      volume:
-        size: 1Gi
+    image: perconalab/backupjob-openshift:0.2.0
+    schedule:
+      - name: each-min
+        schedule: "* * * * *"
+        keep: 3
+        volume:
+          size: 1Gi
+      - name: sat-night-backup
+        schedule: "0 0 * * 6"
+        keep: 1
+        volume:
+          size: 1Gi

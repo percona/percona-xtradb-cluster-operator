@@ -125,7 +125,7 @@ recreate() {
         'SELECT * FROM global_variables ORDER BY variable_name' \
         "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
         >$tmp_dir/proxy-vars1.sql
-    diff $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars1.sql
+    diff -u $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars1.sql
 
     # delete cluster
     kubectl delete \
@@ -147,7 +147,7 @@ recreate() {
         'SELECT * FROM global_variables ORDER BY variable_name' \
         "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
         >$tmp_dir/proxy-vars2.sql
-    diff $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars2.sql
+    diff -u $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars2.sql
 }
 
 main() {

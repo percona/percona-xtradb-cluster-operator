@@ -26,7 +26,7 @@ admin-stats_system_cpu	60
 admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
-admin-version	1.4.12-percona-1.2
+admin-version	1.4.13-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
 mysql-autocommit_false_is_transaction	false
@@ -95,7 +95,6 @@ mysql-ping_timeout_server	200
 mysql-poll_timeout	2000
 mysql-poll_timeout_on_failure	100
 mysql-query_cache_size_MB	256
-mysql-query_cache_stores_empty_result	true
 mysql-query_digests	true
 mysql-query_digests_lowercase	false
 mysql-query_digests_max_digest_length	2048

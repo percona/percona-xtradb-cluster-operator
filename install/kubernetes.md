@@ -7,7 +7,7 @@ Install Percona XtraDB Cluster on Kubernetes
    git clone -b release-0.2.0 https://github.com/Percona-Lab/percona-xtradb-cluster-operator
    cd percona-xtradb-cluster-operator
    ```
-   **Note:** *It is crucial to checkout code by right tag on this step. Please be careful.*
+   **Note:** *It is crucial to specify the right branch with `-b` option while cloning the code on this step. Please be careful.*
 
 1. The next thing to do is to add the `pxc` namespace to Kubernetes, not forgetting to set the correspondent context for further steps:
 

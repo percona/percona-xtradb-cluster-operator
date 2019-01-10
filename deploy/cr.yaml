@@ -23,7 +23,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       size: 6Gi
     affinity:
-      topologyKey: "failure-domain.beta.kubernetes.io/zone"
+      topologyKey: "kubernetes.io/hostname"
       # advanced:
     # nodeSelector:
     #   disktype: ssd

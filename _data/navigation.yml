@@ -5,7 +5,7 @@ docs:
         url: ./
       - title: "How it works?"
         url: ./architecture
-  - title: Installation
+  - title: Deployment
     children:
       - title: "Requirements"
         url: ./install
@@ -19,5 +19,5 @@ docs:
     children:
       - title: "Users"
         url: ./configure/users
-      - title: "Operator options"
+      - title: "Operator Options"
         url: ./configure/operator

@@ -15,15 +15,21 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform    *Platform             `json:"platform,omitempty"`
-	SecretsName string                `json:"secretsName,omitempty"`
-	PXC         *PodSpec              `json:"pxc,omitempty"`
-	ProxySQL    *PodSpec              `json:"proxysql,omitempty"`
-	PMM         *PMMSpec              `json:"pmm,omitempty"`
-	Backup      *[]PXCScheduledBackup `json:"backup,omitempty"`
+	Platform    *Platform           `json:"platform,omitempty"`
+	SecretsName string              `json:"secretsName,omitempty"`
+	PXC         *PodSpec            `json:"pxc,omitempty"`
+	ProxySQL    *PodSpec            `json:"proxysql,omitempty"`
+	PMM         *PMMSpec            `json:"pmm,omitempty"`
+	Backup      *PXCScheduledBackup `json:"backup,omitempty"`
 }
 
 type PXCScheduledBackup struct {
+	Image            string                        `json:"image,omitempty"`
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	Schedule         []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
+}
+
+type PXCScheduledBackupSchedule struct {
 	Name     string      `json:"name,omitempty"`
 	Schedule string      `json:"schedule,omitempty"`
 	Keep     int         `json:"keep,omitempty"`
@@ -68,7 +74,7 @@ type PodSpec struct {
 	Size              int32                         `json:"size,omitempty"`
 	Image             string                        `json:"image,omitempty"`
 	Resources         *PodResources                 `json:"resources,omitempty"`
-	VolumeSpec        *VolumeSpec                   `json:"volumeSpec,omitempty"`
+	VolumeSpec        VolumeSpec                    `json:"volumeSpec,omitempty"`
 	Affinity          *PodAffinity                  `json:"affinity,omitempty"`
 	NodeSelector      map[string]string             `json:"nodeSelector,omitempty"`
 	Tolerations       []corev1.Toleration           `json:"tolerations,omitempty"`
@@ -148,10 +154,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 
 	c := cr.Spec
 	if c.PXC != nil {
-		if c.PXC.VolumeSpec == nil {
-			return fmt.Errorf("PXC.Volume can't be empty")
-		}
-
 		err := c.PXC.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return fmt.Errorf("PXC.Volume: %v", err)
@@ -171,16 +173,25 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
-		if c.ProxySQL.VolumeSpec == nil {
-			return fmt.Errorf("ProxySQL.Volume can't be empty")
-		}
-
 		err := c.ProxySQL.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return fmt.Errorf("ProxySQL.Volume: %v", err)
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
+	}
+
+	if c.Backup != nil {
+		if c.Backup.Image == "" {
+			return fmt.Errorf("backup.Image can't be empty")
+		}
+
+		for _, sch := range c.Backup.Schedule {
+			err := sch.Volume.reconcileOpts()
+			if err != nil {
+				return fmt.Errorf("backup.Volume: %v", err)
+			}
+		}
 	}
 
 	return nil

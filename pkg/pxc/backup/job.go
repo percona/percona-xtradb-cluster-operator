@@ -8,7 +8,7 @@ import (
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func NewJob(cr *api.PerconaXtraDBBackup) *batchv1.Job {
+func (*Backup) Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -25,7 +25,7 @@ func NewJob(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 	}
 }
 
-func JobSpec(spec api.PXCBackupSpec, pvcName string, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pvcName, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}
@@ -54,7 +54,7 @@ func JobSpec(spec api.PXCBackupSpec, pvcName string, pxcNode string, sv *api.Ser
 				Containers: []corev1.Container{
 					{
 						Name:    "xtrabackup",
-						Image:   "perconalab/backupjob-openshift",
+						Image:   bcp.image,
 						Command: []string{"bash", "/usr/bin/backup.sh"},
 						VolumeMounts: []corev1.VolumeMount{
 							{
@@ -74,7 +74,8 @@ func JobSpec(spec api.PXCBackupSpec, pvcName string, pxcNode string, sv *api.Ser
 						},
 					},
 				},
-				RestartPolicy: corev1.RestartPolicyNever,
+				ImagePullSecrets: bcp.imagePullSecrets,
+				RestartPolicy:    corev1.RestartPolicyNever,
 				Volumes: []corev1.Volume{
 					pvc,
 				},

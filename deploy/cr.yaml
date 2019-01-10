@@ -70,9 +70,13 @@ spec:
     serverHost: monitoring-service
     serverUser: pmm
   backup:
-    - name: "sat-night-backup"
-      schedule: "0 0 * * 6"
-      keep: 3
-      volume:
-      # storageClass: standard
-        size: 6Gi
+    image: perconalab/backupjob-openshift:0.2.0
+    # imagePullSecrets:
+    #   - name: private-registry-credentials
+    schedule:
+      - name: "sat-night-backup"
+        schedule: "0 0 * * 6"
+        keep: 3
+        volume:
+        # storageClass: standard
+          size: 6Gi

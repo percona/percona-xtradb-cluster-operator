@@ -56,7 +56,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	obj := sfs.StatefulSet()
-	pvcs := sfs.PVCs(podSpec.VolumeSpec)
+	pvcs := sfs.PVCs(&podSpec.VolumeSpec)
 
 	obj.Spec = appsv1.StatefulSetSpec{
 		Replicas: &podSpec.Size,

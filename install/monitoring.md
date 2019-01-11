@@ -35,4 +35,4 @@ Following steps are needed to install PMM on Kubernetes.
    $ kubectl logs cluster1-pxc-node-0 -c pmm-client
    ```
 
-6. Find the external IP address (`EXTERNAL-IP` field in the output of `kubectl get service/monitoring-service -o wide`). This IP address can be used to access PMM via web browser, with login/password authentication.
+6. Find the external IP address (`EXTERNAL-IP` field in the output of `kubectl get service/monitoring-service -o wide`). This IP address can be used to access PMM via *https* in a web browser, with login/password authentication.

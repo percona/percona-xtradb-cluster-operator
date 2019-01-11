@@ -15,6 +15,9 @@ docs:
         url: ./install/openshift
       - title: "Scaling Up/Down"
         url: ./install/scaling
+      - title: "Add Monitoring"
+        url: ./install/monitoring
+
   - title: Configuration
     children:
       - title: "Users"

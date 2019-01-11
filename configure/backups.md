@@ -81,7 +81,7 @@ When the name is known, backup can be downloaded to the local machine as follows
    ./deploy/backup/copy-backup.sh <backup-name> path/to/dir
    ```
 
-If needed, this downloaded backup can be restored to the local installation of Percona XtraDB Cluster:
+For example, this downloaded backup can be restored to the local installation of Percona Server:
 
    ```
    service mysqld stop

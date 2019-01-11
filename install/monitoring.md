@@ -25,7 +25,7 @@ Following steps are needed to install both PMM Client and PMM Server preconfigur
    * `credentials.username` should correspond to the `serverUser` key in the `pmm` section of the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file.
    * `credentials.password` should correspond to a value of the `pmmserver` secret key specified in `deploy/secrets.yaml` secrets file. Note that password specified in this example is the default development mode password not intended to be used on production systems.
 
-4. Now the PMM Server and Client are installed, and it is time to update ``pmm`` section in the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file.
+4. Now the PMM is installed, and it is time to update ``pmm`` section in the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file.
    * set `pmm.enabled=true`
    * make sure that `serverUser` (the PMM Server user name, `pmm` by default) is the same as one specified for the `credentials.username` parameter on the previous step.
    * make sure that `serverHost` (the PMM service name, `monitoring-service` by default) is the same as one specified for the `name` parameter on the previous step, but with additional `-service` suffix.

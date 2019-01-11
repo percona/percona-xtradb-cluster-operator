@@ -40,6 +40,7 @@ Following steps are needed to install both PMM Client and PMM Server preconfigur
 5. To make sure everything gone right, check that correspondent Pods are not continuously restarting (which would occur in case of any errors on the previous two steps):
 
    ```
+   $ kubectl get pods
    $ kubectl logs cluster1-pxc-node-0 -c pmm-client
    ```
 

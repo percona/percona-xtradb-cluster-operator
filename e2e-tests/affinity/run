@@ -8,13 +8,18 @@ test_dir=$(realpath $(dirname $0))
 
 check_affinity() {
     local cluster="$1-pxc"
+    local skip_wait=$2
 
     # apply cr config
     kubectl apply \
         -f $test_dir/conf/$cluster.yml
 
     # check if at least 1 Pod started
-    wait_for_running $cluster-node 1
+    if [ -z "$skip_wait" ]; then
+        wait_for_running $cluster-node 1
+    else
+        sleep 5
+    fi
 
     # check if statefulset created with expected config
     compare_kubectl statefulset/$cluster-node
@@ -37,10 +42,10 @@ main() {
     check_affinity "zone"
 
     desc 'check region anti-affinity'
-    #check_affinity "region"
+    check_affinity "region"
 
     desc 'check custom anti-affinity'
-    check_affinity "custom"
+    check_affinity "custom" "skip_wait"
 
     destroy $namespace
 }

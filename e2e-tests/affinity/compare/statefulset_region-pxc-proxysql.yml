@@ -2,10 +2,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app: pxc
-    cluster: region
-    component: region-pxc-proxysql
   name: region-pxc-proxysql
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
@@ -101,6 +97,7 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30

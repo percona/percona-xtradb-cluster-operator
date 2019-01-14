@@ -2,11 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app: pxc
-    cluster: region
-    component: region-pxc-proxysql
-  name: region-pxc-proxysql
+  name: region-pxc-node
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
@@ -14,20 +10,20 @@ metadata:
     name: region
 spec:
   podManagementPolicy: OrderedReady
-  replicas: 1
+  replicas: 3
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       app: pxc
       cluster: region
-      component: region-pxc-proxysql
-  serviceName: region-pxc-proxysql
+      component: region-pxc-nodes
+  serviceName: region-pxc-nodes
   template:
     metadata:
       labels:
         app: pxc
         cluster: region
-        component: region-pxc-proxysql
+        component: region-pxc-nodes
     spec:
       affinity:
         podAntiAffinity:
@@ -45,7 +41,7 @@ spec:
               - key: component
                 operator: In
                 values:
-                - region-pxc-proxysql
+                - region-pxc-nodes
             topologyKey: failure-domain.beta.kubernetes.io/region
       containers:
       - env:
@@ -54,32 +50,48 @@ spec:
             secretKeyRef:
               key: root
               name: my-cluster-secrets
-        - name: MYSQL_PROXY_USER
-          value: proxyuser
-        - name: MYSQL_PROXY_PASSWORD
+        - name: XTRABACKUP_PASSWORD
           valueFrom:
             secretKeyRef:
-              key: proxyuser
+              key: xtrabackup
               name: my-cluster-secrets
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
               name: my-cluster-secrets
-        - name: PXCSERVICE
-          value: region-pxc-nodes
+        - name: CLUSTERCHECK_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: clustercheck
+              name: my-cluster-secrets
         imagePullPolicy: Always
-        name: proxysql
+        livenessProbe:
+          exec:
+            command:
+            - /usr/bin/clustercheck.sh
+          failureThreshold: 3
+          initialDelaySeconds: 300
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: node
         ports:
         - containerPort: 3306
           name: mysql
           protocol: TCP
-        - containerPort: 6032
-          name: proxyadm
-          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /usr/bin/clustercheck.sh
+          failureThreshold: 5
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 15
         resources:
           limits:
-            cpu: 700m
+            cpu: "1"
             memory: 1G
           requests:
             cpu: 600m
@@ -87,28 +99,36 @@ spec:
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
-        - mountPath: /var/lib/proxysql
-          name: proxydata
-          subPath: data
+        - mountPath: /var/lib/mysql
+          name: datadir
+        - mountPath: /etc/mysql/conf.d/
+          name: config-volume
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: pxc
+          optional: true
+        name: config-volume
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
   volumeClaimTemplates:
   - metadata:
-      name: proxydata
+      name: datadir
     spec:
       accessModes:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 2Gi
+          storage: 6Gi
     status:
       phase: Pending

@@ -45,7 +45,7 @@ sysbench /usr/share/sysbench/oltp_insert.lua \
                 --mysql-password="${MYSQL_PASSWORD}" \
                 --mysql-db=sbtest \
                 --mysql_storage_engine=innodb \
-				        --tables=16 \
+                --tables=16 \
                 --table_size=100 \
                 prepare
 

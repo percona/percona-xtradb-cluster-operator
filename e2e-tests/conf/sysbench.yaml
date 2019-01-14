@@ -37,21 +37,21 @@ spec:
                 --password="${MYSQL_PASSWORD}" \
                 -e 'CREATE DATABASE IF NOT EXISTS sbtest'
 
-              sysbench \
+sysbench /usr/share/sysbench/oltp_insert.lua \
                 --db-driver=mysql \
                 --mysql-host="${MYSQL_HOSTNAME}" \
                 --mysql-port=3306 \
                 --mysql-user="${MYSQL_USER}" \
                 --mysql-password="${MYSQL_PASSWORD}" \
                 --mysql-db=sbtest \
-                --mysql-table-engine=innodb \
-                --oltp-table-size=100 \
-                /usr/share/sysbench/tests/include/oltp_legacy/oltp.lua \
+                --mysql_storage_engine=innodb \
+				        --tables=16 \
+                --table_size=100 \
                 prepare
 
-              sysbench \
+sysbench /usr/share/sysbench/oltp_read_write.lua \
                 --rate=200 \
-                --threads=64 \
+                --threads=16 \
                 --report-interval=10 \
                 --time=7200 \
                 --events=0 \
@@ -62,8 +62,6 @@ spec:
                 --mysql-user="${MYSQL_USER}" \
                 --mysql-password="${MYSQL_PASSWORD}" \
                 --mysql-db=sbtest \
-                --mysql-table-engine=innodb \
-                --oltp-reconnect \
-                --oltp-table-size=0 \
-                /usr/share/sysbench/tests/include/oltp_legacy/insert.lua \
+                --mysql_storage_engine=innodb \
+                --table-size=0 \
                 run

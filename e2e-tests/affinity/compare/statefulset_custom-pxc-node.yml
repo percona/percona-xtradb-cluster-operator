@@ -26,23 +26,43 @@ spec:
         component: custom-pxc-nodes
     spec:
       affinity:
-        podAntiAffinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: another-node-label-key
+                operator: In
+                values:
+                - another-node-label-value
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/e2e-az-name
+                operator: In
+                values:
+                - e2e-az1
+                - e2e-az2
+        podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: app
+              - key: security
                 operator: In
                 values:
-                - pxc
-              - key: cluster
-                operator: In
-                values:
-                - custom
-              - key: component
-                operator: In
-                values:
-                - custom-pxc-nodes
-            topologyKey: kubernetes.io/hostname
+                - S1
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: security
+                  operator: In
+                  values:
+                  - S2
+              topologyKey: kubernetes.io/hostname
+            weight: 100
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD

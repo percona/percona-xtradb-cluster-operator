@@ -19,6 +19,44 @@ spec:
       size: 6Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
+      advanced:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: security
+                operator: In
+                values:
+                - S1
+            topologyKey: failure-domain.beta.kubernetes.io/zone
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: security
+                  operator: In
+                  values:
+                  - S2
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/e2e-az-name
+                operator: In
+                values:
+                - e2e-az1
+                - e2e-az2
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: another-node-label-key
+                operator: In
+                values:
+                - another-node-label-value
   proxysql:
     enabled: true
     size: 1
@@ -34,7 +72,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
     affinity:
-      advanced: 
+      advanced:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:

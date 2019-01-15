@@ -82,6 +82,7 @@ type PodSpec struct {
 	Annotations       map[string]string             `json:"annotations,omitempty"`
 	Labels            map[string]string             `json:"labels,omitempty"`
 	ImagePullSecrets  []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	AllowUnsafeConfig bool                          `json:"allowUnsafeConfigurations,omitempty"`
 }
 
 type PodAffinity struct {
@@ -159,13 +160,13 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 			return fmt.Errorf("PXC.Volume: %v", err)
 		}
 
-		// pxc replicas shouldn't be less than 3
-		if c.PXC.Size < 3 {
+		// pxc replicas shouldn't be less than 3 for safe configuration
+		if c.PXC.Size < 3 && !c.PXC.AllowUnsafeConfig {
 			c.PXC.Size = 3
 		}
 
 		// number of pxc replicas should be an odd
-		if c.PXC.Size%2 == 0 {
+		if c.PXC.Size%2 == 0 && !c.PXC.AllowUnsafeConfig {
 			c.PXC.Size++
 		}
 

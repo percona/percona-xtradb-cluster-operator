@@ -10,6 +10,7 @@ spec:
   secretsName: my-cluster-secrets
   pxc:
     size: 3
+    allowUnsafeConfigurations: false
     image: perconalab/pxc-openshift:0.2.0
     resources:
       requests:

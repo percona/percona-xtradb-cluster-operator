@@ -11,7 +11,7 @@ Percona XtraDB Cluster Operator provides two approaches for doing this:
 
 Both simple and advanced approaches are toggled in ``pxc`` and ``proxysql`` sections of the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. Exact choice which way to use depends on what is best suited for a particular situation. 
 
-### Simple approach - use topologyKey of the Percona XtraDB Cluster Operator 
+## Simple approach - use topologyKey of the Percona XtraDB Cluster Operator 
 
 Percona XtraDB Cluster Operator provides a ``topologyKey`` option, which may have one of the following values:
 
@@ -27,7 +27,7 @@ The following example makes Percona XtraDB Cluster Pods occupy the same node:
      topologyKey: "kubernetes.io/hostname"
    ```
    
-### Advanced approach - use standard Kubernetes constraints
+## Advanced approach - use standard Kubernetes constraints
 
 Previous way can be used with no special knowledge of the Kubernetes way of assigning Pods to specific nodes. Still in some cases more complex tuning may be needed. In this case ``advanced`` option placed in the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file turns off the effect of the ``topologyKey`` and allows to use Kubernetes constraints which will be described in the following sections:
 
@@ -37,7 +37,7 @@ Previous way can be used with no special knowledge of the Kubernetes way of assi
      advanced:
    ```
 
-## nodeSelector
+### nodeSelector
 
 ``nodeSelector`` contains one or more key-value pairs. If the node is not labeled with each key-value pair from the Pod's ``nodeSelector``, the Pod will not be able to land on it.
 
@@ -48,7 +48,7 @@ The following example binds the Pod to any node having a self-explanatory ``disk
      disktype: ssd
    ```
 
-## tolerations
+### tolerations
 
 *Tolerations* allow Pods having them to be able to land onto nodes with matching *taints*. Toleration is expressed as a ``key`` with and ``operator``, which is either ``exists`` or ``equal`` (the latter variant also requires a ``value`` the key is equal to). Moreover, toleration should have a specified ``effect``, which may be a self-explanatory ``NoSchedule``, less strict ``PreferNoSchedule``, or ``NoExecute``. The last variant means that if a *taint* with ``NoExecute`` is assigned to node, then any Pod not tolerating this *taint* will be removed from the node, immediately or after the ``tolerationSeconds`` interval, like in the following example:
 

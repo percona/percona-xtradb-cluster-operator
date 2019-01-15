@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: backup-client
-        image: perconalab/backupjob-openshift
+        image: perconalab/backupjob-openshift:0.2.0
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - mountPath: /backup

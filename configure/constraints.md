@@ -3,7 +3,7 @@ Binding Percona XtraDB Cluster components to Specific Kubernetes/OpenShift Nodes
 
 The operator does good job automatically assigning new Pods to nodes with sufficient to achieve balanced distribution accross the cluster. Still there are situations when it worth to ensure that pods will land on specific nodes: for example, to get speed advantages of the SSD equipped machine, or to reduce costs choosing nodes in a same availability zone.
 
-Both simple and advanced approaches are toggled in ``pxc`` and ``proxysql`` sections of the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file contain keys which can be used to do this, depending on what is best suited for a particular situation.
+Both ``pxc`` and ``proxysql`` sections of the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file contain keys which can be used to do this, depending on what is the best for a particular situation.
 
 ## Node selector
 
@@ -112,3 +112,9 @@ Pods may belong to some *priority classes*. This allows scheduler to distinguish
    ```
 
 See the [Kubernetes Pods Priority and Preemption documentation](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption) to find out how to define and use priority classes in your cluster.
+
+## Pod Disruption Budgets
+
+Creating the *Pod Disruption Budget* is the Kubernetes style to limits the number of Pods of an application that can go down simultaneously due to such *voluntary disruptions* as cluster administrator's actions during the update of deployments or nodes, etc. By such a way Distribution Budgets allow large applications to retain their high availability while maintenance and other administrative activities.
+
+We recommend to apply Pod Disruption Budgets manually to avoid situation when Kubernetes stopped all your database Pods. See [the official Kubernetes documentation](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/) for details.

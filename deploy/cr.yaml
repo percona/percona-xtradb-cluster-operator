@@ -28,7 +28,7 @@ spec:
 #    nodeSelector:
 #      disktype: ssd
     affinity:
-      topologyKey: "kubernetes.io/hostname"
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:
@@ -69,7 +69,7 @@ spec:
 #    nodeSelector:
 #      disktype: ssd
     affinity:
-      topologyKey: "kubernetes.io/hostname"
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:

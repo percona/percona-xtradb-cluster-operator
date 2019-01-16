@@ -85,7 +85,7 @@ type PodSpec struct {
 }
 
 type PodAffinity struct {
-	TopologyKey *string          `json:"topologyKey,omitempty"`
+	TopologyKey *string          `json:"antiAffinityTopologyKey,omitempty"`
 	Advanced    *corev1.Affinity `json:"advanced,omitempty"`
 }
 

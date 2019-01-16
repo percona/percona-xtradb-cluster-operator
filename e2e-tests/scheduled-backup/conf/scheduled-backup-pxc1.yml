@@ -10,8 +10,6 @@ spec:
     volumeSpec:
       accessModes: [ "ReadWriteOnce" ]
       size: 1Gi
-    affinity:
-      topologyKey: "kubernetes.io/hostname"
   proxysql:
     enabled: false
   pmm:

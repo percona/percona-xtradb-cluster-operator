@@ -30,7 +30,7 @@ The ``pxc`` section in the deploy/cr.yaml file contains general configuration op
 |nodeSelector                    | label      | `disktype: ssd`        | The [Kubernetes nodeSelector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) constraint|
 |tolerations                     | subdoc     | `node.alpha.kubernetes.io/unreachable` | The [Kubernetes Pod tolerations] (https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/#concepts)            |
 |priorityClassName               | string     | `high-priority`  | The [Kuberentes Pod priority class](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass) |
-|annotations.iam.amazonaws.com/role | string |`role-arn`| The [AWS IAM role](https://kubernetes-on-aws.readthedocs.io/en/latest/user-guide/iam-roles.html)                              |
+|annotations | label |`iam.amazonaws.com/role: role-arn`| The [Kubernetes annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) metadata                             |
 |imagePullSecrets.name           | string     | `private-registry-credentials` | [Kubernetes imagePullSecret](https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets) for the Percona XtraDB Cluster docker image |
 |labels                          | label      | `rack: rack-22` | The [Kubernetes affinity labels](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/)                       |
 

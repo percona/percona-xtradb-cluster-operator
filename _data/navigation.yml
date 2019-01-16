@@ -26,6 +26,6 @@ docs:
         url: ./configure/operator
       - title: "Backups"
         url: ./configure/backups
-      - title: "Binging to nodes"
+      - title: "Nodes Assignment"
         url: ./configure/constraints
 

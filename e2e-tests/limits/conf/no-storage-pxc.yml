@@ -10,7 +10,7 @@ spec:
     volumeSpec:
       accessModes: [ "ReadWriteOnce" ]
     affinity:
-      topologyKey: none
+      antiAffinityTopologyKey: none
   proxysql:
     enabled: true
     size: 1
@@ -18,7 +18,7 @@ spec:
     volumeSpec:
       accessModes: [ "ReadWriteOnce" ]
     affinity:
-      topologyKey: none
+      antiAffinityTopologyKey: none
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0

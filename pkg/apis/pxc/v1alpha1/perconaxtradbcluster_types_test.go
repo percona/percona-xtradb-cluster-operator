@@ -24,7 +24,7 @@ func TestReconcileAffinity(t *testing.T) {
 			},
 		},
 		{
-			name: "wrong topologyKey",
+			name: "wrong antiAffinityTopologyKey",
 			pod: &PodSpec{
 				Affinity: &PodAffinity{
 					TopologyKey: func(s string) *string { return &s }("beta.kubernetes.io/instance-type"),
@@ -37,7 +37,7 @@ func TestReconcileAffinity(t *testing.T) {
 			},
 		},
 		{
-			name: "valid topologyKey",
+			name: "valid antiAffinityTopologyKey",
 			pod: &PodSpec{
 				Affinity: &PodAffinity{
 					TopologyKey: func(s string) *string { return &s }("kubernetes.io/hostname"),
@@ -59,7 +59,7 @@ func TestReconcileAffinity(t *testing.T) {
 			desiered: &PodSpec{},
 		},
 		{
-			name: "valid topologyKey with Advanced",
+			name: "valid antiAffinityTopologyKey with Advanced",
 			pod: &PodSpec{
 				Affinity: &PodAffinity{
 					TopologyKey: func(s string) *string { return &s }("kubernetes.io/hostname"),

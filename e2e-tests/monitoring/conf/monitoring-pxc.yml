@@ -15,7 +15,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       size: 6Gi
     affinity:
-      topologyKey: none
+      antiAffinityTopologyKey: none
   proxysql:
     enabled: true
     size: 1
@@ -28,7 +28,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
     affinity:
-      topologyKey: none
+      antiAffinityTopologyKey: none
   pmm:
     enabled: true
     image: perconalab/pmm-client:1.17.0

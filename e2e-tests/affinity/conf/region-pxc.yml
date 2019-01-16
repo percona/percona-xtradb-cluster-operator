@@ -18,7 +18,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       size: 6Gi
     affinity:
-      topologyKey: "failure-domain.beta.kubernetes.io/region"
+      antiAffinityTopologyKey: "failure-domain.beta.kubernetes.io/region"
   proxysql:
     enabled: true
     size: 1
@@ -34,7 +34,7 @@ spec:
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
     affinity:
-      topologyKey: "failure-domain.beta.kubernetes.io/region"
+      antiAffinityTopologyKey: "failure-domain.beta.kubernetes.io/region"
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0

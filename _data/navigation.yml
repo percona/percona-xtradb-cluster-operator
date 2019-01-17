@@ -17,7 +17,8 @@ docs:
         url: ./install/scaling
       - title: "Add Monitoring"
         url: ./install/monitoring
-
+      - title: "External Registry"
+        url: ./install/custom-registry
   - title: Configuration
     children:
       - title: "Users"

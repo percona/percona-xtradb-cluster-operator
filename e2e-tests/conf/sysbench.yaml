@@ -37,7 +37,7 @@ spec:
                 --password="${MYSQL_PASSWORD}" \
                 -e 'CREATE DATABASE IF NOT EXISTS sbtest'
 
-sysbench /usr/share/sysbench/oltp_insert.lua \
+              sysbench /usr/share/sysbench/oltp_insert.lua \
                 --db-driver=mysql \
                 --mysql-host="${MYSQL_HOSTNAME}" \
                 --mysql-port=3306 \
@@ -49,7 +49,7 @@ sysbench /usr/share/sysbench/oltp_insert.lua \
                 --table_size=100 \
                 prepare
 
-sysbench /usr/share/sysbench/oltp_read_write.lua \
+              sysbench /usr/share/sysbench/oltp_read_write.lua \
                 --rate=200 \
                 --threads=16 \
                 --report-interval=10 \

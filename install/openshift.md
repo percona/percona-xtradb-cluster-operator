@@ -11,7 +11,7 @@ Install Percona XtraDB Cluster on OpenShift
 
 1. Now Custom Resource Definition for PXC should be created from the  `deploy/crd.yaml` file. Custom Resource Definition extends the standard set of resources which Kubernetes “knows” about with the new items (in our case ones which are the core of the operator).
 
-   This step requires your user to have cluster-admin role privileges. Also this step should be done only once; it does not need to be repeated with the next Operator deployments, etc.
+   This step should be done only once; it does not need to be repeated with the next Operator deployments, etc.
 
    ```bash
    $ oc apply -f deploy/crd.yaml
@@ -35,6 +35,8 @@ Install Percona XtraDB Cluster on OpenShift
    ```bash
    $ oc apply -f -f deploy/rbac.yaml
    ```
+
+   **Note:** *Setting RBAC requires your user to have cluster-admin role privileges.*
 
    Finally, it’s time to start the operator within OpenShift:
 

@@ -13,8 +13,10 @@ docs:
         url: ./install/kubernetes
       - title: "Install on OpenShift"
         url: ./install/openshift
-      - title: "Scaling Up/Down"
+      - title: "Scale Up/Down"
         url: ./install/scaling
+      - title: "Add Monitoring"
+        url: ./install/monitoring
       - title: "External Registry"
         url: ./install/custom-registry
   - title: Configuration
@@ -23,3 +25,8 @@ docs:
         url: ./configure/users
       - title: "Operator Options"
         url: ./configure/operator
+      - title: "Backups"
+        url: ./configure/backups
+      - title: "Nodes Assignment"
+        url: ./configure/constraints
+

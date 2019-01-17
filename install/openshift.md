@@ -9,13 +9,43 @@ Install Percona XtraDB Cluster on OpenShift
    ```
    **Note:** *It is crucial to specify the right branch with `-b` option while cloning the code on this step. Please be careful.*
 
-1. The next thing to do is to create a new `pxc` project:
+1. Now Custom Resource Definition for PXC should be created from the  `deploy/crd.yaml` file. Custom Resource Definition extends the standard set of resources which Kubernetes “knows” about with the new items (in our case ones which are the core of the operator).
+
+   This step should be done only once; it does not need to be repeated with the next Operator deployments, etc.
+
+   ```bash
+   $ oc apply -f deploy/crd.yaml
+   ```
+   
+   An extra action is needed if you want to manage PXC cluster from a non-privileged user. Necessary permissions can be granted by applying the next clusterrole:
+
+   ```bash
+   $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbbackups.pxc.percona.com
+   $ oc adm policy add-cluster-role-to-user pxc-admin <some-user>
+   ```
+
+2. The next thing to do is to create a new `pxc` project:
 
    ```bash
    $ oc new-project pxc
    ```
 
-2. Now that’s time to add the PXC Users secrets to OpenShift. They should be placed in the data section of the `deploy/secrets.yaml` file as base64-encoded logins and passwords for the user accounts (see [Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/secret/) for details).
+3. Now RBAC (role-based access control) for PXC should be set up from the `deploy/rbac.yaml` file. Briefly speaking, role-based access is based on specifically defined roles and actions corresponding to them, allowed to be done on specific Kubernetes resources (details about users and roles can be found in [OpenShift documentation](https://docs.openshift.com/enterprise/3.0/architecture/additional_concepts/authorization.html)). 
+
+   ```bash
+   $ oc apply -f -f deploy/rbac.yaml
+   ```
+
+   **Note:** *Setting RBAC requires your user to have cluster-admin role privileges.*
+
+   Finally, it’s time to start the operator within OpenShift:
+
+   ```bash
+   $ oc apply -f deploy/operator.yaml
+   ```
+
+
+4. Now that’s time to add the PXC Users secrets to OpenShift. They should be placed in the data section of the `deploy/secrets.yaml` file as base64-encoded logins and passwords for the user accounts (see [Kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/secret/) for details).
 
    **Note:** *the following command can be used to get base64-encoded password from a plain text string:* `$ echo -n 'plain-text-password' | base64`
 
@@ -27,29 +57,13 @@ Install Percona XtraDB Cluster on OpenShift
 
    More details about secrets can be found in a [separate section](../configure/users).
 
-3. Now RBAC (role-based access control) and Custom Resource Definition for PXC should be created from the following two files: `deploy/rbac.yaml` and `deploy/crd.yaml`. Briefly speaking, role-based access is based on specifically defined roles and actions corresponding to them, allowed to be done on specific Kubernetes resources (details about users and roles can be found in [OpenShift documentation](https://docs.openshift.com/enterprise/3.0/architecture/additional_concepts/authorization.html)). Custom Resource Definition extends the standard set of resources which Kubernetes “knows” about with the new items (in our case ones which are the core of the operator).
+5. Optionally you can use `deploy/configmap.yaml` file to set Percona XtraDB Cluster configuration options. [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) allows Kubernetes to pass configuration data inside the containerized application. If there were any changes, updated file can be applied with the following command:
 
-   ```bash
-   $ oc project pxc
-   $ oc apply -f deploy/crd.yaml -f deploy/rbac.yaml
-   ```
+      ```bash
+      $ oc apply -f deploy/configmap.yaml
+      ```
 
-   **Note:** *This step requires your user to have cluster-admin role privileges.*
-
-4. An extra step is needed if you want to manage PXC cluster from a non-privileged user. Necessary permissions can be granted by applying the next clusterrole:
-
-   ```bash
-   $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbbackups.pxc.percona.com
-   $ oc adm policy add-cluster-role-to-user pxc-admin <some-user>
-   ```
-
-5. Finally, it’s time to start the operator within OpenShift:
-
-   ```bash
-   $ oc apply -f deploy/operator.yaml
-   ```
-
-6. After the operator is started, Percona XtraDB Cluster can be created at any time with the following command:
+6. After the operator is started and user secrets are added, Percona XtraDB Cluster can be created at any time with the following command:
 
       ```bash
       $ oc apply -f deploy/cr.yaml

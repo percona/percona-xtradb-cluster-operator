@@ -28,7 +28,7 @@ Install Percona XtraDB Cluster on Kubernetes
 
    More details about secrets can be found in a [separate section](../configure/users).
 
-3. **Note:** *This step should be done only once; it does not need to be repeated with the next Pperator deployments, etc.*
+3. **Note:** *This step should be done only once; it does not need to be repeated with the next Operator deployments, etc.*
 
    Now Custom Resource Definition for PXC should be created from the `deploy/crd.yaml` file. Custom Resource Definition extends the standard set of resources which Kubernetes “knows” about with the new items (in our case ones which are the core of the operator).
 
@@ -38,18 +38,18 @@ Install Percona XtraDB Cluster on Kubernetes
 
    **Note:** *This step requires your user to have cluster-admin role privileges. For example, those using Google Kubernetes Engine can grant user needed privileges with the following command:* `$ kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=<myname@example.org>`
 
-4. Finally it’s time to start the operator within Kubernetes:
+4. Now RBAC (role-based access control) for PXC should be set up from the `deploy/rbac.yaml` file. Briefly speaking, role-based access is based on specifically defined roles and actions corresponding to them, allowed to be done on specific Kubernetes resources (details about users and roles can be found in [Kubernetes documentation](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings)).
+
+   ```bash
+   $ kubectl apply -f deploy/rbac.yaml
+
+   Finally it’s time to start the operator within Kubernetes:
 
    ```bash
    $ kubectl apply -f deploy/operator.yaml
    ```
 
-5. Now RBAC (role-based access control) for PXC should be set up from the `deploy/rbac.yaml` file. Briefly speaking, role-based access is based on specifically defined roles and actions corresponding to them, allowed to be done on specific Kubernetes resources (details about users and roles can be found in [Kubernetes documentation](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings)).
-
-   ```bash
-   $ kubectl apply -f deploy/rbac.yaml
-
-   After the operator is started, Percona XtraDB Cluster can be created at any time with the following command:
+5. After the operator is started, Percona XtraDB Cluster can be created at any time with the following command:
 
    ```bash
    $ kubectl apply -f deploy/cr.yaml

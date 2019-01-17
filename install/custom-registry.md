@@ -3,7 +3,7 @@ Use docker images from a custom registry
 
 Storing images in a private docker registry may be useful in different situations: it may be related to a customized images built for specific needs of a company, privacy and security reasons, etc. In such cases Percona XtraDB Cluster Operator allows to use custom registry, and the following instruction illustrates how this can be done by example of the Operator deployed in the OpenShift environment.
 
-1. First of all login to the OpenShift.
+1. First of all login to the OpenShift and create project.
 
     ```bash
     $ oc login
@@ -11,8 +11,8 @@ Storing images in a private docker registry may be useful in different situation
     Username: admin
     Password:
     Login successful.
-    You have one project on this server: "pxc"
-    Using project "pxc".
+    $ oc new-project pxc
+    Now using project "pxc" on server "https://192.168.1.100:8443".
    ```
 
 2. There are two things you will need to configure your custom registry access:
@@ -56,9 +56,8 @@ Storing images in a private docker registry may be useful in different situation
 
     ```bash
     $ docker tag \
-    docker.io/perconalab/percona-xtradb-cluster-operator@sha256:8895ff4647602dcbcabbf6ea5d1be1611e9d7a9769c3bb3415c3a73aba2adda0 \
-    172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:0.2.0
-    refusing to create a tag with a digest reference
+        docker.io/perconalab/percona-xtradb-cluster-operator@sha256:8895ff4647602dcbcabbf6ea5d1be1611e9d7a9769c3bb3415c3a73aba2adda0 \
+        172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:0.2.0
     $ docker push 172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:0.2.0
     ```
 

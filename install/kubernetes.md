@@ -17,8 +17,6 @@ Install Percona XtraDB Cluster on Kubernetes
    $ kubectl apply -f deploy/crd.yaml
    ```
 
-   **Note:** *This step requires your user to have cluster-admin role privileges. For example, those using Google Kubernetes Engine can grant user needed privileges with the following command:* `$ kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=<myname@example.org>`
-
 2. The next thing to do is to add the `pxc` namespace to Kubernetes, not forgetting to set the correspondent context for further steps:
 
    ```bash
@@ -30,6 +28,9 @@ Install Percona XtraDB Cluster on Kubernetes
 
    ```bash
    $ kubectl apply -f deploy/rbac.yaml
+   ```
+
+   **Note:** *Setting RBAC requires your user to have cluster-admin role privileges. For example, those using Google Kubernetes Engine can grant user needed privileges with the following command:* `$ kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=<myname@example.org>`
 
    Finally it’s time to start the operator within Kubernetes:
 

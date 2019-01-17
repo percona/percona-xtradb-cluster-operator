@@ -1,7 +1,7 @@
 Use docker images from a custom registry
 ===================================================
 
-Storing images in a private docker registry may be useful in different situations: it may be related to a customized images built for specific needs of a company, privacy and security reasons, etc. In such cases Percona XtraDB Cluster Operator allows to use custom registry, and the following instruction illustrates how this can be done by example of the Operator deployed in the OpenShift environment.
+Using images from a private Docker registry may be useful in different situations: it may be related to storing images inside of a company, for privacy and security reasons, etc. In such cases, Percona XtraDB Cluster Operator allows to use a custom registry, and the following instruction illustrates how this can be done by the example of the Operator deployed in the OpenShift environment.
 
 1. First of all login to the OpenShift and create project.
 

@@ -4,66 +4,91 @@ metadata:
   name: "cluster1"
   finalizers:
     - delete-pxc-pods-in-order
-    # - delete-proxysql-pvc
-    # - delete-pxc-pvc
+#    - delete-proxysql-pvc
+#    - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
   pxc:
     size: 3
     image: perconalab/pxc-openshift:0.2.0
+#    imagePullSecrets:
+#      - name: private-registry-credentials
+#    priorityClassName: high-priority
+#    annotations:
+#      iam.amazonaws.com/role: role-arn
+#    labels:
+#      rack: rack-22
     resources:
       requests:
         memory: 1G
         cpu: 600m
-      # limits:
-      #   memory: 1G
-      #   cpu: "1"
+#      limits:
+#        memory: 1G
+#        cpu: "1"
+#    nodeSelector:
+#      disktype: ssd
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+#      advanced:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#            - matchExpressions:
+#              - key: kubernetes.io/e2e-az-name
+#                operator: In
+#                values:
+#                - e2e-az1
+#                - e2e-az2
+#    tolerations: 
+#    - key: "node.alpha.kubernetes.io/unreachable"
+#      operator: "Exists"
+#      effect: "NoExecute"
+#      tolerationSeconds: 6000
     volumeSpec:
-      # storageClass: standard
+#      storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
       size: 6Gi
-    affinity:
-      topologyKey: "kubernetes.io/hostname"
-      # advanced:
-    # nodeSelector:
-    #   disktype: ssd
-    # tolerations: 
-    # - key: "node.alpha.kubernetes.io/unreachable"
-    #   operator: "Exists"
-    #   effect: "NoExecute"
-    #   tolerationSeconds: 6000
-    # priorityClassName: high-priority
-    # annotations:
-    #   iam.amazonaws.com/role: role-arn
-    # imagePullSecrets:
-    #   - name: private-registry-credentials
-    # labels:
-    #   rack: rack-22
   proxysql:
     enabled: true
     size: 1
     image: perconalab/proxysql-openshift:0.2.0
+#    imagePullSecrets:
+#      - name: private-registry-credentials
+#    annotations:
+#      iam.amazonaws.com/role: role-arn
+#    labels:
+#      rack: rack-22
     resources:
       requests:
         memory: 1G
         cpu: 600m
-      # limits:
-      #   memory: 1G
-      #   cpu: 700m
+#      limits:
+#        memory: 1G
+#        cpu: 700m
+#    priorityClassName: high-priority
+#    nodeSelector:
+#      disktype: ssd
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+#      advanced:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#            - matchExpressions:
+#              - key: kubernetes.io/e2e-az-name
+#                operator: In
+#                values:
+#                - e2e-az1
+#                - e2e-az2
+#    tolerations:
+#    - key: "node.alpha.kubernetes.io/unreachable"
+#      operator: "Exists"
+#      effect: "NoExecute"
+#      tolerationSeconds: 6000
     volumeSpec:
-      # storageClass: standard
+#      storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
-    # affinity:
-    #   topologyKey: "failure-domain.beta.kubernetes.io/zone"
-    #   # advanced:
-    # nodeSelector:
-    #   disktype: ssd
-    # tolerations: 
-    # - key: "node.alpha.kubernetes.io/unreachable"
-    #   operator: "Exists"
-    #   effect: "NoExecute"
-    #   tolerationSeconds: 6000
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0
@@ -71,12 +96,13 @@ spec:
     serverUser: pmm
   backup:
     image: perconalab/backupjob-openshift:0.2.0
-    # imagePullSecrets:
-    #   - name: private-registry-credentials
+#    imagePullSecrets:
+#      - name: private-registry-credentials
     schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"
         keep: 3
         volume:
-        # storageClass: standard
+#          storageClass: standard
+          accessModes: [ "ReadWriteOnce" ]
           size: 6Gi

@@ -75,6 +75,8 @@ Using images from a private Docker registry may be useful in different situation
 
 8. Repeat steps 3-5 for other images, and update corresponding options in the `deploy/cr.yaml` file.
 
+9. Now follow the standard [Percona XtraDB Cluster Operator installation instruction](./openshift).
+
 ## Percona certified images
 
 Following table presents Percona's certified images to be used with the Percona XtraDB Cluster Operator:

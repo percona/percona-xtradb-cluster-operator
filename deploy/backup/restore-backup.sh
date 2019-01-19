@@ -107,7 +107,7 @@ recover() {
 		    spec:
 		      containers:
 		      - name: xtrabackup
-		        image: perconalab/backupjob-openshift
+		        image: perconalab/backupjob-openshift:0.2.0
 		        command:
 		        - bash
 		        - "-exc"

@@ -70,7 +70,7 @@ start_tmp_pod() {
 		spec:
 		      containers:
 		      - name: xtrabackup
-		        image: perconalab/backupjob-openshift
+		        image: perconalab/backupjob-openshift:0.2.0
 		        volumeMounts:
 		        - name: backup
 		          mountPath: /backup

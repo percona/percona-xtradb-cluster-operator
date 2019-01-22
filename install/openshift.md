@@ -16,6 +16,8 @@ Install Percona XtraDB Cluster on OpenShift
    ```bash
    $ oc apply -f deploy/crd.yaml
    ```
+
+   **Note:** *Setting Custom Resource Definition requires your user to have cluster-admin role privileges.*
    
    An extra action is needed if you want to manage PXC cluster from a non-privileged user. Necessary permissions can be granted by applying the next clusterrole:
 
@@ -35,8 +37,6 @@ Install Percona XtraDB Cluster on OpenShift
    ```bash
    $ oc apply -f deploy/rbac.yaml
    ```
-
-   **Note:** *Setting RBAC requires your user to have cluster-admin role privileges.*
 
    Finally, it’s time to start the operator within OpenShift:
 

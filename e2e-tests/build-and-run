@@ -6,7 +6,7 @@ test_dir="$(dirname $0)"
 . $(dirname $0)/functions
 src_dir="$(realpath $test_dir/..)"
 
-#$test_dir/build
+$test_dir/build
 create_namespace run-$GIT_BRANCH
 deploy_operator
 

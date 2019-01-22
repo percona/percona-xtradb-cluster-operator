@@ -33,7 +33,7 @@ Install Percona XtraDB Cluster on OpenShift
 3. Now RBAC (role-based access control) for PXC should be set up from the `deploy/rbac.yaml` file. Briefly speaking, role-based access is based on specifically defined roles and actions corresponding to them, allowed to be done on specific Kubernetes resources (details about users and roles can be found in [OpenShift documentation](https://docs.openshift.com/enterprise/3.0/architecture/additional_concepts/authorization.html)). 
 
    ```bash
-   $ oc apply -f -f deploy/rbac.yaml
+   $ oc apply -f deploy/rbac.yaml
    ```
 
    **Note:** *Setting RBAC requires your user to have cluster-admin role privileges.*

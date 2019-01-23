@@ -1,0 +1,59 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+create_namespace $namespace
+deploy_operator
+
+desc 'create first PXC cluster'
+cluster="some-name-pxc"
+kubectl apply \
+    -f $conf_dir/secrets.yml \
+    -f $conf_dir/$cluster.yml \
+    -f $conf_dir/client.yml
+desc 'check if all 3 Pods started'
+wait_for_running "$cluster-proxysql" 1
+wait_for_running "$cluster-node" 3
+
+desc 'write data to ProxySQL, read from all'
+run_mysql \
+    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+    "-h $cluster-proxysql -uroot -proot_password"
+run_mysql \
+    'INSERT myApp.myApp (id) VALUES (100500)' \
+    "-h $cluster-proxysql -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+
+desc 'delete cluster'
+kubectl delete \
+    -f $conf_dir/$cluster.yml
+wait_for_delete pod/$cluster-node-2
+wait_for_delete pod/$cluster-node-1
+wait_for_delete pod/$cluster-node-0
+
+desc 'recreate cluster, check data'
+sed -e 's/size: 6Gi/size: 8Gi/; s/size: 3/size: 4/' \
+    $conf_dir/$cluster.yml \
+    | kubectl apply -f-
+wait_for_running "$cluster-proxysql" 1
+wait_for_running "$cluster-node" 4
+
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+
+desc 'write data to ProxySQL, read from all'
+run_mysql \
+    'INSERT myApp.myApp (id) VALUES (100501)' \
+    "-h $cluster-proxysql -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+
+destroy $namespace

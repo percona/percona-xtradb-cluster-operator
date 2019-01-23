@@ -55,6 +55,7 @@ matrix:
     - ./e2e-tests/operator-self-healing/run
   - name: "Backups"
     script:
+    - ./e2e-tests/recreate/run
     - ./e2e-tests/demand-backup/run
     - ./e2e-tests/scheduled-backup/run
 after_success:

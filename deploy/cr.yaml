@@ -49,6 +49,9 @@ spec:
 #      storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
       size: 6Gi
+    podDisruptionBudget:
+      maxUnavailable: 1
+      # minAvailable: 0
   proxysql:
     enabled: true
     size: 1
@@ -90,6 +93,9 @@ spec:
 #      storageClass: standard
       accessModes: [ "ReadWriteOnce" ]
       size: 2Gi
+    podDisruptionBudget:
+      maxUnavailable: 1
+      # minAvailable: 0
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0

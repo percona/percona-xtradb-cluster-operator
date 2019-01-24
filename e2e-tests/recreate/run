@@ -38,7 +38,7 @@ wait_for_delete pod/$cluster-node-1
 wait_for_delete pod/$cluster-node-0
 
 desc 'recreate cluster, check data'
-sed -e 's/size: 6Gi/size: 8Gi/; s/size: 3/size: 4/' \
+sed -e 's/size: 6Gi/size: 8Gi/; s/size: 3/size: 4/; s/antiAffinityTopologyKey:.*/antiAffinityTopologyKey: none/' \
     $conf_dir/$cluster.yml \
     | kubectl apply -f-
 wait_for_running "$cluster-proxysql" 1

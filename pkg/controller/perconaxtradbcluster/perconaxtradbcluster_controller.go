@@ -224,6 +224,20 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf("create PXC Service: %v", err)
 	}
 
+	// Creates PodDistributedBudget object for nodes
+	if cr.Spec.PXC.PodDisruptionBudget != nil {
+		pdb := pxc.NewPodDistributedBudget(cr, cr.Spec.PXC.PodDisruptionBudget, "-nodes")
+		err = setControllerReference(cr, pdb, r.scheme)
+		if err != nil {
+			return err
+		}
+
+		err = r.client.Create(context.TODO(), pdb)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("create PDB: %v", err)
+		}
+	}
+
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		proxySet, err := pxc.StatefulSet(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr, serverVersion)
 		if err != nil {
@@ -248,6 +262,20 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("create PXC Service: %v", err)
+		}
+
+		// PodDistributedBudget for ProxySQL
+		if cr.Spec.ProxySQL.PodDisruptionBudget != nil {
+			pdbProxySQL := pxc.NewPodDistributedBudget(cr, cr.Spec.ProxySQL.PodDisruptionBudget, "-proxysql")
+			err = setControllerReference(cr, pdbProxySQL, r.scheme)
+			if err != nil {
+				return err
+			}
+
+			err = r.client.Create(context.TODO(), pdbProxySQL)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				return fmt.Errorf("create PDB-ProxySQL: %v", err)
+			}
 		}
 	}
 

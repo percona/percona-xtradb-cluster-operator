@@ -26,6 +26,9 @@ spec:
     affinity:
       topologyKey: "kubernetes.io/hostname"
       # advanced:
+    podDisruptionBudget:
+      maxUnavailable: 1
+      # minAvailable: 0
     # nodeSelector:
     #   disktype: ssd
     # tolerations: 
@@ -58,6 +61,9 @@ spec:
     # affinity:
     #   topologyKey: "failure-domain.beta.kubernetes.io/zone"
     #   # advanced:
+    podDisruptionBudget:
+      maxUnavailable: 1
+      # minAvailable: 0
     # nodeSelector:
     #   disktype: ssd
     # tolerations: 

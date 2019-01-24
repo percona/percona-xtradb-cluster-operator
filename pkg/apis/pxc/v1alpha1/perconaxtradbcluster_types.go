@@ -6,6 +6,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -70,19 +71,20 @@ type PerconaXtraDBClusterList struct {
 }
 
 type PodSpec struct {
-	Enabled           bool                          `json:"enabled,omitempty"`
-	Size              int32                         `json:"size,omitempty"`
-	Image             string                        `json:"image,omitempty"`
-	Resources         *PodResources                 `json:"resources,omitempty"`
-	VolumeSpec        VolumeSpec                    `json:"volumeSpec,omitempty"`
-	Affinity          *PodAffinity                  `json:"affinity,omitempty"`
-	NodeSelector      map[string]string             `json:"nodeSelector,omitempty"`
-	Tolerations       []corev1.Toleration           `json:"tolerations,omitempty"`
-	PriorityClassName string                        `json:"priorityClassName,omitempty"`
-	Annotations       map[string]string             `json:"annotations,omitempty"`
-	Labels            map[string]string             `json:"labels,omitempty"`
-	ImagePullSecrets  []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	AllowUnsafeConfig bool                          `json:"allowUnsafeConfigurations,omitempty"`
+	Enabled             bool                                   `json:"enabled,omitempty"`
+	Size                int32                                  `json:"size,omitempty"`
+	Image               string                                 `json:"image,omitempty"`
+	Resources           *PodResources                          `json:"resources,omitempty"`
+	VolumeSpec          VolumeSpec                             `json:"volumeSpec,omitempty"`
+	Affinity            *PodAffinity                           `json:"affinity,omitempty"`
+	NodeSelector        map[string]string                      `json:"nodeSelector,omitempty"`
+	Tolerations         []corev1.Toleration                    `json:"tolerations,omitempty"`
+	PriorityClassName   string                                 `json:"priorityClassName,omitempty"`
+	Annotations         map[string]string                      `json:"annotations,omitempty"`
+	Labels              map[string]string                      `json:"labels,omitempty"`
+	ImagePullSecrets    []corev1.LocalObjectReference          `json:"imagePullSecrets,omitempty"`
+	AllowUnsafeConfig   bool                                   `json:"allowUnsafeConfigurations,omitempty"`
+	PodDisruptionBudget *policyv1beta1.PodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
 }
 
 type PodAffinity struct {

@@ -5,10 +5,10 @@ tmp_dir=$(mktemp -d)
 ctrl=""
 
 check_ctrl() {
-    if [ -x "$(command -v oc)" ]; then
-        ctrl="oc"
-    elif [ -x "$(command -v kubectl)" ]; then
+    if [ -x "$(command -v kubectl)" ]; then
         ctrl="kubectl"
+    elif [ -x "$(command -v oc)" ]; then
+        ctrl="oc"
     else
         echo "[ERROR] Neither <oc> nor <kubectl> client found"
         exit 1

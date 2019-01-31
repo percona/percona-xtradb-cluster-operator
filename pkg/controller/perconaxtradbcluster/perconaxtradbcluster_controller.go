@@ -22,6 +22,7 @@ import (
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/version"
 )
@@ -198,7 +199,21 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		serverVersion.Platform = *cr.Spec.Platform
 	}
 
-	nodeSet, err := pxc.StatefulSet(statefulset.NewNode(cr), cr.Spec.PXC, cr, serverVersion)
+	stsApp := statefulset.NewNode(cr)
+	if cr.Spec.PXC.Configuration != "" {
+		configMap := configmap.NewConfigMap(cr, stsApp.Lables()["component"])
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return err
+		}
+
+		err = r.client.Create(context.TODO(), configMap)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("create newConfigMap: %v", err)
+		}
+	}
+
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, serverVersion)
 	if err != nil {
 		return err
 	}

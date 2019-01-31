@@ -83,6 +83,7 @@ type PodSpec struct {
 	Labels            map[string]string             `json:"labels,omitempty"`
 	ImagePullSecrets  []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	AllowUnsafeConfig bool                          `json:"allowUnsafeConfigurations,omitempty"`
+	Configuration     string                        `json:"configuration,omitempty"`
 }
 
 type PodAffinity struct {

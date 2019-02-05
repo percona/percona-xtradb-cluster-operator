@@ -93,7 +93,7 @@ spec:
       volumes:
       - configMap:
           defaultMode: 420
-          name: pxc
+          name: no-limits-pxc-nodes
           optional: true
         name: config-volume
   updateStrategy:

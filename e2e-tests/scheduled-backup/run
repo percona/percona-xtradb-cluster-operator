@@ -65,8 +65,8 @@ wait_for_delete cronjob/each-min
 
 desc 'recover backup'
 echo y | $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster%-pxc}
-kubectl logs job/xtrabackup-restore-job-${cluster%-pxc}
-kubectl delete job/xtrabackup-restore-job-${cluster%-pxc}
+kubectl logs job/restore-job-${cluster%-pxc}
+kubectl delete job/restore-job-${cluster%-pxc}
 wait_for_running "$cluster-node" 3
 
 desc 'check data after backup'

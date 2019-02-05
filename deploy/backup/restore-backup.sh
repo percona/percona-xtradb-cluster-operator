@@ -108,12 +108,50 @@ recover() {
     local backup_pvc=$1
     local cluster=$2
 
-    $ctrl delete "job/xtrabackup-restore-job-$cluster" 2>/dev/null || :
+    $ctrl delete "job/restore-job-$cluster" 2>/dev/null || :
+    $ctrl delete "svc/restore-src-$cluster" 2>/dev/null || :
+    $ctrl delete "pod/restore-src-$cluster" 2>/dev/null || :
+    cat - <<-EOF | $ctrl apply -f -
+		apiVersion: v1
+		kind: Service
+		metadata:
+		  name: restore-src-$cluster
+		spec:
+		  selector:
+		    name: restore-src-$cluster
+		  type: ClusterIP
+		  ports:
+		  - name: ncat
+		    port: 3307
+		---
+		apiVersion: v1
+		kind: Pod
+		metadata:
+		  name: restore-src-$cluster
+		  labels:
+		    name: restore-src-$cluster
+		spec:
+		  containers:
+		  - name: ncat
+		    image: perconalab/backupjob-openshift:0.2.0
+		    command:
+		        - bash
+		        - "-exc"
+		        - "cat /backup/xtrabackup.stream | ncat -l --send-only 3307"
+		    volumeMounts:
+		    - name: backup
+		      mountPath: /backup
+		  restartPolicy: Always
+		  volumes:
+		  - name: backup
+		    persistentVolumeClaim:
+		      claimName: $backup_pvc
+	EOF
     cat - <<-EOF | $ctrl apply -f -
 		apiVersion: batch/v1
 		kind: Job
 		metadata:
-		  name: xtrabackup-restore-job-$cluster
+		  name: restore-job-$cluster
 		spec:
 		  template:
 		    spec:
@@ -124,22 +162,15 @@ recover() {
 		        - bash
 		        - "-exc"
 		        - |
-		          cd /backup
-		          md5sum -c md5sum.txt
-
+		          ping -c1 restore-src-$cluster || :
 		          rm -rf /datadir/*
-		          cat /backup/xtrabackup.stream | xbstream -x -C /datadir
+		          ncat restore-src-$cluster 3307 | xbstream -x -C /datadir
 		          xtrabackup --prepare --target-dir=/datadir
 		        volumeMounts:
-		        - name: backup
-		          mountPath: /backup
 		        - name: datadir
 		          mountPath: /datadir
 		      restartPolicy: Never
 		      volumes:
-		      - name: backup
-		        persistentVolumeClaim:
-		          claimName: $backup_pvc
 		      - name: datadir
 		        persistentVolumeClaim:
 		          claimName: datadir-$cluster-pxc-node-0
@@ -147,11 +178,13 @@ recover() {
 	EOF
 
     echo -n "Recovering."
-    until $ctrl get "job/xtrabackup-restore-job-$cluster" -o jsonpath='{.status.completionTime}' 2>/dev/null | grep -q 'T'; do
+    until $ctrl get "job/restore-job-$cluster" -o jsonpath='{.status.completionTime}' 2>/dev/null | grep -q 'T'; do
         sleep 1
         echo -n .
     done
     echo "[done]"
+    $ctrl delete "svc/restore-src-$cluster" 2>/dev/null || :
+    $ctrl delete "pod/restore-src-$cluster" 2>/dev/null || :
 }
 
 main() {
@@ -171,9 +204,9 @@ main() {
     cat - <<-EOF
 
 		You can view xtrabackup log:
-		    $ $ctrl logs job/xtrabackup-restore-job-$cluster
+		    $ $ctrl logs job/restore-job-$cluster
 		If everything is fine, you can cleanup the job:
-		    $ $ctrl delete job/xtrabackup-restore-job-$cluster
+		    $ $ctrl delete job/restore-job-$cluster
 
 	EOF
 }

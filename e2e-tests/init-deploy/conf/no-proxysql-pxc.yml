@@ -7,6 +7,11 @@ spec:
   pxc:
     size: 3
     image: perconalab/pxc-openshift:0.2.0
+    configuration: |
+      [mysqld]
+      wsrep_debug=ON
+      [sst]
+      wsrep_debug=ON
     resources:
       requests:
         memory: 10M

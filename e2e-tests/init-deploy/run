@@ -80,6 +80,7 @@ wait_for_running "$cluster3-node" 3
 desc 'check if service and statefulset created'
 compare_kubectl service/$cluster3-nodes
 compare_kubectl service/$cluster3-proxysql
+compare_kubectl configmap/$cluster3-nodes
 desc 'check if storageClass changed'
 compare_kubectl statefulset/$cluster3-node
 compare_kubectl statefulset/$cluster3-proxysql

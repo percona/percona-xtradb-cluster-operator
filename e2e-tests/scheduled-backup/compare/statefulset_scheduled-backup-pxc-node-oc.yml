@@ -111,7 +111,7 @@ spec:
       volumes:
       - configMap:
           defaultMode: 420
-          name: pxc
+          name: scheduled-backup-pxc-nodes
           optional: true
         name: config-volume
   updateStrategy:

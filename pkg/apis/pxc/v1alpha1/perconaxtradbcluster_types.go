@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
@@ -172,6 +173,13 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 			c.PXC.Size++
 		}
 
+		// Set maxUnavailable = 1 by default for PodDisruptionBudget-PXC.
+		// It's a description of the number of pods from that set that can be unavailable after the eviction.
+		if c.PXC.PodDisruptionBudget == nil {
+			defaultMaxUnavailable := intstr.FromInt(1)
+			c.PXC.PodDisruptionBudget = &policyv1beta1.PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
+		}
+
 		c.PXC.reconcileAffinityOpts()
 	}
 
@@ -179,6 +187,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 		err := c.ProxySQL.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return fmt.Errorf("ProxySQL.Volume: %v", err)
+		}
+
+		// Set maxUnavailable = 1 by default for PodDisruptionBudget-ProxySQL.
+		if c.ProxySQL.PodDisruptionBudget == nil {
+			defaultMaxUnavailable := intstr.FromInt(1)
+			c.ProxySQL.PodDisruptionBudget = &policyv1beta1.PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()

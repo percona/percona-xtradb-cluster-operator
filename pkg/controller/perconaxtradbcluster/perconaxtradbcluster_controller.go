@@ -225,16 +225,18 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	// PodDistributedBudget object for nodes
-	if cr.Spec.PXC.PodDisruptionBudget != nil {
-		pdb := pxc.NewPodDistributedBudget(cr, cr.Spec.PXC.PodDisruptionBudget, "-nodes")
-		err = setControllerReference(cr, pdb, r.scheme)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, nodeSet)
+	if err == nil {
+		pdbPXC := pxc.NewPodDistributedBudget(cr, cr.Spec.PXC.PodDisruptionBudget, "-nodes")
+
+		err = setControllerReferenceStatefulSet(nodeSet, pdbPXC, r.scheme)
 		if err != nil {
 			return err
 		}
 
-		err = r.client.Create(context.TODO(), pdb)
+		err = r.client.Create(context.TODO(), pdbPXC)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("create PDB: %v", err)
+			return fmt.Errorf("create PodDisruptionBudget-PXC: %v", err)
 		}
 	}
 
@@ -264,17 +266,19 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return fmt.Errorf("create PXC Service: %v", err)
 		}
 
-		// PodDistributedBudget for ProxySQL
-		if cr.Spec.ProxySQL.PodDisruptionBudget != nil {
+		// PodDistributedBudget object for ProxySQL
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: proxySet.Name, Namespace: proxySet.Namespace}, proxySet)
+		if err == nil {
 			pdbProxySQL := pxc.NewPodDistributedBudget(cr, cr.Spec.ProxySQL.PodDisruptionBudget, "-proxysql")
-			err = setControllerReference(cr, pdbProxySQL, r.scheme)
+
+			err = setControllerReferenceStatefulSet(proxySet, pdbProxySQL, r.scheme)
 			if err != nil {
 				return err
 			}
 
 			err = r.client.Create(context.TODO(), pdbProxySQL)
 			if err != nil && !errors.IsAlreadyExists(err) {
-				return fmt.Errorf("create PDB-ProxySQL: %v", err)
+				return fmt.Errorf("create PodDisruptionBudget-PXC: %v", err)
 			}
 		}
 	}
@@ -379,6 +383,15 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 
 func setControllerReference(cr *api.PerconaXtraDBCluster, obj metav1.Object, scheme *runtime.Scheme) error {
 	ownerRef, err := cr.OwnerRef(scheme)
+	if err != nil {
+		return err
+	}
+	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
+	return nil
+}
+
+func setControllerReferenceStatefulSet(sfs *appsv1.StatefulSet, obj metav1.Object, scheme *runtime.Scheme) error {
+	ownerRef, err := pxc.StatefulSetOwnerRef(sfs, scheme)
 	if err != nil {
 		return err
 	}

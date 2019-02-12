@@ -8,11 +8,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -229,7 +231,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err == nil {
 		pdbPXC := pxc.NewPodDistributedBudget(cr, cr.Spec.PXC.PodDisruptionBudget, "-nodes")
 
-		err = setControllerReferenceStatefulSet(nodeSet, pdbPXC, r.scheme)
+		err = setControllerReference(nodeSet, pdbPXC, r.scheme)
 		if err != nil {
 			return err
 		}
@@ -271,7 +273,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if err == nil {
 			pdbProxySQL := pxc.NewPodDistributedBudget(cr, cr.Spec.ProxySQL.PodDisruptionBudget, "-proxysql")
 
-			err = setControllerReferenceStatefulSet(proxySet, pdbProxySQL, r.scheme)
+			err = setControllerReference(proxySet, pdbProxySQL, r.scheme)
 			if err != nil {
 				return err
 			}
@@ -381,8 +383,8 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 	return nil
 }
 
-func setControllerReference(cr *api.PerconaXtraDBCluster, obj metav1.Object, scheme *runtime.Scheme) error {
-	ownerRef, err := cr.OwnerRef(scheme)
+func setControllerReference(ro runtime.Object, obj metav1.Object, scheme *runtime.Scheme) error {
+	ownerRef, err := OwnerRef(ro, scheme)
 	if err != nil {
 		return err
 	}
@@ -390,11 +392,21 @@ func setControllerReference(cr *api.PerconaXtraDBCluster, obj metav1.Object, sch
 	return nil
 }
 
-func setControllerReferenceStatefulSet(sfs *appsv1.StatefulSet, obj metav1.Object, scheme *runtime.Scheme) error {
-	ownerRef, err := pxc.StatefulSetOwnerRef(sfs, scheme)
+// OwnerRef returns OwnerReference to object
+func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference, error) {
+	gvk, err := apiutil.GVKForObject(ro, scheme)
 	if err != nil {
-		return err
+		return metav1.OwnerReference{}, err
 	}
-	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
-	return nil
+
+	trueVar := true
+
+	ca, err := meta.Accessor(ro)
+	return metav1.OwnerReference{
+		APIVersion: gvk.GroupVersion().String(),
+		Kind:       gvk.Kind,
+		Name:       ca.GetName(),
+		UID:        ca.GetUID(),
+		Controller: &trueVar,
+	}, nil
 }

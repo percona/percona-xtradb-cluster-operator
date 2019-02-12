@@ -9,10 +9,8 @@ import (
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sversion "k8s.io/apimachinery/pkg/version"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
@@ -268,22 +266,4 @@ func (v *VolumeSpec) reconcileOpts() error {
 	}
 
 	return nil
-}
-
-// OwnerRef returns OwnerReference to object
-func (cr *PerconaXtraDBCluster) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerReference, error) {
-	gvk, err := apiutil.GVKForObject(cr, scheme)
-	if err != nil {
-		return metav1.OwnerReference{}, err
-	}
-
-	trueVar := true
-
-	return metav1.OwnerReference{
-		APIVersion: gvk.GroupVersion().String(),
-		Kind:       gvk.Kind,
-		Name:       cr.GetName(),
-		UID:        cr.GetUID(),
-		Controller: &trueVar,
-	}, nil
 }

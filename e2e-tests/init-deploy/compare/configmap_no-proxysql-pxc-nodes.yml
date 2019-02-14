@@ -1,0 +1,15 @@
+apiVersion: v1
+data:
+  init.cnf: |
+    [mysqld]
+    wsrep_debug=ON
+    [sst]
+    wsrep_debug=ON
+kind: ConfigMap
+metadata:
+  name: no-proxysql-pxc-nodes
+  ownerReferences:
+  - apiVersion: pxc.percona.com/v1alpha1
+    controller: true
+    kind: PerconaXtraDBCluster
+    name: no-proxysql

@@ -46,7 +46,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	switch sfs.(type) {
 	case *statefulset.Node:
 		pod.Volumes = []corev1.Volume{
-			getConfigVolumes(),
+			getConfigVolumes(cr, sfs.Lables()["component"]),
 		}
 	}
 
@@ -123,13 +123,13 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 	return nil
 }
 
-func getConfigVolumes() corev1.Volume {
+func getConfigVolumes(cr *api.PerconaXtraDBCluster, cvName string) corev1.Volume {
 	vol1 := corev1.Volume{
 		Name: "config-volume",
 	}
 
 	vol1.ConfigMap = &corev1.ConfigMapVolumeSource{}
-	vol1.ConfigMap.Name = appName
+	vol1.ConfigMap.Name = cvName
 	t := true
 	vol1.ConfigMap.Optional = &t
 	return vol1

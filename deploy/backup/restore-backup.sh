@@ -2,6 +2,18 @@
 
 set -o errexit
 tmp_dir=$(mktemp -d)
+ctrl=""
+
+check_ctrl() {
+    if [ -x "$(command -v kubectl)" ]; then
+        ctrl="kubectl"
+    elif [ -x "$(command -v oc)" ]; then
+        ctrl="oc"
+    else
+        echo "[ERROR] Neither <oc> nor <kubectl> client found"
+        exit 1
+    fi 
+}
 
 usage() {
     cat - <<-EOF
@@ -9,9 +21,9 @@ usage() {
 
 		OPTIONS:
 		    <backup-name>  the backup name
-		                   it can be obtained with the "kubectl get pxc-backup" command
+		                   it can be obtained with the "$ctrl get pxc-backup" command
 		    <cluster-name> the name of an existing Percona XtraDB Cluster
-		                   it can be obtained with the "kubectl get pxc" command
+		                   it can be obtained with the "$ctrl get pxc" command
 	EOF
     exit 1
 }
@@ -19,8 +31,8 @@ usage() {
 get_backup_pvc() {
     local backup=$1
 
-    if kubectl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
-        kubectl get "pxc-backup/$backup" -o jsonpath='{.status.volume}'
+    if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
+        $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.volume}'
     else
         # support direct PVC name here
         echo -n "$backup"
@@ -45,12 +57,12 @@ check_input() {
         usage
     fi
 
-    if ! kubectl get "pxc/$cluster" 1>/dev/null; then
+    if ! $ctrl get "pxc/$cluster" 1>/dev/null; then
         printf "[ERROR] '%s' Percona XtraDB Cluster doesn't exists.\n\n" "$cluster"
         usage
     fi
 
-    if ! kubectl get "pvc/$backup_pvc" 1>/dev/null; then
+    if ! $ctrl get "pvc/$backup_pvc" 1>/dev/null; then
         printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_pvc"
         usage
     fi
@@ -67,14 +79,14 @@ check_input() {
 stop_pxc() {
     local cluster=$1
     local size
-    size=$(kubectl get "pxc/$cluster" -o jsonpath='{.spec.pxc.size}')
+    size=$($ctrl get "pxc/$cluster" -o jsonpath='{.spec.pxc.size}')
 
-    kubectl get "pxc/$cluster" -o yaml > "$tmp_dir/cluster.yaml"
-    kubectl delete -f "$tmp_dir/cluster.yaml"
+    $ctrl get "pxc/$cluster" -o yaml > "$tmp_dir/cluster.yaml"
+    $ctrl delete -f "$tmp_dir/cluster.yaml"
 
     for i in $(seq 0 "$((size-1))" | sort -r); do
         echo -n "Deleting $cluster-pxc-node-$i."
-        until (kubectl get "pod/$cluster-pxc-node-$i" || :) 2>&1 | grep -q NotFound; do
+        until ($ctrl get "pod/$cluster-pxc-node-$i" || :) 2>&1 | grep -q NotFound; do
             sleep 1
             echo -n .
         done
@@ -83,25 +95,63 @@ stop_pxc() {
 
     if [ "$size" -gt 1 ]; then
         for i in $(seq 1 "$((size-1))" | sort -r); do
-            kubectl delete "pvc/datadir-$cluster-pxc-node-$i"
+            $ctrl delete "pvc/datadir-$cluster-pxc-node-$i"
         done
     fi
 }
 
 start_pxc() {
-    kubectl apply -f "$tmp_dir/cluster.yaml"
+    $ctrl apply -f "$tmp_dir/cluster.yaml"
 }
 
 recover() {
     local backup_pvc=$1
     local cluster=$2
 
-    kubectl delete "job/xtrabackup-restore-job-$cluster" 2>/dev/null || :
-    cat - <<-EOF | kubectl apply -f -
+    $ctrl delete "job/restore-job-$cluster" 2>/dev/null || :
+    $ctrl delete "svc/restore-src-$cluster" 2>/dev/null || :
+    $ctrl delete "pod/restore-src-$cluster" 2>/dev/null || :
+    cat - <<-EOF | $ctrl apply -f -
+		apiVersion: v1
+		kind: Service
+		metadata:
+		  name: restore-src-$cluster
+		spec:
+		  selector:
+		    name: restore-src-$cluster
+		  type: ClusterIP
+		  ports:
+		  - name: ncat
+		    port: 3307
+		---
+		apiVersion: v1
+		kind: Pod
+		metadata:
+		  name: restore-src-$cluster
+		  labels:
+		    name: restore-src-$cluster
+		spec:
+		  containers:
+		  - name: ncat
+		    image: perconalab/backupjob-openshift:0.2.0
+		    command:
+		        - bash
+		        - "-exc"
+		        - "cat /backup/xtrabackup.stream | ncat -l --send-only 3307"
+		    volumeMounts:
+		    - name: backup
+		      mountPath: /backup
+		  restartPolicy: Always
+		  volumes:
+		  - name: backup
+		    persistentVolumeClaim:
+		      claimName: $backup_pvc
+	EOF
+    cat - <<-EOF | $ctrl apply -f -
 		apiVersion: batch/v1
 		kind: Job
 		metadata:
-		  name: xtrabackup-restore-job-$cluster
+		  name: restore-job-$cluster
 		spec:
 		  template:
 		    spec:
@@ -112,22 +162,15 @@ recover() {
 		        - bash
 		        - "-exc"
 		        - |
-		          cd /backup
-		          md5sum -c md5sum.txt
-
+		          ping -c1 restore-src-$cluster || :
 		          rm -rf /datadir/*
-		          cat /backup/xtrabackup.stream | xbstream -x -C /datadir
+		          ncat restore-src-$cluster 3307 | xbstream -x -C /datadir
 		          xtrabackup --prepare --target-dir=/datadir
 		        volumeMounts:
-		        - name: backup
-		          mountPath: /backup
 		        - name: datadir
 		          mountPath: /datadir
 		      restartPolicy: Never
 		      volumes:
-		      - name: backup
-		        persistentVolumeClaim:
-		          claimName: $backup_pvc
 		      - name: datadir
 		        persistentVolumeClaim:
 		          claimName: datadir-$cluster-pxc-node-0
@@ -135,11 +178,13 @@ recover() {
 	EOF
 
     echo -n "Recovering."
-    until kubectl get "job/xtrabackup-restore-job-$cluster" -o jsonpath='{.status.completionTime}' 2>/dev/null | grep -q 'T'; do
+    until $ctrl get "job/restore-job-$cluster" -o jsonpath='{.status.completionTime}' 2>/dev/null | grep -q 'T'; do
         sleep 1
         echo -n .
     done
     echo "[done]"
+    $ctrl delete "svc/restore-src-$cluster" 2>/dev/null || :
+    $ctrl delete "pod/restore-src-$cluster" 2>/dev/null || :
 }
 
 main() {
@@ -147,6 +192,7 @@ main() {
     local cluster=$2
     local backup_pvc
 
+    check_ctrl
     enable_logging
     backup_pvc=$(get_backup_pvc "$backup")
     check_input "$backup_pvc" "$cluster"
@@ -158,9 +204,9 @@ main() {
     cat - <<-EOF
 
 		You can view xtrabackup log:
-		    $ kubectl logs job/xtrabackup-restore-job-$cluster
+		    $ $ctrl logs job/restore-job-$cluster
 		If everything is fine, you can cleanup the job:
-		    $ kubectl delete job/xtrabackup-restore-job-$cluster
+		    $ $ctrl delete job/restore-job-$cluster
 
 	EOF
 }

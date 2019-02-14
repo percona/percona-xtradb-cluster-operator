@@ -117,7 +117,7 @@ spec:
       volumes:
       - configMap:
           defaultMode: 420
-          name: pxc
+          name: zone-pxc-nodes
           optional: true
         name: config-volume
   updateStrategy:

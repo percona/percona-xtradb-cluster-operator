@@ -21,6 +21,7 @@ rules:
   resources:
   - pods
   - pods/exec
+  - configmaps
   - services
   - persistentvolumeclaims
   - secrets

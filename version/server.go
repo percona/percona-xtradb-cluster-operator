@@ -60,6 +60,14 @@ func GetServer() (*api.ServerVersion, error) {
 		return version, nil
 	}
 
+	// openshift 4.0
+	version.Info, err = probeAPI("/apis/quota.openshift.io", client)
+	if err == nil {
+		version.Platform = api.PlatformOpenshift
+		version.Info.GitVersion = "undefined (v4.0+)"
+		return version, nil
+	}
+
 	// k8s
 	version.Info, err = probeAPI("/version", client)
 	if err == nil {

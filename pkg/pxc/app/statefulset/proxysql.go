@@ -147,6 +147,6 @@ func (c *Proxy) StatefulSet() *appsv1.StatefulSet {
 	return c.sfs
 }
 
-func (c *Proxy) Lables() map[string]string {
+func (c *Proxy) Labels() map[string]string {
 	return c.lables
 }

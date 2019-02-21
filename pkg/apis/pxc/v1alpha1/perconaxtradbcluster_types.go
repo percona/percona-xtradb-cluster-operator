@@ -134,7 +134,7 @@ type App interface {
 	PMMContainer(spec *PMMSpec, secrets string) corev1.Container
 	PVCs(spec *VolumeSpec) []corev1.PersistentVolumeClaim
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
-	Lables() map[string]string
+	Labels() map[string]string
 }
 
 type StatefulApp interface {

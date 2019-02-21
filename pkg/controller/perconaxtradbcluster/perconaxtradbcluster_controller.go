@@ -3,6 +3,7 @@ package perconaxtradbcluster
 import (
 	"context"
 	"fmt"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/proxysqlcnf"
 	"strconv"
 	"time"
 
@@ -48,9 +49,10 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	}
 
 	return &ReconcilePerconaXtraDBCluster{
-		client:        mgr.GetClient(),
-		scheme:        mgr.GetScheme(),
-		serverVersion: sv,
+		client:          mgr.GetClient(),
+		scheme:          mgr.GetScheme(),
+		serverVersion:   sv,
+		proxyClusterMgr: proxysqlcnf.NewClusterManager(mgr.GetClient()),
 	}, nil
 }
 
@@ -77,8 +79,9 @@ var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}
 type ReconcilePerconaXtraDBCluster struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client          client.Client
+	scheme          *runtime.Scheme
+	proxyClusterMgr *proxysqlcnf.ClusterManager
 
 	serverVersion *api.ServerVersion
 }
@@ -145,7 +148,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			err = nil
 		}
 
-		// object is beign deleted, no need in further actions
+		// object is being deleted, no need in further actions
 		return rr, err
 	}
 
@@ -201,7 +204,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	stsApp := statefulset.NewNode(cr)
 	if cr.Spec.PXC.Configuration != "" {
-		configMap := configmap.NewConfigMap(cr, stsApp.Lables()["component"])
+		configMap := configmap.NewConfigMap(cr, stsApp.Labels()["component"])
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return err
@@ -264,6 +267,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("create PXC Service: %v", err)
 		}
+
+		if err := r.proxyClusterMgr.InitiateCluster(cr); err != nil {
+			return fmt.Errorf("can't initialize cluster: %v", err)
+		}
 	}
 
 	return nil
@@ -278,7 +285,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSetPods(namespace string, s
 	err := r.client.List(context.TODO(),
 		&client.ListOptions{
 			Namespace:     namespace,
-			LabelSelector: labels.SelectorFromSet(sfs.Lables()),
+			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
 		&list,
 	)
@@ -332,7 +339,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSet(namespace string, sfs a
 		return fmt.Errorf("delete proxysql: %v", err)
 	}
 	if deletePVC {
-		err = r.deletePVC(namespace, sfs.Lables())
+		err = r.deletePVC(namespace, sfs.Labels())
 		if err != nil {
 			return fmt.Errorf("delete proxysql pvc: %v", err)
 		}

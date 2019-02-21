@@ -6,15 +6,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewPodDistributedBudget(cr *api.PerconaXtraDBCluster, pdbSpec *policyv1beta1.PodDisruptionBudgetSpec, componentName string) *policyv1beta1.PodDisruptionBudget {
-	component := cr.Name + "-" + appName + componentName
-
+func NewPodDistributedBudget(cr *api.PerconaXtraDBCluster, app api.StatefulApp) *policyv1beta1.PodDisruptionBudget {
+	labels := app.Lables()
+	pdbSpec := cr.Spec.PXC.PodDisruptionBudget
 	pdbSpec.Selector = &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"app":       appName,
-			"cluster":   cr.Name,
-			"component": component,
-		},
+		MatchLabels: labels,
 	}
 
 	return &policyv1beta1.PodDisruptionBudget{
@@ -23,7 +19,7 @@ func NewPodDistributedBudget(cr *api.PerconaXtraDBCluster, pdbSpec *policyv1beta
 			Kind:       "PodDisruptionBudget",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      component,
+			Name:      labels["component"],
 			Namespace: cr.Namespace,
 		},
 		Spec: *pdbSpec,

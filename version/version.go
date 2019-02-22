@@ -1,5 +1,5 @@
 package version
 
 var (
-	Version = "0.2.0"
+	Version = "openshift-4.0"
 )

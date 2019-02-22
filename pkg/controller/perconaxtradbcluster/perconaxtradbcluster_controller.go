@@ -244,7 +244,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	// PodDistributedBudget object for nodes
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, nodeSet)
 	if err == nil {
-		pdbPXC := pxc.NewPodDistributedBudget(cr, sfs)
+		pdbPXC := pxc.NewPodDistributedBudget(cr, stsApp)
 
 		err = setControllerReference(nodeSet, pdbPXC, r.scheme)
 		if err != nil {

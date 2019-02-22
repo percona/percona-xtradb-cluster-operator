@@ -4,6 +4,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -131,4 +133,22 @@ func getConfigVolumes(cr *api.PerconaXtraDBCluster, cvName string) corev1.Volume
 	t := true
 	vol1.ConfigMap.Optional = &t
 	return vol1
+}
+
+// StatefulSetOwnerRef returns OwnerReference to statefulset
+func StatefulSetOwnerRef(sfs *appsv1.StatefulSet, scheme *runtime.Scheme) (metav1.OwnerReference, error) {
+	gvk, err := apiutil.GVKForObject(sfs, scheme)
+	if err != nil {
+		return metav1.OwnerReference{}, err
+	}
+
+	trueVar := true
+
+	return metav1.OwnerReference{
+		APIVersion: gvk.GroupVersion().String(),
+		Kind:       gvk.Kind,
+		Name:       sfs.GetName(),
+		UID:        sfs.GetUID(),
+		Controller: &trueVar,
+	}, nil
 }

@@ -107,6 +107,9 @@ func (c *ClusterManager) podsHostnameList(pods []v1.Pod) ([]string, error) {
 		}
 		list = append(list, hostname)
 	}
+	if len(list) != len(pods) {
+		return nil, errors.New("can't get pods hostname list")
 
-	return nil, errors.New("can't get pods hostname list")
+	}
+	return list, nil
 }

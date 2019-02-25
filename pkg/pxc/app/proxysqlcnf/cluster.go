@@ -7,7 +7,6 @@ import (
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
@@ -64,12 +63,7 @@ func (c *ClusterManager) fetchProxyMembers(cr *api.PerconaXtraDBCluster) (*v1.Po
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	pods := &v1.PodList{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-	}
+	pods := &v1.PodList{}
 
 	proxy := statefulset.NewProxy(cr)
 
@@ -84,12 +78,7 @@ func (c *ClusterManager) fetchPXCMembers(cr *api.PerconaXtraDBCluster) (*v1.PodL
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	pods := &v1.PodList{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-	}
+	pods := &v1.PodList{}
 
 	node := statefulset.NewNode(cr)
 

@@ -46,6 +46,10 @@ func (m *DBManager) initializeNode(hostname string, hostnameList []string) error
 	if err := m.updateProxysqlServersTable(hostnameList); err != nil {
 		return errors.Wrap(err, "can't initialize node")
 	}
+
+	if err := m.saveProxysqlServersTableConf(); err != nil {
+		return errors.Wrap(err, "can't initialize node")
+	}
 	return nil
 }
 
@@ -83,13 +87,35 @@ func (m *DBManager) updateProxysqlServersTable(hostnameList []string) error {
 	defer tx.Rollback()
 
 	for _, hostname := range hostnameList {
-		if _, err := tx.Exec(`INSERT INTO proxysql_servers(hostname, port) VALUES ($1, $2);`, hostname, 3306); err != nil {
+		if _, err := tx.Exec(`INSERT INTO proxysql_servers(hostname, port) VALUES ($1, $2);`, hostname, 6032); err != nil {
 			return errors.Wrapf(err, "can't insert hostname %s to proxysql_servers table", hostname)
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return errors.Wrap(err, "transaction failed")
 	}
+	return nil
+}
+
+func (m *DBManager) saveProxysqlServersTableConf() error {
+	ctx := context.Background()
+
+	tx, err := m.db.BeginTx(ctx, &sql.TxOptions{})
+	if err != nil {
+		return errors.Wrap(err, "can't save proxysql servers configuration")
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `LOAD PROXYSQL SERVERS TO RUNTIME`); err != nil {
+		return errors.Wrap(err, "setup proxysql_servers table transaction failed")
+	}
+	if _, err := tx.ExecContext(ctx, `LOAD PROXYSQL SERVERS TO DISK`); err != nil {
+		return errors.Wrap(err, "setup proxysql_servers table transaction failed")
+	}
+	if err := tx.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit transaction")
+	}
+
 	return nil
 }
 
@@ -103,19 +129,14 @@ func (m *DBManager) isNodeInitialized() (bool, error) {
 	runtimeChecksumsValuesExist := false
 
 	for _, table := range tables {
-		if table == "proxysql_servers" {
+		switch table {
+		case "proxysql_servers":
 			proxysqlServersExist = true
-		}
-		if table == "runtime_proxysql_servers" {
+		case "runtime_proxysql_servers":
 			runtimeProxysqlServersExist = true
-		}
-		if table == "runtime_checksums_values" {
+		case "runtime_checksums_values":
 			runtimeChecksumsValuesExist = true
 		}
 	}
-	if proxysqlServersExist && runtimeProxysqlServersExist && runtimeChecksumsValuesExist {
-		return true, nil
-	}
-
-	return false, nil
+	return proxysqlServersExist && runtimeProxysqlServersExist && runtimeChecksumsValuesExist, nil
 }

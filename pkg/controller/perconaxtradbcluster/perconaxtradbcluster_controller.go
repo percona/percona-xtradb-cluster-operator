@@ -418,6 +418,10 @@ func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference,
 	trueVar := true
 
 	ca, err := meta.Accessor(ro)
+	if err != nil {
+		return metav1.OwnerReference{}, err
+	}
+
 	return metav1.OwnerReference{
 		APIVersion: gvk.GroupVersion().String(),
 		Kind:       gvk.Kind,

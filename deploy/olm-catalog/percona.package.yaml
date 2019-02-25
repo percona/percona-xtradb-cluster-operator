@@ -1,0 +1,4 @@
+packageName: percona
+channels:
+    - name: alpha
+      currentCSV: percona-xtradb-cluster-operator.v0.3.0-rc1

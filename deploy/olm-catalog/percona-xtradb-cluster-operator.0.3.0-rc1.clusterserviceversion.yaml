@@ -1,0 +1,232 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  creationTimestamp: null
+  name: percona-xtradb-cluster-operator.v0.3.0-rc1
+  namespace: placeholder
+  annotations:
+    alm-examples: |-
+        [
+            {
+                "apiVersion": "pxc.percona.com/v1alpha1",
+                "kind": "PerconaXtraDBCluster",
+                "metadata": {
+                    "name": "cluster1",
+                    "finalizers": [
+                        "delete-pxc-pods-in-order"
+                    ]
+                },
+                "spec": {
+                    "secretsName": "my-cluster-secrets",
+                    "pxc": {
+                        "size": 3,
+                        "allowUnsafeConfigurations": false,
+                        "image": "perconalab/pxc-openshift:0.2.0",
+                        "resources": {
+                            "requests": {
+                                "memory": "1G",
+                                "cpu": "600m"
+                            }
+                        },
+                        "affinity": {
+                            "antiAffinityTopologyKey": "kubernetes.io/hostname"
+                        },
+                        "volumeSpec": {
+                            "accessModes": [
+                                "ReadWriteOnce"
+                            ],
+                            "size": "6Gi"
+                        }
+                    },
+                    "proxysql": {
+                        "enabled": true,
+                        "size": 1,
+                        "image": "perconalab/proxysql-openshift:0.2.0",
+                        "resources": {
+                            "requests": {
+                                "memory": "1G",
+                                "cpu": "600m"
+                            }
+                        },
+                        "affinity": {
+                            "antiAffinityTopologyKey": "kubernetes.io/hostname"
+                        },
+                        "volumeSpec": {
+                            "accessModes": [
+                                "ReadWriteOnce"
+                            ],
+                            "size": "2Gi"
+                        }
+                    },
+                    "pmm": {
+                        "enabled": false,
+                        "image": "perconalab/pmm-client:1.17.0",
+                        "serverHost": "monitoring-service",
+                        "serverUser": "pmm"
+                    },
+                    "backup": {
+                        "image": "perconalab/backupjob-openshift:0.2.0",
+                        "schedule": [
+                            {
+                                "name": "sat-night-backup",
+                                "schedule": "0 0 * * 6",
+                                "keep": 3,
+                                "volume": {
+                                    "accessModes": [
+                                        "ReadWriteOnce"
+                                    ],
+                                    "size": "6Gi"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        ]
+    categories: "Database"
+    certified: "False"
+    description: Percona Xtradb Cluster Operator is a database clustering system for horizontal scaling of MySQL.
+    containerImage: docker.io/perconalab/percona-xtradb-cluster-operator:openshift-4.0
+    createdAt: 2019-02-22T04:21:00Z
+    support: Percona
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - kind: PerconaXtraDBCluster
+      name: perconaxtradbclusters.pxc.percona.com
+      version: v1alpha1
+      displayName: PerconaXtraDBCluster
+      description: Instance of a Percona XtraDB Cluster
+    - kind: PerconaXtraDBBackup
+      name: perconaxtradbbackups.pxc.percona.com
+      version: v1alpha1
+      displayName: PerconaXtraDBBackup
+      description: Instance of a Percona XtraDB Backup
+  links:
+  - name: Percona
+    url: https://www.percona.com/
+  - name: Documentation
+    url: https://percona-lab.github.io/percona-xtradb-cluster-operator/
+  - name: GitHub
+    url: https://github.com/Percona-Lab/percona-xtradb-cluster-operator
+  description: |-
+    # Percona Xtradb Cluster Operator
+    
+    Percona XtraDB Cluster integrates Percona Server for MySQL running with
+    the XtraDB storage engine, and Percona XtraBackup with the Galera library
+    to enable synchronous multi-master replication.
+    Additional documention can be found [here](https://percona-lab.github.io/percona-xtradb-cluster-operator/).
+    ## Before You Start
+    1. Add the PXC Users secrets to Kubernetes. They should be placed in the
+    data section of the Secrets yaml file as base64-encoded logins and
+    passwords for the user accounts. See [this example secret](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/e6a7e14cb0c0f2fed54f5587c4e5727583f2e04b/deploy/secrets.yaml)
+    for the correct formatting.
+  keywords: ['mysql', 'percona', 'database']
+  displayName: Percona Xtradb Cluster Operator
+  installModes:
+  - type: OwnNamespace
+    supported: true
+  - type: SingleNamespace
+    supported: true
+  - type: MultiNamespace
+    supported: false
+  - type: AllNamespaces
+    supported: false  
+  install:
+    spec:
+      deployments:
+      - name: percona-xtradb-cluster-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: percona-xtradb-cluster-operator
+          strategy: {}
+          template:
+            metadata:
+              creationTimestamp: null
+              labels:
+                name: percona-xtradb-cluster-operator
+            spec:
+              serviceAccountName: percona-xtradb-cluster-operator
+              containers:
+              - command:
+                - percona-xtradb-cluster-operator
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: OPERATOR_NAME
+                  value: percona-xtradb-cluster-operator
+                image: perconalab/percona-xtradb-cluster-operator:openshift-4.0
+                imagePullPolicy: Always
+                name: percona-xtradb-cluster-operator
+                ports:
+                - containerPort: 60000
+                  name: metrics
+                resources: {}
+      permissions:
+      - rules:
+        - apiGroups:
+          - pxc.percona.com
+          resources:
+          - perconaxtradbclusters
+          - perconaxtradbbackups
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - pods/exec
+          - services
+          - persistentvolumeclaims
+          - secrets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - replicasets
+          - statefulsets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          - cronjobs
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        serviceAccountName: percona-xtradb-cluster-operator
+    strategy: deployment
+  maturity: alpha
+  provider: {}
+  version: 0.3.0-rc1

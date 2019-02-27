@@ -6,10 +6,11 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sversion "k8s.io/apimachinery/pkg/version"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
@@ -69,20 +70,21 @@ type PerconaXtraDBClusterList struct {
 }
 
 type PodSpec struct {
-	Enabled           bool                          `json:"enabled,omitempty"`
-	Size              int32                         `json:"size,omitempty"`
-	Image             string                        `json:"image,omitempty"`
-	Resources         *PodResources                 `json:"resources,omitempty"`
-	VolumeSpec        VolumeSpec                    `json:"volumeSpec,omitempty"`
-	Affinity          *PodAffinity                  `json:"affinity,omitempty"`
-	NodeSelector      map[string]string             `json:"nodeSelector,omitempty"`
-	Tolerations       []corev1.Toleration           `json:"tolerations,omitempty"`
-	PriorityClassName string                        `json:"priorityClassName,omitempty"`
-	Annotations       map[string]string             `json:"annotations,omitempty"`
-	Labels            map[string]string             `json:"labels,omitempty"`
-	ImagePullSecrets  []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	AllowUnsafeConfig bool                          `json:"allowUnsafeConfigurations,omitempty"`
-	Configuration     string                        `json:"configuration,omitempty"`
+	Enabled             bool                                   `json:"enabled,omitempty"`
+	Size                int32                                  `json:"size,omitempty"`
+	Image               string                                 `json:"image,omitempty"`
+	Resources           *PodResources                          `json:"resources,omitempty"`
+	VolumeSpec          VolumeSpec                             `json:"volumeSpec,omitempty"`
+	Affinity            *PodAffinity                           `json:"affinity,omitempty"`
+	NodeSelector        map[string]string                      `json:"nodeSelector,omitempty"`
+	Tolerations         []corev1.Toleration                    `json:"tolerations,omitempty"`
+	PriorityClassName   string                                 `json:"priorityClassName,omitempty"`
+	Annotations         map[string]string                      `json:"annotations,omitempty"`
+	Labels              map[string]string                      `json:"labels,omitempty"`
+	ImagePullSecrets    []corev1.LocalObjectReference          `json:"imagePullSecrets,omitempty"`
+	AllowUnsafeConfig   bool                                   `json:"allowUnsafeConfigurations,omitempty"`
+	Configuration       string                                 `json:"configuration,omitempty"`
+	PodDisruptionBudget *policyv1beta1.PodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
 }
 
 type PodAffinity struct {
@@ -187,6 +189,13 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 			c.PXC.Size++
 		}
 
+		// Set maxUnavailable = 1 by default for PodDisruptionBudget-PXC.
+		// It's a description of the number of pods from that set that can be unavailable after the eviction.
+		if c.PXC.PodDisruptionBudget == nil {
+			defaultMaxUnavailable := intstr.FromInt(1)
+			c.PXC.PodDisruptionBudget = &policyv1beta1.PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
+		}
+
 		c.PXC.reconcileAffinityOpts()
 	}
 
@@ -194,6 +203,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 		err := c.ProxySQL.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return fmt.Errorf("ProxySQL.Volume: %v", err)
+		}
+
+		// Set maxUnavailable = 1 by default for PodDisruptionBudget-ProxySQL.
+		if c.ProxySQL.PodDisruptionBudget == nil {
+			defaultMaxUnavailable := intstr.FromInt(1)
+			c.ProxySQL.PodDisruptionBudget = &policyv1beta1.PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
@@ -266,22 +281,4 @@ func (v *VolumeSpec) reconcileOpts() error {
 	}
 
 	return nil
-}
-
-// OwnerRef returns OwnerReference to object
-func (cr *PerconaXtraDBCluster) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerReference, error) {
-	gvk, err := apiutil.GVKForObject(cr, scheme)
-	if err != nil {
-		return metav1.OwnerReference{}, err
-	}
-
-	trueVar := true
-
-	return metav1.OwnerReference{
-		APIVersion: gvk.GroupVersion().String(),
-		Kind:       gvk.Kind,
-		Name:       cr.GetName(),
-		UID:        cr.GetUID(),
-		Controller: &trueVar,
-	}, nil
 }

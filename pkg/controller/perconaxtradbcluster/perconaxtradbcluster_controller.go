@@ -8,11 +8,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -239,8 +241,26 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf("create PXC Service: %v", err)
 	}
 
+	// PodDistributedBudget object for nodes
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, nodeSet)
+	if err == nil {
+		pdbPXC := pxc.NewPodDistributedBudget(cr, stsApp)
+		err = setControllerReference(nodeSet, pdbPXC, r.scheme)
+		if err != nil {
+			return err
+		}
+
+		err = r.client.Create(context.TODO(), pdbPXC)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("create PodDisruptionBudget-PXC: %v", err)
+		}
+	} else if !errors.IsNotFound(err) {
+		return fmt.Errorf("get PXC stateful set: %v", err)
+	}
+
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		proxySet, err := pxc.StatefulSet(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr, serverVersion)
+		sfsProxy := statefulset.NewProxy(cr)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, serverVersion)
 		if err != nil {
 			return fmt.Errorf("create ProxySQL Service: %v", err)
 		}
@@ -263,6 +283,24 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("create PXC Service: %v", err)
+		}
+
+		// PodDistributedBudget object for ProxySQL
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: proxySet.Name, Namespace: proxySet.Namespace}, proxySet)
+		if err == nil {
+			pdbProxySQL := pxc.NewPodDistributedBudget(cr, sfsProxy)
+
+			err = setControllerReference(proxySet, pdbProxySQL, r.scheme)
+			if err != nil {
+				return err
+			}
+
+			err = r.client.Create(context.TODO(), pdbProxySQL)
+			if err != nil && !errors.IsAlreadyExists(err) {
+				return fmt.Errorf("create PodDisruptionBudget-ProxySQL: %v", err)
+			}
+		} else if !errors.IsNotFound(err) {
+			return fmt.Errorf("get ProxySQL stateful set: %v", err)
 		}
 	}
 
@@ -364,11 +402,34 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 	return nil
 }
 
-func setControllerReference(cr *api.PerconaXtraDBCluster, obj metav1.Object, scheme *runtime.Scheme) error {
-	ownerRef, err := cr.OwnerRef(scheme)
+func setControllerReference(ro runtime.Object, obj metav1.Object, scheme *runtime.Scheme) error {
+	ownerRef, err := OwnerRef(ro, scheme)
 	if err != nil {
 		return err
 	}
 	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
 	return nil
+}
+
+// OwnerRef returns OwnerReference to object
+func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference, error) {
+	gvk, err := apiutil.GVKForObject(ro, scheme)
+	if err != nil {
+		return metav1.OwnerReference{}, err
+	}
+
+	trueVar := true
+
+	ca, err := meta.Accessor(ro)
+	if err != nil {
+		return metav1.OwnerReference{}, err
+	}
+
+	return metav1.OwnerReference{
+		APIVersion: gvk.GroupVersion().String(),
+		Kind:       gvk.Kind,
+		Name:       ca.GetName(),
+		UID:        ca.GetUID(),
+		Controller: &trueVar,
+	}, nil
 }

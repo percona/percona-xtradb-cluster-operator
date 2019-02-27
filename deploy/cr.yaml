@@ -50,18 +50,20 @@ spec:
 #      operator: "Exists"
 #      effect: "NoExecute"
 #      tolerationSeconds: 6000
+    podDisruptionBudget:
+      maxUnavailable: 1
+#      minAvailable: 0
     volumeSpec:
-      emptyDir:
-      hostPath:
-        # path: /data
-        # type: Directory
+#      emptyDir: {}
+#      hostPath:
+#        path: /data
+#        type: Directory
       persistentVolumeClaim:
-        # storageClassName: standard
-        # accessModes: [ "ReadWriteOnce" ]
-        # resources:
-        #   requests:
-        #     storage: 6Gi
-      
+#        storageClassName: standard
+#        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 6Gi
   proxysql:
     enabled: true
     size: 1
@@ -100,16 +102,19 @@ spec:
 #      effect: "NoExecute"
 #      tolerationSeconds: 6000
     volumeSpec:
-      emptyDir:
-      hostPath:
-        # path: /data
-        # type: Directory
+#      emptyDir: {}
+#      hostPath:
+#        path: /data
+#        type: Directory
       persistentVolumeClaim:
-        # storageClassName: standard
-        # accessModes: [ "ReadWriteOnce" ]
-        # resources:
-        #   requests:
-        #     storage: 2Gi
+#        storageClassName: standard
+#        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 2Gi
+    podDisruptionBudget:
+      maxUnavailable: 1
+#      minAvailable: 0
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0

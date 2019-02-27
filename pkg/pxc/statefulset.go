@@ -6,7 +6,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
@@ -16,6 +15,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		var tp int64 = 1001
 		fsgroup = &tp
 	}
+
 	pod := corev1.PodSpec{
 		SecurityContext: &corev1.PodSecurityContext{
 			SupplementalGroups: []int64{99},
@@ -28,6 +28,8 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
+	sfsVolume := sfs.Volumes(podSpec)
+	pod.Volumes = sfsVolume.Volumes
 
 	var err error
 	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName)
@@ -41,13 +43,6 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.Containers = append(pod.Containers, sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName))
 	}
 
-	switch sfs.(type) {
-	case *statefulset.Node:
-		pod.Volumes = []corev1.Volume{
-			getConfigVolumes(cr, sfs.Lables()["component"]),
-		}
-	}
-
 	ls := sfs.Lables()
 	for k, v := range podSpec.Labels {
 		if _, ok := ls[k]; !ok {
@@ -56,8 +51,6 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	obj := sfs.StatefulSet()
-	pvcs := sfs.PVCs(&podSpec.VolumeSpec)
-
 	obj.Spec = appsv1.StatefulSetSpec{
 		Replicas: &podSpec.Size,
 		Selector: &metav1.LabelSelector{
@@ -71,7 +64,10 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 			},
 			Spec: pod,
 		},
-		VolumeClaimTemplates: pvcs,
+	}
+
+	if sfsVolume.PVCs != nil {
+		obj.Spec.VolumeClaimTemplates = sfsVolume.PVCs
 	}
 
 	return obj, nil
@@ -119,16 +115,4 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 	}
 
 	return nil
-}
-
-func getConfigVolumes(cr *api.PerconaXtraDBCluster, cvName string) corev1.Volume {
-	vol1 := corev1.Volume{
-		Name: "config-volume",
-	}
-
-	vol1.ConfigMap = &corev1.ConfigMapVolumeSource{}
-	vol1.ConfigMap.Name = cvName
-	t := true
-	vol1.ConfigMap.Optional = &t
-	return vol1
 }

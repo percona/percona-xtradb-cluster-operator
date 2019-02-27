@@ -6,7 +6,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sversion "k8s.io/apimachinery/pkg/version"
@@ -109,10 +108,27 @@ type ResourcesList struct {
 }
 
 type VolumeSpec struct {
-	AccessModes  []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
-	Size         string                              `json:"size,omitempty"`
-	SizeParsed   resource.Quantity                   `json:"-"`
-	StorageClass *string                             `json:"storageClass,omitempty"`
+	// EmptyDir to use as data volume for mysql. EmptyDir represents a temporary
+	// directory that shares a pod's lifetime.
+	// +optional
+	EmptyDir *corev1.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
+
+	// HostPath to use as data volume for mysql. HostPath represents a
+	// pre-existing file or directory on the host machine that is directly
+	// exposed to the container.
+	// +optional
+	HostPath *corev1.HostPathVolumeSource `json:"hostPath,omitempty"`
+
+	// PersistentVolumeClaim to specify PVC spec for the volume for mysql data.
+	// It has the highest level of precedence, followed by HostPath and
+	// EmptyDir. And represents the PVC specification.
+	// +optional
+	PersistentVolumeClaim *corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaim,omitempty"`
+}
+
+type Volume struct {
+	PVCs    []corev1.PersistentVolumeClaim
+	Volumes []corev1.Volume
 }
 
 type Platform string
@@ -132,7 +148,7 @@ type ServerVersion struct {
 type App interface {
 	AppContainer(spec *PodSpec, secrets string) corev1.Container
 	PMMContainer(spec *PMMSpec, secrets string) corev1.Container
-	PVCs(spec *VolumeSpec) []corev1.PersistentVolumeClaim
+	Volumes(podSpec *PodSpec) *Volume
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
 	Lables() map[string]string
 }
@@ -238,18 +254,15 @@ func (p *PodSpec) reconcileAffinityOpts() {
 }
 
 func (v *VolumeSpec) reconcileOpts() error {
-	if v.Size == "" {
-		return fmt.Errorf("volume.Size can't be empty")
-	}
+	if v.PersistentVolumeClaim != nil {
+		_, ok := v.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
+		if !ok {
+			return fmt.Errorf("volume.resources.storage can't be empty")
+		}
 
-	var err error
-	v.SizeParsed, err = resource.ParseQuantity(v.Size)
-	if err != nil {
-		return fmt.Errorf("wrong volume size value %q: %v", v.Size, err)
-	}
-
-	if v.AccessModes == nil || len(v.AccessModes) == 0 {
-		v.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+		if v.PersistentVolumeClaim.AccessModes == nil || len(v.PersistentVolumeClaim.AccessModes) == 0 {
+			v.PersistentVolumeClaim.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+		}
 	}
 
 	return nil

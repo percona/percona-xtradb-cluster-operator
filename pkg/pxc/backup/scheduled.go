@@ -1,6 +1,8 @@
 package backup
 
 import (
+	"strconv"
+
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -68,29 +70,37 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule) *batchv1beta1
 }
 
 func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule) batchv1.JobSpec {
-	env := []corev1.EnvVar{
-		{
-			Name:  "pxcCluster",
-			Value: bcp.cluster,
-		},
-		{
-			Name:  "size",
-			Value: spec.Volume.Size,
-		},
-		{
-			Name:  "suffix",
-			Value: genRandString(5),
-		},
-	}
+	var env []corev1.EnvVar
+	if spec.Volume.PersistentVolumeClaim != nil {
+		var storageSize int
+		requestStorage, ok := spec.Volume.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
+		if ok {
+			storageSize = requestStorage.Size()
+		}
 
-	if spec.Volume.StorageClass != nil {
-		env = append(env, corev1.EnvVar{
-			Name:  "storageClass",
-			Value: *spec.Volume.StorageClass,
-		},
-		)
-	}
+		env = []corev1.EnvVar{
+			{
+				Name:  "pxcCluster",
+				Value: bcp.cluster,
+			},
+			{
+				Name:  "size",
+				Value: strconv.Itoa(storageSize),
+			},
+			{
+				Name:  "suffix",
+				Value: genRandString(5),
+			},
+		}
 
+		if spec.Volume.PersistentVolumeClaim.StorageClassName != nil {
+			env = append(env, corev1.EnvVar{
+				Name:  "storageClass",
+				Value: *spec.Volume.PersistentVolumeClaim.StorageClassName,
+			},
+			)
+		}
+	}
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{

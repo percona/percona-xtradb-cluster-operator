@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	nodeName = "node"
+	nodeName       = "node"
+	dataVolumeName = "datadir"
 )
 
 type Node struct {
@@ -66,7 +67,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      "datadir",
+				Name:      dataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 			{
@@ -144,8 +145,41 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 	return app.CreateResources(spec)
 }
 
-func (c *Node) PVCs(spec *api.VolumeSpec) []corev1.PersistentVolumeClaim {
-	return app.PVCs("datadir", spec)
+func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
+	var (
+		volume     api.Volume
+		dataVolume corev1.VolumeSource
+	)
+
+	// 1. check whether configMap is existed
+	if podSpec.Configuration != "" {
+		configVolume := app.GetConfigVolumes(c.Lables()["component"])
+		volume.Volumes = append(volume.Volumes, configVolume)
+	}
+
+	// 2. check whether PVC is existed
+	if podSpec.VolumeSpec.PersistentVolumeClaim != nil {
+		pvcs := app.PVCs(dataVolumeName, &podSpec.VolumeSpec)
+		volume.PVCs = pvcs
+		return &volume
+	}
+
+	// 3. check whether hostPath is existed.
+	if podSpec.VolumeSpec.HostPath != nil {
+		dataVolume.HostPath = podSpec.VolumeSpec.HostPath
+	}
+
+	// 4. check whether emptyDir is existed.
+	if podSpec.VolumeSpec.EmptyDir != nil {
+		dataVolume.EmptyDir = podSpec.VolumeSpec.EmptyDir
+	}
+
+	volume.Volumes = append(volume.Volumes, corev1.Volume{
+		VolumeSource: dataVolume,
+		Name:         dataVolumeName,
+	})
+
+	return &volume
 }
 
 func (c *Node) StatefulSet() *appsv1.StatefulSet {

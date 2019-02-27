@@ -21,12 +21,8 @@ func PVCs(name string, vspec *api.VolumeSpec) []corev1.PersistentVolumeClaim {
 // VolumeSpec returns volume claim based on the given spec
 func VolumeSpec(vspec *api.VolumeSpec) corev1.PersistentVolumeClaimSpec {
 	return corev1.PersistentVolumeClaimSpec{
-		StorageClassName: vspec.StorageClass,
-		AccessModes:      vspec.AccessModes,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: vspec.SizeParsed,
-			},
-		},
+		StorageClassName: vspec.PersistentVolumeClaim.StorageClassName,
+		AccessModes:      vspec.PersistentVolumeClaim.AccessModes,
+		Resources:        vspec.PersistentVolumeClaim.Resources,
 	}
 }

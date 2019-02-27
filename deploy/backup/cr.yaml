@@ -5,5 +5,9 @@ metadata:
 spec:
   pxcCluster: "cluster1"
   volume:
-    # storageClass: standard
-    size: 6Gi
+    persistentVolumeClaim:
+      # storageClassName: standard
+      # accessModes: [ "ReadWriteOnce" ]
+      # resources:
+      #   requests:
+      #     storage: 6Gi

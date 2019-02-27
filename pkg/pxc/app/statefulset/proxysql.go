@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	proxyName = "proxysql"
+	proxyName           = "proxysql"
+	proxyDataVolumeName = "proxydata"
 )
 
 type Proxy struct {
@@ -59,7 +60,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      "proxydata",
+				Name:      proxyDataVolumeName,
 				MountPath: "/var/lib/proxysql",
 				SubPath:   "data",
 			},
@@ -139,8 +140,37 @@ func (c *Proxy) Resources(spec *api.PodResources) (corev1.ResourceRequirements, 
 	return app.CreateResources(spec)
 }
 
-func (c *Proxy) PVCs(spec *api.VolumeSpec) []corev1.PersistentVolumeClaim {
-	return app.PVCs("proxydata", spec)
+func (c *Proxy) Volumes(podSpec *api.PodSpec) *api.Volume {
+	var (
+		volume     api.Volume
+		dataVolume corev1.VolumeSource
+	)
+
+	// 1. check whether PVC is existed
+	if podSpec.VolumeSpec.PersistentVolumeClaim != nil {
+		pvcs := app.PVCs(proxyDataVolumeName, &podSpec.VolumeSpec)
+		volume.PVCs = pvcs
+		return &volume
+	}
+
+	// 2. check whether hostPath is existed.
+	if podSpec.VolumeSpec.HostPath != nil {
+		dataVolume.HostPath = podSpec.VolumeSpec.HostPath
+	}
+
+	// 3. check whether emptyDir is existed.
+	if podSpec.VolumeSpec.EmptyDir != nil {
+		dataVolume.EmptyDir = podSpec.VolumeSpec.EmptyDir
+	}
+
+	volume.Volumes = []corev1.Volume{
+		corev1.Volume{
+			VolumeSource: dataVolume,
+			Name:         proxyDataVolumeName,
+		},
+	}
+
+	return &volume
 }
 
 func (c *Proxy) StatefulSet() *appsv1.StatefulSet {

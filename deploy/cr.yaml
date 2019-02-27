@@ -51,9 +51,17 @@ spec:
 #      effect: "NoExecute"
 #      tolerationSeconds: 6000
     volumeSpec:
-#      storageClass: standard
-      accessModes: [ "ReadWriteOnce" ]
-      size: 6Gi
+      emptyDir:
+      hostPath:
+        # path: /data
+        # type: Directory
+      persistentVolumeClaim:
+        # storageClassName: standard
+        # accessModes: [ "ReadWriteOnce" ]
+        # resources:
+        #   requests:
+        #     storage: 6Gi
+      
   proxysql:
     enabled: true
     size: 1
@@ -92,9 +100,16 @@ spec:
 #      effect: "NoExecute"
 #      tolerationSeconds: 6000
     volumeSpec:
-#      storageClass: standard
-      accessModes: [ "ReadWriteOnce" ]
-      size: 2Gi
+      emptyDir:
+      hostPath:
+        # path: /data
+        # type: Directory
+      persistentVolumeClaim:
+        # storageClassName: standard
+        # accessModes: [ "ReadWriteOnce" ]
+        # resources:
+        #   requests:
+        #     storage: 2Gi
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.0
@@ -109,6 +124,9 @@ spec:
         schedule: "0 0 * * 6"
         keep: 3
         volume:
-#          storageClass: standard
-          accessModes: [ "ReadWriteOnce" ]
-          size: 6Gi
+          persistentVolumeClaim:
+            # storageClassName: standard
+            # accessModes: [ "ReadWriteOnce" ]
+            # resources:
+            #   requests:
+            #     storage: 6Gi

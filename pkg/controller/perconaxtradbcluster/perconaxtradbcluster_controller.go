@@ -255,7 +255,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return fmt.Errorf("create PodDisruptionBudget-PXC: %v", err)
 		}
 	} else if !errors.IsNotFound(err) {
-		return fmt.Errorf("get stateful set: %v", err)
+		return fmt.Errorf("get PXC stateful set: %v", err)
 	}
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
@@ -300,7 +300,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				return fmt.Errorf("create PodDisruptionBudget-ProxySQL: %v", err)
 			}
 		} else if !errors.IsNotFound(err) {
-			return fmt.Errorf("get stateful set ProxySQL: %v", err)
+			return fmt.Errorf("get ProxySQL stateful set: %v", err)
 		}
 	}
 

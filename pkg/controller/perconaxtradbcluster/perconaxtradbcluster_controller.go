@@ -243,9 +243,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	// PodDistributedBudget object for nodes
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, nodeSet)
-	if err == nil {
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("Get stateful set %s: %v", nodeSet.Name, err)
+		}
+	} else {
 		pdbPXC := pxc.NewPodDistributedBudget(cr, stsApp)
-
 		err = setControllerReference(nodeSet, pdbPXC, r.scheme)
 		if err != nil {
 			return err
@@ -286,7 +289,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 		// PodDistributedBudget object for ProxySQL
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: proxySet.Name, Namespace: proxySet.Namespace}, proxySet)
-		if err == nil {
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return fmt.Errorf("Get stateful set %s: %v", proxySet.Name, err)
+			}
+		} else {
 			pdbProxySQL := pxc.NewPodDistributedBudget(cr, sfsProxy)
 
 			err = setControllerReference(proxySet, pdbProxySQL, r.scheme)
@@ -296,7 +303,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 			err = r.client.Create(context.TODO(), pdbProxySQL)
 			if err != nil && !errors.IsAlreadyExists(err) {
-				return fmt.Errorf("create PodDisruptionBudget-PXC: %v", err)
+				return fmt.Errorf("create PodDisruptionBudget-ProxySQL: %v", err)
 			}
 		}
 	}
@@ -418,6 +425,10 @@ func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference,
 	trueVar := true
 
 	ca, err := meta.Accessor(ro)
+	if err != nil {
+		return metav1.OwnerReference{}, err
+	}
+
 	return metav1.OwnerReference{
 		APIVersion: gvk.GroupVersion().String(),
 		Kind:       gvk.Kind,

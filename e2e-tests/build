@@ -7,7 +7,7 @@ test_dir="$(dirname $0)"
 . $(dirname $0)/functions
 src_dir="$(realpath $test_dir/..)"
 
-build() {
+build_operator() {
     repo=$(
         git config --get remote.origin.url \
             | sed -e 's^.*github.com[:/]^github.com/^; s/.git$//'
@@ -15,6 +15,9 @@ build() {
     docker run --rm -v ${src_dir}:/go/src/${repo} golang sh -c "
         set -o errexit
         set -o xtrace
+        export GO_LDFLAGS='-w -s $GO_LDFLAGS'
+        export GIT_COMMIT='$GIT_COMMIT'
+        export GIT_BRANCH='$GIT_BRANCH'
 
         cd /go/src/${repo}
         mkdir -p build/_output/bin
@@ -33,4 +36,7 @@ build() {
     docker push ${IMAGE}
 }
 
-build
+until docker ps;
+    do sleep 1;
+done
+build_operator

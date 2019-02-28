@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
-	app "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
 const (
@@ -102,8 +102,33 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 				Value: c.lables["cluster"] + "-" + c.lables["app"] + "-nodes",
 			},
 		},
+		LivenessProbe: &corev1.Probe{
+			TimeoutSeconds:      int32(5),
+			InitialDelaySeconds: int32(60),
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"proxyhealth",
+						"liveness",
+						"", //TODO connection string
+					},
+				},
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			TimeoutSeconds:      int32(5),
+			InitialDelaySeconds: int32(60),
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"proxyhealth",
+						"readiness",
+						"", //TODO connection string
+					},
+				},
+			},
+		},
 	}
-
 	return appc
 }
 

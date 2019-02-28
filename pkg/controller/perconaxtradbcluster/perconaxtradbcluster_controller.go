@@ -268,7 +268,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return fmt.Errorf("create PXC Service: %v", err)
 		}
 
-		if err := r.proxyClusterMgr.InitiateCluster(cr); err != nil {
+		if err := r.proxyClusterMgr.InitProxyCluster(cr); err != nil {
 			return fmt.Errorf("can't initialize cluster: %v", err)
 		}
 	}

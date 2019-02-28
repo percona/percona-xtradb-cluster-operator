@@ -8,29 +8,33 @@ import (
 	"github.com/pkg/errors"
 )
 
-type DBManager struct {
+const (
+	ProxyNodeReadyVarName = "is_proxy_node_ready"
+)
+
+type ProxyManager struct {
 	db *sqlx.DB
 }
 
-func NewDB(connstr string) (*DBManager, error) {
+func NewProxyManager(connstr string) (*ProxyManager, error) {
 	db, err := sqlx.Connect("mysql", connstr)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't connect to database")
 	}
-	return &DBManager{
+	return &ProxyManager{
 		db: db,
 	}, nil
 }
 
-func (m *DBManager) close() error {
+func (m *ProxyManager) Close() error {
 	if err := m.db.Close(); err != nil {
-		return errors.Wrap(err, "can't close connection to database")
+		return errors.Wrap(err, "can't Close connection to database")
 	}
 	return nil
 }
 
-func (m *DBManager) initializeNode(hostname string, hostnameList []string) error {
-	initialized, err := m.isNodeInitialized()
+func (m *ProxyManager) initProxyNode(hostname string, hostnameList []string) error {
+	initialized, err := m.isProxyNodeInitialized()
 	if err != nil {
 		return errors.Wrap(err, "can't check node initialization status")
 	}
@@ -43,17 +47,16 @@ func (m *DBManager) initializeNode(hostname string, hostnameList []string) error
 		return errors.Wrap(err, "can't initialize node")
 	}
 
-	if err := m.updateProxysqlServersTable(hostnameList); err != nil {
+	if err := m.updateTableProxysqlServers(hostnameList); err != nil {
 		return errors.Wrap(err, "can't initialize node")
 	}
-
-	if err := m.saveProxysqlServersTableConf(); err != nil {
+	if err := m.setProxyNodeStatus(true); err != nil {
 		return errors.Wrap(err, "can't initialize node")
 	}
 	return nil
 }
 
-func (m *DBManager) setupProxySchema() error {
+func (m *ProxyManager) setupProxySchema() error {
 	ctx := context.Background()
 
 	tx, err := m.db.BeginTx(ctx, &sql.TxOptions{})
@@ -71,14 +74,13 @@ func (m *DBManager) setupProxySchema() error {
 	if _, err := tx.ExecContext(ctx, runtimeChecksumsValuesTable); err != nil {
 		return errors.Wrap(err, "setup runtime_checksums_values table transaction failed")
 	}
-
 	if err := tx.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit transaction")
 	}
 	return nil
 }
 
-func (m *DBManager) updateProxysqlServersTable(hostnameList []string) error {
+func (m *ProxyManager) updateTableProxysqlServers(hostnameList []string) error {
 	ctx := context.Background()
 	tx, err := m.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
@@ -91,21 +93,6 @@ func (m *DBManager) updateProxysqlServersTable(hostnameList []string) error {
 			return errors.Wrapf(err, "can't insert hostname %s to proxysql_servers table", hostname)
 		}
 	}
-	if err := tx.Commit(); err != nil {
-		return errors.Wrap(err, "transaction failed")
-	}
-	return nil
-}
-
-func (m *DBManager) saveProxysqlServersTableConf() error {
-	ctx := context.Background()
-
-	tx, err := m.db.BeginTx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return errors.Wrap(err, "can't save proxysql servers configuration")
-	}
-	defer tx.Rollback()
-
 	if _, err := tx.ExecContext(ctx, `LOAD PROXYSQL SERVERS TO RUNTIME`); err != nil {
 		return errors.Wrap(err, "setup proxysql_servers table transaction failed")
 	}
@@ -113,13 +100,12 @@ func (m *DBManager) saveProxysqlServersTableConf() error {
 		return errors.Wrap(err, "setup proxysql_servers table transaction failed")
 	}
 	if err := tx.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit transaction")
+		return errors.Wrap(err, "transaction failed")
 	}
-
 	return nil
 }
 
-func (m *DBManager) isNodeInitialized() (bool, error) {
+func (m *ProxyManager) isProxyNodeInitialized() (bool, error) {
 	tables := make([]string, 0)
 	if err := m.db.Select(&tables, "SHOW TABLES"); err != nil {
 		return false, errors.Wrap(err, "can't check if proxysql node is initialized")
@@ -139,4 +125,20 @@ func (m *DBManager) isNodeInitialized() (bool, error) {
 		}
 	}
 	return proxysqlServersExist && runtimeProxysqlServersExist && runtimeChecksumsValuesExist, nil
+}
+
+func (m *ProxyManager) isProxyNodeReady() (bool, error) {
+	var isReady bool
+	if err := m.db.Select(&isReady, `SELECT is_ready FROM global_variables;`); err != nil {
+		return false, errors.Wrap(err, "can't check if proxysql is ready to serve requests")
+	}
+	return isReady, nil
+}
+
+func (m *ProxyManager) setProxyNodeStatus(status bool) error {
+	_, err := m.db.Exec(`INSERT INTO global_variables (variable_name, variable_value) VALUES ($1, $2) ON DUPLICATE KEY UPDATE variable_value=$2;`, ProxyNodeReadyVarName, status)
+	if err != nil {
+		return errors.Wrap(err, "failed to tes status")
+	}
+	return nil
 }

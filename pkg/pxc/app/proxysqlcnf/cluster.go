@@ -22,7 +22,7 @@ func NewClusterManager(client client.Client) *ClusterManager {
 	}
 }
 
-func (c *ClusterManager) InitiateCluster(cr *api.PerconaXtraDBCluster) error {
+func (c *ClusterManager) InitProxyCluster(cr *api.PerconaXtraDBCluster) error {
 	proxyMembers, err := c.fetchProxyMembers(cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to initiate the cluster")
@@ -46,13 +46,13 @@ func (c *ClusterManager) InitiateCluster(cr *api.PerconaXtraDBCluster) error {
 		}
 
 		// connect to proxysql node
-		db, err := NewDB(hostname)
+		db, err := NewProxyManager(hostname)
 		if err != nil {
 			return errors.Wrap(err, "failed to initiate the cluster")
 		}
 
 		// initialize node
-		if err := db.initializeNode(hostname, hostnameList); err != nil {
+		if err := db.initProxyNode(hostname, hostnameList); err != nil {
 			return errors.Wrap(err, "failed to initiate the cluster")
 		}
 	}

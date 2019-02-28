@@ -151,11 +151,8 @@ func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 		dataVolume corev1.VolumeSource
 	)
 
-	// 1. check whether configMap is existed
-	if podSpec.Configuration != "" {
-		configVolume := app.GetConfigVolumes(c.Lables()["component"])
-		volume.Volumes = append(volume.Volumes, configVolume)
-	}
+	configVolume := app.GetConfigVolumes(c.Lables()["component"])
+	volume.Volumes = append(volume.Volumes, configVolume)
 
 	// 2. check whether PVC is existed
 	if podSpec.VolumeSpec.PersistentVolumeClaim != nil {

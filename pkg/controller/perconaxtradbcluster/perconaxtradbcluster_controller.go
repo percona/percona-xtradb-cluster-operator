@@ -241,10 +241,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf("create PXC Service: %v", err)
 	}
 
-	// PodDistributedBudget object for nodes
+	// PodDisruptionBudget object for nodes
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, nodeSet)
 	if err == nil {
-		pdbPXC := pxc.NewPodDistributedBudget(cr, stsApp)
+		pdbPXC := pxc.PodDisruptionBudget(cr.Spec.PXC.PodDisruptionBudget, stsApp, cr.Namespace)
 		err = setControllerReference(nodeSet, pdbPXC, r.scheme)
 		if err != nil {
 			return err
@@ -285,10 +285,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return fmt.Errorf("create PXC Service: %v", err)
 		}
 
-		// PodDistributedBudget object for ProxySQL
+		// PodDisruptionBudget object for ProxySQL
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: proxySet.Name, Namespace: proxySet.Namespace}, proxySet)
 		if err == nil {
-			pdbProxySQL := pxc.NewPodDistributedBudget(cr, sfsProxy)
+			pdbProxySQL := pxc.PodDisruptionBudget(cr.Spec.ProxySQL.PodDisruptionBudget, sfsProxy, cr.Namespace)
 
 			err = setControllerReference(proxySet, pdbProxySQL, r.scheme)
 			if err != nil {

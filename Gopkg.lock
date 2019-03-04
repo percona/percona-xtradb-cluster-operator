@@ -56,6 +56,14 @@
   version = "v2.8.0"
 
 [[projects]]
+  digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
+  name = "github.com/fsnotify/fsnotify"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
+
+[[projects]]
   digest = "1:81466b4218bf6adddac2572a30ac733a9255919bc2f470b4827a317bd4ee1756"
   name = "github.com/ghodss/yaml"
   packages = ["."]
@@ -219,12 +227,39 @@
   version = "v0.5.0"
 
 [[projects]]
+  digest = "1:62ba88d64dabadbbad170cf6b0d3bfd1f50c36b1566583a28d99304eb08a9bd2"
+  name = "github.com/hashicorp/hcl"
+  packages = [
+    ".",
+    "hcl/ast",
+    "hcl/parser",
+    "hcl/printer",
+    "hcl/scanner",
+    "hcl/strconv",
+    "hcl/token",
+    "json/parser",
+    "json/scanner",
+    "json/token",
+  ]
+  pruneopts = "NT"
+  revision = "8cb6e5b959231cc1119e43259c4a608f9c51a241"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:9a52adf44086cead3b384e5d0dbf7a1c1cce65e67552ee3383a8561c42a18cd3"
   name = "github.com/imdario/mergo"
   packages = ["."]
   pruneopts = "NT"
   revision = "9f23e2d6bd2a77f959b2bf6acdbefd708a83a4a4"
   version = "v0.3.6"
+
+[[projects]]
+  digest = "1:406338ad39ab2e37b7f4452906442a3dbf0eb3379dd1f06aafb5c07e769a5fbb"
+  name = "github.com/inconshreveable/mousetrap"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
+  version = "v1.0"
 
 [[projects]]
   digest = "1:8296374b25e5c5edaf378dd30ff2d33c9954916e5d2eaec7eb98f1d6edaac745"
@@ -246,6 +281,14 @@
   version = "v1.1.5"
 
 [[projects]]
+  digest = "1:4244266b65ea535b8ebd109a327720821707b59f9a37bda738946d52ec69442d"
+  name = "github.com/magiconair/properties"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "c2353362d570a7bfa228149c62842019201cfb71"
+  version = "v1.8.0"
+
+[[projects]]
   branch = "master"
   digest = "1:7d9fcac7f1228470c4ea0ee31cdfb662a758c44df691e39b3e76c11d3e12ba8f"
   name = "github.com/mailru/easyjson"
@@ -264,6 +307,30 @@
   packages = ["."]
   pruneopts = "NT"
   revision = "81af80346b1a01caae0cbc27fd3c1ba5b11e189f"
+
+[[projects]]
+  digest = "1:12c141f13c526e5c72321b8e273ce261b81936d5e6bec0eda4f04d10a12d4a19"
+  name = "github.com/miekg/dns"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "8fc2e5773bbd308ca2fcc962fd8d25c1bd0f6743"
+  version = "v1.1.4"
+
+[[projects]]
+  digest = "1:f9f72e583aaacf1d1ac5d6121abd4afd3c690baa9e14e1d009df26bf831ba347"
+  name = "github.com/mitchellh/go-homedir"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "af06845cf3004701891bf4fdb884bfe4920b3727"
+  version = "v1.1.0"
+
+[[projects]]
+  digest = "1:a45ae66dea4c899d79fceb116accfa1892105c251f0dcd9a217ddc276b42ec68"
+  name = "github.com/mitchellh/mapstructure"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "3536a929edddb9a5b34bd6861dc4a9647cb459fe"
+  version = "v1.1.2"
 
 [[projects]]
   digest = "1:2f42fa12d6911c7b7659738758631bec870b7e9b4c6be5444f963cdcfccc191f"
@@ -303,6 +370,14 @@
   version = "v1.2"
 
 [[projects]]
+  digest = "1:1a6e99fe61e963dce0dd87a0856fcfcc1c286db3eba388dd77335aa4ac5623b3"
+  name = "github.com/pelletier/go-toml"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "c01d1270ff3e442a8a57cddc1c92dc1138598194"
+  version = "v1.2.0"
+
+[[projects]]
   branch = "master"
   digest = "1:bf2ac97824a7221eb16b096aecc1c390d4c8a4e49524386aaa2e2dd215cbfb31"
   name = "github.com/petar/GoLLRB"
@@ -327,12 +402,55 @@
   version = "v0.8.1"
 
 [[projects]]
+  digest = "1:1bc08ec221c4fb25e6f2c019b23fe989fb44573c696983d8e403a3b76cc378e1"
+  name = "github.com/spf13/afero"
+  packages = [
+    ".",
+    "mem",
+  ]
+  pruneopts = "NT"
+  revision = "f4711e4db9e9a1d3887343acb72b2bbfc2f686f5"
+  version = "v1.2.1"
+
+[[projects]]
+  digest = "1:c5e6b121ef3d2043505edaf4c80e5a008cec2513dc8804795eb0479d1555bcf7"
+  name = "github.com/spf13/cast"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "8c9545af88b134710ab1cd196795e7f2388358d7"
+  version = "v1.3.0"
+
+[[projects]]
+  digest = "1:234b95cdbb31612ff4f97e0ac69abdede0c60f5f84e5d3f40123859f77d8bc2c"
+  name = "github.com/spf13/cobra"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "ef82de70bb3f60c65fb8eebacbb2d122ef517385"
+  version = "v0.0.3"
+
+[[projects]]
+  digest = "1:3d72352adb74e79d6d5a43d6f51bfd2d0bd0c9b5f3c00cf5a4b1636d8d3b9d92"
+  name = "github.com/spf13/jwalterweatherman"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "94f6ae3ed3bceceafa716478c5fbf8d29ca601a1"
+  version = "v1.1.0"
+
+[[projects]]
   digest = "1:9d8420bbf131d1618bde6530af37c3799340d3762cc47210c1d9532a4c3a2779"
   name = "github.com/spf13/pflag"
   packages = ["."]
   pruneopts = "NT"
   revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
   version = "v1.0.3"
+
+[[projects]]
+  digest = "1:958dd1902c8999769574c48476f471791be450a2aacaa2c411c408d22ec84e80"
+  name = "github.com/spf13/viper"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "6d33b5a963d922d182c91e8a1c88d81fd150cfd4"
+  version = "v1.3.1"
 
 [[projects]]
   digest = "1:22f696cee54865fb8e9ff91df7b633f6b8f22037a8015253c6b6a71ca82219c7"
@@ -369,7 +487,11 @@
   branch = "master"
   digest = "1:d6d3b59b8c4ceb6a7db2f20169719e57a8dcfa2c055b4418feb3fcc7bbd1a936"
   name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
+  packages = [
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "ssh/terminal",
+  ]
   pruneopts = "NT"
   revision = "505ab145d0a99da450461ae2c1a9f6cd10d1f447"
 
@@ -378,12 +500,17 @@
   digest = "1:291f464e4a4c16e246b1f64a7c3675e8c88fbb1b1ef76b24a23724f8cc3a3ebc"
   name = "golang.org/x/net"
   packages = [
+    "bpf",
     "context",
     "context/ctxhttp",
     "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
+    "internal/iana",
+    "internal/socket",
+    "ipv4",
+    "ipv6",
   ]
   pruneopts = "NT"
   revision = "610586996380ceef02dd726cc09df7e00a3f8e56"
@@ -774,11 +901,15 @@
   input-imports = [
     "github.com/go-sql-driver/mysql",
     "github.com/jmoiron/sqlx",
+    "github.com/miekg/dns",
+    "github.com/mitchellh/go-homedir",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/ready",
     "github.com/operator-framework/operator-sdk/version",
     "github.com/pkg/errors",
+    "github.com/spf13/cobra",
+    "github.com/spf13/viper",
     "k8s.io/api/apps/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v1beta1",

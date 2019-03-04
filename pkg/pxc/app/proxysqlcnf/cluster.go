@@ -23,7 +23,7 @@ func NewClusterManager(client client.Client) *ClusterManager {
 }
 
 func (c *ClusterManager) InitProxyCluster(cr *api.PerconaXtraDBCluster) error {
-	proxyMembers, err := c.fetchProxyMembers(cr)
+	proxyMembers, err := c.getProxyNodes(cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to initiate the cluster")
 	}
@@ -46,20 +46,71 @@ func (c *ClusterManager) InitProxyCluster(cr *api.PerconaXtraDBCluster) error {
 		}
 
 		// connect to proxysql node
-		db, err := NewProxyManager(hostname)
+		confmgr, err := NewProxyConfManager(hostname)
 		if err != nil {
 			return errors.Wrap(err, "failed to initiate the cluster")
 		}
 
-		// initialize node
-		if err := db.initProxyNode(hostname, hostnameList); err != nil {
-			return errors.Wrap(err, "failed to initiate the cluster")
+		isProxyCluster, err := confmgr.isNodeReadyProxyCluster()
+		if err != nil {
+			return errors.Wrap(err, "can't check ProxySQL cluster state")
+		}
+
+		if !isProxyCluster {
+			if err := confmgr.insertToProxysqlServersTable(hostnameList); err != nil {
+				return errors.Wrap(err, "can't update proxysql_servers table")
+			}
+			if err := confmgr.setNodeReadyProxyCluster(true); err != nil {
+				return errors.Wrap(err, "can't set ProxySQL proxysql cluster state")
+			}
 		}
 	}
 	return nil
 }
 
-func (c *ClusterManager) fetchProxyMembers(cr *api.PerconaXtraDBCluster) (*v1.PodList, error) {
+func (c *ClusterManager) InitPXCCluster(cr *api.PerconaXtraDBCluster) error {
+	pxcNodes, err := c.getPXCNodes(cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to get PXC nodes")
+	}
+
+	hostnameList, err := c.podsHostnameList(pxcNodes.Items)
+	if err != nil {
+		return errors.Wrap(err, "failed to get hostname list")
+	}
+
+	for _, pxc := range pxcNodes.Items {
+
+		// get pod hostname
+		hostname, err := c.podHostname(pxc)
+		if err != nil {
+			return errors.Wrap(err, "failed to initiate the cluster")
+		}
+
+		// connect to proxysql node
+		confmgr, err := NewProxyConfManager(hostname)
+		if err != nil {
+			return errors.Wrap(err, "failed to initiate the cluster")
+		}
+
+		isPXCCluster, err := confmgr.isNodeReadyPCXCluster()
+		if err != nil {
+			return errors.Wrap(err, "can't check ProxySQL pxc cluster state")
+		}
+
+		if !isPXCCluster {
+			if err := confmgr.insertToMySQLServersTable(hostnameList); err != nil {
+				return errors.Wrap(err, "can't update mysql_servers table")
+			}
+			if err := confmgr.setNodeReadyPXCCluster(true); err != nil {
+				return errors.Wrap(err, "can't set ProxySQL pxc cluster state")
+			}
+		}
+	}
+	return nil
+}
+
+func (c *ClusterManager) getProxyNodes(cr *api.PerconaXtraDBCluster) (*v1.PodList, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -74,7 +125,7 @@ func (c *ClusterManager) fetchProxyMembers(cr *api.PerconaXtraDBCluster) (*v1.Po
 	return pods, nil
 }
 
-func (c *ClusterManager) fetchPXCMembers(cr *api.PerconaXtraDBCluster) (*v1.PodList, error) {
+func (c *ClusterManager) getPXCNodes(cr *api.PerconaXtraDBCluster) (*v1.PodList, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

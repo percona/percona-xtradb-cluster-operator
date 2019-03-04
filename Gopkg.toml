@@ -52,3 +52,11 @@ required = [
   [[prune.project]]
     name = "k8s.io/code-generator"
     non-go = false
+
+[[constraint]]
+  name = "github.com/spf13/cobra"
+  version = "0.0.3"
+
+[[constraint]]
+  name = "github.com/miekg/dns"
+  version = "1.1.4"

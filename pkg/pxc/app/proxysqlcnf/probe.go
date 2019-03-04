@@ -6,7 +6,7 @@ import (
 
 // LivenesProbe tries to connect to database to check if ProxySQL is alive.
 func LivenessProbe(connstr string) error {
-	conn, err := NewProxyManager(connstr)
+	conn, err := NewProxyConfManager(connstr)
 	if err != nil {
 		return errors.Wrap(err, "liveness probe has failed")
 	}
@@ -21,7 +21,7 @@ func LivenessProbe(connstr string) error {
 
 // ReadinessProbe tries to connect to database to check if ProxySQL is alive and ready to serve the requests.
 func ReadinessProbe(connstr string) error {
-	conn, err := NewProxyManager(connstr)
+	conn, err := NewProxyConfManager(connstr)
 	if err != nil {
 		return errors.Wrap(err, "readiness probe has failed")
 	}
@@ -37,7 +37,7 @@ func ReadinessProbe(connstr string) error {
 		return errors.Wrap(err, "readiness probe has failed")
 	}
 
-	isReady, err := conn.isProxyNodeReady()
+	isReady, err := conn.isNodeReadyProxyCluster()
 	if err != nil || !isReady {
 		return errors.Wrap(err, "readiness probe has failed")
 	}

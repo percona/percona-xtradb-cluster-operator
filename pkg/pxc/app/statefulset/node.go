@@ -14,8 +14,9 @@ const (
 )
 
 type Node struct {
-	sfs    *appsv1.StatefulSet
-	lables map[string]string
+	sfs     *appsv1.StatefulSet
+	lables  map[string]string
+	service string
 }
 
 func NewNode(cr *api.PerconaXtraDBCluster) *Node {
@@ -37,8 +38,9 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 	}
 
 	return &Node{
-		sfs:    sfs,
-		lables: lables,
+		sfs:     sfs,
+		lables:  lables,
+		service: cr.Name + "-" + app.Name,
 	}
 }
 
@@ -186,4 +188,8 @@ func (c *Node) StatefulSet() *appsv1.StatefulSet {
 
 func (c *Node) Lables() map[string]string {
 	return c.lables
+}
+
+func (c *Node) Service() string {
+	return c.service
 }

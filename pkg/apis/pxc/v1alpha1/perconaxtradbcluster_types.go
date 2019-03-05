@@ -158,6 +158,7 @@ type App interface {
 type StatefulApp interface {
 	App
 	StatefulSet() *appsv1.StatefulSet
+	Service() string
 }
 
 const clusterNameMaxLen = 22

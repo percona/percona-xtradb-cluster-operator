@@ -15,8 +15,9 @@ const (
 )
 
 type Proxy struct {
-	sfs    *appsv1.StatefulSet
-	lables map[string]string
+	sfs     *appsv1.StatefulSet
+	lables  map[string]string
+	service string
 }
 
 func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
@@ -38,8 +39,9 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 	}
 
 	return &Proxy{
-		sfs:    sfs,
-		lables: lables,
+		sfs:     sfs,
+		lables:  lables,
+		service: cr.Name + "-proxysql-headless",
 	}
 }
 
@@ -253,4 +255,8 @@ func (c *Proxy) StatefulSet() *appsv1.StatefulSet {
 
 func (c *Proxy) Lables() map[string]string {
 	return c.lables
+}
+
+func (c *Proxy) Service() string {
+	return c.service
 }

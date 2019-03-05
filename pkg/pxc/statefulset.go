@@ -57,7 +57,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		Selector: &metav1.LabelSelector{
 			MatchLabels: ls,
 		},
-		ServiceName: ls["component"],
+		ServiceName: sfs.Service(),
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      ls,

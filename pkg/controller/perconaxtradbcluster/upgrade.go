@@ -24,11 +24,14 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	newContainers := []corev1.Container{}
 	var currentAppC, currentPMMC *corev1.Container
 
+	appCName := sfs.AppContainer(podSpec, cr.Spec.SecretsName)
+
 	for _, c := range currentSet.Spec.Template.Spec.Containers {
-		if c.Name == "pmm-client" {
+		switch c.Name {
+		case "pmm-client":
 			newc := c
 			currentPMMC = &newc
-		} else {
+		case appCName.Name:
 			newc := c
 			currentAppC = &newc
 		}

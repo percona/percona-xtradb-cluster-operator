@@ -106,6 +106,8 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 	return appc
 }
 
+func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
+
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container {
 	ct := app.PMMClient(spec, secrets)
 

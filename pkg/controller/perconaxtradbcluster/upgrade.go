@@ -57,6 +57,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		}
 	}
 
+	newContainers = append(newContainers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 	currentSet.Spec.Template.Spec.Containers = newContainers
 
 	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)

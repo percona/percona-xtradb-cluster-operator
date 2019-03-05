@@ -108,6 +108,80 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 	return appc
 }
 
+func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container {
+	return []corev1.Container{
+		{
+			Name:            "pxc-monit",
+			Image:           spec.Image,
+			ImagePullPolicy: corev1.PullAlways,
+			Args: []string{
+				"/usr/bin/peer-list",
+				"-on-change=/usr/bin/add_pxc_nodes.sh",
+				"-service=$(PXC_SERVICE)",
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "PXC_SERVICE",
+					Value: c.lables["cluster"] + "-" + c.lables["app"] + "-nodes",
+				},
+				{
+					Name: "MONITOR_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					},
+				},
+				{
+					Name: "MYSQL_ROOT_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+					},
+				},
+				{
+					Name: "PROXY_ADMIN_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
+					},
+				},
+			},
+		},
+
+		{
+			Name:            "pxc-fonit",
+			Image:           spec.Image,
+			ImagePullPolicy: corev1.PullAlways,
+			Args: []string{
+				"/usr/bin/peer-list",
+				"-on-change=/usr/bin/add_pxc_nodes.sh",
+				"-service=$(PXC_SERVICE)",
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "PXC_SERVICE",
+					Value: c.lables["cluster"] + "-" + c.lables["app"] + "-nodes",
+				},
+				{
+					Name: "MONITOR_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					},
+				},
+				{
+					Name: "MYSQL_ROOT_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+					},
+				},
+				{
+					Name: "PROXY_ADMIN_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
+					},
+				},
+			},
+		},
+	}
+}
+
 func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container {
 	ct := app.PMMClient(spec, secrets)
 

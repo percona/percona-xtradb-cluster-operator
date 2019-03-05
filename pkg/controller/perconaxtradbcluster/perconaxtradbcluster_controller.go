@@ -286,6 +286,18 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return fmt.Errorf("create ProxySQL Service: %v", err)
 		}
 
+		// ProxySQL Headless Service
+		proxysh := pxc.NewServiceProxySQLHeadless(cr)
+		err = setControllerReference(cr, proxysh, r.scheme)
+		if err != nil {
+			return err
+		}
+
+		err = r.client.Create(context.TODO(), proxysh)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("create ProxySQL Headless Service: %v", err)
+		}
+
 		// PodDisruptionBudget object for ProxySQL
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: proxySet.Name, Namespace: proxySet.Namespace}, proxySet)
 		if err == nil {

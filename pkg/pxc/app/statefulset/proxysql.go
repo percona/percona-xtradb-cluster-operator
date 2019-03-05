@@ -85,24 +85,10 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 				},
 			},
 			{
-				Name:  "MYSQL_PROXY_USER",
-				Value: "proxyuser",
-			},
-			{
-				Name: "MYSQL_PROXY_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "proxyuser"),
-				},
-			},
-			{
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 				},
-			},
-			{
-				Name:  "PXCSERVICE",
-				Value: c.lables["cluster"] + "-" + c.lables["app"] + "-nodes",
 			},
 		},
 	}
@@ -127,21 +113,25 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 					Value: c.lables["cluster"] + "-" + c.lables["app"],
 				},
 				{
-					Name: "MONITOR_PASSWORD",
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
-					},
-				},
-				{
 					Name: "MYSQL_ROOT_PASSWORD",
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
 					},
 				},
 				{
+					Name:  "PROXY_ADMIN_USER",
+					Value: "proxyadmin",
+				},
+				{
 					Name: "PROXY_ADMIN_PASSWORD",
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
+					},
+				},
+				{
+					Name: "MONITOR_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 					},
 				},
 			},
@@ -162,21 +152,25 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 					Value: c.lables["cluster"] + "-proxysql-headless",
 				},
 				{
-					Name: "MONITOR_PASSWORD",
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
-					},
-				},
-				{
 					Name: "MYSQL_ROOT_PASSWORD",
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
 					},
 				},
 				{
+					Name:  "PROXY_ADMIN_USER",
+					Value: "proxyadmin",
+				},
+				{
 					Name: "PROXY_ADMIN_PASSWORD",
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
+					},
+				},
+				{
+					Name: "MONITOR_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 					},
 				},
 			},

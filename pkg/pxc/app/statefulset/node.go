@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	nodeName       = "node"
 	dataVolumeName = "datadir"
 )
 
@@ -26,14 +25,14 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + app.Name + "-" + nodeName,
+			Name:      cr.Name + "-" + app.Name,
 			Namespace: cr.Namespace,
 		},
 	}
 
 	lables := map[string]string{
 		"app":       app.Name,
-		"component": cr.Name + "-" + app.Name + "-nodes",
+		"component": cr.Name + "-" + app.Name,
 		"cluster":   cr.Name,
 	}
 
@@ -45,7 +44,7 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 
 func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container {
 	appc := corev1.Container{
-		Name:            nodeName,
+		Name:            app.Name,
 		Image:           spec.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		ReadinessProbe: app.Probe(&corev1.Probe{

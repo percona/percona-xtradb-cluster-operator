@@ -26,14 +26,14 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + app.Name + "-" + proxyName,
+			Name:      cr.Name + "-" + proxyName,
 			Namespace: cr.Namespace,
 		},
 	}
 
 	lables := map[string]string{
 		"app":       app.Name,
-		"component": cr.Name + "-" + app.Name + "-proxysql",
+		"component": cr.Name + "-" + proxyName,
 		"cluster":   cr.Name,
 	}
 
@@ -122,7 +122,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 			Env: []corev1.EnvVar{
 				{
 					Name:  "PXC_SERVICE",
-					Value: c.lables["cluster"] + "-" + c.lables["app"] + "-nodes",
+					Value: c.lables["cluster"] + "-" + c.lables["app"],
 				},
 				{
 					Name: "MONITOR_PASSWORD",
@@ -146,18 +146,18 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 		},
 
 		{
-			Name:            "pxc-fonit",
+			Name:            "proxysql-monit",
 			Image:           spec.Image,
 			ImagePullPolicy: corev1.PullAlways,
 			Args: []string{
 				"/usr/bin/peer-list",
-				"-on-change=/usr/bin/add_pxc_nodes.sh",
-				"-service=$(PXC_SERVICE)",
+				"-on-change=/usr/bin/add_proxysql_nodes.sh",
+				"-service=$(PROXYSQL_SERVICE)",
 			},
 			Env: []corev1.EnvVar{
 				{
-					Name:  "PXC_SERVICE",
-					Value: c.lables["cluster"] + "-" + c.lables["app"] + "-nodes",
+					Name:  "PROXYSQL_SERVICE",
+					Value: c.lables["cluster"] + "-proxysql-headless",
 				},
 				{
 					Name: "MONITOR_PASSWORD",

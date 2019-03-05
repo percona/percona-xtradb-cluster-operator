@@ -36,7 +36,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pvcName, pxcNode string, sv *
 	// if a suitable node hasn't been chosen - try to make a lucky shot.
 	// it's better than the failed backup at all
 	if pxcNode == "" {
-		pxcNode = spec.PXCCluster + "-pxc-nodes"
+		pxcNode = spec.PXCCluster + "-pxc"
 	}
 
 	var fsgroup *int64

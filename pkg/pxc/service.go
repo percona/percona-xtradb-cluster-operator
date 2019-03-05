@@ -15,7 +15,7 @@ func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + appName + "-nodes",
+			Name:      cr.Name + "-" + appName,
 			Namespace: cr.Namespace,
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
@@ -34,7 +34,7 @@ func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 			ClusterIP: "None",
 			Selector: map[string]string{
-				"component": cr.Name + "-" + appName + "-nodes",
+				"component": cr.Name + "-" + appName,
 			},
 		},
 	}
@@ -78,7 +78,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				},
 			},
 			Selector: map[string]string{
-				"component": cr.Name + "-" + appName + "-proxysql",
+				"component": cr.Name + "-proxysql",
 			},
 		},
 	}

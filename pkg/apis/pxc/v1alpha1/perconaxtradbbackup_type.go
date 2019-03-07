@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
@@ -26,8 +26,9 @@ type PerconaXtraDBBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster string     `json:"pxcCluster"`
-	Volume     VolumeSpec `json:"volume,omitempty"`
+	PXCCluster string                       `json:"pxcCluster"`
+	Volume     VolumeSpec                   `json:"volume,omitempty"`
+	Storages   map[string]BackupStorageSpec `json:"storages,omitempty"`
 }
 
 type PXCBackupStatus struct {
@@ -45,6 +46,25 @@ const (
 	BackupFailed                   = "Failed"
 	BackupSucceeded                = "Succeeded"
 )
+
+type BackupStorageSpec struct {
+	Type BackupStorageType   `json:"type"`
+	S3   BackupStorageS3Spec `json:"s3,omitempty"`
+}
+
+type BackupStorageType string
+
+const (
+	BackupStorageFilesystem BackupStorageType = "filesystem"
+	BackupStorageS3         BackupStorageType = "s3"
+)
+
+type BackupStorageS3Spec struct {
+	Bucket            string `json:"bucket"`
+	CredentialsSecret string `json:"credentialsSecret"`
+	Region            string `json:"region,omitempty"`
+	EndpointURL       string `json:"endpointUrl,omitempty"`
+}
 
 // OwnerRef returns OwnerReference to object
 func (cr *PerconaXtraDBBackup) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerReference, error) {

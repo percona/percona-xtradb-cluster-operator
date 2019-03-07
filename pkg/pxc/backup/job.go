@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,23 +46,19 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pvcName, pxcNode string, sv *
 		fsgroup = &tp
 	}
 
-	return batchv1.JobSpec{
+	job := batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				SecurityContext: &corev1.PodSecurityContext{
 					FSGroup: fsgroup,
 				},
+				ImagePullSecrets: bcp.imagePullSecrets,
+				RestartPolicy:    corev1.RestartPolicyNever,
 				Containers: []corev1.Container{
 					{
 						Name:    "xtrabackup",
 						Image:   bcp.image,
 						Command: []string{"bash", "/usr/bin/backup.sh"},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      pvc.Name,
-								MountPath: "/backup",
-							},
-						},
 						Env: []corev1.EnvVar{
 							{
 								Name:  "NODE_NAME",
@@ -74,12 +71,43 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pvcName, pxcNode string, sv *
 						},
 					},
 				},
-				ImagePullSecrets: bcp.imagePullSecrets,
-				RestartPolicy:    corev1.RestartPolicyNever,
-				Volumes: []corev1.Volume{
-					pvc,
-				},
 			},
 		},
 	}
+
+	for _, storageSpec := range spec.Storages {
+		switch storageSpec.Type {
+		case api.BackupStorageFilesystem:
+			job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+				{
+					Name:      pvc.Name,
+					MountPath: "/backup",
+				},
+			}
+			job.Template.Spec.Volumes = []corev1.Volume{
+				pvc,
+			}
+		case api.BackupStorageS3:
+			accessKey := corev1.EnvVar{
+				Name: "AWS_ACCESS_KEY_ID",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(storageSpec.S3.CredentialsSecret, "accessKey"),
+				},
+			}
+			secretKey := corev1.EnvVar{
+				Name: "AWS_SECRET_ACCESS_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(storageSpec.S3.CredentialsSecret, "secretKey"),
+				},
+			}
+			region := corev1.EnvVar{
+				Name:  "AWS_DEFAULT_REGION",
+				Value: storageSpec.S3.Region,
+			}
+
+			job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region)
+		}
+	}
+
+	return job
 }

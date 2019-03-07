@@ -124,6 +124,13 @@ spec:
     image: perconalab/backupjob-openshift:0.2.0
 #    imagePullSecrets:
 #      - name: private-registry-credentials
+    storages:
+      s3-us-west:
+        type: s3
+        s3:
+          bucket: S3-BACKUP-BUCKET-NAME-HERE
+          credentialsSecret: my-cluster-name-backup-s3
+          region: us-west-2
     schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"

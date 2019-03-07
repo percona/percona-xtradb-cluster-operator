@@ -100,12 +100,20 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pvcName, pxcNode string, sv *
 					SecretKeyRef: app.SecretKeySelector(storageSpec.S3.CredentialsSecret, "secretKey"),
 				},
 			}
-			region := corev1.EnvVar{
+			bucket := corev1.EnvVar{
 				Name:  "AWS_DEFAULT_REGION",
 				Value: storageSpec.S3.Region,
 			}
+			region := corev1.EnvVar{
+				Name:  "AWS_S3_BUCKET",
+				Value: storageSpec.S3.Bucket,
+			}
+			endpoint := corev1.EnvVar{
+				Name:  "AWS_ENDPOINT_URL",
+				Value: storageSpec.S3.EndpointURL,
+			}
 
-			job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region)
+			job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, bucket, endpoint)
 		}
 	}
 

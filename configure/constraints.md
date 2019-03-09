@@ -3,7 +3,7 @@ Binding Percona XtraDB Cluster components to Specific Kubernetes/OpenShift Nodes
 
 The operator does good job automatically assigning new Pods to nodes with sufficient to achieve balanced distribution accross the cluster. Still there are situations when it worth to ensure that pods will land on specific nodes: for example, to get speed advantages of the SSD equipped machine, or to reduce costs choosing nodes in a same availability zone.
 
-Both ``pxc`` and ``proxysql`` sections of the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file contain keys which can be used to do this, depending on what is the best for a particular situation.
+Both ``pxc`` and ``proxysql`` sections of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file contain keys which can be used to do this, depending on what is the best for a particular situation.
 
 ## Node selector
 
@@ -43,7 +43,7 @@ The following example forces Percona XtraDB Cluster Pods to avoid occupying the 
    
 ### Advanced approach - use standard Kubernetes constraints
 
-Previous way can be used with no special knowledge of the Kubernetes way of assigning Pods to specific nodes. Still in some cases more complex tuning may be needed. In this case ``advanced`` option placed in the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file turns off the effect of the ``topologyKey`` and allows to use standard Kubernetes affinity constraints of any complexity:
+Previous way can be used with no special knowledge of the Kubernetes way of assigning Pods to specific nodes. Still in some cases more complex tuning may be needed. In this case ``advanced`` option placed in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file turns off the effect of the ``topologyKey`` and allows to use standard Kubernetes affinity constraints of any complexity:
 
    ```
    affinity:
@@ -105,7 +105,7 @@ The [Kubernetes Taints and Toleratins](https://kubernetes.io/docs/concepts/confi
 
 ## Priority Classes
 
-Pods may belong to some *priority classes*. This allows scheduler to distinguish more and less important Pods to resolve the situation when some higher priority Pod cannot be scheduled without evicting a lower priority one. This can be done adding one or more PriorityClasses in your Kubernetes cluster, and specifying  the ``PriorityClassName`` in the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file:
+Pods may belong to some *priority classes*. This allows scheduler to distinguish more and less important Pods to resolve the situation when some higher priority Pod cannot be scheduled without evicting a lower priority one. This can be done adding one or more PriorityClasses in your Kubernetes cluster, and specifying  the ``PriorityClassName`` in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file:
 
    ```
    priorityClassName: high-priority

@@ -1,7 +1,7 @@
 Custom Resource options
 ==============================================================
 
-The operator is configured via the spec section of the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. This file contains the following spec sections to configure three main subsystems of the cluster: 
+The operator is configured via the spec section of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. This file contains the following spec sections to configure three main subsystems of the cluster: 
 
 | Key      | Value Type | Description                               |
 |----------|------------|-------------------------------------------|
@@ -72,7 +72,7 @@ The ``pmm`` section in the deploy/cr.yaml file contains configuration options fo
 
 ## backup section
 
-The ``backup`` section in the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file contains the following configuration options for the regular Percona XtraDB Cluster backups.
+The ``backup`` section in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file contains the following configuration options for the regular Percona XtraDB Cluster backups.
 
 | Key                            | Value Type | Default   | Description |
 |--------------------------------|------------|-----------|-------------|

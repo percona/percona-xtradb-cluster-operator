@@ -2,16 +2,16 @@ Providing Backups
 ==============================================================
 
 Percona XtraDB Cluster Operator allows doing cluster backup in two ways.
-*Scheduled backups* are configured in the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file to be executed automatically in proper time.
+*Scheduled backups* are configured in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file to be executed automatically in proper time.
 *On-demand backups* can be done manually at any moment.
 
 ## Making scheduled backups
 
-Backups schedule is defined in the  ``backup`` section of the [deploy/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. The schedule is specified in crontab format as explained in the [Operator Options](https://percona-lab.github.io/percona-xtradb-cluster-operator/configure/operator).
+Backups schedule is defined in the  ``backup`` section of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. The schedule is specified in crontab format as explained in the [Operator Options](https://percona-lab.github.io/percona-xtradb-cluster-operator/configure/operator).
 
 ## Making on-demand backup
 
-To make on-demand backup, user should use YAML file with correct names for the backup and the PXC Cluster, and correct PVC settings. The example of such file is [deploy/backup/cr.yaml](https://github.com/Percona-Lab/percona-xtradb-cluster-operator/blob/master/deploy/backup/cr.yaml).
+To make on-demand backup, user should use YAML file with correct names for the backup and the PXC Cluster, and correct PVC settings. The example of such file is [deploy/backup/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/cr.yaml).
 
 When the backup config file is ready, actual backup command is executed:
 

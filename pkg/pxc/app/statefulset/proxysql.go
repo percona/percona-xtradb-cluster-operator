@@ -211,36 +211,7 @@ func (c *Proxy) Resources(spec *api.PodResources) (corev1.ResourceRequirements, 
 }
 
 func (c *Proxy) Volumes(podSpec *api.PodSpec) *api.Volume {
-	var (
-		volume     api.Volume
-		dataVolume corev1.VolumeSource
-	)
-
-	// 1. check whether PVC is existed
-	if podSpec.VolumeSpec.PersistentVolumeClaim != nil {
-		pvcs := app.PVCs(proxyDataVolumeName, &podSpec.VolumeSpec)
-		volume.PVCs = pvcs
-		return &volume
-	}
-
-	// 2. check whether hostPath is existed.
-	if podSpec.VolumeSpec.HostPath != nil {
-		dataVolume.HostPath = podSpec.VolumeSpec.HostPath
-	}
-
-	// 3. check whether emptyDir is existed.
-	if podSpec.VolumeSpec.EmptyDir != nil {
-		dataVolume.EmptyDir = podSpec.VolumeSpec.EmptyDir
-	}
-
-	volume.Volumes = []corev1.Volume{
-		corev1.Volume{
-			VolumeSource: dataVolume,
-			Name:         proxyDataVolumeName,
-		},
-	}
-
-	return &volume
+	return app.Volumes(podSpec, proxyDataVolumeName)
 }
 
 func (c *Proxy) StatefulSet() *appsv1.StatefulSet {

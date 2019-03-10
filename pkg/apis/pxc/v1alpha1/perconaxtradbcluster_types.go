@@ -73,7 +73,7 @@ type PodSpec struct {
 	Size                int32                                  `json:"size,omitempty"`
 	Image               string                                 `json:"image,omitempty"`
 	Resources           *PodResources                          `json:"resources,omitempty"`
-	VolumeSpec          VolumeSpec                             `json:"volumeSpec,omitempty"`
+	VolumeSpec          *VolumeSpec                            `json:"volumeSpec,omitempty"`
 	Affinity            *PodAffinity                           `json:"affinity,omitempty"`
 	NodeSelector        map[string]string                      `json:"nodeSelector,omitempty"`
 	Tolerations         []corev1.Toleration                    `json:"tolerations,omitempty"`
@@ -175,6 +175,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 
 	c := cr.Spec
 	if c.PXC != nil {
+		if c.PXC.VolumeSpec == nil {
+			return fmt.Errorf("PXC: volumeSpec should be specified")
+		}
 		err := c.PXC.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return fmt.Errorf("PXC.Volume: %v", err)
@@ -201,6 +204,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+		if c.ProxySQL.VolumeSpec == nil {
+			return fmt.Errorf("ProxySQL: volumeSpec should be specified")
+		}
 		err := c.ProxySQL.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return fmt.Errorf("ProxySQL.Volume: %v", err)
@@ -221,6 +227,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 		}
 
 		for _, sch := range c.Backup.Schedule {
+			if sch.Volume == nil {
+				return fmt.Errorf("backup %s: volumeSpec should be specified", sch.Name)
+			}
 			err := sch.Volume.reconcileOpts()
 			if err != nil {
 				return fmt.Errorf("backup.Volume: %v", err)

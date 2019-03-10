@@ -22,6 +22,7 @@ package v1alpha1
 
 import (
 	v1 "k8s.io/api/core/v1"
+	v1beta1 "k8s.io/api/policy/v1beta1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -370,7 +371,11 @@ func (in *PodSpec) DeepCopyInto(out *PodSpec) {
 		*out = new(PodResources)
 		(*in).DeepCopyInto(*out)
 	}
-	in.VolumeSpec.DeepCopyInto(&out.VolumeSpec)
+	if in.VolumeSpec != nil {
+		in, out := &in.VolumeSpec, &out.VolumeSpec
+		*out = new(VolumeSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Affinity != nil {
 		in, out := &in.Affinity, &out.Affinity
 		*out = new(PodAffinity)
@@ -408,6 +413,11 @@ func (in *PodSpec) DeepCopyInto(out *PodSpec) {
 		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
 		*out = make([]v1.LocalObjectReference, len(*in))
 		copy(*out, *in)
+	}
+	if in.PodDisruptionBudget != nil {
+		in, out := &in.PodDisruptionBudget, &out.PodDisruptionBudget
+		*out = new(v1beta1.PodDisruptionBudgetSpec)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }

@@ -15,8 +15,9 @@ const (
 )
 
 type Proxy struct {
-	sfs    *appsv1.StatefulSet
-	lables map[string]string
+	sfs     *appsv1.StatefulSet
+	lables  map[string]string
+	service string
 }
 
 func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
@@ -26,20 +27,21 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + app.Name + "-" + proxyName,
+			Name:      cr.Name + "-" + proxyName,
 			Namespace: cr.Namespace,
 		},
 	}
 
 	lables := map[string]string{
 		"app":       app.Name,
-		"component": cr.Name + "-" + app.Name + "-proxysql",
+		"component": cr.Name + "-" + proxyName,
 		"cluster":   cr.Name,
 	}
 
 	return &Proxy{
-		sfs:    sfs,
-		lables: lables,
+		sfs:     sfs,
+		lables:  lables,
+		service: cr.Name + "-proxysql-headless",
 	}
 }
 
@@ -83,29 +85,97 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 				},
 			},
 			{
-				Name:  "MYSQL_PROXY_USER",
-				Value: "proxyuser",
-			},
-			{
-				Name: "MYSQL_PROXY_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "proxyuser"),
-				},
-			},
-			{
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 				},
 			},
-			{
-				Name:  "PXCSERVICE",
-				Value: c.lables["cluster"] + "-" + c.lables["app"] + "-nodes",
-			},
 		},
 	}
 
 	return appc
+}
+
+func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container {
+	return []corev1.Container{
+		{
+			Name:            "pxc-monit",
+			Image:           spec.Image,
+			ImagePullPolicy: corev1.PullAlways,
+			Args: []string{
+				"/usr/bin/peer-list",
+				"-on-change=/usr/bin/add_pxc_nodes.sh",
+				"-service=$(PXC_SERVICE)",
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "PXC_SERVICE",
+					Value: c.lables["cluster"] + "-" + c.lables["app"],
+				},
+				{
+					Name: "MYSQL_ROOT_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+					},
+				},
+				{
+					Name:  "PROXY_ADMIN_USER",
+					Value: "proxyadmin",
+				},
+				{
+					Name: "PROXY_ADMIN_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
+					},
+				},
+				{
+					Name: "MONITOR_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					},
+				},
+			},
+		},
+
+		{
+			Name:            "proxysql-monit",
+			Image:           spec.Image,
+			ImagePullPolicy: corev1.PullAlways,
+			Args: []string{
+				"/usr/bin/peer-list",
+				"-on-change=/usr/bin/add_proxysql_nodes.sh",
+				"-service=$(PROXYSQL_SERVICE)",
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "PROXYSQL_SERVICE",
+					Value: c.lables["cluster"] + "-proxysql-headless",
+				},
+				{
+					Name: "MYSQL_ROOT_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+					},
+				},
+				{
+					Name:  "PROXY_ADMIN_USER",
+					Value: "proxyadmin",
+				},
+				{
+					Name: "PROXY_ADMIN_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
+					},
+				},
+				{
+					Name: "MONITOR_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					},
+				},
+			},
+		},
+	}
 }
 
 func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container {
@@ -179,4 +249,8 @@ func (c *Proxy) StatefulSet() *appsv1.StatefulSet {
 
 func (c *Proxy) Lables() map[string]string {
 	return c.lables
+}
+
+func (c *Proxy) Service() string {
+	return c.service
 }

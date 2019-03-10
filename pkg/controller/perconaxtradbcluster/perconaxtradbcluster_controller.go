@@ -169,7 +169,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("proxySQL upgrade error: %v", err)
+			return reconcile.Result{}, fmt.Errorf("ProxySQL upgrade error: %v", err)
 		}
 	} else {
 		// check if there is need to delete pvc
@@ -274,6 +274,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return fmt.Errorf("create newStatefulSetProxySQL: %v", err)
 		}
 
+		// ProxySQL Service
 		proxys := pxc.NewServiceProxySQL(cr)
 		err = setControllerReference(cr, proxys, r.scheme)
 		if err != nil {
@@ -282,7 +283,19 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("create PXC Service: %v", err)
+			return fmt.Errorf("create ProxySQL Service: %v", err)
+		}
+
+		// ProxySQL Headless Service
+		proxysh := pxc.NewServiceProxySQLHeadless(cr)
+		err = setControllerReference(cr, proxysh, r.scheme)
+		if err != nil {
+			return err
+		}
+
+		err = r.client.Create(context.TODO(), proxysh)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("create ProxySQL Headless Service: %v", err)
 		}
 
 		// PodDisruptionBudget object for ProxySQL

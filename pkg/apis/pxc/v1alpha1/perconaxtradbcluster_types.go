@@ -148,6 +148,7 @@ type ServerVersion struct {
 
 type App interface {
 	AppContainer(spec *PodSpec, secrets string) corev1.Container
+	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
 	PMMContainer(spec *PMMSpec, secrets string) corev1.Container
 	Volumes(podSpec *PodSpec) *Volume
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
@@ -157,6 +158,7 @@ type App interface {
 type StatefulApp interface {
 	App
 	StatefulSet() *appsv1.StatefulSet
+	Service() string
 }
 
 const clusterNameMaxLen = 22

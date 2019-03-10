@@ -15,7 +15,7 @@ func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + appName + "-nodes",
+			Name:      cr.Name + "-" + appName,
 			Namespace: cr.Namespace,
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
@@ -34,7 +34,7 @@ func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 			ClusterIP: "None",
 			Selector: map[string]string{
-				"component": cr.Name + "-" + appName + "-nodes",
+				"component": cr.Name + "-" + appName,
 			},
 		},
 	}
@@ -42,15 +42,18 @@ func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	return obj
 }
 
-func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
+func NewServiceProxySQLHeadless(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + appName + "-proxysql",
+			Name:      cr.Name + "-proxysql-headless",
 			Namespace: cr.Namespace,
+			Annotations: map[string]string{
+				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
+			},
 			Labels: map[string]string{
 				"app":     appName,
 				"cluster": cr.Name,
@@ -77,8 +80,44 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 					},
 				},
 			},
+			ClusterIP: "None",
 			Selector: map[string]string{
-				"component": cr.Name + "-" + appName + "-proxysql",
+				"component": cr.Name + "-proxysql",
+			},
+		},
+	}
+
+	return obj
+}
+
+func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
+	obj := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-proxysql",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":     appName,
+				"cluster": cr.Name,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port:     3306,
+					Name:     "mysql",
+					Protocol: corev1.ProtocolTCP,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 3306,
+					},
+				},
+			},
+			Selector: map[string]string{
+				"component": cr.Name + "-proxysql",
 			},
 		},
 	}

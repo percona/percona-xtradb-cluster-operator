@@ -23,7 +23,7 @@ func (r *ReconcilePerconaXtraDBBackup) SelectNode(cr *api.PerconaXtraDBBackup) (
 			LabelSelector: labels.SelectorFromSet(map[string]string{
 				"app":       "pxc",
 				"cluster":   cr.Spec.PXCCluster,
-				"component": cr.Spec.PXCCluster + "-pxc-proxysql",
+				"component": cr.Spec.PXCCluster + "-proxysql",
 			}),
 		},
 		&proxysqlList,
@@ -75,7 +75,7 @@ func (r *ReconcilePerconaXtraDBBackup) SelectNode(cr *api.PerconaXtraDBBackup) (
 			LabelSelector: labels.SelectorFromSet(map[string]string{
 				"app":       "pxc",
 				"cluster":   cr.Spec.PXCCluster,
-				"component": cr.Spec.PXCCluster + "-pxc-nodes",
+				"component": cr.Spec.PXCCluster + "-pxc",
 			}),
 		},
 		&pxcnodesList,

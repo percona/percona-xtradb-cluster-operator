@@ -38,6 +38,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		return nil, err
 	}
 	pod.Containers = append(pod.Containers, appC)
+	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 
 	if cr.Spec.PMM.Enabled {
 		pod.Containers = append(pod.Containers, sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName))
@@ -56,7 +57,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		Selector: &metav1.LabelSelector{
 			MatchLabels: ls,
 		},
-		ServiceName: ls["component"],
+		ServiceName: sfs.Service(),
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      ls,

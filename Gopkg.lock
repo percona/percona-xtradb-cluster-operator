@@ -285,6 +285,27 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:e8ac74edf33c83b0c87ee511d1ce38d91cac08da616696314413747ff01fa95c"
+  name = "github.com/percona/percona-xtradb-cluster-operator"
+  packages = [
+    "clientcmd",
+    "pkg/apis",
+    "pkg/apis/pxc/v1alpha1",
+    "pkg/controller",
+    "pkg/controller/perconaxtradbbackup",
+    "pkg/controller/perconaxtradbcluster",
+    "pkg/pxc",
+    "pkg/pxc/app",
+    "pkg/pxc/app/configmap",
+    "pkg/pxc/app/statefulset",
+    "pkg/pxc/backup",
+    "version",
+  ]
+  pruneopts = "NT"
+  revision = "a6355d1be641041433d6b3c6c3d9498bc8781665"
+
+[[projects]]
+  branch = "master"
   digest = "1:bf2ac97824a7221eb16b096aecc1c390d4c8a4e49524386aaa2e2dd215cbfb31"
   name = "github.com/petar/GoLLRB"
   packages = ["llrb"]
@@ -748,12 +769,25 @@
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/ready",
     "github.com/operator-framework/operator-sdk/version",
+    "github.com/percona/percona-xtradb-cluster-operator/clientcmd",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/apis",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/controller",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/controller/perconaxtradbbackup",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/controller/perconaxtradbcluster",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset",
+    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup",
+    "github.com/percona/percona-xtradb-cluster-operator/version",
     "k8s.io/api/apps/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v1beta1",
     "k8s.io/api/core/v1",
     "k8s.io/api/policy/v1beta1",
     "k8s.io/apimachinery/pkg/api/errors",
+    "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/labels",

@@ -2,9 +2,12 @@ package backup
 
 import (
 	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/url"
+	"strings"
 
 	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
@@ -100,22 +103,42 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pvcName, pxcNode string, sv *
 					SecretKeyRef: app.SecretKeySelector(storageSpec.S3.CredentialsSecret, "secretKey"),
 				},
 			}
-			bucket := corev1.EnvVar{
+			region := corev1.EnvVar{
 				Name:  "AWS_DEFAULT_REGION",
 				Value: storageSpec.S3.Region,
-			}
-			region := corev1.EnvVar{
-				Name:  "AWS_S3_BUCKET",
-				Value: storageSpec.S3.Bucket,
 			}
 			endpoint := corev1.EnvVar{
 				Name:  "AWS_ENDPOINT_URL",
 				Value: storageSpec.S3.EndpointURL,
 			}
+			job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, endpoint)
 
-			job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, bucket, endpoint)
+			u, err := parseS3URL(storageSpec.S3.Bucket)
+			if err != nil {
+				continue
+			}
+			bucket := corev1.EnvVar{
+				Name:  "AWS_S3_BUCKET",
+				Value: u.Host,
+			}
+			bucketPath := corev1.EnvVar{
+				Name:  "AWS_S3_BUCKET_PATH",
+				Value: strings.TrimLeft(u.Path, "/"),
+			}
+			job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
 		}
 	}
 
 	return job
+}
+
+func parseS3URL(bucketUrl string) (*url.URL, error) {
+	u, err := url.Parse(bucketUrl)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse s3 URL")
+	}
+	if u.Scheme != "s3" {
+		return nil, errors.New("invalid scheme")
+	}
+	return u, nil
 }

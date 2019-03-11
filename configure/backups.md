@@ -7,7 +7,7 @@ Percona XtraDB Cluster Operator allows doing cluster backup in two ways.
 
 ## Making scheduled backups
 
-Backups schedule is defined in the  ``backup`` section of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. The schedule is specified in crontab format as explained in the [Operator Options](https://percona-lab.github.io/percona-xtradb-cluster-operator/configure/operator).
+Backups schedule is defined in the  ``backup`` section of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. The schedule is specified in crontab format as explained in the [Operator Options](https://percona.github.io/percona-xtradb-cluster-operator/configure/operator).
 
 ## Making on-demand backup
 

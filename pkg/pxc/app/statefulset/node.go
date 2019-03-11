@@ -149,37 +149,10 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 }
 
 func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
-	var (
-		volume     api.Volume
-		dataVolume corev1.VolumeSource
-	)
+	vol := app.Volumes(podSpec, dataVolumeName)
+	vol.Volumes = append(vol.Volumes, app.GetConfigVolumes(c.Lables()["component"]))
 
-	configVolume := app.GetConfigVolumes(c.Lables()["component"])
-	volume.Volumes = append(volume.Volumes, configVolume)
-
-	// 2. check whether PVC is existed
-	if podSpec.VolumeSpec.PersistentVolumeClaim != nil {
-		pvcs := app.PVCs(dataVolumeName, &podSpec.VolumeSpec)
-		volume.PVCs = pvcs
-		return &volume
-	}
-
-	// 3. check whether hostPath is existed.
-	if podSpec.VolumeSpec.HostPath != nil {
-		dataVolume.HostPath = podSpec.VolumeSpec.HostPath
-	}
-
-	// 4. check whether emptyDir is existed.
-	if podSpec.VolumeSpec.EmptyDir != nil {
-		dataVolume.EmptyDir = podSpec.VolumeSpec.EmptyDir
-	}
-
-	volume.Volumes = append(volume.Volumes, corev1.Volume{
-		VolumeSource: dataVolume,
-		Name:         dataVolumeName,
-	})
-
-	return &volume
+	return vol
 }
 
 func (c *Node) StatefulSet() *appsv1.StatefulSet {

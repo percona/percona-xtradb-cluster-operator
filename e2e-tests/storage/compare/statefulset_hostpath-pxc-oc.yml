@@ -4,14 +4,14 @@ metadata:
   generation: 1
   labels:
     app: pxc
-    cluster: another-name
-    component: another-name-pxc-nodes
-  name: another-name-pxc-node
+    cluster: hostpath
+    component: hostpath-pxc
+  name: hostpath-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: another-name
+    name: hostpath
 spec:
   podManagementPolicy: OrderedReady
   replicas: 3
@@ -19,15 +19,15 @@ spec:
   selector:
     matchLabels:
       app: pxc
-      cluster: another-name
-      component: another-name-pxc-nodes
-  serviceName: another-name-pxc-nodes
+      cluster: hostpath
+      component: hostpath-pxc
+  serviceName: hostpath-pxc
   template:
     metadata:
       labels:
         app: pxc
-        cluster: another-name
-        component: another-name-pxc-nodes
+        cluster: hostpath
+        component: hostpath-pxc
     spec:
       affinity:
         podAntiAffinity:
@@ -41,12 +41,12 @@ spec:
               - key: cluster
                 operator: In
                 values:
-                - another-name
+                - hostpath
               - key: component
                 operator: In
                 values:
-                - another-name-pxc-nodes
-            topologyKey: failure-domain.beta.kubernetes.io/zone
+                - hostpath-pxc
+            topologyKey: kubernetes.io/hostname
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD
@@ -79,7 +79,7 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           timeoutSeconds: 5
-        name: node
+        name: pxc
         ports:
         - containerPort: 3306
           name: mysql
@@ -93,13 +93,7 @@ spec:
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 15
-        resources:
-          limits:
-            cpu: "1"
-            memory: 1G
-          requests:
-            cpu: 600m
-            memory: 1G
+        resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -115,24 +109,16 @@ spec:
         - 99
       terminationGracePeriodSeconds: 30
       volumes:
+      - hostPath:
+          path: /tmp/data-dir
+          type: Directory
+        name: datadir
       - configMap:
           defaultMode: 420
-          name: another-name-pxc-nodes
+          name: hostpath-pxc
           optional: true
         name: config-volume
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
-  volumeClaimTemplates:
-  - metadata:
-      name: datadir
-    spec:
-      accessModes:
-      - ReadOnlyMany
-      resources:
-        requests:
-          storage: 7Gi
-      storageClassName: local-storage
-    status:
-      phase: Pending

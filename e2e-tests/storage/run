@@ -6,19 +6,50 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-create_namespace $namespace
-deploy_operator
+check_cr_config() {
+    local cluster="$1"
 
-desc 'check if possible to create cluster with modified storageClass'
-cluster2="another-name-pxc"
-kubectl apply -f $test_dir/conf/$cluster2.yml
-sleep 2
-desc 'check if service and statefulset created'
-compare_kubectl service/$cluster2-nodes
-compare_kubectl service/$cluster2-proxysql
-desc 'check if storageClass changed'
-compare_kubectl statefulset/$cluster2-node
-compare_kubectl statefulset/$cluster2-proxysql
-kubectl delete -f $test_dir/conf/$cluster2.yml
+    # apply cr config
+    kubectl apply \
+        -f $test_dir/conf/$cluster.yml
 
-destroy $namespace
+    # check if at least 1 Pod started
+    wait_for_running $cluster-pxc 3
+
+    # check if statefulset created with expected config
+    compare_kubectl statefulset/$cluster-pxc
+
+    # write data, read from all
+    run_mysql \
+        'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+        "-h $cluster-pxc -uroot -proot_password"
+    run_mysql \
+        'INSERT myApp.myApp (id) VALUES (100500)' \
+        "-h $cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+
+    # delete cluster
+    kubectl delete \
+        -f $test_dir/conf/$cluster.yml
+}
+
+main() {
+    create_namespace $namespace
+    deploy_operator
+    kubectl apply \
+        -f $conf_dir/client.yml \
+        -f $conf_dir/secrets.yml \
+        -f $test_dir/conf/hostpath-helper.yml
+
+    desc 'check emptydir'
+    check_cr_config "emptydir"
+
+    desc 'check hostpath'
+    check_cr_config "hostpath"
+
+    destroy $namespace
+}
+
+main

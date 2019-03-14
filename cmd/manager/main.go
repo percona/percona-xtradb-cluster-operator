@@ -7,9 +7,9 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis"
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/controller"
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/version"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/ready"

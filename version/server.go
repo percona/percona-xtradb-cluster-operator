@@ -8,8 +8,8 @@ import (
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/rest"
 
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/clientcmd"
-	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
 var (

@@ -5,18 +5,18 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
-	app "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
 const (
-	nodeName       = "node"
 	dataVolumeName = "datadir"
 )
 
 type Node struct {
-	sfs    *appsv1.StatefulSet
-	lables map[string]string
+	sfs     *appsv1.StatefulSet
+	lables  map[string]string
+	service string
 }
 
 func NewNode(cr *api.PerconaXtraDBCluster) *Node {
@@ -26,26 +26,27 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 			Kind:       "StatefulSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + app.Name + "-" + nodeName,
+			Name:      cr.Name + "-" + app.Name,
 			Namespace: cr.Namespace,
 		},
 	}
 
 	lables := map[string]string{
 		"app":       app.Name,
-		"component": cr.Name + "-" + app.Name + "-nodes",
+		"component": cr.Name + "-" + app.Name,
 		"cluster":   cr.Name,
 	}
 
 	return &Node{
-		sfs:    sfs,
-		lables: lables,
+		sfs:     sfs,
+		lables:  lables,
+		service: cr.Name + "-" + app.Name,
 	}
 }
 
 func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container {
 	appc := corev1.Container{
-		Name:            nodeName,
+		Name:            app.Name,
 		Image:           spec.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		ReadinessProbe: app.Probe(&corev1.Probe{
@@ -106,6 +107,8 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 	return appc
 }
 
+func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
+
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container {
 	ct := app.PMMClient(spec, secrets)
 
@@ -146,37 +149,10 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 }
 
 func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
-	var (
-		volume     api.Volume
-		dataVolume corev1.VolumeSource
-	)
+	vol := app.Volumes(podSpec, dataVolumeName)
+	vol.Volumes = append(vol.Volumes, app.GetConfigVolumes(c.Lables()["component"]))
 
-	configVolume := app.GetConfigVolumes(c.Labels()["component"])
-	volume.Volumes = append(volume.Volumes, configVolume)
-
-	// 2. check whether PVC is existed
-	if podSpec.VolumeSpec.PersistentVolumeClaim != nil {
-		pvcs := app.PVCs(dataVolumeName, &podSpec.VolumeSpec)
-		volume.PVCs = pvcs
-		return &volume
-	}
-
-	// 3. check whether hostPath is existed.
-	if podSpec.VolumeSpec.HostPath != nil {
-		dataVolume.HostPath = podSpec.VolumeSpec.HostPath
-	}
-
-	// 4. check whether emptyDir is existed.
-	if podSpec.VolumeSpec.EmptyDir != nil {
-		dataVolume.EmptyDir = podSpec.VolumeSpec.EmptyDir
-	}
-
-	volume.Volumes = append(volume.Volumes, corev1.Volume{
-		VolumeSource: dataVolume,
-		Name:         dataVolumeName,
-	})
-
-	return &volume
+	return vol
 }
 
 func (c *Node) StatefulSet() *appsv1.StatefulSet {
@@ -185,4 +161,8 @@ func (c *Node) StatefulSet() *appsv1.StatefulSet {
 
 func (c *Node) Labels() map[string]string {
 	return c.lables
+}
+
+func (c *Node) Service() string {
+	return c.service
 }

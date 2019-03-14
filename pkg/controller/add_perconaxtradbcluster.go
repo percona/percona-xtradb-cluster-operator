@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/controller/perconaxtradbcluster"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller/perconaxtradbcluster"
 )
 
 func init() {

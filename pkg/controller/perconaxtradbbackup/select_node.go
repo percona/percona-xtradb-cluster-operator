@@ -10,8 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/clientcmd"
-	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
 // SelectNode returns appropriate pxc-node for make a backup from
@@ -23,7 +23,7 @@ func (r *ReconcilePerconaXtraDBBackup) SelectNode(cr *api.PerconaXtraDBBackup) (
 			LabelSelector: labels.SelectorFromSet(map[string]string{
 				"app":       "pxc",
 				"cluster":   cr.Spec.PXCCluster,
-				"component": cr.Spec.PXCCluster + "-pxc-proxysql",
+				"component": cr.Spec.PXCCluster + "-proxysql",
 			}),
 		},
 		&proxysqlList,
@@ -75,7 +75,7 @@ func (r *ReconcilePerconaXtraDBBackup) SelectNode(cr *api.PerconaXtraDBBackup) (
 			LabelSelector: labels.SelectorFromSet(map[string]string{
 				"app":       "pxc",
 				"cluster":   cr.Spec.PXCCluster,
-				"component": cr.Spec.PXCCluster + "-pxc-nodes",
+				"component": cr.Spec.PXCCluster + "-pxc",
 			}),
 		},
 		&pxcnodesList,

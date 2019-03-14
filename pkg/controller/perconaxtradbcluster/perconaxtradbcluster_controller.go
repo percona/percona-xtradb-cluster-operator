@@ -7,6 +7,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,11 +23,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc"
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/Percona-Lab/percona-xtradb-cluster-operator/version"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 var log = logf.Log.WithName("controller_perconaxtradbcluster")
@@ -169,7 +170,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("proxySQL upgrade error: %v", err)
+			return reconcile.Result{}, fmt.Errorf("ProxySQL upgrade error: %v", err)
 		}
 	} else {
 		// check if there is need to delete pvc
@@ -244,15 +245,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	// PodDisruptionBudget object for nodes
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, nodeSet)
 	if err == nil {
-		pdbPXC := pxc.PodDisruptionBudget(cr.Spec.PXC.PodDisruptionBudget, stsApp, cr.Namespace)
-		err = setControllerReference(nodeSet, pdbPXC, r.scheme)
+		err := r.reconcilePDB(cr.Spec.PXC.PodDisruptionBudget, stsApp, cr.Namespace, nodeSet)
 		if err != nil {
-			return err
-		}
-
-		err = r.client.Create(context.TODO(), pdbPXC)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("create PodDisruptionBudget-PXC: %v", err)
+			return fmt.Errorf("PodDisruptionBudget for %s: %v", nodeSet.Name, err)
 		}
 	} else if !errors.IsNotFound(err) {
 		return fmt.Errorf("get PXC stateful set: %v", err)
@@ -274,6 +269,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return fmt.Errorf("create newStatefulSetProxySQL: %v", err)
 		}
 
+		// ProxySQL Service
 		proxys := pxc.NewServiceProxySQL(cr)
 		err = setControllerReference(cr, proxys, r.scheme)
 		if err != nil {
@@ -282,22 +278,27 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 		err = r.client.Create(context.TODO(), proxys)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("create PXC Service: %v", err)
+			return fmt.Errorf("create ProxySQL Service: %v", err)
+		}
+
+		// ProxySQL Headless Service
+		proxysh := pxc.NewServiceProxySQLHeadless(cr)
+		err = setControllerReference(cr, proxysh, r.scheme)
+		if err != nil {
+			return err
+		}
+
+		err = r.client.Create(context.TODO(), proxysh)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("create ProxySQL Headless Service: %v", err)
 		}
 
 		// PodDisruptionBudget object for ProxySQL
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: proxySet.Name, Namespace: proxySet.Namespace}, proxySet)
 		if err == nil {
-			pdbProxySQL := pxc.PodDisruptionBudget(cr.Spec.ProxySQL.PodDisruptionBudget, sfsProxy, cr.Namespace)
-
-			err = setControllerReference(proxySet, pdbProxySQL, r.scheme)
+			err := r.reconcilePDB(cr.Spec.ProxySQL.PodDisruptionBudget, sfsProxy, cr.Namespace, proxySet)
 			if err != nil {
-				return err
-			}
-
-			err = r.client.Create(context.TODO(), pdbProxySQL)
-			if err != nil && !errors.IsAlreadyExists(err) {
-				return fmt.Errorf("create PodDisruptionBudget-ProxySQL: %v", err)
+				return fmt.Errorf("PodDisruptionBudget for %s: %v", proxySet.Name, err)
 			}
 		} else if !errors.IsNotFound(err) {
 			return fmt.Errorf("get ProxySQL stateful set: %v", err)
@@ -305,6 +306,30 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudgetSpec, sfs api.StatefulApp, namespace string, owner runtime.Object) error {
+	if spec == nil {
+		return nil
+	}
+
+	// pdb := psmdb.PodDisruptionBudget(spec, labels, namespace)
+	pdb := pxc.PodDisruptionBudget(spec, sfs, namespace)
+	err := setControllerReference(owner, pdb, r.scheme)
+	if err != nil {
+		return fmt.Errorf("set owner reference: %v", err)
+	}
+
+	cpdb := &policyv1beta1.PodDisruptionBudget{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pdb.Name, Namespace: namespace}, cpdb)
+	if err != nil && errors.IsNotFound(err) {
+		return r.client.Create(context.TODO(), pdb)
+	} else if err != nil {
+		return fmt.Errorf("get: %v", err)
+	}
+
+	cpdb.Spec = pdb.Spec
+	return r.client.Update(context.TODO(), cpdb)
 }
 
 // ErrWaitingForDeletingPods indicating that the stateful set have more than a one pods left

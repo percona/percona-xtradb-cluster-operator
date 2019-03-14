@@ -6,7 +6,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sversion "k8s.io/apimachinery/pkg/version"
@@ -70,21 +69,26 @@ type PerconaXtraDBClusterList struct {
 }
 
 type PodSpec struct {
-	Enabled             bool                                   `json:"enabled,omitempty"`
-	Size                int32                                  `json:"size,omitempty"`
-	Image               string                                 `json:"image,omitempty"`
-	Resources           *PodResources                          `json:"resources,omitempty"`
-	VolumeSpec          VolumeSpec                             `json:"volumeSpec,omitempty"`
-	Affinity            *PodAffinity                           `json:"affinity,omitempty"`
-	NodeSelector        map[string]string                      `json:"nodeSelector,omitempty"`
-	Tolerations         []corev1.Toleration                    `json:"tolerations,omitempty"`
-	PriorityClassName   string                                 `json:"priorityClassName,omitempty"`
-	Annotations         map[string]string                      `json:"annotations,omitempty"`
-	Labels              map[string]string                      `json:"labels,omitempty"`
-	ImagePullSecrets    []corev1.LocalObjectReference          `json:"imagePullSecrets,omitempty"`
-	AllowUnsafeConfig   bool                                   `json:"allowUnsafeConfigurations,omitempty"`
-	Configuration       string                                 `json:"configuration,omitempty"`
-	PodDisruptionBudget *policyv1beta1.PodDisruptionBudgetSpec `json:"podDisruptionBudget,omitempty"`
+	Enabled             bool                          `json:"enabled,omitempty"`
+	Size                int32                         `json:"size,omitempty"`
+	Image               string                        `json:"image,omitempty"`
+	Resources           *PodResources                 `json:"resources,omitempty"`
+	VolumeSpec          *VolumeSpec                    `json:"volumeSpec,omitempty"`
+	Affinity            *PodAffinity                  `json:"affinity,omitempty"`
+	NodeSelector        map[string]string             `json:"nodeSelector,omitempty"`
+	Tolerations         []corev1.Toleration           `json:"tolerations,omitempty"`
+	PriorityClassName   string                        `json:"priorityClassName,omitempty"`
+	Annotations         map[string]string             `json:"annotations,omitempty"`
+	Labels              map[string]string             `json:"labels,omitempty"`
+	ImagePullSecrets    []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	AllowUnsafeConfig   bool                          `json:"allowUnsafeConfigurations,omitempty"`
+	Configuration       string                        `json:"configuration,omitempty"`
+	PodDisruptionBudget *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
+}
+
+type PodDisruptionBudgetSpec struct {
+	MinAvailable   *intstr.IntOrString `json:"minAvailable,omitempty"`
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
 
 type PodAffinity struct {
@@ -169,6 +173,7 @@ type ServerVersion struct {
 
 type App interface {
 	AppContainer(spec *PodSpec, secrets string) corev1.Container
+	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
 	PMMContainer(spec *PMMSpec, secrets string) corev1.Container
 	Volumes(podSpec *PodSpec) *Volume
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
@@ -178,6 +183,7 @@ type App interface {
 type StatefulApp interface {
 	App
 	StatefulSet() *appsv1.StatefulSet
+	Service() string
 }
 
 const clusterNameMaxLen = 22
@@ -194,6 +200,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 
 	c := cr.Spec
 	if c.PXC != nil {
+		if c.PXC.VolumeSpec == nil {
+			return fmt.Errorf("PXC: volumeSpec should be specified")
+		}
 		err := c.PXC.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return fmt.Errorf("PXC.Volume: %v", err)
@@ -213,13 +222,16 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 		// It's a description of the number of pods from that set that can be unavailable after the eviction.
 		if c.PXC.PodDisruptionBudget == nil {
 			defaultMaxUnavailable := intstr.FromInt(1)
-			c.PXC.PodDisruptionBudget = &policyv1beta1.PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
+			c.PXC.PodDisruptionBudget = &PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
 		}
 
 		c.PXC.reconcileAffinityOpts()
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+		if c.ProxySQL.VolumeSpec == nil {
+			return fmt.Errorf("ProxySQL: volumeSpec should be specified")
+		}
 		err := c.ProxySQL.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return fmt.Errorf("ProxySQL.Volume: %v", err)
@@ -228,7 +240,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-ProxySQL.
 		if c.ProxySQL.PodDisruptionBudget == nil {
 			defaultMaxUnavailable := intstr.FromInt(1)
-			c.ProxySQL.PodDisruptionBudget = &policyv1beta1.PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
+			c.ProxySQL.PodDisruptionBudget = &PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
@@ -248,7 +260,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 			case BackupStorageS3:
 				//TODO what should we check here?
 			case BackupStorageFilesystem:
-				err := strg.Volume.reconcileOpts()
+				if sch.Volume == nil {
+					return fmt.Errorf("backup %s: volumeSpec should be specified", sch.Name)
+				}
+				err := sch.Volume.reconcileOpts()
 				if err != nil {
 					return fmt.Errorf("backup.Volume: %v", err)
 				}

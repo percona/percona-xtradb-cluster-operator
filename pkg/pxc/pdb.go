@@ -1,16 +1,14 @@
 package pxc
 
 import (
-	api "github.com/Percona-Lab/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func PodDisruptionBudget(spec *policyv1beta1.PodDisruptionBudgetSpec, app api.StatefulApp, namespace string) *policyv1beta1.PodDisruptionBudget {
+func PodDisruptionBudget(spec *api.PodDisruptionBudgetSpec, app api.StatefulApp, namespace string) *policyv1beta1.PodDisruptionBudget {
 	labels := app.Labels()
-	spec.Selector = &metav1.LabelSelector{
-		MatchLabels: labels,
-	}
 
 	return &policyv1beta1.PodDisruptionBudget{
 		TypeMeta: metav1.TypeMeta{
@@ -21,7 +19,13 @@ func PodDisruptionBudget(spec *policyv1beta1.PodDisruptionBudgetSpec, app api.St
 			Name:      labels["component"],
 			Namespace: namespace,
 		},
-		Spec: *spec,
+		Spec: policyv1beta1.PodDisruptionBudgetSpec{
+			MinAvailable:   spec.MinAvailable,
+			MaxUnavailable: spec.MaxUnavailable,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+		},
 	}
 
 }

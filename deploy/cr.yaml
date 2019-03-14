@@ -67,7 +67,7 @@ spec:
   proxysql:
     enabled: true
     size: 1
-    image: perconalab/proxysql-openshift:0.2.0
+    image: perconalab/proxysql-openshift:0.3.0
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:

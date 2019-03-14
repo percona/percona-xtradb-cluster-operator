@@ -135,10 +135,4 @@ spec:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"
         keep: 3
-        volume:
-          persistentVolumeClaim:
-            # storageClassName: standard
-            # accessModes: [ "ReadWriteOnce" ]
-            # resources:
-            #   requests:
-            #     storage: 6Gi
+        storageName: s3-us-west

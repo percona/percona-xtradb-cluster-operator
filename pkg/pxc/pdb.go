@@ -7,7 +7,7 @@ import (
 )
 
 func PodDisruptionBudget(spec *policyv1beta1.PodDisruptionBudgetSpec, app api.StatefulApp, namespace string) *policyv1beta1.PodDisruptionBudget {
-	labels := app.Lables()
+	labels := app.Labels()
 	spec.Selector = &metav1.LabelSelector{
 		MatchLabels: labels,
 	}

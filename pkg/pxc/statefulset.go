@@ -43,7 +43,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.Containers = append(pod.Containers, sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName))
 	}
 
-	ls := sfs.Lables()
+	ls := sfs.Labels()
 	for k, v := range podSpec.Labels {
 		if _, ok := ls[k]; !ok {
 			ls[k] = v
@@ -83,7 +83,7 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 	case af.Advanced != nil:
 		return af.Advanced
 	case af.TopologyKey != nil:
-		lables := app.Lables()
+		labels := app.Labels()
 		return &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -93,17 +93,17 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 								{
 									Key:      "app",
 									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{lables["app"]},
+									Values:   []string{labels["app"]},
 								},
 								{
 									Key:      "cluster",
 									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{lables["cluster"]},
+									Values:   []string{labels["cluster"]},
 								},
 								{
 									Key:      "component",
 									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{lables["component"]},
+									Values:   []string{labels["component"]},
 								},
 							},
 						},

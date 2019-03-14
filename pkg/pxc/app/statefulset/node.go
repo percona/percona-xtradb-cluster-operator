@@ -151,7 +151,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 		dataVolume corev1.VolumeSource
 	)
 
-	configVolume := app.GetConfigVolumes(c.Lables()["component"])
+	configVolume := app.GetConfigVolumes(c.Labels()["component"])
 	volume.Volumes = append(volume.Volumes, configVolume)
 
 	// 2. check whether PVC is existed
@@ -183,6 +183,6 @@ func (c *Node) StatefulSet() *appsv1.StatefulSet {
 	return c.sfs
 }
 
-func (c *Node) Lables() map[string]string {
+func (c *Node) Labels() map[string]string {
 	return c.lables
 }

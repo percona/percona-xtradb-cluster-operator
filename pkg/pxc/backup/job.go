@@ -29,7 +29,7 @@ func (*Backup) Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pvcName, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, strg api.BackupStorageSpec, pvcName, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}

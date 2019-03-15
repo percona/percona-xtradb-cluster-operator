@@ -1,13 +1,16 @@
 package backup
 
 import (
+	"net/url"
+	"strings"
+
+	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/pkg/errors"
+
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
-	"net/url"
-	"strings"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
 func (*Backup) Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {

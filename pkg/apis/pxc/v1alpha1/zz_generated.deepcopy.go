@@ -46,7 +46,11 @@ func (in *BackupStorageS3Spec) DeepCopy() *BackupStorageS3Spec {
 func (in *BackupStorageSpec) DeepCopyInto(out *BackupStorageSpec) {
 	*out = *in
 	out.S3 = in.S3
-	in.Volume.DeepCopyInto(&out.Volume)
+	if in.Volume != nil {
+		in, out := &in.Volume, &out.Volume
+		*out = new(VolumeSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

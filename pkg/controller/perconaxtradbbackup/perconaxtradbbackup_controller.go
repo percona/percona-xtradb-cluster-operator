@@ -144,7 +144,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	case api.BackupStorageFilesystem:
 
 		pvc := backup.NewPVC(instance)
-		pvc.Spec = app.VolumeSpec(&bcpStorage.Volume)
+		pvc.Spec = app.VolumeSpec(bcpStorage.Volume)
 
 		// Set PerconaXtraDBBackup instance as the owner and controller
 		if err := setControllerReference(instance, pvc, r.scheme); err != nil {

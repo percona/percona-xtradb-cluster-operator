@@ -25,13 +25,14 @@ type PXCScheduledBackup struct {
 	Image            string                        `json:"image,omitempty"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	Schedule         []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
+	Storages         map[string]BackupStorageSpec  `json:"storages,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
-	Name     string      `json:"name,omitempty"`
-	Schedule string      `json:"schedule,omitempty"`
-	Keep     int         `json:"keep,omitempty"`
-	Volume   *VolumeSpec `json:"volume,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Schedule    string `json:"schedule,omitempty"`
+	Keep        int    `json:"keep,omitempty"`
+	StorageName string `json:"storageName,omitempty"`
 }
 
 type ClusterState string
@@ -112,6 +113,26 @@ type ResourcesList struct {
 	CPU    string `json:"cpu,omitempty"`
 }
 
+type BackupStorageSpec struct {
+	Type   BackupStorageType   `json:"type"`
+	S3     BackupStorageS3Spec `json:"s3,omitempty"`
+	Volume VolumeSpec
+}
+
+type BackupStorageType string
+
+const (
+	BackupStorageFilesystem BackupStorageType = "filesystem"
+	BackupStorageS3         BackupStorageType = "s3"
+)
+
+type BackupStorageS3Spec struct {
+	Bucket            string `json:"bucket"`
+	CredentialsSecret string `json:"credentialsSecret"`
+	Region            string `json:"region,omitempty"`
+	EndpointURL       string `json:"endpointUrl,omitempty"`
+}
+
 type VolumeSpec struct {
 	// EmptyDir to use as data volume for mysql. EmptyDir represents a temporary
 	// directory that shares a pod's lifetime.
@@ -156,7 +177,7 @@ type App interface {
 	PMMContainer(spec *PMMSpec, secrets string) corev1.Container
 	Volumes(podSpec *PodSpec) *Volume
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
-	Lables() map[string]string
+	Labels() map[string]string
 }
 
 type StatefulApp interface {
@@ -231,12 +252,21 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 		}
 
 		for _, sch := range c.Backup.Schedule {
-			if sch.Volume == nil {
-				return fmt.Errorf("backup %s: volumeSpec should be specified", sch.Name)
+			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
+			if !ok {
+				return fmt.Errorf("storage %s doesn't exist", sch.StorageName)
 			}
-			err := sch.Volume.reconcileOpts()
-			if err != nil {
-				return fmt.Errorf("backup.Volume: %v", err)
+			switch strg.Type {
+			case BackupStorageS3:
+				//TODO what should we check here?
+			case BackupStorageFilesystem:
+				if sch.Volume == nil {
+					return fmt.Errorf("backup %s: volumeSpec should be specified", sch.Name)
+				}
+				err := sch.Volume.reconcileOpts()
+				if err != nil {
+					return fmt.Errorf("backup.Volume: %v", err)
+				}
 			}
 		}
 	}

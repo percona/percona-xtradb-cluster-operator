@@ -204,7 +204,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	stsApp := statefulset.NewNode(cr)
 	if cr.Spec.PXC.Configuration != "" {
-		configMap := configmap.NewConfigMap(cr, stsApp.Lables()["component"])
+		configMap := configmap.NewConfigMap(cr, stsApp.Labels()["component"])
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return err
@@ -341,7 +341,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSetPods(namespace string, s
 	err := r.client.List(context.TODO(),
 		&client.ListOptions{
 			Namespace:     namespace,
-			LabelSelector: labels.SelectorFromSet(sfs.Lables()),
+			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
 		&list,
 	)
@@ -395,7 +395,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSet(namespace string, sfs a
 		return fmt.Errorf("delete proxysql: %v", err)
 	}
 	if deletePVC {
-		err = r.deletePVC(namespace, sfs.Lables())
+		err = r.deletePVC(namespace, sfs.Labels())
 		if err != nil {
 			return fmt.Errorf("delete proxysql pvc: %v", err)
 		}

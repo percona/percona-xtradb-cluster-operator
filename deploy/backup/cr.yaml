@@ -4,10 +4,4 @@ metadata:
   name: "backup1"
 spec:
   pxcCluster: "cluster1"
-  volume:
-    persistentVolumeClaim:
-      # storageClassName: standard
-      # accessModes: [ "ReadWriteOnce" ]
-      # resources:
-      #   requests:
-      #     storage: 6Gi
+  storageName: "s3-us-west"

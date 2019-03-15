@@ -8,7 +8,7 @@ import (
 )
 
 func PodDisruptionBudget(spec *api.PodDisruptionBudgetSpec, app api.StatefulApp, namespace string) *policyv1beta1.PodDisruptionBudget {
-	labels := app.Lables()
+	labels := app.Labels()
 
 	return &policyv1beta1.PodDisruptionBudget{
 		TypeMeta: metav1.TypeMeta{

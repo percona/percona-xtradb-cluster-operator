@@ -1,8 +1,6 @@
 package backup
 
 import (
-	"strconv"
-
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +25,7 @@ func New(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *Backup {
 	}
 }
 
-func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule) *batchv1beta1.CronJob {
+func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec) *batchv1beta1.CronJob {
 	jb := &batchv1beta1.CronJob{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1beta1",
@@ -53,7 +51,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule) *batchv1beta1
 		"type":    "xtrabackup",
 	}
 	jb.Spec.JobTemplate.Labels = jb.Labels
-	jb.Spec.JobTemplate.Spec = bcp.scheduledJob(spec)
+	jb.Spec.JobTemplate.Spec = bcp.scheduledJob(spec, strg)
 
 	jb.Spec.JobTemplate.SetOwnerReferences(
 		append(jb.Spec.JobTemplate.GetOwnerReferences(),
@@ -69,38 +67,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule) *batchv1beta1
 	return jb
 }
 
-func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule) batchv1.JobSpec {
-	var env []corev1.EnvVar
-	if spec.Volume.PersistentVolumeClaim != nil {
-		var storageSize int
-		requestStorage, ok := spec.Volume.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
-		if ok {
-			storageSize = requestStorage.Size()
-		}
-
-		env = []corev1.EnvVar{
-			{
-				Name:  "pxcCluster",
-				Value: bcp.cluster,
-			},
-			{
-				Name:  "size",
-				Value: strconv.Itoa(storageSize),
-			},
-			{
-				Name:  "suffix",
-				Value: genRandString(5),
-			},
-		}
-
-		if spec.Volume.PersistentVolumeClaim.StorageClassName != nil {
-			env = append(env, corev1.EnvVar{
-				Name:  "storageClass",
-				Value: *spec.Volume.PersistentVolumeClaim.StorageClassName,
-			},
-			)
-		}
-	}
+func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec) batchv1.JobSpec {
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
@@ -108,7 +75,16 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule) batchv1.Jo
 					{
 						Name:  "run-backup",
 						Image: bcp.image,
-						Env:   env,
+						Env: []corev1.EnvVar{
+							{
+								Name:  "pxcCluster",
+								Value: bcp.cluster,
+							},
+							{
+								Name:  "suffix",
+								Value: genRandString(5),
+							},
+						},
 						Args: []string{
 							"sh", "-c",
 							`
@@ -123,9 +99,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule) batchv1.Jo
 									    type: "cron"
 									spec:
 									  pxcCluster: "${pxcCluster}"
-									  volume:
-									    size: "${size}"
-									    ${storageClass:+storageClass: "$storageClass"}
+									  storageName: "` + spec.StorageName + `"
 							EOF
 							`,
 						},

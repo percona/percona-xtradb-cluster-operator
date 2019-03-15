@@ -1,10 +1,8 @@
 package v1alpha1
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
@@ -26,15 +24,15 @@ type PerconaXtraDBBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster string     `json:"pxcCluster"`
-	Volume     VolumeSpec `json:"volume,omitempty"`
+	PXCCluster  string `json:"pxcCluster"`
+	StorageName string `json:"storageName,omitempty"`
 }
 
 type PXCBackupStatus struct {
 	State         PXCBackupState `json:"state,omitempty"`
 	CompletedAt   *metav1.Time   `json:"completed,omitempty"`
 	LastScheduled *metav1.Time   `json:"lastscheduled,omitempty"`
-	Volume        string         `json:"volume,omitempty"`
+	StorageName   string         `json:"storageName,omitempty"`
 }
 
 type PXCBackupState string
@@ -62,15 +60,4 @@ func (cr *PerconaXtraDBBackup) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerRef
 		UID:        cr.GetUID(),
 		Controller: &trueVar,
 	}, nil
-}
-
-// CheckNSetDefaults sets defaults options and overwrites wrong settings
-// and checks if other options' values are allowable
-func (cr *PerconaXtraDBBackup) CheckNSetDefaults() error {
-	err := cr.Spec.Volume.reconcileOpts()
-	if err != nil {
-		return fmt.Errorf("Volume: %v", err)
-	}
-
-	return nil
 }

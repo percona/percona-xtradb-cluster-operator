@@ -159,7 +159,7 @@ func (c *Node) StatefulSet() *appsv1.StatefulSet {
 	return c.sfs
 }
 
-func (c *Node) Lables() map[string]string {
+func (c *Node) Labels() map[string]string {
 	return c.lables
 }
 

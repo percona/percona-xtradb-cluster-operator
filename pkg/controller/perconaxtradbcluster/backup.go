@@ -19,9 +19,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
 	if cr.Spec.Backup != nil {
 		bcpObj := backup.New(cr, cr.Spec.Backup)
+
 		for _, bcp := range cr.Spec.Backup.Schedule {
 			backups[bcp.Name] = bcp
-			bcpjob := bcpObj.Scheduled(&bcp)
+			strg, ok := cr.Spec.Backup.Storages[bcp.StorageName]
+			if !ok {
+				return fmt.Errorf("storage %s doesn't exist", bcp.StorageName)
+			}
+
+			bcpjob := bcpObj.Scheduled(&bcp, &strg)
 			err := setControllerReference(cr, bcpjob, r.scheme)
 			if err != nil {
 				return fmt.Errorf("set owner ref to backup %s: %v", bcp.Name, err)

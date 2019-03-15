@@ -131,8 +131,25 @@ spec:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
           region: us-west-2
+      fs-pvc:
+        type: filesystem
+        volume:
+#          emptyDir: {}
+#          hostPath:
+#            path: /data
+#            type: Directory
+          persistentVolumeClaim:
+#            storageClassName: standard
+#            accessModes: [ "ReadWriteOnce" ]
+              resources:
+                requests:
+                  storage: 6Gi
     schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"
         keep: 3
         storageName: s3-us-west
+      - name: "daily-backup"
+        schedule: "0 0 * * *"
+        keep: 5
+        storageName: fs-pvc

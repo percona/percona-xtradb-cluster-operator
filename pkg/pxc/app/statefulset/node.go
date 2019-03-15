@@ -150,7 +150,7 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 
 func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 	vol := app.Volumes(podSpec, dataVolumeName)
-	vol.Volumes = append(vol.Volumes, app.GetConfigVolumes(c.Lables()["component"]))
+	vol.Volumes = append(vol.Volumes, app.GetConfigVolumes(c.Labels()["component"]))
 
 	return vol
 }

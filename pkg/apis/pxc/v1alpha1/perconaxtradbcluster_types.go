@@ -73,7 +73,7 @@ type PodSpec struct {
 	Size                int32                         `json:"size,omitempty"`
 	Image               string                        `json:"image,omitempty"`
 	Resources           *PodResources                 `json:"resources,omitempty"`
-	VolumeSpec          *VolumeSpec                    `json:"volumeSpec,omitempty"`
+	VolumeSpec          *VolumeSpec                   `json:"volumeSpec,omitempty"`
 	Affinity            *PodAffinity                  `json:"affinity,omitempty"`
 	NodeSelector        map[string]string             `json:"nodeSelector,omitempty"`
 	Tolerations         []corev1.Toleration           `json:"tolerations,omitempty"`
@@ -116,7 +116,7 @@ type ResourcesList struct {
 type BackupStorageSpec struct {
 	Type   BackupStorageType   `json:"type"`
 	S3     BackupStorageS3Spec `json:"s3,omitempty"`
-	Volume VolumeSpec
+	Volume *VolumeSpec         `json:"volume,omitempty"`
 }
 
 type BackupStorageType string
@@ -260,10 +260,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 			case BackupStorageS3:
 				//TODO what should we check here?
 			case BackupStorageFilesystem:
-				if sch.Volume == nil {
-					return fmt.Errorf("backup %s: volumeSpec should be specified", sch.Name)
+				if strg.Volume == nil {
+					return fmt.Errorf("backup storage %s: volume should be specified", sch.StorageName)
 				}
-				err := sch.Volume.reconcileOpts()
+				err := strg.Volume.reconcileOpts()
 				if err != nil {
 					return fmt.Errorf("backup.Volume: %v", err)
 				}
@@ -313,6 +313,10 @@ func (p *PodSpec) reconcileAffinityOpts() {
 }
 
 func (v *VolumeSpec) reconcileOpts() error {
+	if v.EmptyDir == nil && v.HostPath == nil && v.PersistentVolumeClaim == nil {
+		v.PersistentVolumeClaim = &corev1.PersistentVolumeClaimSpec{}
+	}
+
 	if v.PersistentVolumeClaim != nil {
 		_, ok := v.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 		if !ok {

@@ -285,27 +285,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e8ac74edf33c83b0c87ee511d1ce38d91cac08da616696314413747ff01fa95c"
-  name = "github.com/percona/percona-xtradb-cluster-operator"
-  packages = [
-    "clientcmd",
-    "pkg/apis",
-    "pkg/apis/pxc/v1alpha1",
-    "pkg/controller",
-    "pkg/controller/perconaxtradbbackup",
-    "pkg/controller/perconaxtradbcluster",
-    "pkg/pxc",
-    "pkg/pxc/app",
-    "pkg/pxc/app/configmap",
-    "pkg/pxc/app/statefulset",
-    "pkg/pxc/backup",
-    "version",
-  ]
-  pruneopts = "NT"
-  revision = "a6355d1be641041433d6b3c6c3d9498bc8781665"
-
-[[projects]]
-  branch = "master"
   digest = "1:bf2ac97824a7221eb16b096aecc1c390d4c8a4e49524386aaa2e2dd215cbfb31"
   name = "github.com/petar/GoLLRB"
   packages = ["llrb"]
@@ -319,6 +298,14 @@
   pruneopts = "NT"
   revision = "5f041e8faa004a95c88a202771f4cc3e991971e6"
   version = "v2.0.1"
+
+[[projects]]
+  digest = "1:14715f705ff5dfe0ffd6571d7d201dd8e921030f8070321a79380d8ca4ec1a24"
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
+  version = "v0.8.1"
 
 [[projects]]
   digest = "1:9d8420bbf131d1618bde6530af37c3799340d3762cc47210c1d9532a4c3a2779"
@@ -769,18 +756,7 @@
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/ready",
     "github.com/operator-framework/operator-sdk/version",
-    "github.com/percona/percona-xtradb-cluster-operator/clientcmd",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/apis",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/controller",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/controller/perconaxtradbbackup",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/controller/perconaxtradbcluster",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset",
-    "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup",
-    "github.com/percona/percona-xtradb-cluster-operator/version",
+    "github.com/pkg/errors",
     "k8s.io/api/apps/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v1beta1",

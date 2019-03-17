@@ -54,7 +54,7 @@ spec:
           name: proxyadm
           protocol: TCP
         resources:
-          limits:
+          requests:
             cpu: 600m
             memory: 1G
         terminationMessagePath: /dev/termination-log

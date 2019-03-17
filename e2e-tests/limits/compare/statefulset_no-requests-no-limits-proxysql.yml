@@ -7,7 +7,7 @@ metadata:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: no-requests
+    name: no-requests-no-limits
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -15,14 +15,14 @@ spec:
   selector:
     matchLabels:
       app: pxc
-      cluster: no-requests
+      cluster: no-requests-no-limits
       component: no-requests-no-limits-proxysql
   serviceName: no-requests-no-limits-proxysql-headless
   template:
     metadata:
       labels:
         app: pxc
-        cluster: no-requests
+        cluster: no-requests-no-limits
         component: no-requests-no-limits-proxysql
     spec:
       containers:
@@ -54,7 +54,7 @@ spec:
           name: proxyadm
           protocol: TCP
         resources:
-          limits:
+          requests:
             cpu: 300m
             memory: 500M
         terminationMessagePath: /dev/termination-log
@@ -140,12 +140,7 @@ spec:
       accessModes:
       - ReadWriteOnce
       resources:
-        limits:
-          cpu: 700m
-          memory: 1G
         requests:
-          cpu: 600m
-          memory: 1G
           storage: 6Gi
     status:
       phase: Pending

@@ -16,6 +16,9 @@ spec:
 #        storageClassName: standard
 #        accessModes: [ "ReadWriteOnce" ]
         resources:
+          limits:
+            memory: 500M
+            cpu: 300m
           requests:
             storage: 6Gi
     affinity:
@@ -33,6 +36,9 @@ spec:
 #        storageClassName: standard
 #        accessModes: [ "ReadWriteOnce" ]
         resources:
+          limits:
+            memory: 500M
+            cpu: 300m
           requests:
             storage: 6Gi
     affinity:

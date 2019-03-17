@@ -44,9 +44,10 @@ no_storage() {
     kubectl apply \
         -f $test_dir/conf/$cluster.yml
 
-    kubectl logs $(get_operator_pod) \
-        | grep "volume.Size can't be empty"
-
+#    kubectl logs $(get_operator_pod) \
+#        | grep "volume.Size can't be empty"
+ # check if at least 1 Pod started
+    wait_for_running $cluster 1
     # delete cluster
     kubectl delete \
         -f $test_dir/conf/$cluster.yml

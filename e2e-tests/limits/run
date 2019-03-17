@@ -18,7 +18,7 @@ check_cr_config() {
 
     # check if statefulset created with expected config
     compare_kubectl statefulset/$cluster-node
-    compare_kubectl statefulset/$cluster-proxysql
+    #compare_kubectl statefulset/$cluster-proxysql
 
     # change resources
     cat $test_dir/conf/$cluster.yml \
@@ -30,7 +30,7 @@ check_cr_config() {
 
     # check if statefulset was updated with expected config
     compare_kubectl statefulset/$cluster-node "-increased"
-    compare_kubectl statefulset/$cluster-proxysql "-increased"
+    #compare_kubectl statefulset/$cluster-proxysql "-increased"
 
     # delete cluster
     kubectl delete \
@@ -53,6 +53,9 @@ no_storage() {
 }
 
 main() {
+    kubectl delete namespace pxc
+    kubectl create namespace pxc
+    kubectl config set-context $(kubectl config current-context) --namespace=pxc
     create_namespace $namespace
     deploy_operator
     kubectl apply -f $conf_dir/secrets.yml
@@ -69,6 +72,7 @@ main() {
     desc 'check if possible to create cluster without storage size'
     no_storage
 
+    kubectl delete -f ../../deploy/operator.yaml
     destroy $namespace
 }
 

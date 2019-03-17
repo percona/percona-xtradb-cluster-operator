@@ -12,8 +12,16 @@ spec:
         memory: 500M
         cpu: 300m
     volumeSpec:
-      accessModes: [ "ReadWriteOnce" ]
-      size: 6Gi
+      emptyDir: {}
+#      hostPath:
+#        path: /data
+#        type: Directory
+      persistentVolumeClaim:
+#        storageClassName: standard
+#        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 6Gi
     affinity:
       antiAffinityTopologyKey: none
   proxysql:
@@ -25,9 +33,16 @@ spec:
         memory: 500M
         cpu: 300m
     volumeSpec:
-      # storageClass: standard
-      accessModes: [ "ReadWriteOnce" ]
-      size: 2Gi
+      emptyDir: {}
+#      hostPath:
+#        path: /data
+#        type: Directory
+      persistentVolumeClaim:
+#        storageClassName: standard
+#        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 6Gi
     affinity:
       antiAffinityTopologyKey: none
   pmm:

@@ -1,8 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
-  name: no-requests-pxc-node
+  generation: 2
+  labels:
+    app: pxc
+    cluster: no-requests
+    component: no-requests-pxc
+  name: no-requests-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
@@ -16,14 +20,14 @@ spec:
     matchLabels:
       app: pxc
       cluster: no-requests
-      component: no-requests-pxc-nodes
-  serviceName: no-requests-pxc-nodes
+      component: no-requests-pxc
+  serviceName: no-requests-pxc
   template:
     metadata:
       labels:
         app: pxc
         cluster: no-requests
-        component: no-requests-pxc-nodes
+        component: no-requests-pxc
     spec:
       containers:
       - env:
@@ -57,7 +61,7 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           timeoutSeconds: 5
-        name: node
+        name: pxc
         ports:
         - containerPort: 3306
           name: mysql
@@ -73,8 +77,8 @@ spec:
           timeoutSeconds: 15
         resources:
           limits:
-            cpu: 300m
-            memory: 500M
+            cpu: 600m
+            memory: 1G
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -86,14 +90,13 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        fsGroup: 1001
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30
       volumes:
       - configMap:
           defaultMode: 420
-          name: no-requests-pxc-nodes
+          name: no-requests-pxc
           optional: true
         name: config-volume
   updateStrategy:

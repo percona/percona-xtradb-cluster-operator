@@ -11,14 +11,14 @@ check_cr_config() {
 
     # apply cr config
     kubectl apply \
-        -f $test_dir/conf/$cluster.yml
+        -f $test_dir/conf/$cluster-pxc.yml
 
     # check if at least 1 Pod started
-    wait_for_running $cluster 1
+    wait_for_running $cluster-pxc 1
 
     # check if statefulset created with expected config
-    compare_kubectl statefulset/$cluster
-    #compare_kubectl statefulset/$cluster-proxysql
+    compare_kubectl statefulset/$cluster-pxc
+    compare_kubectl statefulset/$cluster-proxysql
 
     # change resources
     cat $test_dir/conf/$cluster.yml \
@@ -30,11 +30,11 @@ check_cr_config() {
 
     # check if statefulset was updated with expected config
     compare_kubectl statefulset/$cluster "-increased"
-    #compare_kubectl statefulset/$cluster-proxysql "-increased"
+    compare_kubectl statefulset/$cluster-proxysql "-increased"
 
     # delete cluster
     kubectl delete \
-        -f $test_dir/conf/$cluster.yml
+        -f $test_dir/conf/$cluster-pxc.yml
 }
 
 no_storage() {
@@ -59,13 +59,13 @@ main() {
     kubectl apply -f $conf_dir/secrets.yml
 
     desc 'check if possible to create cluster without CPU/Memory limits'
-    check_cr_config "no-limits-pxc"
+    check_cr_config "no-limits"
 
     desc 'check if possible to create cluster without CPU/Memory requests'
-    check_cr_config "no-requests-pxc"
+    check_cr_config "no-requests"
 
     desc 'check if possible to create cluster without CPU/Memory requests and limits'
-    check_cr_config "no-requests-no-limits-pxc"
+    check_cr_config "no-requests-no-limits"
 
     desc 'check if possible to create cluster without storage size'
     no_storage

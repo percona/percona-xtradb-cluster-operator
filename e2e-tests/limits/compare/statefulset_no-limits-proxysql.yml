@@ -2,12 +2,12 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  name: no-requests-proxysql
+  name: no-limits-proxysql
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: no-requests
+    name: no-limits
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -15,15 +15,15 @@ spec:
   selector:
     matchLabels:
       app: pxc
-      cluster: no-requests
-      component: no-requests-proxysql
-  serviceName: no-requests-proxysql-headless
+      cluster: no-limits
+      component: no-limits-proxysql
+  serviceName: no-limits-proxysql-headless
   template:
     metadata:
       labels:
         app: pxc
-        cluster: no-requests
-        component: no-requests-proxysql
+        cluster: no-limits
+        component: no-limits-proxysql
     spec:
       containers:
       - env:
@@ -69,7 +69,7 @@ spec:
         - -service=$(PXC_SERVICE)
         env:
         - name: PXC_SERVICE
-          value: no-requests-pxc
+          value: no-limits-pxc
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -98,7 +98,7 @@ spec:
         - -service=$(PROXYSQL_SERVICE)
         env:
         - name: PROXYSQL_SERVICE
-          value: no-requests-proxysql-headless
+          value: no-limits-proxysql-headless
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -139,15 +139,8 @@ spec:
     spec:
       accessModes:
       - ReadWriteOnce
-      dataSource: null
       resources:
-        limits:
-          cpu: 700m
-          memory: 1G
         requests:
-          cpu: 600m
-          memory: 1G
           storage: 6Gi
-      volumeMode: Filesystem
     status:
       phase: Pending

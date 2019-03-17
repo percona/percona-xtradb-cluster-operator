@@ -7,6 +7,10 @@ spec:
   pxc:
     size: 3
     image: perconalab/pxc-openshift:0.2.0
+    resources:
+      requests:
+        memory: 500M
+        cpu: 300m
     volumeSpec:
       emptyDir: {}
 #      hostPath:
@@ -24,6 +28,10 @@ spec:
     enabled: true
     size: 1
     image: perconalab/proxysql-openshift:0.2.0
+    resources:
+      requests:
+        memory: 500M
+        cpu: 300m
     volumeSpec:
       emptyDir: {}
 #      hostPath:

@@ -103,8 +103,10 @@ spec:
     spec:
       accessModes:
       - ReadWriteOnce
+      dataSource: null
       resources:
         requests:
           storage: 6Gi
+      volumeMode: Filesystem
     status:
       phase: Pending

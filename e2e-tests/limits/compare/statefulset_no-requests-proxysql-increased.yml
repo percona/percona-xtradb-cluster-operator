@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
-  name: no-requests-pxc-proxysql
+  generation: 1
+  name: no-requests-proxysql
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
@@ -16,14 +16,14 @@ spec:
     matchLabels:
       app: pxc
       cluster: no-requests
-      component: no-requests-pxc-proxysql
-  serviceName: no-requests-pxc-proxysql
+      component: no-requests-proxysql
+  serviceName: no-requests-proxysql-headless
   template:
     metadata:
       labels:
         app: pxc
         cluster: no-requests
-        component: no-requests-pxc-proxysql
+        component: no-requests-proxysql
     spec:
       containers:
       - env:
@@ -39,20 +39,11 @@ spec:
             secretKeyRef:
               key: proxyadmin
               name: my-cluster-secrets
-        - name: MYSQL_PROXY_USER
-          value: proxyuser
-        - name: MYSQL_PROXY_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: proxyuser
-              name: my-cluster-secrets
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
               name: my-cluster-secrets
-        - name: PXCSERVICE
-          value: no-requests-pxc-nodes
         imagePullPolicy: Always
         name: proxysql
         ports:
@@ -64,14 +55,72 @@ spec:
           protocol: TCP
         resources:
           limits:
-            cpu: 600m
-            memory: 1G
+            cpu: 300m
+            memory: 500M
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/lib/proxysql
           name: proxydata
           subPath: data
+      - args:
+        - /usr/bin/peer-list
+        - -on-change=/usr/bin/add_pxc_nodes.sh
+        - -service=$(PXC_SERVICE)
+        env:
+        - name: PXC_SERVICE
+          value: no-requests-pxc
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: root
+              name: my-cluster-secrets
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: proxyadmin
+              name: my-cluster-secrets
+        - name: MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        imagePullPolicy: Always
+        name: pxc-monit
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      - args:
+        - /usr/bin/peer-list
+        - -on-change=/usr/bin/add_proxysql_nodes.sh
+        - -service=$(PROXYSQL_SERVICE)
+        env:
+        - name: PROXYSQL_SERVICE
+          value: no-requests-proxysql-headless
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: root
+              name: my-cluster-secrets
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: proxyadmin
+              name: my-cluster-secrets
+        - name: MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        imagePullPolicy: Always
+        name: proxysql-monit
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -91,7 +140,12 @@ spec:
       accessModes:
       - ReadWriteOnce
       resources:
+        limits:
+          cpu: 700m
+          memory: 1G
         requests:
-          storage: 2Gi
+          cpu: 600m
+          memory: 1G
+          storage: 6Gi
     status:
       phase: Pending

@@ -139,7 +139,6 @@ spec:
     spec:
       accessModes:
       - ReadWriteOnce
-      dataSource: null
       resources:
         limits:
           cpu: 700m
@@ -148,6 +147,5 @@ spec:
           cpu: 600m
           memory: 1G
           storage: 6Gi
-      volumeMode: Filesystem
     status:
       phase: Pending

@@ -5,8 +5,8 @@ metadata:
   labels:
     app: pxc
     cluster: no-requests-no-limits
-    component: no-requests-no-limits-pxc-nodes
-  name: no-requests-no-limits-pxc-node
+    component: no-requests-no-limits-pxc
+  name: no-requests-no-limits-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
@@ -20,14 +20,14 @@ spec:
     matchLabels:
       app: pxc
       cluster: no-requests-no-limits
-      component: no-requests-no-limits-pxc-nodes
-  serviceName: no-requests-no-limits-pxc-nodes
+      component: no-requests-no-limits-pxc
+  serviceName: no-requests-no-limits-pxc
   template:
     metadata:
       labels:
         app: pxc
         cluster: no-requests-no-limits
-        component: no-requests-no-limits-pxc-nodes
+        component: no-requests-no-limits-pxc
     spec:
       containers:
       - env:
@@ -61,7 +61,7 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           timeoutSeconds: 5
-        name: node
+        name: pxc
         ports:
         - containerPort: 3306
           name: mysql
@@ -93,7 +93,7 @@ spec:
       volumes:
       - configMap:
           defaultMode: 420
-          name: no-requests-no-limits-pxc-nodes
+          name: no-requests-no-limits-pxc
           optional: true
         name: config-volume
   updateStrategy:

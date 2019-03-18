@@ -7,19 +7,42 @@ spec:
   pxc:
     size: 3
     image: perconalab/pxc-openshift:0.2.0
+    resources:
+      requests:
+        memory: 500M
+        cpu: 300m
     volumeSpec:
-      accessModes: [ "ReadWriteOnce" ]
-      size: 6Gi
+      emptyDir: {}
+#      hostPath:
+#        path: /data
+#        type: Directory
+      persistentVolumeClaim:
+#        storageClassName: standard
+#        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 6Gi
     affinity:
       antiAffinityTopologyKey: none
   proxysql:
     enabled: true
     size: 1
     image: perconalab/proxysql-openshift:0.2.0
+    resources:
+      requests:
+        memory: 500M
+        cpu: 300m
     volumeSpec:
-      # storageClass: standard
-      accessModes: [ "ReadWriteOnce" ]
-      size: 2Gi
+      emptyDir: {}
+#      hostPath:
+#        path: /data
+#        type: Directory
+      persistentVolumeClaim:
+#        storageClassName: standard
+#        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 6Gi
     affinity:
       antiAffinityTopologyKey: none
   pmm:

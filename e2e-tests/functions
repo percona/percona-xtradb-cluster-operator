@@ -2,7 +2,8 @@
 
 GIT_COMMIT=$(git rev-parse HEAD)
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-IMAGE="perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"
+#IMAGE="perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"
+IMAGE="perconalab/percona-xtradb-cluster-operator:master"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)

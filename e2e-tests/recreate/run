@@ -10,14 +10,14 @@ create_namespace $namespace
 deploy_operator
 
 desc 'create first PXC cluster'
-cluster="some-name-pxc"
+cluster="some-name"
 kubectl apply \
     -f $conf_dir/secrets.yml \
     -f $conf_dir/$cluster.yml \
     -f $conf_dir/client.yml
 desc 'check if all 3 Pods started'
 wait_for_running "$cluster-proxysql" 1
-wait_for_running "$cluster-node" 3
+wait_for_running "$cluster-pxc" 3
 
 desc 'write data to ProxySQL, read from all'
 run_mysql \
@@ -26,34 +26,34 @@ run_mysql \
 run_mysql \
     'INSERT myApp.myApp (id) VALUES (100500)' \
     "-h $cluster-proxysql -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
 desc 'delete cluster'
 kubectl delete \
     -f $conf_dir/$cluster.yml
-wait_for_delete pod/$cluster-node-2
-wait_for_delete pod/$cluster-node-1
-wait_for_delete pod/$cluster-node-0
+wait_for_delete pod/$cluster-pxc-2
+wait_for_delete pod/$cluster-pxc-1
+wait_for_delete pod/$cluster-pxc-0
 
 desc 'recreate cluster, check data'
-sed -e 's/size: 6Gi/size: 8Gi/; s/size: 3/size: 4/; s/antiAffinityTopologyKey:.*/antiAffinityTopologyKey: none/' \
+sed -e 's/storage: 2Gi/storage: 3Gi/; s/size: 3/size: 5/; s/antiAffinityTopologyKey:.*/antiAffinityTopologyKey: none/' \
     $conf_dir/$cluster.yml \
     | kubectl apply -f-
 wait_for_running "$cluster-proxysql" 1
-wait_for_running "$cluster-node" 4
+wait_for_running "$cluster-pxc" 5
 
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
 desc 'write data to ProxySQL, read from all'
 run_mysql \
     'INSERT myApp.myApp (id) VALUES (100501)' \
     "-h $cluster-proxysql -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
 destroy $namespace

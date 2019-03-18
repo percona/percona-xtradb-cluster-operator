@@ -196,7 +196,7 @@ run_mysql_local() {
     kubectl exec $pod -- \
         bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
         | sed -e 's/mysql: //' \
-        | (grep -v 'Using a password on the command line interface can be insecure.' || :)
+        | (egrep -v 'Using a password on the command line interface can be insecure.|Defaulting container name|see all of the containers in this pod' || :)
 }
 
 compare_mysql_cmd() {
@@ -213,7 +213,7 @@ compare_mysql_cmd() {
 get_proxy_primary() {
     local uri="$1"
     local pod="$2"
-    local ip=$(run_mysql_local 'SELECT hostname FROM mysql_servers WHERE comment="WRITE";' "$uri" "$pod")
+    local ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod")
 
     get_pod_name "$ip"
 }

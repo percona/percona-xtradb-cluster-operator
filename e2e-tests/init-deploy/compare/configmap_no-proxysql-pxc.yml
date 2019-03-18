@@ -7,7 +7,7 @@ data:
     wsrep_debug=ON
 kind: ConfigMap
 metadata:
-  name: no-proxysql-pxc-nodes
+  name: no-proxysql-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true

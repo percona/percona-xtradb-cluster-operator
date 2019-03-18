@@ -5,13 +5,13 @@ metadata:
     service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
   labels:
     app: pxc
-    cluster: some-name
-  name: some-name-pxc-nodes
+    cluster: no-proxysql
+  name: no-proxysql-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: some-name
+    name: no-proxysql
 spec:
   ports:
   - name: mysql
@@ -19,6 +19,6 @@ spec:
     protocol: TCP
     targetPort: 3306
   selector:
-    component: some-name-pxc-nodes
+    component: no-proxysql-pxc
   sessionAffinity: None
   type: ClusterIP

@@ -38,10 +38,9 @@ before_script:
   --cluster-version 1.11 --machine-type n1-standard-4 --preemptible --num-nodes=3
 - kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin
   --user travis-ci@$GCP_PROJECT.iam.gserviceaccount.com
-- kubectl version
 matrix:
   include:
-  - name: "Basic"
+  - name: "E2E Basic"
     script:
     - ./e2e-tests/init-deploy/run
     - ./e2e-tests/storage/run
@@ -49,11 +48,11 @@ matrix:
     - ./e2e-tests/scaling/run
     - ./e2e-tests/monitoring/run
     - ./e2e-tests/affinity/run
-  - name: "Self-Healing"
+  - name: "E2E Self-Healing"
     script:
     - ./e2e-tests/self-healing/run
     - ./e2e-tests/operator-self-healing/run
-  - name: "Backups"
+  - name: "E2E Backups"
     script:
     - ./e2e-tests/recreate/run
     - ./e2e-tests/demand-backup/run

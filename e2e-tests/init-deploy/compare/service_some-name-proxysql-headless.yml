@@ -1,10 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
   labels:
     app: pxc
     cluster: some-name
-  name: some-name-pxc-proxysql
+  name: some-name-proxysql-headless
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
@@ -21,6 +23,6 @@ spec:
     protocol: TCP
     targetPort: 6032
   selector:
-    component: some-name-pxc-proxysql
+    component: some-name-proxysql
   sessionAffinity: None
   type: ClusterIP

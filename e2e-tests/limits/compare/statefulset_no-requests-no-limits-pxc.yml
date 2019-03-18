@@ -71,10 +71,7 @@ spec:
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 15
-        resources:
-          requests:
-            cpu: 300m
-            memory: 500M
+        resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:

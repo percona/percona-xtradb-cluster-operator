@@ -53,10 +53,7 @@ spec:
         - containerPort: 6032
           name: proxyadm
           protocol: TCP
-        resources:
-          requests:
-            cpu: 300m
-            memory: 500M
+        resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:

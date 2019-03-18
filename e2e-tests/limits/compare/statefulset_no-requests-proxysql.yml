@@ -140,12 +140,7 @@ spec:
       accessModes:
       - ReadWriteOnce
       resources:
-        limits:
-          cpu: 700m
-          memory: 1G
         requests:
-          cpu: 600m
-          memory: 1G
           storage: 6Gi
     status:
       phase: Pending

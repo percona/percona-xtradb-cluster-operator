@@ -12,13 +12,7 @@ spec:
         memory: 500M
         cpu: 300m
     volumeSpec:
-      emptyDir: {}
-#      hostPath:
-#        path: /data
-#        type: Directory
       persistentVolumeClaim:
-#        storageClassName: standard
-#        accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
             storage: 6Gi
@@ -33,21 +27,10 @@ spec:
         memory: 500M
         cpu: 300m
     volumeSpec:
-      emptyDir: {}
-#      hostPath:
-#        path: /data
-#        type: Directory
       persistentVolumeClaim:
-#        storageClassName: standard
-        accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
             storage: 6Gi
-            memory: 1G
-            cpu: 600m
-          limits:
-            memory: 1G
-            cpu: 700m
     affinity:
       antiAffinityTopologyKey: none
   pmm:

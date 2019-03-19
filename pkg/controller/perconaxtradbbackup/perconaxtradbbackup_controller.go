@@ -124,7 +124,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 	// continue only if job not found - we need to creat it just once.
 	if !errors.IsNotFound(err) {
-		err = r.updateJobStatus(instance, job, instance.Status.Volume)
+		err = r.updateJobStatus(instance, job, instance.Status.Destination, instance.Spec.StorageName)
 		return rr, err
 	}
 
@@ -146,7 +146,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		pvc := backup.NewPVC(instance)
 		pvc.Spec = *bcpStorage.Volume.PersistentVolumeClaim //app.VolumeSpec(bcpStorage.Volume)
 
-		volumeName = pvc.Name
+		volumeName = "pvc/" + pvc.Name
 
 		// Set PerconaXtraDBBackup instance as the owner and controller
 		if err := setControllerReference(instance, pvc, r.scheme); err != nil {
@@ -202,11 +202,11 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 
 	reqLogger.Info("Creating a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	err = r.client.Create(context.TODO(), job)
-	if err != nil {
+	if err != nil && !errors.IsAlreadyExists(err) {
 		return reconcile.Result{}, fmt.Errorf("create backup job: %v", err)
 	}
 
-	err = r.updateJobStatus(instance, job, volumeName)
+	err = r.updateJobStatus(instance, job, volumeName, instance.Spec.StorageName)
 
 	return rr, err
 }
@@ -254,7 +254,7 @@ func (r *ReconcilePerconaXtraDBBackup) pvcStatus(pvc *corev1.PersistentVolumeCla
 	return VolumeStatus(pvc.Status.Phase), nil
 }
 
-func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job, volume string) error {
+func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job, destination, storageName string) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 
 	if err != nil {
@@ -262,8 +262,9 @@ func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBac
 	}
 
 	status := api.PXCBackupStatus{
-		State:  api.BackupStarting,
-		Volume: volume,
+		State:       api.BackupStarting,
+		Destination: destination,
+		StorageName: storageName,
 	}
 
 	switch {

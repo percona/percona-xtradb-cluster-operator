@@ -36,10 +36,14 @@ spec:
       type: string
       description: Cluster name
       JSONPath: .spec.pxcCluster
-    - name: Volume
+    - name: Storage
       type: string
-      description: Volume name
-      JSONPath: .status.volume
+      description: Storage name from pxc spec
+      JSONPath: .status.storageName
+    - name: Destination
+      type: string
+      description: Backup destination
+      JSONPath: .status.destination
     - name: Status
       type: string
       description: Job status

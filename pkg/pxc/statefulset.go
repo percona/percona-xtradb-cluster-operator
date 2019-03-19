@@ -1,6 +1,8 @@
 package pxc
 
 import (
+	"strings"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,6 +86,9 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 	case af.Advanced != nil:
 		return af.Advanced
 	case af.TopologyKey != nil:
+		if strings.ToLower(*af.TopologyKey) == api.AffinityTopologyKeyOff {
+			return nil
+		}
 		labels := app.Labels()
 		return &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{

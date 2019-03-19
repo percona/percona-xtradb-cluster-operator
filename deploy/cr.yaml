@@ -11,7 +11,7 @@ spec:
   pxc:
     size: 3
     allowUnsafeConfigurations: false
-    image: perconalab/pxc-openshift:0.2.0
+    image: percona/percona-xtradb-cluster-operator:0.3.0-pxc
 #    configuration: |
 #      [mysqld]
 #      wsrep_debug=ON
@@ -67,7 +67,7 @@ spec:
   proxysql:
     enabled: true
     size: 1
-    image: perconalab/proxysql-openshift:0.3.0
+    image: percona/percona-xtradb-cluster-operator:0.3.0-proxysql
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:
@@ -117,11 +117,11 @@ spec:
 #      minAvailable: 0
   pmm:
     enabled: false
-    image: perconalab/pmm-client:1.17.0
+    image: perconalab/pmm-client:1.17.1
     serverHost: monitoring-service
     serverUser: pmm
   backup:
-    image: perconalab/backupjob-openshift:0.2.0
+    image: percona/percona-xtradb-cluster-operator:0.3.0-backup
 #    imagePullSecrets:
 #      - name: private-registry-credentials
     storages:

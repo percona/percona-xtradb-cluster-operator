@@ -6,7 +6,7 @@ metadata:
   labels:
     app: pxc
     cluster: no-proxysql
-  name: no-proxysql-pxc-nodes
+  name: no-proxysql-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
@@ -19,6 +19,6 @@ spec:
     protocol: TCP
     targetPort: 3306
   selector:
-    component: no-proxysql-pxc-nodes
+    component: no-proxysql-pxc
   sessionAffinity: None
   type: ClusterIP

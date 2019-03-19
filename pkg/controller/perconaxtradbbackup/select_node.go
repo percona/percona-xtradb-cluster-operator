@@ -55,7 +55,7 @@ func (r *ReconcilePerconaXtraDBBackup) SelectNode(cr *api.PerconaXtraDBBackup) (
 		err = cl.Exec(
 			proxyPod,
 			"proxysql",
-			[]string{"bash", "-c", `mysql -sN -h127.0.0.1 -P6032 -u$PROXY_ADMIN_USER -p$PROXY_ADMIN_PASSWORD -e "SELECT hostname FROM mysql_servers WHERE comment='WRITE';"`},
+			[]string{"bash", "-c", `mysql -sN -h127.0.0.1 -P6032 -u$PROXY_ADMIN_USER -p$PROXY_ADMIN_PASSWORD -e "SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status='ONLINE';"`},
 			nil,
 			&outb,
 			&errb,

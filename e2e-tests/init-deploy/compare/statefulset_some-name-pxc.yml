@@ -2,16 +2,12 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app: pxc
-    cluster: no-proxysql
-    component: no-proxysql-pxc-nodes
-  name: no-proxysql-pxc-node
+  name: some-name-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: no-proxysql
+    name: some-name
 spec:
   podManagementPolicy: OrderedReady
   replicas: 3
@@ -19,16 +15,34 @@ spec:
   selector:
     matchLabels:
       app: pxc
-      cluster: no-proxysql
-      component: no-proxysql-pxc-nodes
-  serviceName: no-proxysql-pxc-nodes
+      cluster: some-name
+      component: some-name-pxc
+  serviceName: some-name-pxc
   template:
     metadata:
       labels:
         app: pxc
-        cluster: no-proxysql
-        component: no-proxysql-pxc-nodes
+        cluster: some-name
+        component: some-name-pxc
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - pxc
+              - key: cluster
+                operator: In
+                values:
+                - some-name
+              - key: component
+                operator: In
+                values:
+                - some-name-pxc
+            topologyKey: kubernetes.io/hostname
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD
@@ -61,7 +75,7 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           timeoutSeconds: 5
-        name: node
+        name: pxc
         ports:
         - containerPort: 3306
           name: mysql
@@ -76,9 +90,12 @@ spec:
           successThreshold: 1
           timeoutSeconds: 15
         resources:
+          limits:
+            cpu: "1"
+            memory: 1G
           requests:
             cpu: 100m
-            memory: 10M
+            memory: 100M
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -90,13 +107,14 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30
       volumes:
       - configMap:
           defaultMode: 420
-          name: no-proxysql-pxc-nodes
+          name: some-name-pxc
           optional: true
         name: config-volume
   updateStrategy:
@@ -111,6 +129,6 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 6Gi
+          storage: 2Gi
     status:
       phase: Pending

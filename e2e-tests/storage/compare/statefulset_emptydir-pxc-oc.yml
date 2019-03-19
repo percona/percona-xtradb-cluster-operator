@@ -4,30 +4,30 @@ metadata:
   generation: 1
   labels:
     app: pxc
-    cluster: another-name
-    component: another-name-pxc-proxysql
-  name: another-name-pxc-proxysql
+    cluster: emptydir
+    component: emptydir-pxc
+  name: emptydir-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: another-name
+    name: emptydir
 spec:
   podManagementPolicy: OrderedReady
-  replicas: 1
+  replicas: 3
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       app: pxc
-      cluster: another-name
-      component: another-name-pxc-proxysql
-  serviceName: another-name-pxc-proxysql
+      cluster: emptydir
+      component: emptydir-pxc
+  serviceName: emptydir-pxc
   template:
     metadata:
       labels:
         app: pxc
-        cluster: another-name
-        component: another-name-pxc-proxysql
+        cluster: emptydir
+        component: emptydir-pxc
     spec:
       affinity:
         podAntiAffinity:
@@ -41,12 +41,12 @@ spec:
               - key: cluster
                 operator: In
                 values:
-                - another-name
+                - emptydir
               - key: component
                 operator: In
                 values:
-                - another-name-pxc-proxysql
-            topologyKey: failure-domain.beta.kubernetes.io/zone
+                - emptydir-pxc
+            topologyKey: kubernetes.io/hostname
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD
@@ -54,49 +54,53 @@ spec:
             secretKeyRef:
               key: root
               name: my-cluster-secrets
-        - name: PROXY_ADMIN_USER
-          value: proxyadmin
-        - name: PROXY_ADMIN_PASSWORD
+        - name: XTRABACKUP_PASSWORD
           valueFrom:
             secretKeyRef:
-              key: proxyadmin
-              name: my-cluster-secrets
-        - name: MYSQL_PROXY_USER
-          value: proxyuser
-        - name: MYSQL_PROXY_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: proxyuser
+              key: xtrabackup
               name: my-cluster-secrets
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
               name: my-cluster-secrets
-        - name: PXCSERVICE
-          value: another-name-pxc-nodes
+        - name: CLUSTERCHECK_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: clustercheck
+              name: my-cluster-secrets
         imagePullPolicy: Always
-        name: proxysql
+        livenessProbe:
+          exec:
+            command:
+            - /usr/bin/clustercheck.sh
+          failureThreshold: 3
+          initialDelaySeconds: 300
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: pxc
         ports:
         - containerPort: 3306
           name: mysql
           protocol: TCP
-        - containerPort: 6032
-          name: proxyadm
-          protocol: TCP
-        resources:
-          limits:
-            cpu: 700m
-            memory: 1G
-          requests:
-            cpu: 600m
-            memory: 1G
+        readinessProbe:
+          exec:
+            command:
+            - /usr/bin/clustercheck.sh
+          failureThreshold: 5
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 15
+        resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
-        - mountPath: /var/lib/proxysql
-          name: proxydata
-          subPath: data
+        - mountPath: /var/lib/mysql
+          name: datadir
+        - mountPath: /etc/mysql/conf.d/
+          name: config-volume
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -104,19 +108,15 @@ spec:
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: datadir
+      - configMap:
+          defaultMode: 420
+          name: emptydir-pxc
+          optional: true
+        name: config-volume
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
-  volumeClaimTemplates:
-  - metadata:
-      name: proxydata
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 3Gi
-      storageClassName: local-storage
-    status:
-      phase: Pending

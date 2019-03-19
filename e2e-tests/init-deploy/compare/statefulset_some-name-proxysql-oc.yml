@@ -2,12 +2,16 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  name: another-name-pxc-proxysql
+  labels:
+    app: pxc
+    cluster: some-name
+    component: some-name-proxysql
+  name: some-name-proxysql
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: another-name
+    name: some-name
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -15,15 +19,15 @@ spec:
   selector:
     matchLabels:
       app: pxc
-      cluster: another-name
-      component: another-name-pxc-proxysql
-  serviceName: another-name-pxc-proxysql
+      cluster: some-name
+      component: some-name-proxysql
+  serviceName: some-name-proxysql-headless
   template:
     metadata:
       labels:
         app: pxc
-        cluster: another-name
-        component: another-name-pxc-proxysql
+        cluster: some-name
+        component: some-name-proxysql
     spec:
       affinity:
         podAntiAffinity:
@@ -37,11 +41,11 @@ spec:
               - key: cluster
                 operator: In
                 values:
-                - another-name
+                - some-name
               - key: component
                 operator: In
                 values:
-                - another-name-pxc-proxysql
+                - some-name-proxysql
             topologyKey: kubernetes.io/hostname
       containers:
       - env:
@@ -57,20 +61,11 @@ spec:
             secretKeyRef:
               key: proxyadmin
               name: my-cluster-secrets
-        - name: MYSQL_PROXY_USER
-          value: proxyuser
-        - name: MYSQL_PROXY_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: proxyuser
-              name: my-cluster-secrets
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
               name: my-cluster-secrets
-        - name: PXCSERVICE
-          value: another-name-pxc-nodes
         imagePullPolicy: Always
         name: proxysql
         ports:
@@ -85,19 +80,76 @@ spec:
             cpu: 700m
             memory: 1G
           requests:
-            cpu: 600m
-            memory: 1G
+            cpu: 100m
+            memory: 100M
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/lib/proxysql
           name: proxydata
           subPath: data
+      - args:
+        - /usr/bin/peer-list
+        - -on-change=/usr/bin/add_pxc_nodes.sh
+        - -service=$(PXC_SERVICE)
+        env:
+        - name: PXC_SERVICE
+          value: some-name-pxc
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: root
+              name: my-cluster-secrets
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: proxyadmin
+              name: my-cluster-secrets
+        - name: MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        imagePullPolicy: Always
+        name: pxc-monit
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      - args:
+        - /usr/bin/peer-list
+        - -on-change=/usr/bin/add_proxysql_nodes.sh
+        - -service=$(PROXYSQL_SERVICE)
+        env:
+        - name: PROXYSQL_SERVICE
+          value: some-name-proxysql-headless
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: root
+              name: my-cluster-secrets
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: proxyadmin
+              name: my-cluster-secrets
+        - name: MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        imagePullPolicy: Always
+        name: proxysql-monit
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        fsGroup: 1001
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30
@@ -113,7 +165,6 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 3Gi
-      storageClassName: local-storage
+          storage: 2Gi
     status:
       phase: Pending

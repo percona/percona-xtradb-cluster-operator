@@ -2,12 +2,16 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  name: no-proxysql-pxc-node
+  labels:
+    app: pxc
+    cluster: hostpath
+    component: hostpath-pxc
+  name: hostpath-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: no-proxysql
+    name: hostpath
 spec:
   podManagementPolicy: OrderedReady
   replicas: 3
@@ -15,16 +19,34 @@ spec:
   selector:
     matchLabels:
       app: pxc
-      cluster: no-proxysql
-      component: no-proxysql-pxc-nodes
-  serviceName: no-proxysql-pxc-nodes
+      cluster: hostpath
+      component: hostpath-pxc
+  serviceName: hostpath-pxc
   template:
     metadata:
       labels:
         app: pxc
-        cluster: no-proxysql
-        component: no-proxysql-pxc-nodes
+        cluster: hostpath
+        component: hostpath-pxc
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - pxc
+              - key: cluster
+                operator: In
+                values:
+                - hostpath
+              - key: component
+                operator: In
+                values:
+                - hostpath-pxc
+            topologyKey: kubernetes.io/hostname
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD
@@ -57,7 +79,7 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           timeoutSeconds: 5
-        name: node
+        name: pxc
         ports:
         - containerPort: 3306
           name: mysql
@@ -71,10 +93,7 @@ spec:
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 15
-        resources:
-          requests:
-            cpu: 100m
-            memory: 10M
+        resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -86,28 +105,20 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        fsGroup: 1001
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30
       volumes:
+      - hostPath:
+          path: /tmp/data-dir
+          type: Directory
+        name: datadir
       - configMap:
           defaultMode: 420
-          name: no-proxysql-pxc-nodes
+          name: hostpath-pxc
           optional: true
         name: config-volume
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
-  volumeClaimTemplates:
-  - metadata:
-      name: datadir
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 6Gi
-    status:
-      phase: Pending

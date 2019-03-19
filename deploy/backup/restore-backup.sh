@@ -133,7 +133,7 @@ recover() {
 		spec:
 		  containers:
 		  - name: ncat
-		    image: perconalab/backupjob-openshift:0.2.0
+		    image: percona/percona-xtradb-cluster-operator:0.3.0-backup
 		    command:
 		        - bash
 		        - "-exc"
@@ -157,7 +157,7 @@ recover() {
 		    spec:
 		      containers:
 		      - name: xtrabackup
-		        image: perconalab/backupjob-openshift:0.2.0
+		        image: percona/percona-xtradb-cluster-operator:0.3.0-backup
 		        command:
 		        - bash
 		        - "-exc"

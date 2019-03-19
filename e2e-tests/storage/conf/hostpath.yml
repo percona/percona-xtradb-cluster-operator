@@ -1,0 +1,17 @@
+apiVersion: pxc.percona.com/v1alpha1
+kind: PerconaXtraDBCluster
+metadata:
+  name: hostpath
+spec:
+  secretsName: my-cluster-secrets
+  pxc:
+    size: 3
+    image: percona/percona-xtradb-cluster-operator:0.3.0-pxc
+    volumeSpec:
+      hostPath:
+        path: /tmp/data-dir
+        type: Directory
+  proxysql:
+    enabled: false
+  pmm:
+    enabled: false

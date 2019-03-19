@@ -2,7 +2,6 @@ package v1alpha1
 
 import (
 	"fmt"
-	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -275,15 +274,16 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	return changed, nil
 }
 
+const AffinityTopologyKeyOff = "none"
+
 var affinityValidTopologyKeys = map[string]struct{}{
+	AffinityTopologyKeyOff:                     struct{}{},
 	"kubernetes.io/hostname":                   struct{}{},
 	"failure-domain.beta.kubernetes.io/zone":   struct{}{},
 	"failure-domain.beta.kubernetes.io/region": struct{}{},
 }
 
 var defaultAffinityTopologyKey = "kubernetes.io/hostname"
-
-const affinityOff = "none"
 
 // reconcileAffinityOpts ensures that the affinity is set to the valid values.
 // - if the affinity doesn't set at all - set topology key to `defaultAffinityTopologyKey`
@@ -302,9 +302,6 @@ func (p *PodSpec) reconcileAffinityOpts() {
 
 	case p.Affinity.Advanced != nil:
 		p.Affinity.TopologyKey = nil
-
-	case strings.ToLower(*p.Affinity.TopologyKey) == affinityOff:
-		p.Affinity = nil
 
 	case p.Affinity != nil && p.Affinity.TopologyKey != nil:
 		if _, ok := affinityValidTopologyKeys[*p.Affinity.TopologyKey]; !ok {

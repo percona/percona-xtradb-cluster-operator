@@ -8,7 +8,6 @@ import (
 )
 
 func TestReconcileAffinity(t *testing.T) {
-
 	cases := []struct {
 		name     string
 		pod      *PodSpec
@@ -48,15 +47,6 @@ func TestReconcileAffinity(t *testing.T) {
 					TopologyKey: func(s string) *string { return &s }("kubernetes.io/hostname"),
 				},
 			},
-		},
-		{
-			name: "affinity off",
-			pod: &PodSpec{
-				Affinity: &PodAffinity{
-					TopologyKey: func(s string) *string { return &s }("off"),
-				},
-			},
-			desiered: &PodSpec{},
 		},
 		{
 			name: "valid antiAffinityTopologyKey with Advanced",

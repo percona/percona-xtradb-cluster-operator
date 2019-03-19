@@ -124,7 +124,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 	// continue only if job not found - we need to creat it just once.
 	if !errors.IsNotFound(err) {
-		err = r.updateJobStatus(instance, job, instance.Spec.StorageName)
+		err = r.updateJobStatus(instance, job, instance.Status.Volume)
 		return rr, err
 	}
 
@@ -138,11 +138,15 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("bcpStorage %s doesn't exist", instance.Spec.StorageName)
 	}
 
+	var volumeName string
+
 	job.Spec = bcp.JobSpec(instance.Spec, bcpNode, r.serverVersion)
 	switch bcpStorage.Type {
 	case api.BackupStorageFilesystem:
 		pvc := backup.NewPVC(instance)
 		pvc.Spec = *bcpStorage.Volume.PersistentVolumeClaim //app.VolumeSpec(bcpStorage.Volume)
+
+		volumeName = pvc.Name
 
 		// Set PerconaXtraDBBackup instance as the owner and controller
 		if err := setControllerReference(instance, pvc, r.scheme); err != nil {
@@ -188,6 +192,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
 		}
+		volumeName = bcpStorage.S3.Bucket
 	}
 
 	// Set PerconaXtraDBBackup instance as the owner and controller
@@ -201,7 +206,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("create backup job: %v", err)
 	}
 
-	err = r.updateJobStatus(instance, job, instance.Spec.StorageName)
+	err = r.updateJobStatus(instance, job, volumeName)
 
 	return rr, err
 }
@@ -249,16 +254,16 @@ func (r *ReconcilePerconaXtraDBBackup) pvcStatus(pvc *corev1.PersistentVolumeCla
 	return VolumeStatus(pvc.Status.Phase), nil
 }
 
-func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job, storageName string) error {
+func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job, volume string) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 
 	if err != nil {
 		return fmt.Errorf("get backup status: %v", err)
 	}
 
-	status := &api.PXCBackupStatus{
-		State:       api.BackupStarting,
-		StorageName: storageName,
+	status := api.PXCBackupStatus{
+		State:  api.BackupStarting,
+		Volume: volume,
 	}
 
 	switch {
@@ -272,11 +277,11 @@ func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBac
 	}
 
 	// don't update the status if there aren't any changes.
-	if reflect.DeepEqual(bcp.Status, *status) {
+	if reflect.DeepEqual(bcp.Status, status) {
 		return nil
 	}
 
-	bcp.Status = *status
+	bcp.Status = status
 	return r.client.Update(context.TODO(), bcp)
 }
 

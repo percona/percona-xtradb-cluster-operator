@@ -25,7 +25,7 @@ type PXCScheduledBackup struct {
 	Image            string                        `json:"image,omitempty"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	Schedule         []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
-	Storages         map[string]BackupStorageSpec  `json:"storages,omitempty"`
+	Storages         map[string]*BackupStorageSpec `json:"storages,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
@@ -193,19 +193,20 @@ var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no
 
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
-func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
+// returned "changed" means CR should be updated on cluster
+func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	if len(cr.Name) > clusterNameMaxLen {
-		return ErrClusterNameOverflow
+		return false, ErrClusterNameOverflow
 	}
 
 	c := cr.Spec
 	if c.PXC != nil {
 		if c.PXC.VolumeSpec == nil {
-			return fmt.Errorf("PXC: volumeSpec should be specified")
+			return false, fmt.Errorf("PXC: volumeSpec should be specified")
 		}
-		err := c.PXC.VolumeSpec.reconcileOpts()
+		changed, err = c.PXC.VolumeSpec.reconcileOpts()
 		if err != nil {
-			return fmt.Errorf("PXC.Volume: %v", err)
+			return false, fmt.Errorf("PXC.Volume: %v", err)
 		}
 
 		// pxc replicas shouldn't be less than 3 for safe configuration
@@ -230,11 +231,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
 		if c.ProxySQL.VolumeSpec == nil {
-			return fmt.Errorf("ProxySQL: volumeSpec should be specified")
+			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")
 		}
-		err := c.ProxySQL.VolumeSpec.reconcileOpts()
+		changed, err = c.ProxySQL.VolumeSpec.reconcileOpts()
 		if err != nil {
-			return fmt.Errorf("ProxySQL.Volume: %v", err)
+			return false, fmt.Errorf("ProxySQL.Volume: %v", err)
 		}
 
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-ProxySQL.
@@ -248,30 +249,30 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() error {
 
 	if c.Backup != nil {
 		if c.Backup.Image == "" {
-			return fmt.Errorf("backup.Image can't be empty")
+			return false, fmt.Errorf("backup.Image can't be empty")
 		}
 
 		for _, sch := range c.Backup.Schedule {
 			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
 			if !ok {
-				return fmt.Errorf("storage %s doesn't exist", sch.StorageName)
+				return false, fmt.Errorf("storage %s doesn't exist", sch.StorageName)
 			}
 			switch strg.Type {
 			case BackupStorageS3:
 				//TODO what should we check here?
 			case BackupStorageFilesystem:
 				if strg.Volume == nil {
-					return fmt.Errorf("backup storage %s: volume should be specified", sch.StorageName)
+					return false, fmt.Errorf("backup storage %s: volume should be specified", sch.StorageName)
 				}
-				err := strg.Volume.reconcileOpts()
+				changed, err = strg.Volume.reconcileOpts()
 				if err != nil {
-					return fmt.Errorf("backup.Volume: %v", err)
+					return false, fmt.Errorf("backup.Volume: %v", err)
 				}
 			}
 		}
 	}
 
-	return nil
+	return changed, nil
 }
 
 var affinityValidTopologyKeys = map[string]struct{}{
@@ -312,7 +313,7 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	}
 }
 
-func (v *VolumeSpec) reconcileOpts() error {
+func (v *VolumeSpec) reconcileOpts() (changed bool, err error) {
 	if v.EmptyDir == nil && v.HostPath == nil && v.PersistentVolumeClaim == nil {
 		v.PersistentVolumeClaim = &corev1.PersistentVolumeClaimSpec{}
 	}
@@ -320,13 +321,14 @@ func (v *VolumeSpec) reconcileOpts() error {
 	if v.PersistentVolumeClaim != nil {
 		_, ok := v.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 		if !ok {
-			return fmt.Errorf("volume.resources.storage can't be empty")
+			return changed, fmt.Errorf("volume.resources.storage can't be empty")
 		}
 
 		if v.PersistentVolumeClaim.AccessModes == nil || len(v.PersistentVolumeClaim.AccessModes) == 0 {
 			v.PersistentVolumeClaim.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+			changed = true
 		}
 	}
 
-	return nil
+	return changed, nil
 }

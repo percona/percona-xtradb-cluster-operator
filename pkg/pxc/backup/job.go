@@ -30,7 +30,7 @@ func (*Backup) Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, stor api.BackupStorageSpec, pxcNode string, sv *api.ServerVersion) (*batchv1.JobSpec, error) {
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
 	// if a suitable node hasn't been chosen - try to make a lucky shot.
 	// it's better than the failed backup at all
 	if pxcNode == "" {
@@ -43,7 +43,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, stor api.BackupStorageSpec, p
 		fsgroup = &tp
 	}
 
-	job := batchv1.JobSpec{
+	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				SecurityContext: &corev1.PodSecurityContext{
@@ -71,72 +71,81 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, stor api.BackupStorageSpec, p
 			},
 		},
 	}
-
-	switch stor.Type {
-	case api.BackupStorageFilesystem:
-		pvc := corev1.Volume{
-			Name: "xtrabackup",
-		}
-		pvc.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: stor.Volume.PersistentVolumeClaim.VolumeName,
-		}
-		job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
-			{
-				Name:      pvc.Name,
-				MountPath: "/backup",
-			},
-		}
-		job.Template.Spec.Volumes = []corev1.Volume{
-			pvc,
-		}
-	case api.BackupStorageS3:
-		accessKey := corev1.EnvVar{
-			Name: "AWS_ACCESS_KEY_ID",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(stor.S3.CredentialsSecret, "accessKey"),
-			},
-		}
-		secretKey := corev1.EnvVar{
-			Name: "AWS_SECRET_ACCESS_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(stor.S3.CredentialsSecret, "secretKey"),
-			},
-		}
-		region := corev1.EnvVar{
-			Name:  "AWS_DEFAULT_REGION",
-			Value: stor.S3.Region,
-		}
-		endpoint := corev1.EnvVar{
-			Name:  "AWS_ENDPOINT_URL",
-			Value: stor.S3.EndpointURL,
-		}
-		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, endpoint)
-
-		u, err := parseS3URL(stor.S3.Bucket)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create job")
-		}
-		bucket := corev1.EnvVar{
-			Name:  "AWS_S3_BUCKET",
-			Value: u.Host,
-		}
-		bucketPath := corev1.EnvVar{
-			Name:  "AWS_S3_BUCKET_PATH",
-			Value: strings.TrimLeft(u.Path, "/"),
-		}
-		job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
-	}
-
-	return &job, nil
 }
 
-func parseS3URL(bucketUrl string) (*url.URL, error) {
-	u, err := url.Parse(bucketUrl)
+func (Backup) SetStoragePVC(job *batchv1.JobSpec, volName string) error {
+	pvc := corev1.Volume{
+		Name: "xtrabackup",
+	}
+	pvc.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
+		ClaimName: volName,
+	}
+
+	if len(job.Template.Spec.Containers) == 0 {
+		return errors.New("no containers in job spec")
+	}
+	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+		{
+			Name:      pvc.Name,
+			MountPath: "/backup",
+		},
+	}
+	job.Template.Spec.Volumes = []corev1.Volume{
+		pvc,
+	}
+
+	return nil
+}
+
+func (Backup) SetStorageS3(job *batchv1.JobSpec, s3 api.BackupStorageS3Spec) error {
+	accessKey := corev1.EnvVar{
+		Name: "AWS_ACCESS_KEY_ID",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "accessKey"),
+		},
+	}
+	secretKey := corev1.EnvVar{
+		Name: "AWS_SECRET_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "secretKey"),
+		},
+	}
+	region := corev1.EnvVar{
+		Name:  "AWS_DEFAULT_REGION",
+		Value: s3.Region,
+	}
+	endpoint := corev1.EnvVar{
+		Name:  "AWS_ENDPOINT_URL",
+		Value: s3.EndpointURL,
+	}
+
+	if len(job.Template.Spec.Containers) == 0 {
+		return errors.New("no containers in job spec")
+	}
+	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, endpoint)
+
+	u, err := parseS3URL(s3.Bucket)
+	if err != nil {
+		return errors.Wrap(err, "failed to create job")
+	}
+	bucket := corev1.EnvVar{
+		Name:  "AWS_S3_BUCKET",
+		Value: u.Host,
+	}
+	bucketPath := corev1.EnvVar{
+		Name:  "AWS_S3_BUCKET_PATH",
+		Value: strings.TrimLeft(u.Path, "/"),
+	}
+	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
+
+	return nil
+}
+
+func parseS3URL(bucketURL string) (*url.URL, error) {
+	u, err := url.Parse(bucketURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse s3 URL")
 	}
-	if u.Scheme != "s3" {
-		return nil, errors.New("invalid scheme")
-	}
+
 	return u, nil
 }

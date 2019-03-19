@@ -111,9 +111,17 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	err = o.CheckNSetDefaults()
+	changed, err := o.CheckNSetDefaults()
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
+	}
+
+	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
+	if changed {
+		err = r.client.Update(context.TODO(), o)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("update PXC CR: %v", err)
+		}
 	}
 
 	if o.ObjectMeta.DeletionTimestamp != nil {

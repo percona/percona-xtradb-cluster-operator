@@ -135,9 +135,17 @@ func (in *PXCScheduledBackup) DeepCopyInto(out *PXCScheduledBackup) {
 	}
 	if in.Storages != nil {
 		in, out := &in.Storages, &out.Storages
-		*out = make(map[string]BackupStorageSpec, len(*in))
+		*out = make(map[string]*BackupStorageSpec, len(*in))
 		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+			var outVal *BackupStorageSpec
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = new(BackupStorageSpec)
+				(*in).DeepCopyInto(*out)
+			}
+			(*out)[key] = outVal
 		}
 	}
 	return

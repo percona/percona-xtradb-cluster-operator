@@ -27,7 +27,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				return fmt.Errorf("storage %s doesn't exist", bcp.StorageName)
 			}
 
-			bcpjob := bcpObj.Scheduled(&bcp, &strg)
+			bcpjob := bcpObj.Scheduled(&bcp, strg)
 			err := setControllerReference(cr, bcpjob, r.scheme)
 			if err != nil {
 				return fmt.Errorf("set owner ref to backup %s: %v", bcp.Name, err)

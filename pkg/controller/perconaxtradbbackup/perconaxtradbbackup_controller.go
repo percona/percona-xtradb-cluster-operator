@@ -6,8 +6,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -90,7 +88,7 @@ type ReconcilePerconaXtraDBBackup struct {
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling PerconaXtraDBBackup")
+	// reqLogger.Info("Reconciling PerconaXtraDBBackup")
 
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
@@ -139,12 +137,12 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	if !ok {
 		return reconcile.Result{}, fmt.Errorf("bcpStorage %s doesn't exist", instance.Spec.StorageName)
 	}
+
+	job.Spec = bcp.JobSpec(instance.Spec, bcpNode, r.serverVersion)
 	switch bcpStorage.Type {
-
 	case api.BackupStorageFilesystem:
-
 		pvc := backup.NewPVC(instance)
-		pvc.Spec = app.VolumeSpec(bcpStorage.Volume)
+		pvc.Spec = *bcpStorage.Volume.PersistentVolumeClaim //app.VolumeSpec(bcpStorage.Volume)
 
 		// Set PerconaXtraDBBackup instance as the owner and controller
 		if err := setControllerReference(instance, pvc, r.scheme); err != nil {
@@ -181,20 +179,21 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 			return reconcile.Result{}, fmt.Errorf("pvc not ready, status: %s", pvcStatus)
 		}
 
+		err := bcp.SetStoragePVC(&job.Spec, pvc.Name)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
+		}
 	case api.BackupStorageS3:
-		//TODO What should we do here?
+		err := bcp.SetStorageS3(&job.Spec, bcpStorage.S3)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
+		}
 	}
 
 	// Set PerconaXtraDBBackup instance as the owner and controller
 	if err := setControllerReference(instance, job, r.scheme); err != nil {
 		return reconcile.Result{}, fmt.Errorf("job/setControllerReference: %v", err)
 	}
-
-	jobspec, err := bcp.JobSpec(instance.Spec, bcpStorage, bcpNode, r.serverVersion)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("job creation error: %v", err)
-	}
-	job.Spec = *jobspec
 
 	reqLogger.Info("Creating a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	err = r.client.Create(context.TODO(), job)

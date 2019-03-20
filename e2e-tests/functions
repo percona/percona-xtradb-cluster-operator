@@ -277,9 +277,9 @@ destroy() {
     #diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
     if [ "$OPENSHIFT" == 1 ]; then
-        oc delete --grace-period=10 project "$namespace"
+        oc delete --grace-period=0 --force=true project "$namespace"
     else
-        kubectl delete --grace-period=10 namespace "$namespace"
+        kubectl delete --grace-period=0 --force=true namespace "$namespace"
     fi
     rm -rf ${tmp_dir}
 }
@@ -369,4 +369,3 @@ spinup_pxc() {
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
-}

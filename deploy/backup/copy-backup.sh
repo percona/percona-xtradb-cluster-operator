@@ -27,11 +27,11 @@ usage() {
     exit 1
 }
 
-get_backup_pvc() {
+get_backup_dest() {
     local backup=$1
 
     if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
-        $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.volume}'
+        $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else
         # support direct PVC name here
         echo -n "$backup"
@@ -49,10 +49,10 @@ enable_logging() {
 }
 
 check_input() {
-    local backup_pvc=$1
+    local backup_dest=$1
     local dest_dir=$2
 
-    if [ -z "$backup_pvc" ] || [ -z "$dest_dir" ]; then
+    if [ -z "$backup_dest" ] || [ -z "$dest_dir" ]; then
         usage
     fi
 
@@ -60,8 +60,8 @@ check_input() {
         mkdir -p "$dest_dir"
     fi
 
-    if ! $ctrl get "pvc/$backup_pvc" 1>/dev/null; then
-        printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_pvc"
+    if ! $ctrl get "$backup_dest" 1>/dev/null; then
+        printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_dest"
         usage
     fi
     if [ ! -d "$dest_dir" ]; then
@@ -90,7 +90,7 @@ start_tmp_pod() {
 		      volumes:
 		      - name: backup
 		        persistentVolumeClaim:
-		          claimName: $backup_pvc
+		          claimName: ${backup_pvc#pvc/}
 	EOF
 
     echo -n Starting pod.
@@ -124,16 +124,20 @@ check_md5() {
 main() {
     local backup=$1
     local dest_dir=$2
-    local backup_pvc
+    local backup_dest
 
     check_ctrl
     enable_logging
-    backup_pvc=$(get_backup_pvc "$backup")
-    check_input "$backup_pvc" "$dest_dir"
+    backup_dest=$(get_backup_dest "$backup")
+    check_input "$backup_dest" "$dest_dir"
 
-    start_tmp_pod "$backup_pvc"
-    copy_files "$dest_dir"
-    stop_tmp_pod
+    if [ "${backup_dest:0:4}" = "pvc/" ]; then
+        start_tmp_pod "$backup_dest"
+        copy_files "$dest_dir"
+        stop_tmp_pod
+    elif [ "${backup_dest:0:5}" = "s3://" ]; then
+        echo recover_s3 "$backup_dest" "$cluster"
+    fi
     check_md5 "$dest_dir"
 
     cat - <<-EOF

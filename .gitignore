@@ -76,5 +76,6 @@ tags
 .history
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 client-secret.json
+e2e-tests/conf/cloud-secret.yml
 .DS_Store
 .idea/**

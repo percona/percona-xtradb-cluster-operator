@@ -344,3 +344,29 @@ get_qan_values() {
     curl -s -k "https://$endpoint/qan-api/qan/profile/$uuid?begin=$start&end=$end&offset=0" \
         | jq '.Query[].Fingerprint'
 }
+
+spinup_pxc() {
+    local cluster=$1
+    local config=$2
+
+    desc 'create first PXC cluster'
+    kubectl apply \
+        -f $conf_dir/secrets.yml \
+        -f $conf_dir/client.yml \
+        -f $config
+
+    desc 'check if all 3 Pods started'
+    wait_for_running "$cluster-proxysql" 1
+    wait_for_running "$cluster-pxc" 3
+
+    desc 'write data'
+    run_mysql \
+        'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+        "-h $cluster-proxysql -uroot -proot_password"
+    run_mysql \
+        'INSERT myApp.myApp (id) VALUES (100500)' \
+        "-h $cluster-proxysql -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+}

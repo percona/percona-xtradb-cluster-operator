@@ -86,6 +86,9 @@ compare_kubectl configmap/$cluster3-pxc
 desc 'check if storageClass changed'
 compare_kubectl statefulset/$cluster3-pxc
 compare_kubectl statefulset/$cluster3-proxysql
+desc 'check PodDisruptionBudget'
+compare_kubectl pdb/$cluster3-pxc
+compare_kubectl pdb/$cluster3-proxysql
 
 desc 'write data, read from all'
 run_mysql \

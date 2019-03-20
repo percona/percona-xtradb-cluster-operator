@@ -120,14 +120,6 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	bcp := backup.New(cluster, cluster.Spec.Backup)
 	job := bcp.Job(instance)
 
-	// Check if this Job already exists
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
-	// continue only if job not found - we need to creat it just once.
-	if !errors.IsNotFound(err) {
-		err = r.updateJobStatus(instance, job, instance.Status.Destination, instance.Spec.StorageName)
-		return rr, err
-	}
-
 	bcpNode, err := r.SelectNode(instance)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("select backup node: %v", err)
@@ -138,15 +130,15 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("bcpStorage %s doesn't exist", instance.Spec.StorageName)
 	}
 
-	var volumeName string
+	var destination string
 
 	job.Spec = bcp.JobSpec(instance.Spec, bcpNode, r.serverVersion)
 	switch bcpStorage.Type {
 	case api.BackupStorageFilesystem:
 		pvc := backup.NewPVC(instance)
-		pvc.Spec = *bcpStorage.Volume.PersistentVolumeClaim //app.VolumeSpec(bcpStorage.Volume)
+		pvc.Spec = *bcpStorage.Volume.PersistentVolumeClaim
 
-		volumeName = "pvc/" + pvc.Name
+		destination = "pvc/" + pvc.Name
 
 		// Set PerconaXtraDBBackup instance as the owner and controller
 		if err := setControllerReference(instance, pvc, r.scheme); err != nil {
@@ -192,7 +184,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
 		}
-		volumeName = bcpStorage.S3.Bucket
+		destination = bcpStorage.S3.Bucket
 	}
 
 	// Set PerconaXtraDBBackup instance as the owner and controller
@@ -200,13 +192,14 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, fmt.Errorf("job/setControllerReference: %v", err)
 	}
 
-	reqLogger.Info("Creating a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	err = r.client.Create(context.TODO(), job)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return reconcile.Result{}, fmt.Errorf("create backup job: %v", err)
+	} else if err == nil {
+		reqLogger.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	}
 
-	err = r.updateJobStatus(instance, job, volumeName, instance.Spec.StorageName)
+	err = r.updateJobStatus(instance, job, destination, instance.Spec.StorageName)
 
 	return rr, err
 }
@@ -258,6 +251,10 @@ func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBac
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+
 		return fmt.Errorf("get backup status: %v", err)
 	}
 

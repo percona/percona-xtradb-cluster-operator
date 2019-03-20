@@ -101,13 +101,13 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, s3 api.BackupStorageS3Spec) err
 	accessKey := corev1.EnvVar{
 		Name: "AWS_ACCESS_KEY_ID",
 		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "accessKey"),
+			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_ACCESS_KEY_ID"),
 		},
 	}
 	secretKey := corev1.EnvVar{
 		Name: "AWS_SECRET_ACCESS_KEY",
 		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "secretKey"),
+			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
 		},
 	}
 	region := corev1.EnvVar{

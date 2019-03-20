@@ -134,16 +134,12 @@ spec:
       fs-pvc:
         type: filesystem
         volume:
-#          emptyDir: {}
-#          hostPath:
-#            path: /data
-#            type: Directory
           persistentVolumeClaim:
 #            storageClassName: standard
-#            accessModes: [ "ReadWriteOnce" ]
-              resources:
-                requests:
-                  storage: 6Gi
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 6Gi
     schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"

@@ -1,8 +1,7 @@
 apiVersion: pxc.percona.com/v1alpha1
 kind: PerconaXtraDBBackup
 metadata:
-  name: on-demand-backup1
+  name: on-demand-backup-aws-s3
 spec:
   pxcCluster: some-name
-  volume:
-    size: 1Gi
+  storageName: aws-s3

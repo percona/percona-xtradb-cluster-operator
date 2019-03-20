@@ -3,9 +3,9 @@ kind: CronJob
 metadata:
   labels:
     cluster: scheduled-backup
-    schedule: 0_0_N_N_6
+    schedule: N_N_N_N_N
     type: cron
-  name: sat-night-backup
+  name: each-min-aws-s3
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
@@ -18,12 +18,12 @@ spec:
     metadata:
       labels:
         cluster: scheduled-backup
-        schedule: 0_0_N_N_6
+        schedule: N_N_N_N_N
         type: cron
       ownerReferences:
       - apiVersion: batch/v1beta1
         kind: CronJob
-        name: sat-night-backup
+        name: each-min-aws-s3
     spec:
       template:
         metadata:
@@ -35,16 +35,12 @@ spec:
             - "\n\t\t\t\t\t\t\tcat <<-EOF | kubectl apply -f -\n\t\t\t\t\t\t\t\t\tapiVersion:
               pxc.percona.com/v1alpha1\n\t\t\t\t\t\t\t\t\tkind: PerconaXtraDBBackup\n\t\t\t\t\t\t\t\t\tmetadata:\n\t\t\t\t\t\t\t\t\t
               \ name: \"cron-${pxcCluster:0:16}-$(date -u \"+%Y%m%d%H%M%S\")-${suffix}\"\n\t\t\t\t\t\t\t\t\t
-              \ labels:\n\t\t\t\t\t\t\t\t\t    ancestor: \"sat-night-backup\"\n\t\t\t\t\t\t\t\t\t
+              \ labels:\n\t\t\t\t\t\t\t\t\t    ancestor: \"each-min-aws-s3\"\n\t\t\t\t\t\t\t\t\t
               \   cluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t    type: \"cron\"\n\t\t\t\t\t\t\t\t\tspec:\n\t\t\t\t\t\t\t\t\t
-              \ pxcCluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  volume:\n\t\t\t\t\t\t\t\t\t
-              \   size: \"${size}\"\n\t\t\t\t\t\t\t\t\t    ${storageClass:+storageClass:
-              \"$storageClass\"}\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
+              \ pxcCluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  storageName: \"aws-s3\"\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
             env:
             - name: pxcCluster
               value: scheduled-backup
-            - name: size
-              value: 1Gi
             imagePullPolicy: IfNotPresent
             name: run-backup
             resources: {}
@@ -55,7 +51,6 @@ spec:
           schedulerName: default-scheduler
           securityContext: {}
           terminationGracePeriodSeconds: 30
-  schedule: 0 0 * * 6
+  schedule: '* * * * *'
   successfulJobsHistoryLimit: 1
   suspend: false
-status: {}

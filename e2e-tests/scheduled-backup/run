@@ -6,81 +6,71 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-create_namespace $namespace
-deploy_operator
+run_recovery_check() {
+    local cluster=$1
+    local backup1=$2
 
-desc 'create cluster without backups'
-cluster="scheduled-backup-pxc"
-kubectl apply \
-    -f $conf_dir/secrets.yml \
-    -f $conf_dir/client.yml \
-    -f $test_dir/conf/${cluster}1.yml
-desc 'check if all 3 Pods started'
-wait_for_running "$cluster-node" 3
-compare_kubectl statefulset/$cluster-node
+    desc 'write data after backup'
+    run_mysql \
+        'INSERT myApp.myApp (id) VALUES (100501)' \
+        "-h $cluster-proxysql -uroot -proot_password"
+    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
-desc 'write data'
-run_mysql \
-    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-    "-h $cluster-nodes -uroot -proot_password"
-run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100500)' \
-    "-h $cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+    desc 'recover backup'
+    echo y | bash $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster}
+    kubectl logs job/restore-job-${cluster}
+    kubectl delete job/restore-job-${cluster}
+    wait_for_running "$cluster-proxysql" 1
+    wait_for_running "$cluster-pxc" 3
 
-desc 'add backups schedule, wait for the first backup'
-kubectl apply \
-    -f $test_dir/conf/${cluster}2.yml
-sleep 90
-compare_kubectl statefulset/$cluster-node
-compare_kubectl cronjob/sat-night-backup
-compare_kubectl cronjob/each-min
-backup1=$(kubectl get pxc-backup -o jsonpath='{.items[0].metadata.name}')
+    desc 'check data after backup'
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
-set +o xtrace
-echo -n "Waiting."
-until kubectl get "pxc-backup/$backup1" -o jsonpath='{.status.state}' 2>/dev/null | grep -q Succeeded; do
-    sleep 1
-    echo -n .
-done
-echo "[done]"
-set -o xtrace
+    desc 'copy backup'
+    bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+}
 
-desc 'write data after backup'
-run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100501)' \
-    "-h $cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+check_scheduled_backup() {
+    local cluster=$1
+    local storage=$2
 
-desc 'delete backups schedule, wait for job deleting'
-kubectl apply \
-    -f $test_dir/conf/${cluster}1.yml
-compare_kubectl statefulset/$cluster-node
-wait_for_delete cronjob/sat-night-backup
-wait_for_delete cronjob/each-min
+    compare_kubectl cronjob/each-min-${storage}
+    backup_name=$(
+        kubectl get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{"\n"}{end}' \
+            | grep ":$storage" \
+            | tail -1 \
+            | cut -d ':' -f 1
+    )
 
-desc 'recover backup'
-echo y | $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster%-pxc}
-kubectl logs job/restore-job-${cluster%-pxc}
-kubectl delete job/restore-job-${cluster%-pxc}
-wait_for_running "$cluster-node" 3
+    wait_backup $backup_name
+    run_recovery_check "$cluster" "$backup_name"
+}
 
-desc 'check data after backup'
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
-run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100501)' \
-    "-h $cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+main() {
+    create_namespace $namespace
+    deploy_operator
+    kubectl apply -f $conf_dir/cloud-secret.yml
 
-desc 'copy backup'
-$src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+    cluster="scheduled-backup"
+    spinup_pxc "$cluster" "$test_dir/conf/${cluster}1.yml"
 
-destroy $namespace
+    desc 'add backups schedule, wait for the first backup'
+    kubectl apply -f $test_dir/conf/${cluster}2.yml
+    sleep 90
+
+    check_scheduled_backup "$cluster" "pvc"
+
+    #run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+
+    #run_recovery_check "$cluster" "on-demand-backup-minio"
+
+    #run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
+
+    destroy $namespace
+}
+
+main

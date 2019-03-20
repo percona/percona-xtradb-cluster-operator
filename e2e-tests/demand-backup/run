@@ -6,78 +6,83 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-create_namespace $namespace
-deploy_operator
+check_pvc_md5() {
+    desc 'check backup file md5sum'
+    kubectl apply \
+        -f $test_dir/conf/client.yml
+    sleep 10
+    bak_client_pod=$(
+        kubectl get pods \
+            --selector=name=backup-client \
+            -o 'jsonpath={.items[].metadata.name}'
+    )
+    wait_pod $bak_client_pod
+    kubectl exec $bak_client_pod -- \
+        bash -c "cd /backup; md5sum -c md5sum.txt"
+    kubectl delete \
+        -f $test_dir/conf/client.yml
+}
 
-desc 'create first PXC cluster'
-cluster="some-name-pxc"
-kubectl apply \
-    -f $conf_dir/secrets.yml \
-    -f $conf_dir/$cluster.yml \
-    -f $conf_dir/client.yml
-desc 'check if all 3 Pods started'
-wait_for_running "$cluster-proxysql" 1
-wait_for_running "$cluster-node" 3
+run_backup() {
+    local cluster=$1
+    local backup1=$2
 
-desc 'write data'
-run_mysql \
-    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-    "-h $cluster-proxysql -uroot -proot_password"
-run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100500)' \
-    "-h $cluster-proxysql -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
-
-desc 'make backup'
-backup1=on-demand-backup1
-kubectl apply \
+    desc 'make backup'
+    kubectl apply \
         -f $test_dir/conf/$backup1.yml
-wait_backup $backup1
+    wait_backup $backup1
+}
 
-desc 'check backup file md5sum'
-kubectl apply \
-    -f $test_dir/conf/client.yml
-sleep 10
-bak_client_pod=$(
-    kubectl get pods \
-        --selector=name=backup-client \
-        -o 'jsonpath={.items[].metadata.name}'
-)
-wait_pod $bak_client_pod
-kubectl exec $bak_client_pod -- \
-    bash -c "cd /backup; md5sum -c md5sum.txt"
-kubectl delete \
-    -f $test_dir/conf/client.yml
+run_recovery_check() {
+    local cluster=$1
+    local backup1=$2
 
-desc 'write data after backup'
-run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100501)' \
-    "-h $cluster-proxysql -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+    desc 'write data after backup'
+    run_mysql \
+        'INSERT myApp.myApp (id) VALUES (100501)' \
+        "-h $cluster-proxysql -uroot -proot_password"
+    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
-desc 'recover backup'
-echo y | $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster%-pxc}
-kubectl logs job/restore-job-${cluster%-pxc}
-kubectl delete job/restore-job-${cluster%-pxc}
-wait_for_running "$cluster-proxysql" 1
-wait_for_running "$cluster-node" 3
+    desc 'recover backup'
+    echo y | bash $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster}
+    kubectl logs job/restore-job-${cluster}
+    kubectl delete job/restore-job-${cluster}
+    wait_for_running "$cluster-proxysql" 1
+    wait_for_running "$cluster-pxc" 3
 
-desc 'check data after backup'
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
-run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100501)' \
-    "-h $cluster-proxysql -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+    desc 'check data after backup'
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
-desc 'copy backup'
-$src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+    desc 'copy backup'
+    bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+}
 
-destroy $namespace
+main() {
+    create_namespace $namespace
+    deploy_operator
+    kubectl apply -f $conf_dir/cloud-secret.yml
+
+    cluster="some-name"
+    spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+
+    run_backup         "$cluster" "on-demand-backup-pvc"
+    run_recovery_check "$cluster" "on-demand-backup-pvc"
+    check_pvc_md5
+
+    #run_backup         "$cluster" "on-demand-backup-aws-s3"
+    #run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+
+    #run_backup         "$cluster" "on-demand-backup-minio"
+    #run_recovery_check "$cluster" "on-demand-backup-minio"
+
+    #run_backup         "$cluster" "on-demand-backup-gcp-cs"
+    #run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
+
+    destroy $namespace
+}
+
+main

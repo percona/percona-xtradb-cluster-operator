@@ -28,11 +28,11 @@ usage() {
     exit 1
 }
 
-get_backup_pvc() {
+get_backup_dest() {
     local backup=$1
 
     if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
-        $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.volume}'
+        $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else
         # support direct PVC name here
         echo -n "$backup"
@@ -50,10 +50,10 @@ enable_logging() {
 }
 
 check_input() {
-    local backup_pvc=$1
+    local backup_dest=$1
     local cluster=$2
 
-    if [ -z "$backup_pvc" ] || [ -z "$cluster" ]; then
+    if [ -z "$backup_dest" ] || [ -z "$cluster" ]; then
         usage
     fi
 
@@ -62,8 +62,14 @@ check_input() {
         usage
     fi
 
-    if ! $ctrl get "pvc/$backup_pvc" 1>/dev/null; then
-        printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_pvc"
+    if [ "${backup_dest:0:4}" = "pvc/" ]; then
+        if ! $ctrl get "$backup_dest" 1>/dev/null; then
+            printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_dest"
+            usage
+        fi
+    elif [ "${backup_dest:0:5}" = "s3://" ]; then
+        aws s3 ls "$backup_dest"
+    else
         usage
     fi
 
@@ -85,8 +91,8 @@ stop_pxc() {
     $ctrl delete -f "$tmp_dir/cluster.yaml"
 
     for i in $(seq 0 "$((size-1))" | sort -r); do
-        echo -n "Deleting $cluster-pxc-node-$i."
-        until ($ctrl get "pod/$cluster-pxc-node-$i" || :) 2>&1 | grep -q NotFound; do
+        echo -n "Deleting $cluster-pxc-$i."
+        until ($ctrl get "pod/$cluster-pxc-$i" || :) 2>&1 | grep -q NotFound; do
             sleep 1
             echo -n .
         done
@@ -95,7 +101,7 @@ stop_pxc() {
 
     if [ "$size" -gt 1 ]; then
         for i in $(seq 1 "$((size-1))" | sort -r); do
-            $ctrl delete "pvc/datadir-$cluster-pxc-node-$i"
+            $ctrl delete "pvc/datadir-$cluster-pxc-$i"
         done
     fi
 }
@@ -104,7 +110,7 @@ start_pxc() {
     $ctrl apply -f "$tmp_dir/cluster.yaml"
 }
 
-recover() {
+recover_pvc() {
     local backup_pvc=$1
     local cluster=$2
 
@@ -145,7 +151,7 @@ recover() {
 		  volumes:
 		  - name: backup
 		    persistentVolumeClaim:
-		      claimName: $backup_pvc
+		      claimName: ${backup_pvc#pvc/}
 	EOF
     cat - <<-EOF | $ctrl apply -f -
 		apiVersion: batch/v1
@@ -173,7 +179,7 @@ recover() {
 		      volumes:
 		      - name: datadir
 		        persistentVolumeClaim:
-		          claimName: datadir-$cluster-pxc-node-0
+		          claimName: datadir-$cluster-pxc-0
 		  backoffLimit: 4
 	EOF
 
@@ -190,15 +196,19 @@ recover() {
 main() {
     local backup=$1
     local cluster=$2
-    local backup_pvc
+    local backup_dest
 
     check_ctrl
     enable_logging
-    backup_pvc=$(get_backup_pvc "$backup")
-    check_input "$backup_pvc" "$cluster"
+    backup_dest=$(get_backup_dest "$backup")
+    check_input "$backup_dest" "$cluster"
 
     stop_pxc "$cluster"
-    recover "$backup_pvc" "$cluster"
+    if [ "${backup_dest:0:4}" = "pvc/" ]; then
+        recover_pvc "$backup_dest" "$cluster"
+    elif [ "${backup_dest:0:5}" = "s3://" ]; then
+        echo recover_s3 "$backup_dest" "$cluster"
+    fi
     start_pxc
 
     cat - <<-EOF

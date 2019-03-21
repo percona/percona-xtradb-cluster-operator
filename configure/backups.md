@@ -9,7 +9,7 @@ Backup images are usually stored on [Amazon S3 or S3-compatible storage](https:/
 
 ## Making scheduled backups
 
-Since backups are stored separately on the Amazon S3, a secret with `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` should be present on the Kubernetes cluster. The secrets file with these keys should be created: for example ``deploy/backup/s3.yaml`` file with the following contents:
+Since backups are stored separately on the Amazon S3, a secret with `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` should be present on the Kubernetes cluster. The secrets file with these keys should be created: for example ``deploy/backup-s3.yaml`` file with the following contents:
 
    ```
    apiVersion: v1
@@ -23,7 +23,7 @@ Since backups are stored separately on the Amazon S3, a secret with `AWS_ACCESS_
    ```
 
 The `name` value is the [Kubernetes secret](https://kubernetes.io/docs/concepts/configuration/secret/) name which will be used further, and `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are the keys to access S3 storage (and obviously they should contain proper values to make this access possible). 
-To have effect secrets file should be applied with the appropriate command to create the secret object, e.g. `kubectl apply -f deploy/backup/s3.yaml` (for Kubernetes).
+To have effect secrets file should be applied with the appropriate command to create the secret object, e.g. `kubectl apply -f deploy/backup-s3.yaml` (for Kubernetes).
 
 Backups schedule is defined in the  ``backup`` section of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. 
 This section contains following subsections:
@@ -56,7 +56,7 @@ Here is an example which uses Amazon S3 storage for backups:
 
 **Note:** *if you use some S3-compatible storage instead of the original Amazon S3, one more key is needed in the `s3` subsection: the `endpointUrl`, which points to the actual cloud used for backups and is specific to the cloud provider. For example, using [Google Cloud](https://cloud.google.com) involves the following one: `endpointUrl: https://storage.googleapis.com`.*
 
-The options within these three subsections are further explained in the [Operator Options](https://percona-lab.github.io/percona-xtradb-cluster-operator/configure/operator).
+The options within these three subsections are further explained in the [Operator Options](https://percona.github.io/percona-xtradb-cluster-operator/configure/operator).
 
 The only option which should be mentioned separately is `credentialsSecret` which is a [Kubernetes secret](https://kubernetes.io/docs/concepts/configuration/secret/) for backups. Value of this key should be the same as the name used to create the secret object (`my-cluster-name-backup-s3` in the last example).
 

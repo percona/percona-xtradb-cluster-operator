@@ -61,6 +61,25 @@ run_recovery_check() {
     bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
 }
 
+start_minio() {
+    deploy_helm $namespace
+
+    desc 'install Minio'
+    helm del --purge minio-service || :
+    helm install \
+        --name minio-service \
+        --set accessKey=some-access-key \
+        --set secretKey=some-secret-key \
+        --set service.type=ClusterIP \
+        --set configPath=/tmp/.minio/ \
+        --set persistence.size=2G \
+        --set environment.MINIO_REGION=us-east-1 \
+        --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
+        stable/minio
+    MINIO_POD=$(kubectl get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
+    wait_pod $MINIO_POD
+}
+
 main() {
     create_namespace $namespace
     deploy_operator
@@ -69,9 +88,9 @@ main() {
     cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 
-    run_backup         "$cluster" "on-demand-backup-pvc"
-    run_recovery_check "$cluster" "on-demand-backup-pvc"
-    check_pvc_md5
+    #run_backup         "$cluster" "on-demand-backup-pvc"
+    #run_recovery_check "$cluster" "on-demand-backup-pvc"
+    #check_pvc_md5
 
     #run_backup         "$cluster" "on-demand-backup-aws-s3"
     #run_recovery_check "$cluster" "on-demand-backup-aws-s3"
@@ -79,8 +98,8 @@ main() {
     #run_backup         "$cluster" "on-demand-backup-minio"
     #run_recovery_check "$cluster" "on-demand-backup-minio"
 
-    #run_backup         "$cluster" "on-demand-backup-gcp-cs"
-    #run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
+    run_backup         "$cluster" "on-demand-backup-gcp-cs"
+    run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
 
     destroy $namespace
 }

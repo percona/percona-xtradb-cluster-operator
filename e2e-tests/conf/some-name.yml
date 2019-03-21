@@ -63,3 +63,17 @@ spec:
           region: us-east-1
           bucket: operator-testing
           credentialsSecret: aws-s3-secret
+      minio:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: http://minio-service:9000/
+      gcp-cs:
+        type: s3
+        s3:
+          credentialsSecret: gcp-cs-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: https://storage.googleapis.com

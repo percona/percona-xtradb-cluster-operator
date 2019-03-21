@@ -53,9 +53,10 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pxcNode string, sv *api.Serve
 				RestartPolicy:    corev1.RestartPolicyNever,
 				Containers: []corev1.Container{
 					{
-						Name:    "xtrabackup",
-						Image:   bcp.image,
-						Command: []string{"bash", "/usr/bin/backup.sh"},
+						Name:            "xtrabackup",
+						Image:           bcp.image,
+						Command:         []string{"bash", "/usr/bin/backup.sh"},
+						ImagePullPolicy: corev1.PullAlways,
 						Env: []corev1.EnvVar{
 							{
 								Name:  "NODE_NAME",
@@ -97,7 +98,7 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, volName string) error {
 	return nil
 }
 
-func (Backup) SetStorageS3(job *batchv1.JobSpec, s3 api.BackupStorageS3Spec) error {
+func (Backup) SetStorageS3(job *batchv1.JobSpec, s3 api.BackupStorageS3Spec, destination string) error {
 	accessKey := corev1.EnvVar{
 		Name: "AWS_ACCESS_KEY_ID",
 		ValueFrom: &corev1.EnvVarSource{
@@ -124,7 +125,7 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, s3 api.BackupStorageS3Spec) err
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, endpoint)
 
-	u, err := parseS3URL(s3.Bucket)
+	u, err := parseS3URL(destination)
 	if err != nil {
 		return errors.Wrap(err, "failed to create job")
 	}

@@ -1,0 +1,7 @@
+apiVersion: pxc.percona.com/v1alpha1
+kind: PerconaXtraDBBackup
+metadata:
+  name: on-demand-backup-gcp-cs
+spec:
+  pxcCluster: some-name
+  storageName: gcp-cs

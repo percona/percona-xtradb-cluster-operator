@@ -369,3 +369,4 @@ spinup_pxc() {
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+}

@@ -193,6 +193,53 @@ recover_pvc() {
     $ctrl delete "pod/restore-src-$cluster" 2>/dev/null || :
 }
 
+recover_s3() {
+    local backup_path=$1
+    local cluster=$2
+    local backup_bucket=$( echo "${backup_path#s3://}" | cut -d '/' -f 1)
+    local backup_key=$( echo "${backup_path#s3://}" | cut -d '/' -f 2-)
+
+
+    $ctrl delete "job/restore-job-$cluster" 2>/dev/null || :
+    cat - <<-EOF | $ctrl apply -f -
+		apiVersion: batch/v1
+		kind: Job
+		metadata:
+		  name: restore-job-$cluster
+		spec:
+		  template:
+		    spec:
+		      containers:
+		      - name: xtrabackup
+		        image: percona/percona-xtradb-cluster-operator:0.3.0-backup
+		        command:
+		        - bash
+		        - "-exc"
+		        - |
+		          rm -rf /datadir/*
+		          gof3r get -b $backup_bucket -k $backup_key | xbstream -x -C /datadir
+		          xtrabackup --prepare --target-dir=/datadir
+		        volumeMounts:
+		        - name: datadir
+		          mountPath: /datadir
+		      restartPolicy: Never
+		      volumes:
+		      - name: datadir
+		        persistentVolumeClaim:
+		          claimName: datadir-$cluster-pxc-0
+		  backoffLimit: 4
+	EOF
+
+    echo -n "Recovering."
+    until $ctrl get "job/restore-job-$cluster" -o jsonpath='{.status.completionTime}' 2>/dev/null | grep -q 'T'; do
+        sleep 1
+        echo -n .
+    done
+    echo "[done]"
+    $ctrl delete "svc/restore-src-$cluster" 2>/dev/null || :
+    $ctrl delete "pod/restore-src-$cluster" 2>/dev/null || :
+}
+
 main() {
     local backup=$1
     local cluster=$2
@@ -207,7 +254,7 @@ main() {
     if [ "${backup_dest:0:4}" = "pvc/" ]; then
         recover_pvc "$backup_dest" "$cluster"
     elif [ "${backup_dest:0:5}" = "s3://" ]; then
-        echo recover_s3 "$backup_dest" "$cluster"
+        recover_s3 "$backup_dest" "$cluster"
     fi
     start_pxc
 

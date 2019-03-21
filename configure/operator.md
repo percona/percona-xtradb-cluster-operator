@@ -74,12 +74,20 @@ The ``pmm`` section in the deploy/cr.yaml file contains configuration options fo
 
 The ``backup`` section in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file contains the following configuration options for the regular Percona XtraDB Cluster backups.
 
-| Key                            | Value Type | Default   | Description |
+| Key                            | Value Type | Example   | Description |
 |--------------------------------|------------|-----------|-------------|
 |image                           | string     | `perconalab/backupjob-openshift:0.2.0` | Percona XtraDB Cluster docker image to use for the backup functionality                                                                       |
 |imagePullSecrets.name           | string     | `private-registry-credentials`  | [Kubernetes imagePullSecret](https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets) for the specified docker image |
-|schedule.name                   | string     | `sat-night-backup` | Name of the backup             |
-|schedule.schedule               | string     | `0 0 * * 6`        | Scheduled time to make a backup, specified in the [crontab format](https://en.wikipedia.org/wiki/Cron)                                                        |
-|schedule.keep                   | int        | `3`       | Number of backups to store             |
-|volume.storageClass             | string     | `standard`| Set the [Kubernetes Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use with the PXC backups [Persistent Volume Claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)                     |
-|volume.size                     | string     | `6Gi`     | The [Kubernetes Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) size for the Percona XtraDB Cluster backups                           |
+|storages.type                   | string     | `s3`      | Type of the cloud storage to be used for backups. Currently only `s3` and `filesystem` types are supported |
+|storages.s3.credentialsSecret   | string     | `my-cluster-name-backup-s3`| [Kubernetes secret](https://kubernetes.io/docs/concepts/configuration/secret/) for backups. It should contain `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` keys. |
+|storages.s3.bucket              | string     |           | The [Amazon S3 bucket](https://docs.aws.amazon.com/en_us/AmazonS3/latest/dev/UsingBucket.html) name for backups     |
+|storages.s3.region              | string     |`us-east-1`| The [AWS region](https://docs.aws.amazon.com/en_us/general/latest/gr/rande.html) to use. Please note **this option is mandatory** not only for Amazon S3, but for all S3-compatible storages.|
+|storages.s3.endpointUrl         | string     |           | The endpoint URL of the S3-compatible storage to be used (not needed for the original Amazon S3 cloud)   |
+|storages.persistentVolumeClaim.storageClassName | string | `standard`| Set the [Kubernetes Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use with the PXC backups [Persistent Volume Claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims) for the `filesystem` storage type                    |
+|storages.persistentVolumeClaim.accessModes | array | ["ReadWriteOnce"] | The [Kubernetes Persistent Volume access modes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes) |
+
+|storages.persistentVolumeClaim.resources.requests.storage | string | `6Gi`     | The [Kubernetes Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) size request for the for the `filesystem` storage type Percona XtraDB Cluster backups       |
+|schedule.name                      | string     | `sat-night-backup` | The backup name    |
+|schedule.schedule                  | string     | `0 0 * * 6`        | Scheduled time to make a backup, specified in the [crontab format](https://en.wikipedia.org/wiki/Cron)                                                        |
+|schedule.storageName               | string     | `st-us-west`       | Name of the storage for backups, configured in the `storages` or `fs-pvc` subsection                |
+|schedule.keep                   | int        | `3`       | Number of backups to store     |

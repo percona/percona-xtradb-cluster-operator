@@ -28,7 +28,6 @@ To have effect secrets file should be applied with the appropriate command to cr
 Backups schedule is defined in the  ``backup`` section of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file. 
 This section contains following subsections:
 * `storages` subsection contains data needed to access the S3-compatible cloud to store backups.
-* `fs-pvc` subsection allows to configure Kubernetes Persistent Volume to have private backups storage.
 * `schedule` subsection allows to actually schedule backups (the schedule is specified in crontab format).
 
 Here is an example which uses Amazon S3 storage for backups:

@@ -50,13 +50,7 @@ Install Percona XtraDB Cluster on Kubernetes
 
    More details about secrets can be found in a [separate section](../configure/users).
 
-5. Optionally you can use `deploy/configmap.yaml` file to set Percona XtraDB Cluster configuration options. [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) allows Kubernetes to pass configuration data inside the containerized application. If there were any changes, updated file can be applied with the following command:
-
-      ```bash
-      $ kubectl apply -f deploy/configmap.yaml
-      ```
-
-6. After the operator is started and user secrets are added, Percona XtraDB Cluster can be created at any time with the following command:
+5. After the operator is started and user secrets are added, Percona XtraDB Cluster can be created at any time with the following command:
 
    ```bash
    $ kubectl apply -f deploy/cr.yaml
@@ -74,7 +68,7 @@ Install Percona XtraDB Cluster on Kubernetes
    percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
    ```
 
-7. Check connectivity to newly created cluster
+6. Check connectivity to newly created cluster
 
    ```bash
    $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il

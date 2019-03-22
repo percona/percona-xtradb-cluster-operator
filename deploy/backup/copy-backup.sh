@@ -60,10 +60,17 @@ check_input() {
         mkdir -p "$dest_dir"
     fi
 
-    if ! $ctrl get "$backup_dest" 1>/dev/null; then
-        printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_dest"
+    if [ "${backup_dest:0:4}" = "pvc/" ]; then
+        if ! $ctrl get "$backup_dest" 1>/dev/null; then
+            printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_dest"
+            usage
+        fi
+    elif [ "${backup_dest:0:5}" = "s3://" ]; then
+        aws s3 ls "$backup_dest"
+    else
         usage
     fi
+
     if [ ! -d "$dest_dir" ]; then
         printf "[ERROR] '%s' is not local directory.\n\n" "$dest_dir"
         usage
@@ -101,12 +108,25 @@ start_tmp_pod() {
     echo "[done]"
 }
 
-copy_files() {
+copy_files_pvc() {
     local dest_dir=$1
 
     echo "Downloading started"
     $ctrl cp backup-access:/backup/ "${dest_dir%/}/"
     echo "Downloading finished"
+}
+
+copy_files_s3() {
+    local backup_path=$1
+    local dest_dir=$2
+    local backup_bucket=$( echo "${backup_path#s3://}" | cut -d '/' -f 1)
+    local backup_key=$( echo "${backup_path#s3://}" | cut -d '/' -f 2-)
+    local filename=$( basename "$backup_key" )
+
+    echo "Downloading started"
+    aws s3 cp "$backup_path" "$dest_dir"
+    echo "Downloading finished"
+    echo "$(aws s3 cp s3://$backup_bucket/.md5/$backup_key.md5 -) $filename" > "$dest_dir/md5sum.txt"
 }
 
 stop_tmp_pod() {
@@ -118,7 +138,7 @@ check_md5() {
 
     cd "${dest_dir}"
         md5sum -c md5sum.txt
-    cd -
+    cd - >/dev/null
 }
 
 main() {
@@ -133,10 +153,10 @@ main() {
 
     if [ "${backup_dest:0:4}" = "pvc/" ]; then
         start_tmp_pod "$backup_dest"
-        copy_files "$dest_dir"
+        copy_files_pvc "$dest_dir"
         stop_tmp_pod
     elif [ "${backup_dest:0:5}" = "s3://" ]; then
-        echo recover_s3 "$backup_dest" "$cluster"
+        copy_files_s3 "$backup_dest" "$dest_dir"
     fi
     check_md5 "$dest_dir"
 

@@ -27,6 +27,8 @@ docs:
         url: ./configure/operator
       - title: "Backups"
         url: ./configure/backups
+      - title: "Backups on Private Cloud"
+        url: ./configure/private
       - title: "Nodes Assignment"
         url: ./configure/constraints
 

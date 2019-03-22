@@ -132,6 +132,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	}
 
 	var destination string
+	var s3status *api.BackupStorageS3Spec
 
 	job.Spec = bcp.JobSpec(instance.Spec, bcpNode, r.serverVersion)
 	switch bcpStorage.Type {
@@ -189,6 +190,8 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
 		}
+
+		s3status = &bcpStorage.S3
 	}
 
 	// Set PerconaXtraDBBackup instance as the owner and controller
@@ -203,7 +206,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		reqLogger.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	}
 
-	err = r.updateJobStatus(instance, job, destination, instance.Spec.StorageName)
+	err = r.updateJobStatus(instance, job, destination, instance.Spec.StorageName, s3status)
 
 	return rr, err
 }
@@ -251,7 +254,7 @@ func (r *ReconcilePerconaXtraDBBackup) pvcStatus(pvc *corev1.PersistentVolumeCla
 	return VolumeStatus(pvc.Status.Phase), nil
 }
 
-func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job, destination, storageName string) error {
+func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job, destination, storageName string, s3 *api.BackupStorageS3Spec) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 
 	if err != nil {
@@ -266,6 +269,7 @@ func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBac
 		State:       api.BackupStarting,
 		Destination: destination,
 		StorageName: storageName,
+		S3:          s3,
 	}
 
 	switch {

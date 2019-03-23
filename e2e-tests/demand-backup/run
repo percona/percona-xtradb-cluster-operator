@@ -57,8 +57,10 @@ run_recovery_check() {
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
-    desc 'copy backup'
-    bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+    if [ "$backup1" != "on-demand-backup-minio" ]; then
+        desc 'copy backup'
+        bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+    fi
 }
 
 start_minio() {
@@ -78,25 +80,32 @@ start_minio() {
         stable/minio
     MINIO_POD=$(kubectl get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
     wait_pod $MINIO_POD
+
+    kubectl run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+        /usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+        /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
 }
 
 main() {
     create_namespace $namespace
     deploy_operator
-    kubectl apply -f $conf_dir/cloud-secret.yml
+    kubectl apply \
+        -f $conf_dir/minio-secret.yml \
+        -f $conf_dir/cloud-secret.yml
+    start_minio
 
     cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 
-    #run_backup         "$cluster" "on-demand-backup-pvc"
-    #run_recovery_check "$cluster" "on-demand-backup-pvc"
-    #check_pvc_md5
+    run_backup         "$cluster" "on-demand-backup-pvc"
+    run_recovery_check "$cluster" "on-demand-backup-pvc"
+    check_pvc_md5
 
-    #run_backup         "$cluster" "on-demand-backup-aws-s3"
-    #run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    run_backup         "$cluster" "on-demand-backup-aws-s3"
+    run_recovery_check "$cluster" "on-demand-backup-aws-s3"
 
-    #run_backup         "$cluster" "on-demand-backup-minio"
-    #run_recovery_check "$cluster" "on-demand-backup-minio"
+    run_backup         "$cluster" "on-demand-backup-minio"
+    run_recovery_check "$cluster" "on-demand-backup-minio"
 
     run_backup         "$cluster" "on-demand-backup-gcp-cs"
     run_recovery_check "$cluster" "on-demand-backup-gcp-cs"

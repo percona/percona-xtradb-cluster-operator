@@ -1,0 +1,56 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  labels:
+    cluster: scheduled-backup
+    schedule: N_N_N_N_N
+    type: cron
+  name: each-min-gcp-cs
+  ownerReferences:
+  - apiVersion: pxc.percona.com/v1alpha1
+    controller: true
+    kind: PerconaXtraDBCluster
+    name: scheduled-backup
+spec:
+  concurrencyPolicy: Allow
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        cluster: scheduled-backup
+        schedule: N_N_N_N_N
+        type: cron
+      ownerReferences:
+      - apiVersion: batch/v1beta1
+        kind: CronJob
+        name: each-min-gcp-cs
+    spec:
+      template:
+        metadata:
+        spec:
+          containers:
+          - args:
+            - sh
+            - -c
+            - "\n\t\t\t\t\t\t\tcat <<-EOF | kubectl apply -f -\n\t\t\t\t\t\t\t\t\tapiVersion:
+              pxc.percona.com/v1alpha1\n\t\t\t\t\t\t\t\t\tkind: PerconaXtraDBBackup\n\t\t\t\t\t\t\t\t\tmetadata:\n\t\t\t\t\t\t\t\t\t
+              \ name: \"cron-${pxcCluster:0:16}-$(date -u \"+%Y%m%d%H%M%S\")-${suffix}\"\n\t\t\t\t\t\t\t\t\t
+              \ labels:\n\t\t\t\t\t\t\t\t\t    ancestor: \"each-min-gcp-cs\"\n\t\t\t\t\t\t\t\t\t
+              \   cluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t    type: \"cron\"\n\t\t\t\t\t\t\t\t\tspec:\n\t\t\t\t\t\t\t\t\t
+              \ pxcCluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  storageName: \"gcp-cs\"\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
+            env:
+            - name: pxcCluster
+              value: scheduled-backup
+            imagePullPolicy: IfNotPresent
+            name: run-backup
+            resources: {}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: File
+          dnsPolicy: ClusterFirst
+          restartPolicy: Never
+          schedulerName: default-scheduler
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+  schedule: '* * * * *'
+  successfulJobsHistoryLimit: 1
+  suspend: false

@@ -29,46 +29,75 @@ run_recovery_check() {
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
-
-    desc 'copy backup'
-    bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
 }
 
-check_scheduled_backup() {
-    local cluster=$1
-    local storage=$2
+get_backup_name() {
+    kubectl get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{"\n"}{end}' \
+        | grep ":$1" \
+        | tail -1 \
+        | cut -d ':' -f 1
+}
 
-    compare_kubectl cronjob/each-min-${storage}
-    backup_name=$(
-        kubectl get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{"\n"}{end}' \
-            | grep ":$storage" \
-            | tail -1 \
-            | cut -d ':' -f 1
-    )
+start_minio() {
+    deploy_helm $namespace
 
-    wait_backup $backup_name
-    run_recovery_check "$cluster" "$backup_name"
+    desc 'install Minio'
+    helm del --purge minio-service || :
+    helm install \
+        --name minio-service \
+        --set accessKey=some-access-key \
+        --set secretKey=some-secret-key \
+        --set service.type=ClusterIP \
+        --set configPath=/tmp/.minio/ \
+        --set persistence.size=10G \
+        --set environment.MINIO_REGION=us-east-1 \
+        --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
+        stable/minio
+    MINIO_POD=$(kubectl get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
+    wait_pod $MINIO_POD
+
+    kubectl run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+        /usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+        /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
 }
 
 main() {
     create_namespace $namespace
     deploy_operator
-    kubectl apply -f $conf_dir/cloud-secret.yml
+    kubectl apply \
+        -f $conf_dir/minio-secret.yml \
+        -f $conf_dir/cloud-secret.yml
+    start_minio
 
     cluster="scheduled-backup"
     spinup_pxc "$cluster" "$test_dir/conf/${cluster}1.yml"
+    sleep 90
 
     desc 'add backups schedule, wait for the first backup'
     kubectl apply -f $test_dir/conf/${cluster}2.yml
     sleep 90
 
-    check_scheduled_backup "$cluster" "pvc"
+    compare_kubectl cronjob/each-min-pvc
+    compare_kubectl cronjob/each-min-aws-s3
+    compare_kubectl cronjob/each-min-minio
+    compare_kubectl cronjob/each-min-gcp-cs
 
-    #run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    backup_name_pvc=$(get_backup_name "pvc")
+    backup_name_aws=$(get_backup_name "aws-s3")
+    backup_name_minio=$(get_backup_name "minio")
+    backup_name_gcp=$(get_backup_name "gcp-cs")
 
-    #run_recovery_check "$cluster" "on-demand-backup-minio"
+    wait_backup $backup_name_pvc
+    wait_backup $backup_name_aws
+    wait_backup $backup_name_minio
+    wait_backup $backup_name_gcp
 
-    #run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
+    kubectl apply -f $test_dir/conf/${cluster}1.yml
+
+    run_recovery_check "$cluster" "$backup_name_pvc"
+    run_recovery_check "$cluster" "$backup_name_aws"
+    run_recovery_check "$cluster" "$backup_name_minio"
+    run_recovery_check "$cluster" "$backup_name_gcp"
 
     destroy $namespace
 }

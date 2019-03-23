@@ -99,7 +99,7 @@ deploy_helm() {
         export TILLER_NAMESPACE=tiller
         oc new-project tiller || :
         oc project tiller
-        oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=v2.12.1 | oc apply -f -
+        oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=v2.13.0 | oc apply -f -
     else
         kubectl --namespace kube-system create sa tiller || :
         kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller || :

@@ -3,6 +3,10 @@
 set -o errexit
 tmp_dir=$(mktemp -d)
 ctrl=""
+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL:-}
+AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
 
 check_ctrl() {
     if [ -x "$(command -v kubectl)" ]; then
@@ -32,6 +36,11 @@ get_backup_dest() {
     local backup=$1
 
     if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
+        local secret=$( $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.credentialsSecret}" 2>/dev/null)
+        export AWS_ENDPOINT_URL=$(  $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.endpointUrl}" 2>/dev/null)
+        export AWS_ACCESS_KEY_ID=$( $ctrl get "secret/$secret"     -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}'     2>/dev/null | base64 -D)
+        export AWS_SECRET_ACCESS_KEY=$($ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -D)
+
         $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else
         # support direct PVC name here
@@ -53,6 +62,7 @@ check_input() {
     local backup_dest=$1
     local cluster=$2
 
+    echo
     if [ -z "$backup_dest" ] || [ -z "$cluster" ]; then
         usage
     fi
@@ -68,11 +78,12 @@ check_input() {
             usage
         fi
     elif [ "${backup_dest:0:5}" = "s3://" ]; then
-        aws s3 ls "$backup_dest"
+        echo [INFO] please check file: aws s3 ls --endpoint-url "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" "$backup_dest"
     else
         usage
     fi
 
+    echo
     echo "All data in '$cluster' Percona XtraDB Cluster will be deleted during the backup restoration."
     while read -r -p "Are you sure? [y/N] " answer; do
         case "$answer" in
@@ -140,6 +151,7 @@ recover_pvc() {
 		  containers:
 		  - name: ncat
 		    image: percona/percona-xtradb-cluster-operator:0.3.0-backup
+		    imagePullPolicy: Always
 		    command:
 		        - bash
 		        - "-exc"
@@ -164,6 +176,7 @@ recover_pvc() {
 		      containers:
 		      - name: xtrabackup
 		        image: percona/percona-xtradb-cluster-operator:0.3.0-backup
+		        imagePullPolicy: Always
 		        command:
 		        - bash
 		        - "-exc"
@@ -199,7 +212,6 @@ recover_s3() {
     local backup_bucket=$( echo "${backup_path#s3://}" | cut -d '/' -f 1)
     local backup_key=$( echo "${backup_path#s3://}" | cut -d '/' -f 2-)
 
-
     $ctrl delete "job/restore-job-$cluster" 2>/dev/null || :
     cat - <<-EOF | $ctrl apply -f -
 		apiVersion: batch/v1
@@ -212,12 +224,15 @@ recover_s3() {
 		      containers:
 		      - name: xtrabackup
 		        image: percona/percona-xtradb-cluster-operator:0.3.0-backup
+		        imagePullPolicy: Always
 		        command:
 		        - bash
 		        - "-exc"
 		        - |
+		          mc -C /tmp/mc config host add dest "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY"
+		          mc -C /tmp/mc ls dest/$backup_bucket/$backup_key
 		          rm -rf /datadir/*
-		          gof3r get -b $backup_bucket -k $backup_key | xbstream -x -C /datadir
+		          mc -C /tmp/mc cat dest/$backup_bucket/$backup_key | xbstream -x -C /datadir
 		          xtrabackup --prepare --target-dir=/datadir
 		        volumeMounts:
 		        - name: datadir
@@ -247,6 +262,7 @@ main() {
 
     check_ctrl
     enable_logging
+    get_backup_dest "$backup"
     backup_dest=$(get_backup_dest "$backup")
     check_input "$backup_dest" "$cluster"
 

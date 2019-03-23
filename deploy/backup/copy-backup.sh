@@ -3,6 +3,10 @@
 set -o errexit
 tmp_dir=$(mktemp -d)
 ctrl=""
+AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL:-}
+AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
 
 check_ctrl() {
     if [ -x "$(command -v kubectl)" ]; then
@@ -31,6 +35,11 @@ get_backup_dest() {
     local backup=$1
 
     if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
+        local secret=$( $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.credentialsSecret}" 2>/dev/null)
+        export AWS_ENDPOINT_URL=$(  $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.endpointUrl}" 2>/dev/null)
+        export AWS_ACCESS_KEY_ID=$( $ctrl get "secret/$secret"     -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}'     2>/dev/null | base64 -D)
+        export AWS_SECRET_ACCESS_KEY=$($ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -D)
+
         $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else
         # support direct PVC name here
@@ -52,6 +61,7 @@ check_input() {
     local backup_dest=$1
     local dest_dir=$2
 
+    echo
     if [ -z "$backup_dest" ] || [ -z "$dest_dir" ]; then
         usage
     fi
@@ -66,7 +76,7 @@ check_input() {
             usage
         fi
     elif [ "${backup_dest:0:5}" = "s3://" ]; then
-        aws s3 ls "$backup_dest"
+        aws s3 cp --dryrun --endpoint-url "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" "$backup_dest" /tmp >/dev/null
     else
         usage
     fi
@@ -124,9 +134,12 @@ copy_files_s3() {
     local filename=$( basename "$backup_key" )
 
     echo "Downloading started"
-    aws s3 cp "$backup_path" "$dest_dir"
+    aws s3 cp --endpoint-url "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" "$backup_path" "$dest_dir/$filename"
     echo "Downloading finished"
-    echo "$(aws s3 cp s3://$backup_bucket/.md5/$backup_key.md5 -) $filename" > "$dest_dir/md5sum.txt"
+
+    if aws s3 cp --endpoint-url "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" s3://$backup_bucket/.md5/$backup_key.md5 - 1>/dev/null 2>/dev/null; then
+        echo "$(aws s3 cp --endpoint-url "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" s3://$backup_bucket/.md5/$backup_key.md5 -) $filename" > "$dest_dir/md5sum.txt"
+    fi
 }
 
 stop_tmp_pod() {
@@ -136,9 +149,11 @@ stop_tmp_pod() {
 check_md5() {
     local dest_dir=$1
 
-    cd "${dest_dir}"
-        md5sum -c md5sum.txt
-    cd - >/dev/null
+    if [ -f "${dest_dir}/md5sum.txt" ]; then
+        cd "${dest_dir}"
+            md5sum -c md5sum.txt
+        cd - >/dev/null
+    fi
 }
 
 main() {
@@ -148,6 +163,7 @@ main() {
 
     check_ctrl
     enable_logging
+    get_backup_dest "$backup"
     backup_dest=$(get_backup_dest "$backup")
     check_input "$backup_dest" "$dest_dir"
 

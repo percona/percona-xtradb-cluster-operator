@@ -81,6 +81,16 @@ Using images from a private Docker registry may be useful in different situation
 
 Following table presents Percona's certified images to be used with the Percona XtraDB Cluster Operator:
 
+### 0.3.0
+
+| Image                                                  | Digest                                                           |
+|--------------------------------------------------------|------------------------------------------------------------------|
+| percona/percona-xtradb-cluster-operator:0.3.0          | f4a0d604bb13678cbcd72fd261d1b2a287a09e69270b1f91b04b46c85f9592dc |
+| percona/percona-xtradb-cluster-operator:0.3.0-pxc      | 51a478ff24e6e16315e090e7c8b372ad58909d9560a8c5b428c1ca9588912bb2 |
+| percona/percona-xtradb-cluster-operator:0.3.0-proxysql | 673b954eec7395ca4571024a62f8faab3897b183f3134e220ad5332866afa4a1 |
+| percona/percona-xtradb-cluster-operator:0.3.0-backup   | a205e8f86993373ece95d9bcfc3068b7f83f96d61582dbe07d7a4b6cb359cc03 |
+| perconalab/pmm-client:1.17.1                           | f762cda2eda9ef17bfd1242ede70ee72595611511d8d0c5c46931ecbc968e9af |
+
 ### 0.2.0
 
 | Image                                             | Digest                                                           |

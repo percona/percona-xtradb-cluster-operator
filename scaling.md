@@ -13,17 +13,17 @@ In this example we have changed the size of the Percona XtraDB Cluster from `3`,
 
 **Note:** *Using ```kubectl scale StatefulSet_name``` command to rescale Percona XtraDB Cluster is not recommended, as it makes `size` configuration option out of sync, and the next config change may result in reverting the previous number of nodes.*
 
-### Increase the size of the Persistent Volume Claim
+### Increase the Persistent Volume Claim size
 
 A user can increase the size of an existing volume by editing the `PersistentVolumeClaim`(PVC)object. Shrinking a persistent volume is not supported.
 
-0. First, extract and backup the yaml file for the cluster 
+0. Extract and backup the yaml file for the cluster 
 
 ```bash
 kubectl get pxc cluster cluster1 -o yaml --export > CR_backup.yaml
 ```
 
-1. Second, delete the cluster
+1. Delete the cluster
 
 ```bash
 kubectl delete -f CR_backup.yaml

@@ -78,6 +78,10 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 		},
 		Env: []corev1.EnvVar{
 			{
+				Name: "PXC_SERVICE",
+				Value: c.lables["cluster"] + "-" + c.lables["app"] + "-unready",
+			},
+			{
 				Name: "MYSQL_ROOT_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: app.SecretKeySelector(secrets, "root"),

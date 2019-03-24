@@ -31,6 +31,8 @@ spec:
     spec:
       containers:
       - env:
+        - name: PXC_SERVICE
+          value: some-name-pxc-unready
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:

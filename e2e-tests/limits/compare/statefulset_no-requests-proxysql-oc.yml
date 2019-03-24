@@ -21,7 +21,7 @@ spec:
       app: pxc
       cluster: no-requests
       component: no-requests-proxysql
-  serviceName: no-requests-proxysql-headless
+  serviceName: no-requests-proxysql-unready
   template:
     metadata:
       labels:
@@ -102,7 +102,7 @@ spec:
         - -service=$(PROXYSQL_SERVICE)
         env:
         - name: PROXYSQL_SERVICE
-          value: no-requests-proxysql-headless
+          value: no-requests-proxysql-unready
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:

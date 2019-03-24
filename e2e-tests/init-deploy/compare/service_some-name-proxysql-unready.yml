@@ -6,7 +6,7 @@ metadata:
   labels:
     app: pxc
     cluster: some-name
-  name: some-name-proxysql-headless
+  name: some-name-proxysql-unready
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true

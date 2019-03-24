@@ -9,6 +9,7 @@ $dir/init-deploy/run
 $dir/recreate/run
 $dir/limits/run
 $dir/scaling/run
+$dir/scaling-proxysql/run
 $dir/monitoring/run
 $dir/affinity/run
 $dir/demand-backup/run

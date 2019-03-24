@@ -239,7 +239,18 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf("create newStatefulSetNode: %v", err)
 	}
 
-	nodesService := pxc.NewServiceNodes(cr)
+	nodesServiceUnready := pxc.NewServicePXCUnready(cr)
+	err = setControllerReference(cr, nodesServiceUnready, r.scheme)
+	if err != nil {
+		return err
+	}
+
+	err = r.client.Create(context.TODO(), nodesServiceUnready)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("create PXC Service: %v", err)
+	}
+
+	nodesService := pxc.NewServicePXC(cr)
 	err = setControllerReference(cr, nodesService, r.scheme)
 	if err != nil {
 		return err
@@ -289,8 +300,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return fmt.Errorf("create ProxySQL Service: %v", err)
 		}
 
-		// ProxySQL Headless Service
-		proxysh := pxc.NewServiceProxySQLHeadless(cr)
+		// ProxySQL Unready Service
+		proxysh := pxc.NewServiceProxySQLUnready(cr)
 		err = setControllerReference(cr, proxysh, r.scheme)
 		if err != nil {
 			return err
@@ -298,7 +309,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 		err = r.client.Create(context.TODO(), proxysh)
 		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("create ProxySQL Headless Service: %v", err)
+			return fmt.Errorf("create ProxySQL Unready Service: %v", err)
 		}
 
 		// PodDisruptionBudget object for ProxySQL

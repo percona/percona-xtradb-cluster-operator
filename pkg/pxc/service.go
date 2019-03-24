@@ -8,7 +8,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
+func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -16,6 +16,37 @@ func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-" + appName,
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":     appName,
+				"cluster": cr.Name,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port: 3306,
+					Name: "mysql",
+				},
+			},
+			ClusterIP: "None",
+			Selector: map[string]string{
+				"component": cr.Name + "-" + appName,
+			},
+		},
+	}
+	// addOwnerRefToObject(obj, cr.OwnerRef())
+	return obj
+}
+
+func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
+	obj := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-" + appName + "-unready",
 			Namespace: cr.Namespace,
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
@@ -42,14 +73,14 @@ func NewServiceNodes(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	return obj
 }
 
-func NewServiceProxySQLHeadless(cr *api.PerconaXtraDBCluster) *corev1.Service {
+func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-proxysql-headless",
+			Name:      cr.Name + "-proxysql-unready",
 			Namespace: cr.Namespace,
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",

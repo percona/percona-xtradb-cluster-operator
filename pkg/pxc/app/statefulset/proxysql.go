@@ -41,7 +41,7 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 	return &Proxy{
 		sfs:     sfs,
 		lables:  lables,
-		service: cr.Name + "-proxysql-headless",
+		service: cr.Name + "-proxysql-unready",
 	}
 }
 
@@ -149,7 +149,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 			Env: []corev1.EnvVar{
 				{
 					Name:  "PROXYSQL_SERVICE",
-					Value: c.lables["cluster"] + "-proxysql-headless",
+					Value: c.lables["cluster"] + "-proxysql-unready",
 				},
 				{
 					Name: "MYSQL_ROOT_PASSWORD",

@@ -5,7 +5,7 @@ set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
-cluster="no-limits-pxc"
+cluster="no-limits"
 
 create_namespace $namespace
 deploy_operator
@@ -16,57 +16,59 @@ kubectl apply \
     -f $conf_dir/client.yml \
     -f $test_dir/conf/$cluster.yml
 desc 'check if all 3 Pods started'
-wait_for_running $cluster-node 3
+wait_for_running $cluster-pxc 3
 
 desc 'check data consistency: write data, read from all'
 run_mysql \
     'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-    "-h $cluster-nodes -uroot -proot_password"
+    "-h $cluster-pxc -uroot -proot_password"
 run_mysql \
     'INSERT myApp.myApp (id) VALUES (100500)' \
-    "-h $cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+    "-h $cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
 desc 'scale up from 3 to 5'
 sed -e 's/size: 3/size: 5/' $test_dir/conf/$cluster.yml \
     | kubectl apply -f-
 
 desc 'check if all 5 Pods started'
-wait_for_running $cluster-node 5
+wait_for_running $cluster-pxc 5
+sleep 15
 
 desc 'check if PVC created'
-compare_kubectl pvc/datadir-$cluster-node-3
-compare_kubectl pvc/datadir-$cluster-node-4
+compare_kubectl pvc/datadir-$cluster-pxc-3
+compare_kubectl pvc/datadir-$cluster-pxc-4
 
 desc 'check data consistency for new Pods'
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-3.$cluster-nodes -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-4.$cluster-nodes -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-3.$cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-4.$cluster-pxc -uroot -proot_password"
 
 desc 'check new Pods exists in ProxySQL'
-pod3_ip=$(get_pod_ip $cluster-node-3)
-pod4_ip=$(get_pod_ip $cluster-node-4)
-run_mysql_local 'SELECT hostname FROM mysql_servers WHERE comment="READ";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+pod3_ip=$(get_pod_ip $cluster-pxc-3)
+pod4_ip=$(get_pod_ip $cluster-pxc-4)
+run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
     | grep "$pod3_ip"
-run_mysql_local 'SELECT hostname FROM mysql_servers WHERE comment="READ";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
     | grep "$pod4_ip"
 
 desc 'scale down from 5 to 3'
 kubectl apply -f $test_dir/conf/$cluster.yml
+sleep 15
 
 desc 'check if Pod deleted'
-wait_for_delete pod/$cluster-node-3
-wait_for_delete pod/$cluster-node-4
+wait_for_delete pod/$cluster-pxc-3
+wait_for_delete pod/$cluster-pxc-4
 
 desc 'check if PVC not deleted'
-compare_kubectl pvc/datadir-$cluster-node-3
-compare_kubectl pvc/datadir-$cluster-node-4
+compare_kubectl pvc/datadir-$cluster-pxc-3
+compare_kubectl pvc/datadir-$cluster-pxc-4
 
 desc 'check if Pod deleted from ProxySQL'
-run_mysql_local 'SELECT hostname FROM mysql_servers WHERE status="OFFLINE_HARD";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | grep "$pod3_ip"
-run_mysql_local 'SELECT hostname FROM mysql_servers WHERE status="OFFLINE_HARD";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | grep "$pod4_ip"
+run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+    | ( grep "$pod3_ip" && exit 1 || :)
+run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+    | ( grep "$pod4_ip" && exit 1 || :)
 
 destroy $namespace

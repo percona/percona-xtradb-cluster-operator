@@ -6,12 +6,12 @@ metadata:
     pv.kubernetes.io/bound-by-controller: "yes"
   labels:
     app: pxc
-    cluster: no-limits
-    component: no-limits-pxc-nodes
-  name: datadir-no-limits-pxc-node-3
+    cluster: scaling-proxysql
+    component: scaling-proxysql-proxysql
+  name: proxydata-scaling-proxysql-proxysql-1
 spec:
   accessModes:
   - ReadWriteOnce
   resources:
     requests:
-      storage: 6Gi
+      storage: 2Gi

@@ -45,9 +45,11 @@ matrix:
     - ./e2e-tests/init-deploy/run
     - ./e2e-tests/storage/run
     - ./e2e-tests/limits/run
-    - ./e2e-tests/scaling/run
     - ./e2e-tests/monitoring/run
     - ./e2e-tests/affinity/run
+  - name: "E2E Scaling"
+    - ./e2e-tests/scaling/run
+    - ./e2e-tests/scaling-proxysql/run
   - name: "E2E Self-Healing"
     script:
     - ./e2e-tests/self-healing/run

@@ -17,7 +17,7 @@ spec:
       app: pxc
       cluster: monitoring
       component: monitoring-proxysql
-  serviceName: monitoring-proxysql-headless
+  serviceName: monitoring-proxysql-unready
   template:
     metadata:
       labels:
@@ -117,7 +117,7 @@ spec:
         - -service=$(PROXYSQL_SERVICE)
         env:
         - name: PROXYSQL_SERVICE
-          value: monitoring-proxysql-headless
+          value: monitoring-proxysql-unready
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:

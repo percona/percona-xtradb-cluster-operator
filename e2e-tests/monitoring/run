@@ -5,7 +5,7 @@ set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
-cluster="monitoring-pxc"
+cluster="monitoring"
 
 create_namespace $namespace
 deploy_helm $namespace
@@ -17,7 +17,7 @@ if [ $OPENSHIFT == 1 ]; then
     platform=openshift
 fi
 helm del --purge monitoring || :
-helm install --name monitoring --set platform=$platform https://s3-us-west-2.amazonaws.com/percona-tmp/pmm-server-1.17.0.tgz
+helm install --name monitoring --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-1.17.1.tgz
 
 desc 'create PXC cluster'
 kubectl apply \
@@ -25,22 +25,28 @@ kubectl apply \
     -f $conf_dir/client.yml \
     -f $test_dir/conf/$cluster.yml
 desc 'check if all 3 Pods started'
-wait_for_running $cluster-node 3
+wait_for_running $cluster-pxc 3
+
+# wait for prometheus
+sleep 90
 
 desc 'check if pmm-client container enabled'
-compare_kubectl statefulset/$cluster-node
+compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-proxysql
 
 desc 'check mysql metrics'
-get_metric_values node_boot_time $cluster-node-0
-get_metric_values mysql_global_status_uptime $cluster-node-0
+get_metric_values node_boot_time $cluster-pxc-0
+get_metric_values mysql_global_status_uptime $cluster-pxc-0
 
 desc 'check proxysql metrics'
 get_metric_values node_boot_time $cluster-proxysql-0
 get_metric_values proxysql_connection_pool_status $cluster-proxysql-0
 
+# wait for QAN
+sleep 90
+
 desc 'check QAN data'
-get_qan_values $cluster-node-0
+get_qan_values $cluster-pxc-0
 
 helm delete --purge monitoring
 destroy $namespace

@@ -331,7 +331,7 @@ get_metric_values() {
 
 get_qan_values() {
     local instance=$1
-    local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-3 minute")
+    local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
     local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
     local endpoint=$(get_service_endpoint monitoring-service)
 

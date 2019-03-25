@@ -21,7 +21,7 @@ spec:
               - key: statefulset.kubernetes.io/pod-name
                 operator: In
                 values:
-                - some-name-pxc-node-0
+                - some-name-pxc-0
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: pumba

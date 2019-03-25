@@ -5,7 +5,7 @@ set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
-cluster="some-name-pxc"
+cluster="some-name"
 
 
 setup_cluster() {
@@ -17,18 +17,18 @@ setup_cluster() {
         -f $conf_dir/client.yml
 
     # check if all 3 Pods started
-    wait_for_running $cluster-node 3
+    wait_for_running $cluster-pxc 3
 
     desc 'check data consistency: write data, read from all'
     run_mysql \
         'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-        "-h $cluster-nodes -uroot -proot_password"
+        "-h $cluster-pxc -uroot -proot_password"
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100500)' \
-        "-h $cluster-nodes -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+        "-h $cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 }
 
 pumba_pod() {
@@ -40,10 +40,10 @@ pumba_pod() {
     sleep 2
 
     # check if all 3 Pods started
-    wait_for_running $cluster-node 3
+    wait_for_running $cluster-pxc 3
 
     desc 'check data consistency for chaosed Pod'
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-nodes -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-pxc -uroot -proot_password"
 }
 
 pumba_all_pods() {
@@ -54,13 +54,13 @@ pumba_all_pods() {
     sleep 2
 
     # check if all 3 Pods started
-    wait_for_running $cluster-node 3
+    wait_for_running $cluster-pxc 3
     sleep 10
 
     desc 'check data consistency for chaosed Pod'
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 }
 
 
@@ -81,11 +81,11 @@ pause_pod() {
     wait $pid
 
     # check if all 3 Pods started
-    wait_for_running $cluster-node 3
+    wait_for_running $cluster-pxc 3
     sleep 10
 
     desc 'check data consistency for chaosed Pod'
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-nodes -uroot -proot_password" "-2nd"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-pxc -uroot -proot_password" "-2nd"
 }
 
 netem_pod() {
@@ -99,17 +99,17 @@ netem_pod() {
     # write data
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100502)' \
-        "-h $cluster-nodes -uroot -proot_password"
+        "-h $cluster-pxc -uroot -proot_password"
 
     # wait for unpause
     wait $pid || :
 
     # check if all 3 Pods started
-    wait_for_running $cluster-node 3
+    wait_for_running $cluster-pxc 3
     sleep 10
 
     desc 'check data consistency for chaosed Pod'
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-nodes -uroot -proot_password" "-3rd"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-pxc -uroot -proot_password" "-3rd"
 }
 
 recreate() {
@@ -130,18 +130,18 @@ recreate() {
     # delete cluster
     kubectl delete \
         -f $conf_dir/$cluster.yml
-    wait_for_delete pod/$cluster-node-2
-    wait_for_delete pod/$cluster-node-1
-    wait_for_delete pod/$cluster-node-0
+    wait_for_delete pod/$cluster-pxc-2
+    wait_for_delete pod/$cluster-pxc-1
+    wait_for_delete pod/$cluster-pxc-0
 
     # recreate cluster
     kubectl apply \
         -f $conf_dir/$cluster.yml
 
-    wait_for_running $cluster-node 3
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-0.$cluster-nodes -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-1.$cluster-nodes -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-node-2.$cluster-nodes -uroot -proot_password"
+    wait_for_running $cluster-pxc 3
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
     run_mysql_local \
         'SELECT * FROM global_variables ORDER BY variable_name' \
@@ -160,22 +160,22 @@ main() {
     desc 'recreate cluster'
     recreate
 
-    desc 'kill node-0 pod'
-    pumba_pod kill "$cluster-node-0"
+    desc 'kill pod-0 pod'
+    pumba_pod kill "$cluster-pxc-0"
 
-    desc 'rm node-0 pod'
-    pumba_pod rm "$cluster-node-0"
+    desc 'rm pod-0 pod'
+    pumba_pod rm "$cluster-pxc-0"
 
-    desc 'stop node-0 pod'
-    pumba_pod stop "$cluster-node-0"
+    desc 'stop pod-0 pod'
+    pumba_pod stop "$cluster-pxc-0"
 
-    desc 'pause node-0 pod'
-    pause_pod "$cluster-node-0"
+    desc 'pause pod-0 pod'
+    pause_pod "$cluster-pxc-0"
 
-    desc 'emulate bad network node-0 pod'
-    netem_pod "$cluster-node-0"
+    desc 'emulate bad network pod-0 pod'
+    netem_pod "$cluster-pxc-0"
 
-    # pumba should be run on all nodes
+    # pumba should be run on all pxc
     #desc 'kill all PXC pods'
     ## TODO: pumba_all_pods kill
     #desc 'rm all PXC pods'

@@ -3,7 +3,7 @@ docs:
     children:
       - title: "What is it for?"
         url: ./
-      - title: "How it works?"
+      - title: "How does it work?"
         url: ./architecture
   - title: Deployment
     children:
@@ -29,4 +29,5 @@ docs:
         url: ./configure/backups
       - title: "Nodes Assignment"
         url: ./configure/constraints
-
+      - title: "Local Storage"
+        url: ./configure/storage

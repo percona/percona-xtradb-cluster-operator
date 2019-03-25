@@ -29,8 +29,6 @@ Please note, that hostPath directory is not created automatically! Is should be 
 2. ownership
 3. SELinux security context
 
-Skipping any of these three can lead to a malfunction that will be difficult to debug.
-
 ``hostPath`` is useful when you are able to perform manual actions during the first run and have strong need in improved disk performance. Also, please consider using tolerations to avoid cluster migration to different hardware in case of a reboot or a hardware failure.
 
 More details can be found in the [official hostPath Kubernetes documentation](https://kubernetes.io/docs/concepts/storage/volumes/#hostpath).

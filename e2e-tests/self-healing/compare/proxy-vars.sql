@@ -2,18 +2,18 @@ admin-admin_credentials	proxyadmin:admin_password
 admin-checksum_mysql_query_rules	true
 admin-checksum_mysql_servers	true
 admin-checksum_mysql_users	true
-admin-cluster_check_interval_ms	1000
-admin-cluster_check_status_frequency	10
+admin-cluster_check_interval_ms	200
+admin-cluster_check_status_frequency	100
 admin-cluster_mysql_query_rules_diffs_before_sync	3
 admin-cluster_mysql_query_rules_save_to_disk	true
 admin-cluster_mysql_servers_diffs_before_sync	3
 admin-cluster_mysql_servers_save_to_disk	true
 admin-cluster_mysql_users_diffs_before_sync	3
 admin-cluster_mysql_users_save_to_disk	true
-admin-cluster_password	
+admin-cluster_password	admin_password
 admin-cluster_proxysql_servers_diffs_before_sync	3
 admin-cluster_proxysql_servers_save_to_disk	true
-admin-cluster_username	
+admin-cluster_username	proxyadmin
 admin-hash_passwords	true
 admin-mysql_ifaces	0.0.0.0:6032
 admin-read_only	false
@@ -26,11 +26,15 @@ admin-stats_system_cpu	60
 admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
-admin-version	1.4.13-percona-1.1
+admin-vacuum_stats	true
+admin-version	2.0.3-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
+mysql-add_ldap_user_comment	
+mysql-auto_increment_delay_multiplex	5
 mysql-autocommit_false_is_transaction	false
 mysql-autocommit_false_not_reusable	false
+mysql-binlog_reader_connect_retry_msec	3000
 mysql-client_found_rows	true
 mysql-client_multi_statements	true
 mysql-commands_stats	true
@@ -55,10 +59,12 @@ mysql-eventslog_filesize	104857600
 mysql-forward_autocommit	false
 mysql-free_connections_pct	10
 mysql-have_compress	true
+mysql-have_ssl	false
 mysql-hostgroup_manager_verbose	1
 mysql-init_connect	
 mysql-interfaces	0.0.0.0:3306
 mysql-kill_backend_connection_when_disconnect	true
+mysql-ldap_user_variable	
 mysql-long_query_time	1000
 mysql-max_allowed_packet	4194304
 mysql-max_connections	2048
@@ -70,6 +76,8 @@ mysql-mirror_max_queue_length	32000
 mysql-monitor_connect_interval	20000
 mysql-monitor_connect_timeout	600
 mysql-monitor_enabled	true
+mysql-monitor_galera_healthcheck_interval	5000
+mysql-monitor_galera_healthcheck_timeout	800
 mysql-monitor_groupreplication_healthcheck_interval	5000
 mysql-monitor_groupreplication_healthcheck_timeout	800
 mysql-monitor_history	60000
@@ -86,6 +94,9 @@ mysql-monitor_replication_lag_interval	10000
 mysql-monitor_replication_lag_timeout	1000
 mysql-monitor_replication_lag_use_percona_heartbeat	
 mysql-monitor_slave_lag_when_null	60
+mysql-monitor_threads_max	128
+mysql-monitor_threads_min	8
+mysql-monitor_threads_queue_maxsize	128
 mysql-monitor_username	monitor
 mysql-monitor_wait_timeout	true
 mysql-monitor_writer_is_also_reader	true
@@ -95,14 +106,18 @@ mysql-ping_timeout_server	200
 mysql-poll_timeout	2000
 mysql-poll_timeout_on_failure	100
 mysql-query_cache_size_MB	256
+mysql-query_cache_stores_empty_result	true
 mysql-query_digests	true
 mysql-query_digests_lowercase	false
 mysql-query_digests_max_digest_length	2048
 mysql-query_digests_max_query_length	65000
+mysql-query_digests_normalize_digest_text	false
+mysql-query_digests_track_hostname	false
 mysql-query_processor_iterations	0
 mysql-query_processor_regex	1
 mysql-query_retries_on_failure	1
-mysql-server_capabilities	45578
+mysql-reset_connection_algorithm	2
+mysql-server_capabilities	569899
 mysql-server_version	5.5.30
 mysql-servers_stats	true
 mysql-session_idle_ms	1000

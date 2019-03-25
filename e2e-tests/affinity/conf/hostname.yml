@@ -1,12 +1,12 @@
-apiVersion: "pxc.percona.com/v1alpha1"
-kind: "PerconaXtraDBCluster"
+apiVersion: pxc.percona.com/v1alpha1
+kind: PerconaXtraDBCluster
 metadata:
   name: hostname
 spec:
   secretsName: my-cluster-secrets
   pxc:
     size: 3
-    image: perconalab/pxc-openshift:0.2.0
+    image: percona/percona-xtradb-cluster-operator:0.3.0-pxc
     resources:
       requests:
         memory: 1G
@@ -15,14 +15,16 @@ spec:
         memory: "1G"
         cpu: "1"
     volumeSpec:
-      accessModes: [ "ReadWriteOnce" ]
-      size: 6Gi
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
     enabled: true
     size: 1
-    image: perconalab/proxysql-openshift:0.2.0
+    image: percona/percona-xtradb-cluster-operator:0.3.0-proxysql
     resources:
       requests:
         memory: 1G
@@ -31,12 +33,14 @@ spec:
         memory: 1G
         cpu: 700m
     volumeSpec:
-      accessModes: [ "ReadWriteOnce" ]
-      size: 2Gi
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   pmm:
     enabled: false
-    image: perconalab/pmm-client:1.17.0
+    image: perconalab/pmm-client:1.17.1
     serverHost: monitoring-service
     serverUser: pmm

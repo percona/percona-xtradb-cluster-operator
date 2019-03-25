@@ -4,14 +4,14 @@ metadata:
   generation: 1
   labels:
     app: pxc
-    cluster: custom
-    component: custom-pxc-nodes
-  name: custom-pxc-node
+    cluster: hostname
+    component: hostname-pxc
+  name: hostname-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: custom
+    name: hostname
 spec:
   podManagementPolicy: OrderedReady
   replicas: 3
@@ -19,56 +19,38 @@ spec:
   selector:
     matchLabels:
       app: pxc
-      cluster: custom
-      component: custom-pxc-nodes
-  serviceName: custom-pxc-nodes
+      cluster: hostname
+      component: hostname-pxc
+  serviceName: hostname-pxc
   template:
     metadata:
       labels:
         app: pxc
-        cluster: custom
-        component: custom-pxc-nodes
+        cluster: hostname
+        component: hostname-pxc
     spec:
       affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: another-node-label-key
-                operator: In
-                values:
-                - another-node-label-value
-            weight: 1
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: kubernetes.io/e2e-az-name
-                operator: In
-                values:
-                - e2e-az1
-                - e2e-az2
-        podAffinity:
+        podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: security
+              - key: app
                 operator: In
                 values:
-                - S1
-            topologyKey: failure-domain.beta.kubernetes.io/zone
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: security
-                  operator: In
-                  values:
-                  - S2
-              topologyKey: kubernetes.io/hostname
-            weight: 100
+                - pxc
+              - key: cluster
+                operator: In
+                values:
+                - hostname
+              - key: component
+                operator: In
+                values:
+                - hostname-pxc
+            topologyKey: kubernetes.io/hostname
       containers:
       - env:
+        - name: PXC_SERVICE
+          value: hostname-pxc-unready
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -99,7 +81,7 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           timeoutSeconds: 5
-        name: node
+        name: pxc
         ports:
         - containerPort: 3306
           name: mysql
@@ -137,7 +119,7 @@ spec:
       volumes:
       - configMap:
           defaultMode: 420
-          name: custom-pxc-nodes
+          name: hostname-pxc
           optional: true
         name: config-volume
   updateStrategy:
@@ -152,6 +134,6 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 6Gi
+          storage: 2Gi
     status:
       phase: Pending

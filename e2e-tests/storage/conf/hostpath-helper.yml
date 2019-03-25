@@ -14,7 +14,7 @@ spec:
       containers:
       - name: cleanup
         image: ubuntu
-        command: ["bash", "-xc", "rm -rf /mnt/tmp/data-dir /mnt/tmp/data/fast-disks; install -m 777 -d /mnt/tmp/data-dir /mnt/tmp/data/fast-disks && sleep 100500"]
+        command: ["bash", "-xc", "rm -rf /mnt/tmp/data-dir; install -m 777 -d /mnt/tmp/data-dir && sleep 100500"]
         volumeMounts:
         - name: root
           mountPath: /mnt
@@ -25,5 +25,6 @@ spec:
         hostPath:
           path: /
 
+# sudo rm -rf /tmp/data-dir
 # sudo install -m777 -g 0 -d /tmp/data-dir
 # sudo chcon -R unconfined_u:object_r:svirt_sandbox_file_t:s0 /tmp /tmp/data-dir

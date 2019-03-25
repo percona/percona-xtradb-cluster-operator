@@ -2,16 +2,12 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app: pxc
-    cluster: zone
-    component: zone-pxc-proxysql
-  name: zone-pxc-proxysql
+  name: hostname-proxysql
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: zone
+    name: hostname
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -19,15 +15,15 @@ spec:
   selector:
     matchLabels:
       app: pxc
-      cluster: zone
-      component: zone-pxc-proxysql
-  serviceName: zone-pxc-proxysql
+      cluster: hostname
+      component: hostname-proxysql
+  serviceName: hostname-proxysql-unready
   template:
     metadata:
       labels:
         app: pxc
-        cluster: zone
-        component: zone-pxc-proxysql
+        cluster: hostname
+        component: hostname-proxysql
     spec:
       affinity:
         podAntiAffinity:
@@ -41,12 +37,12 @@ spec:
               - key: cluster
                 operator: In
                 values:
-                - zone
+                - hostname
               - key: component
                 operator: In
                 values:
-                - zone-pxc-proxysql
-            topologyKey: failure-domain.beta.kubernetes.io/zone
+                - hostname-proxysql
+            topologyKey: kubernetes.io/hostname
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD
@@ -61,20 +57,11 @@ spec:
             secretKeyRef:
               key: proxyadmin
               name: my-cluster-secrets
-        - name: MYSQL_PROXY_USER
-          value: proxyuser
-        - name: MYSQL_PROXY_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: proxyuser
-              name: my-cluster-secrets
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
               name: my-cluster-secrets
-        - name: PXCSERVICE
-          value: zone-pxc-nodes
         imagePullPolicy: Always
         name: proxysql
         ports:
@@ -97,10 +84,69 @@ spec:
         - mountPath: /var/lib/proxysql
           name: proxydata
           subPath: data
+      - args:
+        - /usr/bin/peer-list
+        - -on-change=/usr/bin/add_pxc_nodes.sh
+        - -service=$(PXC_SERVICE)
+        env:
+        - name: PXC_SERVICE
+          value: hostname-pxc
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: root
+              name: my-cluster-secrets
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: proxyadmin
+              name: my-cluster-secrets
+        - name: MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        imagePullPolicy: Always
+        name: pxc-monit
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      - args:
+        - /usr/bin/peer-list
+        - -on-change=/usr/bin/add_proxysql_nodes.sh
+        - -service=$(PROXYSQL_SERVICE)
+        env:
+        - name: PROXYSQL_SERVICE
+          value: hostname-proxysql-unready
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: root
+              name: my-cluster-secrets
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: proxyadmin
+              name: my-cluster-secrets
+        - name: MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        imagePullPolicy: Always
+        name: proxysql-monit
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30

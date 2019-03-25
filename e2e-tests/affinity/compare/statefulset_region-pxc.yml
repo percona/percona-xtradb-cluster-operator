@@ -2,16 +2,12 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app: pxc
-    cluster: zone
-    component: zone-pxc-nodes
-  name: zone-pxc-node
+  name: region-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
     controller: true
     kind: PerconaXtraDBCluster
-    name: zone
+    name: region
 spec:
   podManagementPolicy: OrderedReady
   replicas: 3
@@ -19,15 +15,15 @@ spec:
   selector:
     matchLabels:
       app: pxc
-      cluster: zone
-      component: zone-pxc-nodes
-  serviceName: zone-pxc-nodes
+      cluster: region
+      component: region-pxc
+  serviceName: region-pxc
   template:
     metadata:
       labels:
         app: pxc
-        cluster: zone
-        component: zone-pxc-nodes
+        cluster: region
+        component: region-pxc
     spec:
       affinity:
         podAntiAffinity:
@@ -41,14 +37,16 @@ spec:
               - key: cluster
                 operator: In
                 values:
-                - zone
+                - region
               - key: component
                 operator: In
                 values:
-                - zone-pxc-nodes
-            topologyKey: failure-domain.beta.kubernetes.io/zone
+                - region-pxc
+            topologyKey: failure-domain.beta.kubernetes.io/region
       containers:
       - env:
+        - name: PXC_SERVICE
+          value: region-pxc-unready
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -79,7 +77,7 @@ spec:
           periodSeconds: 10
           successThreshold: 1
           timeoutSeconds: 5
-        name: node
+        name: pxc
         ports:
         - containerPort: 3306
           name: mysql
@@ -111,13 +109,14 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30
       volumes:
       - configMap:
           defaultMode: 420
-          name: zone-pxc-nodes
+          name: region-pxc
           optional: true
         name: config-volume
   updateStrategy:
@@ -132,6 +131,6 @@ spec:
       - ReadWriteOnce
       resources:
         requests:
-          storage: 6Gi
+          storage: 2Gi
     status:
       phase: Pending

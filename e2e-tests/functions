@@ -19,12 +19,12 @@ fi
 create_namespace() {
     local namespace="$1"
     if [ "$OPENSHIFT" == 1 ]; then
-        oc delete --grace-period=0 --force=true project "$namespace" && sleep 40 || :
+        oc delete project "$namespace" && sleep 40 || :
         oc new-project "$namespace"
         oc project "$namespace"
         oc adm policy add-scc-to-user hostaccess -z default || :
     else
-        kubectl delete --grace-period=0 --force=true namespace "$namespace" || :
+        kubectl delete namespace "$namespace" || :
         wait_for_delete "namespace/$namespace"
         kubectl create namespace "$namespace"
         kubectl config set-context $(kubectl config current-context) --namespace="$namespace"

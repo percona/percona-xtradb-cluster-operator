@@ -7,7 +7,7 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
 check_affinity() {
-    local cluster="$1-pxc"
+    local cluster="$1"
     local skip_wait=$2
 
     # apply cr config
@@ -16,13 +16,13 @@ check_affinity() {
 
     # check if at least 1 Pod started
     if [ -z "$skip_wait" ]; then
-        wait_for_running $cluster-node 1
+        wait_for_running $cluster-pxc 1
     else
         sleep 5
     fi
 
     # check if statefulset created with expected config
-    compare_kubectl statefulset/$cluster-node
+    compare_kubectl statefulset/$cluster-pxc
     compare_kubectl statefulset/$cluster-proxysql
 
     # delete cluster

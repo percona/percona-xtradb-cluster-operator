@@ -15,54 +15,53 @@ In this example we have changed the size of the Percona XtraDB Cluster from `3`,
 
 ### Increase the Persistent Volume Claim size
 
-A user can increase the size of an existing volume by editing the `PersistentVolumeClaim`(PVC)object. Shrinking a persistent volume is not supported.
+A user can increase the size of an existing volume by editing the `PersistentVolumeClaim`(PVC) object. Manula direct shrinking a persistent volume is not supported.
 
 0. Extract and backup the yaml file for the cluster 
 
-```bash
-kubectl get pxc cluster cluster1 -o yaml --export > CR_backup.yaml
-```
+   ```bash
+   kubectl get pxc cluster1 -o yaml --export > CR_backup.yaml
+   ```
 
 1. Delete the cluster
 
-```bash
-kubectl delete -f CR_backup.yaml
-```
+   ```bash
+   kubectl delete -f CR_backup.yaml
+   ```
 
 2. For each node, edit the yaml to resize the PVC object.
 
-```bash
-kubectl edit pvc datadir-cluster1-pxc-node-0
-``` 
+   ```bash
+   kubectl edit pvc datadir-cluster1-pxc-0
+   ``` 
 
-In the yaml, edit the spec:storage value.
+   In the yaml, edit the spec.resources.requests.storage value.
 
-```bash
-spec:
-   accessModes:
-   - ReadWriteOnce
-   datasource: null
-   resources:
-     requests:
-       storage: 6Gi
-```
+   ```bash
+   spec:
+     accessModes:
+     - ReadWriteOnce
+     resources:
+       requests:
+         storage: 6Gi
+     storageClassName: gp2
+   ```
 
-Perform the same operation on the other nodes.
+   Perform the same operation on the other nodes.
 
-```bash
-kubectl edit pvc datadir-cluster1-pxc-node-0
-kubectl edit pvc datadir-cluster1-pxc-node-0
-```
+   ```bash
+   kubectl edit pvc datadir-cluster1-pxc-1
+   kubectl edit pvc datadir-cluster1-pxc-2
+   ```
 
 3. In the CR configuration file, use vim or another command line text editor to edit the PVC size.
 
- ```bash
-vim CR_backup.yaml
-```
+   ```bash
+   vim CR_backup.yaml
+   ```
 
 4. Apply the updated configuration to the cluster.
 
-```bash
-kubectl apply -f CR_backup.yaml
-```
-
+   ```bash
+   kubectl apply -f CR_backup.yaml
+   ```

@@ -15,9 +15,22 @@ In this example we have changed the size of the Percona XtraDB Cluster from `3`,
 
 ### Increase the Persistent Volume Claim size
 
-A user can increase the size of an existing volume by editing the `PersistentVolumeClaim`(PVC) object. Manula direct shrinking a persistent volume is not supported.
+Kubernetes provides the concept of provisioning storage with a persistentvolume (PV), a segment of storage supplied by the administrator, and a persistentvolumeclaim (PVC), a request for storage from a user. In Kubernetes v1.11 the feature was added to allow a user to edit the size of an existing PVC object to increase the size. The user cannot shrink the size of an existing PVC object.  
 
-0. Extract and backup the yaml file for the cluster 
+The following volume types support expanding PVCs by default:
+  * gcePersistentDisk
+  * awsElasticBlockStore
+  * Cinder
+  * glusterfs
+  * rbd
+  * Azure File
+  * Azure Disk
+  * Portworx
+  * FlexVolumes
+  * CSI
+
+The following are the steps to increase the size:
+0. Extract and backup the yaml file for the cluster
 
    ```bash
    kubectl get pxc cluster1 -o yaml --export > CR_backup.yaml
@@ -33,7 +46,7 @@ A user can increase the size of an existing volume by editing the `PersistentVol
 
    ```bash
    kubectl edit pvc datadir-cluster1-pxc-0
-   ``` 
+   ```
 
    In the yaml, edit the spec.resources.requests.storage value.
 
@@ -44,7 +57,6 @@ A user can increase the size of an existing volume by editing the `PersistentVol
      resources:
        requests:
          storage: 6Gi
-     storageClassName: gp2
    ```
 
    Perform the same operation on the other nodes.

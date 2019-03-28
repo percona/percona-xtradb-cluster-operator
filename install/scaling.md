@@ -55,7 +55,7 @@ The following are the steps to increase the size:
    kubectl edit pvc datadir-cluster1-pxc-2
    ```
 
-3. In the CR configuration file, use vim or another command line text editor to edit the PVC size.
+3. In the CR configuration file, use vim or another text editor to edit the PVC size.
 
    ```bash
    vim CR_backup.yaml

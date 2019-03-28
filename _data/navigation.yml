@@ -31,3 +31,5 @@ docs:
         url: ./configure/constraints
       - title: "Local Storage"
         url: ./configure/storage
+      - title: "Changing MySQL Options"
+        url: ./configure/options

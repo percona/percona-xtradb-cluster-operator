@@ -27,7 +27,7 @@ Following steps are needed to install both PMM Client and PMM Server preconfigur
    * `credentials.username` should correspond to the `serverUser` key in the `pmm` section of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file.
    * `credentials.password` should correspond to a value of the `pmmserver` secret key specified in `deploy/secrets.yaml` secrets file. Note that password specified in this example is the default development mode password not intended to be used on production systems.
 
-   ### Update the PMM Section
+### Update the PMM Section
 
 
    The following steps point the operators to the PMM installation:

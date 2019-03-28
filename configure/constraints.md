@@ -1,7 +1,7 @@
 Binding Percona XtraDB Cluster components to Specific Kubernetes/OpenShift Nodes
 ================================================================================
 
-The operator does good job automatically assigning new Pods to nodes with sufficient to achieve balanced distribution accross the cluster. Still there are situations when it worth to ensure that pods will land on specific nodes: for example, to get speed advantages of the SSD equipped machine, or to reduce costs choosing nodes in a same availability zone.
+The operator does good job automatically assigning new Pods to nodes with sufficient to achieve balanced distribution across the cluster. Still there are situations when it worth to ensure that pods will land on specific nodes: for example, to get speed advantages of the SSD equipped machine, or to reduce costs choosing nodes in a same availability zone.
 
 Both ``pxc`` and ``proxysql`` sections of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file contain keys which can be used to do this, depending on what is the best for a particular situation.
 
@@ -23,9 +23,9 @@ Affinity makes Pod eligible (or not eligible - so called "anti-affinity") to be 
 Percona XtraDB Cluster Operator provides two approaches for doing this:
 
 * simple way to set anti-affinity for Pods, built-in into the Operator,
-* more advanced approach based on using standard Kubernetes constraints. 
+* more advanced approach based on using standard Kubernetes constraints.
 
-### Simple approach - use topologyKey of the Percona XtraDB Cluster Operator 
+### Simple approach - use topologyKey of the Percona XtraDB Cluster Operator
 
 Percona XtraDB Cluster Operator provides a ``topologyKey`` option, which may have one of the following values:
 
@@ -40,7 +40,7 @@ The following example forces Percona XtraDB Cluster Pods to avoid occupying the 
    affinity:
      topologyKey: "kubernetes.io/hostname"
    ```
-   
+
 ### Advanced approach - use standard Kubernetes constraints
 
 Previous way can be used with no special knowledge of the Kubernetes way of assigning Pods to specific nodes. Still in some cases more complex tuning may be needed. In this case ``advanced`` option placed in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file turns off the effect of the ``topologyKey`` and allows to use standard Kubernetes affinity constraints of any complexity:
@@ -94,7 +94,7 @@ See explanation of the advanced affinity options [in Kubernetes documentation](h
 *Tolerations* allow Pods having them to be able to land onto nodes with matching *taints*. Toleration is expressed as a ``key`` with and ``operator``, which is either ``exists`` or ``equal`` (the latter variant also requires a ``value`` the key is equal to). Moreover, toleration should have a specified ``effect``, which may be a self-explanatory ``NoSchedule``, less strict ``PreferNoSchedule``, or ``NoExecute``. The last variant means that if a *taint* with ``NoExecute`` is assigned to node, then any Pod not tolerating this *taint* will be removed from the node, immediately or after the ``tolerationSeconds`` interval, like in the following example:
 
    ```
-   tolerations: 
+   tolerations:
    - key: "node.alpha.kubernetes.io/unreachable"
      operator: "Exists"
      effect: "NoExecute"

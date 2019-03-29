@@ -21,20 +21,28 @@ spec:
         wsrep_debug=ON
 ```
 
-### Use a Configmap
+### Use a ConfigMap
 
-You can use a configmap.yaml file to set Percona XtraDB Cluster configuration options. [Configmap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) allows Kubernetes to pass or update configuration data inside a containerized application.
+You can create and apply a configmap.yaml file to set Percona XtraDB Cluster configuration options. The ConfigMap allows Kubernetes to pass or update configuration data inside a containerized application.
 
-#### Data Section
+You can use the `kubectl create configmap` command to create a configmap, see [Configure a Pod to use a ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap). For example, you can create a ConfigMap.yaml file from a my.cnf file for the cluster1-pxc cluster:
 
-The `data` section of the configmap file contains the configuration settings for the Percona XtraDB Cluster.
+```bash
+kubectl create configmap cluster1-pxc --from-file=my.cnf
+```
+In the configmap.yaml file, the `data` section contains the configuration settings for the Percona XtraDB Cluster.
 
-| Key                            | Value Type | Example   | Description |
-|--------------------------------|------------|-----------|---------                                                                   |
-|configuration                   | string     |<code>&#124;</code><br>`      [mysqld]`<br>`        max_connections=250` | The `my.cnf` file options to be passed to Percona XtraDB Cluster nodes
+```
+apiVersion:v1
+kind: ConfigMap
+...
+data:
+  init.cnf: |
+    [mysqld]
+    max_connections=250
+```
 
-
-The user applies the configmap to the cluster.
+The user applies the ConfigMap to the cluster.
 ```bash
 kubectl apply -f configmap.yaml
 ```

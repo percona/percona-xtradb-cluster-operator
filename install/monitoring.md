@@ -3,7 +3,9 @@ Monitoring
 
 The Percona Monitoring and Management (PMM) [provides an excellent solution](https://www.percona.com/doc/percona-xtradb-cluster/LATEST/manual/monitoring.html#using-pmm) to monitor Percona XtraDB Cluster.
 
-Following steps are needed to install both PMM Client and PMM Server preconfigured to monitor Percona XtraDB Cluster on Kubernetes or OpenShift.
+### Installing the PMM Server
+
+This first section installs the PMM Server to monitor Percona XtraDB Cluster on Kubernetes or OpenShift. The following steps are optional if you already have installed the PMM Server. The PMM Server available on your network does not require another installation in Kubernetes.
 
 1. The recommended installation approach is based on using [helm](https://github.com/helm/helm) - the package manager for Kubernetes, which will substantially simplify further steps. So first thing to do is to install helm following its [official installation instructions](https://docs.helm.sh/using_helm/#installing-helm).
 
@@ -25,7 +27,12 @@ Following steps are needed to install both PMM Client and PMM Server preconfigur
    * `credentials.username` should correspond to the `serverUser` key in the `pmm` section of the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file.
    * `credentials.password` should correspond to a value of the `pmmserver` secret key specified in `deploy/secrets.yaml` secrets file. Note that password specified in this example is the default development mode password not intended to be used on production systems.
 
-4. Now the PMM is installed, and it is time to update ``pmm`` section in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file.
+### Installing the PMM Client
+
+
+   The following steps are needed for the PMM client installation:
+
+1. The PMM client installation is initiated by updating the ``pmm`` section in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file.
    * set `pmm.enabled=true`
    * make sure that `serverUser` (the PMM Server user name, `pmm` by default) is the same as one specified for the `credentials.username` parameter on the previous step.
    * make sure that `serverHost` (the PMM service name, `monitoring-service` by default) is the same as one specified for the `name` parameter on the previous step, but with additional `-service` suffix.
@@ -37,11 +44,11 @@ Following steps are needed to install both PMM Client and PMM Server preconfigur
       $ kubectl apply -f deploy/cr.yaml
       ```
 
-5. To make sure everything gone right, check that correspondent Pods are not continuously restarting (which would occur in case of any errors on the previous two steps):
+2. To make sure everything gone right, check that correspondent Pods are not continuously restarting (which would occur in case of any errors on the previous two steps):
 
    ```
    $ kubectl get pods
    $ kubectl logs cluster1-pxc-node-0 -c pmm-client
    ```
 
-6. Find the external IP address (`EXTERNAL-IP` field in the output of `kubectl get service/monitoring-service -o wide`). This IP address can be used to access PMM via *https* in a web browser, with the login/password authentication, already configured and able to [show Percona XtraDB Cluster metrics](https://www.percona.com/doc/percona-xtradb-cluster/LATEST/manual/monitoring.html#using-pmm).
+3. Find the external IP address (`EXTERNAL-IP` field in the output of `kubectl get service/monitoring-service -o wide`). This IP address can be used to access PMM via *https* in a web browser, with the login/password authentication, already configured and able to [show Percona XtraDB Cluster metrics](https://www.percona.com/doc/percona-xtradb-cluster/LATEST/manual/monitoring.html#using-pmm).

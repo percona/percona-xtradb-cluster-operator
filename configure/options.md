@@ -14,7 +14,7 @@ Edit the configuration section of the deploy/cr.yaml. See the [PXC section]( htt
 
 A configmap allows a user to separate configurations from the pods. Configmaps store unencrypted configuration settings. For sensitive information, the user should use Secrets.
 
-### Data Section
+#### Data Section
 
 The `data` section of the configmap file contains the configuration settings for the Percona XtraDB Cluster.
 

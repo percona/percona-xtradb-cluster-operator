@@ -16,7 +16,7 @@ func PodDisruptionBudget(spec *api.PodDisruptionBudgetSpec, app api.StatefulApp,
 			Kind:       "PodDisruptionBudget",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      labels["component"],
+			Name:      labels["app.kubernetes.io/instance"] + "-" + labels["app.kubernetes.io/component"],
 			Namespace: namespace,
 		},
 		Spec: policyv1beta1.PodDisruptionBudgetSpec{

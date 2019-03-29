@@ -89,29 +89,12 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 		if strings.ToLower(*af.TopologyKey) == api.AffinityTopologyKeyOff {
 			return nil
 		}
-		labels := app.Labels()
 		return &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
 					{
 						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{
-									Key:      "app",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{labels["app"]},
-								},
-								{
-									Key:      "cluster",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{labels["cluster"]},
-								},
-								{
-									Key:      "component",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{labels["component"]},
-								},
-							},
+							MatchLabels: app.Labels(),
 						},
 						TopologyKey: *af.TopologyKey,
 					},

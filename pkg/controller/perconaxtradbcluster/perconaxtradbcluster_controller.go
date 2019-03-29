@@ -201,6 +201,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	err = r.updateStatus(o)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("update status: %v", err)
+	}
+
 	return rr, nil
 }
 
@@ -212,7 +217,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	stsApp := statefulset.NewNode(cr)
 	if cr.Spec.PXC.Configuration != "" {
-		configMap := configmap.NewConfigMap(cr, stsApp.Labels()["component"])
+		ls := stsApp.Labels()
+		configMap := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return err
@@ -332,7 +338,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 		return nil
 	}
 
-	// pdb := psmdb.PodDisruptionBudget(spec, labels, namespace)
 	pdb := pxc.PodDisruptionBudget(spec, sfs, namespace)
 	err := setControllerReference(owner, pdb, r.scheme)
 	if err != nil {

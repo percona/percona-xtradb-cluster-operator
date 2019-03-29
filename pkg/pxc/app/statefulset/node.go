@@ -15,7 +15,7 @@ const (
 
 type Node struct {
 	sfs     *appsv1.StatefulSet
-	lables  map[string]string
+	labels  map[string]string
 	service string
 }
 
@@ -31,15 +31,17 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 		},
 	}
 
-	lables := map[string]string{
-		"app":       app.Name,
-		"component": cr.Name + "-" + app.Name,
-		"cluster":   cr.Name,
+	labels := map[string]string{
+		"app.kubernetes.io/name":       "percona-xtradb-cluster",
+		"app.kubernetes.io/instance":   cr.Name,
+		"app.kubernetes.io/component":  "pxc",
+		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 	}
 
 	return &Node{
 		sfs:     sfs,
-		lables:  lables,
+		labels:  labels,
 		service: cr.Name + "-" + app.Name,
 	}
 }
@@ -78,8 +80,8 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 		},
 		Env: []corev1.EnvVar{
 			{
-				Name: "PXC_SERVICE",
-				Value: c.lables["cluster"] + "-" + c.lables["app"] + "-unready",
+				Name:  "PXC_SERVICE",
+				Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"] + "-unready",
 			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
@@ -154,7 +156,8 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 
 func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 	vol := app.Volumes(podSpec, dataVolumeName)
-	vol.Volumes = append(vol.Volumes, app.GetConfigVolumes(c.Labels()["component"]))
+	ls := c.Labels()
+	vol.Volumes = append(vol.Volumes, app.GetConfigVolumes(ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
 
 	return vol
 }
@@ -164,7 +167,7 @@ func (c *Node) StatefulSet() *appsv1.StatefulSet {
 }
 
 func (c *Node) Labels() map[string]string {
-	return c.lables
+	return c.labels
 }
 
 func (c *Node) Service() string {

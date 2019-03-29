@@ -18,8 +18,8 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Name:      cr.Name + "-" + appName,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":     appName,
-				"cluster": cr.Name,
+				"app.kubernetes.io/name":     "percona-xtradb-cluster",
+				"app.kubernetes.io/instance": cr.Name,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -31,11 +31,13 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 			ClusterIP: "None",
 			Selector: map[string]string{
-				"component": cr.Name + "-" + appName,
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": appName,
 			},
 		},
 	}
-	// addOwnerRefToObject(obj, cr.OwnerRef())
+
 	return obj
 }
 
@@ -52,8 +54,8 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 			},
 			Labels: map[string]string{
-				"app":     appName,
-				"cluster": cr.Name,
+				"app.kubernetes.io/name":     "percona-xtradb-cluster",
+				"app.kubernetes.io/instance": cr.Name,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -65,11 +67,13 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 			ClusterIP: "None",
 			Selector: map[string]string{
-				"component": cr.Name + "-" + appName,
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": appName,
 			},
 		},
 	}
-	// addOwnerRefToObject(obj, cr.OwnerRef())
+
 	return obj
 }
 
@@ -86,8 +90,8 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 			},
 			Labels: map[string]string{
-				"app":     appName,
-				"cluster": cr.Name,
+				"app.kubernetes.io/name":     "percona-xtradb-cluster",
+				"app.kubernetes.io/instance": cr.Name,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -113,7 +117,9 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 			ClusterIP: "None",
 			Selector: map[string]string{
-				"component": cr.Name + "-proxysql",
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": "proxysql",
 			},
 		},
 	}
@@ -131,8 +137,8 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Name:      cr.Name + "-proxysql",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":     appName,
-				"cluster": cr.Name,
+				"app.kubernetes.io/name":     "percona-xtradb-cluster",
+				"app.kubernetes.io/instance": cr.Name,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -148,7 +154,9 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				},
 			},
 			Selector: map[string]string{
-				"component": cr.Name + "-proxysql",
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": "proxysql",
 			},
 		},
 	}

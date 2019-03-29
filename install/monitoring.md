@@ -32,7 +32,7 @@ Following steps are needed to install the PMM Server to monitor Percona XtraDB C
 
    The following steps are needed for the PMM client installation:
 
-1. The PMM client is initiated by updating the ``pmm`` section in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file.
+1. The PMM client installation is initiated by updating the ``pmm`` section in the [deploy/cr.yaml](https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml) file.
    * set `pmm.enabled=true`
    * make sure that `serverUser` (the PMM Server user name, `pmm` by default) is the same as one specified for the `credentials.username` parameter on the previous step.
    * make sure that `serverHost` (the PMM service name, `monitoring-service` by default) is the same as one specified for the `name` parameter on the previous step, but with additional `-service` suffix.

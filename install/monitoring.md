@@ -5,7 +5,7 @@ The Percona Monitoring and Management (PMM) [provides an excellent solution](htt
 
 ### Installing the PMM Server
 
-Following steps are needed to install the PMM Server to monitor Percona XtraDB Cluster on Kubernetes or OpenShift.
+This first section installs the PMM Server to monitor Percona XtraDB Cluster on Kubernetes or OpenShift. The following steps are optional if you already have installed the PMM Server. The PMM Server is available on your network and does not require another installation in Kubernetes.
 
 1. The recommended installation approach is based on using [helm](https://github.com/helm/helm) - the package manager for Kubernetes, which will substantially simplify further steps. So first thing to do is to install helm following its [official installation instructions](https://docs.helm.sh/using_helm/#installing-helm).
 

@@ -18,4 +18,4 @@ cat $src_dir/deploy/cr.yaml \
     | $sed "s/#platform: .*/platform: ${platform[${OPENSHIFT:-0}]}/" \
     | kubectl apply -f -
 
-wait_for_running cluster1-pxc-node 3
+wait_for_running cluster1-pxc 3

@@ -12,7 +12,7 @@ build_operator() {
         git config --get remote.origin.url \
             | sed -e 's^.*github.com[:/]^github.com/^; s/.git$//'
     )
-    docker run --rm -v ${src_dir}:/go/src/${repo} golang sh -c "
+    docker run --rm -v ${src_dir}:/go/src/${repo} golang:1.12 sh -c "
         set -o errexit
         set -o xtrace
         export GO_LDFLAGS='-w -s $GO_LDFLAGS'
@@ -26,14 +26,22 @@ build_operator() {
             -o build/_output/bin/percona-xtradb-cluster-operator \
             cmd/manager/main.go
     "
+
+    dockerfile=build/Dockerfile
+    if [ "$RHEL" = "1" ]; then
+        dockerfile=build/Dockerfile.rhel
+    fi
+
     export IMAGE
     pushd ${src_dir}
         docker build \
             --squash \
             --no-cache \
-            -t "${IMAGE}" -f build/Dockerfile .
+            -t "${IMAGE}" -f $dockerfile .
     popd
-    docker push ${IMAGE}
+    if [ "$RHEL" != "1" ]; then
+        docker push ${IMAGE}
+    fi
 }
 
 until docker ps;

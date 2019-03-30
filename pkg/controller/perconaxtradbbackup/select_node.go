@@ -21,9 +21,11 @@ func (r *ReconcilePerconaXtraDBBackup) SelectNode(cr *api.PerconaXtraDBBackup) (
 		&client.ListOptions{
 			Namespace: cr.Namespace,
 			LabelSelector: labels.SelectorFromSet(map[string]string{
-				"app":       "pxc",
-				"cluster":   cr.Spec.PXCCluster,
-				"component": cr.Spec.PXCCluster + "-proxysql",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":   cr.Spec.PXCCluster,
+				"app.kubernetes.io/component":  "proxysql",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			}),
 		},
 		&proxysqlList,
@@ -73,9 +75,11 @@ func (r *ReconcilePerconaXtraDBBackup) SelectNode(cr *api.PerconaXtraDBBackup) (
 		&client.ListOptions{
 			Namespace: cr.Namespace,
 			LabelSelector: labels.SelectorFromSet(map[string]string{
-				"app":       "pxc",
-				"cluster":   cr.Spec.PXCCluster,
-				"component": cr.Spec.PXCCluster + "-pxc",
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":   cr.Spec.PXCCluster,
+				"app.kubernetes.io/component":  "pxc",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			}),
 		},
 		&pxcnodesList,

@@ -35,12 +35,12 @@ max_connections=250
 ```
 You can create a configmap in a text editor and apply it with the `kubectl apply` command or use the `kubectl` command to create the configmap from a directory, files, or literal values, see [Configure a Pod to use a ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap).
 
-In this example, we use `kubectl` to create a configmap, add cnf-options as the configmap name, and use the my-cnf file as the data source.
+In this example, we use `kubectl` to create a configmap, add cnf-options as the configmap name, and use the my-cnf file as the data source:
 
 ```bash
 kubectl create configmap cnf-options --from-file=my.cnf
 ```
-In the configmap, the `data` section contains the configuration settings for the Percona XtraDB Cluster.
+In the configmap, the `data` section contains the configuration settings for the Percona XtraDB Cluster:
 
 ```
 apiVersion:v1

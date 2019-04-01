@@ -7,7 +7,7 @@ MySQL allows the option to configure the database with a configuration file. You
 
 ### Edit the CR.yaml
 
-Edit the configuration section of the deploy/cr.yaml. See the [PXC section]( https://percona.github.io/percona-xtradb-cluster-operator/configure/operator).
+You can add options from the [my.cnf](https://dev.mysql.com/doc/refman/8.0/en/option-files.html) by editing the configuration section of the deploy/cr.yaml.
 
 ```
 spec:
@@ -20,39 +20,37 @@ spec:
         [sst]
         wsrep_debug=ON
 ```
+See the [Custom Resource options, PXC section](https://percona.github.io/percona-xtradb-cluster-operator/configure/operator.html) for more details
 
 ### Use a ConfigMap
 
-You can create and apply a configmap.yaml file to set Percona XtraDB Cluster configuration options. The ConfigMap allows Kubernetes to pass or update configuration data inside a containerized application.
+You create or apply a configmap file to set Percona XtraDB Cluster configuration options. The ConfigMap allows Kubernetes to pass or update configuration data inside a containerized application.
 
-You can use the `kubectl create configmap` command to create a configmap, see [Configure a Pod to use a ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap). For example, you can create a ConfigMap.yaml file from a my.cnf file for the cluster1-pxc cluster:
-
-```bash
-kubectl create configmap cluster1-pxc --from-file=my.cnf
-```
-In the configmap.yaml file, the `data` section contains the configuration settings for the Percona XtraDB Cluster.
+In the configmap, the `data` section contains the configuration settings for the Percona XtraDB Cluster.
 
 ```
 apiVersion:v1
 kind: ConfigMap
 ...
 data:
-  init.cnf: |
+  my.cnf: |
     [mysqld]
+    ...
     max_connections=250
 ```
-
-The user applies the ConfigMap to the cluster.
-```bash
-kubectl apply -f configmap.yaml
+For example, - to increase your max_connections setting in MySQL, you create a my.cnf file:
 ```
+[mysqld]
+...
+max_connections=250
+```
+With the `kubectl` command, you can create a configmap, see [Configure a Pod to use a ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap).
 
-Restart the cluster and connect to the MySQL instance (see details on how to connect in the [Install Percona XtraDB Cluster on Kubernetes page.](https://percona.github.io/percona-xtradb-cluster-operator/install/kubernetes))
+In this example, we create a configmap, add cnf-options as the configmap name, and use the my-cnf file as the data source.
 
-Verify that the max_connections value has changed:
 ```bash
-show variables like "max_connections";
+kubectl create configmap cnf-options --from-file=my.cnf
+```
+### Make changed options visible to the Percona XtraDB Cluster
 
-Variable_name     Value
-max_connections   250
-```  
+Do not forget to restart Percona XtraDB Cluster to ensure the cluster has updated the configuration (see details on how to connect in the [Install Percona XtraDB Cluster on Kubernetes page.](https://percona.github.io/percona-xtradb-cluster-operator/install/kubernetes)).

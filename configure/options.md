@@ -24,38 +24,8 @@ See the [Custom Resource options, PXC section](https://percona.github.io/percona
 
 ### Use a ConfigMap
 
-During application deployments on an XtraDB cluster, changing the configuration would require a source code change, commit the change, and perform the complete deployment process. This process could be considered unwieldy for a simple set of changes.
+During application deployments on an XtraDB cluster, changing the configuration would require a source code change, commit the change, and perform the complete deployment process. This procedure could be considered unwieldy for a simple set of changes. You can use a configmap and the cluster restart to reset configuration options. A configmap allows Kubernetes to pass or update configuration data inside a containerized application.
 
-With a configuration change and a restart of the cluster, you can use a configmap to set configuration options. A configmap allows Kubernetes to pass or update configuration data inside a containerized application.
-
-There are several ways you can add a configmap to the cluster:
-* Apply a configmap as a yaml file
-* Create from an external resource
-
-#### Apply a file
-With a text editor, you can define a configmap and save the configmap as a yaml file to the deploy folder.
-
-This example displays a configmap created with a text editor:
-
-```
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: pxc
-data:
-  init.cnf: |
-    [mysqld]
-    wsrep_debug=ON
-    [sst]
-    wsrep_debug=ON
-```
-You apply the configmap to the cluster with the following command:
-```bash
-kubectl apply -f configmap.yaml
-```
-
-
-#### Create from external resource
 Use the `kubectl` command to create the configmap from external resources, for more information see [Configure a Pod to use a ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap).
 
 Your application requires more connections. To increase your max_connections setting in MySQL, you define a my.cnf configuration file with the following setting:
@@ -64,9 +34,9 @@ Your application requires more connections. To increase your max_connections set
 ...
 max_connections=250
 ```
-To add the configuration setting to the XtraDB Cluster, you can create a configmap from the my.cnf file with the 'kubectl create configmap' command.
+You can create a configmap from the my.cnf file with the 'kubectl create configmap' command.
 
-You should use the XtraDB Cluster naming convention which is a combination of the cluster name with the `-pxc` suffix to name the configmap. To find the cluster name, you can use the following command:
+You should use the combination of the cluster name with the `-pxc` suffix as the naming convention for the configmap. To find the cluster name, you can use the following command:
 ```bash
 kubectl get pxc
 ```

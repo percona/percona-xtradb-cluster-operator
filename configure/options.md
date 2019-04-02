@@ -26,32 +26,60 @@ See the [Custom Resource options, PXC section](https://percona.github.io/percona
 
 You create or apply a configmap file to set Percona XtraDB Cluster configuration options. The ConfigMap allows Kubernetes to pass or update configuration data inside a containerized application.
 
+You can create a configmap in a text editor and apply it with the `kubectl apply` command or use the `kubectl` command to create the configmap from external resources, for more information see [Configure a Pod to use a ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap).
 
-For example, to increase your max_connections setting in MySQL, you create a my.cnf file:
+#### Apply a file
+You can create a configmap with a text editor and save the file to the deploy folder.
+
+This example displays a configmap created with a text editor:
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pxc
+data:
+  init.cnf: |
+    [mysqld]
+    wsrep_debug=ON
+    [sst]
+    wsrep_debug=ON
+```
+You apply the configmap to the cluster with the following command:
+```bash
+kubectl apply -f configmap.yaml
+```
+
+
+##### Create from external resource
+
+To increase your max_connections setting in MySQL, you have a my.cnf file with the following setting:
 ```
 [mysqld]
 ...
 max_connections=250
 ```
-You can create a configmap in a text editor and apply it with the `kubectl apply` command or use the `kubectl` command to create the configmap from a directory, files, or literal values, see [Configure a Pod to use a ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap).
 
-In this example, we use `kubectl` to create a configmap, add cnf-options as the configmap name, and use the my-cnf file as the data source:
+
+The syntax for `kubectl create configmap` command is:
+```
+kubectl create configmap <map name> <resource type=resource name>
+```
+A common practice is to name the configmap with the cluster name. To find the name of the cluster, you can use the following command:
+```bash
+kubectl get pxc
+```
+The following example defines cluster1-pxc as the configmap name and the my-cnf file as the data source:
 
 ```bash
-kubectl create configmap cnf-options --from-file=my.cnf
+kubectl create configmap cluster1-pxc --from-file=my.cnf
 ```
-In the configmap, the `data` section contains the configuration settings for the Percona XtraDB Cluster:
 
+To view the created configmap, use the following command:
+```bash
+kubectl describe configmaps cluster1-pxc
 ```
-apiVersion:v1
-kind: ConfigMap
-...
-data:
-  my.cnf: |
-    [mysqld]
-    ...
-    max_connections=250
-```
+
 ### Make changed options visible to the Percona XtraDB Cluster
 
 Do not forget to restart Percona XtraDB Cluster to ensure the cluster has updated the configuration (see details on how to connect in the [Install Percona XtraDB Cluster on Kubernetes page.](https://percona.github.io/percona-xtradb-cluster-operator/install/kubernetes)).

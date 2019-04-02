@@ -24,7 +24,7 @@ See the [Custom Resource options, PXC section](https://percona.github.io/percona
 
 ### Use a ConfigMap
 
-During application deployments on an XtraDB cluster, changing the configuration would require a source code change, commit the change, and perform the complete deployment process. This procedure could be considered unwieldy for a simple set of changes. You can use a configmap and the cluster restart to reset configuration options. A configmap allows Kubernetes to pass or update configuration data inside a containerized application.
+You can use a configmap and the cluster restart to reset configuration options. A configmap allows Kubernetes to pass or update configuration data inside a containerized application.
 
 Use the `kubectl` command to create the configmap from external resources, for more information see [Configure a Pod to use a ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap).
 

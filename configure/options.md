@@ -28,7 +28,7 @@ You can use a configmap and the cluster restart to reset configuration options. 
 
 Use the `kubectl` command to create the configmap from external resources, for more information see [Configure a Pod to use a ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#create-a-configmap).
 
-Your application requires more connections. To increase your max_connections setting in MySQL, you define a my.cnf configuration file with the following setting:
+For example, let's suppose that your application requires more connections. To increase your ``max_connections`` setting in MySQL, you define a ``my.cnf`` configuration file with the following setting:
 ```
 [mysqld]
 ...

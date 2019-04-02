@@ -51,7 +51,7 @@ kubectl apply -f configmap.yaml
 ```
 
 
-##### Create from external resource
+#### Create from external resource
 
 To increase your max_connections setting in MySQL, you have a my.cnf file with the following setting:
 ```

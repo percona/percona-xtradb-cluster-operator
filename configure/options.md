@@ -1,9 +1,7 @@
 Changing MySQL Options
 ============================================================================
 
-During application deployments on an XtraDB cluster, we may require a change to MySQL configuration. Changing the configuration would require a source code change, commit the change, and perform the complete deployment process. This process could be considered unwieldy for a simple set of changes.
-
-MySQL allows the option to configure the database with a configuration file. You can pass the MySQL options from the [my.cnf](https://dev.mysql.com/doc/refman/8.0/en/option-files.html) configuration file to the cluster in one of the following ways:
+You may require a configuration change for your application. MySQL allows the option to configure the database with a configuration file. You can pass the MySQL options from the [my.cnf](https://dev.mysql.com/doc/refman/8.0/en/option-files.html) configuration file to the cluster in one of the following ways:
 * CR.yaml
 * ConfigMap
 
@@ -25,6 +23,8 @@ spec:
 See the [Custom Resource options, PXC section](https://percona.github.io/percona-xtradb-cluster-operator/configure/operator.html) for more details
 
 ### Use a ConfigMap
+
+During application deployments on an XtraDB cluster, changing the configuration would require a source code change, commit the change, and perform the complete deployment process. This process could be considered unwieldy for a simple set of changes.
 
 With a configuration change and a restart of the cluster, you can use a configmap to set configuration options. A configmap allows Kubernetes to pass or update configuration data inside a containerized application.
 

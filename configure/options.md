@@ -61,11 +61,11 @@ max_connections=250
 ```
 
 
-The syntax for `kubectl create configmap` command is:
+An XtraDB Cluster naming convention is the configmap name is a combination of the cluster name with the `-pxc` suffix. The syntax for `kubectl create configmap` command is:
 ```
-kubectl create configmap <map name> <resource type=resource name>
+kubectl create configmap <cluster-name-pxc> <resource-type=resource-name>
 ```
-A common practice is to name the configmap with the cluster name. To find the name of the cluster, you can use the following command:
+ To find the cluster name, you can use the following command:
 ```bash
 kubectl get pxc
 ```

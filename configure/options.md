@@ -34,7 +34,7 @@ Your application requires more connections. To increase your max_connections set
 ...
 max_connections=250
 ```
-You can create a configmap from the my.cnf file with the 'kubectl create configmap' command.
+You can create a configmap from the ``my.cnf`` file with the ``kubectl create configmap`` command.
 
 You should use the combination of the cluster name with the `-pxc` suffix as the naming convention for the configmap. To find the cluster name, you can use the following command:
 ```bash

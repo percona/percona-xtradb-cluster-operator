@@ -42,7 +42,7 @@ kubectl get pxc
 ```
 The syntax for `kubectl create configmap` command is:
 ```
-kubectl create configmap <cluster-name-pxc> <resource-type=resource-name>
+kubectl create configmap <cluster-name>-pxc <resource-type=resource-name>
 ```
 The following example defines cluster1-pxc as the configmap name and the my-cnf file as the data source:
 

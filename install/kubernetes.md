@@ -30,7 +30,7 @@ Install Percona XtraDB Cluster on Kubernetes
    $ kubectl apply -f deploy/rbac.yaml
    ```
 
-   **Note:** *Setting RBAC requires your user to have cluster-admin role privileges. For example, those using Google Kubernetes Engine can grant user needed privileges with the following command:* `$ kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=<myname@example.org>`
+   **Note:** *Setting RBAC requires your user to have cluster-admin role privileges. For example, those using Google Kubernetes Engine can grant user needed privileges with the following command:* `$ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)`
 
    Finally it’s time to start the operator within Kubernetes:
 

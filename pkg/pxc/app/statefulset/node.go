@@ -75,7 +75,11 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 			},
 			{
 				Name:      "config-volume",
-				MountPath: "/etc/mysql/conf.d/",
+				MountPath: "/etc/mysql/conf.d",
+			},
+			{
+				Name:      "tmp",
+				MountPath: "/tmp",
 			},
 		},
 		Env: []corev1.EnvVar{
@@ -142,7 +146,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container 
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{
-			Name:      "datadir",
+			Name:      dataVolumeName,
 			MountPath: "/var/lib/mysql",
 		},
 	}
@@ -157,7 +161,9 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 	vol := app.Volumes(podSpec, dataVolumeName)
 	ls := c.Labels()
-	vol.Volumes = append(vol.Volumes, app.GetConfigVolumes(ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
+	vol.Volumes = append(vol.Volumes,
+		app.GetTmpVolume(),
+		app.GetConfigVolumes(ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
 
 	return vol
 }

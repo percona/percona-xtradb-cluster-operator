@@ -66,7 +66,6 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 			{
 				Name:      proxyDataVolumeName,
 				MountPath: "/var/lib/proxysql",
-				SubPath:   "data",
 			},
 		},
 		Env: []corev1.EnvVar{

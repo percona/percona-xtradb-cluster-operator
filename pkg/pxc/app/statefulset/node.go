@@ -67,6 +67,18 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 				ContainerPort: 3306,
 				Name:          "mysql",
 			},
+			{
+				ContainerPort: 4444,
+				Name:          "sst",
+			},
+			{
+				ContainerPort: 4567,
+				Name:          "write-set",
+			},
+			{
+				ContainerPort: 4568,
+				Name:          "ist",
+			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -74,12 +86,16 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 				MountPath: "/var/lib/mysql",
 			},
 			{
-				Name:      "config-volume",
+				Name:      "config",
 				MountPath: "/etc/mysql/conf.d",
 			},
 			{
 				Name:      "tmp",
 				MountPath: "/tmp",
+			},
+			{
+				Name:      "ssl",
+				MountPath: "/etc/mysql/ssl",
 			},
 		},
 		Env: []corev1.EnvVar{
@@ -161,9 +177,11 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 	vol := app.Volumes(podSpec, dataVolumeName)
 	ls := c.Labels()
-	vol.Volumes = append(vol.Volumes,
+	vol.Volumes = append(
+		vol.Volumes,
 		app.GetTmpVolume(),
-		app.GetConfigVolumes(ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
+		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
+		app.GetSecretVolumes("ssl", ls["app.kubernetes.io/instance"]+"-ssl"))
 
 	return vol
 }

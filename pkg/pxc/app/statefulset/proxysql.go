@@ -67,8 +67,16 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 				Name:      proxyDataVolumeName,
 				MountPath: "/var/lib/proxysql",
 			},
+			{
+				Name:      "ssl",
+				MountPath: "/etc/proxysql/ssl",
+			},
 		},
 		Env: []corev1.EnvVar{
+			{
+				Name:  "PXC_SERVICE",
+				Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
+			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
@@ -111,7 +119,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 			Env: []corev1.EnvVar{
 				{
 					Name:  "PXC_SERVICE",
-					Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"],
+					Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
 				},
 				{
 					Name: "MYSQL_ROOT_PASSWORD",
@@ -212,7 +220,13 @@ func (c *Proxy) Resources(spec *api.PodResources) (corev1.ResourceRequirements, 
 }
 
 func (c *Proxy) Volumes(podSpec *api.PodSpec) *api.Volume {
-	return app.Volumes(podSpec, proxyDataVolumeName)
+	vol := app.Volumes(podSpec, proxyDataVolumeName)
+	ls := c.Labels()
+	vol.Volumes = append(
+		vol.Volumes,
+		app.GetSecretVolumes("ssl", ls["app.kubernetes.io/instance"]+"-ssl"))
+
+	return vol
 }
 
 func (c *Proxy) StatefulSet() *appsv1.StatefulSet {

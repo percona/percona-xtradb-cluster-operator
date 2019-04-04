@@ -18,6 +18,15 @@ func GetConfigVolumes(cvName string) corev1.Volume {
 	return vol1
 }
 
+func GetTmpVolume() corev1.Volume {
+	return corev1.Volume{
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+		Name: "tmp",
+	}
+}
+
 func Volumes(podSpec *api.PodSpec, dataVolumeName string) *api.Volume {
 	var volume api.Volume
 

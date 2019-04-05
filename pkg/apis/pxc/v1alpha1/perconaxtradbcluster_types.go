@@ -33,25 +33,29 @@ type PXCScheduledBackupSchedule struct {
 	Keep        int    `json:"keep,omitempty"`
 	StorageName string `json:"storageName,omitempty"`
 }
-
-type ClusterState string
+type AppState string
 
 const (
-	ClusterStateInit  ClusterState = ""
-	ClusterStateReady              = "ready"
+	AppStateUnknown AppState = "unknown"
+	AppStateInit             = "initializing"
+	AppStateReady            = "ready"
+	AppStateError            = "error"
 )
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
 type PerconaXtraDBClusterStatus struct {
-	PXC      PodStatus    `json:"pxc,omitempty"`
-	ProxySQL PodStatus    `json:"proxysql,omitempty"`
-	Host     string       `json:"host,omitempty"`
-	Status   ClusterState `json:"state,omitempty"`
+	PXC      AppStatus `json:"pxc,omitempty"`
+	ProxySQL AppStatus `json:"proxysql,omitempty"`
+	Host     string    `json:"host,omitempty"`
+	Messages []string  `json:"message,omitempty"`
+	Status   AppState  `json:"state,omitempty"`
 }
 
-type PodStatus struct {
-	Size  int32 `json:"size,omitempty"`
-	Ready int32 `json:"ready,omitempty"`
+type AppStatus struct {
+	Size    int32    `json:"size,omitempty"`
+	Ready   int32    `json:"ready,omitempty"`
+	Status  AppState `json:"status,omitempty"`
+	Message string   `json:"message,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

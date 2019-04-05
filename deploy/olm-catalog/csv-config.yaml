@@ -1,0 +1,3 @@
+operator-path: deploy/operator.yaml
+crd-cr-path-list: [deploy/cr.yaml, deploy/crd.yaml, deploy/backup/cr.yaml]
+rbac-path-list: [deploy/rbac.yaml, deploy/service_account.yaml]

@@ -97,6 +97,10 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 				Name:      "ssl",
 				MountPath: "/etc/mysql/ssl",
 			},
+			{
+				Name:      "ssl-internal",
+				MountPath: "/etc/mysql/ssl-internal",
+			},
 		},
 		Env: []corev1.EnvVar{
 			{
@@ -181,6 +185,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 		vol.Volumes,
 		app.GetTmpVolume(),
 		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
+		app.GetSecretVolumes("ssl-internal", ls["app.kubernetes.io/instance"]+"-ssl-internal"),
 		app.GetSecretVolumes("ssl", ls["app.kubernetes.io/instance"]+"-ssl"))
 
 	return vol

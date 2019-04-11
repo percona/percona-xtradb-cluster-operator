@@ -30,13 +30,7 @@ func (*Backup) Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pxcNode string, sv *api.ServerVersion) batchv1.JobSpec {
-	// if a suitable node hasn't been chosen - try to make a lucky shot.
-	// it's better than the failed backup at all
-	if pxcNode == "" {
-		pxcNode = spec.PXCCluster + "-pxc"
-	}
-
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, secrets string) batchv1.JobSpec {
 	var fsgroup *int64
 	if sv.Platform == api.PlatformKubernetes {
 		var tp int64 = 1001
@@ -59,12 +53,18 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pxcNode string, sv *api.Serve
 						ImagePullPolicy: corev1.PullAlways,
 						Env: []corev1.EnvVar{
 							{
-								Name:  "NODE_NAME",
-								Value: pxcNode,
-							},
-							{
 								Name:  "BACKUP_DIR",
 								Value: "/backup",
+							},
+							{
+								Name:  "PXC_SERVICE",
+								Value: spec.PXCCluster + "-pxc",
+							},
+							{
+								Name: "MYSQL_ROOT_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+								},
 							},
 						},
 					},
@@ -74,7 +74,48 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, pxcNode string, sv *api.Serve
 	}
 }
 
-func (Backup) SetStoragePVC(job *batchv1.JobSpec, volName string) error {
+func appendStorageSecret(job *batchv1.JobSpec, clusterName string) error {
+	// Volume for secret
+	secretVol := corev1.Volume{
+		Name: "ssl",
+	}
+	secretVol.Secret = &corev1.SecretVolumeSource{}
+	secretVol.Secret.SecretName = clusterName + "-ssl"
+	t := true
+	secretVol.Secret.Optional = &t
+
+	// IntVolume for secret
+	secretIntVol := corev1.Volume{
+		Name: "ssl-internal",
+	}
+	secretIntVol.Secret = &corev1.SecretVolumeSource{}
+	secretIntVol.Secret.SecretName = clusterName + "-ssl-internal"
+	secretIntVol.Secret.Optional = &t
+
+	if len(job.Template.Spec.Containers) == 0 {
+		return errors.New("no containers in job spec")
+	}
+	job.Template.Spec.Containers[0].VolumeMounts = append(
+		job.Template.Spec.Containers[0].VolumeMounts,
+		corev1.VolumeMount{
+			Name:      "ssl",
+			MountPath: "/etc/mysql/ssl",
+		},
+		corev1.VolumeMount{
+			Name:      "ssl-internal",
+			MountPath: "/etc/mysql/ssl-internal",
+		},
+	)
+	job.Template.Spec.Volumes = append(
+		job.Template.Spec.Volumes,
+		secretVol,
+		secretIntVol,
+	)
+
+	return nil
+}
+
+func (Backup) SetStoragePVC(job *batchv1.JobSpec, clusterName, volName string) error {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}
@@ -94,29 +135,30 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, volName string) error {
 	job.Template.Spec.Volumes = []corev1.Volume{
 		pvc,
 	}
+	appendStorageSecret(job, clusterName)
 
 	return nil
 }
 
-func (Backup) SetStorageS3(job *batchv1.JobSpec, s3 api.BackupStorageS3Spec, destination string) error {
+func (Backup) SetStorageS3(job *batchv1.JobSpec, clusterName string, s3 api.BackupStorageS3Spec, destination string) error {
 	accessKey := corev1.EnvVar{
-		Name: "AWS_ACCESS_KEY_ID",
+		Name: "ACCESS_KEY_ID",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_ACCESS_KEY_ID"),
 		},
 	}
 	secretKey := corev1.EnvVar{
-		Name: "AWS_SECRET_ACCESS_KEY",
+		Name: "SECRET_ACCESS_KEY",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: app.SecretKeySelector(s3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
 		},
 	}
 	region := corev1.EnvVar{
-		Name:  "AWS_DEFAULT_REGION",
+		Name:  "DEFAULT_REGION",
 		Value: s3.Region,
 	}
 	endpoint := corev1.EnvVar{
-		Name:  "AWS_ENDPOINT_URL",
+		Name:  "ENDPOINT_URL",
 		Value: s3.EndpointURL,
 	}
 
@@ -130,14 +172,19 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, s3 api.BackupStorageS3Spec, des
 		return errors.Wrap(err, "failed to create job")
 	}
 	bucket := corev1.EnvVar{
-		Name:  "AWS_S3_BUCKET",
+		Name:  "S3_BUCKET",
 		Value: u.Host,
 	}
 	bucketPath := corev1.EnvVar{
-		Name:  "AWS_S3_BUCKET_PATH",
+		Name:  "S3_BUCKET_PATH",
 		Value: strings.TrimLeft(u.Path, "/"),
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
+
+	// add SSL volumes
+	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
+	job.Template.Spec.Volumes = []corev1.Volume{}
+	appendStorageSecret(job, clusterName)
 
 	return nil
 }

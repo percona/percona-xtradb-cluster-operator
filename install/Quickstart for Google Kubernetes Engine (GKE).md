@@ -1,16 +1,24 @@
-Quickstart for the Percona XtraDB container with the Google Kubernetes Engine (GKE)
+Quickstart for the Percona XtraDB Cluster Operator with the Google Kubernetes Engine (GKE)
 =============================================================
 
-This quickstart shows you how to configure a Percona XtraDB container with the Google Kubernetes Engine. The document assumes some experience with Google Kubernetes Engine (GKE). For more information on the GKE, see the [Kubernetes Engine Quickstart](https://cloud.google.com/kubernetes-engine/docs/quickstart).
+This quickstart shows you how to configure a Percona XtraDB cluster operator with the Google Kubernetes Engine. The document assumes some experience with Google Kubernetes Engine (GKE). For more information on the GKE, see the [Kubernetes Engine Quickstart](https://cloud.google.com/kubernetes-engine/docs/quickstart).
 
 ### Prerequisites
-Install [`Kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/) the Kubernetes command-line tool. You can use the tool to manage and deploy applications.
+This quickstart uses your local shell. You must install the following:
+* [`gcloud`](https://cloud.google.com/sdk/docs/quickstarts) The Google Cloud SDK is the Cloud Platform toolset.
+* [`kubectl`](https://cloud.google.com/kubernetes-engine/docs/quickstart#choosing_a_shell) the Kubernetes command-line tool. You can use the tool to manage and deploy applications. Run the following command:
+```bash
+gcloud components install kubectl
+```
+
 
 ### Configuring default settings for the cluster
 
 You can configure the settings in two ways:
 
-![Image of GKE console](./assets/images/GKE_Parameters.png)
+![GKE console](./assets/images/GKE_Parameters.png "Google Kubernetes Console"){: .align-center}
+
+
 
 A. In the GKE console, select Create Cluster.
 
@@ -18,7 +26,7 @@ In the Create a Kubernetes cluster window, in the sidebar, select `Standard clus
 
 In the Standard cluster template, edit the following settings:
 
-* Name - Provide a descriptive name. The examples in this document uses the default name.
+* Name - Provide a descriptive name.
 
 * Location type - Select `Zonal`.
 
@@ -30,68 +38,62 @@ Select `Create` to generate a Kubernetes cluster with the chosen settings.
 
 B. As an alternative, you can run a gcloud command in the [Cloud Shell](https://cloud.google.com/shell/docs/quickstart).
 
-**Note** *You must edit the following command and other command line statements to replace the `<project name>` references with your project name.*
+  **Note** *You must edit the following command and other command line statements to replace the `<project name>` placeholder with your project name.*
 
-```gcloud
-gcloud beta container --project <project name> clusters create "standard-cluster-1" --zone "us-central1-a" --username "admin" --cluster-version "1.11.7-gke.12" --machine-type "n1-standard-4" --image-type "COS" --disk-type "pd-standard" --disk-size "100" --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "3" --enable-cloud-logging --enable-cloud-monitoring --no-enable-ip-alias --network "projects/<project name>/global/networks/default" --subnetwork "projects/<project name/regions/us-central1/subnetworks/default" --addons HorizontalPodAutoscaling,HttpLoadBalancing --enable-autoupgrade --enable-autorepair
-```
+
+    gcloud beta container --project <project name> clusters create "standard-cluster-1" --zone "us-central1-a" --username "admin" --cluster-version "1.11.7-gke.12" --machine-type "n1-standard-4" --image-type "COS" --disk-type "pd-standard" --disk-size "100" --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "3" --enable-cloud-logging --enable-cloud-monitoring --no-enable-ip-alias --network "projects/<project name>/global/networks/default" --subnetwork "projects/<project name/regions/us-central1/subnetworks/default" --addons HorizontalPodAutoscaling,HttpLoadBalancing --enable-autoupgrade --enable-autorepair
+
 
 You may wait a few minutes for the cluster to be generated.
 
-In the Google Cloud console, select your cluster and then select `Connect`. The connect statement configures command line access. After you have edited the statement, you may run the command in your local command line prompt or in the Cloud Shell.
+In the Google Cloud console, select your cluster and then select `Connect`. The connect statement configures command line access. After you have edited the statement, you may run the command in your local shell or in the Cloud Shell.
 
-For this document, we are using the local tool.
+For this document, we are using the local shell.
 
 
 
 ```
 gcloud container clusters get-credentials standard-cluster-1 --zone us-central1-a --project <project name>
 ```
-### Installing the cluster
-1. Use the `git clone` command to correct branch of the percona-xtradb-cluster-operator repository.
-
+### Installing the Operator
+1. Use the `git clone` command to download the correct branch of the percona-xtradb-cluster-operator repository.  
 **Note:** *In the git statement, you must specify the correct branch with the -b option.*
-
 ```bash
-git clone -b release-0.3.0 https://github.com/percona/percona-xtradb-cluster-operator
-cd percona-xtradb-cluster-operator
+    git clone -b release-0.3.0 https://github.com/percona/percona-xtradb-cluster-operator
 ```
-2. Extensions of the Kubernetes API are custom resources. The Custom Resource Definition for PXC adds the operator core resources.
+After the repository is downloaded, change the directory to run the rest of the commands in this document:
 
-This step is only run once. After the Kubernetes API has been extended any additional Operator deployments use the same resources.
+    cd percona-xtradb-cluster-operator
 
-
-
+2. Extensions of the Kubernetes API are custom resources. The Custom Resource Definition for PXC adds the operator resources.
+This step is only run once. After the Kubernetes API has been extended any additional operator deployments use the same resources.
 ```bash
 kubectl apply -f deploy/crd.yaml
 ```
-A successful run returns the following:
-```bash
-customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusters.pxc.percona.com created
-customresourcedefinition.apiextensions.k8s.io/perconaxtradbbackups.pxc.percona.com created
+The following confirmation is returned:
 ```
-3. Create a namespace. The resource names must be unique within the namespace and provide a way to divide cluster resources between users spread across multiple projects.
-
-The namespace name should be descriptive.
-
+      customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusters.pxc.percona.com created
+      customresourcedefinition.apiextensions.k8s.io/perconaxtradbbackups.pxc.percona.com created
+```
+3. Create a namespace. The resource names must be unique within the namespace and provide a way to divide cluster resources between users spread across multiple projects.  
+You must replace the `<namespace name>` placeholder with a descriptive name.
 ```bash
 kubectl create namespace <namespace name>
 ```
-The command should return the following:
-```bash
-namespace/<namespace name> created
+The following confirmation is returned:
+```
+    namespace/<namespace name> created
 ```
 4. Set the context for the namespace, which saves the namespace for subsequent commands.
+You must replace the `<namespace name>` placeholder with the name used in the earlier step.
 ```bash
 kubectl config set-context $(kubectl config current-context) --namespace=<namespace name>
 ```
 A successful return statement prints the project name, location (for this example, a zone), and cluster name.
-
 ```bash
 Context "<project name>_<zone location>_<cluster name>" modified.
 ```
-5. You can use Cloud Identity and Access Management (Cloud IAM) to control access to the cluster. You must have the ability to create Roles and RoleBindings. In the following command, you must replace the email address placeholder with your email address.
-
+5. You use Cloud Identity and Access Management (Cloud IAM) to control access to the cluster. You must have the ability to create Roles and RoleBindings. In the following command, you must replace the email address placeholder with your email address.
 ```bash
 kubectl create clusterrolebinding cluster-admin-binding \
 --clusterrole cluster-admin --user email.address
@@ -102,12 +104,10 @@ clusterrolebinding.rbac.authorization.k8s.io/cluster-admin-binding created
 ```
 
 6. The role-based access control (RBAC) for the cluster should be configured from the deploy/rbac.yaml file.
-
 ```bash
 kubectl apply -f deploy/rbac.yaml
 ```
 The return statement confirms the appropriate roles have been created.
-
 ```bash
 role.rbac.authorization.k8s.io/percona-xtradb-cluster-operator created
 rolebinding.rbac.authorization.k8s.io/default-account-percona-xtradb-cluster-operator created
@@ -117,12 +117,10 @@ rolebinding.rbac.authorization.k8s.io/default-account-percona-xtradb-cluster-ope
 kubectl apply -f deploy/operator.yaml
 ```
 The return statement confirms the creation of the operator.
-
 ```bash
 deployment.apps/percona-xtradb-cluster-operator created
 ```
 8. The data section of the deploy/secrets.yaml file contains base64-encoded logins and passwords for the user accounts.
-
 ```bash
 kubectl apply -f deploy/secrets.yaml
 ```
@@ -131,7 +129,6 @@ The return statement confirms the creation.
 secret/my-cluster-secrets created
 ```
 9. The operator has been started and the user secrets have been added, you can create the Percona XtraDB cluster.
-
 ```bash
 kubectl apply -f deploy/cr.yaml
 ```
@@ -140,7 +137,8 @@ The return statement confirms the creation:
 ```bash
 perconaxtradbcluster.pxc.percona.com/cluster1 created
 ```
-### Verifying the cluster creation
+
+### Verifying the cluster operator
 To verify the cluster creation, run the following command:
 ```bash
 kubectl get pods
@@ -160,7 +158,7 @@ To connect to the cluster, run the following command:
 ```bash
 kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
 ```
-The return statement opens a bash command prompt:
+The return statement opens a `bash` command prompt:
 
 ```
 If you don't see a command prompt, try pressing enter.
@@ -170,7 +168,7 @@ At the command prompt, connect to the MySQL server host.
 ```bash
 mysql -h cluster1-proxysql -uroot -proot_password
 ```
-The return statements welcome the user to the MySQL monitor.
+The return statements connects to the MySQL monitor.
 ```bash
 mysql: [Warning] Using a password on the command line interface can be insecure.
 Welcome to the MySQL monitor.  Commands end with ; or \g.
@@ -209,9 +207,8 @@ A. You can clean up the cluster with the following command:
 ```
 gcloud container clusters delete <cluster name>
 ```
-
 The return statement requests your confirmation of the deletion. Type `y` to confirm.
 
-B. You could also, in the GKE console, select your cluster and then select the trashcan icon to delete the cluster.
+B. Or in the GKE console, select your cluster and then select the trashcan icon to delete the cluster.
 
 The cluster deletion may take time.

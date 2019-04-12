@@ -16,7 +16,7 @@ gcloud components install kubectl
 
 You can configure the settings in two ways:
 
-![GKE console](./assets/images/GKE_Parameters.png "Google Kubernetes Console"){: .align-center}
+![GKE console](../assets/images/GKE_Parameters.png "Google Kubernetes Console"){: .align-center}
 
 
 

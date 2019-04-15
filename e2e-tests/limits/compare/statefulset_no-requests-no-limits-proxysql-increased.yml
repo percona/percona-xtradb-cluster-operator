@@ -14,19 +14,25 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: pxc
-      cluster: no-requests-no-limits
-      component: no-requests-no-limits-proxysql
+      app.kubernetes.io/component: proxysql
+      app.kubernetes.io/instance: no-requests-no-limits
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
   serviceName: no-requests-no-limits-proxysql-unready
   template:
     metadata:
       labels:
-        app: pxc
-        cluster: no-requests-no-limits
-        component: no-requests-no-limits-proxysql
+        app.kubernetes.io/component: proxysql
+        app.kubernetes.io/instance: no-requests-no-limits
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
       - env:
+        - name: PXC_SERVICE
+          value: no-requests-no-limits-pxc
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -59,7 +65,10 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/proxysql
           name: proxydata
-          subPath: data
+        - mountPath: /etc/proxysql/ssl
+          name: ssl
+        - mountPath: /etc/proxysql/ssl-internal
+          name: ssl-internal
       - args:
         - /usr/bin/peer-list
         - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -126,6 +135,17 @@ spec:
         supplementalGroups:
         - 99
       terminationGracePeriodSeconds: 30
+      volumes:
+      - name: ssl-internal
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: no-requests-no-limits-ssl-internal
+      - name: ssl
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: no-requests-no-limits-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

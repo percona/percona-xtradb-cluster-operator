@@ -226,11 +226,14 @@ func (c *Proxy) Resources(spec *api.PodResources) (corev1.ResourceRequirements, 
 func (c *Proxy) Volumes(podSpec *api.PodSpec) *api.Volume {
 	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	ls := c.Labels()
+	secretName := podSpec.SSLSecretName
+	if len(secretName) == 0 {
+		secretName = ls["app.kubernetes.io/instance"] + "-ssl"
+	}
 	vol.Volumes = append(
 		vol.Volumes,
-		app.GetSecretVolumes("ssl-internal", ls["app.kubernetes.io/instance"]+"-ssl-internal"),
-		app.GetSecretVolumes("ssl", ls["app.kubernetes.io/instance"]+"-ssl"))
-
+		app.GetSecretVolumes("ssl-internal", secretName+"-internal"),
+		app.GetSecretVolumes("ssl", secretName))
 	return vol
 }
 

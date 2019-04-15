@@ -3,9 +3,11 @@ kind: StatefulSet
 metadata:
   generation: 1
   labels:
-    app: pxc
-    cluster: no-requests-no-limits
-    component: no-requests-no-limits-pxc
+    app.kubernetes.io/component: pxc
+    app.kubernetes.io/instance: no-requests-no-limits
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
   name: no-requests-no-limits-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
@@ -18,16 +20,20 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: pxc
-      cluster: no-requests-no-limits
-      component: no-requests-no-limits-pxc
+      app.kubernetes.io/component: pxc
+      app.kubernetes.io/instance: no-requests-no-limits
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
   serviceName: no-requests-no-limits-pxc
   template:
     metadata:
       labels:
-        app: pxc
-        cluster: no-requests-no-limits
-        component: no-requests-no-limits-pxc
+        app.kubernetes.io/component: pxc
+        app.kubernetes.io/instance: no-requests-no-limits
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
       - env:
@@ -68,6 +74,15 @@ spec:
         - containerPort: 3306
           name: mysql
           protocol: TCP
+        - containerPort: 4444
+          name: sst
+          protocol: TCP
+        - containerPort: 4567
+          name: write-set
+          protocol: TCP
+        - containerPort: 4568
+          name: ist
+          protocol: TCP
         readinessProbe:
           exec:
             command:
@@ -83,8 +98,14 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/mysql
           name: datadir
-        - mountPath: /etc/mysql/conf.d/
-          name: config-volume
+        - mountPath: /etc/mysql/conf.d
+          name: config
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /etc/mysql/ssl
+          name: ssl
+        - mountPath: /etc/mysql/ssl-internal
+          name: ssl-internal
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -93,11 +114,23 @@ spec:
         - 99
       terminationGracePeriodSeconds: 30
       volumes:
+      - emptyDir: {}
+        name: tmp
       - configMap:
           defaultMode: 420
           name: no-requests-no-limits-pxc
           optional: true
-        name: config-volume
+        name: config
+      - name: ssl-internal
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: no-requests-no-limits-ssl-internal
+      - name: ssl
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: no-requests-no-limits-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

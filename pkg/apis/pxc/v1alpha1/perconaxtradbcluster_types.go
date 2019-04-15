@@ -82,6 +82,7 @@ type PerconaXtraDBClusterList struct {
 type PodSpec struct {
 	Enabled             bool                          `json:"enabled,omitempty"`
 	Size                int32                         `json:"size,omitempty"`
+	SSLSecretName       string                        `json:"sslSecretName,omitempty"`
 	Image               string                        `json:"image,omitempty"`
 	Resources           *PodResources                 `json:"resources,omitempty"`
 	VolumeSpec          *VolumeSpec                   `json:"volumeSpec,omitempty"`

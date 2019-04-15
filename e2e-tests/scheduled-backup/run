@@ -32,10 +32,16 @@ run_recovery_check() {
 }
 
 get_backup_name() {
-    kubectl get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{"\n"}{end}' \
-        | grep ":$1" \
+    kubectl get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+        | grep ":$1:Succeeded" \
         | tail -1 \
         | cut -d ':' -f 1
+}
+
+wait_backup() {
+    while [ -z "$(get_backup_name $1)" ]; do
+        sleep 10
+    done
 }
 
 start_minio() {
@@ -71,26 +77,26 @@ main() {
 
     cluster="scheduled-backup"
     spinup_pxc "$cluster" "$test_dir/conf/${cluster}1.yml"
-    sleep 90
+    sleep 10
 
     desc 'add backups schedule, wait for the first backup'
     kubectl apply -f $test_dir/conf/${cluster}2.yml
-    sleep 90
+    sleep 10
 
     compare_kubectl cronjob/each-min-pvc
     compare_kubectl cronjob/each-min-aws-s3
     compare_kubectl cronjob/each-min-minio
     compare_kubectl cronjob/each-min-gcp-cs
 
+    wait_backup "pvc"
+    wait_backup "aws-s3"
+    wait_backup "minio"
+    wait_backup "gcp-cs"
+
     backup_name_pvc=$(get_backup_name "pvc")
     backup_name_aws=$(get_backup_name "aws-s3")
     backup_name_minio=$(get_backup_name "minio")
     backup_name_gcp=$(get_backup_name "gcp-cs")
-
-    wait_backup $backup_name_pvc
-    wait_backup $backup_name_aws
-    wait_backup $backup_name_minio
-    wait_backup $backup_name_gcp
 
     kubectl apply -f $test_dir/conf/${cluster}1.yml
 

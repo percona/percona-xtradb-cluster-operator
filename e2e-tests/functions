@@ -162,7 +162,7 @@ compare_kubectl() {
 
     kubectl get -o yaml ${resource} \
         | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|image:|clusterIP:" \
-        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:" \
+        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: {}" \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
         | $sed -e '/name: suffix/,+1d' \
@@ -214,6 +214,11 @@ get_proxy_primary() {
     local uri="$1"
     local pod="$2"
     local ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod")
+
+    while [ $(echo "$ip" | wc -l) != 1 ]; do
+        sleep 1
+        ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod")
+    done
 
     get_pod_name "$ip"
 }

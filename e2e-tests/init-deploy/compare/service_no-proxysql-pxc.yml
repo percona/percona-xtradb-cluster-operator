@@ -2,8 +2,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: pxc
-    cluster: no-proxysql
+    app.kubernetes.io/instance: no-proxysql
+    app.kubernetes.io/name: percona-xtradb-cluster
   name: no-proxysql-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
@@ -17,6 +17,8 @@ spec:
     protocol: TCP
     targetPort: 3306
   selector:
-    component: no-proxysql-pxc
+    app.kubernetes.io/component: pxc
+    app.kubernetes.io/instance: no-proxysql
+    app.kubernetes.io/name: percona-xtradb-cluster
   sessionAffinity: None
   type: ClusterIP

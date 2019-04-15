@@ -4,8 +4,8 @@ metadata:
   annotations:
     service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
   labels:
-    app: pxc
-    cluster: some-name
+    app.kubernetes.io/instance: some-name
+    app.kubernetes.io/name: percona-xtradb-cluster
   name: some-name-proxysql-unready
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
@@ -23,6 +23,8 @@ spec:
     protocol: TCP
     targetPort: 6032
   selector:
-    component: some-name-proxysql
+    app.kubernetes.io/component: proxysql
+    app.kubernetes.io/instance: some-name
+    app.kubernetes.io/name: percona-xtradb-cluster
   sessionAffinity: None
   type: ClusterIP

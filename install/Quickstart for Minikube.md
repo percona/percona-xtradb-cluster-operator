@@ -2,26 +2,27 @@ Quickstart for Percona XtraDB Cluster Operator for Minikube
 ==========================================================================
 You can install and run Minikube. With Minikube on your laptop lets you run a single-node Kubernetes cluster in a virtual machine.
 
-Cloud Provider Features, such as LoadBalancers, or features that require multiple nodes, such as Advanced Scheduling policies, will not work as expected in Minikube.
+Cloud Provider features, such as LoadBalancers, or features that require multiple nodes, such as Advanced Scheduling policies, will not work as expected in a Minikube cluster.
 
 
-###Prerequisites
-You must have [Minikube installed](https://kubernetes.io/docs/tasks/tools/install-minikube/).
+### Prerequisites
+You must have [Minikube installed](https://kubernetes.io/docs/tasks/tools/install-minikube/) on your desktop.
 
-###Installing the Percona XtraDB cluster
+### Installing the Percona XtraDB cluster
 Starting Minikube may also start the virtual environment. The default amount of RAM allocated to the Minikube VM is 2048.
-A pod provides an environment for one or more containers in Kubernetes. A Pod always runs on a node, which is the worker machine.
+
 
 The `minikube start`command generates a context to communicate with the Minikube cluster. You can modify your Minikube start process by adding options. To find which options are available, run the following command:
 ```bash
 [~]$ minikube start --help
 ```
-The Percona XtraDB Cluster has three MySQL nodes and a ProxySQL pod. We add an option to increase the memory for the cluster on the desktop environment.
+The Percona XtraDB Cluster has three MySQL nodes and a ProxySQL pod. A pod provides an environment for one or more containers in Kubernetes and always runs on a node, which is the worker machine.
+You add an option to increase the memory for the cluster on the desktop environment.
 
 ```bash
 [~]$ minikube start --memory 6144
 ```
-The return statements provide the progress of the minikube initiation.
+The return statements provide the progress of the minikube creation.
 ```
 😄  minikube v1.0.0 on darwin (amd64)
 🤹  Downloading Kubernetes v1.14.0 images in the background ...
@@ -42,25 +43,25 @@ The return statements provide the progress of the minikube initiation.
 🏄  Done! Thank you for using minikube!
 ```
 
-###Clone and Downloading
+### Clone and Download the repository
 
 Use the `git clone` command to download the correct branch of the **percona-xtradb-cluster-operator** repository.  
 **Note:** *In the git statement, you must specify the correct branch with the -b option.*
 ```bash
 $ git clone -b release-0.3.0 https://github.com/percona/percona-xtradb-cluster-operator
 ```
-After the repository is downloaded, change to the directory to run the rest of the commands in this document:
+After the repository is downloaded, change to the newly-created directory to run the rest of the commands in this document:
 
     cd percona-xtradb-cluster-operator
 
 ### Adjusting the Pod Memory Allocation
-To ensure that the operator works on a desktop environment, you make modifications in the cr.yaml file.
+To ensure that the operator works on a desktop environment, make the following modifications to settings in the cr.yaml file.
 
 **Note:** *Shell utilities differ based on the Linux/Unix/BSD variant. The GNU sed works with:
 `sed -i`
 A MacOS environment sed requires an extension:
 `sed -i.bak`
-The command may require an edit in your shell.*
+The command may require an edit in your shell before running the command.*
 
 To reduce the CPU usage:
 ```bash
@@ -74,11 +75,11 @@ $ grep "cpu" deploy/cr.yaml
         cpu: 200m
 #        cpu: 700m
 ```
-You can run all of the PXC instances in one node by changing the antiAffinityTopologyKey in cr.yaml:
+Run all of the PXC instances in one node by changing the antiAffinityTopologyKey settings:
 ```bash
 $ sed -i 's/kubernetes\.io\/hostname/none/g' deploy/cr.yaml
 ```
-You can verify the updates:
+Verify the updates:
 ```bash
 $ grep -i  "topology" deploy/cr.yaml
       antiAffinityTopologyKey: "none"
@@ -86,7 +87,7 @@ $ grep -i  "topology" deploy/cr.yaml
 ```
 ### Creating the PXC and operator Objects
 You can use the following commands to create the PXC and operator objects.
-1. You add extensions to the Kubernetes core for the PXC cluster and operator.
+1. Add extensions to the Kubernetes core for the PXC cluster and operator.
 ```bash
 $ kubectl apply -f deploy/crd.yaml
 ```
@@ -128,7 +129,7 @@ The return statement confirms the action.
 ```
 deployment.apps/percona-xtradb-cluster-operator created
 ```
-7. You store and manage sensitive information, such as passwords or ssh keys. Using the `secrets` objects provides flexibility to managing the pods.
+7. Store and manage sensitive information, such as passwords or ssh keys, in the secrets.yaml. Managing the application's secret objects with the file provides flexibility.
 ```bash
 $ kubectl apply -f deploy/secrets.yaml
 ```
@@ -160,11 +161,11 @@ cluster1-pxc-1                                     1/1     Running   0          
 cluster1-pxc-2                                     0/1     Running   0          78s
 percona-xtradb-cluster-operator-776b6fd57d-w5dcc   1/1     Running   0          7m25s
 ```
-If needed, you can use a `kubectl` command to show details for a specific resource.  For example, the command provides information for a pod:
+If needed to troubleshoot a pod, you can use a `kubectl describe` command for the pod details.  For example, the command returns information for a selected pod:
 ```bash
 kubectl describe pod cluster1-pxc-0
 ```
-The detail description  of the specific resource is returned. Review the description for `Warning` information and then correct the configuration.
+The resource's detailed description is returned. Review the description for `Warning` information and then correct the configuration. An example of a Warning is as follows:
 ```
 Warning  FailedScheduling  68s (x4 over 2m22s)  default-scheduler  0/1 nodes are available: 1 node(s) didn't match pod affinity/anti-affinity, 1 node(s) didn't satisfy existing pods anti-affinity rules.
 ```
@@ -179,12 +180,12 @@ If you don't see a command prompt, try pressing enter.
 
 bash-4.2$
 ```
-You connect to the MySQL server. You provide the host anme, MySQL user name, and password.
+With the shell prompt, connect to the MySQL server. You provide the MySQL host name, user name, and password.
 
 ```bash
 bash-4.2$ mysql -h cluster1-proxysql -uroot -proot_password
 ```
-The return statements ends with the `mysql` prompt.
+The return statements provides the `mysql` prompt.
 ```
 mysql: [Warning] Using a password on the command line interface can be insecure.
 Welcome to the MySQL monitor.  Commands end with ; or \g.
@@ -200,7 +201,7 @@ owners.
 
 Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
 ```
-You can show the values of selected MySQL system variables.
+In MySQL, display the values of selected MySQL system variables.
 ```
 mysql> SHOW VARIABLES like "max_connections";
 ```

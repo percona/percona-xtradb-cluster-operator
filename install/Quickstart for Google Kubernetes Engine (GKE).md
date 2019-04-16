@@ -197,7 +197,20 @@ The return statement displays the current max_connections.
 +-----------------+-------+
 1 row in set (0.00 sec)
 ```
+### Troubleshooting
 
+The phrases in the install/secrets.yaml can be decoded with the following:
+```bash
+$ echo -n `phrase` | base64 -D
+```
+If needed, use the `kubectl describe` command for the pod details.  For example, this command returns information for the selected pod:
+```bash
+kubectl describe pod cluster1-pxc-0
+```
+Review the detailed information for `Warning` statements and then correct the configuration. An example of a warning is as follows:
+```
+Warning  FailedScheduling  68s (x4 over 2m22s)  default-scheduler  0/1 nodes are available: 1 node(s) didn't match pod affinity/anti-affinity, 1 node(s) didn't satisfy existing pods anti-affinity rules.
+```
 ### Removing the cluster
 There are several ways that you can delete the cluster.
 

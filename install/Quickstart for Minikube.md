@@ -1,6 +1,6 @@
 Quickstart for Percona XtraDB Cluster Operator for Minikube
 ==========================================================================
-You can install and run Minikube. With Minikube on your laptop lets you run a single-node Kubernetes cluster in a virtual machine.
+Run Minikube to test a single-node Kubernetes cluster in a desktop environment.
 
 Cloud Provider features, such as LoadBalancers, or features that require multiple nodes, such as Advanced Scheduling policies, will not work as expected in a Minikube cluster.
 
@@ -9,20 +9,19 @@ Cloud Provider features, such as LoadBalancers, or features that require multipl
 You must have [Minikube installed](https://kubernetes.io/docs/tasks/tools/install-minikube/) on your desktop.
 
 ### Installing the Percona XtraDB cluster
-Starting Minikube may also start the virtual environment. The default amount of RAM allocated to the Minikube VM is 2048.
+The `minikube start`command generates a context to communicate with the Minikube cluster. Starting Minikube may also start the virtual environment. The default amount of RAM allocated to the Minikube VM is 2048.
 
 
-The `minikube start`command generates a context to communicate with the Minikube cluster. You can modify your Minikube start process by adding options. To find which options are available, run the following command:
-```bash
-[~]$ minikube start --help
-```
 The Percona XtraDB Cluster has three MySQL nodes and a ProxySQL pod. A pod provides an environment for one or more containers in Kubernetes and always runs on a node, which is the worker machine.
-You add an option to increase the memory for the cluster on the desktop environment.
+You add an option to increase the RAM memory for the cluster on the desktop environment.
 
 ```bash
 [~]$ minikube start --memory 6144
 ```
 The return statements provide the progress of the minikube creation.
+
+**Note:** *The exact return statements may be different and are based on your desktop environment.*
+
 ```
 😄  minikube v1.0.0 on darwin (amd64)
 🤹  Downloading Kubernetes v1.14.0 images in the background ...
@@ -61,7 +60,7 @@ To ensure that the operator works on a desktop environment, make the following m
 `sed -i`
 A MacOS environment sed requires an extension:
 `sed -i.bak`
-The command may require an edit in your shell before running the command.*
+The command may require an edit in your shell before running.*
 
 To reduce the CPU usage:
 ```bash
@@ -86,7 +85,7 @@ $ grep -i  "topology" deploy/cr.yaml
       antiAffinityTopologyKey: "none"
 ```
 ### Creating the PXC and operator Objects
-You can use the following commands to create the PXC and operator objects.
+Use the following commands to create the PXC and operator objects.
 1. Add extensions to the Kubernetes core for the PXC cluster and operator.
 ```bash
 $ kubectl apply -f deploy/crd.yaml
@@ -215,6 +214,23 @@ The return statement displays the matching variable.
 1 row in set (0.00 sec)
 
 mysql>
+```
+### Troubleshooting
+You can modify your Minikube start process by adding options. To find which options are available, run the following command:
+```bash
+[~]$ minikube start --help
+```
+The phrases in the install/secrets.yaml can be decoded with the following:
+```bash
+$ echo -n `phrase` | base64 -D
+```
+If needed, use the `kubectl describe` command for the pod details.  For example, this command returns information for the selected pod:
+```bash
+kubectl describe pod cluster1-pxc-0
+```
+Review the detailed information for `Warning` statements and then correct the configuration. An example of a warning is as follows:
+```
+Warning  FailedScheduling  68s (x4 over 2m22s)  default-scheduler  0/1 nodes are available: 1 node(s) didn't match pod affinity/anti-affinity, 1 node(s) didn't satisfy existing pods anti-affinity rules.
 ```
 
 ### Clean Up

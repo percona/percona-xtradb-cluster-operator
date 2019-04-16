@@ -214,7 +214,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if cr.Spec.Platform != nil {
 		serverVersion.Platform = *cr.Spec.Platform
 	}
-
+	if len(cr.Spec.SSLSecretName) > 0 {
+		cr.Spec.PXC.SSLSecretName = cr.Spec.SSLSecretName + "-ssl"
+		cr.Spec.ProxySQL.SSLSecretName = cr.Spec.SSLSecretName + "-ssl"
+	}
 	stsApp := statefulset.NewNode(cr)
 	if cr.Spec.PXC.Configuration != "" {
 		ls := stsApp.Labels()

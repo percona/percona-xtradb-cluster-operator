@@ -8,10 +8,10 @@ metadata:
 #    - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
+  sslSecretName: new-name
   pxc:
     size: 3
     allowUnsafeConfigurations: false
-    sslSecretName: secret
     image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc
 #    configuration: |
 #      [mysqld]

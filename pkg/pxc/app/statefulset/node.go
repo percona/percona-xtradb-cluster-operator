@@ -181,13 +181,15 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 	vol := app.Volumes(podSpec, dataVolumeName)
 	ls := c.Labels()
+	if len(podSpec.SSLSecretName) == 0 {
+		podSpec.SSLSecretName = ls["app.kubernetes.io/instance"] + "-ssl"
+	}
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetTmpVolume(),
 		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
-		app.GetSecretVolumes("ssl-internal", ls["app.kubernetes.io/instance"]+"-ssl-internal"),
-		app.GetSecretVolumes("ssl", ls["app.kubernetes.io/instance"]+"-ssl"))
-
+		app.GetSecretVolumes("ssl-internal", podSpec.SSLSecretName+"-internal"),
+		app.GetSecretVolumes("ssl", podSpec.SSLSecretName))
 	return vol
 }
 

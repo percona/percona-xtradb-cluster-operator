@@ -157,12 +157,12 @@ spec:
         secret:
           defaultMode: 420
           optional: true
-          secretName: some-name-ssl-internal
+          secretName: new-name-ssl-internal
       - name: ssl
         secret:
           defaultMode: 420
           optional: true
-          secretName: some-name-ssl
+          secretName: new-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

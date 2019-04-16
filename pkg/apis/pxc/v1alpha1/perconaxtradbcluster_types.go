@@ -12,12 +12,13 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform    *Platform           `json:"platform,omitempty"`
-	SecretsName string              `json:"secretsName,omitempty"`
-	PXC         *PodSpec            `json:"pxc,omitempty"`
-	ProxySQL    *PodSpec            `json:"proxysql,omitempty"`
-	PMM         *PMMSpec            `json:"pmm,omitempty"`
-	Backup      *PXCScheduledBackup `json:"backup,omitempty"`
+	Platform      *Platform           `json:"platform,omitempty"`
+	SecretsName   string              `json:"secretsName,omitempty"`
+	SSLSecretName string              `json:"sslSecretName,omitempty"`
+	PXC           *PodSpec            `json:"pxc,omitempty"`
+	ProxySQL      *PodSpec            `json:"proxysql,omitempty"`
+	PMM           *PMMSpec            `json:"pmm,omitempty"`
+	Backup        *PXCScheduledBackup `json:"backup,omitempty"`
 }
 
 type PXCScheduledBackup struct {
@@ -82,7 +83,6 @@ type PerconaXtraDBClusterList struct {
 type PodSpec struct {
 	Enabled             bool                          `json:"enabled,omitempty"`
 	Size                int32                         `json:"size,omitempty"`
-	SSLSecretName       string                        `json:"sslSecretName,omitempty"`
 	Image               string                        `json:"image,omitempty"`
 	Resources           *PodResources                 `json:"resources,omitempty"`
 	VolumeSpec          *VolumeSpec                   `json:"volumeSpec,omitempty"`
@@ -96,6 +96,7 @@ type PodSpec struct {
 	AllowUnsafeConfig   bool                          `json:"allowUnsafeConfigurations,omitempty"`
 	Configuration       string                        `json:"configuration,omitempty"`
 	PodDisruptionBudget *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
+	SSLSecretName       string                        `json:"sslSecretName,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

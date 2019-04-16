@@ -1,6 +1,6 @@
 Quickstart for Percona XtraDB Cluster Operator for Minikube
 ==========================================================================
-Run Minikube to test a single-node Kubernetes cluster in a desktop environment.
+Run Minikube to test a single-node Kubernetes cluster in a desktop environment. The Percona XtraDB Cluster has three MySQL nodes and a ProxySQL pod. A pod provides an environment for one or more containers in Kubernetes and always runs on a node, which is the worker machine.
 
 Cloud Provider features, such as LoadBalancers, or features that require multiple nodes, such as Advanced Scheduling policies, will not work as expected in a Minikube cluster.
 
@@ -9,11 +9,7 @@ Cloud Provider features, such as LoadBalancers, or features that require multipl
 You must have [Minikube installed](https://kubernetes.io/docs/tasks/tools/install-minikube/) on your desktop.
 
 ### Installing the Percona XtraDB cluster
-The `minikube start`command generates a context to communicate with the Minikube cluster. Starting Minikube may also start the virtual environment. The default amount of RAM allocated to the Minikube VM is 2048.
-
-
-The Percona XtraDB Cluster has three MySQL nodes and a ProxySQL pod. A pod provides an environment for one or more containers in Kubernetes and always runs on a node, which is the worker machine.
-You add an option to increase the RAM memory for the cluster on the desktop environment.
+The `minikube start`command generates a context to communicate with the Minikube cluster. Depending on your configuration, starting Minikube may also start the virtual environment. The default amount of RAM allocated to the Minikube VM is 2048MB. Add the option to increase the RAM memory to 6144MB.
 
 ```bash
 [~]$ minikube start --memory 6144
@@ -28,7 +24,7 @@ The return statements provide the progress of the minikube creation.
 💡  Tip: Use 'minikube start -p <name>' to create a new cluster, or 'minikube delete' to delete this one.
 🔄  Restarting existing virtualbox VM for "minikube" ...
 ⌛  Waiting for SSH access ...
-📶  "minikube" IP address is 192.168.99.103
+📶  "minikube" IP address is 127.99.254.140
 🐳  Configuring Docker as the container runtime ...
 🐳  Version of container runtime is 18.06.2-ce
 ⌛  Waiting for image downloads to complete ...
@@ -54,7 +50,7 @@ After the repository is downloaded, change to the newly-created directory to run
     cd percona-xtradb-cluster-operator
 
 ### Adjusting the Pod Memory Allocation
-To ensure that the operator works on a desktop environment, make the following modifications to settings in the cr.yaml file.
+To ensure that the operator works on a desktop environment, in the deploy directory, save a copy of the cr.yaml file and then make the following modifications to settings.
 
 **Note:** *Shell utilities differ based on the Linux/Unix/BSD variant. The GNU sed works with:
 `sed -i`
@@ -120,7 +116,7 @@ The return statement confirms the action.
 role.rbac.authorization.k8s.io/percona-xtradb-cluster-operator created
 rolebinding.rbac.authorization.k8s.io/default-account-percona-xtradb-cluster-operator created
 ```
-6. An operator provides a method of managing a Kubernetes application, which is both deployed on Kubernetes and managed using the Kubernetes API.
+6. An operator provides a method of managing a Kubernetes application.
 ```bash
 $ kubectl apply -f deploy/operator.yaml
 ```
@@ -128,7 +124,7 @@ The return statement confirms the action.
 ```
 deployment.apps/percona-xtradb-cluster-operator created
 ```
-7. Store and manage sensitive information, such as passwords or ssh keys, in the secrets.yaml. Managing the application's secret objects with the file provides flexibility.
+7. Store and manage sensitive information, such as passwords or ssh keys, in the secrets.yaml.
 ```bash
 $ kubectl apply -f deploy/secrets.yaml
 ```
@@ -160,16 +156,8 @@ cluster1-pxc-1                                     1/1     Running   0          
 cluster1-pxc-2                                     0/1     Running   0          78s
 percona-xtradb-cluster-operator-776b6fd57d-w5dcc   1/1     Running   0          7m25s
 ```
-If needed to troubleshoot a pod, you can use a `kubectl describe` command for the pod details.  For example, the command returns information for a selected pod:
-```bash
-kubectl describe pod cluster1-pxc-0
-```
-The resource's detailed description is returned. Review the description for `Warning` information and then correct the configuration. An example of a Warning is as follows:
-```
-Warning  FailedScheduling  68s (x4 over 2m22s)  default-scheduler  0/1 nodes are available: 1 node(s) didn't match pod affinity/anti-affinity, 1 node(s) didn't satisfy existing pods anti-affinity rules.
-```
 
-To connect to the cluster, you deploy a client shell access.
+To connect to the cluster, you deploy client shell access.
 ```bash
 $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
 ```
@@ -216,9 +204,10 @@ The return statement displays the matching variable.
 mysql>
 ```
 ### Troubleshooting
-You can modify your Minikube start process by adding options. To find which options are available, run the following command:
+
+Find which options are available in Minikube with the following command:
 ```bash
-[~]$ minikube start --help
+[~]$ minikube --help
 ```
 The phrases in the install/secrets.yaml can be decoded with the following:
 ```bash
@@ -234,7 +223,7 @@ Warning  FailedScheduling  68s (x4 over 2m22s)  default-scheduler  0/1 nodes are
 ```
 
 ### Clean Up
-You can clean up the minikube cluster with the following command:
+Clean up the minikube cluster with the following command:
 
 ```bash
 minikube stop

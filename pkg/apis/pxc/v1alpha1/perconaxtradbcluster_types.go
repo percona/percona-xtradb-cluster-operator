@@ -222,6 +222,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 			return false, fmt.Errorf("PXC.Volume: %v", err)
 		}
 
+		if len(c.SSLSecretName) > 0 {
+			c.PXC.SSLSecretName = c.SSLSecretName
+		} else {
+			c.PXC.SSLSecretName = cr.Name + "-ssl"
+		}
+
 		// pxc replicas shouldn't be less than 3 for safe configuration
 		if c.PXC.Size < 3 && !c.PXC.AllowUnsafeConfig {
 			c.PXC.Size = 3
@@ -249,6 +255,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 		changed, err = c.ProxySQL.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return false, fmt.Errorf("ProxySQL.Volume: %v", err)
+		}
+
+		if len(c.SSLSecretName) > 0 {
+			c.ProxySQL.SSLSecretName = c.SSLSecretName
+		} else {
+			c.ProxySQL.SSLSecretName = cr.Name + "-ssl"
 		}
 
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-ProxySQL.

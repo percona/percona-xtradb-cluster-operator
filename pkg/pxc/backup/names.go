@@ -41,9 +41,7 @@ func genName63(cr *api.PerconaXtraDBBackup) string {
 	// but there is more room for names
 	if !ok || typ != "cron" {
 		maxNameLen = 29
-		if len(postfix) > maxNameLen {
-			postfix = postfix[:maxNameLen]
-		}
+		postfix = trimNameRight(postfix, maxNameLen)
 	}
 
 	name := cr.Spec.PXCCluster
@@ -53,4 +51,21 @@ func genName63(cr *api.PerconaXtraDBBackup) string {
 	name += "-xb-" + postfix
 
 	return name
+}
+
+// trimNameRight if needed cut off symbol by symbol from the name right side
+// until it satisfy requirements to end with an alphanumeric character and have a length no more than ln
+func trimNameRight(name string, ln int) string {
+	if len(name) <= ln {
+		ln = len(name)
+	}
+
+	for ; ln > 0; ln-- {
+		if name[ln-1] >= 'a' && name[ln-1] <= 'z' ||
+			name[ln-1] >= '0' && name[ln-1] <= '9' {
+			break
+		}
+	}
+
+	return name[:ln]
 }

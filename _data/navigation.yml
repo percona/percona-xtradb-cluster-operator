@@ -19,6 +19,10 @@ docs:
         url: ./install/monitoring
       - title: "External Registry"
         url: ./install/custom-registry
+      - title: "Quickstart for Google Kubernetes Engine"
+        url: ./install/"Quickstart for Google Kubernetes Engine (GKE)"
+      - title: "Quickstart for Minikube"
+        url: ./install/"Quickstart for Minikube"
   - title: Configuration
     children:
       - title: "Users"

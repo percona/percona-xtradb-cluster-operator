@@ -137,12 +137,12 @@ spec:
         secret:
           defaultMode: 420
           optional: true
-          secretName: new-name-ssl-internal
+          secretName: some-name-ssl-internal
       - name: ssl
         secret:
           defaultMode: 420
           optional: true
-          secretName: new-name-ssl
+          secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

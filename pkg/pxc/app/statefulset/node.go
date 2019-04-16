@@ -181,9 +181,6 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 	vol := app.Volumes(podSpec, dataVolumeName)
 	ls := c.Labels()
-	if len(podSpec.SSLSecretName) == 0 {
-		podSpec.SSLSecretName = ls["app.kubernetes.io/instance"] + "-ssl"
-	}
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetTmpVolume(),

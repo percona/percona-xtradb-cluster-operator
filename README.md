@@ -6,6 +6,7 @@ A Kubernetes operator for [Percona XtraDB Cluster](https://www.percona.com/softw
 See the [Official Documentation](https://percona.github.io/percona-xtradb-cluster-operator/) for more information.
 
 [![Official Documentation](https://via.placeholder.com/260x60/419bdc/FFFFFF/?text=Documentation)](https://percona.github.io/percona-xtradb-cluster-operator/)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fpercona%2Fpercona-xtradb-cluster-operator.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fpercona%2Fpercona-xtradb-cluster-operator?ref=badge_shield)
 
 # DISCLAIMER
 
@@ -32,3 +33,7 @@ As a general rule of thumb, please try to create bug reports that are:
 - *Unique.* Do not duplicate existing tickets.
 - *Scoped to a Single Bug.* One bug per report.
 
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fpercona%2Fpercona-xtradb-cluster-operator.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fpercona%2Fpercona-xtradb-cluster-operator?ref=badge_large)

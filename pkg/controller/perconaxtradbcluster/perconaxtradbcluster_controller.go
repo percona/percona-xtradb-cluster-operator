@@ -356,11 +356,10 @@ func (r *ReconcilePerconaXtraDBCluster) checkSecret(cr *api.PerconaXtraDBCluster
 			issuerName = cr.Spec.PXC.SSLSecretName + "-ca"
 		)
 		issuer := cm.ClusterIssuer{}
-		selfsignIssuer := cm.SelfSignedIssuer{}
 		issuer.Namespace = namespace
 		issuer.Kind = issuerKind
 		issuer.Name = issuerName
-		issuer.Spec.SelfSigned = &selfsignIssuer
+		issuer.Spec.SelfSigned = &cm.SelfSignedIssuer{}
 		err := r.client.Create(context.TODO(), &issuer)
 		if err != nil {
 			return err

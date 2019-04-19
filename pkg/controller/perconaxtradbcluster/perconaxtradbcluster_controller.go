@@ -340,6 +340,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 }
 
 func (r *ReconcilePerconaXtraDBCluster) checkSecret(cr *api.PerconaXtraDBCluster, namespace string) error {
+	if cr.Spec.PXC.AllowUnsafeConfig == true {
+		return nil
+	}
 	secretObj := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -347,10 +350,7 @@ func (r *ReconcilePerconaXtraDBCluster) checkSecret(cr *api.PerconaXtraDBCluster
 			Name:      cr.Spec.PXC.SSLSecretName,
 		},
 		&secretObj)
-	if err != nil {
-		return err
-	}
-	if len(secretObj.Name) == 0 && cr.Spec.PXC.AllowUnsafeConfig == false {
+	if err != nil && errors.IsNotFound(err) {
 		var (
 			issuerKind = "ClusterIssuer"
 			issuerName = cr.Spec.PXC.SSLSecretName + "-ca"
@@ -361,6 +361,15 @@ func (r *ReconcilePerconaXtraDBCluster) checkSecret(cr *api.PerconaXtraDBCluster
 		issuer.Name = issuerName
 		issuer.Spec.SelfSigned = &cm.SelfSignedIssuer{}
 		err := r.client.Create(context.TODO(), &issuer)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return err
+		}
+		issuer = cm.ClusterIssuer{}
+		err = r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Name: issuerName,
+			},
+			&issuer)
 		if err != nil {
 			return err
 		}
@@ -377,7 +386,10 @@ func (r *ReconcilePerconaXtraDBCluster) checkSecret(cr *api.PerconaXtraDBCluster
 		if err != nil {
 			return err
 		}
+	} else if err != nil {
+		return err
 	}
+
 	return nil
 }
 

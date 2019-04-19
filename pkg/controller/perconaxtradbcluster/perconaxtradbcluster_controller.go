@@ -23,6 +23,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	cm "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
@@ -233,6 +234,43 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, serverVersion)
 	if err != nil {
 		return err
+	}
+
+	secretObj := corev1.Secret{}
+	err = r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: nodeSet.Namespace,
+			Name:      cr.Spec.PXC.SSLSecretName,
+		},
+		&secretObj)
+	if len(secretObj.Name) == 0 && cr.Spec.PXC.AllowUnsafeConfig == false {
+		var (
+			issuerKind = "ClusterIssuer"
+			issuerName = cr.Namespace + cr.Spec.PXC.SSLSecretName + "-ca"
+		)
+		issuer := cm.ClusterIssuer{}
+		selfsignIssuer := cm.SelfSignedIssuer{}
+		issuer.Namespace = nodeSet.Namespace
+		issuer.Kind = issuerKind
+		issuer.Name = issuerName
+		issuer.Spec.SelfSigned = &selfsignIssuer
+		err = r.client.Create(context.TODO(), &issuer)
+		if err != nil {
+			log.Info("issuer: " + err.Error())
+		}
+		certificate := cm.Certificate{}
+		certificate.Namespace = nodeSet.Namespace
+		certificate.Kind = "Certificate"
+		certificate.Name = cr.Namespace + cr.Spec.PXC.SSLSecretName + ".com"
+		certificate.Spec.SecretName = cr.Spec.PXC.SSLSecretName
+		certificate.Spec.CommonName = cr.Spec.PXC.SSLSecretName + "-pxc"
+		certificate.Spec.IsCA = true
+		certificate.Spec.IssuerRef.Name = issuerName
+		certificate.Spec.IssuerRef.Kind = issuerKind
+		err = r.client.Create(context.TODO(), &certificate)
+		if err != nil {
+			log.Info("certificate: " + err.Error())
+		}
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)

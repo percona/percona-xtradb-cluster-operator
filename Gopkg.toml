@@ -52,3 +52,7 @@ required = [
   [[prune.project]]
     name = "k8s.io/code-generator"
     non-go = false
+
+[[constraint]]
+  name = "github.com/jetstack/cert-manager"
+  version = "0.7.0"

@@ -185,8 +185,8 @@ func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 		vol.Volumes,
 		app.GetTmpVolume(),
 		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
-		app.GetSecretVolumes("ssl-internal", podSpec.SSLSecretName+"-internal"),
-		app.GetSecretVolumes("ssl", podSpec.SSLSecretName))
+		app.GetSecretVolumes("ssl-internal", podSpec.SSLSecretName+"-internal", true),
+		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
 	return vol
 }
 

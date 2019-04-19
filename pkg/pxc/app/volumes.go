@@ -18,15 +18,14 @@ func GetConfigVolumes(cvName, cmName string) corev1.Volume {
 	return vol1
 }
 
-func GetSecretVolumes(cvName, cmName string) corev1.Volume {
+func GetSecretVolumes(cvName, cmName string, allowUnsafe bool) corev1.Volume {
 	vol1 := corev1.Volume{
 		Name: cvName,
 	}
 
 	vol1.Secret = &corev1.SecretVolumeSource{}
 	vol1.Secret.SecretName = cmName
-	t := true
-	vol1.Secret.Optional = &t
+	vol1.Secret.Optional = &allowUnsafe
 	return vol1
 }
 

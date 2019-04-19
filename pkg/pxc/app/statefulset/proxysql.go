@@ -227,8 +227,8 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec) *api.Volume {
 	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	vol.Volumes = append(
 		vol.Volumes,
-		app.GetSecretVolumes("ssl-internal", podSpec.SSLSecretName+"-internal"),
-		app.GetSecretVolumes("ssl", podSpec.SSLSecretName))
+		app.GetSecretVolumes("ssl-internal", podSpec.SSLSecretName+"-internal", true),
+		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
 	return vol
 }
 

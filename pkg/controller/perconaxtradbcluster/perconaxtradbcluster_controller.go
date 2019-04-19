@@ -236,7 +236,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	err = r.checkSecret(cr, nodeSet.Namespace)
+	err = r.reconsileSSL(cr, nodeSet.Namespace)
 	if err != nil {
 		return fmt.Errorf("checking secret: %v", err)
 	}
@@ -339,8 +339,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) checkSecret(cr *api.PerconaXtraDBCluster, namespace string) error {
-	if cr.Spec.PXC.AllowUnsafeConfig == true {
+func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster, namespace string) error {
+	if cr.Spec.PXC.AllowUnsafeConfig {
 		return nil
 	}
 	secretObj := corev1.Secret{}
@@ -349,45 +349,48 @@ func (r *ReconcilePerconaXtraDBCluster) checkSecret(cr *api.PerconaXtraDBCluster
 			Namespace: namespace,
 			Name:      cr.Spec.PXC.SSLSecretName,
 		},
-		&secretObj)
-	if err != nil && errors.IsNotFound(err) {
-		var (
-			issuerKind = "ClusterIssuer"
-			issuerName = cr.Spec.PXC.SSLSecretName + "-ca"
-		)
-		issuer := cm.ClusterIssuer{}
-		issuer.Namespace = namespace
-		issuer.Kind = issuerKind
-		issuer.Name = issuerName
-		issuer.Spec.SelfSigned = &cm.SelfSignedIssuer{}
-		err := r.client.Create(context.TODO(), &issuer)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return err
-		}
-		issuer = cm.ClusterIssuer{}
-		err = r.client.Get(context.TODO(),
-			types.NamespacedName{
-				Name: issuerName,
-			},
-			&issuer)
-		if err != nil {
-			return err
-		}
-		certificate := cm.Certificate{}
-		certificate.Namespace = namespace
-		certificate.Kind = "Certificate"
-		certificate.Name = cr.Spec.PXC.SSLSecretName + ".com"
-		certificate.Spec.SecretName = cr.Spec.PXC.SSLSecretName
-		certificate.Spec.CommonName = cr.Spec.PXC.SSLSecretName + "-pxc"
-		certificate.Spec.IsCA = true
-		certificate.Spec.IssuerRef.Name = issuerName
-		certificate.Spec.IssuerRef.Kind = issuerKind
-		err = r.client.Create(context.TODO(), &certificate)
-		if err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
+		&secretObj,
+	)
+	if err == nil {
+		return nil
+	} else if !errors.IsNotFound(err) {
+		return fmt.Errorf("get secret: %v", err)
+	}
+
+	issuerKind := "ClusterIssuer"
+	issuerName := cr.Spec.PXC.SSLSecretName + "-ca"
+
+	issuer := cm.ClusterIssuer{}
+	issuer.Namespace = namespace
+	issuer.Kind = issuerKind
+	issuer.Name = issuerName
+	issuer.Spec.SelfSigned = &cm.SelfSignedIssuer{}
+	err = r.client.Create(context.TODO(), &issuer)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("create issuer: %v", err)
+	}
+	issuer = cm.ClusterIssuer{}
+	err = r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Name: issuerName,
+		},
+		&issuer,
+	)
+	if err != nil {
+		return fmt.Errorf("get issuer: %v", err)
+	}
+	certificate := cm.Certificate{}
+	certificate.Namespace = namespace
+	certificate.Kind = "Certificate"
+	certificate.Name = cr.Spec.PXC.SSLSecretName + ".com"
+	certificate.Spec.SecretName = cr.Spec.PXC.SSLSecretName
+	certificate.Spec.CommonName = cr.Spec.PXC.SSLSecretName + "-pxc"
+	certificate.Spec.IsCA = true
+	certificate.Spec.IssuerRef.Name = issuerName
+	certificate.Spec.IssuerRef.Kind = issuerKind
+	err = r.client.Create(context.TODO(), &certificate)
+	if err != nil {
+		return fmt.Errorf("create certificate: %v", err)
 	}
 
 	return nil

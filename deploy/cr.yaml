@@ -64,6 +64,7 @@ spec:
         resources:
           requests:
             storage: 6Gi
+    gracePeriod: 600
   proxysql:
     enabled: true
     size: 1
@@ -115,6 +116,7 @@ spec:
     podDisruptionBudget:
       maxUnavailable: 1
 #      minAvailable: 0
+    gracePeriod: 30
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1

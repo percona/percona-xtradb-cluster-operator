@@ -81,22 +81,23 @@ type PerconaXtraDBClusterList struct {
 }
 
 type PodSpec struct {
-	Enabled             bool                          `json:"enabled,omitempty"`
-	Size                int32                         `json:"size,omitempty"`
-	Image               string                        `json:"image,omitempty"`
-	Resources           *PodResources                 `json:"resources,omitempty"`
-	VolumeSpec          *VolumeSpec                   `json:"volumeSpec,omitempty"`
-	Affinity            *PodAffinity                  `json:"affinity,omitempty"`
-	NodeSelector        map[string]string             `json:"nodeSelector,omitempty"`
-	Tolerations         []corev1.Toleration           `json:"tolerations,omitempty"`
-	PriorityClassName   string                        `json:"priorityClassName,omitempty"`
-	Annotations         map[string]string             `json:"annotations,omitempty"`
-	Labels              map[string]string             `json:"labels,omitempty"`
-	ImagePullSecrets    []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	AllowUnsafeConfig   bool                          `json:"allowUnsafeConfigurations,omitempty"`
-	Configuration       string                        `json:"configuration,omitempty"`
-	PodDisruptionBudget *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
-	SSLSecretName       string                        `json:"sslSecretName,omitempty"`
+	Enabled                       bool                          `json:"enabled,omitempty"`
+	Size                          int32                         `json:"size,omitempty"`
+	Image                         string                        `json:"image,omitempty"`
+	Resources                     *PodResources                 `json:"resources,omitempty"`
+	VolumeSpec                    *VolumeSpec                   `json:"volumeSpec,omitempty"`
+	Affinity                      *PodAffinity                  `json:"affinity,omitempty"`
+	NodeSelector                  map[string]string             `json:"nodeSelector,omitempty"`
+	Tolerations                   []corev1.Toleration           `json:"tolerations,omitempty"`
+	PriorityClassName             string                        `json:"priorityClassName,omitempty"`
+	Annotations                   map[string]string             `json:"annotations,omitempty"`
+	Labels                        map[string]string             `json:"labels,omitempty"`
+	ImagePullSecrets              []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	AllowUnsafeConfig             bool                          `json:"allowUnsafeConfigurations,omitempty"`
+	Configuration                 string                        `json:"configuration,omitempty"`
+	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
+	SSLSecretName                 string                        `json:"sslSecretName,omitempty"`
+	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -201,6 +202,8 @@ type StatefulApp interface {
 
 const clusterNameMaxLen = 22
 
+var defaultPXCGracePeriodSec int64 = 600
+
 // ErrClusterNameOverflow upspring when the cluster name is longer than acceptable
 var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no more than %d characters", clusterNameMaxLen)
 
@@ -245,6 +248,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 			c.PXC.PodDisruptionBudget = &PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
 		}
 
+		if c.PXC.TerminationGracePeriodSeconds == nil {
+			c.PXC.TerminationGracePeriodSeconds = &defaultPXCGracePeriodSec
+		}
+
 		c.PXC.reconcileAffinityOpts()
 	}
 
@@ -267,6 +274,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 		if c.ProxySQL.PodDisruptionBudget == nil {
 			defaultMaxUnavailable := intstr.FromInt(1)
 			c.ProxySQL.PodDisruptionBudget = &PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
+		}
+
+		if c.PXC.TerminationGracePeriodSeconds == nil {
+			graceSec := int64(30)
+			c.PXC.TerminationGracePeriodSeconds = &graceSec
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()

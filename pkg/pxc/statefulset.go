@@ -23,10 +23,11 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 			SupplementalGroups: []int64{99},
 			FSGroup:            fsgroup,
 		},
-		NodeSelector:      podSpec.NodeSelector,
-		Tolerations:       podSpec.Tolerations,
-		PriorityClassName: podSpec.PriorityClassName,
-		ImagePullSecrets:  podSpec.ImagePullSecrets,
+		NodeSelector:                  podSpec.NodeSelector,
+		Tolerations:                   podSpec.Tolerations,
+		PriorityClassName:             podSpec.PriorityClassName,
+		ImagePullSecrets:              podSpec.ImagePullSecrets,
+		TerminationGracePeriodSeconds: podSpec.TerminationGracePeriodSeconds,
 	}
 
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)

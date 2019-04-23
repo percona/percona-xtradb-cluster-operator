@@ -1,0 +1,15 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: perconaxtradbbackuprestores.pxc.percona.com
+spec:
+  group: pxc.percona.com
+  names:
+    kind: PerconaXtraDBBackupRestore
+    listKind: PerconaXtraDBBackupRestoreList
+    plural: perconaxtradbbackuprestores
+    singular: perconaxtradbbackuprestore
+  scope: Namespaced
+  version: v1alpha1
+  subresources:
+    status: {}

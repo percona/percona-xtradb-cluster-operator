@@ -1,0 +1,7 @@
+apiVersion: pxc.percona.com/v1alpha1
+kind: PerconaXtraDBBackupRestore
+metadata:
+  name: example-perconaxtradbbackuprestore
+spec:
+  # Add fields here
+  size: 3

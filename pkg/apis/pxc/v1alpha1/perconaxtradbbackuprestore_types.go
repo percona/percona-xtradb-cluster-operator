@@ -6,10 +6,15 @@ import (
 
 // PerconaXtraDBBackupRestoreSpec defines the desired state of PerconaXtraDBBackupRestore
 type PerconaXtraDBBackupRestoreSpec struct {
+	PXCCluster string `json:"pxcCluster"`
+	BackupName string `json:"backupName"`
 }
 
 // PerconaXtraDBBackupRestoreStatus defines the observed state of PerconaXtraDBBackupRestore
 type PerconaXtraDBBackupRestoreStatus struct {
+	State         PXCBackupState `json:"state,omitempty"`
+	CompletedAt   *metav1.Time   `json:"completed,omitempty"`
+	LastScheduled *metav1.Time   `json:"lastscheduled,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

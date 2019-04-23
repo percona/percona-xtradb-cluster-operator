@@ -1,7 +1,7 @@
 apiVersion: pxc.percona.com/v1alpha1
 kind: PerconaXtraDBBackupRestore
 metadata:
-  name: example-perconaxtradbbackuprestore
+  name: restore-job-name
 spec:
-  # Add fields here
-  size: 3
+  pxcCluster: "cluster1"
+  backupName: ""

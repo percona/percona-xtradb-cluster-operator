@@ -2,6 +2,7 @@
    sphinx-quickstart on Mon Apr 22 14:49:54 2019.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
+====
 
 Welcome to pxc-docs's documentation!
 ====================================
@@ -11,9 +12,9 @@ Welcome to pxc-docs's documentation!
    :caption: Contents:
 
 Installation
-=====================================
-.... toctree::
-  :maxdepth:
+============
+.. toctree::
+  :maxdepth: 1
   :includehidden:
   :titlesonly:
 
@@ -25,9 +26,9 @@ Installation
   External Registry
 
 Configuration
-=======================================
-...... toctree::
-  :maxdepth: :
+=============
+.. toctree::
+  :maxdepth: 1
   :includehidden:
   :titlesonly:
 

@@ -5,21 +5,18 @@ set -o xtrace
 
 test_dir="$(dirname $0)"
 . $(dirname $0)/functions
-src_dir="$(realpath $test_dir/..)"
+src_dir="$(realpath ${test_dir}/..)"
 
 build_operator() {
-    repo=$(
-        git config --get remote.origin.url \
-            | sed -e 's^.*github.com[:/]^github.com/^; s/.git$//'
-    )
-    docker run --rm -v ${src_dir}:/go/src/${repo} golang sh -c "
+    package=github.com/percona/percona-xtradb-cluster-operator
+    docker run --rm -v ${src_dir}:/go/src/${package} golang sh -c "
         set -o errexit
         set -o xtrace
         export GO_LDFLAGS='-w -s $GO_LDFLAGS'
         export GIT_COMMIT='$GIT_COMMIT'
         export GIT_BRANCH='$GIT_BRANCH'
 
-        cd /go/src/${repo}
+        cd /go/src/${package}
         mkdir -p build/_output/bin
         GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
             -ldflags '-w -s -X main.GitCommit=${GIT_COMMIT} -X main.GitBranch=${GIT_BRANCH}' \

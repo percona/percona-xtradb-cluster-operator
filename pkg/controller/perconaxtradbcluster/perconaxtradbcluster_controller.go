@@ -238,7 +238,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.reconsileSSL(cr, nodeSet.Namespace)
 	if err != nil {
-		return fmt.Errorf("checking secret: %v", err)
+		return fmt.Errorf(`TLS secret handler return error: "%v". Please create your TLS secret manually or setup cert-manager correctly`, err)
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)
@@ -389,7 +389,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 	certificate.Spec.IssuerRef.Name = issuerName
 	certificate.Spec.IssuerRef.Kind = issuerKind
 	err = r.client.Create(context.TODO(), &certificate)
-	if err != nil {
+	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("create certificate: %v", err)
 	}
 

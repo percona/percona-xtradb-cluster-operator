@@ -4,4 +4,4 @@ metadata:
   name: "backup1"
 spec:
   pxcCluster: "cluster1"
-  storageName: "s3-us-west"
+  storageName: "fs-pvc"

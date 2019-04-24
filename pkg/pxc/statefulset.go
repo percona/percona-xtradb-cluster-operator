@@ -23,10 +23,11 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 			SupplementalGroups: []int64{99},
 			FSGroup:            fsgroup,
 		},
-		NodeSelector:      podSpec.NodeSelector,
-		Tolerations:       podSpec.Tolerations,
-		PriorityClassName: podSpec.PriorityClassName,
-		ImagePullSecrets:  podSpec.ImagePullSecrets,
+		NodeSelector:                  podSpec.NodeSelector,
+		Tolerations:                   podSpec.Tolerations,
+		PriorityClassName:             podSpec.PriorityClassName,
+		ImagePullSecrets:              podSpec.ImagePullSecrets,
+		TerminationGracePeriodSeconds: podSpec.TerminationGracePeriodSeconds,
 	}
 
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
@@ -42,7 +43,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	pod.Containers = append(pod.Containers, appC)
 	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 
-	if cr.Spec.PMM.Enabled {
+	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		pod.Containers = append(pod.Containers, sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName))
 	}
 
@@ -89,29 +90,12 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 		if strings.ToLower(*af.TopologyKey) == api.AffinityTopologyKeyOff {
 			return nil
 		}
-		labels := app.Labels()
 		return &corev1.Affinity{
 			PodAntiAffinity: &corev1.PodAntiAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
 					{
 						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{
-									Key:      "app",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{labels["app"]},
-								},
-								{
-									Key:      "cluster",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{labels["cluster"]},
-								},
-								{
-									Key:      "component",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{labels["component"]},
-								},
-							},
+							MatchLabels: app.Labels(),
 						},
 						TopologyKey: *af.TopologyKey,
 					},

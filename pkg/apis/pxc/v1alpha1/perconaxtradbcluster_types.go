@@ -12,12 +12,13 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform    *Platform           `json:"platform,omitempty"`
-	SecretsName string              `json:"secretsName,omitempty"`
-	PXC         *PodSpec            `json:"pxc,omitempty"`
-	ProxySQL    *PodSpec            `json:"proxysql,omitempty"`
-	PMM         *PMMSpec            `json:"pmm,omitempty"`
-	Backup      *PXCScheduledBackup `json:"backup,omitempty"`
+	Platform      *Platform           `json:"platform,omitempty"`
+	SecretsName   string              `json:"secretsName,omitempty"`
+	SSLSecretName string              `json:"sslSecretName,omitempty"`
+	PXC           *PodSpec            `json:"pxc,omitempty"`
+	ProxySQL      *PodSpec            `json:"proxysql,omitempty"`
+	PMM           *PMMSpec            `json:"pmm,omitempty"`
+	Backup        *PXCScheduledBackup `json:"backup,omitempty"`
 }
 
 type PXCScheduledBackup struct {
@@ -33,17 +34,29 @@ type PXCScheduledBackupSchedule struct {
 	Keep        int    `json:"keep,omitempty"`
 	StorageName string `json:"storageName,omitempty"`
 }
-
-type ClusterState string
+type AppState string
 
 const (
-	ClusterStateInit    ClusterState = ""
-	ClusterStateRunning              = "running"
+	AppStateUnknown AppState = "unknown"
+	AppStateInit             = "initializing"
+	AppStateReady            = "ready"
+	AppStateError            = "error"
 )
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
 type PerconaXtraDBClusterStatus struct {
-	State ClusterState
+	PXC      AppStatus `json:"pxc,omitempty"`
+	ProxySQL AppStatus `json:"proxysql,omitempty"`
+	Host     string    `json:"host,omitempty"`
+	Messages []string  `json:"message,omitempty"`
+	Status   AppState  `json:"state,omitempty"`
+}
+
+type AppStatus struct {
+	Size    int32    `json:"size,omitempty"`
+	Ready   int32    `json:"ready,omitempty"`
+	Status  AppState `json:"status,omitempty"`
+	Message string   `json:"message,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -68,21 +81,23 @@ type PerconaXtraDBClusterList struct {
 }
 
 type PodSpec struct {
-	Enabled             bool                          `json:"enabled,omitempty"`
-	Size                int32                         `json:"size,omitempty"`
-	Image               string                        `json:"image,omitempty"`
-	Resources           *PodResources                 `json:"resources,omitempty"`
-	VolumeSpec          *VolumeSpec                   `json:"volumeSpec,omitempty"`
-	Affinity            *PodAffinity                  `json:"affinity,omitempty"`
-	NodeSelector        map[string]string             `json:"nodeSelector,omitempty"`
-	Tolerations         []corev1.Toleration           `json:"tolerations,omitempty"`
-	PriorityClassName   string                        `json:"priorityClassName,omitempty"`
-	Annotations         map[string]string             `json:"annotations,omitempty"`
-	Labels              map[string]string             `json:"labels,omitempty"`
-	ImagePullSecrets    []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	AllowUnsafeConfig   bool                          `json:"allowUnsafeConfigurations,omitempty"`
-	Configuration       string                        `json:"configuration,omitempty"`
-	PodDisruptionBudget *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
+	Enabled                       bool                          `json:"enabled,omitempty"`
+	Size                          int32                         `json:"size,omitempty"`
+	Image                         string                        `json:"image,omitempty"`
+	Resources                     *PodResources                 `json:"resources,omitempty"`
+	VolumeSpec                    *VolumeSpec                   `json:"volumeSpec,omitempty"`
+	Affinity                      *PodAffinity                  `json:"affinity,omitempty"`
+	NodeSelector                  map[string]string             `json:"nodeSelector,omitempty"`
+	Tolerations                   []corev1.Toleration           `json:"tolerations,omitempty"`
+	PriorityClassName             string                        `json:"priorityClassName,omitempty"`
+	Annotations                   map[string]string             `json:"annotations,omitempty"`
+	Labels                        map[string]string             `json:"labels,omitempty"`
+	ImagePullSecrets              []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	AllowUnsafeConfig             bool                          `json:"allowUnsafeConfigurations,omitempty"`
+	Configuration                 string                        `json:"configuration,omitempty"`
+	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
+	SSLSecretName                 string                        `json:"sslSecretName,omitempty"`
+	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -187,6 +202,8 @@ type StatefulApp interface {
 
 const clusterNameMaxLen = 22
 
+var defaultPXCGracePeriodSec int64 = 600
+
 // ErrClusterNameOverflow upspring when the cluster name is longer than acceptable
 var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no more than %d characters", clusterNameMaxLen)
 
@@ -208,6 +225,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 			return false, fmt.Errorf("PXC.Volume: %v", err)
 		}
 
+		if len(c.SSLSecretName) > 0 {
+			c.PXC.SSLSecretName = c.SSLSecretName
+		} else {
+			c.PXC.SSLSecretName = cr.Name + "-ssl"
+		}
+
 		// pxc replicas shouldn't be less than 3 for safe configuration
 		if c.PXC.Size < 3 && !c.PXC.AllowUnsafeConfig {
 			c.PXC.Size = 3
@@ -225,6 +248,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 			c.PXC.PodDisruptionBudget = &PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
 		}
 
+		if c.PXC.TerminationGracePeriodSeconds == nil {
+			c.PXC.TerminationGracePeriodSeconds = &defaultPXCGracePeriodSec
+		}
+
 		c.PXC.reconcileAffinityOpts()
 	}
 
@@ -237,10 +264,21 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 			return false, fmt.Errorf("ProxySQL.Volume: %v", err)
 		}
 
+		if len(c.SSLSecretName) > 0 {
+			c.ProxySQL.SSLSecretName = c.SSLSecretName
+		} else {
+			c.ProxySQL.SSLSecretName = cr.Name + "-ssl"
+		}
+
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-ProxySQL.
 		if c.ProxySQL.PodDisruptionBudget == nil {
 			defaultMaxUnavailable := intstr.FromInt(1)
 			c.ProxySQL.PodDisruptionBudget = &PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
+		}
+
+		if c.PXC.TerminationGracePeriodSeconds == nil {
+			graceSec := int64(30)
+			c.PXC.TerminationGracePeriodSeconds = &graceSec
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()

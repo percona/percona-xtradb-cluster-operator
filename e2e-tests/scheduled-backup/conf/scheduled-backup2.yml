@@ -6,7 +6,7 @@ spec:
   secretsName: my-cluster-secrets
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:0.3.0-pxc
+    image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc
     volumeSpec:
       persistentVolumeClaim:
         resources:
@@ -15,7 +15,7 @@ spec:
   proxysql:
     enabled: true
     size: 1
-    image: percona/percona-xtradb-cluster-operator:0.3.0-proxysql
+    image: perconalab/percona-xtradb-cluster-operator:0.4.0-proxysql
     volumeSpec:
       persistentVolumeClaim:
         resources:
@@ -24,7 +24,7 @@ spec:
   pmm:
     enabled: false
   backup:
-    image: percona/percona-xtradb-cluster-operator:0.3.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:0.4.0-backup
     storages:
       pvc:
         type: filesystem

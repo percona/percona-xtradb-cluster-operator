@@ -8,15 +8,15 @@ metadata:
 #    - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
+  sslSecretName: my-cluster-ssl-certificates
   pxc:
     size: 3
     allowUnsafeConfigurations: false
-    image: percona/percona-xtradb-cluster-operator:0.3.0-pxc
+    image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc
 #    configuration: |
 #      [mysqld]
 #      wsrep_debug=ON
-#      [sst]
-#      wsrep_debug=ON
+#      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    priorityClassName: high-priority
@@ -64,10 +64,11 @@ spec:
         resources:
           requests:
             storage: 6Gi
+    gracePeriod: 600
   proxysql:
     enabled: true
     size: 1
-    image: percona/percona-xtradb-cluster-operator:0.3.0-proxysql
+    image: perconalab/percona-xtradb-cluster-operator:0.4.0-proxysql
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:
@@ -115,13 +116,14 @@ spec:
     podDisruptionBudget:
       maxUnavailable: 1
 #      minAvailable: 0
+    gracePeriod: 30
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1
     serverHost: monitoring-service
     serverUser: pmm
   backup:
-    image: percona/percona-xtradb-cluster-operator:0.3.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:0.4.0-backup
 #    imagePullSecrets:
 #      - name: private-registry-credentials
     storages:

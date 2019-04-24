@@ -9,7 +9,7 @@ src_dir="$(realpath ${test_dir}/..)"
 
 build_operator() {
     package=github.com/percona/percona-xtradb-cluster-operator
-    docker run --rm -v ${src_dir}:/go/src/${package} golang sh -c "
+    docker run --rm -v ${src_dir}:/go/src/${package} golang:1.12 sh -c "
         set -o errexit
         set -o xtrace
         export GO_LDFLAGS='-w -s $GO_LDFLAGS'
@@ -23,14 +23,22 @@ build_operator() {
             -o build/_output/bin/percona-xtradb-cluster-operator \
             cmd/manager/main.go
     "
+
+    dockerfile=build/Dockerfile
+    if [ "$RHEL" = "1" ]; then
+        dockerfile=build/Dockerfile.rhel
+    fi
+
     export IMAGE
     pushd ${src_dir}
         docker build \
             --squash \
             --no-cache \
-            -t "${IMAGE}" -f build/Dockerfile .
+            -t "${IMAGE}" -f $dockerfile .
     popd
-    docker push ${IMAGE}
+    if [ "$RHEL" != "1" ]; then
+        docker push ${IMAGE}
+    fi
 }
 
 until docker ps;

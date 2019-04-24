@@ -8,6 +8,7 @@ rules:
   resources:
   - perconaxtradbclusters
   - perconaxtradbbackups
+  - clusterissuers
   verbs:
   - get
   - list
@@ -25,6 +26,7 @@ rules:
   - services
   - persistentvolumeclaims
   - secrets
+  - clusterissuers
   verbs:
   - get
   - list
@@ -72,6 +74,20 @@ rules:
   - update
   - patch
   - delete
+- apiGroups:
+  - certmanager.k8s.io
+  resources:
+  - clusterissuers
+  - issuers
+  - certificates
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -82,5 +98,38 @@ subjects:
   name: default
 roleRef:
   kind: Role
+  name: percona-xtradb-cluster-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: percona-xtradb-cluster-operator
+rules:
+- apiGroups:
+  - certmanager.k8s.io
+  resources:
+  - clusterissuers
+  - issuers
+  - certificates
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: percona-xtradb-cluster-operator-global
+subjects:
+- kind: Group
+  name: system:serviceaccounts
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
   name: percona-xtradb-cluster-operator
   apiGroup: rbac.authorization.k8s.io

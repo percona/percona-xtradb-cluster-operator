@@ -6,16 +6,36 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func GetConfigVolumes(cvName string) corev1.Volume {
+func GetConfigVolumes(cvName, cmName string) corev1.Volume {
 	vol1 := corev1.Volume{
-		Name: "config-volume",
+		Name: cvName,
 	}
 
 	vol1.ConfigMap = &corev1.ConfigMapVolumeSource{}
-	vol1.ConfigMap.Name = cvName
+	vol1.ConfigMap.Name = cmName
 	t := true
 	vol1.ConfigMap.Optional = &t
 	return vol1
+}
+
+func GetSecretVolumes(cvName, cmName string, optional bool) corev1.Volume {
+	vol1 := corev1.Volume{
+		Name: cvName,
+	}
+
+	vol1.Secret = &corev1.SecretVolumeSource{}
+	vol1.Secret.SecretName = cmName
+	vol1.Secret.Optional = &optional
+	return vol1
+}
+
+func GetTmpVolume() corev1.Volume {
+	return corev1.Volume{
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+		Name: "tmp",
+	}
 }
 
 func Volumes(podSpec *api.PodSpec, dataVolumeName string) *api.Volume {

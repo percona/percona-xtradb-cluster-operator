@@ -23,6 +23,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	cm "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
@@ -201,6 +202,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	err = r.updateStatus(o)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("update status: %v", err)
+	}
+
 	return rr, nil
 }
 
@@ -212,7 +218,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	stsApp := statefulset.NewNode(cr)
 	if cr.Spec.PXC.Configuration != "" {
-		configMap := configmap.NewConfigMap(cr, stsApp.Labels()["component"])
+		ls := stsApp.Labels()
+		configMap := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return err
@@ -227,6 +234,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, serverVersion)
 	if err != nil {
 		return err
+	}
+
+	err = r.reconsileSSL(cr, nodeSet.Namespace)
+	if err != nil {
+		return fmt.Errorf("checking secret: %v", err)
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)
@@ -327,12 +339,68 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
+func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster, namespace string) error {
+	if cr.Spec.PXC.AllowUnsafeConfig {
+		return nil
+	}
+	secretObj := corev1.Secret{}
+	err := r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: namespace,
+			Name:      cr.Spec.PXC.SSLSecretName,
+		},
+		&secretObj,
+	)
+	if err == nil {
+		return nil
+	} else if !errors.IsNotFound(err) {
+		return fmt.Errorf("get secret: %v", err)
+	}
+
+	issuerKind := "ClusterIssuer"
+	issuerName := cr.Spec.PXC.SSLSecretName + "-ca"
+
+	issuer := cm.ClusterIssuer{}
+	issuer.Namespace = namespace
+	issuer.Kind = issuerKind
+	issuer.Name = issuerName
+	issuer.Spec.SelfSigned = &cm.SelfSignedIssuer{}
+	err = r.client.Create(context.TODO(), &issuer)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("create issuer: %v", err)
+	}
+	issuer = cm.ClusterIssuer{}
+	err = r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Name: issuerName,
+		},
+		&issuer,
+	)
+	if err != nil {
+		return fmt.Errorf("get issuer: %v", err)
+	}
+	certificate := cm.Certificate{}
+	certificate.Namespace = namespace
+	certificate.Kind = "Certificate"
+	certificate.Name = cr.Spec.PXC.SSLSecretName + ".com"
+	certificate.Spec.SecretName = cr.Spec.PXC.SSLSecretName
+	certificate.Spec.CommonName = cr.Spec.PXC.SSLSecretName + "-pxc"
+	certificate.Spec.IsCA = true
+	certificate.Spec.IssuerRef.Name = issuerName
+	certificate.Spec.IssuerRef.Kind = issuerKind
+	err = r.client.Create(context.TODO(), &certificate)
+	if err != nil {
+		return fmt.Errorf("create certificate: %v", err)
+	}
+
+	return nil
+}
+
 func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudgetSpec, sfs api.StatefulApp, namespace string, owner runtime.Object) error {
 	if spec == nil {
 		return nil
 	}
 
-	// pdb := psmdb.PodDisruptionBudget(spec, labels, namespace)
 	pdb := pxc.PodDisruptionBudget(spec, sfs, namespace)
 	err := setControllerReference(owner, pdb, r.scheme)
 	if err != nil {

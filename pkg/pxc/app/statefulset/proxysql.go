@@ -16,7 +16,7 @@ const (
 
 type Proxy struct {
 	sfs     *appsv1.StatefulSet
-	lables  map[string]string
+	labels  map[string]string
 	service string
 }
 
@@ -32,15 +32,17 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 		},
 	}
 
-	lables := map[string]string{
-		"app":       app.Name,
-		"component": cr.Name + "-" + proxyName,
-		"cluster":   cr.Name,
+	labels := map[string]string{
+		"app.kubernetes.io/name":       "percona-xtradb-cluster",
+		"app.kubernetes.io/instance":   cr.Name,
+		"app.kubernetes.io/component":  proxyName,
+		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 	}
 
 	return &Proxy{
 		sfs:     sfs,
-		lables:  lables,
+		labels:  labels,
 		service: cr.Name + "-proxysql-unready",
 	}
 }
@@ -64,10 +66,21 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container
 			{
 				Name:      proxyDataVolumeName,
 				MountPath: "/var/lib/proxysql",
-				SubPath:   "data",
+			},
+			{
+				Name:      "ssl",
+				MountPath: "/etc/proxysql/ssl",
+			},
+			{
+				Name:      "ssl-internal",
+				MountPath: "/etc/proxysql/ssl-internal",
 			},
 		},
 		Env: []corev1.EnvVar{
+			{
+				Name:  "PXC_SERVICE",
+				Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
+			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
@@ -110,7 +123,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 			Env: []corev1.EnvVar{
 				{
 					Name:  "PXC_SERVICE",
-					Value: c.lables["cluster"] + "-" + c.lables["app"],
+					Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
 				},
 				{
 					Name: "MYSQL_ROOT_PASSWORD",
@@ -149,7 +162,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 			Env: []corev1.EnvVar{
 				{
 					Name:  "PROXYSQL_SERVICE",
-					Value: c.lables["cluster"] + "-proxysql-unready",
+					Value: c.labels["app.kubernetes.io/instance"] + "-proxysql-unready",
 				},
 				{
 					Name: "MYSQL_ROOT_PASSWORD",
@@ -211,7 +224,12 @@ func (c *Proxy) Resources(spec *api.PodResources) (corev1.ResourceRequirements, 
 }
 
 func (c *Proxy) Volumes(podSpec *api.PodSpec) *api.Volume {
-	return app.Volumes(podSpec, proxyDataVolumeName)
+	vol := app.Volumes(podSpec, proxyDataVolumeName)
+	vol.Volumes = append(
+		vol.Volumes,
+		app.GetSecretVolumes("ssl-internal", podSpec.SSLSecretName+"-internal", true),
+		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
+	return vol
 }
 
 func (c *Proxy) StatefulSet() *appsv1.StatefulSet {
@@ -219,7 +237,7 @@ func (c *Proxy) StatefulSet() *appsv1.StatefulSet {
 }
 
 func (c *Proxy) Labels() map[string]string {
-	return c.lables
+	return c.labels
 }
 
 func (c *Proxy) Service() string {

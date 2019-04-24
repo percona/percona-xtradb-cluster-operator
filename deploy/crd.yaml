@@ -14,6 +14,24 @@ spec:
     - pxcs
   scope: Namespaced
   version: v1alpha1
+  additionalPrinterColumns:
+    - name: Endpoint
+      type: string
+      JSONPath: .status.host
+    - name: Status
+      type: string
+      JSONPath: .status.state
+    - name: PXC
+      type: string
+      description: Ready pxc nodes
+      JSONPath: .status.pxc.ready
+    - name: proxysql
+      type: string
+      description: Ready pxc nodes
+      JSONPath: .status.proxysql.ready
+    - name: Age
+      type: date
+      JSONPath: .metadata.creationTimestamp
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition

@@ -2,29 +2,29 @@ package perconaxtradbbackuprestore
 
 import (
 	"context"
+	"time"
 
-	pxcv1alpha1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
 var log = logf.Log.WithName("controller_perconaxtradbbackuprestore")
-
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
 
 // Add creates a new PerconaXtraDBBackupRestore Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -46,17 +46,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource PerconaXtraDBBackupRestore
-	err = c.Watch(&source.Kind{Type: &pxcv1alpha1.PerconaXtraDBBackupRestore{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner PerconaXtraDBBackupRestore
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &pxcv1alpha1.PerconaXtraDBBackupRestore{},
-	})
+	err = c.Watch(&source.Kind{Type: &api.PerconaXtraDBBackupRestore{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -76,77 +66,154 @@ type ReconcilePerconaXtraDBBackupRestore struct {
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBBackupRestore object and makes changes based on the state read
 // and what is in the PerconaXtraDBBackupRestore.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling PerconaXtraDBBackupRestore")
+	// reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	// Fetch the PerconaXtraDBBackupRestore instance
-	instance := &pxcv1alpha1.PerconaXtraDBBackupRestore{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	rr := reconcile.Result{
+		RequeueAfter: time.Second * 5,
+	}
+
+	cr := &api.PerconaXtraDBBackupRestore{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, cr)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
+			return rr, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return rr, err
+	}
+	err = cr.CheckNsetDefaults()
+	if err != nil {
+		return rr, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set PerconaXtraDBBackupRestore instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
+	bcp := &api.PerconaXtraDBBackup{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
+	if err != nil {
+		return rr, errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
+	if bcp.Status.State != api.BackupSucceeded {
+		return rr, errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
-	return reconcile.Result{}, nil
+	cluster := api.PerconaXtraDBCluster{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, &cluster)
+	if err != nil {
+		return rr, errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
+	}
+
+	err = r.stopCluster(cluster)
+	if err != nil {
+		return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
+	}
+	defer r.startCluster(cluster)
+
+	err = backup.Restore(bcp, r.client)
+	if err != nil {
+		errors.Wrap(err, "run restore")
+	}
+	return rr, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *pxcv1alpha1.PerconaXtraDBBackupRestore) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c api.PerconaXtraDBCluster) error {
+	err := r.client.Delete(context.TODO(), &c)
+	if err != nil {
+		return errors.Wrap(err, "shutdown pods")
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
+
+	ls := statefulset.NewNode(&c).Labels()
+	err = r.waitForPodsShutdown(ls, c.Namespace)
+	if err != nil {
+		return errors.Wrap(err, "shutdown pods")
+	}
+
+	pvcs := corev1.PersistentVolumeClaimList{}
+	err = r.client.List(
+		context.TODO(),
+		&client.ListOptions{
+			Namespace:     c.Namespace,
+			LabelSelector: labels.SelectorFromSet(ls),
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
+		&pvcs,
+	)
+	if err != nil {
+		return errors.Wrap(err, "get pvc list")
+	}
+
+	for _, pvc := range pvcs.Items {
+		err = r.client.Delete(context.TODO(), &pvc)
+		if err != nil {
+			return errors.Wrap(err, "delete pvc")
+		}
+	}
+
+	err = r.waitForPVCShutdown(ls, c.Namespace)
+	if err != nil {
+		return errors.Wrap(err, "shutdown pvc")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(c api.PerconaXtraDBCluster) error {
+	return r.client.Update(context.TODO(), &c)
+}
+
+const waitLimitSec = 300
+
+func (r *ReconcilePerconaXtraDBBackupRestore) waitForPodsShutdown(ls map[string]string, namespace string) error {
+	for i := 0; i < waitLimitSec; i++ {
+		pods := corev1.PodList{}
+
+		err := r.client.List(
+			context.TODO(),
+			&client.ListOptions{
+				Namespace:     namespace,
+				LabelSelector: labels.SelectorFromSet(ls),
 			},
-		},
+			&pods,
+		)
+		if err != nil {
+			return errors.Wrap(err, "get pods list")
+		}
+
+		if len(pods.Items) == 0 {
+			return nil
+		}
+
+		time.Sleep(time.Second * 1)
 	}
+
+	return errors.Errorf("exceeded wait limit")
+}
+
+func (r *ReconcilePerconaXtraDBBackupRestore) waitForPVCShutdown(ls map[string]string, namespace string) error {
+	for i := 0; i < waitLimitSec; i++ {
+		pvcs := corev1.PersistentVolumeClaimList{}
+
+		err := r.client.List(
+			context.TODO(),
+			&client.ListOptions{
+				Namespace:     namespace,
+				LabelSelector: labels.SelectorFromSet(ls),
+			},
+			&pvcs,
+		)
+		if err != nil {
+			return errors.Wrap(err, "get pvc list")
+		}
+
+		if len(pvcs.Items) == 0 {
+			return nil
+		}
+
+		time.Sleep(time.Second * 1)
+	}
+
+	return errors.Errorf("exceeded wait limit")
 }

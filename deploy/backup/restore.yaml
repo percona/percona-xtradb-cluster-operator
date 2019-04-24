@@ -4,4 +4,4 @@ metadata:
   name: restore-job-name
 spec:
   pxcCluster: "cluster1"
-  backupName: ""
+  backupName: "backup1"

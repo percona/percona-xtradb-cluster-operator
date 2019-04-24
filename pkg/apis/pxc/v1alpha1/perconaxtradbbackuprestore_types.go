@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,6 +38,18 @@ type PerconaXtraDBBackupRestoreList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PerconaXtraDBBackupRestore `json:"items"`
+}
+
+func (cr *PerconaXtraDBBackupRestore) CheckNsetDefaults() error {
+	if cr.Spec.PXCCluster == "" {
+		return errors.New("pxcCluster can't be empty")
+	}
+
+	if cr.Spec.BackupName == "" {
+		return errors.New("backupName can't be empty")
+	}
+
+	return nil
 }
 
 func init() {

@@ -8,10 +8,10 @@ metadata:
 #    - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
-  sslSecretName: my-cluster-ssl-certificates
+  # sslSecretName: my-cluster-ssl-certificates
   pxc:
     size: 3
-    allowUnsafeConfigurations: false
+    allowUnsafeConfigurations: true
     image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc
 #    configuration: |
 #      [mysqld]
@@ -66,7 +66,7 @@ spec:
             storage: 6Gi
     gracePeriod: 600
   proxysql:
-    enabled: true
+    enabled: false
     size: 1
     image: perconalab/percona-xtradb-cluster-operator:0.4.0-proxysql
 #    imagePullSecrets:

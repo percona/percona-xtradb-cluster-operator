@@ -38,8 +38,8 @@ get_backup_dest() {
     if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
         local secret=$( $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.credentialsSecret}" 2>/dev/null)
         export AWS_ENDPOINT_URL=$(  $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.endpointUrl}" 2>/dev/null)
-        export AWS_ACCESS_KEY_ID=$( $ctrl get "secret/$secret"     -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}'     2>/dev/null | base64 -D)
-        export AWS_SECRET_ACCESS_KEY=$($ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -D)
+        export AWS_ACCESS_KEY_ID=$( $ctrl get "secret/$secret"     -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}'     2>/dev/null | base64 -d)
+        export AWS_SECRET_ACCESS_KEY=$($ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -d)
 
         $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else

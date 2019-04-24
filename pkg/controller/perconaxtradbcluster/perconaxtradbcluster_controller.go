@@ -238,7 +238,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.reconsileSSL(cr, nodeSet.Namespace)
 	if err != nil {
-		return fmt.Errorf(`TLS secret handler return error: "%v". Please create your TLS secret manually or setup cert-manager correctly`, err)
+		return fmt.Errorf(`TLS secret handler return error: "%v". Please create your TLS secret `+cr.Spec.SSLSecretName+` manually or setup cert-manager correctly`, err)
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)

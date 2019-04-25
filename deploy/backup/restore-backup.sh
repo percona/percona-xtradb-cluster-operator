@@ -37,18 +37,13 @@ get_backup_dest() {
 
     if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
         BASE64_DECODE_CMD=""
-        echo $(echo 'abc'|base64) | base64 -d 1>/dev/null 2>/dev/null
-        res1=$?
-        echo $(echo 'abc'|base64) | base64 -D 1>/dev/null 2>/dev/null
-        res2=$?
-
-        if [[ ${res1} == 0 ]]; then
+        if echo eWVz | base64 -d 1>/dev/null 2>/dev/null; then
             BASE64_DECODE_CMD="base64 -d"
-        elif [[ ${res2} == 0 ]]; then
+        elif echo eWVz | base64 -D 1>/dev/null 2>/dev/null; then
             BASE64_DECODE_CMD="base64 -D"
         else
-             echo "base64 decode error."
-             exit 1
+            echo "base64 decode error."
+            exit 1
         fi
 
         local secret=$( $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.credentialsSecret}" 2>/dev/null)

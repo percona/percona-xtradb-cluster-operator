@@ -2,9 +2,9 @@ package perconaxtradbbackuprestore
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
-
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -22,6 +22,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
 var log = logf.Log.WithName("controller_perconaxtradbbackuprestore")
@@ -70,11 +71,10 @@ type ReconcilePerconaXtraDBBackupRestore struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	// reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	lgr := log.WithValues("namespace", request.Namespace, "restore", request.Name)
+	lgr.Info("backup restore request")
 
-	rr := reconcile.Result{
-		RequeueAfter: time.Second * 5,
-	}
+	rr := reconcile.Result{}
 
 	cr := &api.PerconaXtraDBBackupRestore{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, cr)
@@ -107,26 +107,49 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 		return rr, errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
 	}
 
-	err = r.stopCluster(cluster)
+	lgr.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
+	err = r.stopCluster(cluster.DeepCopy())
 	if err != nil {
 		return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
 	}
-	defer r.startCluster(cluster)
 
+	lgr.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
 	err = backup.Restore(bcp, r.client)
 	if err != nil {
-		errors.Wrap(err, "run restore")
+		return rr, errors.Wrap(err, "run restore")
 	}
+
+	lgr.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+	err = r.startCluster(&cluster)
+	if err != nil {
+		return rr, errors.Wrap(err, "restart cluster")
+	}
+
+	lgr.Info(fmt.Sprintf(backupRestoredMsg, cr.Spec.PXCCluster, cr.Spec.PXCCluster))
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c api.PerconaXtraDBCluster) error {
-	err := r.client.Delete(context.TODO(), &c)
+const backupRestoredMsg = `
+You can view xtrabackup log:
+$ kubectl logs job/restore-job-%s
+If everything is fine, you can cleanup the job:
+$ kubectl delete job/restore-job-%s
+`
+
+func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCluster) error {
+	if c.Spec.PXC != nil {
+		c.Spec.PXC.Size = 0
+	}
+	if c.Spec.ProxySQL != nil {
+		c.Spec.ProxySQL.Size = 0
+	}
+
+	err := r.client.Update(context.TODO(), c)
 	if err != nil {
 		return errors.Wrap(err, "shutdown pods")
 	}
 
-	ls := statefulset.NewNode(&c).Labels()
+	ls := statefulset.NewNode(c).Labels()
 	err = r.waitForPodsShutdown(ls, c.Namespace)
 	if err != nil {
 		return errors.Wrap(err, "shutdown pods")
@@ -145,7 +168,14 @@ func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c api.PerconaXtraDBClu
 		return errors.Wrap(err, "get pvc list")
 	}
 
+	pxcNode := statefulset.NewNode(c)
+	pvcNameTemplate := statefulset.DataVolumeName + "-" + pxcNode.StatefulSet().Name
 	for _, pvc := range pvcs.Items {
+		// check prefix just in case, to be sure we're not going to delete a wrong pvc
+		if pvc.Name == pvcNameTemplate+"-0" || !strings.HasPrefix(pvc.Name, pvcNameTemplate) {
+			continue
+		}
+
 		err = r.client.Delete(context.TODO(), &pvc)
 		if err != nil {
 			return errors.Wrap(err, "delete pvc")
@@ -160,8 +190,8 @@ func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c api.PerconaXtraDBClu
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(c api.PerconaXtraDBCluster) error {
-	return r.client.Update(context.TODO(), &c)
+func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(c *api.PerconaXtraDBCluster) error {
+	return r.client.Update(context.TODO(), c)
 }
 
 const waitLimitSec = 300
@@ -208,7 +238,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) waitForPVCShutdown(ls map[string]s
 			return errors.Wrap(err, "get pvc list")
 		}
 
-		if len(pvcs.Items) == 0 {
+		if len(pvcs.Items) == 1 {
 			return nil
 		}
 

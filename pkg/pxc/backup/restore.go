@@ -16,7 +16,6 @@ import (
 
 func Restore(bcp *api.PerconaXtraDBBackup, cl client.Client) error {
 	if len(bcp.Status.Destination) > 6 {
-
 		switch {
 		case bcp.Status.Destination[:4] == "pvc/":
 			return errors.Wrap(restorePVC(bcp, cl, bcp.Status.Destination[4:]), "pvc")
@@ -66,6 +65,9 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "restore-src-" + bcp.Spec.PXCCluster,
 			Namespace: bcp.Namespace,
+			Labels: map[string]string{
+				"name": "restore-src-" + bcp.Spec.PXCCluster,
+			},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -119,16 +121,15 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 							Command: []string{
 								"bash",
 								"-exc",
-								`|
-								ping -c1 restore-src-$cluster || :
-								rm -rf /datadir/*
-								ncat restore-src-$cluster 3307 | xbstream -x -C /datadir
-								xtrabackup --prepare --target-dir=/datadir`,
+								`ping -c1 restore-src-` + bcp.Spec.PXCCluster + ` || :
+								 rm -rf /datadir/*
+								 ncat restore-src-` + bcp.Spec.PXCCluster + ` 3307 | xbstream -x -C /datadir
+								 xtrabackup --prepare --target-dir=/datadir`,
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      "backup",
-									MountPath: "/backup",
+									Name:      "datadir",
+									MountPath: "/datadir",
 								},
 							},
 						},
@@ -149,15 +150,28 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 
 	err := cl.Create(context.TODO(), &svc)
 	if err != nil {
-		errors.Wrap(err, "create service")
+		return errors.Wrap(err, "create service")
 	}
 	err = cl.Create(context.TODO(), &pod)
 	if err != nil {
-		errors.Wrap(err, "create pod")
+		return errors.Wrap(err, "create pod")
 	}
+
+	for {
+		time.Sleep(time.Second * 1)
+
+		err := cl.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, &pod)
+		if err != nil {
+			return errors.Wrap(err, "get pod status")
+		}
+		if pod.Status.Phase == corev1.PodRunning {
+			break
+		}
+	}
+
 	err = cl.Create(context.TODO(), &job)
 	if err != nil {
-		errors.Wrap(err, "create job")
+		return errors.Wrap(err, "create job")
 	}
 
 	defer func() {
@@ -169,7 +183,7 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 		checkJob := batchv1.Job{}
 		err := cl.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
 		if err != nil {
-			errors.Wrap(err, "get job status")
+			return errors.Wrap(err, "get job status")
 		}
 		for _, cond := range checkJob.Status.Conditions {
 			if cond.Type == batchv1.JobComplete && cond.Status == corev1.ConditionTrue {
@@ -182,13 +196,18 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 	return nil
 }
 
-func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3 string) error {
+func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3dest string) error {
+	if bcp.Status.S3 == nil {
+		return errors.New("nil s3 backup status")
+	}
+
 	jobPVC := corev1.Volume{
 		Name: "datadir",
 	}
 	jobPVC.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
 		ClaimName: "datadir-" + bcp.Spec.PXCCluster + "-pxc-0",
 	}
+
 	job := batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -209,17 +228,44 @@ func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3 string) error 
 							Command: []string{
 								"bash",
 								"-exc",
-								`|
-								mc -C /tmp/mc config host add dest "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY"
-								mc -C /tmp/mc ls dest/$backup_bucket/$backup_key
-								rm -rf /datadir/*
-								mc -C /tmp/mc cat dest/$backup_bucket/$backup_key | xbstream -x -C /datadir
-								xtrabackup --prepare --target-dir=/datadir`,
+								`mc -C /tmp/mc config host add dest "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY"
+								 mc -C /tmp/mc ls dest/` + s3dest + `
+								 rm -rf /datadir/*
+								 mc -C /tmp/mc cat dest/` + s3dest + ` | xbstream -x -C /datadir
+								 xtrabackup --prepare --target-dir=/datadir`,
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "backup",
 									MountPath: "/backup",
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "AWS_ENDPOINT_URL",
+									Value: bcp.Status.S3.EndpointURL,
+								},
+								{
+									Name: "AWS_ACCESS_KEY_ID",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: bcp.Status.S3.CredentialsSecret,
+											},
+											Key: "AWS_ACCESS_KEY_ID",
+										},
+									},
+								},
+								{
+									Name: "AWS_SECRET_ACCESS_KEY",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: bcp.Status.S3.CredentialsSecret,
+											},
+											Key: "AWS_SECRET_ACCESS_KEY",
+										},
+									},
 								},
 							},
 						},
@@ -236,14 +282,14 @@ func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3 string) error 
 
 	err := cl.Create(context.TODO(), &job)
 	if err != nil {
-		errors.Wrap(err, "create job")
+		return errors.Wrap(err, "create job")
 	}
 
 	for {
 		checkJob := batchv1.Job{}
 		err := cl.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
 		if err != nil {
-			errors.Wrap(err, "get job status")
+			return errors.Wrap(err, "get job status")
 		}
 		for _, cond := range checkJob.Status.Conditions {
 			if cond.Type == batchv1.JobComplete && cond.Status == corev1.ConditionTrue {

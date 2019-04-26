@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -180,9 +181,11 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 	}()
 
 	for {
+		time.Sleep(time.Second * 1)
+
 		checkJob := batchv1.Job{}
 		err := cl.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
-		if err != nil {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Wrap(err, "get job status")
 		}
 		for _, cond := range checkJob.Status.Conditions {
@@ -190,7 +193,6 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 				return nil
 			}
 		}
-		time.Sleep(time.Second * 1)
 	}
 
 	return nil
@@ -286,9 +288,11 @@ func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3dest string) er
 	}
 
 	for {
+		time.Sleep(time.Second * 1)
+
 		checkJob := batchv1.Job{}
 		err := cl.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
-		if err != nil {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Wrap(err, "get job status")
 		}
 		for _, cond := range checkJob.Status.Conditions {
@@ -296,7 +300,6 @@ func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3dest string) er
 				return nil
 			}
 		}
-		time.Sleep(time.Second * 1)
 	}
 
 	return nil

@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -86,6 +87,25 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 		// Error reading the object - requeue the request.
 		return rr, err
 	}
+	if cr.Status.State != api.RestoreNew {
+		return rr, nil
+	}
+
+	err = r.setStatus(cr, api.RestoreStarting, "")
+	if err != nil {
+		return rr, errors.Wrap(err, "set status")
+	}
+
+	defer func() {
+		msg := fmt.Sprintf(backupRestoredMsg, cr.Spec.PXCCluster, cr.Spec.PXCCluster)
+		status := api.BcpRestoreStates(api.RestoreSucceeded)
+		if err != nil {
+			status = api.RestoreFailed
+			msg = err.Error()
+		}
+		r.setStatus(cr, status, msg)
+	}()
+
 	err = cr.CheckNsetDefaults()
 	if err != nil {
 		return rr, err
@@ -108,29 +128,40 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 	}
 
 	lgr.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
+	err = r.setStatus(cr, api.RestoreStopCluster, "")
+	if err != nil {
+		return rr, errors.Wrap(err, "set status")
+	}
 	err = r.stopCluster(cluster.DeepCopy())
 	if err != nil {
 		return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
 	}
 
 	lgr.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
+	err = r.setStatus(cr, api.RestoreRestore, "")
+	if err != nil {
+		return rr, errors.Wrap(err, "set status")
+	}
 	err = backup.Restore(bcp, r.client)
 	if err != nil {
 		return rr, errors.Wrap(err, "run restore")
 	}
 
 	lgr.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+	err = r.setStatus(cr, api.RestoreStartCluster, "")
+	if err != nil {
+		return rr, errors.Wrap(err, "set status")
+	}
 	err = r.startCluster(&cluster)
 	if err != nil {
 		return rr, errors.Wrap(err, "restart cluster")
 	}
 
 	lgr.Info(fmt.Sprintf(backupRestoredMsg, cr.Spec.PXCCluster, cr.Spec.PXCCluster))
-	return rr, nil
+	return rr, err
 }
 
-const backupRestoredMsg = `
-You can view xtrabackup log:
+const backupRestoredMsg = `You can view xtrabackup log:
 $ kubectl logs job/restore-job-%s
 If everything is fine, you can cleanup the job:
 $ kubectl delete job/restore-job-%s
@@ -190,8 +221,27 @@ func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCl
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(c *api.PerconaXtraDBCluster) error {
-	return r.client.Update(context.TODO(), c)
+func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(cr *api.PerconaXtraDBCluster) (err error) {
+	// tryin several times just to avoid possible conflicts with the main controller
+	for i := 0; i < 5; i++ {
+		// need to get the object with latest version of meta-data for update
+		current := &api.PerconaXtraDBCluster{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
+		if err != nil {
+			return errors.Wrap(err, "get cluster")
+		}
+
+		current.Spec = cr.Spec
+
+		uerr := r.client.Update(context.TODO(), current)
+		if uerr == nil {
+			return nil
+		}
+		err = errors.Wrap(uerr, "update cluster")
+		time.Sleep(time.Second * 1)
+	}
+
+	return err
 }
 
 const waitLimitSec = 300
@@ -246,4 +296,27 @@ func (r *ReconcilePerconaXtraDBBackupRestore) waitForPVCShutdown(ls map[string]s
 	}
 
 	return errors.Errorf("exceeded wait limit")
+}
+
+func (r *ReconcilePerconaXtraDBBackupRestore) setStatus(cr *api.PerconaXtraDBBackupRestore, state api.BcpRestoreStates, comments string) error {
+	cr.Status.State = state
+	switch state {
+	case api.RestoreSucceeded:
+		tm := metav1.NewTime(time.Now())
+		cr.Status.CompletedAt = &tm
+	}
+
+	cr.Status.Comments = comments
+
+	err := r.client.Status().Update(context.TODO(), cr)
+	if err != nil {
+		// may be it's k8s v1.10 and erlier (e.g. oc3.9) that doesn't support status updates
+		// so try to update whole CR
+		err := r.client.Update(context.TODO(), cr)
+		if err != nil {
+			return fmt.Errorf("send update: %v", err)
+		}
+	}
+
+	return nil
 }

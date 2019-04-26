@@ -14,9 +14,10 @@ type PerconaXtraDBBackupRestoreSpec struct {
 
 // PerconaXtraDBBackupRestoreStatus defines the observed state of PerconaXtraDBBackupRestore
 type PerconaXtraDBBackupRestoreStatus struct {
-	State         PXCBackupState `json:"state,omitempty"`
-	CompletedAt   *metav1.Time   `json:"completed,omitempty"`
-	LastScheduled *metav1.Time   `json:"lastscheduled,omitempty"`
+	State         BcpRestoreStates `json:"state,omitempty"`
+	Comments      string           `json:"comments,omitempty"`
+	CompletedAt   *metav1.Time     `json:"completed,omitempty"`
+	LastScheduled *metav1.Time     `json:"lastscheduled,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -39,6 +40,18 @@ type PerconaXtraDBBackupRestoreList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PerconaXtraDBBackupRestore `json:"items"`
 }
+
+type BcpRestoreStates string
+
+const (
+	RestoreNew          BcpRestoreStates = ""
+	RestoreStarting                      = "Starting"
+	RestoreStopCluster                   = "Stopping Cluster"
+	RestoreRestore                       = "Restoring"
+	RestoreStartCluster                  = "Starting Cluster"
+	RestoreFailed                        = "Failed"
+	RestoreSucceeded                     = "Succeeded"
+)
 
 func (cr *PerconaXtraDBBackupRestore) CheckNsetDefaults() error {
 	if cr.Spec.PXCCluster == "" {

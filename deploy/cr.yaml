@@ -9,11 +9,12 @@ metadata:
 spec:
   secretsName: my-cluster-secrets
   sslSecretName: my-cluster-ssl-certificates
+#  pause: false
   pxc:
     size: 3
     allowUnsafeConfigurations: true
     image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc
-    forceUnsafeBootstrap: true
+#    forceUnsafeBootstrap: false
 #    configuration: |
 #      [mysqld]
 #      wsrep_debug=ON

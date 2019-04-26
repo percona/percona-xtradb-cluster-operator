@@ -13,6 +13,7 @@ import (
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
 	Platform      *Platform           `json:"platform,omitempty"`
+	Pause         bool                `json:"pause,omitempty"`
 	SecretsName   string              `json:"secretsName,omitempty"`
 	SSLSecretName string              `json:"sslSecretName,omitempty"`
 	PXC           *PodSpec            `json:"pxc,omitempty"`
@@ -254,6 +255,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 		}
 
 		c.PXC.reconcileAffinityOpts()
+
+		if c.Pause {
+			c.PXC.Size = 0
+		}
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
@@ -283,6 +288,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
+
+		if c.Pause {
+			c.ProxySQL.Size = 0
+		}
 	}
 
 	if c.Backup != nil {

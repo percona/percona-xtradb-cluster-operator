@@ -98,6 +98,7 @@ type PodSpec struct {
 	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
 	SSLSecretName                 string                        `json:"sslSecretName,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
+	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

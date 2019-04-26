@@ -101,6 +101,8 @@ type PodSpec struct {
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
 	ServiceType                   *corev1.ServiceType           `json:"serviceType,omitempty"`
+	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
+	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

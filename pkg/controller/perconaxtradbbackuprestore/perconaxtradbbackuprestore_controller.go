@@ -276,7 +276,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(cr *api.PerconaXtraDB
 const waitLimitSec = 300
 
 func (r *ReconcilePerconaXtraDBBackupRestore) waitForPodsShutdown(ls map[string]string, namespace string) error {
-	for i := 0; i < waitLimitSec; i++ {
+	for i := 0; i < waitLimitSec + cr.Spec.PXC.terminationGracePeriodSeconds; i++ {
 		pods := corev1.PodList{}
 
 		err := r.client.List(

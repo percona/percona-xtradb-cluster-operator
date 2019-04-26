@@ -1,46 +1,27 @@
 package backup
 
 import (
-	"context"
-	"time"
-
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 )
 
-func Restore(bcp *api.PerconaXtraDBBackup, cl client.Client) error {
-	if len(bcp.Status.Destination) > 6 {
-		switch {
-		case bcp.Status.Destination[:4] == "pvc/":
-			return errors.Wrap(restorePVC(bcp, cl, bcp.Status.Destination[4:]), "pvc")
-		case bcp.Status.Destination[:5] == "s3://":
-			return errors.Wrap(restoreS3(bcp, cl, bcp.Status.Destination[5:]), "s3")
-		}
-	}
-
-	return errors.Errorf("unknown destination %s", bcp.Status.Destination)
-}
-
-func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) error {
-	svc := corev1.Service{
+func PVCRestoreService(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup) *corev1.Service {
+	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-src-" + bcp.Spec.PXCCluster,
+			Name:      "restore-src-" + cr.Name + "-" + bcp.Spec.PXCCluster,
 			Namespace: bcp.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"name": "restore-src-" + bcp.Spec.PXCCluster,
+				"name": "restore-src-" + cr.Name + "-" + bcp.Spec.PXCCluster,
 			},
 			Type: corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{
@@ -51,23 +32,25 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 			},
 		},
 	}
+}
 
+func PVCRestorePod(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, pvcName string) *corev1.Pod {
 	podPVC := corev1.Volume{
 		Name: "backup",
 	}
 	podPVC.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
 		ClaimName: pvcName,
 	}
-	pod := corev1.Pod{
+	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Pod",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-src-" + bcp.Spec.PXCCluster,
+			Name:      "restore-src-" + cr.Name + "-" + bcp.Spec.PXCCluster,
 			Namespace: bcp.Namespace,
 			Labels: map[string]string{
-				"name": "restore-src-" + bcp.Spec.PXCCluster,
+				"name": "restore-src-" + cr.Name + "-" + bcp.Spec.PXCCluster,
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -95,20 +78,22 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 			},
 		},
 	}
+}
 
+func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup) *batchv1.Job {
 	jobPVC := corev1.Volume{
 		Name: "datadir",
 	}
 	jobPVC.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
 		ClaimName: "datadir-" + bcp.Spec.PXCCluster + "-pxc-0",
 	}
-	job := batchv1.Job{
+	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-job-" + bcp.Spec.PXCCluster,
+			Name:      "restore-job-" + cr.Name + "-" + bcp.Spec.PXCCluster,
 			Namespace: bcp.Namespace,
 		},
 		Spec: batchv1.JobSpec{
@@ -122,9 +107,9 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 							Command: []string{
 								"bash",
 								"-exc",
-								`ping -c1 restore-src-` + bcp.Spec.PXCCluster + ` || :
+								`ping -c1 restore-src-` + cr.Name + "-" + bcp.Spec.PXCCluster + ` || :
 								 rm -rf /datadir/*
-								 ncat restore-src-` + bcp.Spec.PXCCluster + ` 3307 | xbstream -x -C /datadir
+								 ncat restore-src-` + cr.Name + "-" + bcp.Spec.PXCCluster + ` 3307 | xbstream -x -C /datadir
 								 xtrabackup --prepare --target-dir=/datadir`,
 							},
 							VolumeMounts: []corev1.VolumeMount{
@@ -144,63 +129,12 @@ func restorePVC(bcp *api.PerconaXtraDBBackup, cl client.Client, pvcName string) 
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
 	}
-
-	cl.Delete(context.TODO(), &job)
-	cl.Delete(context.TODO(), &svc)
-	cl.Delete(context.TODO(), &pod)
-
-	err := cl.Create(context.TODO(), &svc)
-	if err != nil {
-		return errors.Wrap(err, "create service")
-	}
-	err = cl.Create(context.TODO(), &pod)
-	if err != nil {
-		return errors.Wrap(err, "create pod")
-	}
-
-	for {
-		time.Sleep(time.Second * 1)
-
-		err := cl.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, &pod)
-		if err != nil {
-			return errors.Wrap(err, "get pod status")
-		}
-		if pod.Status.Phase == corev1.PodRunning {
-			break
-		}
-	}
-
-	err = cl.Create(context.TODO(), &job)
-	if err != nil {
-		return errors.Wrap(err, "create job")
-	}
-
-	defer func() {
-		cl.Delete(context.TODO(), &svc)
-		cl.Delete(context.TODO(), &pod)
-	}()
-
-	for {
-		time.Sleep(time.Second * 1)
-
-		checkJob := batchv1.Job{}
-		err := cl.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Wrap(err, "get job status")
-		}
-		for _, cond := range checkJob.Status.Conditions {
-			if cond.Type == batchv1.JobComplete && cond.Status == corev1.ConditionTrue {
-				return nil
-			}
-		}
-	}
-
-	return nil
 }
 
-func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3dest string) error {
+// S3RestoreJob returns restore job object for s3
+func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, s3dest string) (*batchv1.Job, error) {
 	if bcp.Status.S3 == nil {
-		return errors.New("nil s3 backup status")
+		return nil, errors.New("nil s3 backup status")
 	}
 
 	jobPVC := corev1.Volume{
@@ -210,13 +144,13 @@ func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3dest string) er
 		ClaimName: "datadir-" + bcp.Spec.PXCCluster + "-pxc-0",
 	}
 
-	job := batchv1.Job{
+	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-job-" + bcp.Spec.PXCCluster,
+			Name:      "restore-job-" + cr.Name + "-" + bcp.Spec.PXCCluster,
 			Namespace: bcp.Namespace,
 		},
 		Spec: batchv1.JobSpec{
@@ -238,8 +172,8 @@ func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3dest string) er
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      "backup",
-									MountPath: "/backup",
+									Name:      "datadir",
+									MountPath: "/datadir",
 								},
 							},
 							Env: []corev1.EnvVar{
@@ -280,27 +214,5 @@ func restoreS3(bcp *api.PerconaXtraDBBackup, cl client.Client, s3dest string) er
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
-	}
-
-	err := cl.Create(context.TODO(), &job)
-	if err != nil {
-		return errors.Wrap(err, "create job")
-	}
-
-	for {
-		time.Sleep(time.Second * 1)
-
-		checkJob := batchv1.Job{}
-		err := cl.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return errors.Wrap(err, "get job status")
-		}
-		for _, cond := range checkJob.Status.Conditions {
-			if cond.Type == batchv1.JobComplete && cond.Status == corev1.ConditionTrue {
-				return nil
-			}
-		}
-	}
-
-	return nil
+	}, nil
 }

@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,7 +24,6 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
 var log = logf.Log.WithName("controller_perconaxtradbbackuprestore")
@@ -95,16 +95,35 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 	if err != nil {
 		return rr, errors.Wrap(err, "set status")
 	}
+	rJobsList := &api.PerconaXtraDBBackupRestoreList{}
+	err = r.client.List(
+		context.TODO(),
+		&client.ListOptions{
+			Namespace: cr.Namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.pxcCluster": cr.Spec.PXCCluster,
+			}),
+		},
+		rJobsList,
+	)
+
+	returnMsg := fmt.Sprintf(backupRestoredMsg, cr.Name, cr.Spec.PXCCluster, cr.Name)
 
 	defer func() {
-		msg := fmt.Sprintf(backupRestoredMsg, cr.Spec.PXCCluster, cr.Spec.PXCCluster)
 		status := api.BcpRestoreStates(api.RestoreSucceeded)
 		if err != nil {
 			status = api.RestoreFailed
-			msg = err.Error()
+			returnMsg = err.Error()
 		}
-		r.setStatus(cr, status, msg)
+		r.setStatus(cr, status, returnMsg)
 	}()
+
+	for _, j := range rJobsList.Items {
+		if j.Name != cr.Name && j.Status.State != api.RestoreFailed && j.Status.State != api.RestoreSucceeded {
+			err = errors.Errorf("unable to continue, concurent restore job %s running now.", j.Name)
+			return rr, err
+		}
+	}
 
 	err = cr.CheckNsetDefaults()
 	if err != nil {
@@ -114,57 +133,67 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 	bcp := &api.PerconaXtraDBBackup{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
 	if err != nil {
-		return rr, errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
+		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
+		return rr, err
 	}
 
 	if bcp.Status.State != api.BackupSucceeded {
-		return rr, errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
+		err = errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
+		return rr, err
 	}
 
 	cluster := api.PerconaXtraDBCluster{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, &cluster)
 	if err != nil {
-		return rr, errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
+		err = errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
+		return rr, err
 	}
 
 	lgr.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
 	err = r.setStatus(cr, api.RestoreStopCluster, "")
 	if err != nil {
-		return rr, errors.Wrap(err, "set status")
+		err = errors.Wrap(err, "set status")
+		return rr, err
 	}
 	err = r.stopCluster(cluster.DeepCopy())
 	if err != nil {
-		return rr, errors.Wrapf(err, "stop cluster %s", cluster.Name)
+		err = errors.Wrapf(err, "stop cluster %s", cluster.Name)
+		return rr, err
 	}
 
 	lgr.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
 	err = r.setStatus(cr, api.RestoreRestore, "")
 	if err != nil {
-		return rr, errors.Wrap(err, "set status")
+		err = errors.Wrap(err, "set status")
+		return rr, err
 	}
-	err = backup.Restore(bcp, r.client)
+	err = r.restore(cr, bcp)
 	if err != nil {
-		return rr, errors.Wrap(err, "run restore")
+		err = errors.Wrap(err, "run restore")
+		return rr, err
 	}
 
 	lgr.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
 	err = r.setStatus(cr, api.RestoreStartCluster, "")
 	if err != nil {
-		return rr, errors.Wrap(err, "set status")
+		err = errors.Wrap(err, "set status")
+		return rr, err
 	}
 	err = r.startCluster(&cluster)
 	if err != nil {
-		return rr, errors.Wrap(err, "restart cluster")
+		err = errors.Wrap(err, "restart cluster")
+		return rr, err
 	}
 
-	lgr.Info(fmt.Sprintf(backupRestoredMsg, cr.Spec.PXCCluster, cr.Spec.PXCCluster))
+	lgr.Info(returnMsg)
+
 	return rr, err
 }
 
 const backupRestoredMsg = `You can view xtrabackup log:
-$ kubectl logs job/restore-job-%s
+$ kubectl logs job/restore-job-%s-%s
 If everything is fine, you can cleanup the job:
-$ kubectl delete job/restore-job-%s
+$ kubectl delete pxc-backup-restore/%s
 `
 
 func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCluster) error {

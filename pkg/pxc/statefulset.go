@@ -40,6 +40,16 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	if err != nil {
 		return nil, err
 	}
+
+	if podSpec.ForceUnsafeBootstrap {
+		ic := appC.DeepCopy()
+		ic.Name = ic.Name + "-init"
+		ic.ReadinessProbe = nil
+		ic.LivenessProbe = nil
+		ic.Command = []string{"/unsafe-bootstrap.sh"}
+		pod.InitContainers = append(pod.InitContainers, *ic)
+	}
+
 	pod.Containers = append(pod.Containers, appC)
 	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 

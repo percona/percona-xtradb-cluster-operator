@@ -30,7 +30,7 @@ in the OpenShift environment.
 
    .. code:: bash
 
-      $ oc whoami -t 
+      $ oc whoami -t
       ADO8CqCDappWR4hxjfDqwijEHei31yXAvWg61Jg210s
 
    And the following one tells you the registry IP address:
@@ -66,8 +66,8 @@ in the OpenShift environment.
 
       $ docker tag \
           docker.io/perconalab/percona-xtradb-cluster-operator@sha256:8895ff4647602dcbcabbf6ea5d1be1611e9d7a9769c3bb3415c3a73aba2adda0 \
-          172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:0.2.0
-      $ docker push 172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:0.2.0
+          172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:0.3.0
+      $ docker push 172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:0.3.0
 
 6. Check the image in the OpenShift registry with the following command:
 
@@ -75,11 +75,11 @@ in the OpenShift environment.
 
       $ oc get is
       NAME                              DOCKER REPO                                                            TAGS      UPDATED
-      percona-xtradb-cluster-operator   docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator   0.2.0     2 hours ago
+      percona-xtradb-cluster-operator   docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator   0.3.0     2 hours ago
 
 7. When the custom registry image is Ok, put a Docker Repo + Tag string
    (it should look like
-   ``docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator:0.2.0``)
+   ``docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator:0.3.0``)
    into the ``image:`` option in ``deploy/operator.yaml`` configuration
    file.
 

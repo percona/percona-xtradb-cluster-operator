@@ -36,10 +36,20 @@ get_backup_dest() {
     local backup=$1
 
     if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
+        BASE64_DECODE_CMD=""
+        if echo eWVz | base64 -d 1>/dev/null 2>/dev/null; then
+            BASE64_DECODE_CMD="base64 -d"
+        elif echo eWVz | base64 -D 1>/dev/null 2>/dev/null; then
+            BASE64_DECODE_CMD="base64 -D"
+        else
+            echo "base64 decode error."
+            exit 1
+        fi
+
         local secret=$( $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.credentialsSecret}" 2>/dev/null)
         export AWS_ENDPOINT_URL=$(  $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.endpointUrl}" 2>/dev/null)
-        export AWS_ACCESS_KEY_ID=$( $ctrl get "secret/$secret"     -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}'     2>/dev/null | base64 -D)
-        export AWS_SECRET_ACCESS_KEY=$($ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | base64 -D)
+        export AWS_ACCESS_KEY_ID=$( $ctrl get "secret/$secret"     -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}'     2>/dev/null | eval ${BASE64_DECODE_CMD})
+        export AWS_SECRET_ACCESS_KEY=$($ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
 
         $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else

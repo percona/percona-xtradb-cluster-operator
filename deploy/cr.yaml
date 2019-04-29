@@ -8,11 +8,15 @@ metadata:
 #    - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
-  # sslSecretName: my-cluster-ssl-certificates
+  sslSecretName: my-cluster-ssl-certificates
+#  pause: false
   pxc:
     size: 3
     allowUnsafeConfigurations: false
     image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc
+#    readinessDelaySec: 15
+#    livenessDelaySec: 300
+#    forceUnsafeBootstrap: false
 #    configuration: |
 #      [mysqld]
 #      wsrep_debug=ON
@@ -75,6 +79,7 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
+#    serviceType: ClusterIP
     resources:
       requests:
         memory: 1G

@@ -47,18 +47,27 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 }
 
 func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container {
+	redinessDelay := int32(15)
+	if spec.ReadinessInitialDelaySeconds != nil {
+		redinessDelay = *spec.ReadinessInitialDelaySeconds
+	}
+	livenessDelay := int32(300)
+	if spec.LivenessInitialDelaySeconds != nil {
+		livenessDelay = *spec.LivenessInitialDelaySeconds
+	}
+
 	appc := corev1.Container{
 		Name:            app.Name,
 		Image:           spec.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		ReadinessProbe: app.Probe(&corev1.Probe{
-			InitialDelaySeconds: 15,
+			InitialDelaySeconds: redinessDelay,
 			TimeoutSeconds:      15,
 			PeriodSeconds:       30,
 			FailureThreshold:    5,
 		}, "/usr/bin/clustercheck.sh"),
 		LivenessProbe: app.Probe(&corev1.Probe{
-			InitialDelaySeconds: 300,
+			InitialDelaySeconds: livenessDelay,
 			TimeoutSeconds:      5,
 			PeriodSeconds:       10,
 		}, "/usr/bin/clustercheck.sh"),

@@ -13,6 +13,7 @@ import (
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
 	Platform      *Platform           `json:"platform,omitempty"`
+	Pause         bool                `json:"pause,omitempty"`
 	SecretsName   string              `json:"secretsName,omitempty"`
 	SSLSecretName string              `json:"sslSecretName,omitempty"`
 	PXC           *PodSpec            `json:"pxc,omitempty"`
@@ -98,6 +99,10 @@ type PodSpec struct {
 	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
 	SSLSecretName                 string                        `json:"sslSecretName,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
+	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
+	ServiceType                   *corev1.ServiceType           `json:"serviceType,omitempty"`
+	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
+	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -253,6 +258,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 		}
 
 		c.PXC.reconcileAffinityOpts()
+
+		if c.Pause {
+			c.PXC.Size = 0
+		}
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
@@ -282,6 +291,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
+
+		if c.Pause {
+			c.ProxySQL.Size = 0
+		}
 	}
 
 	if c.Backup != nil {

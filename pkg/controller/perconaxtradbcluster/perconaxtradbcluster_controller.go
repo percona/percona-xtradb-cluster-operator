@@ -357,38 +357,52 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 		return fmt.Errorf("get secret: %v", err)
 	}
 
-	issuerKind := "ClusterIssuer"
-	issuerName := cr.Spec.PXC.SSLSecretName + "-ca"
+	issuerKind := "Issuer"
+	issuerName := cr.Name + "-pxc-ca"
 
-	issuer := cm.ClusterIssuer{}
-	issuer.Namespace = namespace
-	issuer.Kind = issuerKind
-	issuer.Name = issuerName
-	issuer.Spec.SelfSigned = &cm.SelfSignedIssuer{}
-	err = r.client.Create(context.TODO(), &issuer)
+	err = r.client.Create(context.TODO(), &cm.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      issuerName,
+			Namespace: namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "certmanager.k8s.io/v1alpha1",
+			Kind:       issuerKind,
+		},
+		Spec: cm.IssuerSpec{
+			IssuerConfig: cm.IssuerConfig{
+				SelfSigned: &cm.SelfSignedIssuer{},
+			},
+		},
+	})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("create issuer: %v", err)
 	}
-	issuer = cm.ClusterIssuer{}
-	err = r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Name: issuerName,
+
+	err = r.client.Create(context.TODO(), &cm.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-ssl",
+			Namespace: namespace,
 		},
-		&issuer,
-	)
-	if err != nil {
-		return fmt.Errorf("get issuer: %v", err)
-	}
-	certificate := cm.Certificate{}
-	certificate.Namespace = namespace
-	certificate.Kind = "Certificate"
-	certificate.Name = cr.Spec.PXC.SSLSecretName + ".com"
-	certificate.Spec.SecretName = cr.Spec.PXC.SSLSecretName
-	certificate.Spec.CommonName = cr.Spec.PXC.SSLSecretName + "-pxc"
-	certificate.Spec.IsCA = true
-	certificate.Spec.IssuerRef.Name = issuerName
-	certificate.Spec.IssuerRef.Kind = issuerKind
-	err = r.client.Create(context.TODO(), &certificate)
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "certmanager.k8s.io/v1alpha1",
+			Kind:       "Certificate",
+		},
+		Spec: cm.CertificateSpec{
+			SecretName: cr.Spec.PXC.SSLSecretName,
+			CommonName: cr.Name + "-pxc",
+			DNSNames: []string{
+				cr.Name + "-proxysql",
+				"*." + cr.Name + "-pxc",
+				"*." + cr.Name + "-proxysql",
+			},
+			IsCA: true,
+			IssuerRef: cm.ObjectReference{
+				Name: issuerName,
+				Kind: issuerKind,
+			},
+		},
+	})
 	if err != nil {
 		return fmt.Errorf("create certificate: %v", err)
 	}

@@ -143,7 +143,7 @@ this example, a zone), and cluster name.
 .. code:: bash
 
    kubectl create clusterrolebinding cluster-admin-binding \
-   --clusterrole cluster-admin --user email.address
+   --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
 
 The return statement confirms the creation.
 

@@ -73,7 +73,7 @@ check_input() {
     local cluster=$2
 
     echo
-    if [ -z "$backup_dest" ] || [ -z "$cluster" ]; then
+    if [[ -z "$backup_dest" ]] || [[ -z "$cluster" ]]; then
         usage
     fi
 
@@ -120,7 +120,7 @@ stop_pxc() {
         echo "[done]"
     done
 
-    if [ "$size" -gt 1 ]; then
+    if [[ "$size" -gt 1 ]]; then
         for i in $(seq 1 "$((size-1))" | sort -r); do
             $ctrl delete "pvc/datadir-$cluster-pxc-$i"
         done

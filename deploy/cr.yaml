@@ -11,7 +11,7 @@ spec:
   # sslSecretName: my-cluster-ssl-certificates
   pxc:
     size: 3
-    allowUnsafeConfigurations: true
+    allowUnsafeConfigurations: false
     image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc
 #    configuration: |
 #      [mysqld]
@@ -66,7 +66,7 @@ spec:
             storage: 6Gi
     gracePeriod: 600
   proxysql:
-    enabled: false
+    enabled: true
     size: 1
     image: perconalab/percona-xtradb-cluster-operator:0.4.0-proxysql
 #    imagePullSecrets:

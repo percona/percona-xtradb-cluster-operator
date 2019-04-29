@@ -1,12 +1,16 @@
 package backup
 
 import (
+	"strings"
+
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
 func PVCRestoreService(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup) *corev1.Service {
@@ -34,12 +38,18 @@ func PVCRestoreService(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraD
 	}
 }
 
-func PVCRestorePod(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, pvcName string) *corev1.Pod {
+func PVCRestorePod(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) *corev1.Pod {
 	podPVC := corev1.Volume{
 		Name: "backup",
 	}
 	podPVC.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
 		ClaimName: pvcName,
+	}
+
+	podPVCs := []corev1.Volume{
+		podPVC,
+		app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLSecretName+"-internal", true),
+		app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.PXC.AllowUnsafeConfig),
 	}
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
@@ -57,7 +67,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 			Containers: []corev1.Container{
 				{
 					Name:            "ncat",
-					Image:           "percona/percona-xtradb-cluster-operator:0.3.0-backup",
+					Image:           cluster.Backup.Image,
 					ImagePullPolicy: corev1.PullAlways,
 					Command: []string{
 						"bash",
@@ -69,25 +79,38 @@ func PVCRestorePod(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 							Name:      "backup",
 							MountPath: "/backup",
 						},
+						{
+							Name:      "ssl",
+							MountPath: "/etc/mysql/ssl",
+						},
+						{
+							Name:      "ssl-internal",
+							MountPath: "/etc/mysql/ssl-internal",
+						},
 					},
 				},
 			},
 			RestartPolicy: corev1.RestartPolicyAlways,
-			Volumes: []corev1.Volume{
-				podPVC,
-			},
+			Volumes:       podPVCs,
 		},
 	}
 }
 
-func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup) *batchv1.Job {
+func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, cluster api.PerconaXtraDBClusterSpec) *batchv1.Job {
 	jobPVC := corev1.Volume{
 		Name: "datadir",
 	}
 	jobPVC.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
 		ClaimName: "datadir-" + bcp.Spec.PXCCluster + "-pxc-0",
 	}
-	return &batchv1.Job{
+
+	jobPVCs := []corev1.Volume{
+		jobPVC,
+		app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLSecretName+"-internal", true),
+		app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.PXC.AllowUnsafeConfig),
+	}
+
+	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
 			Kind:       "Job",
@@ -102,7 +125,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 					Containers: []corev1.Container{
 						{
 							Name:            "xtrabackup",
-							Image:           "percona/percona-xtradb-cluster-operator:0.3.0-backup",
+							Image:           cluster.Backup.Image,
 							ImagePullPolicy: corev1.PullAlways,
 							Command: []string{
 								"bash",
@@ -117,22 +140,45 @@ func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 									Name:      "datadir",
 									MountPath: "/datadir",
 								},
+								{
+									Name:      "ssl",
+									MountPath: "/etc/mysql/ssl",
+								},
+								{
+									Name:      "ssl-internal",
+									MountPath: "/etc/mysql/ssl-internal",
+								},
 							},
 						},
 					},
 					RestartPolicy: corev1.RestartPolicyNever,
-					Volumes: []corev1.Volume{
-						jobPVC,
-					},
+					Volumes:       jobPVCs,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
 	}
+
+	useMem, k8sq, err := xbMemoryUse(cluster)
+
+	if useMem != "" && err == nil {
+		job.Spec.Template.Spec.Containers[0].Env = append(
+			job.Spec.Template.Spec.Containers[0].Env,
+			corev1.EnvVar{
+				Name:  "XB_USE_MEMORY",
+				Value: useMem,
+			},
+		)
+		job.Spec.Template.Spec.Containers[0].Resources.Requests = corev1.ResourceList{
+			corev1.ResourceMemory: k8sq,
+		}
+	}
+
+	return job
 }
 
 // S3RestoreJob returns restore job object for s3
-func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, s3dest string) (*batchv1.Job, error) {
+func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
 	if bcp.Status.S3 == nil {
 		return nil, errors.New("nil s3 backup status")
 	}
@@ -144,7 +190,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBack
 		ClaimName: "datadir-" + bcp.Spec.PXCCluster + "-pxc-0",
 	}
 
-	return &batchv1.Job{
+	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
 			Kind:       "Job",
@@ -159,7 +205,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBack
 					Containers: []corev1.Container{
 						{
 							Name:            "xtrabackup",
-							Image:           "percona/percona-xtradb-cluster-operator:0.3.0-backup",
+							Image:           cluster.Backup.Image,
 							ImagePullPolicy: corev1.PullAlways,
 							Command: []string{
 								"bash",
@@ -214,5 +260,47 @@ func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBack
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
-	}, nil
+	}
+
+	useMem, k8sq, err := xbMemoryUse(cluster)
+
+	if useMem != "" && err == nil {
+		job.Spec.Template.Spec.Containers[0].Env = append(
+			job.Spec.Template.Spec.Containers[0].Env,
+			corev1.EnvVar{
+				Name:  "XB_USE_MEMORY",
+				Value: useMem,
+			},
+		)
+		job.Spec.Template.Spec.Containers[0].Resources.Requests = corev1.ResourceList{
+			corev1.ResourceMemory: k8sq,
+		}
+	}
+
+	return job, nil
+}
+
+func xbMemoryUse(cluster api.PerconaXtraDBClusterSpec) (useMem string, k8sQuantity resource.Quantity, err error) {
+	if cluster.PXC.Resources != nil {
+		if cluster.PXC.Resources.Requests != nil {
+			useMem = cluster.PXC.Resources.Requests.Memory
+			k8sQuantity, err = resource.ParseQuantity(cluster.PXC.Resources.Requests.Memory)
+		}
+
+		if cluster.PXC.Resources.Limits != nil && cluster.PXC.Resources.Limits.Memory != "" {
+			useMem = cluster.PXC.Resources.Limits.Memory
+			k8sQuantity, err = resource.ParseQuantity(cluster.PXC.Resources.Limits.Memory)
+		}
+
+		// make the 90% value
+		q := k8sQuantity.DeepCopy()
+		q.Sub(*resource.NewQuantity(k8sQuantity.Value()/10, k8sQuantity.Format))
+		useMem = q.String()
+		// transform Gi/Mi/etc to G/M
+		if strings.Contains(useMem, "i") {
+			useMem = strings.Replace(useMem, "i", "", -1)
+		}
+	}
+
+	return useMem, k8sQuantity, err
 }

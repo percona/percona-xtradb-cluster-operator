@@ -167,7 +167,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 		err = errors.Wrap(err, "set status")
 		return rr, err
 	}
-	err = r.restore(cr, bcp)
+	err = r.restore(cr, bcp, cluster.Spec)
 	if err != nil {
 		err = errors.Wrap(err, "run restore")
 		return rr, err

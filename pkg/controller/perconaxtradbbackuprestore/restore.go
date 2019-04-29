@@ -15,25 +15,30 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
-func (r *ReconcilePerconaXtraDBBackupRestore) restore(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup) error {
+func (r *ReconcilePerconaXtraDBBackupRestore) restore(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, cluster api.PerconaXtraDBClusterSpec) error {
 	if len(bcp.Status.Destination) > 6 {
 		switch {
 		case bcp.Status.Destination[:4] == "pvc/":
-			return errors.Wrap(r.restorePVC(cr, bcp, bcp.Status.Destination[4:]), "pvc")
+			return errors.Wrap(r.restorePVC(cr, bcp, bcp.Status.Destination[4:], cluster), "pvc")
 		case bcp.Status.Destination[:5] == "s3://":
-			return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:]), "s3")
+			return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:], cluster), "s3")
 		}
 	}
 
 	return errors.Errorf("unknown destination %s", bcp.Status.Destination)
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) restorePVC(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, pvcName string) error {
+func (r *ReconcilePerconaXtraDBBackupRestore) restorePVC(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) error {
 	svc := backup.PVCRestoreService(cr, bcp)
-	pod := backup.PVCRestorePod(cr, bcp, pvcName)
+	k8s.SetControllerReference(cr, svc, r.scheme)
+	pod := backup.PVCRestorePod(cr, bcp, pvcName, cluster)
+	k8s.SetControllerReference(cr, pod, r.scheme)
 
-	job := backup.PVCRestoreJob(cr, bcp)
+	job := backup.PVCRestoreJob(cr, bcp, cluster)
 	k8s.SetControllerReference(cr, job, r.scheme)
+
+	r.client.Delete(context.TODO(), svc)
+	r.client.Delete(context.TODO(), pod)
 
 	err := r.client.Create(context.TODO(), svc)
 	if err != nil {
@@ -64,8 +69,8 @@ func (r *ReconcilePerconaXtraDBBackupRestore) restorePVC(cr *api.PerconaXtraDBBa
 	return r.createJob(job)
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) restoreS3(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, s3dest string) error {
-	job, err := backup.S3RestoreJob(cr, bcp, s3dest)
+func (r *ReconcilePerconaXtraDBBackupRestore) restoreS3(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) error {
+	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster)
 	if err != nil {
 		return err
 	}

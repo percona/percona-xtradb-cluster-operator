@@ -9,9 +9,9 @@ AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL:-}
 AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
 
 check_ctrl() {
-    if [ -x "$(command -v kubectl)" ]; then
+    if [[ -x "$(command -v kubectl)" ]]; then
         ctrl="kubectl"
-    elif [ -x "$(command -v oc)" ]; then
+    elif [[ -x "$(command -v oc)" ]]; then
         ctrl="oc"
     else
         echo "[ERROR] Neither <oc> nor <kubectl> client found"
@@ -82,12 +82,12 @@ check_input() {
         usage
     fi
 
-    if [ "${backup_dest:0:4}" = "pvc/" ]; then
+    if [[ "${backup_dest:0:4}" = "pvc/" ]]; then
         if ! $ctrl get "$backup_dest" 1>/dev/null; then
             printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_dest"
             usage
         fi
-    elif [ "${backup_dest:0:5}" = "s3://" ]; then
+    elif [[ "${backup_dest:0:5}" = "s3://" ]]; then
         echo [INFO] please check file: aws s3 ls --endpoint-url "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" "$backup_dest"
     else
         usage
@@ -277,9 +277,9 @@ main() {
     check_input "$backup_dest" "$cluster"
 
     stop_pxc "$cluster"
-    if [ "${backup_dest:0:4}" = "pvc/" ]; then
+    if [[ "${backup_dest:0:4}" = "pvc/" ]]; then
         recover_pvc "$backup_dest" "$cluster"
-    elif [ "${backup_dest:0:5}" = "s3://" ]; then
+    elif [[ "${backup_dest:0:5}" = "s3://" ]]; then
         recover_s3 "$backup_dest" "$cluster"
     fi
     start_pxc

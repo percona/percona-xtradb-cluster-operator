@@ -54,7 +54,7 @@ project name.*
 
 ::
 
-   gcloud beta container --project <project name> clusters create "standard-cluster-1" --zone "us-central1-a" --username "admin" --cluster-version "1.11.7-gke.12" --machine-type "n1-standard-4" --image-type "COS" --disk-type "pd-standard" --disk-size "100" --scopes "https://www.googleapis.com/auth/devstorage.read_only","https://www.googleapis.com/auth/logging.write","https://www.googleapis.com/auth/monitoring","https://www.googleapis.com/auth/servicecontrol","https://www.googleapis.com/auth/service.management.readonly","https://www.googleapis.com/auth/trace.append" --num-nodes "3" --enable-cloud-logging --enable-cloud-monitoring --no-enable-ip-alias --network "projects/<project name>/global/networks/default" --subnetwork "projects/<project name/regions/us-central1/subnetworks/default" --addons HorizontalPodAutoscaling,HttpLoadBalancing --enable-autoupgrade --enable-autorepair
+  gcloud container clusters create standard-cluster-1 --project <project name> --zone us-central1-a --cluster-version 1.12 --machine-type n1-standard-4 --num-nodes=3
 
 You may wait a few minutes for the cluster to be generated.
 

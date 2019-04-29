@@ -157,7 +157,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			err = nil
 		}
 
-		// object is beign deleted, no need in further actions
+		// object is being deleted, no need in further actions
 		return rr, err
 	}
 

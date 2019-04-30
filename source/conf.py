@@ -33,7 +33,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Percona XtraDB Cluster Kubernetes Operator'
+project = u'Percona Kubernetes Operator for PXC'
 copyright = u'Percona LLC and/or its affiliates 2009 - 2019'
 
 # the short X.Y version
@@ -119,8 +119,8 @@ extlinks = {'bug':
 ('https://github.com/codership/mysql-wsrep/issues/%s',
                       '#'),
 'pmmbug':
-('https://jira.percona.com/browse/PMM-%s',
-                      'PMM-')}
+('https://jira.percona.com/browse/CLOUD-%s',
+                      'CLOUD-')}
 
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
@@ -145,10 +145,10 @@ html_theme_path = ['.', './percona-theme']
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = 'Percona Monitoring and Management Documentation'
+html_title = 'Percona Kubernetes Operator for PXC Documentation'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_short_title = 'Percona Monitoring and Management Documentation'
+html_short_title = 'Percona Kubernetes Operator for PXC Documentation'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
@@ -207,7 +207,7 @@ html_static_path = ['_static']
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'PMM-Doc'
+htmlhelp_basename = 'pxcoperatorpxc'
 
 
 # -- Options for LaTeX output --------------------------------------------------
@@ -221,8 +221,8 @@ htmlhelp_basename = 'PMM-Doc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'PerconaMonitoringAndManagement.tex', u'Percona Monitoring and Management Documentation',
-   u'Percona LLC and/or its affiliates 2009-2019', 'manual'),
+  ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for PXC',
+     [u'Percona LLC and/or its affiliates 2009-2019', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -255,6 +255,6 @@ latex_toplevel_sectioning = 'part'
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'perconaxtraDBClusterOperator', u'Percona XtraDB Cluster Kubernetes Operator',
+    ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for PXC',
      [u'Percona LLC and/or its affiliates 2009-2019'], 1)
 ]

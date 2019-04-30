@@ -197,7 +197,12 @@ $ kubectl delete pxc-backup-restore/%s
 `
 
 func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCluster) error {
+	var gracePeriodSec int64
+
 	if c.Spec.PXC != nil {
+		if c.Spec.PXC.TerminationGracePeriodSeconds != nil {
+			gracePeriodSec = int64(c.Spec.PXC.Size) * *c.Spec.PXC.TerminationGracePeriodSeconds
+		}
 		c.Spec.PXC.Size = 0
 	}
 	if c.Spec.ProxySQL != nil {
@@ -210,7 +215,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCl
 	}
 
 	ls := statefulset.NewNode(c).Labels()
-	err = r.waitForPodsShutdown(ls, c.Namespace)
+	err = r.waitForPodsShutdown(ls, c.Namespace, gracePeriodSec)
 	if err != nil {
 		return errors.Wrap(err, "shutdown pods")
 	}
@@ -273,10 +278,10 @@ func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(cr *api.PerconaXtraDB
 	return err
 }
 
-const waitLimitSec = 300
+const waitLimitSec int64 = 300
 
-func (r *ReconcilePerconaXtraDBBackupRestore) waitForPodsShutdown(ls map[string]string, namespace string) error {
-	for i := 0; i < waitLimitSec + cr.Spec.PXC.terminationGracePeriodSeconds; i++ {
+func (r *ReconcilePerconaXtraDBBackupRestore) waitForPodsShutdown(ls map[string]string, namespace string, gracePeriodSec int64) error {
+	for i := int64(0); i < waitLimitSec+gracePeriodSec; i++ {
 		pods := corev1.PodList{}
 
 		err := r.client.List(
@@ -302,7 +307,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) waitForPodsShutdown(ls map[string]
 }
 
 func (r *ReconcilePerconaXtraDBBackupRestore) waitForPVCShutdown(ls map[string]string, namespace string) error {
-	for i := 0; i < waitLimitSec; i++ {
+	for i := int64(0); i < waitLimitSec; i++ {
 		pvcs := corev1.PersistentVolumeClaimList{}
 
 		err := r.client.List(

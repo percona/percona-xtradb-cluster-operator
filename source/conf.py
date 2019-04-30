@@ -222,7 +222,7 @@ htmlhelp_basename = 'pxcoperatorpxc'
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for PXC',
-     [u'Percona LLC and/or its affiliates 2009-2019', 'manual'),
+     [u'Percona LLC and/or its affiliates 2009-2019'], 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

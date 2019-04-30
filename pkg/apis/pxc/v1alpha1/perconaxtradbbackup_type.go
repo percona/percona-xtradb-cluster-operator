@@ -40,7 +40,8 @@ type PXCBackupStatus struct {
 type PXCBackupState string
 
 const (
-	BackupStarting  PXCBackupState = "Starting"
+	BackupNew       PXCBackupState = ""
+	BackupStarting                 = "Starting"
 	BackupRunning                  = "Running"
 	BackupFailed                   = "Failed"
 	BackupSucceeded                = "Succeeded"

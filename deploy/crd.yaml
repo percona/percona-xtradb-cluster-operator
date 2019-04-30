@@ -73,3 +73,39 @@ spec:
     - name: Age
       type: date
       JSONPath: .metadata.creationTimestamp
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: perconaxtradbbackuprestores.pxc.percona.com
+spec:
+  group: pxc.percona.com
+  names:
+    kind: PerconaXtraDBBackupRestore
+    listKind: PerconaXtraDBBackupRestoreList
+    plural: perconaxtradbbackuprestores
+    singular: perconaxtradbbackuprestore
+    shortNames:
+    - pxc-backup-restore
+    - pxc-backups-restore
+    - pxcb-restore
+  scope: Namespaced
+  version: v1alpha1
+  additionalPrinterColumns:
+    - name: Cluster
+      type: string
+      description: Cluster name
+      JSONPath: .spec.pxcCluster
+    - name: Status
+      type: string
+      description: Job status
+      JSONPath: .status.state
+    - name: Completed
+      description: Completed time
+      type: date
+      JSONPath: .status.completed
+    - name: Age
+      type: date
+      JSONPath: .metadata.creationTimestamp
+  subresources:
+    status: {}

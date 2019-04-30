@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	dataVolumeName = "datadir"
+	DataVolumeName = "datadir"
 )
 
 type Node struct {
@@ -91,7 +91,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      dataVolumeName,
+				Name:      DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 			{
@@ -175,7 +175,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container 
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{
-			Name:      dataVolumeName,
+			Name:      DataVolumeName,
 			MountPath: "/var/lib/mysql",
 		},
 	}
@@ -188,7 +188,7 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 }
 
 func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
-	vol := app.Volumes(podSpec, dataVolumeName)
+	vol := app.Volumes(podSpec, DataVolumeName)
 	ls := c.Labels()
 	vol.Volumes = append(
 		vol.Volumes,

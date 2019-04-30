@@ -1,0 +1,356 @@
+package perconaxtradbbackuprestore
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+)
+
+var log = logf.Log.WithName("controller_perconaxtradbbackuprestore")
+
+// Add creates a new PerconaXtraDBBackupRestore Controller and adds it to the Manager. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(mgr manager.Manager) error {
+	return add(mgr, newReconciler(mgr))
+}
+
+// newReconciler returns a new reconcile.Reconciler
+func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	return &ReconcilePerconaXtraDBBackupRestore{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+}
+
+// add adds a new Controller to mgr with r as the reconcile.Reconciler
+func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	// Create a new controller
+	c, err := controller.New("perconaxtradbbackuprestore-controller", mgr, controller.Options{Reconciler: r})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to primary resource PerconaXtraDBBackupRestore
+	err = c.Watch(&source.Kind{Type: &api.PerconaXtraDBBackupRestore{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var _ reconcile.Reconciler = &ReconcilePerconaXtraDBBackupRestore{}
+
+// ReconcilePerconaXtraDBBackupRestore reconciles a PerconaXtraDBBackupRestore object
+type ReconcilePerconaXtraDBBackupRestore struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	client client.Client
+	scheme *runtime.Scheme
+}
+
+// Reconcile reads that state of the cluster for a PerconaXtraDBBackupRestore object and makes changes based on the state read
+// and what is in the PerconaXtraDBBackupRestore.Spec
+// Note:
+// The Controller will requeue the Request to be processed again if the returned error is non-nil or
+// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
+func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	lgr := log.WithValues("namespace", request.Namespace, "restore", request.Name)
+	lgr.Info("backup restore request")
+
+	rr := reconcile.Result{}
+
+	cr := &api.PerconaXtraDBBackupRestore{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, cr)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			return rr, nil
+		}
+		// Error reading the object - requeue the request.
+		return rr, err
+	}
+	if cr.Status.State != api.RestoreNew {
+		return rr, nil
+	}
+
+	err = r.setStatus(cr, api.RestoreStarting, "")
+	if err != nil {
+		return rr, errors.Wrap(err, "set status")
+	}
+	rJobsList := &api.PerconaXtraDBBackupRestoreList{}
+	err = r.client.List(
+		context.TODO(),
+		&client.ListOptions{
+			Namespace: cr.Namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.pxcCluster": cr.Spec.PXCCluster,
+			}),
+		},
+		rJobsList,
+	)
+
+	returnMsg := fmt.Sprintf(backupRestoredMsg, cr.Name, cr.Spec.PXCCluster, cr.Name)
+
+	defer func() {
+		status := api.BcpRestoreStates(api.RestoreSucceeded)
+		if err != nil {
+			status = api.RestoreFailed
+			returnMsg = err.Error()
+		}
+		r.setStatus(cr, status, returnMsg)
+	}()
+
+	for _, j := range rJobsList.Items {
+		if j.Name != cr.Name && j.Status.State != api.RestoreFailed && j.Status.State != api.RestoreSucceeded {
+			err = errors.Errorf("unable to continue, concurent restore job %s running now.", j.Name)
+			return rr, err
+		}
+	}
+
+	err = cr.CheckNsetDefaults()
+	if err != nil {
+		return rr, err
+	}
+
+	bcp := &api.PerconaXtraDBBackup{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
+	if err != nil {
+		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
+		return rr, err
+	}
+
+	if bcp.Status.State != api.BackupSucceeded {
+		err = errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
+		return rr, err
+	}
+
+	cluster := api.PerconaXtraDBCluster{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, &cluster)
+	if err != nil {
+		err = errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
+		return rr, err
+	}
+
+	lgr.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
+	err = r.setStatus(cr, api.RestoreStopCluster, "")
+	if err != nil {
+		err = errors.Wrap(err, "set status")
+		return rr, err
+	}
+	err = r.stopCluster(cluster.DeepCopy())
+	if err != nil {
+		err = errors.Wrapf(err, "stop cluster %s", cluster.Name)
+		return rr, err
+	}
+
+	lgr.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
+	err = r.setStatus(cr, api.RestoreRestore, "")
+	if err != nil {
+		err = errors.Wrap(err, "set status")
+		return rr, err
+	}
+	err = r.restore(cr, bcp, cluster.Spec)
+	if err != nil {
+		err = errors.Wrap(err, "run restore")
+		return rr, err
+	}
+
+	lgr.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+	err = r.setStatus(cr, api.RestoreStartCluster, "")
+	if err != nil {
+		err = errors.Wrap(err, "set status")
+		return rr, err
+	}
+	err = r.startCluster(&cluster)
+	if err != nil {
+		err = errors.Wrap(err, "restart cluster")
+		return rr, err
+	}
+
+	lgr.Info(returnMsg)
+
+	return rr, err
+}
+
+const backupRestoredMsg = `You can view xtrabackup log:
+$ kubectl logs job/restore-job-%s-%s
+If everything is fine, you can cleanup the job:
+$ kubectl delete pxc-backup-restore/%s
+`
+
+func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCluster) error {
+	var gracePeriodSec int64
+
+	if c.Spec.PXC != nil {
+		if c.Spec.PXC.TerminationGracePeriodSeconds != nil {
+			gracePeriodSec = int64(c.Spec.PXC.Size) * *c.Spec.PXC.TerminationGracePeriodSeconds
+		}
+		c.Spec.PXC.Size = 0
+	}
+	if c.Spec.ProxySQL != nil {
+		c.Spec.ProxySQL.Size = 0
+	}
+
+	err := r.client.Update(context.TODO(), c)
+	if err != nil {
+		return errors.Wrap(err, "shutdown pods")
+	}
+
+	ls := statefulset.NewNode(c).Labels()
+	err = r.waitForPodsShutdown(ls, c.Namespace, gracePeriodSec)
+	if err != nil {
+		return errors.Wrap(err, "shutdown pods")
+	}
+
+	pvcs := corev1.PersistentVolumeClaimList{}
+	err = r.client.List(
+		context.TODO(),
+		&client.ListOptions{
+			Namespace:     c.Namespace,
+			LabelSelector: labels.SelectorFromSet(ls),
+		},
+		&pvcs,
+	)
+	if err != nil {
+		return errors.Wrap(err, "get pvc list")
+	}
+
+	pxcNode := statefulset.NewNode(c)
+	pvcNameTemplate := statefulset.DataVolumeName + "-" + pxcNode.StatefulSet().Name
+	for _, pvc := range pvcs.Items {
+		// check prefix just in case, to be sure we're not going to delete a wrong pvc
+		if pvc.Name == pvcNameTemplate+"-0" || !strings.HasPrefix(pvc.Name, pvcNameTemplate) {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), &pvc)
+		if err != nil {
+			return errors.Wrap(err, "delete pvc")
+		}
+	}
+
+	err = r.waitForPVCShutdown(ls, c.Namespace)
+	if err != nil {
+		return errors.Wrap(err, "shutdown pvc")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(cr *api.PerconaXtraDBCluster) (err error) {
+	// tryin several times just to avoid possible conflicts with the main controller
+	for i := 0; i < 5; i++ {
+		// need to get the object with latest version of meta-data for update
+		current := &api.PerconaXtraDBCluster{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
+		if err != nil {
+			return errors.Wrap(err, "get cluster")
+		}
+
+		current.Spec = cr.Spec
+
+		uerr := r.client.Update(context.TODO(), current)
+		if uerr == nil {
+			return nil
+		}
+		err = errors.Wrap(uerr, "update cluster")
+		time.Sleep(time.Second * 1)
+	}
+
+	return err
+}
+
+const waitLimitSec int64 = 300
+
+func (r *ReconcilePerconaXtraDBBackupRestore) waitForPodsShutdown(ls map[string]string, namespace string, gracePeriodSec int64) error {
+	for i := int64(0); i < waitLimitSec+gracePeriodSec; i++ {
+		pods := corev1.PodList{}
+
+		err := r.client.List(
+			context.TODO(),
+			&client.ListOptions{
+				Namespace:     namespace,
+				LabelSelector: labels.SelectorFromSet(ls),
+			},
+			&pods,
+		)
+		if err != nil {
+			return errors.Wrap(err, "get pods list")
+		}
+
+		if len(pods.Items) == 0 {
+			return nil
+		}
+
+		time.Sleep(time.Second * 1)
+	}
+
+	return errors.Errorf("exceeded wait limit")
+}
+
+func (r *ReconcilePerconaXtraDBBackupRestore) waitForPVCShutdown(ls map[string]string, namespace string) error {
+	for i := int64(0); i < waitLimitSec; i++ {
+		pvcs := corev1.PersistentVolumeClaimList{}
+
+		err := r.client.List(
+			context.TODO(),
+			&client.ListOptions{
+				Namespace:     namespace,
+				LabelSelector: labels.SelectorFromSet(ls),
+			},
+			&pvcs,
+		)
+		if err != nil {
+			return errors.Wrap(err, "get pvc list")
+		}
+
+		if len(pvcs.Items) == 1 {
+			return nil
+		}
+
+		time.Sleep(time.Second * 1)
+	}
+
+	return errors.Errorf("exceeded wait limit")
+}
+
+func (r *ReconcilePerconaXtraDBBackupRestore) setStatus(cr *api.PerconaXtraDBBackupRestore, state api.BcpRestoreStates, comments string) error {
+	cr.Status.State = state
+	switch state {
+	case api.RestoreSucceeded:
+		tm := metav1.NewTime(time.Now())
+		cr.Status.CompletedAt = &tm
+	}
+
+	cr.Status.Comments = comments
+
+	err := r.client.Status().Update(context.TODO(), cr)
+	if err != nil {
+		// may be it's k8s v1.10 and erlier (e.g. oc3.9) that doesn't support status updates
+		// so try to update whole CR
+		err := r.client.Update(context.TODO(), cr)
+		if err != nil {
+			return fmt.Errorf("send update: %v", err)
+		}
+	}
+
+	return nil
+}

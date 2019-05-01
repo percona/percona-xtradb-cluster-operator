@@ -5,9 +5,11 @@ metadata:
     pv.kubernetes.io/bind-completed: "yes"
     pv.kubernetes.io/bound-by-controller: "yes"
   labels:
-    app: pxc
-    cluster: scaling-proxysql
-    component: scaling-proxysql-proxysql
+    app.kubernetes.io/component: proxysql
+    app.kubernetes.io/instance: scaling-proxysql
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
   name: proxydata-scaling-proxysql-proxysql-2
 spec:
   accessModes:

@@ -6,6 +6,7 @@ metadata:
     - delete-pxc-pods-in-order
 spec:
   secretsName: my-cluster-secrets
+  sslSecretName: some-name-ssl
   pxc:
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc

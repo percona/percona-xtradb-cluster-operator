@@ -59,7 +59,7 @@ mysql-eventslog_filesize	104857600
 mysql-forward_autocommit	false
 mysql-free_connections_pct	10
 mysql-have_compress	true
-mysql-have_ssl	false
+mysql-have_ssl	true
 mysql-hostgroup_manager_verbose	1
 mysql-init_connect	
 mysql-interfaces	0.0.0.0:3306
@@ -76,7 +76,7 @@ mysql-mirror_max_queue_length	32000
 mysql-monitor_connect_interval	20000
 mysql-monitor_connect_timeout	600
 mysql-monitor_enabled	true
-mysql-monitor_galera_healthcheck_interval	5000
+mysql-monitor_galera_healthcheck_interval	1000
 mysql-monitor_galera_healthcheck_timeout	800
 mysql-monitor_groupreplication_healthcheck_interval	5000
 mysql-monitor_groupreplication_healthcheck_timeout	800
@@ -114,21 +114,20 @@ mysql-query_digests_max_query_length	65000
 mysql-query_digests_normalize_digest_text	false
 mysql-query_digests_track_hostname	false
 mysql-query_processor_iterations	0
-mysql-query_processor_regex	1
 mysql-query_retries_on_failure	1
 mysql-reset_connection_algorithm	2
-mysql-server_capabilities	569899
-mysql-server_version	5.5.30
+mysql-server_capabilities	571947
+mysql-server_version	Percona XtraDB Cluster Operator
 mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true
 mysql-sessions_sort	true
 mysql-shun_on_failures	5
 mysql-shun_recovery_time_sec	10
-mysql-ssl_p2s_ca	
-mysql-ssl_p2s_cert	
-mysql-ssl_p2s_cipher	
-mysql-ssl_p2s_key	
+mysql-ssl_p2s_ca	/etc/proxysql/ssl-internal/ca.crt
+mysql-ssl_p2s_cert	/etc/proxysql/ssl-internal/tls.crt
+mysql-ssl_p2s_cipher	ECDHE-RSA-AES128-GCM-SHA256
+mysql-ssl_p2s_key	/etc/proxysql/ssl-internal/tls.key
 mysql-stacksize	1048576
 mysql-stats_time_backend_query	false
 mysql-stats_time_query_processor	false
@@ -136,7 +135,7 @@ mysql-threads	2
 mysql-threshold_query_length	524288
 mysql-threshold_resultset_size	4194304
 mysql-throttle_connections_per_sec_to_hostgroup	1000000
-mysql-throttle_max_bytes_per_second_to_client	2147483647
+mysql-throttle_max_bytes_per_second_to_client	0
 mysql-throttle_ratio_server_to_client	0
 mysql-verbose_query_error	false
 mysql-wait_timeout	28800000

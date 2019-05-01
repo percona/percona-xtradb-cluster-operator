@@ -2,10 +2,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app: pxc
-    cluster: region
-    component: region-proxysql
   name: region-proxysql
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
@@ -18,37 +14,36 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: pxc
-      cluster: region
-      component: region-proxysql
+      app.kubernetes.io/component: proxysql
+      app.kubernetes.io/instance: region
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
   serviceName: region-proxysql-unready
   template:
     metadata:
       labels:
-        app: pxc
-        cluster: region
-        component: region-proxysql
+        app.kubernetes.io/component: proxysql
+        app.kubernetes.io/instance: region
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - pxc
-              - key: cluster
-                operator: In
-                values:
-                - region
-              - key: component
-                operator: In
-                values:
-                - region-proxysql
+              matchLabels:
+                app.kubernetes.io/component: proxysql
+                app.kubernetes.io/instance: region
+                app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                app.kubernetes.io/name: percona-xtradb-cluster
+                app.kubernetes.io/part-of: percona-xtradb-cluster
             topologyKey: failure-domain.beta.kubernetes.io/region
       containers:
       - env:
+        - name: PXC_SERVICE
+          value: region-pxc
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -87,7 +82,10 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/proxysql
           name: proxydata
-          subPath: data
+        - mountPath: /etc/proxysql/ssl
+          name: ssl
+        - mountPath: /etc/proxysql/ssl-internal
+          name: ssl-internal
       - args:
         - /usr/bin/peer-list
         - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -151,8 +149,19 @@ spec:
       schedulerName: default-scheduler
       securityContext:
         supplementalGroups:
-        - 99
+        - 1001
       terminationGracePeriodSeconds: 30
+      volumes:
+      - name: ssl-internal
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: region-ssl-internal
+      - name: ssl
+        secret:
+          defaultMode: 420
+          optional: false
+          secretName: region-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

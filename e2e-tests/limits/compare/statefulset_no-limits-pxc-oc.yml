@@ -2,12 +2,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app.kubernetes.io/component: pxc
-    app.kubernetes.io/instance: no-limits
-    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
-    app.kubernetes.io/name: percona-xtradb-cluster
-    app.kubernetes.io/part-of: percona-xtradb-cluster
   name: no-limits-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
@@ -114,8 +108,8 @@ spec:
       schedulerName: default-scheduler
       securityContext:
         supplementalGroups:
-        - 99
-      terminationGracePeriodSeconds: 30
+        - 1001
+      terminationGracePeriodSeconds: 600
       volumes:
       - emptyDir: {}
         name: tmp
@@ -128,12 +122,12 @@ spec:
         secret:
           defaultMode: 420
           optional: true
-          secretName: no-limits-ssl-internal
+          secretName: some-name-ssl-internal
       - name: ssl
         secret:
           defaultMode: 420
-          optional: true
-          secretName: no-limits-ssl
+          optional: false
+          secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

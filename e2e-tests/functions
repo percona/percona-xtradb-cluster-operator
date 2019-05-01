@@ -141,7 +141,7 @@ wait_for_delete() {
         sleep 1
         echo -n .
         let retry+=1
-        if [ $retry -ge 60 ]; then
+        if [ $retry -ge 120 ]; then
             kubectl logs $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
@@ -311,7 +311,7 @@ get_service_endpoint() {
             | jq '.status.loadBalancer.ingress[].hostname' \
             | sed -e 's/^"//; s/"$//;'
     )
-    if [ $hostname != "null" ]; then
+    if [ -n "$hostname" -a "$hostname" != "null" ]; then
         echo $hostname
         return
     fi
@@ -321,7 +321,7 @@ get_service_endpoint() {
             | jq '.status.loadBalancer.ingress[].ip' \
             | sed -e 's/^"//; s/"$//;'
     )
-    if [ $ip != "null" ]; then
+    if [ -n "$ip" -a "$ip" != "null" ]; then
         echo $ip
         return
     fi
@@ -336,7 +336,8 @@ get_metric_values() {
     local end=$($date -u "+%s")
     local endpoint=$(get_service_endpoint monitoring-service)
     curl -s -k "https://$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7Binstance%3D%22$instance%22%7D&start=$start&end=$end&step=60" \
-        | jq '.data.result[0].values[][1]'
+        | jq '.data.result[0].values[][1]' \
+        | ( grep "^$" && false)
 }
 
 get_qan_values() {

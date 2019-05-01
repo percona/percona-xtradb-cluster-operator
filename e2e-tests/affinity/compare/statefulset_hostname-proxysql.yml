@@ -14,37 +14,36 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: pxc
-      cluster: hostname
-      component: hostname-proxysql
+      app.kubernetes.io/component: proxysql
+      app.kubernetes.io/instance: hostname
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
   serviceName: hostname-proxysql-unready
   template:
     metadata:
       labels:
-        app: pxc
-        cluster: hostname
-        component: hostname-proxysql
+        app.kubernetes.io/component: proxysql
+        app.kubernetes.io/instance: hostname
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - pxc
-              - key: cluster
-                operator: In
-                values:
-                - hostname
-              - key: component
-                operator: In
-                values:
-                - hostname-proxysql
+              matchLabels:
+                app.kubernetes.io/component: proxysql
+                app.kubernetes.io/instance: hostname
+                app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                app.kubernetes.io/name: percona-xtradb-cluster
+                app.kubernetes.io/part-of: percona-xtradb-cluster
             topologyKey: kubernetes.io/hostname
       containers:
       - env:
+        - name: PXC_SERVICE
+          value: hostname-pxc
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -83,7 +82,10 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/proxysql
           name: proxydata
-          subPath: data
+        - mountPath: /etc/proxysql/ssl
+          name: ssl
+        - mountPath: /etc/proxysql/ssl-internal
+          name: ssl-internal
       - args:
         - /usr/bin/peer-list
         - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -148,8 +150,19 @@ spec:
       securityContext:
         fsGroup: 1001
         supplementalGroups:
-        - 99
+        - 1001
       terminationGracePeriodSeconds: 30
+      volumes:
+      - name: ssl-internal
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: hostname-ssl-internal
+      - name: ssl
+        secret:
+          defaultMode: 420
+          optional: false
+          secretName: hostname-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

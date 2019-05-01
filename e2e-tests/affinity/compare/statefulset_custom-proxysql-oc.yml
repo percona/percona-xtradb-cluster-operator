@@ -2,10 +2,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app: pxc
-    cluster: custom
-    component: custom-proxysql
   name: custom-proxysql
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
@@ -18,16 +14,20 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: pxc
-      cluster: custom
-      component: custom-proxysql
+      app.kubernetes.io/component: proxysql
+      app.kubernetes.io/instance: custom
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
   serviceName: custom-proxysql-unready
   template:
     metadata:
       labels:
-        app: pxc
-        cluster: custom
-        component: custom-proxysql
+        app.kubernetes.io/component: proxysql
+        app.kubernetes.io/instance: custom
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       affinity:
         nodeAffinity:
@@ -69,6 +69,8 @@ spec:
             weight: 100
       containers:
       - env:
+        - name: PXC_SERVICE
+          value: custom-pxc
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -107,7 +109,10 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/proxysql
           name: proxydata
-          subPath: data
+        - mountPath: /etc/proxysql/ssl
+          name: ssl
+        - mountPath: /etc/proxysql/ssl-internal
+          name: ssl-internal
       - args:
         - /usr/bin/peer-list
         - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -171,8 +176,19 @@ spec:
       schedulerName: default-scheduler
       securityContext:
         supplementalGroups:
-        - 99
+        - 1001
       terminationGracePeriodSeconds: 30
+      volumes:
+      - name: ssl-internal
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: custom-ssl-internal
+      - name: ssl
+        secret:
+          defaultMode: 420
+          optional: false
+          secretName: custom-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

@@ -136,19 +136,19 @@ spec:
       securityContext:
         fsGroup: 1001
         supplementalGroups:
-        - 99
+        - 1001
       terminationGracePeriodSeconds: 30
       volumes:
       - name: ssl-internal
         secret:
           defaultMode: 420
           optional: true
-          secretName: no-limits-ssl-internal
+          secretName: some-name-ssl-internal
       - name: ssl
         secret:
           defaultMode: 420
-          optional: true
-          secretName: no-limits-ssl
+          optional: false
+          secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

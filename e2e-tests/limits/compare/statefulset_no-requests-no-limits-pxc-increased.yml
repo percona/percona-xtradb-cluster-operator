@@ -106,8 +106,8 @@ spec:
       securityContext:
         fsGroup: 1001
         supplementalGroups:
-        - 99
-      terminationGracePeriodSeconds: 30
+        - 1001
+      terminationGracePeriodSeconds: 600
       volumes:
       - emptyDir: {}
         name: tmp
@@ -120,12 +120,12 @@ spec:
         secret:
           defaultMode: 420
           optional: true
-          secretName: no-requests-no-limits-ssl-internal
+          secretName: some-name-ssl-internal
       - name: ssl
         secret:
           defaultMode: 420
-          optional: true
-          secretName: no-requests-no-limits-ssl
+          optional: false
+          secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

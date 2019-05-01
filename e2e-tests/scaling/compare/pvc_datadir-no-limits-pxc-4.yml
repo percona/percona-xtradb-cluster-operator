@@ -5,9 +5,11 @@ metadata:
     pv.kubernetes.io/bind-completed: "yes"
     pv.kubernetes.io/bound-by-controller: "yes"
   labels:
-    app: pxc
-    cluster: no-limits
-    component: no-limits-pxc
+    app.kubernetes.io/component: pxc
+    app.kubernetes.io/instance: no-limits
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
   name: datadir-no-limits-pxc-4
 spec:
   accessModes:

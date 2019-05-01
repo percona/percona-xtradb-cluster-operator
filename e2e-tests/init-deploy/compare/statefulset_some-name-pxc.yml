@@ -124,7 +124,7 @@ spec:
         fsGroup: 1001
         supplementalGroups:
         - 99
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 600
       volumes:
       - emptyDir: {}
         name: tmp
@@ -141,7 +141,7 @@ spec:
       - name: ssl
         secret:
           defaultMode: 420
-          optional: true
+          optional: false
           secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
@@ -153,7 +153,6 @@ spec:
     spec:
       accessModes:
       - ReadWriteOnce
-      dataSource: null
       resources:
         requests:
           storage: 2Gi

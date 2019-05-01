@@ -172,7 +172,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 			return reconcile.Result{}, fmt.Errorf("pvc not ready, status: %s", pvcStatus)
 		}
 
-		err := bcp.SetStoragePVC(&job.Spec, instance.Spec.PXCCluster, pvc.Name)
+		err := bcp.SetStoragePVC(&job.Spec, cluster, pvc.Name)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
 		}
@@ -181,7 +181,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		if !strings.HasPrefix(bcpStorage.S3.Bucket, "s3://") {
 			destination = "s3://" + destination
 		}
-		err := bcp.SetStorageS3(&job.Spec, instance.Spec.PXCCluster, bcpStorage.S3, destination)
+		err := bcp.SetStorageS3(&job.Spec, cluster, bcpStorage.S3, destination)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
 		}

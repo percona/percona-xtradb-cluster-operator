@@ -127,14 +127,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 							Name:            "xtrabackup",
 							Image:           cluster.Backup.Image,
 							ImagePullPolicy: corev1.PullAlways,
-							Command: []string{
-								"bash",
-								"-exc",
-								`ping -c1 restore-src-` + cr.Name + "-" + bcp.Spec.PXCCluster + ` || :
-								 rm -rf /datadir/*
-								 ncat restore-src-` + cr.Name + "-" + bcp.Spec.PXCCluster + ` 3307 | xbstream -x -C /datadir
-								 xtrabackup --prepare --target-dir=/datadir`,
-							},
+							Command:         []string{"recovery-pvc.sh"},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "datadir",
@@ -147,6 +140,12 @@ func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 								{
 									Name:      "ssl-internal",
 									MountPath: "/etc/mysql/ssl-internal",
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "RESTORE_SRC_SERVICE",
+									Value: "restore-src-" + cr.Name + "-" + bcp.Spec.PXCCluster,
 								},
 							},
 						},
@@ -207,15 +206,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBack
 							Name:            "xtrabackup",
 							Image:           cluster.Backup.Image,
 							ImagePullPolicy: corev1.PullAlways,
-							Command: []string{
-								"bash",
-								"-exc",
-								`mc -C /tmp/mc config host add dest "${AWS_ENDPOINT_URL:-https://s3.amazonaws.com}" "$AWS_ACCESS_KEY_ID" "$AWS_SECRET_ACCESS_KEY"
-								 mc -C /tmp/mc ls dest/` + s3dest + `
-								 rm -rf /datadir/*
-								 mc -C /tmp/mc cat dest/` + s3dest + ` | xbstream -x -C /datadir
-								 xtrabackup --prepare --target-dir=/datadir`,
-							},
+							Command:         []string{"recovery-s3.sh"},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "datadir",
@@ -223,6 +214,10 @@ func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBack
 								},
 							},
 							Env: []corev1.EnvVar{
+								{
+									Name:  "S3_BUCKET_URL",
+									Value: s3dest,
+								},
 								{
 									Name:  "AWS_ENDPOINT_URL",
 									Value: bcp.Status.S3.EndpointURL,

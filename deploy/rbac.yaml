@@ -8,6 +8,7 @@ rules:
   resources:
   - perconaxtradbclusters
   - perconaxtradbbackups
+  - perconaxtradbbackuprestores
   verbs:
   - get
   - list

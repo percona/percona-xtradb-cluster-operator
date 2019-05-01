@@ -2,12 +2,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app.kubernetes.io/component: pxc
-    app.kubernetes.io/instance: some-name
-    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
-    app.kubernetes.io/name: percona-xtradb-cluster
-    app.kubernetes.io/part-of: percona-xtradb-cluster
   name: some-name-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
@@ -129,7 +123,7 @@ spec:
       securityContext:
         supplementalGroups:
         - 99
-      terminationGracePeriodSeconds: 30
+      terminationGracePeriodSeconds: 600
       volumes:
       - emptyDir: {}
         name: tmp
@@ -146,7 +140,7 @@ spec:
       - name: ssl
         secret:
           defaultMode: 420
-          optional: true
+          optional: false
           secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:

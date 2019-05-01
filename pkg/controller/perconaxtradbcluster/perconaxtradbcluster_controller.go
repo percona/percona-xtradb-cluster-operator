@@ -238,7 +238,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.reconsileSSL(cr, nodeSet.Namespace)
 	if err != nil {
-		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.SSLSecretName+` manually or setup cert-manager correctly`, err)
+		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.PXC.SSLSecretName+` and `+cr.Spec.PXC.SSLInternalSecretName+` manually or setup cert-manager correctly`, err)
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)
@@ -365,10 +365,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 			Name:      issuerName,
 			Namespace: namespace,
 		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "certmanager.k8s.io/v1alpha1",
-			Kind:       issuerKind,
-		},
 		Spec: cm.IssuerSpec{
 			IssuerConfig: cm.IssuerConfig{
 				SelfSigned: &cm.SelfSignedIssuer{},
@@ -384,16 +380,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 			Name:      cr.Name + "-ssl",
 			Namespace: namespace,
 		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "certmanager.k8s.io/v1alpha1",
-			Kind:       "Certificate",
-		},
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLSecretName,
-			CommonName: cr.Name + "-pxc",
+			CommonName: cr.Name + "-proxysql",
 			DNSNames: []string{
-				cr.Name + "-proxysql",
-				"*." + cr.Name + "-pxc",
 				"*." + cr.Name + "-proxysql",
 			},
 			IsCA: true,
@@ -405,6 +395,32 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 	})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("create certificate: %v", err)
+	}
+
+	if cr.Spec.PXC.SSLSecretName == cr.Spec.PXC.SSLInternalSecretName {
+		return nil
+	}
+
+	err = r.client.Create(context.TODO(), &cm.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-ssl-internal",
+			Namespace: namespace,
+		},
+		Spec: cm.CertificateSpec{
+			SecretName: cr.Spec.PXC.SSLInternalSecretName,
+			CommonName: cr.Name + "-pxc",
+			DNSNames: []string{
+				"*." + cr.Name + "-pxc",
+			},
+			IsCA: true,
+			IssuerRef: cm.ObjectReference{
+				Name: issuerName,
+				Kind: issuerKind,
+			},
+		},
+	})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("create internal certificate: %v", err)
 	}
 
 	return nil

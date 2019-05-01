@@ -12,14 +12,15 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform      *Platform           `json:"platform,omitempty"`
-	Pause         bool                `json:"pause,omitempty"`
-	SecretsName   string              `json:"secretsName,omitempty"`
-	SSLSecretName string              `json:"sslSecretName,omitempty"`
-	PXC           *PodSpec            `json:"pxc,omitempty"`
-	ProxySQL      *PodSpec            `json:"proxysql,omitempty"`
-	PMM           *PMMSpec            `json:"pmm,omitempty"`
-	Backup        *PXCScheduledBackup `json:"backup,omitempty"`
+	Platform              *Platform           `json:"platform,omitempty"`
+	Pause                 bool                `json:"pause,omitempty"`
+	SecretsName           string              `json:"secretsName,omitempty"`
+	SSLSecretName         string              `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName string              `json:"sslInternalSecretName,omitempty"`
+	PXC                   *PodSpec            `json:"pxc,omitempty"`
+	ProxySQL              *PodSpec            `json:"proxysql,omitempty"`
+	PMM                   *PMMSpec            `json:"pmm,omitempty"`
+	Backup                *PXCScheduledBackup `json:"backup,omitempty"`
 }
 
 type PXCScheduledBackup struct {
@@ -98,6 +99,7 @@ type PodSpec struct {
 	Configuration                 string                        `json:"configuration,omitempty"`
 	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
 	SSLSecretName                 string                        `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
 	ServiceType                   *corev1.ServiceType           `json:"serviceType,omitempty"`
@@ -236,6 +238,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 			c.PXC.SSLSecretName = cr.Name + "-ssl"
 		}
 
+		if len(c.SSLInternalSecretName) > 0 {
+			c.PXC.SSLInternalSecretName = c.SSLInternalSecretName
+		} else {
+			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
+		}
+
 		// pxc replicas shouldn't be less than 3 for safe configuration
 		if c.PXC.Size < 3 && !c.PXC.AllowUnsafeConfig {
 			c.PXC.Size = 3
@@ -277,6 +285,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 			c.ProxySQL.SSLSecretName = c.SSLSecretName
 		} else {
 			c.ProxySQL.SSLSecretName = cr.Name + "-ssl"
+		}
+
+		if len(c.SSLInternalSecretName) > 0 {
+			c.ProxySQL.SSLInternalSecretName = c.SSLInternalSecretName
+		} else {
+			c.ProxySQL.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}
 
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-ProxySQL.

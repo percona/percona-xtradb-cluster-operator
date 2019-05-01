@@ -74,13 +74,13 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, secret
 	}
 }
 
-func appendStorageSecret(job *batchv1.JobSpec, clusterName string) error {
+func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) error {
 	// Volume for secret
 	secretVol := corev1.Volume{
 		Name: "ssl",
 	}
 	secretVol.Secret = &corev1.SecretVolumeSource{}
-	secretVol.Secret.SecretName = clusterName + "-ssl"
+	secretVol.Secret.SecretName = cr.Spec.PXC.SSLSecretName
 	t := true
 	secretVol.Secret.Optional = &t
 
@@ -89,7 +89,7 @@ func appendStorageSecret(job *batchv1.JobSpec, clusterName string) error {
 		Name: "ssl-internal",
 	}
 	secretIntVol.Secret = &corev1.SecretVolumeSource{}
-	secretIntVol.Secret.SecretName = clusterName + "-ssl-internal"
+	secretIntVol.Secret.SecretName = cr.Spec.PXC.SSLInternalSecretName
 	secretIntVol.Secret.Optional = &t
 
 	if len(job.Template.Spec.Containers) == 0 {
@@ -115,7 +115,7 @@ func appendStorageSecret(job *batchv1.JobSpec, clusterName string) error {
 	return nil
 }
 
-func (Backup) SetStoragePVC(job *batchv1.JobSpec, clusterName, volName string) error {
+func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, volName string) error {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}
@@ -135,12 +135,12 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, clusterName, volName string) e
 	job.Template.Spec.Volumes = []corev1.Volume{
 		pvc,
 	}
-	appendStorageSecret(job, clusterName)
+	appendStorageSecret(job, cr)
 
 	return nil
 }
 
-func (Backup) SetStorageS3(job *batchv1.JobSpec, clusterName string, s3 api.BackupStorageS3Spec, destination string) error {
+func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s3 api.BackupStorageS3Spec, destination string) error {
 	accessKey := corev1.EnvVar{
 		Name: "ACCESS_KEY_ID",
 		ValueFrom: &corev1.EnvVarSource{
@@ -184,7 +184,7 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, clusterName string, s3 api.Back
 	// add SSL volumes
 	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
 	job.Template.Spec.Volumes = []corev1.Volume{}
-	appendStorageSecret(job, clusterName)
+	appendStorageSecret(job, cr)
 
 	return nil
 }

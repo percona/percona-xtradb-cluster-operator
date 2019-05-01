@@ -48,7 +48,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 
 	podPVCs := []corev1.Volume{
 		podPVC,
-		app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLSecretName+"-internal", true),
+		app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.PXC.AllowUnsafeConfig),
 	}
 	return &corev1.Pod{
@@ -106,7 +106,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 
 	jobPVCs := []corev1.Volume{
 		jobPVC,
-		app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLSecretName+"-internal", true),
+		app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.PXC.AllowUnsafeConfig),
 	}
 

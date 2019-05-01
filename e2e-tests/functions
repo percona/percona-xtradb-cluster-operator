@@ -161,7 +161,7 @@ compare_kubectl() {
     fi
 
     kubectl get -o yaml ${resource} \
-        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|image:|clusterIP:" \
+        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|image:|clusterIP:|dataSource:" \
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: {}" \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
@@ -281,6 +281,11 @@ destroy() {
     #TODO: maybe will be enabled later
     #diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
+    kubectl delete pxc --all
+    kubectl delete pxc-backup --all
+    kubectl delete pxc-recovery --all || :
+
+    kubectl delete -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml || :
     if [ "$OPENSHIFT" == 1 ]; then
         oc delete --grace-period=0 --force=true project "$namespace"
     else
@@ -374,4 +379,10 @@ spinup_pxc() {
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+}
+
+deploy_cert_manager() {
+    kubectl create namespace cert-manager || :
+    kubectl label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
+    kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml --validate=false || : 2>/dev/null
 }

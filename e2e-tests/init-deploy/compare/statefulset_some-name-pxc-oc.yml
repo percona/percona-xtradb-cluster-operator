@@ -122,7 +122,7 @@ spec:
       schedulerName: default-scheduler
       securityContext:
         supplementalGroups:
-        - 99
+        - 1001
       terminationGracePeriodSeconds: 600
       volumes:
       - emptyDir: {}

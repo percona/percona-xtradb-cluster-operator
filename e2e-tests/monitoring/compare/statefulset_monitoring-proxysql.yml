@@ -14,19 +14,25 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: pxc
-      cluster: monitoring
-      component: monitoring-proxysql
+      app.kubernetes.io/component: proxysql
+      app.kubernetes.io/instance: monitoring
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
   serviceName: monitoring-proxysql-unready
   template:
     metadata:
       labels:
-        app: pxc
-        cluster: monitoring
-        component: monitoring-proxysql
+        app.kubernetes.io/component: proxysql
+        app.kubernetes.io/instance: monitoring
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
       - env:
+        - name: PXC_SERVICE
+          value: monitoring-pxc
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -62,7 +68,10 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/proxysql
           name: proxydata
-          subPath: data
+        - mountPath: /etc/proxysql/ssl
+          name: ssl
+        - mountPath: /etc/proxysql/ssl-internal
+          name: ssl-internal
       - env:
         - name: PMM_SERVER
           value: monitoring-service
@@ -146,8 +155,19 @@ spec:
       securityContext:
         fsGroup: 1001
         supplementalGroups:
-        - 99
+        - 1001
       terminationGracePeriodSeconds: 30
+      volumes:
+      - name: ssl-internal
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: monitoring-ssl-internal
+      - name: ssl
+        secret:
+          defaultMode: 420
+          optional: false
+          secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

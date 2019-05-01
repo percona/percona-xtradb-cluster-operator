@@ -2,10 +2,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  labels:
-    app: pxc
-    cluster: hostpath
-    component: hostpath-pxc
   name: hostpath-pxc
   ownerReferences:
   - apiVersion: pxc.percona.com/v1alpha1
@@ -18,34 +14,31 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: pxc
-      cluster: hostpath
-      component: hostpath-pxc
+      app.kubernetes.io/component: pxc
+      app.kubernetes.io/instance: hostpath
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
   serviceName: hostpath-pxc
   template:
     metadata:
       labels:
-        app: pxc
-        cluster: hostpath
-        component: hostpath-pxc
+        app.kubernetes.io/component: pxc
+        app.kubernetes.io/instance: hostpath
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - pxc
-              - key: cluster
-                operator: In
-                values:
-                - hostpath
-              - key: component
-                operator: In
-                values:
-                - hostpath-pxc
+              matchLabels:
+                app.kubernetes.io/component: pxc
+                app.kubernetes.io/instance: hostpath
+                app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                app.kubernetes.io/name: percona-xtradb-cluster
+                app.kubernetes.io/part-of: percona-xtradb-cluster
             topologyKey: kubernetes.io/hostname
       containers:
       - env:
@@ -86,6 +79,15 @@ spec:
         - containerPort: 3306
           name: mysql
           protocol: TCP
+        - containerPort: 4444
+          name: sst
+          protocol: TCP
+        - containerPort: 4567
+          name: write-set
+          protocol: TCP
+        - containerPort: 4568
+          name: ist
+          protocol: TCP
         readinessProbe:
           exec:
             command:
@@ -101,25 +103,43 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/mysql
           name: datadir
-        - mountPath: /etc/mysql/conf.d/
-          name: config-volume
+        - mountPath: /etc/mysql/conf.d
+          name: config
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /etc/mysql/ssl
+          name: ssl
+        - mountPath: /etc/mysql/ssl-internal
+          name: ssl-internal
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
         supplementalGroups:
-        - 99
-      terminationGracePeriodSeconds: 30
+        - 1001
+      terminationGracePeriodSeconds: 600
       volumes:
       - hostPath:
           path: /tmp/data-dir
           type: Directory
         name: datadir
+      - emptyDir: {}
+        name: tmp
       - configMap:
           defaultMode: 420
           name: hostpath-pxc
           optional: true
-        name: config-volume
+        name: config
+      - name: ssl-internal
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: hostpath-ssl-internal
+      - name: ssl
+        secret:
+          defaultMode: 420
+          optional: false
+          secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

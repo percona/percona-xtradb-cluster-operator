@@ -41,7 +41,8 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, secret
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				SecurityContext: &corev1.PodSecurityContext{
-					FSGroup: fsgroup,
+					SupplementalGroups: []int64{1001},
+					FSGroup:            fsgroup,
 				},
 				ImagePullSecrets: bcp.imagePullSecrets,
 				RestartPolicy:    corev1.RestartPolicyNever,

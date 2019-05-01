@@ -20,7 +20,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 
 	pod := corev1.PodSpec{
 		SecurityContext: &corev1.PodSecurityContext{
-			SupplementalGroups: []int64{99},
+			SupplementalGroups: []int64{1001},
 			FSGroup:            fsgroup,
 		},
 		NodeSelector:                  podSpec.NodeSelector,

@@ -123,7 +123,7 @@ spec:
       securityContext:
         fsGroup: 1001
         supplementalGroups:
-        - 99
+        - 1001
       terminationGracePeriodSeconds: 600
       volumes:
       - emptyDir: {}

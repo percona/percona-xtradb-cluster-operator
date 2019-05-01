@@ -46,9 +46,11 @@ run_recovery_check() {
     compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
     desc 'recover backup'
-    echo y | bash $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster}
+    # echo y | bash $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster}
+    kubectl apply -f "$test_dir/conf/restore-${backup1}.yaml"
     kubectl logs job/restore-job-${cluster}
-    kubectl delete job/restore-job-${cluster}
+    # kubectl delete job/restore-job-${cluster}
+    kubectl delete -f "$test_dir/conf/restore-${backup1}.yaml"
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
 
@@ -92,7 +94,7 @@ main() {
     kubectl apply \
         -f $conf_dir/minio-secret.yml \
         -f $conf_dir/cloud-secret.yml
-    start_minio
+    # start_minio
 
     cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
@@ -104,8 +106,8 @@ main() {
     run_backup         "$cluster" "on-demand-backup-aws-s3"
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
 
-    run_backup         "$cluster" "on-demand-backup-minio"
-    run_recovery_check "$cluster" "on-demand-backup-minio"
+    # run_backup         "$cluster" "on-demand-backup-minio"
+    # run_recovery_check "$cluster" "on-demand-backup-minio"
 
     run_backup         "$cluster" "on-demand-backup-gcp-cs"
     run_recovery_check "$cluster" "on-demand-backup-gcp-cs"

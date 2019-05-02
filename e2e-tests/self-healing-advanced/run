@@ -1,0 +1,74 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+cluster="self-healing-advanced"
+
+setup_cluster() {
+    # create cluster
+    kubectl apply \
+        -f $conf_dir/secrets.yml \
+        -f $test_dir/conf/$cluster.yml \
+        -f $test_dir/conf/pumba.yml \
+        -f $conf_dir/client.yml
+
+    # check if all 3 Pods started
+    wait_for_running $cluster-pxc 3
+
+    desc 'check data consistency: write data, read from all'
+    run_mysql \
+        'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+        "-h $cluster-pxc -uroot -proot_password"
+    run_mysql \
+        'INSERT myApp.myApp (id) VALUES (100500)' \
+        "-h $cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+}
+
+pumba_all_pods() {
+    local action=$1
+
+    # run chaos for Pod
+    for i in $(seq 1 5); do
+        run_pumba $action "re2:$cluster-pxc-[0-9]+_"
+    done
+    sleep 60
+
+    kubectl get pods \
+        | grep $cluster-pxc- \
+        | grep CrashLoopBackOff
+
+    kubectl delete -f $test_dir/conf/$cluster.yml
+    sed -e 's/forceUnsafeBootstrap: false/forceUnsafeBootstrap: true/' $test_dir/conf/$cluster.yml \
+        | kubectl apply -f-
+
+    # check if all 3 Pods started
+    wait_for_running $cluster-pxc 3
+    sleep 10
+
+    desc 'check data consistency for chaosed Pod'
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+}
+
+main() {
+    create_namespace $namespace
+    deploy_operator
+
+    desc 'start cluster'
+    setup_cluster
+
+    # pumba should be run on all pxc
+    desc 'kill all PXC pods'
+    pumba_all_pods kill
+
+    destroy $namespace
+}
+
+main

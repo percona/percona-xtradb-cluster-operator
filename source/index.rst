@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 ====
 
-Percona Kubernetes Operator for PXC 
+Percona Kubernetes Operator for PXC
 ====================================
 
 
@@ -13,30 +13,23 @@ Installation
 ============
 .. toctree::
   :maxdepth: 1
- 
 
-  Requirements
-  Install on Kubernetes
-  Install on OpenShift
-  Scale Up/Down
-  Add Monitoring
-  External Registry
+
+  kubernetes
+  openshift
+  scaling
+  monitoring
+  custom-registry
 
 Configuration
 =============
 .. toctree::
   :maxdepth: 1
- 
-
-  Users
-  Operator Options
-  Backups
-  Nodes Assignment
-  Local Storage
-  Changing MySQL Options
 
 
-
-
-
-
+  users
+  operator
+  backups
+  storage
+  constraints
+  options

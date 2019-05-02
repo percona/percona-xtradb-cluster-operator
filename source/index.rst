@@ -4,23 +4,20 @@
    contain the root `toctree` directive.
 ====
 
-Welcome to pxc-docs's documentation!
+Percona Kubernetes Operator for PXC 
 ====================================
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+
 
 Installation
 ============
 .. toctree::
   :maxdepth: 1
-  :includehidden:
-  :titlesonly:
+ 
 
-  requirements
-  install on Kubernetes
-  install on OpenShift
+  Requirements
+  Install on Kubernetes
+  Install on OpenShift
   Scale Up/Down
   Add Monitoring
   External Registry
@@ -29,10 +26,9 @@ Configuration
 =============
 .. toctree::
   :maxdepth: 1
-  :includehidden:
-  :titlesonly:
+ 
 
-  users
+  Users
   Operator Options
   Backups
   Nodes Assignment
@@ -43,9 +39,4 @@ Configuration
 
 
 
-Indices and tables
-==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

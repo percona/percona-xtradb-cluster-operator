@@ -34,6 +34,15 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	appC.Resources = res
 	newContainers = append(newContainers, appC)
 
+	if podSpec.ForceUnsafeBootstrap {
+		ic := appC.DeepCopy()
+		ic.Name = ic.Name + "-init"
+		ic.ReadinessProbe = nil
+		ic.LivenessProbe = nil
+		ic.Command = []string{"/unsafe-bootstrap.sh"}
+		newContainers = append(newContainers, *ic)
+	}
+
 	// pmm container
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName)

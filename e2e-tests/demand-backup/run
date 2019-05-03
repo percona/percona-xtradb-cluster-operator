@@ -48,6 +48,7 @@ run_recovery_check() {
     desc 'recover backup'
     # echo y | bash $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster}
     kubectl apply -f "$test_dir/conf/restore-${backup1}.yaml"
+    wait_backup_restore ${backup1}
     kubectl logs job/restore-job-${cluster}
     # kubectl delete job/restore-job-${cluster}
     kubectl delete -f "$test_dir/conf/restore-${backup1}.yaml"

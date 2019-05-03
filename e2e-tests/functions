@@ -78,6 +78,25 @@ wait_backup() {
     set -o xtrace
 }
 
+wait_backup_restore() {
+    local name=$1
+
+    set +o xtrace
+    retry=0
+    echo -n $name
+    until kubectl get pxc-backup-restore/$name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+        sleep 1
+        echo -n .
+        let retry+=1
+        if [ $retry -ge 60 ]; then
+            kubectl logs $(get_operator_pod)
+            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+            exit 1
+        fi
+    done
+    set -o xtrace
+}
+
 deploy_operator() {
     desc 'start operator'
     sed -e "s^image: .*^image: ${IMAGE}^" \

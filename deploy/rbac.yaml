@@ -9,6 +9,7 @@ rules:
   - perconaxtradbclusters
   - perconaxtradbbackups
   - perconaxtradbbackuprestores
+  - perconaxtradbbackuprestores/status
   verbs:
   - get
   - list

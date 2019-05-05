@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -100,12 +99,12 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 		context.TODO(),
 		&client.ListOptions{
 			Namespace: cr.Namespace,
-			FieldSelector: fields.SelectorFromSet(map[string]string{
-				"spec.pxcCluster": cr.Spec.PXCCluster,
-			}),
 		},
 		rJobsList,
 	)
+	if err != nil {
+		return rr, errors.Wrap(err, "get restore jobs list")
+	}
 
 	returnMsg := fmt.Sprintf(backupRestoredMsg, cr.Name, cr.Spec.PXCCluster, cr.Name)
 
@@ -119,7 +118,9 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 	}()
 
 	for _, j := range rJobsList.Items {
-		if j.Name != cr.Name && j.Status.State != api.RestoreFailed && j.Status.State != api.RestoreSucceeded {
+		if j.Spec.PXCCluster == cr.Spec.PXCCluster &&
+			j.Name != cr.Name && j.Status.State != api.RestoreFailed &&
+			j.Status.State != api.RestoreSucceeded {
 			err = errors.Errorf("unable to continue, concurent restore job %s running now.", j.Name)
 			return rr, err
 		}
@@ -199,15 +200,11 @@ $ kubectl delete pxc-backup-restore/%s
 func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCluster) error {
 	var gracePeriodSec int64
 
-	if c.Spec.PXC != nil {
-		if c.Spec.PXC.TerminationGracePeriodSeconds != nil {
-			gracePeriodSec = int64(c.Spec.PXC.Size) * *c.Spec.PXC.TerminationGracePeriodSeconds
-		}
-		c.Spec.PXC.Size = 0
+	if c.Spec.PXC != nil && c.Spec.PXC.TerminationGracePeriodSeconds != nil {
+		gracePeriodSec = int64(c.Spec.PXC.Size) * *c.Spec.PXC.TerminationGracePeriodSeconds
 	}
-	if c.Spec.ProxySQL != nil {
-		c.Spec.ProxySQL.Size = 0
-	}
+
+	c.Spec.Pause = true
 
 	err := r.client.Update(context.TODO(), c)
 	if err != nil {

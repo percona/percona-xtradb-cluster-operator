@@ -16,6 +16,9 @@ import (
 )
 
 func (r *ReconcilePerconaXtraDBBackupRestore) restore(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, cluster api.PerconaXtraDBClusterSpec) error {
+	if cluster.Backup == nil {
+		return errors.New("undefined backup section in a cluster spec")
+	}
 	if len(bcp.Status.Destination) > 6 {
 		switch {
 		case bcp.Status.Destination[:4] == "pvc/":

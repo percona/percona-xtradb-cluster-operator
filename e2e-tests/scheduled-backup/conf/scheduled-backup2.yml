@@ -4,6 +4,8 @@ metadata:
   name: scheduled-backup
 spec:
   secretsName: my-cluster-secrets
+  sslSecretName: some-name-ssl
+  sslInternalSecretName: some-name-ssl-internal
   pxc:
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc

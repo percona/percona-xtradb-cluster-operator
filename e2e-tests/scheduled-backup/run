@@ -10,6 +10,8 @@ run_recovery_check() {
     local cluster=$1
     local backup1=$2
 
+    restore_name="restore-name"
+
     desc 'write data after backup'
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100501)' \
@@ -19,9 +21,16 @@ run_recovery_check() {
     compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
     desc 'recover backup'
-    echo y | bash $src_dir/deploy/backup/restore-backup.sh $backup1 ${cluster}
-    kubectl logs job/restore-job-${cluster}
-    kubectl delete job/restore-job-${cluster}
+    cat $src_dir/deploy/backup/restore.yaml \
+    | $sed "s/pxcCluster: .*/pxcCluster: $cluster/" \
+    | $sed "s/backupName: .*/backupName: $backup1/" \
+    | $sed "s/name: .*/name: $restore_name/" \
+    | kubectl apply -f -
+    wait_backup_restore ${restore_name}
+
+    kubectl logs job/restore-job-${restore_name}-${cluster}
+    kubectl delete pxc-backup-restore/${restore_name}
+    
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
 
@@ -90,7 +99,7 @@ main() {
 
     wait_backup "pvc"
     wait_backup "aws-s3"
-    wait_backup "minio"
+    # wait_backup "minio"
     wait_backup "gcp-cs"
 
     backup_name_pvc=$(get_backup_name "pvc")

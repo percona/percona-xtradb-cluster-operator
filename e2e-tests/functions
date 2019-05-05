@@ -88,7 +88,7 @@ wait_backup_restore() {
         sleep 1
         echo -n .
         let retry+=1
-        if [ $retry -ge 60 ]; then
+        if [ $retry -ge 600 ]; then
             kubectl logs $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
@@ -302,7 +302,7 @@ destroy() {
 
     kubectl delete pxc --all
     kubectl delete pxc-backup --all
-    kubectl delete pxc-recovery --all || :
+    kubectl delete pxc-backup-restore --all || :
 
     kubectl delete -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml || :
     if [ "$OPENSHIFT" == 1 ]; then

@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
 const (

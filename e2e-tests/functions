@@ -337,7 +337,7 @@ get_metric_values() {
     local endpoint=$(get_service_endpoint monitoring-service)
     curl -s -k "https://$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7Binstance%3D%22$instance%22%7D&start=$start&end=$end&step=60" \
         | jq '.data.result[0].values[][1]' \
-        | ( grep "^$" && false)
+        | grep '^"[0-9]'
 }
 
 get_qan_values() {

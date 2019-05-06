@@ -40,4 +40,4 @@ To make development and testing easier, `deploy/secrets.yaml` secrets file conta
 | monitor        | bW9uaXRvcg==         | `monitor`             | [User for PMM agent](https://percona.github.io/percona-xtradb-cluster-operator/configure/users) |
 | clustercheck   | Y2x1c3RlcmNoZWNrcGFzc3dvcmQ= | `custercheckpassword` | [User for liveness and readiness checks](http://galeracluster.com/documentation-webpages/monitoringthecluster.html) |
 | proxyadmin     | YWRtaW5fcGFzc3dvcmQ= | `admin_password`      | ProxySQL administrative user who can be used [for adding new general purpose ProxySQL users](https://github.com/sysown/proxysql/wiki/Users-configuration#creating-a-new-user)|
-| pmmserver      | c3VwYXxefHBheno= | `supa\|^\|pazz` | Used to access PMM Server |
+| pmmserver      | c3VwYXxefHBheno= | `supa\|^\|pazz` |[Able to access PMM Server](https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling) |

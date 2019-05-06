@@ -28,6 +28,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	var newContainers []corev1.Container
+	var newInitContainers []corev1.Container
 
 	// application container
 	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName)
@@ -40,7 +41,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil
 		ic.Command = []string{"/unsafe-bootstrap.sh"}
-		newContainers = append(newContainers, *ic)
+		newInitContainers = append(newInitContainers, *ic)
 	}
 
 	// pmm container
@@ -53,6 +54,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	newContainers = append(newContainers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 
 	currentSet.Spec.Template.Spec.Containers = newContainers
+	currentSet.Spec.Template.Spec.InitContainers = newInitContainers
 	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
 
 	return r.client.Update(context.TODO(), currentSet)

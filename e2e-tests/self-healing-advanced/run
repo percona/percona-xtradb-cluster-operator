@@ -43,9 +43,9 @@ pumba_all_pods() {
         | grep $cluster-pxc- \
         | grep CrashLoopBackOff
 
-    kubectl delete -f $test_dir/conf/$cluster.yml
     sed -e 's/forceUnsafeBootstrap: false/forceUnsafeBootstrap: true/' $test_dir/conf/$cluster.yml \
         | kubectl apply -f-
+    kubectl delete pod self-healing-advanced-pxc-0 self-healing-advanced-pxc-1 self-healing-advanced-pxc-2
 
     # check if all 3 Pods started
     wait_for_running $cluster-pxc 3

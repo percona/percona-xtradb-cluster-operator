@@ -17,4 +17,5 @@ $dir/scheduled-backup/run
 
 $dir/storage/run
 $dir/self-healing/run
+$dir/self-healing-advanced/run
 $dir/operator-self-healing/run

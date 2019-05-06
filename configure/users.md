@@ -28,16 +28,16 @@ You may also try executing any simple SQL statement to make sure permissions hav
 
 The Operator requires system-level PXC users to automate the PXC deployment.
 
-To make development and testing easier, `deploy/secrets.yaml` secrets file contains default passwords for PXC system users.
+To make development and testing easier, `deploy/secrets.yaml` secrets file contains default passwords for PXC system users and are mapped with key/value pairs. The username is the key and the value is an encoded password used to access a server or a system object.
 
 
-**Warning:** *These users should not be used to run an application. Do not use the default PXC user passwords in production!*
+**Warning:** *These users should be used for demonstration and proof-of-concept purposes only. Do not use the listed PXC user passwords in production or to run an application!*
 
-| User name      | Password             |Unencrypted password | Description                             |
-|----------------|----------------------|---------------------|-----------------------------------------|
-| root           | cm9vdF9wYXNzd29yZA== | `root_password`       | Database administrative user - should be used only for maintenance tasks |
-| xtrabackup     | YmFja3VwX3Bhc3N3b3Jk | `backup_password`     | [User able to run backups](https://www.percona.com/doc/percona-xtrabackup/2.4/using_xtrabackup/privileges.html) |
-| monitor        | bW9uaXRvcg==         | `monitor`             | [User for PMM agent](https://percona.github.io/percona-xtradb-cluster-operator/configure/users) |
-| clustercheck   | Y2x1c3RlcmNoZWNrcGFzc3dvcmQ= | `custercheckpassword` | [User for liveness and readiness checks](http://galeracluster.com/documentation-webpages/monitoringthecluster.html) |
-| proxyadmin     | YWRtaW5fcGFzc3dvcmQ= | `admin_password`      | ProxySQL administrative user who can be used [for adding new general purpose ProxySQL users](https://github.com/sysown/proxysql/wiki/Users-configuration#creating-a-new-user)|
-| pmmserver      | c3VwYXxefHBheno= | `supa\|^\|pazz` |[Able to access PMM Server](https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling) |
+| User name                  |Unencrypted password | Description                             |
+|----------------|---------------------|-----------------------------------------|
+| root            | `root_password`       | Admin - Database administrator.  Should be used only for maintenance tasks |
+| xtrabackup      | `backup_password`     | Backup -  [User able to run backups](https://www.percona.com/doc/percona-xtrabackup/2.4/using_xtrabackup/privileges.html) |
+| monitor        | `monitor`             | PMM Client User - [User for PMM agent](https://percona.github.io/percona-xtradb-cluster-operator/configure/users) |
+| clustercheck    | `custercheckpassword` | Cluster Check - [User for liveness and readiness checks](http://galeracluster.com/documentation-webpages/monitoringthecluster.html) |
+| proxyadmin     | `admin_password`      | ProxySQL Admin - administrator who can be used [for adding general purpose ProxySQL users](https://github.com/sysown/proxysql/wiki/Users-configuration#creating-a-new-user)|
+| pmmserver       | `pmmserver` | PMM Server [Able to access PMM Server](https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling) |

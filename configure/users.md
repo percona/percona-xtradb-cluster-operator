@@ -35,9 +35,9 @@ To make development and testing easier, `deploy/secrets.yaml` secrets file conta
 
 | User name      | Password             |Unencrypted password | Description                             |
 |----------------|----------------------|---------------------|-----------------------------------------|
-| root           | cm9vdF9wYXNzd29yZA== | root_password       | Database administrative user - should be used only for maintenance tasks |
-| xtrabackup     | YmFja3VwX3Bhc3N3b3Jk | backup_password     | [User able to run backups](https://www.percona.com/doc/percona-xtrabackup/2.4/using_xtrabackup/privileges.html) |
-| monitor        | bW9uaXRvcg==         | monitor             | [User for PMM agent](https://percona.github.io/percona-xtradb-cluster-operator/configure/users) |
-| clustercheck   | Y2x1c3RlcmNoZWNrcGFzc3dvcmQ= | custercheckpassword | [User for liveness and readiness checks](http://galeracluster.com/documentation-webpages/monitoringthecluster.html) |
-| proxyadmin     | YWRtaW5fcGFzc3dvcmQ= | admin_password      | ProxySQL administrative user who can be used [for adding new general purpose ProxySQL users](https://github.com/sysown/proxysql/wiki/Users-configuration#creating-a-new-user)|
-| pmmserver      | c3VwYXxefHBheno= | supa|^|pazz | Used to access PMM Server |
+| root           | cm9vdF9wYXNzd29yZA== | `root_password`       | Database administrative user - should be used only for maintenance tasks |
+| xtrabackup     | YmFja3VwX3Bhc3N3b3Jk | `backup_password`     | [User able to run backups](https://www.percona.com/doc/percona-xtrabackup/2.4/using_xtrabackup/privileges.html) |
+| monitor        | bW9uaXRvcg==         | `monitor`             | [User for PMM agent](https://percona.github.io/percona-xtradb-cluster-operator/configure/users) |
+| clustercheck   | Y2x1c3RlcmNoZWNrcGFzc3dvcmQ= | `custercheckpassword` | [User for liveness and readiness checks](http://galeracluster.com/documentation-webpages/monitoringthecluster.html) |
+| proxyadmin     | YWRtaW5fcGFzc3dvcmQ= | `admin_password`      | ProxySQL administrative user who can be used [for adding new general purpose ProxySQL users](https://github.com/sysown/proxysql/wiki/Users-configuration#creating-a-new-user)|
+| pmmserver      | c3VwYXxefHBheno= | `supa|^|pazz` | Used to access PMM Server |

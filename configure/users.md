@@ -30,10 +30,15 @@ The Operator requires system-level PXC users to automate the PXC deployment.
 
 To make development and testing easier, `deploy/secrets.yaml` secrets file contains default passwords for PXC system users and are mapped with key/value pairs. The username is the key and the value is an encoded password used to access a server or a system object.
 
+You can decode the value in `secrets.yaml` with the following command:
+```bash
+echo <value> | base64 --decode
+```
+
 
 **Warning:** *These users should be used for demonstration and proof-of-concept purposes only. Do not use the listed PXC user passwords in production or to run an application!*
 
-| User name                  |Unencrypted password | Description                             |
+| User name                  |Unencoded password | Description                             |
 |----------------|---------------------|-----------------------------------------|
 | root            | `root_password`       | Admin - Database administrator.  Should be used only for maintenance tasks |
 | xtrabackup      | `backup_password`     | Backup -  [User able to run backups](https://www.percona.com/doc/percona-xtrabackup/2.4/using_xtrabackup/privileges.html) |

@@ -99,7 +99,7 @@ main() {
 
     wait_backup "pvc"
     wait_backup "aws-s3"
-    # wait_backup "minio"
+    wait_backup "minio"
     wait_backup "gcp-cs"
 
     backup_name_pvc=$(get_backup_name "pvc")

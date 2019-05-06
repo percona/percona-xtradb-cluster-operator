@@ -26,40 +26,18 @@ You may also try executing any simple SQL statement to make sure permissions hav
 
 ### System Users
 
-*Default Secret name:* `my-cluster-secrets`
-
-*Secret name field:* `spec.secretsName`
-
 The Operator requires system-level PXC users to automate the PXC deployment.
-
-**Warning:** *These users should not be used to run an application.*
-
-
-|User Purpose        | Username         | Password Secret Key | Description                     |
-|--------------------|------------------|---------------------|---------------------------------|
-|Admin               | root             | root                | Database administrative user, should be used for maintenance tasks only |
-|ProxySQL Admin      | proxyadmin       | proxyadmin          | ProxySQL administrative user, can be used for [adding new general purpouse ProxySQL users](https://github.com/sysown/proxysql/wiki/Users-configuration#creating-a-new-user). |
-|Backup              | xtrabackup       | xtrabackup          | [User for run backups](https://www.percona.com/doc/percona-xtrabackup/2.4/using_xtrabackup/privileges.html) |
-|Cluster Check       | clustercheckuser | clustercheck        | [User for liveness and readiness checks](http://galeracluster.com/documentation-webpages/monitoringthecluster.html) |
-|PMM Client User     | monitor          | monitor             | [User for PMM agent](https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling) |
-|PMM Server Password | should be set via [operator options](operator) | pmmserver | [password to access PMM Server](https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling) |
-
-### Development Mode
 
 To make development and testing easier, `deploy/secrets.yaml` secrets file contains default passwords for PXC system users.
 
-These development mode credentials from `deploy/secrets.yaml` are:
 
-|Secret Key   | Secret Value           |
-|-------------|------------------------|
-|root         | `root_password`        |
-|xtrabackup   | `backup_password`      |
-|monitor      | `monitor`              |
-|clustercheck | `clustercheckpassword` |
-|proxyuser    | `s3cret`               |
-|proxyadmin   | `admin_password`       |
-|pmmserver    | `supa|^|pazz`          |
+**Warning:** *These users should not be used to run an application. Do not use the default PXC user passwords in production!*
 
-**Warning:** *Do not use the default PXC user passwords in production!*
-
-
+| User name      | Password             |Unencrypted password | Description                             |
+|----------------|----------------------|---------------------|-----------------------------------------|
+| root           | cm9vdF9wYXNzd29yZA== | root_password       | Database administrative user - should be used only for maintenance tasks |
+| xtrabackup     | YmFja3VwX3Bhc3N3b3Jk | backup_password     | [User able to run backups](https://www.percona.com/doc/percona-xtrabackup/2.4/using_xtrabackup/privileges.html) |
+| monitor        | bW9uaXRvcg==         | monitor             | [User for PMM agent](https://percona.github.io/percona-xtradb-cluster-operator/configure/users) |
+| clustercheck   | Y2x1c3RlcmNoZWNrcGFzc3dvcmQ= | custercheckpassword | [User for liveness and readiness checks](http://galeracluster.com/documentation-webpages/monitoringthecluster.html) |
+| proxyadmin     | YWRtaW5fcGFzc3dvcmQ= | admin_password      | ProxySQL administrative user who can be used [for adding new general purpose ProxySQL users](https://github.com/sysown/proxysql/wiki/Users-configuration#creating-a-new-user)|
+| pmmserver      | c3VwYXxefHBheno= | supa|^|pazz | Used to access PMM Server |

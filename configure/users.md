@@ -45,4 +45,4 @@ echo <value> | base64 --decode
 | monitor        | `monitor`             | PMM Client User - [User for PMM agent](https://percona.github.io/percona-xtradb-cluster-operator/configure/users) |
 | clustercheck    | `custercheckpassword` | Cluster Check - [User for liveness and readiness checks](http://galeracluster.com/documentation-webpages/monitoringthecluster.html) |
 | proxyadmin     | `admin_password`      | ProxySQL Admin - administrator who can be used [for adding general purpose ProxySQL users](https://github.com/sysown/proxysql/wiki/Users-configuration#creating-a-new-user)|
-| pmmserver       | `pmmserver` | PMM Server [Able to access PMM Server](https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling) |
+| pmmserver       | `pmmserver` | PMM Server -  [User able to access PMM Server](https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling) |

@@ -3,7 +3,6 @@ package perconaxtradbcluster
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -466,26 +465,10 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSetPods(namespace string, s
 		return fmt.Errorf("get list: %v", err)
 	}
 
-	// the last pod left - we can leave it for stateful set
+	// the last pod left - we can leave it for the stateful set
 	if len(list.Items) <= 1 {
+		time.Sleep(time.Second * 3)
 		return nil
-	}
-
-	for _, pod := range list.Items {
-		idx, err := strconv.Atoi(pod.Name[len(pod.GenerateName)-1:])
-		if err != nil {
-			return fmt.Errorf("get pod id: %v", err)
-		}
-
-		// leave the 0 pod for
-		if idx == 0 {
-			continue
-		}
-
-		err = r.client.Delete(context.TODO(), &pod)
-		if err != nil {
-			return fmt.Errorf("delete: %v", err)
-		}
 	}
 
 	// after setting the pods for delete we need to downscale statefulset to 1 under,

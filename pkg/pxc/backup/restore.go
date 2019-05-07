@@ -219,11 +219,15 @@ func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBack
 									Value: s3dest,
 								},
 								{
-									Name:  "AWS_ENDPOINT_URL",
+									Name:  "ENDPOINT",
 									Value: bcp.Status.S3.EndpointURL,
 								},
 								{
-									Name: "AWS_ACCESS_KEY_ID",
+									Name:  "DEFAULT_REGION",
+									Value: bcp.Status.S3.Region,
+								},
+								{
+									Name: "ACCESS_KEY_ID",
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{
@@ -234,7 +238,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBack
 									},
 								},
 								{
-									Name: "AWS_SECRET_ACCESS_KEY",
+									Name: "SECRET_ACCESS_KEY",
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{

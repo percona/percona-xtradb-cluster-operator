@@ -8,7 +8,8 @@ metadata:
 #    - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
-  sslSecretName: my-cluster-ssl-certificates
+  sslSecretName: my-cluster-ssl
+  sslInternalSecretName: my-cluster-ssl-internal
 #  pause: false
   pxc:
     size: 3

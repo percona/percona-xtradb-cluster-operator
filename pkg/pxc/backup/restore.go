@@ -69,11 +69,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 					Name:            "ncat",
 					Image:           cluster.Backup.Image,
 					ImagePullPolicy: corev1.PullAlways,
-					Command: []string{
-						"bash",
-						"-exc",
-						"cat /backup/xtrabackup.stream | ncat -l --send-only 3307",
-					},
+					Command:         []string{"recovery-pvc-donor.sh"},
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "backup",
@@ -127,7 +123,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 							Name:            "xtrabackup",
 							Image:           cluster.Backup.Image,
 							ImagePullPolicy: corev1.PullAlways,
-							Command:         []string{"recovery-pvc.sh"},
+							Command:         []string{"recovery-pvc-joiner.sh"},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "datadir",

@@ -304,7 +304,7 @@ destroy() {
     kubectl delete pxc-backup --all
     kubectl delete pxc-backup-restore --all || :
 
-    kubectl delete -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml || :
+    kubectl delete -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml 2>/dev/null || :
     if [ "$OPENSHIFT" == 1 ]; then
         oc delete --grace-period=0 --force=true project "$namespace"
     else

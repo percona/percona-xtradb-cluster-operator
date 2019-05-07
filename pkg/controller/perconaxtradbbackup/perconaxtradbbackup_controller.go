@@ -177,7 +177,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
 		}
 	case api.BackupStorageS3:
-		destination = bcpStorage.S3.Bucket + "/" + instance.Spec.PXCCluster + "-" + instance.CreationTimestamp.Time.Format("2006-02-01-15:04:05") + "-xtrabackup.stream"
+		destination = bcpStorage.S3.Bucket + "/" + instance.Spec.PXCCluster + "-" + instance.CreationTimestamp.Time.Format("2006-02-01-15:04:05") + "-full"
 		if !strings.HasPrefix(bcpStorage.S3.Bucket, "s3://") {
 			destination = "s3://" + destination
 		}

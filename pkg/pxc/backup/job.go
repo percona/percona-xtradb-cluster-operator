@@ -159,7 +159,7 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 		Value: s3.Region,
 	}
 	endpoint := corev1.EnvVar{
-		Name:  "ENDPOINT_URL",
+		Name:  "ENDPOINT",
 		Value: s3.EndpointURL,
 	}
 

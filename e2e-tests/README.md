@@ -1,8 +1,8 @@
 ## Prerequirements
 CentOS
 ```
-sudo yum -y install epel-release
-sudo yum -y install coreutils sed jq curl
+sudo yum -y install epel-release https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+sudo yum -y install coreutils sed jq curl percona-xtrabackup-24
 curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
     | tar -C /usr/bin --strip-components 1 --wildcards -zxvpf - '*/oc' '*/kubectl'
 curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.12.1-linux-amd64.tar.gz \
@@ -12,7 +12,7 @@ curl https://sdk.cloud.google.com | bash
 ```
 MacOS
 ```
-brew install coreutils gnu-sed jq kubernetes-cli openshift-cli kubernetes-helm
+brew install coreutils gnu-sed jq kubernetes-cli openshift-cli kubernetes-helm percona-xtrabackup
 helm init --client-only
 curl https://sdk.cloud.google.com | bash
 ```

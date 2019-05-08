@@ -41,8 +41,6 @@ The ``pxc`` section in the deploy/cr.yaml file contains general configuration op
 |volumeSpec.persistentVolumeClaim.accessModes | array      | `[ "ReadWriteOnce" ]` | [Kubernetes Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) access modes for the PerconaXtraDB Cluster  |
 |volumeSpec.resources.requests.storage | string     | `6Gi`     | The [Kubernetes Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) size for the Percona XtraDB Cluster                            |
 
-
-
 ### ProxySQL Section
 
 The ``proxysql`` section in the deploy/cr.yaml file contains configuration options for the ProxySQL daemon.
@@ -63,7 +61,7 @@ The ``proxysql`` section in the deploy/cr.yaml file contains configuration optio
 |nodeSelector           | label      | `disktype: ssd`        | The [Kubernetes nodeSelector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) affinity constraint|
 |affinity.topologyKey            | string     |`failure-domain.beta.kubernetes.io/zone`| The [Operator topologyKey](./constraints) node anti-affinity constraint|
 |affinity.advanced               | subdoc     |           | If available, it makes [topologyKey](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity-beta-feature) node affinity constraint to be ignored |
-|tolerations            | subdoc     | `node.alpha.kubernetes.io/unreachable` | The [Kubernetes Pod tolerations] (https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/#concepts)            |
+|affinity.tolerations            | subdoc     | `node.alpha.kubernetes.io/unreachable` | The [Kubernetes Pod tolerations] (https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/#concepts)            |
 |volumeSpec.emptyDir      | string     | `{}`    | [Kubernetes emptyDir volume](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir), i.e. the directory which will be created on a node, and will be accessible to the ProxySQL Pod containers|
 |volumeSpec.hostPath.path | string     | `/data` | [Kubernetes hostPath volume](https://kubernetes.io/docs/concepts/storage/volumes/#hostpath), i.e. the file or directory of a node that will be accessible to the ProxySQL Pod containers|
 |volumeSpec.hostPath.type | string     |`Directory`| The [Kubernetes hostPath volume type](https://kubernetes.io/docs/concepts/storage/volumes/#hostpath) |

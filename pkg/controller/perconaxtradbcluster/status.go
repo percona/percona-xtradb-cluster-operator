@@ -6,6 +6,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -16,22 +17,63 @@ import (
 func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster) (err error) {
 	cr.Status = api.PerconaXtraDBClusterStatus{}
 
-	cr.Status.PXC, err = r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC, cr.Namespace)
+	pxcStatus, err := r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC, cr.Namespace)
 	if err != nil {
 		return fmt.Errorf("get pxc status: %v", err)
 	}
+	if pxcStatus.Status != cr.Status.PXC.Status {
+		if pxcStatus.Status == api.AppStateReady {
+			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+				Status:             api.ConditionTrue,
+				Type:               api.ClusterPXCReady,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			})
+		}
 
+		if pxcStatus.Status == api.AppStateError {
+			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+				Status:             api.ConditionTrue,
+				Message:            "PXC" + pxcStatus.Message,
+				Reason:             "ErrorPXC",
+				Type:               api.ClusterError,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			})
+		}
+	}
+
+	cr.Status.PXC = pxcStatus
 	cr.Status.Host = cr.Name + "-" + "pxc"
 	if cr.Status.PXC.Message != "" {
 		cr.Status.Messages = append(cr.Status.Messages, "PXC: "+cr.Status.PXC.Message)
 	}
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		cr.Status.ProxySQL, err = r.appStatus(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr.Namespace)
+		proxyStatus, err := r.appStatus(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr.Namespace)
 		if err != nil {
 			return fmt.Errorf("get proxysql status: %v", err)
 		}
 
+		if proxyStatus.Status != cr.Status.ProxySQL.Status {
+			if proxyStatus.Status == api.AppStateReady {
+				cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+					Status:             api.ConditionTrue,
+					Type:               api.ClusterProxyReady,
+					LastTransitionTime: metav1.NewTime(time.Now()),
+				})
+			}
+
+			if proxyStatus.Status == api.AppStateError {
+				cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+					Status:             api.ConditionTrue,
+					Message:            "ProxySQL:" + proxyStatus.Message,
+					Reason:             "ErrorProxySQL",
+					Type:               api.ClusterError,
+					LastTransitionTime: metav1.NewTime(time.Now()),
+				})
+			}
+		}
+
+		cr.Status.ProxySQL = proxyStatus
 		cr.Status.Host = cr.Name + "-" + "proxysql"
 		if cr.Status.ProxySQL.Message != "" {
 			cr.Status.Messages = append(cr.Status.Messages, "ProxySQL: "+cr.Status.ProxySQL.Message)
@@ -40,6 +82,14 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 	switch {
 	case cr.Status.PXC.Status == cr.Status.ProxySQL.Status:
+		if cr.Status.Status != api.AppStateReady &&
+			cr.Status.PXC.Status == api.AppStateReady {
+			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+				Status:             api.ConditionTrue,
+				Type:               api.ClusterReady,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			})
+		}
 		cr.Status.Status = cr.Status.PXC.Status
 	case cr.Status.PXC.Status == api.AppStateError || cr.Status.ProxySQL.Status == api.AppStateError:
 		cr.Status.Status = api.AppStateError

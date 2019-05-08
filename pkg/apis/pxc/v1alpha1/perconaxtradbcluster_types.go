@@ -47,11 +47,37 @@ const (
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
 type PerconaXtraDBClusterStatus struct {
-	PXC      AppStatus `json:"pxc,omitempty"`
-	ProxySQL AppStatus `json:"proxysql,omitempty"`
-	Host     string    `json:"host,omitempty"`
-	Messages []string  `json:"message,omitempty"`
-	Status   AppState  `json:"state,omitempty"`
+	PXC        AppStatus          `json:"pxc,omitempty"`
+	ProxySQL   AppStatus          `json:"proxysql,omitempty"`
+	Host       string             `json:"host,omitempty"`
+	Messages   []string           `json:"message,omitempty"`
+	Status     AppState           `json:"state,omitempty"`
+	Conditions []ClusterCondition `json:"conditions,omitempty"`
+}
+
+type ConditionStatus string
+
+const (
+	ConditionTrue    ConditionStatus = "True"
+	ConditionFalse                   = "False"
+	ConditionUnknown                 = "Unknown"
+)
+
+type ClusterConditionType string
+
+const (
+	ClusterReady      ClusterConditionType = "Ready"
+	ClusterPXCReady                        = "PXCReady"
+	ClusterProxyReady                      = "ProxySQLReady"
+	ClusterError                           = "Error"
+)
+
+type ClusterCondition struct {
+	Status             ConditionStatus      `json:"status"`
+	Type               ClusterConditionType `json:"type"`
+	LastTransitionTime metav1.Time          `json:"lastTransitionTime,omitempty"`
+	Reason             string               `json:"reason,omitempty"`
+	Message            string               `json:"message,omitempty"`
 }
 
 type AppStatus struct {

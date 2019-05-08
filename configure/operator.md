@@ -89,7 +89,7 @@ The ``backup`` section in the [deploy/cr.yaml](https://github.com/percona/percon
 
 | Key                            | Value Type | Example   | Description |
 |--------------------------------|------------|-----------|-------------|
-|image                           | string     | `perconalab/percona-xtradb-cluster-operator:0.4.0-backup` | Percona XtraDB Cluster docker image to use for the backup functionality                                                                       |
+|image                           | string     | `percona/percona-xtradb-cluster-operator:0.4.0-backup` | Percona XtraDB Cluster docker image to use for the backup functionality                                                                       |
 |imagePullSecrets.name           | string     | `private-registry-credentials`  | [Kubernetes imagePullSecret](https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets) for the specified docker image |
 |storages.type                   | string     | `s3`      | Type of the cloud storage to be used for backups. Currently only `s3` and `filesystem` types are supported |
 |storages.s3.credentialsSecret   | string     | `my-cluster-name-backup-s3`| [Kubernetes secret](https://kubernetes.io/docs/concepts/configuration/secret/) for backups. It should contain `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` keys. |
@@ -99,7 +99,7 @@ The ``backup`` section in the [deploy/cr.yaml](https://github.com/percona/percon
 |storages.persistentVolumeClaim.type                    | string    | `filesystem` | persistent volume type |
 |storages.persistentVolumeClaim.storageClassName | string | `standard`| Set the [Kubernetes Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use with the PXC backups [Persistent Volume Claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims) for the `filesystem` storage type                    |
 |storages.persistentVolumeClaim.accessModes | array | ["ReadWriteOnce"] | The [Kubernetes Persistent Volume access modes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes) |
-|storage | string | `6Gi`| the storage size |
+|storages.persistentVolumeClaim.storage | string | `6Gi`| Storage size for the persistentVolumeClaim|
 |schedule.name                      | string     | `sat-night-backup` | The backup name    |
 |schedule.schedule                  | string     | `0 0 * * 6`        | Scheduled time to make a backup, specified in the [crontab format](https://en.wikipedia.org/wiki/Cron)                                                        |
 |schedule.keep                   | int        | `3`       | Number of backups to store     |

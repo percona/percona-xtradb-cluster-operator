@@ -104,6 +104,7 @@ The ``backup`` section in the [deploy/cr.yaml](https://github.com/percona/percon
 |storages.s3.credentialsSecret   | string     | `my-cluster-name-backup-s3`| [Kubernetes secret](https://kubernetes.io/docs/concepts/configuration/secret/) for backups. It should contain `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` keys. |
 |storages.s3.bucket              | string     |           | The [Amazon S3 bucket](https://docs.aws.amazon.com/en_us/AmazonS3/latest/dev/UsingBucket.html) name for backups     |
 |storages.s3.region              | string     |`us-east-1`| The [AWS region](https://docs.aws.amazon.com/en_us/general/latest/gr/rande.html) to use. Please note **this option is mandatory** not only for Amazon S3, but for all S3-compatible storages.|
+|storage.s3.endpointUrl | string|           | The endpoint URL of the S3-compatible storage to be used (not needed for the original Amazon S3 cloud) |
 |storage.type                    | string    | `filesystem` | persistent volume type |
 |storages.persistentVolumeClaim.storageClassName | string | `standard`| Set the [Kubernetes Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use with the PXC backups [Persistent Volume Claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims) for the `filesystem` storage type                    |
 |storages.persistentVolumeClaim.accessModes | array | ["ReadWriteOnce"] | The [Kubernetes Persistent Volume access modes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes) |

@@ -1,0 +1,35 @@
+apiVersion: pxc.percona.com/v1alpha1
+kind: PerconaXtraDBCluster
+metadata:
+  name: one-pod
+spec:
+  secretsName: my-cluster-secrets
+  pause: false
+  pxc:
+    size: 1
+    allowUnsafeConfigurations: true
+    image: perconalab/percona-xtradb-cluster-operator:0.4.0-pxc
+    configuration: |
+      [mysqld]
+      wsrep_debug=ON
+      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+  proxysql:
+    enabled: false
+  pmm:
+    enabled: false
+  backup:
+    image: perconalab/percona-xtradb-cluster-operator:0.4.0-backup
+    storages:
+      pvc:
+        type: filesystem
+        volume:
+          persistentVolumeClaim:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 1Gi

@@ -31,7 +31,7 @@ The ``pxc`` section in the deploy/cr.yaml file contains general configuration op
 |nodeSelector                    | label      | `disktype: ssd`        | The [Kubernetes nodeSelector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) constraint|
 |affinity.topologyKey            | string     |`kubernetes.io/hostname`| The [Operator topologyKey](./constraints) node anti-affinity constraint|
 |affinity.advanced               | subdoc     |           | If available, it makes [topologyKey](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity-beta-feature) node affinity constraint to be ignored |
-|tolerations                     | subdoc     | `node.alpha.kubernetes.io/unreachable` | The [Kubernetes Pod tolerations] (https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/#concepts)            |
+|affinity.tolerations                     | subdoc     | `node.alpha.kubernetes.io/unreachable` | The [Kubernetes Pod tolerations] (https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/#concepts)            |
 | podDisruptionBudget.maxUnavailable   | int  | `1`    | [Kubernetes Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) The number of pods unavailable after eviction| 
 | podDisruptionBudet.minAvailable      | int  | `0`   | [Kubernetes Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) The number of pods available after eviction |
 |volumeSpec.emptyDir      | string     | `{}`    | [Kubernetes emptyDir volume](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir), i.e. the directory which will be created on a node, and will be accessible to the PXC Pod containers|
@@ -72,14 +72,7 @@ The ``proxysql`` section in the deploy/cr.yaml file contains configuration optio
 |volumeSpec.resources.requests.storage | string     | `2Gi`     | The [Kubernetes Persistent Volume](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) size for ProxySQL                             |
 | podDisruptionBudget.maxUnavailable   | int  | `1`    | [Kubernetes Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) The number of pods unavailable after eviction| 
 | podDisruptionBudet.minAvailable      | int  | `0`   | [Kubernetes Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) The number of pods available after eviction |
-
-
-
-
-
-
-
-
+| gracePeriod | int | `30` | [Kubernetes Grace period.](https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods)|
 
 ### PMM Section
 
@@ -105,7 +98,7 @@ The ``backup`` section in the [deploy/cr.yaml](https://github.com/percona/percon
 |storages.s3.bucket              | string     |           | The [Amazon S3 bucket](https://docs.aws.amazon.com/en_us/AmazonS3/latest/dev/UsingBucket.html) name for backups     |
 |storages.s3.region              | string     |`us-east-1`| The [AWS region](https://docs.aws.amazon.com/en_us/general/latest/gr/rande.html) to use. Please note **this option is mandatory** not only for Amazon S3, but for all S3-compatible storages.|
 |storage.s3.endpointUrl | string|           | The endpoint URL of the S3-compatible storage to be used (not needed for the original Amazon S3 cloud) |
-|storage.type                    | string    | `filesystem` | persistent volume type |
+|storages.persistentVolumeClaim.type                    | string    | `filesystem` | persistent volume type |
 |storages.persistentVolumeClaim.storageClassName | string | `standard`| Set the [Kubernetes Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/) to use with the PXC backups [Persistent Volume Claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims) for the `filesystem` storage type                    |
 |storages.persistentVolumeClaim.accessModes | array | ["ReadWriteOnce"] | The [Kubernetes Persistent Volume access modes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes) |
 |storage | string | `6Gi`| the storage size |

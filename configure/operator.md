@@ -31,7 +31,7 @@ The ``pxc`` section in the deploy/cr.yaml file contains general configuration op
 |nodeSelector                    | label      | `disktype: ssd`        | The [Kubernetes nodeSelector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector) constraint|
 |affinity.topologyKey            | string     |`kubernetes.io/hostname`| The [Operator topologyKey](./constraints) node anti-affinity constraint|
 |affinity.advanced               | subdoc     |           | If available, it makes [topologyKey](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity-beta-feature) node affinity constraint to be ignored |
-|affinity.tolerations                     | subdoc     | `node.alpha.kubernetes.io/unreachable` | The [Kubernetes Pod tolerations] (https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/#concepts)            |
+|tolerations                     | subdoc     | `node.alpha.kubernetes.io/unreachable` | The [Kubernetes Pod tolerations] (https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/#concepts)            |
 | podDisruptionBudget.maxUnavailable   | int  | `1`    | [Kubernetes Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) The number of pods unavailable after eviction| 
 | podDisruptionBudet.minAvailable      | int  | `0`   | [Kubernetes Disruption Budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) The number of pods available after eviction |
 |volumeSpec.emptyDir      | string     | `{}`    | [Kubernetes emptyDir volume](https://kubernetes.io/docs/concepts/storage/volumes/#emptydir), i.e. the directory which will be created on a node, and will be accessible to the PXC Pod containers|

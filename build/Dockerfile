@@ -1,5 +1,5 @@
-FROM alpine:3.9
-RUN apk upgrade --update --no-cache && rm -rf /var/cache/apk/*
+FROM registry.access.redhat.com/ubi7/ubi-minimal
+RUN microdnf update && microdnf clean all
 
 MAINTAINER Percona Development <info@percona.com>
 LABEL name="Percona XtraDB Cluster Operator" \

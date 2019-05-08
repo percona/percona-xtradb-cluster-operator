@@ -18,7 +18,7 @@ The ``pxc`` section in the deploy/cr.yaml file contains general configuration op
 |--------------------------------|------------|-----------|-------------|
 |size                            | int        | `3`       |  The size of the Percona XtraDB Cluster, must be >= 3 for [High-Availability](hhttps://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html) |
 | allowUnsafeConfigurations      | string     | `false`   | Prevents users from configuring a cluster with unsafe parameters |
-|image                           | string     |`perconalab/percona-xtradb-cluster-operator:0.4.0-pxc` | Percona XtraDB Cluster docker image to use                                                                     |
+|image                           | string     |`percona/percona-xtradb-cluster-operator:1.0.0-pxc` | Percona XtraDB Cluster docker image to use                                                                     |
 |configuration                   | string     |<code>&#124;</code><br>`      [mysqld]`<br>`      wsrep_debug=ON`<br>`      [sst]`<br>`      wsrep_debug=ON` | The `my.cnf` file options which are to be passed to Percona XtraDB Cluster nodes                                                                   |
 |imagePullSecrets.name           | string     | `private-registry-credentials` | [Kubernetes imagePullSecret](https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets) for the Percona XtraDB Cluster docker image |
 |priorityClassName               | string     | `high-priority`  | The [Kuberentes Pod priority class](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass) |

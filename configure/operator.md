@@ -51,7 +51,7 @@ The ``proxysql`` section in the deploy/cr.yaml file contains configuration optio
 |--------------------------------|------------|-----------|-------------|
 |enabled                         | boolean    | `true`    | Enables or disables [load balancing with ProxySQL](https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html) [Service](https://kubernetes.io/docs/concepts/services-networking/service/) |
 |size                            | int        | `1`       | The number of the ProxySQL daemons [to provide load balancing](https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html), must be = 1 in current release|
-|image                           | string     |`pperconalab/percona-xtradb-cluster-operator:0.4.0-proxysql` | ProxySQL docker image to use |
+|image                           | string     |`percona/percona-xtradb-cluster-operator:1.0.0-proxysql` | ProxySQL docker image to use |
 |imagePullSecrets.name           | string     | `private-registry-credentials` | [Kubernetes imagePullSecret](https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets) for the ProxySQL docker image |
 |annotations | label |`iam.amazonaws.com/role: role-arn`| The [Kubernetes annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) metadata                             |
 |labels                          | label      | `rack: rack-22` | The [Kubernetes affinity labels](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/)                       |

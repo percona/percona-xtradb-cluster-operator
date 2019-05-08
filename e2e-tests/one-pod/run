@@ -1,0 +1,49 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+cluster="one-pod"
+
+create_namespace $namespace
+deploy_operator
+
+desc 'create PXC cluster'
+kubectl apply \
+    -f $conf_dir/secrets.yml \
+    -f $conf_dir/client.yml \
+    -f $test_dir/conf/$cluster.yml
+desc 'check if all 3 Pods started'
+wait_for_running $cluster-pxc 1
+sleep 10
+
+desc 'check data consistency: write data, read from all'
+run_mysql \
+    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+    "-h $cluster-pxc -uroot -proot_password"
+run_mysql 'INSERT myApp.myApp (id) VALUES (100500)' "-h $cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+
+desc 'make backup'
+backup1="on-demand-backup-pvc"
+kubectl apply \
+    -f $test_dir/conf/$backup1.yml
+wait_backup $backup1
+
+desc 'write data after backup'
+run_mysql 'INSERT myApp.myApp (id) VALUES (100501)' "-h $cluster-pxc -uroot -proot_password"
+compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+
+desc 'recover backup'
+kubectl apply -f "$test_dir/conf/restore-${backup1}.yaml"
+wait_backup_restore ${backup1}
+kubectl logs job/restore-job-${backup1}-${cluster}
+kubectl delete -f "$test_dir/conf/restore-${backup1}.yaml"
+wait_for_running "$cluster-pxc" 1
+
+desc 'check data after backup'
+compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+
+destroy $namespace

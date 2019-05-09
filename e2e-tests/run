@@ -14,6 +14,7 @@ $dir/monitoring/run
 $dir/affinity/run
 $dir/demand-backup/run
 $dir/scheduled-backup/run
+$dir/one-pod/run
 
 $dir/storage/run
 $dir/self-healing/run

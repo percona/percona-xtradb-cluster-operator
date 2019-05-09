@@ -1,4 +1,4 @@
-package perconaxtradbcluster
+package pxc
 
 import (
 	"container/heap"

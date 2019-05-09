@@ -8,10 +8,10 @@ rules:
   resources:
   - perconaxtradbclusters
   - perconaxtradbclusters/status
-  - perconaxtradbbackups
-  - perconaxtradbbackups/status
-  - perconaxtradbbackuprestores
-  - perconaxtradbbackuprestores/status
+  - perconaxtradbclusterbackups
+  - perconaxtradbclusterbackups/status
+  - perconaxtradbclusterrestores
+  - perconaxtradbclusterrestores/status
   verbs:
   - get
   - list

@@ -1,7 +1,7 @@
-apiVersion: "pxc.percona.com/v1alpha1"
-kind: "PerconaXtraDBCluster"
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
 metadata:
-  name: "cluster1"
+  name: cluster1
   finalizers:
     - delete-pxc-pods-in-order
 #    - delete-proxysql-pvc

@@ -13,7 +13,7 @@ spec:
     - pxc
     - pxcs
   scope: Namespaced
-  version: v1alpha1
+  version: v1
   additionalPrinterColumns:
     - name: Endpoint
       type: string
@@ -38,19 +38,19 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: perconaxtradbbackups.pxc.percona.com
+  name: perconaxtradbclusterbackups.pxc.percona.com
 spec:
   group: pxc.percona.com
   names:
-    kind: PerconaXtraDBBackup
-    listKind: PerconaXtraDBBackupList
-    plural: perconaxtradbbackups
-    singular: perconaxtradbbackup
+    kind: PerconaXtraDBClusterBackup
+    listKind: PerconaXtraDBClusterBackupList
+    plural: perconaxtradbclusterbackups
+    singular: perconaxtradbclusterbackup
     shortNames:
     - pxc-backup
     - pxc-backups
   scope: Namespaced
-  version: v1alpha1
+  version: v1
   additionalPrinterColumns:
     - name: Cluster
       type: string
@@ -81,20 +81,19 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: perconaxtradbbackuprestores.pxc.percona.com
+  name: perconaxtradbclusterrestores.pxc.percona.com
 spec:
   group: pxc.percona.com
   names:
-    kind: PerconaXtraDBBackupRestore
-    listKind: PerconaXtraDBBackupRestoreList
-    plural: perconaxtradbbackuprestores
-    singular: perconaxtradbbackuprestore
+    kind: PerconaXtraDBClusterRestore
+    listKind: PerconaXtraDBClusterRestoreList
+    plural: perconaxtradbclusterrestores
+    singular: perconaxtradbclusterrestore
     shortNames:
-    - pxc-backup-restore
-    - pxc-backups-restore
-    - pxcb-restore
+    - pxc-restore
+    - pxc-restores
   scope: Namespaced
-  version: v1alpha1
+  version: v1
   additionalPrinterColumns:
     - name: Cluster
       type: string

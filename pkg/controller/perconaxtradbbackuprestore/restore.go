@@ -15,7 +15,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
-func (r *ReconcilePerconaXtraDBBackupRestore) restore(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, cluster api.PerconaXtraDBClusterSpec) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) error {
 	if cluster.Backup == nil {
 		return errors.New("undefined backup section in a cluster spec")
 	}
@@ -31,7 +31,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) restore(cr *api.PerconaXtraDBBacku
 	return errors.Errorf("unknown destination %s", bcp.Status.Destination)
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) restorePVC(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) error {
 	svc := backup.PVCRestoreService(cr, bcp)
 	k8s.SetControllerReference(cr, svc, r.scheme)
 	pod := backup.PVCRestorePod(cr, bcp, pvcName, cluster)
@@ -72,7 +72,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) restorePVC(cr *api.PerconaXtraDBBa
 	return r.createJob(job)
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) restoreS3(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) error {
 	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster)
 	if err != nil {
 		return err
@@ -82,7 +82,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) restoreS3(cr *api.PerconaXtraDBBac
 	return r.createJob(job)
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) createJob(job *batchv1.Job) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) createJob(job *batchv1.Job) error {
 	err := r.client.Create(context.TODO(), job)
 	if err != nil {
 		return errors.Wrap(err, "create job")

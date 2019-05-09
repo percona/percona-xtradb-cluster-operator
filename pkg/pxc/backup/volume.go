@@ -8,7 +8,7 @@ import (
 )
 
 // NewPVC returns the list of PersistentVolumeClaims for the backups
-func NewPVC(cr *api.PerconaXtraDBBackup) *corev1.PersistentVolumeClaim {
+func NewPVC(cr *api.PerconaXtraDBClusterBackup) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",

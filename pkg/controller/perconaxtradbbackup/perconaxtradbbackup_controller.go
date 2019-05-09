@@ -28,7 +28,7 @@ import (
 
 var log = logf.Log.WithName("controller_perconaxtradbbackup")
 
-// Add creates a new PerconaXtraDBBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new PerconaXtraDBClusterBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	r, err := newReconciler(mgr)
@@ -46,7 +46,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		return nil, fmt.Errorf("get version: %v", err)
 	}
 
-	return &ReconcilePerconaXtraDBBackup{
+	return &ReconcilePerconaXtraDBClusterBackup{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
 		serverVersion: sv,
@@ -61,8 +61,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to primary resource PerconaXtraDBBackup
-	err = c.Watch(&source.Kind{Type: &api.PerconaXtraDBBackup{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource PerconaXtraDBClusterBackup
+	err = c.Watch(&source.Kind{Type: &api.PerconaXtraDBClusterBackup{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -70,10 +70,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-var _ reconcile.Reconciler = &ReconcilePerconaXtraDBBackup{}
+var _ reconcile.Reconciler = &ReconcilePerconaXtraDBClusterBackup{}
 
-// ReconcilePerconaXtraDBBackup reconciles a PerconaXtraDBBackup object
-type ReconcilePerconaXtraDBBackup struct {
+// ReconcilePerconaXtraDBClusterBackup reconciles a PerconaXtraDBClusterBackup object
+type ReconcilePerconaXtraDBClusterBackup struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
@@ -82,21 +82,21 @@ type ReconcilePerconaXtraDBBackup struct {
 	serverVersion *api.ServerVersion
 }
 
-// Reconcile reads that state of the cluster for a PerconaXtraDBBackup object and makes changes based on the state read
-// and what is in the PerconaXtraDBBackup.Spec
+// Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read
+// and what is in the PerconaXtraDBClusterBackup.Spec
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	// reqLogger.Info("Reconciling PerconaXtraDBBackup")
+	// reqLogger.Info("Reconciling PerconaXtraDBClusterBackup")
 
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
 	}
 
-	// Fetch the PerconaXtraDBBackup instance
-	instance := &api.PerconaXtraDBBackup{}
+	// Fetch the PerconaXtraDBClusterBackup instance
+	instance := &api.PerconaXtraDBClusterBackup{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -137,7 +137,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 
 		destination = "pvc/" + pvc.Name
 
-		// Set PerconaXtraDBBackup instance as the owner and controller
+		// Set PerconaXtraDBClusterBackup instance as the owner and controller
 		if err := setControllerReference(instance, pvc, r.scheme); err != nil {
 			return reconcile.Result{}, fmt.Errorf("setControllerReference: %v", err)
 		}
@@ -189,7 +189,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 		s3status = &bcpStorage.S3
 	}
 
-	// Set PerconaXtraDBBackup instance as the owner and controller
+	// Set PerconaXtraDBClusterBackup instance as the owner and controller
 	if err := setControllerReference(instance, job, r.scheme); err != nil {
 		return reconcile.Result{}, fmt.Errorf("job/setControllerReference: %v", err)
 	}
@@ -206,7 +206,7 @@ func (r *ReconcilePerconaXtraDBBackup) Reconcile(request reconcile.Request) (rec
 	return rr, err
 }
 
-func (r *ReconcilePerconaXtraDBBackup) getClusterConfig(cr *api.PerconaXtraDBBackup) (*api.PerconaXtraDBCluster, error) {
+func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXtraDBClusterBackup) (*api.PerconaXtraDBCluster, error) {
 	clusterList := api.PerconaXtraDBClusterList{}
 	err := r.client.List(context.TODO(),
 		&client.ListOptions{
@@ -240,7 +240,7 @@ const (
 	VolumeLost                   = VolumeStatus(corev1.ClaimLost)
 )
 
-func (r *ReconcilePerconaXtraDBBackup) pvcStatus(pvc *corev1.PersistentVolumeClaim) (VolumeStatus, error) {
+func (r *ReconcilePerconaXtraDBClusterBackup) pvcStatus(pvc *corev1.PersistentVolumeClaim) (VolumeStatus, error) {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
 	if err != nil {
 		return VolumeUndefined, err
@@ -249,7 +249,7 @@ func (r *ReconcilePerconaXtraDBBackup) pvcStatus(pvc *corev1.PersistentVolumeCla
 	return VolumeStatus(pvc.Status.Phase), nil
 }
 
-func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBackup, job *batchv1.Job, destination, storageName string, s3 *api.BackupStorageS3Spec) error {
+func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job, destination, storageName string, s3 *api.BackupStorageS3Spec) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 
 	if err != nil {
@@ -286,7 +286,7 @@ func (r *ReconcilePerconaXtraDBBackup) updateJobStatus(bcp *api.PerconaXtraDBBac
 	return r.client.Update(context.TODO(), bcp)
 }
 
-func setControllerReference(cr *api.PerconaXtraDBBackup, obj metav1.Object, scheme *runtime.Scheme) error {
+func setControllerReference(cr *api.PerconaXtraDBClusterBackup, obj metav1.Object, scheme *runtime.Scheme) error {
 	ownerRef, err := cr.OwnerRef(scheme)
 	if err != nil {
 		return err

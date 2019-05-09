@@ -27,7 +27,7 @@ import (
 
 var log = logf.Log.WithName("controller_perconaxtradbbackuprestore")
 
-// Add creates a new PerconaXtraDBBackupRestore Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new PerconaXtraDBClusterRestore Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -35,7 +35,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcilePerconaXtraDBBackupRestore{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcilePerconaXtraDBClusterRestore{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -46,8 +46,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to primary resource PerconaXtraDBBackupRestore
-	err = c.Watch(&source.Kind{Type: &api.PerconaXtraDBBackupRestore{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource PerconaXtraDBClusterRestore
+	err = c.Watch(&source.Kind{Type: &api.PerconaXtraDBClusterRestore{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -55,28 +55,28 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-var _ reconcile.Reconciler = &ReconcilePerconaXtraDBBackupRestore{}
+var _ reconcile.Reconciler = &ReconcilePerconaXtraDBClusterRestore{}
 
-// ReconcilePerconaXtraDBBackupRestore reconciles a PerconaXtraDBBackupRestore object
-type ReconcilePerconaXtraDBBackupRestore struct {
+// ReconcilePerconaXtraDBClusterRestore reconciles a PerconaXtraDBClusterRestore object
+type ReconcilePerconaXtraDBClusterRestore struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a PerconaXtraDBBackupRestore object and makes changes based on the state read
-// and what is in the PerconaXtraDBBackupRestore.Spec
+// Reconcile reads that state of the cluster for a PerconaXtraDBClusterRestore object and makes changes based on the state read
+// and what is in the PerconaXtraDBClusterRestore.Spec
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	lgr := log.WithValues("namespace", request.Namespace, "restore", request.Name)
 	lgr.Info("backup restore request")
 
 	rr := reconcile.Result{}
 
-	cr := &api.PerconaXtraDBBackupRestore{}
+	cr := &api.PerconaXtraDBClusterRestore{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, cr)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -94,7 +94,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 	if err != nil {
 		return rr, errors.Wrap(err, "set status")
 	}
-	rJobsList := &api.PerconaXtraDBBackupRestoreList{}
+	rJobsList := &api.PerconaXtraDBClusterRestoreList{}
 	err = r.client.List(
 		context.TODO(),
 		&client.ListOptions{
@@ -131,7 +131,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 		return rr, err
 	}
 
-	bcp := &api.PerconaXtraDBBackup{}
+	bcp := &api.PerconaXtraDBClusterBackup{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
 	if err != nil {
 		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
@@ -197,7 +197,7 @@ If everything is fine, you can cleanup the job:
 $ kubectl delete pxc-restore/%s
 `
 
-func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBCluster) error {
 	var gracePeriodSec int64
 
 	if c.Spec.PXC != nil && c.Spec.PXC.TerminationGracePeriodSeconds != nil {
@@ -252,7 +252,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCl
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(cr *api.PerconaXtraDBCluster) (err error) {
+func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraDBCluster) (err error) {
 	// tryin several times just to avoid possible conflicts with the main controller
 	for i := 0; i < 5; i++ {
 		// need to get the object with latest version of meta-data for update
@@ -277,7 +277,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) startCluster(cr *api.PerconaXtraDB
 
 const waitLimitSec int64 = 300
 
-func (r *ReconcilePerconaXtraDBBackupRestore) waitForPodsShutdown(ls map[string]string, namespace string, gracePeriodSec int64) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) waitForPodsShutdown(ls map[string]string, namespace string, gracePeriodSec int64) error {
 	for i := int64(0); i < waitLimitSec+gracePeriodSec; i++ {
 		pods := corev1.PodList{}
 
@@ -303,7 +303,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) waitForPodsShutdown(ls map[string]
 	return errors.Errorf("exceeded wait limit")
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) waitForPVCShutdown(ls map[string]string, namespace string) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) waitForPVCShutdown(ls map[string]string, namespace string) error {
 	for i := int64(0); i < waitLimitSec; i++ {
 		pvcs := corev1.PersistentVolumeClaimList{}
 
@@ -329,7 +329,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) waitForPVCShutdown(ls map[string]s
 	return errors.Errorf("exceeded wait limit")
 }
 
-func (r *ReconcilePerconaXtraDBBackupRestore) setStatus(cr *api.PerconaXtraDBBackupRestore, state api.BcpRestoreStates, comments string) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) setStatus(cr *api.PerconaXtraDBClusterRestore, state api.BcpRestoreStates, comments string) error {
 	cr.Status.State = state
 	switch state {
 	case api.RestoreSucceeded:

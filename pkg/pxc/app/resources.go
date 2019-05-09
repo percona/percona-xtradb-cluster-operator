@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )

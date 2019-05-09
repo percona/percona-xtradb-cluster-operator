@@ -143,7 +143,7 @@ deploy_helm() {
 
 wait_for_running() {
     local name="$1"
-    let last_pod="$2-1" || :
+    let last_pod="$(($2-1))" || :
 
     for i in $(seq 0 $last_pod); do
         wait_pod ${name}-${i}
@@ -378,6 +378,7 @@ get_qan_values() {
 spinup_pxc() {
     local cluster=$1
     local config=$2
+    local size="${3:-3}"
 
     desc 'create first PXC cluster'
     kubectl apply \
@@ -387,7 +388,8 @@ spinup_pxc() {
 
     desc 'check if all 3 Pods started'
     wait_for_running "$cluster-proxysql" 1
-    wait_for_running "$cluster-pxc" 3
+    wait_for_running "$cluster-pxc" "$size"
+    sleep 10
 
     desc 'write data'
     run_mysql \
@@ -396,9 +398,10 @@ spinup_pxc() {
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100500)' \
         "-h $cluster-proxysql -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+
+    for i in $(seq 0 $(($size-1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+    done
 }
 
 deploy_cert_manager() {

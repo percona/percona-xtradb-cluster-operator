@@ -73,7 +73,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 							"sh", "-c",
 							`
 							cat <<-EOF | kubectl apply -f -
-									apiVersion: pxc.percona.com/v1alpha1
+									apiVersion: pxc.percona.com/v1
 									kind: PerconaXtraDBClusterBackup
 									metadata:
 									  name: "cron-${pxcCluster:0:16}-$(date -u "+%Y%m%d%H%M%S")-${suffix}"

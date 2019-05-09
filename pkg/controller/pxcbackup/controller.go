@@ -1,4 +1,4 @@
-package perconaxtradbbackup
+package pxcbackup
 
 import (
 	"context"

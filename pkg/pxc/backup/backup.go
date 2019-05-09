@@ -3,7 +3,7 @@ package backup
 import (
 	corev1 "k8s.io/api/core/v1"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1alpha1"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 type Backup struct {

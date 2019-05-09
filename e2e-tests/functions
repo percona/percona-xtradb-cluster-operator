@@ -84,7 +84,7 @@ wait_backup_restore() {
     set +o xtrace
     retry=0
     echo -n $name
-    until kubectl get pxc-backup-restore/$name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+    until kubectl get pxc-restore/$name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
         sleep 1
         echo -n .
         let retry+=1
@@ -302,7 +302,7 @@ destroy() {
 
     kubectl delete pxc --all
     kubectl delete pxc-backup --all
-    kubectl delete pxc-backup-restore --all || :
+    kubectl delete pxc-restore --all || :
 
     kubectl delete -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml 2>/dev/null || :
     if [ "$OPENSHIFT" == 1 ]; then

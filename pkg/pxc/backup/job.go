@@ -13,7 +13,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
-func (*Backup) Job(cr *api.PerconaXtraDBBackup) *batchv1.Job {
+func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup) *batchv1.Job {
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",

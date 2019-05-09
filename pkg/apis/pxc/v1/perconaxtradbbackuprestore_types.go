@@ -6,14 +6,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// PerconaXtraDBBackupRestoreSpec defines the desired state of PerconaXtraDBBackupRestore
-type PerconaXtraDBBackupRestoreSpec struct {
+// PerconaXtraDBClusterRestoreSpec defines the desired state of PerconaXtraDBClusterRestore
+type PerconaXtraDBClusterRestoreSpec struct {
 	PXCCluster string `json:"pxcCluster"`
 	BackupName string `json:"backupName"`
 }
 
-// PerconaXtraDBBackupRestoreStatus defines the observed state of PerconaXtraDBBackupRestore
-type PerconaXtraDBBackupRestoreStatus struct {
+// PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore
+type PerconaXtraDBClusterRestoreStatus struct {
 	State         BcpRestoreStates `json:"state,omitempty"`
 	Comments      string           `json:"comments,omitempty"`
 	CompletedAt   *metav1.Time     `json:"completed,omitempty"`
@@ -22,23 +22,23 @@ type PerconaXtraDBBackupRestoreStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PerconaXtraDBBackupRestore is the Schema for the perconaxtradbbackuprestores API
+// PerconaXtraDBClusterRestore is the Schema for the perconaxtradbbackuprestores API
 // +k8s:openapi-gen=true
-type PerconaXtraDBBackupRestore struct {
+type PerconaXtraDBClusterRestore struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PerconaXtraDBBackupRestoreSpec   `json:"spec,omitempty"`
-	Status PerconaXtraDBBackupRestoreStatus `json:"status,omitempty"`
+	Spec   PerconaXtraDBClusterRestoreSpec   `json:"spec,omitempty"`
+	Status PerconaXtraDBClusterRestoreStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PerconaXtraDBBackupRestoreList contains a list of PerconaXtraDBBackupRestore
-type PerconaXtraDBBackupRestoreList struct {
+// PerconaXtraDBClusterRestoreList contains a list of PerconaXtraDBClusterRestore
+type PerconaXtraDBClusterRestoreList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []PerconaXtraDBBackupRestore `json:"items"`
+	Items           []PerconaXtraDBClusterRestore `json:"items"`
 }
 
 type BcpRestoreStates string
@@ -53,7 +53,7 @@ const (
 	RestoreSucceeded                     = "Succeeded"
 )
 
-func (cr *PerconaXtraDBBackupRestore) CheckNsetDefaults() error {
+func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
 	if cr.Spec.PXCCluster == "" {
 		return errors.New("pxcCluster can't be empty")
 	}
@@ -66,5 +66,5 @@ func (cr *PerconaXtraDBBackupRestore) CheckNsetDefaults() error {
 }
 
 func init() {
-	SchemeBuilder.Register(&PerconaXtraDBBackupRestore{}, &PerconaXtraDBBackupRestoreList{})
+	SchemeBuilder.Register(&PerconaXtraDBClusterRestore{}, &PerconaXtraDBClusterRestoreList{})
 }

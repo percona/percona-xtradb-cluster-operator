@@ -32,7 +32,7 @@ func genScheduleLabel(sched string) string {
 // k8s sets the `job-name` label for the created by job pod.
 // So we have to be sure that job name won't be longer than 63 symbols.
 // Yet the job name has to have some meaningful name which won't be conflicting with other jobs' names.
-func genName63(cr *api.PerconaXtraDBBackup) string {
+func genName63(cr *api.PerconaXtraDBClusterBackup) string {
 	postfix := cr.Name
 	maxNameLen := 16
 	typ, ok := cr.GetLabels()["type"]

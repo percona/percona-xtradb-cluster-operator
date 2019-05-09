@@ -1,5 +1,5 @@
 apiVersion: pxc.percona.com/v1alpha1
-kind: PerconaXtraDBBackup
+kind: PerconaXtraDBClusterBackup
 metadata:
   name: on-demand-backup-pvc
 spec:

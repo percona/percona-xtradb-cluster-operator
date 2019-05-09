@@ -8,15 +8,15 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type PerconaXtraDBBackupList struct {
+type PerconaXtraDBClusterBackupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []PerconaXtraDBBackup `json:"items"`
+	Items           []PerconaXtraDBClusterBackup `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type PerconaXtraDBBackup struct {
+type PerconaXtraDBClusterBackup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              PXCBackupSpec   `json:"spec"`
@@ -48,7 +48,7 @@ const (
 )
 
 // OwnerRef returns OwnerReference to object
-func (cr *PerconaXtraDBBackup) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerReference, error) {
+func (cr *PerconaXtraDBClusterBackup) OwnerRef(scheme *runtime.Scheme) (metav1.OwnerReference, error) {
 	gvk, err := apiutil.GVKForObject(cr, scheme)
 	if err != nil {
 		return metav1.OwnerReference{}, err

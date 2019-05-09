@@ -13,7 +13,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
-func PVCRestoreService(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup) *corev1.Service {
+func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -38,7 +38,7 @@ func PVCRestoreService(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraD
 	}
 }
 
-func PVCRestorePod(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) *corev1.Pod {
+func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) *corev1.Pod {
 	podPVC := corev1.Volume{
 		Name: "backup",
 	}
@@ -92,7 +92,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 	}
 }
 
-func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, cluster api.PerconaXtraDBClusterSpec) *batchv1.Job {
+func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) *batchv1.Job {
 	jobPVC := corev1.Volume{
 		Name: "datadir",
 	}
@@ -173,7 +173,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBac
 }
 
 // S3RestoreJob returns restore job object for s3
-func S3RestoreJob(cr *api.PerconaXtraDBBackupRestore, bcp *api.PerconaXtraDBBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
+func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
 	if bcp.Status.S3 == nil {
 		return nil, errors.New("nil s3 backup status")
 	}

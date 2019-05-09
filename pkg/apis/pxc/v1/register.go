@@ -21,6 +21,6 @@ var (
 func init() {
 	SchemeBuilder.Register(
 		&PerconaXtraDBCluster{}, &PerconaXtraDBClusterList{},
-		&PerconaXtraDBBackup{}, &PerconaXtraDBBackupList{},
+		&PerconaXtraDBClusterBackup{}, &PerconaXtraDBClusterBackupList{},
 	)
 }

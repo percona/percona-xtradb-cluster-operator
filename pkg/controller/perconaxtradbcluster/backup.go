@@ -92,8 +92,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 }
 
 // oldScheduledBackups returns list of the most old pxc-bakups that execeed `keep` limit
-func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraDBCluster, ancestor string, keep int) ([]api.PerconaXtraDBBackup, error) {
-	bcpList := api.PerconaXtraDBBackupList{}
+func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraDBCluster, ancestor string, keep int) ([]api.PerconaXtraDBClusterBackup, error) {
+	bcpList := api.PerconaXtraDBClusterBackupList{}
 	err := r.client.List(context.TODO(),
 		&client.ListOptions{
 			Namespace: cr.Namespace,
@@ -105,12 +105,12 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraD
 		&bcpList,
 	)
 	if err != nil {
-		return []api.PerconaXtraDBBackup{}, err
+		return []api.PerconaXtraDBClusterBackup{}, err
 	}
 
 	// fast path
 	if len(bcpList.Items) <= keep {
-		return []api.PerconaXtraDBBackup{}, nil
+		return []api.PerconaXtraDBClusterBackup{}, nil
 	}
 
 	// just build an ordered by creationTimestamp min-heap from items and return top "len(items) - keep" items
@@ -123,12 +123,12 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraD
 	}
 
 	if h.Len() <= keep {
-		return []api.PerconaXtraDBBackup{}, nil
+		return []api.PerconaXtraDBClusterBackup{}, nil
 	}
 
-	ret := make([]api.PerconaXtraDBBackup, 0, h.Len()-keep)
+	ret := make([]api.PerconaXtraDBClusterBackup, 0, h.Len()-keep)
 	for i := h.Len() - keep; i > 0; i-- {
-		o := heap.Pop(h).(api.PerconaXtraDBBackup)
+		o := heap.Pop(h).(api.PerconaXtraDBClusterBackup)
 		ret = append(ret, o)
 	}
 
@@ -136,7 +136,7 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraD
 }
 
 // A minHeap is a min-heap of backup jobs.
-type minHeap []api.PerconaXtraDBBackup
+type minHeap []api.PerconaXtraDBClusterBackup
 
 func (h minHeap) Len() int { return len(h) }
 func (h minHeap) Less(i, j int) bool {
@@ -145,7 +145,7 @@ func (h minHeap) Less(i, j int) bool {
 func (h minHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 
 func (h *minHeap) Push(x interface{}) {
-	*h = append(*h, x.(api.PerconaXtraDBBackup))
+	*h = append(*h, x.(api.PerconaXtraDBClusterBackup))
 }
 
 func (h *minHeap) Pop() interface{} {

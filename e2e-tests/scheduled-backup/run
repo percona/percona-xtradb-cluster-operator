@@ -29,7 +29,7 @@ run_recovery_check() {
     wait_backup_restore ${restore_name}
 
     kubectl logs job/restore-job-${restore_name}-${cluster}
-    kubectl delete pxc-backup-restore/${restore_name}
+    kubectl delete pxc-restore/${restore_name}
     
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3

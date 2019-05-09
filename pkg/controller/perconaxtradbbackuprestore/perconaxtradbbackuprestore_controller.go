@@ -194,7 +194,7 @@ func (r *ReconcilePerconaXtraDBBackupRestore) Reconcile(request reconcile.Reques
 const backupRestoredMsg = `You can view xtrabackup log:
 $ kubectl logs job/restore-job-%s-%s
 If everything is fine, you can cleanup the job:
-$ kubectl delete pxc-backup-restore/%s
+$ kubectl delete pxc-restore/%s
 `
 
 func (r *ReconcilePerconaXtraDBBackupRestore) stopCluster(c *api.PerconaXtraDBCluster) error {

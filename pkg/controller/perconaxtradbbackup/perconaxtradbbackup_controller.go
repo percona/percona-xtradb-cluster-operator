@@ -283,7 +283,18 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 	}
 
 	bcp.Status = status
-	return r.client.Update(context.TODO(), bcp)
+
+	err = r.client.Status().Update(context.TODO(), bcp)
+	if err != nil {
+		// may be it's k8s v1.10 and erlier (e.g. oc3.9) that doesn't support status updates
+		// so try to update whole CR
+		err := r.client.Update(context.TODO(), bcp)
+		if err != nil {
+			return fmt.Errorf("send update: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func setControllerReference(cr *api.PerconaXtraDBClusterBackup, obj metav1.Object, scheme *runtime.Scheme) error {

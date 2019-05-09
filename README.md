@@ -3,9 +3,9 @@
 A Kubernetes operator for [Percona XtraDB Cluster](https://www.percona.com/software/mysql-database/percona-xtradb-cluster) based on the [Operator SDK](https://github.com/operator-framework/operator-sdk).
 
 # Documentation
-See the [Official Documentation](https://percona.github.io/percona-xtradb-cluster-operator/) for more information.
+See the [Official Documentation](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html) for more information.
 
-[![Official Documentation](https://via.placeholder.com/260x60/419bdc/FFFFFF/?text=Documentation)](https://percona.github.io/percona-xtradb-cluster-operator/)
+[![Official Documentation](https://via.placeholder.com/260x60/419bdc/FFFFFF/?text=Documentation)](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html)
 
 # DISCLAIMER
 

@@ -13,11 +13,11 @@ spec:
     - pxc
     - pxcs
   scope: Namespaced
-  version: v1
   versions:
     - name: v1
       storage: true
     - name: v1alpha1
+      storage: false
   additionalPrinterColumns:
     - name: Endpoint
       type: string

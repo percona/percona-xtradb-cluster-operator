@@ -26,7 +26,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
-var log = logf.Log.WithName("controller_perconaxtradbbackup")
+var log = logf.Log.WithName("controller_perconaxtradbclusterbackup")
 
 // Add creates a new PerconaXtraDBClusterBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -56,7 +56,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("perconaxtradbbackup-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("perconaxtradbclusterbackup-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}

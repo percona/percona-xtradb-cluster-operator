@@ -22,7 +22,7 @@ type PerconaXtraDBClusterRestoreStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// PerconaXtraDBClusterRestore is the Schema for the perconaxtradbbackuprestores API
+// PerconaXtraDBClusterRestore is the Schema for the perconaxtradbclusterrestores API
 // +k8s:openapi-gen=true
 type PerconaXtraDBClusterRestore struct {
 	metav1.TypeMeta   `json:",inline"`

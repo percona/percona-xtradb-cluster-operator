@@ -31,11 +31,7 @@ Install Percona XtraDB Cluster on OpenShift
    the next clusterrole:
 
    .. code:: bash
-
-<<<<<<< HEAD
       $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbbackups.pxc.percona.com,perconaxtradbbackuprestores.pxc.percona.com,perconaxtradbbackuprestores.pxc.percona.com/status,issuers.certmanager.k8s.io,certificates.certmanager.k8s.io
-=======
-        oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbbackups.pxc.percona.com,perconaxtradbbackuprestores.pxc.percona.com,perconaxtradbbackuprestores.pxc.percona.com/status,issuers.certmanager.k8s.io,certificates.certmanager.k8s.io 
       $ oc adm policy add-cluster-role-to-user pxc-admin <some-user>
 
 2. The next thing to do is to create a new ``pxc`` project:

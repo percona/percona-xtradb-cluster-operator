@@ -148,7 +148,7 @@ Following steps are needed to restore a previously saved backup:
 
    ::
 
-      ./deploy/backup/restore-backup.sh <backup-name> <cluster-name>
+      kubectl apply -f deploy/backup/restore.yaml 
 
 Delete the unneeded backup
 --------------------------

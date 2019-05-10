@@ -39,85 +39,59 @@ permissions have been successfully granted.
 System Users
 ------------
 
-*Default Secret name:* ``my-cluster-secrets``
-
-*Secret name field:* ``spec.secretsName``
-
 The Operator requires system-level PXC users to automate the PXC
 deployment.
 
-**Warning:** *These users should not be used to run an application.*
-
-+--------------+-------------+---------------+------------------------+
-| User Purpose | Username    | Password      | Description            |
-|              |             | Secret Key    |                        |
-+==============+=============+===============+========================+
-| Admin        | root        | root          | Database               |
-|              |             |               | administrative user,   |
-|              |             |               | should be used for     |
-|              |             |               | maintenance tasks only |
-+--------------+-------------+---------------+------------------------+
-| ProxySQL     | proxyadmin  | proxyadmin    | ProxySQL               |
-| Admin        |             |               | administrative user,   |
-|              |             |               | can be used for        |
-|              |             |               | `adding new general    |
-|              |             |               | purpouse ProxySQL      |
-|              |             |               | users <https://github. |
-|              |             |               | com/sysown/proxysql/wi |
-|              |             |               | ki/Users-configuration |
-|              |             |               | #creating-a-new-user>` |
-|              |             |               | __.                    |
-+--------------+-------------+---------------+------------------------+
-| Backup       | xtrabackup  | xtrabackup    | `User for run          |
-|              |             |               | backups <https://www.p |
-|              |             |               | ercona.com/doc/percona |
-|              |             |               | -xtrabackup/2.4/using_ |
-|              |             |               | xtrabackup/privileges. |
-|              |             |               | html>`__               |
-+--------------+-------------+---------------+------------------------+
-| Cluster      | clusterchec | clustercheck  | `User for liveness and |
-| Check        | kuser       |               | readiness              |
-|              |             |               | checks <http://galerac |
-|              |             |               | luster.com/documentati |
-|              |             |               | on-webpages/monitoring |
-|              |             |               | thecluster.html>`__    |
-+--------------+-------------+---------------+------------------------+
-| PMM Client   | monitor     | monitor       | `User for PMM          |
-| User         |             |               | agent <https://www.per |
-|              |             |               | cona.com/doc/percona-m |
-|              |             |               | onitoring-and-manageme |
-|              |             |               | nt/security.html#pmm-s |
-|              |             |               | ecurity-password-prote |
-|              |             |               | ction-enabling>`__     |
-+--------------+-------------+---------------+------------------------+
-| PMM Server   | should be   | pmmserver     | `password to access    |
-| Password     | set via     |               | PMM                    |
-|              | `operator   |               | Server <https://www.pe |
-|              | options <op |               | rcona.com/doc/percona- |
-|              | erator>`__  |               | monitoring-and-managem |
-|              |             |               | ent/security.html#pmm- |
-|              |             |               | security-password-prot |
-|              |             |               | ection-enabling>`__    |
-+--------------+-------------+---------------+------------------------+
-
-Development Mode
-----------------
-
 To make development and testing easier, ``deploy/secrets.yaml`` secrets
-file contains default passwords for PXC system users.
+file contains default passwords for PXC system users and are mapped with
+key/value pairs. The username is the key and the value is an encoded
+password used to access a server or a system object.
 
-These development mode credentials from ``deploy/secrets.yaml`` are:
+You can decode the value in ``secrets.yaml`` with the following command:
 
-============ ========================
-Secret Key   Secret Value
-============ ========================
-root         ``root_password``
-xtrabackup   ``backup_password``
-monitor      ``monitor``
-clustercheck ``clustercheckpassword``
-proxyuser    ``s3cret``
-proxyadmin   ``admin_password``
-pmmserver    ``supa|^|pazz``
-============ ========================
+.. code:: bash
 
-**Warning:** *Do not use the default PXC user passwords in production!*
+   echo <value> | base64 --decode
+
+**Warning:** *These users should be used for demonstration and
+proof-of-concept purposes only. Do not use the listed PXC user passwords
+in production or to run an application!*
+
++-------------+------------------+------------------------------------+
+| User name   | Unencoded        | Description                        |
+|             | password         |                                    |
++=============+==================+====================================+
+| root        | ``root_password` | Admin - Database administrator.    |
+|             | `                | Should be used only for            |
+|             |                  | maintenance tasks                  |
++-------------+------------------+------------------------------------+
+| xtrabackup  | ``backup_passwor | Backup - `User able to run         |
+|             | d``              | backups <https://www.percona.com/d |
+|             |                  | oc/percona-xtrabackup/2.4/using_xt |
+|             |                  | rabackup/privileges.html>`__       |
++-------------+------------------+------------------------------------+
+| monitor     | ``monitor``      | PMM Client User - `User for PMM    |
+|             |                  | agent <https://percona.github.io/p |
+|             |                  | ercona-xtradb-cluster-operator/con |
+|             |                  | figure/users>`__                   |
++-------------+------------------+------------------------------------+
+| clusterchec | ``custercheckpas | Cluster Check - `User for liveness |
+| k           | sword``          | and readiness                      |
+|             |                  | checks <http://galeracluster.com/d |
+|             |                  | ocumentation-webpages/monitoringth |
+|             |                  | ecluster.html>`__                  |
++-------------+------------------+------------------------------------+
+| proxyadmin  | ``admin_password | ProxySQL Admin - administrator who |
+|             | ``               | can be used `for adding general    |
+|             |                  | purpose ProxySQL                   |
+|             |                  | users <https://github.com/sysown/p |
+|             |                  | roxysql/wiki/Users-configuration#c |
+|             |                  | reating-a-new-user>`__             |
++-------------+------------------+------------------------------------+
+| pmmserver   | ``pmmserver``    | PMM Server - `User able to access  |
+|             |                  | PMM                                |
+|             |                  | Server <https://www.percona.com/do |
+|             |                  | c/percona-monitoring-and-managemen |
+|             |                  | t/security.html#pmm-security-passw |
+|             |                  | ord-protection-enabling>`__        |
++-------------+------------------+------------------------------------+

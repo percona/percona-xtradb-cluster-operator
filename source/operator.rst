@@ -42,12 +42,22 @@ configuration options for the Percona XtraDB Cluster.
 |                                |           |          | r/5.7/intr |
 |                                |           |          | o.html>`__ |
 +--------------------------------+-----------+----------+------------+
+| allowUnsafeConfigurations      | string    | ``false` | Prevents   |
+|                                |           | `        | users from |
+|                                |           |          | configurin |
+|                                |           |          | g          |
+|                                |           |          | a cluster  |
+|                                |           |          | with       |
+|                                |           |          | unsafe     |
+|                                |           |          | parameters |
++--------------------------------+-----------+----------+------------+
 | image                          | string    | ``percon | Percona    |
-|                                |           | alab/pxc | XtraDB     |
-|                                |           | -openshi | Cluster    |
-|                                |           | ft:0.1.0 | docker     |
-|                                |           | ``       | image to   |
-|                                |           |          | use        |
+|                                |           | a/percon | XtraDB     |
+|                                |           | a-xtradb | Cluster    |
+|                                |           | -cluster | docker     |
+|                                |           | -operato | image to   |
+|                                |           | r:1.0.0- | use        |
+|                                |           | pxc``    |            |
 +--------------------------------+-----------+----------+------------+
 | configuration                  | string    | \|\ ``[m | The        |
 |                                |           | ysqld]`` | ``my.cnf`` |
@@ -60,6 +70,70 @@ configuration options for the Percona XtraDB Cluster.
 |                                |           | ebug=ON` | XtraDB     |
 |                                |           | `        | Cluster    |
 |                                |           |          | nodes      |
++--------------------------------+-----------+----------+------------+
+| imagePullSecrets.name          | string    | ``privat | `Kubernete |
+|                                |           | e-regist | s          |
+|                                |           | ry-crede | imagePullS |
+|                                |           | ntials`` | ecret <htt |
+|                                |           |          | ps://kuber |
+|                                |           |          | netes.io/d |
+|                                |           |          | ocs/concep |
+|                                |           |          | ts/configu |
+|                                |           |          | ration/sec |
+|                                |           |          | ret/#using |
+|                                |           |          | -imagepull |
+|                                |           |          | secrets>`_ |
+|                                |           |          | _          |
+|                                |           |          | for the    |
+|                                |           |          | Percona    |
+|                                |           |          | XtraDB     |
+|                                |           |          | Cluster    |
+|                                |           |          | docker     |
+|                                |           |          | image      |
++--------------------------------+-----------+----------+------------+
+| priorityClassName              | string    | ``high-p | The        |
+|                                |           | riority` | `Kuberente |
+|                                |           | `        | s          |
+|                                |           |          | Pod        |
+|                                |           |          | priority   |
+|                                |           |          | class <htt |
+|                                |           |          | ps://kuber |
+|                                |           |          | netes.io/d |
+|                                |           |          | ocs/concep |
+|                                |           |          | ts/configu |
+|                                |           |          | ration/pod |
+|                                |           |          | -priority- |
+|                                |           |          | preemption |
+|                                |           |          | /#priority |
+|                                |           |          | class>`__  |
++--------------------------------+-----------+----------+------------+
+| annotations                    | label     | ``iam.am | The        |
+|                                |           | azonaws. | `Kubernete |
+|                                |           | com/role | s          |
+|                                |           | : role-a | annotation |
+|                                |           | rn``     | s <https:/ |
+|                                |           |          | /kubernete |
+|                                |           |          | s.io/docs/ |
+|                                |           |          | concepts/o |
+|                                |           |          | verview/wo |
+|                                |           |          | rking-with |
+|                                |           |          | -objects/a |
+|                                |           |          | nnotations |
+|                                |           |          | />`__      |
+|                                |           |          | metadata   |
++--------------------------------+-----------+----------+------------+
+| labels                         | label     | ``rack:  | The        |
+|                                |           | rack-22` | `Kubernete |
+|                                |           | `        | s          |
+|                                |           |          | affinity   |
+|                                |           |          | labels <ht |
+|                                |           |          | tps://kube |
+|                                |           |          | rnetes.io/ |
+|                                |           |          | docs/conce |
+|                                |           |          | pts/config |
+|                                |           |          | uration/as |
+|                                |           |          | sign-pod-n |
+|                                |           |          | ode/>`__   |
 +--------------------------------+-----------+----------+------------+
 | resources.requests.memory      | string    | ``1G``   | `Kubernete |
 |                                |           |          | s          |
@@ -144,6 +218,105 @@ configuration options for the Percona XtraDB Cluster.
 |                                |           |          | er>`__     |
 |                                |           |          | for a PXC  |
 |                                |           |          | container  |
++--------------------------------+-----------+----------+------------+
+| nodeSelector                   | label     | ``diskty | The        |
+|                                |           | pe: ssd` | `Kubernete |
+|                                |           | `        | s          |
+|                                |           |          | nodeSelect |
+|                                |           |          | or <https: |
+|                                |           |          | //kubernet |
+|                                |           |          | es.io/docs |
+|                                |           |          | /concepts/ |
+|                                |           |          | configurat |
+|                                |           |          | ion/assign |
+|                                |           |          | -pod-node/ |
+|                                |           |          | #nodeselec |
+|                                |           |          | tor>`__    |
+|                                |           |          | constraint |
++--------------------------------+-----------+----------+------------+
+| affinity.topologyKey           | string    | ``kubern | The        |
+|                                |           | etes.io/ | `Operator  |
+|                                |           | hostname | topologyKe |
+|                                |           | ``       | y <./const |
+|                                |           |          | raints>`__ |
+|                                |           |          | node       |
+|                                |           |          | anti-affin |
+|                                |           |          | ity        |
+|                                |           |          | constraint |
++--------------------------------+-----------+----------+------------+
+| affinity.advanced              | subdoc    |          | If         |
+|                                |           |          | available, |
+|                                |           |          | it makes   |
+|                                |           |          | `topologyK |
+|                                |           |          | ey <https: |
+|                                |           |          | //kubernet |
+|                                |           |          | es.io/docs |
+|                                |           |          | /concepts/ |
+|                                |           |          | configurat |
+|                                |           |          | ion/assign |
+|                                |           |          | -pod-node/ |
+|                                |           |          | #inter-pod |
+|                                |           |          | -affinity- |
+|                                |           |          | and-anti-a |
+|                                |           |          | ffinity-be |
+|                                |           |          | ta-feature |
+|                                |           |          | >`__       |
+|                                |           |          | node       |
+|                                |           |          | affinity   |
+|                                |           |          | constraint |
+|                                |           |          | to be      |
+|                                |           |          | ignored    |
++--------------------------------+-----------+----------+------------+
+| affinity.tolerations           | subdoc    | ``node.a | The        |
+|                                |           | lpha.kub | [Kubernete |
+|                                |           | ernetes. | s          |
+|                                |           | io/unrea | Pod        |
+|                                |           | chable`` | toleration |
+|                                |           |          | s]         |
+|                                |           |          | (https://k |
+|                                |           |          | ubernetes. |
+|                                |           |          | io/docs/co |
+|                                |           |          | ncepts/con |
+|                                |           |          | figuration |
+|                                |           |          | /taint-and |
+|                                |           |          | -toleratio |
+|                                |           |          | n/#concept |
+|                                |           |          | s)         |
++--------------------------------+-----------+----------+------------+
+| podDisruptionBudget.maxUnavail | int       | ``1``    | `Kubernete |
+| able                           |           |          | s          |
+|                                |           |          | Disruption |
+|                                |           |          | Budget <ht |
+|                                |           |          | tps://kube |
+|                                |           |          | rnetes.io/ |
+|                                |           |          | docs/tasks |
+|                                |           |          | /run-appli |
+|                                |           |          | cation/con |
+|                                |           |          | figure-pdb |
+|                                |           |          | />`__      |
+|                                |           |          | The number |
+|                                |           |          | of pods    |
+|                                |           |          | unavailabl |
+|                                |           |          | e          |
+|                                |           |          | after      |
+|                                |           |          | eviction   |
++--------------------------------+-----------+----------+------------+
+| podDisruptionBudet.minAvailabl | int       | ``0``    | `Kubernete |
+| e                              |           |          | s          |
+|                                |           |          | Disruption |
+|                                |           |          | Budget <ht |
+|                                |           |          | tps://kube |
+|                                |           |          | rnetes.io/ |
+|                                |           |          | docs/tasks |
+|                                |           |          | /run-appli |
+|                                |           |          | cation/con |
+|                                |           |          | figure-pdb |
+|                                |           |          | />`__      |
+|                                |           |          | The number |
+|                                |           |          | of pods    |
+|                                |           |          | available  |
+|                                |           |          | after      |
+|                                |           |          | eviction   |
 +--------------------------------+-----------+----------+------------+
 | volumeSpec.emptyDir            | string    | ``{}``   | `Kubernete |
 |                                |           |          | s          |
@@ -269,134 +442,6 @@ configuration options for the Percona XtraDB Cluster.
 |                                |           |          | XtraDB     |
 |                                |           |          | Cluster    |
 +--------------------------------+-----------+----------+------------+
-| affinity.topologyKey           | string    | ``kubern | The        |
-|                                |           | etes.io/ | `Operator  |
-|                                |           | hostname | topologyKe |
-|                                |           | ``       | y <./const |
-|                                |           |          | raints>`__ |
-|                                |           |          | node       |
-|                                |           |          | anti-affin |
-|                                |           |          | ity        |
-|                                |           |          | constraint |
-+--------------------------------+-----------+----------+------------+
-| affinity.advanced              | subdoc    |          | If         |
-|                                |           |          | available, |
-|                                |           |          | it makes   |
-|                                |           |          | `topologyK |
-|                                |           |          | ey <https: |
-|                                |           |          | //kubernet |
-|                                |           |          | es.io/docs |
-|                                |           |          | /concepts/ |
-|                                |           |          | configurat |
-|                                |           |          | ion/assign |
-|                                |           |          | -pod-node/ |
-|                                |           |          | #inter-pod |
-|                                |           |          | -affinity- |
-|                                |           |          | and-anti-a |
-|                                |           |          | ffinity-be |
-|                                |           |          | ta-feature |
-|                                |           |          | >`__       |
-|                                |           |          | node       |
-|                                |           |          | affinity   |
-|                                |           |          | constraint |
-|                                |           |          | to be      |
-|                                |           |          | ignored    |
-+--------------------------------+-----------+----------+------------+
-| nodeSelector                   | label     | ``diskty | The        |
-|                                |           | pe: ssd` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | nodeSelect |
-|                                |           |          | or <https: |
-|                                |           |          | //kubernet |
-|                                |           |          | es.io/docs |
-|                                |           |          | /concepts/ |
-|                                |           |          | configurat |
-|                                |           |          | ion/assign |
-|                                |           |          | -pod-node/ |
-|                                |           |          | #nodeselec |
-|                                |           |          | tor>`__    |
-|                                |           |          | constraint |
-+--------------------------------+-----------+----------+------------+
-| tolerations                    | subdoc    | ``node.a | The        |
-|                                |           | lpha.kub | [Kubernete |
-|                                |           | ernetes. | s          |
-|                                |           | io/unrea | Pod        |
-|                                |           | chable`` | toleration |
-|                                |           |          | s]         |
-|                                |           |          | (https://k |
-|                                |           |          | ubernetes. |
-|                                |           |          | io/docs/co |
-|                                |           |          | ncepts/con |
-|                                |           |          | figuration |
-|                                |           |          | /taint-and |
-|                                |           |          | -toleratio |
-|                                |           |          | n/#concept |
-|                                |           |          | s)         |
-+--------------------------------+-----------+----------+------------+
-| priorityClassName              | string    | ``high-p | The        |
-|                                |           | riority` | `Kuberente |
-|                                |           | `        | s          |
-|                                |           |          | Pod        |
-|                                |           |          | priority   |
-|                                |           |          | class <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/pod |
-|                                |           |          | -priority- |
-|                                |           |          | preemption |
-|                                |           |          | /#priority |
-|                                |           |          | class>`__  |
-+--------------------------------+-----------+----------+------------+
-| annotations                    | label     | ``iam.am | The        |
-|                                |           | azonaws. | `Kubernete |
-|                                |           | com/role | s          |
-|                                |           | : role-a | annotation |
-|                                |           | rn``     | s <https:/ |
-|                                |           |          | /kubernete |
-|                                |           |          | s.io/docs/ |
-|                                |           |          | concepts/o |
-|                                |           |          | verview/wo |
-|                                |           |          | rking-with |
-|                                |           |          | -objects/a |
-|                                |           |          | nnotations |
-|                                |           |          | />`__      |
-|                                |           |          | metadata   |
-+--------------------------------+-----------+----------+------------+
-| imagePullSecrets.name          | string    | ``privat | `Kubernete |
-|                                |           | e-regist | s          |
-|                                |           | ry-crede | imagePullS |
-|                                |           | ntials`` | ecret <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/sec |
-|                                |           |          | ret/#using |
-|                                |           |          | -imagepull |
-|                                |           |          | secrets>`_ |
-|                                |           |          | _          |
-|                                |           |          | for the    |
-|                                |           |          | Percona    |
-|                                |           |          | XtraDB     |
-|                                |           |          | Cluster    |
-|                                |           |          | docker     |
-|                                |           |          | image      |
-+--------------------------------+-----------+----------+------------+
-| labels                         | label     | ``rack:  | The        |
-|                                |           | rack-22` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | affinity   |
-|                                |           |          | labels <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/config |
-|                                |           |          | uration/as |
-|                                |           |          | sign-pod-n |
-|                                |           |          | ode/>`__   |
-+--------------------------------+-----------+----------+------------+
 
 ProxySQL Section
 ----------------
@@ -454,10 +499,59 @@ configuration options for the ProxySQL daemon.
 |                                |           |          | release    |
 +--------------------------------+-----------+----------+------------+
 | image                          | string    | ``percon | ProxySQL   |
-|                                |           | alab/pro | docker     |
-|                                |           | xysql-op | image to   |
-|                                |           | enshift: | use        |
-|                                |           | 0.1.0``  |            |
+|                                |           | a/percon | docker     |
+|                                |           | a-xtradb | image to   |
+|                                |           | -cluster | use        |
+|                                |           | -operato |            |
+|                                |           | r:1.0.0- |            |
+|                                |           | proxysql |            |
+|                                |           | ``       |            |
++--------------------------------+-----------+----------+------------+
+| imagePullSecrets.name          | string    | ``privat | `Kubernete |
+|                                |           | e-regist | s          |
+|                                |           | ry-crede | imagePullS |
+|                                |           | ntials`` | ecret <htt |
+|                                |           |          | ps://kuber |
+|                                |           |          | netes.io/d |
+|                                |           |          | ocs/concep |
+|                                |           |          | ts/configu |
+|                                |           |          | ration/sec |
+|                                |           |          | ret/#using |
+|                                |           |          | -imagepull |
+|                                |           |          | secrets>`_ |
+|                                |           |          | _          |
+|                                |           |          | for the    |
+|                                |           |          | ProxySQL   |
+|                                |           |          | docker     |
+|                                |           |          | image      |
++--------------------------------+-----------+----------+------------+
+| annotations                    | label     | ``iam.am | The        |
+|                                |           | azonaws. | `Kubernete |
+|                                |           | com/role | s          |
+|                                |           | : role-a | annotation |
+|                                |           | rn``     | s <https:/ |
+|                                |           |          | /kubernete |
+|                                |           |          | s.io/docs/ |
+|                                |           |          | concepts/o |
+|                                |           |          | verview/wo |
+|                                |           |          | rking-with |
+|                                |           |          | -objects/a |
+|                                |           |          | nnotations |
+|                                |           |          | />`__      |
+|                                |           |          | metadata   |
++--------------------------------+-----------+----------+------------+
+| labels                         | label     | ``rack:  | The        |
+|                                |           | rack-22` | `Kubernete |
+|                                |           | `        | s          |
+|                                |           |          | affinity   |
+|                                |           |          | labels <ht |
+|                                |           |          | tps://kube |
+|                                |           |          | rnetes.io/ |
+|                                |           |          | docs/conce |
+|                                |           |          | pts/config |
+|                                |           |          | uration/as |
+|                                |           |          | sign-pod-n |
+|                                |           |          | ode/>`__   |
 +--------------------------------+-----------+----------+------------+
 | resources.requests.memory      | string    | ``1G``   | `Kubernete |
 |                                |           |          | s          |
@@ -546,6 +640,89 @@ configuration options for the ProxySQL daemon.
 |                                |           |          | for a      |
 |                                |           |          | ProxySQL   |
 |                                |           |          | container  |
++--------------------------------+-----------+----------+------------+
+| priorityClassName              | string    | ``high-p | The        |
+|                                |           | riority` | `Kuberente |
+|                                |           | `        | s          |
+|                                |           |          | Pod        |
+|                                |           |          | priority   |
+|                                |           |          | class <htt |
+|                                |           |          | ps://kuber |
+|                                |           |          | netes.io/d |
+|                                |           |          | ocs/concep |
+|                                |           |          | ts/configu |
+|                                |           |          | ration/pod |
+|                                |           |          | -priority- |
+|                                |           |          | preemption |
+|                                |           |          | /#priority |
+|                                |           |          | class>`__  |
+|                                |           |          | for        |
+|                                |           |          | ProxySQL   |
++--------------------------------+-----------+----------+------------+
+| nodeSelector                   | label     | ``diskty | The        |
+|                                |           | pe: ssd` | `Kubernete |
+|                                |           | `        | s          |
+|                                |           |          | nodeSelect |
+|                                |           |          | or <https: |
+|                                |           |          | //kubernet |
+|                                |           |          | es.io/docs |
+|                                |           |          | /concepts/ |
+|                                |           |          | configurat |
+|                                |           |          | ion/assign |
+|                                |           |          | -pod-node/ |
+|                                |           |          | #nodeselec |
+|                                |           |          | tor>`__    |
+|                                |           |          | affinity   |
+|                                |           |          | constraint |
++--------------------------------+-----------+----------+------------+
+| affinity.topologyKey           | string    | ``failur | The        |
+|                                |           | e-domain | `Operator  |
+|                                |           | .beta.ku | topologyKe |
+|                                |           | bernetes | y <./const |
+|                                |           | .io/zone | raints>`__ |
+|                                |           | ``       | node       |
+|                                |           |          | anti-affin |
+|                                |           |          | ity        |
+|                                |           |          | constraint |
++--------------------------------+-----------+----------+------------+
+| affinity.advanced              | subdoc    |          | If         |
+|                                |           |          | available, |
+|                                |           |          | it makes   |
+|                                |           |          | `topologyK |
+|                                |           |          | ey <https: |
+|                                |           |          | //kubernet |
+|                                |           |          | es.io/docs |
+|                                |           |          | /concepts/ |
+|                                |           |          | configurat |
+|                                |           |          | ion/assign |
+|                                |           |          | -pod-node/ |
+|                                |           |          | #inter-pod |
+|                                |           |          | -affinity- |
+|                                |           |          | and-anti-a |
+|                                |           |          | ffinity-be |
+|                                |           |          | ta-feature |
+|                                |           |          | >`__       |
+|                                |           |          | node       |
+|                                |           |          | affinity   |
+|                                |           |          | constraint |
+|                                |           |          | to be      |
+|                                |           |          | ignored    |
++--------------------------------+-----------+----------+------------+
+| affinity.tolerations           | subdoc    | ``node.a | The        |
+|                                |           | lpha.kub | [Kubernete |
+|                                |           | ernetes. | s          |
+|                                |           | io/unrea | Pod        |
+|                                |           | chable`` | toleration |
+|                                |           |          | s]         |
+|                                |           |          | (https://k |
+|                                |           |          | ubernetes. |
+|                                |           |          | io/docs/co |
+|                                |           |          | ncepts/con |
+|                                |           |          | figuration |
+|                                |           |          | /taint-and |
+|                                |           |          | -toleratio |
+|                                |           |          | n/#concept |
+|                                |           |          | s)         |
 +--------------------------------+-----------+----------+------------+
 | volumeSpec.emptyDir            | string    | ``{}``   | `Kubernete |
 |                                |           |          | s          |
@@ -667,134 +844,53 @@ configuration options for the ProxySQL daemon.
 |                                |           |          | size for   |
 |                                |           |          | ProxySQL   |
 +--------------------------------+-----------+----------+------------+
-| affinity.topologyKey           | string    | ``failur | The        |
-|                                |           | e-domain | `Operator  |
-|                                |           | .beta.ku | topologyKe |
-|                                |           | bernetes | y <./const |
-|                                |           | .io/zone | raints>`__ |
-|                                |           | ``       | node       |
-|                                |           |          | anti-affin |
-|                                |           |          | ity        |
-|                                |           |          | constraint |
-+--------------------------------+-----------+----------+------------+
-| affinity.advanced              | subdoc    |          | If         |
-|                                |           |          | available, |
-|                                |           |          | it makes   |
-|                                |           |          | `topologyK |
-|                                |           |          | ey <https: |
-|                                |           |          | //kubernet |
-|                                |           |          | es.io/docs |
-|                                |           |          | /concepts/ |
-|                                |           |          | configurat |
-|                                |           |          | ion/assign |
-|                                |           |          | -pod-node/ |
-|                                |           |          | #inter-pod |
-|                                |           |          | -affinity- |
-|                                |           |          | and-anti-a |
-|                                |           |          | ffinity-be |
-|                                |           |          | ta-feature |
-|                                |           |          | >`__       |
-|                                |           |          | node       |
-|                                |           |          | affinity   |
-|                                |           |          | constraint |
-|                                |           |          | to be      |
-|                                |           |          | ignored    |
-+--------------------------------+-----------+----------+------------+
-| nodeSelector                   | label     | ``diskty | The        |
-|                                |           | pe: ssd` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | nodeSelect |
-|                                |           |          | or <https: |
-|                                |           |          | //kubernet |
-|                                |           |          | es.io/docs |
-|                                |           |          | /concepts/ |
-|                                |           |          | configurat |
-|                                |           |          | ion/assign |
-|                                |           |          | -pod-node/ |
-|                                |           |          | #nodeselec |
-|                                |           |          | tor>`__    |
-|                                |           |          | affinity   |
-|                                |           |          | constraint |
-+--------------------------------+-----------+----------+------------+
-| tolerations                    | subdoc    | ``node.a | The        |
-|                                |           | lpha.kub | [Kubernete |
-|                                |           | ernetes. | s          |
-|                                |           | io/unrea | Pod        |
-|                                |           | chable`` | toleration |
-|                                |           |          | s]         |
-|                                |           |          | (https://k |
-|                                |           |          | ubernetes. |
-|                                |           |          | io/docs/co |
-|                                |           |          | ncepts/con |
-|                                |           |          | figuration |
-|                                |           |          | /taint-and |
-|                                |           |          | -toleratio |
-|                                |           |          | n/#concept |
-|                                |           |          | s)         |
-+--------------------------------+-----------+----------+------------+
-| priorityClassName              | string    | ``high-p | The        |
-|                                |           | riority` | `Kuberente |
-|                                |           | `        | s          |
-|                                |           |          | Pod        |
-|                                |           |          | priority   |
-|                                |           |          | class <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/pod |
-|                                |           |          | -priority- |
-|                                |           |          | preemption |
-|                                |           |          | /#priority |
-|                                |           |          | class>`__  |
-|                                |           |          | for        |
-|                                |           |          | ProxySQL   |
-+--------------------------------+-----------+----------+------------+
-| annotations                    | label     | ``iam.am | The        |
-|                                |           | azonaws. | `Kubernete |
-|                                |           | com/role | s          |
-|                                |           | : role-a | annotation |
-|                                |           | rn``     | s <https:/ |
-|                                |           |          | /kubernete |
-|                                |           |          | s.io/docs/ |
-|                                |           |          | concepts/o |
-|                                |           |          | verview/wo |
-|                                |           |          | rking-with |
-|                                |           |          | -objects/a |
-|                                |           |          | nnotations |
-|                                |           |          | />`__      |
-|                                |           |          | metadata   |
-+--------------------------------+-----------+----------+------------+
-| imagePullSecrets.name          | string    | ``privat | `Kubernete |
-|                                |           | e-regist | s          |
-|                                |           | ry-crede | imagePullS |
-|                                |           | ntials`` | ecret <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/sec |
-|                                |           |          | ret/#using |
-|                                |           |          | -imagepull |
-|                                |           |          | secrets>`_ |
-|                                |           |          | _          |
-|                                |           |          | for the    |
-|                                |           |          | ProxySQL   |
-|                                |           |          | docker     |
-|                                |           |          | image      |
-+--------------------------------+-----------+----------+------------+
-| labels                         | label     | ``rack:  | The        |
-|                                |           | rack-22` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | affinity   |
-|                                |           |          | labels <ht |
+| podDisruptionBudget.maxUnavail | int       | ``1``    | `Kubernete |
+| able                           |           |          | s          |
+|                                |           |          | Disruption |
+|                                |           |          | Budget <ht |
 |                                |           |          | tps://kube |
 |                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/config |
-|                                |           |          | uration/as |
-|                                |           |          | sign-pod-n |
-|                                |           |          | ode/>`__   |
+|                                |           |          | docs/tasks |
+|                                |           |          | /run-appli |
+|                                |           |          | cation/con |
+|                                |           |          | figure-pdb |
+|                                |           |          | />`__      |
+|                                |           |          | The number |
+|                                |           |          | of pods    |
+|                                |           |          | unavailabl |
+|                                |           |          | e          |
+|                                |           |          | after      |
+|                                |           |          | eviction   |
++--------------------------------+-----------+----------+------------+
+| podDisruptionBudet.minAvailabl | int       | ``0``    | `Kubernete |
+| e                              |           |          | s          |
+|                                |           |          | Disruption |
+|                                |           |          | Budget <ht |
+|                                |           |          | tps://kube |
+|                                |           |          | rnetes.io/ |
+|                                |           |          | docs/tasks |
+|                                |           |          | /run-appli |
+|                                |           |          | cation/con |
+|                                |           |          | figure-pdb |
+|                                |           |          | />`__      |
+|                                |           |          | The number |
+|                                |           |          | of pods    |
+|                                |           |          | available  |
+|                                |           |          | after      |
+|                                |           |          | eviction   |
++--------------------------------+-----------+----------+------------+
+| gracePeriod                    | int       | ``30``   | `Kubernete |
+|                                |           |          | s          |
+|                                |           |          | Grace      |
+|                                |           |          | period. <h |
+|                                |           |          | ttps://kub |
+|                                |           |          | ernetes.io |
+|                                |           |          | /docs/conc |
+|                                |           |          | epts/workl |
+|                                |           |          | oads/pods/ |
+|                                |           |          | pod/#termi |
+|                                |           |          | nation-of- |
+|                                |           |          | pods>`__   |
 +--------------------------------+-----------+----------+------------+
 
 PMM Section
@@ -846,12 +942,12 @@ Percona XtraDB Cluster backups.
 |                                | Type      |          | n          |
 +================================+===========+==========+============+
 | image                          | string    | ``percon | Percona    |
-|                                |           | alab/bac | XtraDB     |
-|                                |           | kupjob-o | Cluster    |
-|                                |           | penshift | docker     |
-|                                |           | :0.2.0`` | image to   |
-|                                |           |          | use for    |
-|                                |           |          | the backup |
+|                                |           | a/percon | XtraDB     |
+|                                |           | a-xtradb | Cluster    |
+|                                |           | -cluster | docker     |
+|                                |           | -operato | image to   |
+|                                |           | r:0.4.0- | use for    |
+|                                |           | backup`` | the backup |
 |                                |           |          | functional |
 |                                |           |          | ity        |
 +--------------------------------+-----------+----------+------------+
@@ -947,7 +1043,7 @@ Percona XtraDB Cluster backups.
 |                                |           |          | ble        |
 |                                |           |          | storages.  |
 +--------------------------------+-----------+----------+------------+
-| storages.s3.endpointUrl        | string    |          | The        |
+| storage.s3.endpointUrl         | string    |          | The        |
 |                                |           |          | endpoint   |
 |                                |           |          | URL of the |
 |                                |           |          | S3-compati |
@@ -960,6 +1056,10 @@ Percona XtraDB Cluster backups.
 |                                |           |          | original   |
 |                                |           |          | Amazon S3  |
 |                                |           |          | cloud)     |
++--------------------------------+-----------+----------+------------+
+| storages.persistentVolumeClaim | string    | ``filesy | persistent |
+| .type                          |           | stem``   | volume     |
+|                                |           |          | type       |
 +--------------------------------+-----------+----------+------------+
 | storages.persistentVolumeClaim | string    | ``standa | Set the    |
 | .storageClassName              |           | rd``     | `Kubernete |
@@ -1012,6 +1112,13 @@ Percona XtraDB Cluster backups.
 |                                |           |          | #access-mo |
 |                                |           |          | des>`__    |
 +--------------------------------+-----------+----------+------------+
+| storages.persistentVolumeClaim | string    | ``6Gi``  | Storage    |
+| .storage                       |           |          | size for   |
+|                                |           |          | the        |
+|                                |           |          | persistent |
+|                                |           |          | VolumeClai |
+|                                |           |          | m          |
++--------------------------------+-----------+----------+------------+
 | schedule.name                  | string    | ``sat-ni | The backup |
 |                                |           | ght-back | name       |
 |                                |           | up``     |            |
@@ -1029,6 +1136,10 @@ Percona XtraDB Cluster backups.
 |                                |           |          | rg/wiki/Cr |
 |                                |           |          | on>`__     |
 +--------------------------------+-----------+----------+------------+
+| schedule.keep                  | int       | ``3``    | Number of  |
+|                                |           |          | backups to |
+|                                |           |          | store      |
++--------------------------------+-----------+----------+------------+
 | schedule.storageName           | string    | ``st-us- | Name of    |
 |                                |           | west``   | the        |
 |                                |           |          | storage    |
@@ -1041,8 +1152,4 @@ Percona XtraDB Cluster backups.
 |                                |           |          | or         |
 |                                |           |          | ``fs-pvc`` |
 |                                |           |          | subsection |
-+--------------------------------+-----------+----------+------------+
-| schedule.keep                  | int       | ``3``    | Number of  |
-|                                |           |          | backups to |
-|                                |           |          | store      |
 +--------------------------------+-----------+----------+------------+

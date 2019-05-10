@@ -39,7 +39,7 @@ clean:
 
 html:
 	@echo "Downloading percona-theme ..."
-	@wget -O percona-theme.tar.gz https://www.percona.com/docs/theme-1-4/percona-server-for-mongodb/
+	@wget -O percona-theme.tar.gz https://www.percona.com/docs/theme-1-4/percona-operator-for-pxc/1.0
 	@echo "Extracting theme."
 	@tar -mzxf percona-theme.tar.gz
 	@rm -rf source/percona-theme

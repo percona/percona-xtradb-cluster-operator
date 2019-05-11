@@ -104,4 +104,4 @@ Install Percona XtraDB Cluster on OpenShift
    .. code:: bash
 
       $ oc run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
-      percona-client:/$ mysql -h cluster1-pxc-proxysql -uroot -proot_password
+      percona-client:/$ mysql -h cluster1-proxysql -uroot -proot_password

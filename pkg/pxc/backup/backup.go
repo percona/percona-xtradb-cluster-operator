@@ -7,17 +7,19 @@ import (
 )
 
 type Backup struct {
-	cluster          string
-	namespace        string
-	image            string
-	imagePullSecrets []corev1.LocalObjectReference
+	cluster            string
+	namespace          string
+	image              string
+	imagePullSecrets   []corev1.LocalObjectReference
+	serviceAccountName string
 }
 
 func New(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *Backup {
 	return &Backup{
-		cluster:          cr.Name,
-		namespace:        cr.Namespace,
-		image:            spec.Image,
-		imagePullSecrets: spec.ImagePullSecrets,
+		cluster:            cr.Name,
+		namespace:          cr.Namespace,
+		image:              spec.Image,
+		imagePullSecrets:   spec.ImagePullSecrets,
+		serviceAccountName: spec.ServiceAccountName,
 	}
 }

@@ -73,7 +73,7 @@ spec:
   proxysql:
     enabled: true
     size: 1
-    image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.0.0-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.0.0-proxysql
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:

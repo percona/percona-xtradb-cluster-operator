@@ -55,6 +55,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
+				ServiceAccountName: bcp.serviceAccountName,
 				Containers: []corev1.Container{
 					{
 						Name:  "run-backup",

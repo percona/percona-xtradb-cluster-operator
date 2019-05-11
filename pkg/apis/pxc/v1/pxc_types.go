@@ -24,10 +24,11 @@ type PerconaXtraDBClusterSpec struct {
 }
 
 type PXCScheduledBackup struct {
-	Image            string                        `json:"image,omitempty"`
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	Schedule         []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
-	Storages         map[string]*BackupStorageSpec `json:"storages,omitempty"`
+	Image              string                        `json:"image,omitempty"`
+	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
+	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
+	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {

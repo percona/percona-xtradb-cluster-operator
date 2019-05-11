@@ -6,7 +6,7 @@ spec:
   secretsName: my-cluster-secrets
   pxc:
     size: 3
-    image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.0.0-pxc
+    image: percona/percona-xtradb-cluster-operator:1.0.0-pxc
     configuration: |
       [mysqld]
       wsrep_debug=ON

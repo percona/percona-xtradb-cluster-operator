@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: pxc-client
-        image: perconalab/percona-xtradb-cluster-operator:0.4.0-backup
+        image: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.0.0-backup
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - mountPath: /etc/mysql/ssl

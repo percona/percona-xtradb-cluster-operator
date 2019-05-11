@@ -8,7 +8,6 @@ import (
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -159,24 +158,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 			return reconcile.Result{}, fmt.Errorf("get backup pvc: %v", err)
 		}
 
-		// getting the volume status
-		var pvcStatus VolumeStatus
-		for i := time.Duration(1); i <= 5; i++ {
-			pvcStatus, err = r.pvcStatus(pvc)
-			if err != nil && !errors.IsNotFound(err) {
-				return reconcile.Result{}, fmt.Errorf("get pvc status: %v", err)
-			}
-
-			if pvcStatus == VolumeBound {
-				break
-			}
-			time.Sleep(time.Second * i)
-		}
-
-		if pvcStatus != VolumeBound {
-			return reconcile.Result{}, fmt.Errorf("pvc not ready, status: %s", pvcStatus)
-		}
-
 		err := bcp.SetStoragePVC(&job.Spec, cluster, pvc.Name)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
@@ -240,19 +221,7 @@ type VolumeStatus string
 
 const (
 	VolumeUndefined VolumeStatus = "Undefined"
-	VolumeBound                  = VolumeStatus(corev1.ClaimBound)
-	VolumePending                = VolumeStatus(corev1.ClaimPending)
-	VolumeLost                   = VolumeStatus(corev1.ClaimLost)
 )
-
-func (r *ReconcilePerconaXtraDBClusterBackup) pvcStatus(pvc *corev1.PersistentVolumeClaim) (VolumeStatus, error) {
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
-	if err != nil {
-		return VolumeUndefined, err
-	}
-
-	return VolumeStatus(pvc.Status.Phase), nil
-}
 
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job, destination, storageName string, s3 *api.BackupStorageS3Spec) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)

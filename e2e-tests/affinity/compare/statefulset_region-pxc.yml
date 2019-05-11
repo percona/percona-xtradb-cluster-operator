@@ -142,7 +142,7 @@ spec:
         secret:
           defaultMode: 420
           optional: false
-          secretName: region-ssl
+          secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

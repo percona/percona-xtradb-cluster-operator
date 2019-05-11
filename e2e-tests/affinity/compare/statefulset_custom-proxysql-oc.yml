@@ -188,7 +188,7 @@ spec:
         secret:
           defaultMode: 420
           optional: false
-          secretName: custom-ssl
+          secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

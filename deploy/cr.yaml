@@ -130,7 +130,7 @@ spec:
     serverUser: pmm
   backup:
     image: percona/percona-xtradb-cluster-operator:1.0.0-backup
-#    serviceAccountName: percona-xtradb-cluster
+#    serviceAccountName: percona-xtradb-cluster-backup
 #    imagePullSecrets:
 #      - name: private-registry-credentials
     storages:

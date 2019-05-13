@@ -6,14 +6,17 @@ The operator is configured via the spec section of the
 file. This file contains the following spec sections to configure three
 main subsystems of the cluster:
 
-======== ========== =========================================
-Key      Value Type Description
-======== ========== =========================================
-pxc      subdoc     Percona XtraDB Cluster general section
-proxysql subdoc     ProxySQL section
-pmm      subdoc     Percona Monitoring and Management section
-backup   subdoc     Percona XtraDB Cluster backups section
-======== ========== =========================================
+.. csv-table:: Custom Resource options
+    :header: "Key", "Value Type", "Description"
+    :widths: 15, 15, 40
+
+      "pxc", "subdoc", "Percona XtraDB Cluster general section"
+      "proxysql", "subdoc", "ProxySQL section"
+      "pmm", "subdoc", "Percona Moonitoring and Management section"
+      "backup", "subdoc", "Percona XtraDB Cluster backups section"
+
+
+
 
 PXC Section
 -----------
@@ -21,872 +24,73 @@ PXC Section
 The ``pxc`` section in the deploy/cr.yaml file contains general
 configuration options for the Percona XtraDB Cluster.
 
-+--------------------------------+-----------+----------+------------+
-| Key                            | Value     | Example  | Descriptio |
-|                                | Type      |          | n          |
-+================================+===========+==========+============+
-| size                           | int       | ``3``    | The size   |
-|                                |           |          | of the     |
-|                                |           |          | Percona    |
-|                                |           |          | XtraDB     |
-|                                |           |          | Cluster,   |
-|                                |           |          | must be >= |
-|                                |           |          | 3 for      |
-|                                |           |          | `High-Avai |
-|                                |           |          | lability < |
-|                                |           |          | hhttps://w |
-|                                |           |          | ww.percona |
-|                                |           |          | .com/doc/p |
-|                                |           |          | ercona-xtr |
-|                                |           |          | adb-cluste |
-|                                |           |          | r/5.7/intr |
-|                                |           |          | o.html>`__ |
-+--------------------------------+-----------+----------+------------+
-| allowUnsafeConfigurations      | string    | ``false` | Prevents   |
-|                                |           | `        | users from |
-|                                |           |          | configurin |
-|                                |           |          | g          |
-|                                |           |          | a cluster  |
-|                                |           |          | with       |
-|                                |           |          | unsafe     |
-|                                |           |          | parameters such as starting the cluster with the number of nodes less than 3 or starting the cluster without TLS/SSL certificates. |
-+--------------------------------+-----------+----------+------------+
-| image                          | string    | ``percon | Percona    |
-|                                |           | a/percon | XtraDB     |
-|                                |           | a-xtradb | Cluster    |
-|                                |           | -cluster | docker     |
-|                                |           | -operato | image to   |
-|                                |           | r:1.0.0- | use        |
-|                                |           | pxc``    |            |
-+--------------------------------+-----------+----------+------------+
-| readinessDelaySec              | int       |`15`      | Checks if an application is ready to start processing traffic |
-+--------------------------------+-----------+----------+---------------------------------------------------------------+
-| livenessDelaySec               | int       |`300`     | Ensures the application is healthy and capable of processing requests |
-+--------------------------------+-----------+----------+-----------------------------------------------------------------------+
-|forceUnsafeBootstrap            | string    | `false`  | Prevents the use of outdated or unsafe TLS security settings |
-+--------------------------------+-----------+----------+--------------------------------------------------------------+
-| configuration                  | string    | \|\ ``[m | The        |
-|                                |           | ysqld]`` | ``my.cnf`` |
-|                                |           | \ \ ``ws | file       |
-|                                |           | rep_debu | options    |
-|                                |           | g=ON``\  | which are  |
-|                                |           | \ ``[sst | to be      |
-|                                |           | ]``\ \ ` | passed to  |
-|                                |           | `wsrep_d | Percona    |
-|                                |           | ebug=ON` | XtraDB     |
-|                                |           | `        | Cluster    |
-|                                |           |          | nodes      |
-+--------------------------------+-----------+----------+------------+
-| imagePullSecrets.name          | string    | ``privat | `Kubernete |
-|                                |           | e-regist | s          |
-|                                |           | ry-crede | imagePullS |
-|                                |           | ntials`` | ecret <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/sec |
-|                                |           |          | ret/#using |
-|                                |           |          | -imagepull |
-|                                |           |          | secrets>`_ |
-|                                |           |          | _          |
-|                                |           |          | for the    |
-|                                |           |          | Percona    |
-|                                |           |          | XtraDB     |
-|                                |           |          | Cluster    |
-|                                |           |          | docker     |
-|                                |           |          | image      |
-+--------------------------------+-----------+----------+------------+
-| priorityClassName              | string    | ``high-p | The        |
-|                                |           | riority` | `Kuberente |
-|                                |           | `        | s          |
-|                                |           |          | Pod        |
-|                                |           |          | priority   |
-|                                |           |          | class <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/pod |
-|                                |           |          | -priority- |
-|                                |           |          | preemption |
-|                                |           |          | /#priority |
-|                                |           |          | class>`__  |
-+--------------------------------+-----------+----------+------------+
-| annotations                    | label     | ``iam.am | The        |
-|                                |           | azonaws. | `Kubernete |
-|                                |           | com/role | s          |
-|                                |           | : role-a | annotation |
-|                                |           | rn``     | s <https:/ |
-|                                |           |          | /kubernete |
-|                                |           |          | s.io/docs/ |
-|                                |           |          | concepts/o |
-|                                |           |          | verview/wo |
-|                                |           |          | rking-with |
-|                                |           |          | -objects/a |
-|                                |           |          | nnotations |
-|                                |           |          | />`__      |
-|                                |           |          | metadata   |
-+--------------------------------+-----------+----------+------------+
-| labels                         | label     | ``rack:  | The        |
-|                                |           | rack-22` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | affinity   |
-|                                |           |          | labels <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/config |
-|                                |           |          | uration/as |
-|                                |           |          | sign-pod-n |
-|                                |           |          | ode/>`__   |
-+--------------------------------+-----------+----------+------------+
-| resources.requests.memory      | string    | ``1G``   | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Memory     |
-|                                |           |          | requests < |
-|                                |           |          | https://ku |
-|                                |           |          | bernetes.i |
-|                                |           |          | o/docs/con |
-|                                |           |          | cepts/conf |
-|                                |           |          | iguration/ |
-|                                |           |          | manage-com |
-|                                |           |          | pute-resou |
-|                                |           |          | rces-conta |
-|                                |           |          | iner/#reso |
-|                                |           |          | urce-reque |
-|                                |           |          | sts-and-li |
-|                                |           |          | mits-of-po |
-|                                |           |          | d-and-cont |
-|                                |           |          | ainer>`__  |
-|                                |           |          | for a PXC  |
-|                                |           |          | container  |
-+--------------------------------+-----------+----------+------------+
-| resources.requests.cpu         | string    | ``600m`` | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | CPU        |
-|                                |           |          | requests < |
-|                                |           |          | https://ku |
-|                                |           |          | bernetes.i |
-|                                |           |          | o/docs/con |
-|                                |           |          | cepts/conf |
-|                                |           |          | iguration/ |
-|                                |           |          | manage-com |
-|                                |           |          | pute-resou |
-|                                |           |          | rces-conta |
-|                                |           |          | iner/#reso |
-|                                |           |          | urce-reque |
-|                                |           |          | sts-and-li |
-|                                |           |          | mits-of-po |
-|                                |           |          | d-and-cont |
-|                                |           |          | ainer>`__  |
-|                                |           |          | for a PXC  |
-|                                |           |          | container  |
-+--------------------------------+-----------+----------+------------+
-| resources.limits.memory        | string    | ``1G``   | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Memory     |
-|                                |           |          | limit <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/man |
-|                                |           |          | age-comput |
-|                                |           |          | e-resource |
-|                                |           |          | s-containe |
-|                                |           |          | r/#resourc |
-|                                |           |          | e-requests |
-|                                |           |          | -and-limit |
-|                                |           |          | s-of-pod-a |
-|                                |           |          | nd-contain |
-|                                |           |          | er>`__     |
-|                                |           |          | for a PXC  |
-|                                |           |          | container  |
-+--------------------------------+-----------+----------+------------+
-| resources.limits.cpu           | string    | ``1``    | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | CPU        |
-|                                |           |          | limit <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/man |
-|                                |           |          | age-comput |
-|                                |           |          | e-resource |
-|                                |           |          | s-containe |
-|                                |           |          | r/#resourc |
-|                                |           |          | e-requests |
-|                                |           |          | -and-limit |
-|                                |           |          | s-of-pod-a |
-|                                |           |          | nd-contain |
-|                                |           |          | er>`__     |
-|                                |           |          | for a PXC  |
-|                                |           |          | container  |
-+--------------------------------+-----------+----------+------------+
-| nodeSelector                   | label     | ``diskty | The        |
-|                                |           | pe: ssd` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | nodeSelect |
-|                                |           |          | or <https: |
-|                                |           |          | //kubernet |
-|                                |           |          | es.io/docs |
-|                                |           |          | /concepts/ |
-|                                |           |          | configurat |
-|                                |           |          | ion/assign |
-|                                |           |          | -pod-node/ |
-|                                |           |          | #nodeselec |
-|                                |           |          | tor>`__    |
-|                                |           |          | constraint |
-+--------------------------------+-----------+----------+------------+
-| affinity.topologyKey           | string    | ``kubern | The        |
-|                                |           | etes.io/ | `Operator  |
-|                                |           | hostname | topologyKe |
-|                                |           | ``       | y <./const |
-|                                |           |          | raints>`__ |
-|                                |           |          | node       |
-|                                |           |          | anti-affin |
-|                                |           |          | ity        |
-|                                |           |          | constraint |
-+--------------------------------+-----------+----------+------------+
-| affinity.advanced              | subdoc    |          | If         |
-|                                |           |          | available, |
-|                                |           |          | it makes   |
-|                                |           |          | `topologyK |
-|                                |           |          | ey <https: |
-|                                |           |          | //kubernet |
-|                                |           |          | es.io/docs |
-|                                |           |          | /concepts/ |
-|                                |           |          | configurat |
-|                                |           |          | ion/assign |
-|                                |           |          | -pod-node/ |
-|                                |           |          | #inter-pod |
-|                                |           |          | -affinity- |
-|                                |           |          | and-anti-a |
-|                                |           |          | ffinity-be |
-|                                |           |          | ta-feature |
-|                                |           |          | >`__       |
-|                                |           |          | node       |
-|                                |           |          | affinity   |
-|                                |           |          | constraint |
-|                                |           |          | to be      |
-|                                |           |          | ignored    |
-+--------------------------------+-----------+----------+------------+
-| affinity.tolerations           | subdoc    | ``node.a | The        |
-|                                |           | lpha.kub | [Kubernete |
-|                                |           | ernetes. | s          |
-|                                |           | io/unrea | Pod        |
-|                                |           | chable`` | toleration |
-|                                |           |          | s]         |
-|                                |           |          | (https://k |
-|                                |           |          | ubernetes. |
-|                                |           |          | io/docs/co |
-|                                |           |          | ncepts/con |
-|                                |           |          | figuration |
-|                                |           |          | /taint-and |
-|                                |           |          | -toleratio |
-|                                |           |          | n/#concept |
-|                                |           |          | s)         |
-+--------------------------------+-----------+----------+------------+
-| podDisruptionBudget.maxUnavail | int       | ``1``    | `Kubernete |
-| able                           |           |          | s          |
-|                                |           |          | Disruption |
-|                                |           |          | Budget <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/tasks |
-|                                |           |          | /run-appli |
-|                                |           |          | cation/con |
-|                                |           |          | figure-pdb |
-|                                |           |          | />`__      |
-|                                |           |          | The number |
-|                                |           |          | of pods    |
-|                                |           |          | unavailabl |
-|                                |           |          | e          |
-|                                |           |          | after      |
-|                                |           |          | eviction   |
-+--------------------------------+-----------+----------+------------+
-| podDisruptionBudet.minAvailabl | int       | ``0``    | `Kubernete |
-| e                              |           |          | s          |
-|                                |           |          | Disruption |
-|                                |           |          | Budget <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/tasks |
-|                                |           |          | /run-appli |
-|                                |           |          | cation/con |
-|                                |           |          | figure-pdb |
-|                                |           |          | />`__      |
-|                                |           |          | The number |
-|                                |           |          | of pods    |
-|                                |           |          | available  |
-|                                |           |          | after      |
-|                                |           |          | eviction   |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.emptyDir            | string    | ``{}``   | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | emptyDir   |
-|                                |           |          | volume <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/storag |
-|                                |           |          | e/volumes/ |
-|                                |           |          | #emptydir> |
-|                                |           |          | `__,       |
-|                                |           |          | i.e. the   |
-|                                |           |          | directory  |
-|                                |           |          | which will |
-|                                |           |          | be created |
-|                                |           |          | on a node, |
-|                                |           |          | and will   |
-|                                |           |          | be         |
-|                                |           |          | accessible |
-|                                |           |          | to the PXC |
-|                                |           |          | Pod        |
-|                                |           |          | containers |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.hostPath.path       | string    | ``/data` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | hostPath   |
-|                                |           |          | volume <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/storag |
-|                                |           |          | e/volumes/ |
-|                                |           |          | #hostpath> |
-|                                |           |          | `__,       |
-|                                |           |          | i.e. the   |
-|                                |           |          | file or    |
-|                                |           |          | directory  |
-|                                |           |          | of a node  |
-|                                |           |          | that will  |
-|                                |           |          | be         |
-|                                |           |          | accessible |
-|                                |           |          | to the PXC |
-|                                |           |          | Pod        |
-|                                |           |          | containers |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.hostPath.type       | string    | ``Direct | The        |
-|                                |           | ory``    | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | hostPath   |
-|                                |           |          | volume     |
-|                                |           |          | type <http |
-|                                |           |          | s://kubern |
-|                                |           |          | etes.io/do |
-|                                |           |          | cs/concept |
-|                                |           |          | s/storage/ |
-|                                |           |          | volumes/#h |
-|                                |           |          | ostpath>`_ |
-|                                |           |          | _          |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.persistentVolumeCla | string    | ``standa | Set the    |
-| im.storageClassName            |           | rd``     | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Storage    |
-|                                |           |          | Class <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/storage |
-|                                |           |          | /storage-c |
-|                                |           |          | lasses/>`_ |
-|                                |           |          | _          |
-|                                |           |          | to use     |
-|                                |           |          | with the   |
-|                                |           |          | PXC        |
-|                                |           |          | `Persisten |
-|                                |           |          | t          |
-|                                |           |          | Volume     |
-|                                |           |          | Claim <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/storage |
-|                                |           |          | /persisten |
-|                                |           |          | t-volumes/ |
-|                                |           |          | #persisten |
-|                                |           |          | tvolumecla |
-|                                |           |          | ims>`__    |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.persistentVolumeCla | array     | ``[ "Rea | `Kubernete |
-| im.accessModes                 |           | dWriteOn | s          |
-|                                |           | ce" ]``  | Persistent |
-|                                |           |          | Volume <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/storag |
-|                                |           |          | e/persiste |
-|                                |           |          | nt-volumes |
-|                                |           |          | />`__      |
-|                                |           |          | access     |
-|                                |           |          | modes for  |
-|                                |           |          | the        |
-|                                |           |          | PerconaXtr |
-|                                |           |          | aDB        |
-|                                |           |          | Cluster    |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.resources.requests. | string    | ``6Gi``  | The        |
-| storage                        |           |          | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Persistent |
-|                                |           |          | Volume <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/storag |
-|                                |           |          | e/persiste |
-|                                |           |          | nt-volumes |
-|                                |           |          | />`__      |
-|                                |           |          | size for   |
-|                                |           |          | the        |
-|                                |           |          | Percona    |
-|                                |           |          | XtraDB     |
-|                                |           |          | Cluster    |
-+--------------------------------+-----------+----------+------------+
-| gracePeriod                    | int       | ``30``   | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Grace      |
-|                                |           |          | period. <h |
-|                                |           |          | ttps://kub |
-|                                |           |          | ernetes.io |
-|                                |           |          | /docs/conc |
-|                                |           |          | epts/workl |
-|                                |           |          | oads/pods/ |
-|                                |           |          | pod/#termi |
-|                                |           |          | nation-of- |
-|                                |           |          | pods>`__   |
-+--------------------------------+-----------+----------+------------+
+.. csv-table:: PXC Section
+  :header: "Key", "Value", "Example", "Description"
+  :widths: 35, 8,20,25
+
+  "size", "int", ``3``, The size of the Percona XtraDB cluster must be >= 3 for `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_
+  "allowUnsafeConfigurations", "string",``false``, "Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates"
+  image, string, ``percona/percona-xtradb-cluster-operator:1.0.0-pxc``, The Docker image of the Percona cluster used.
+  readinessDelaySec, int, ``15``, The delay before a check if the application is ready to process traffic
+  livenessDelaySec, int, ``300``, Ensures the application is healthy and capable of processing requests
+  forceUnsafeBootstrap, string, ``false``, Prevents the use of outdated and unsafe TLS security settings
+  configuration, string, " | ``[mysqld]``\ ``wsrep_debug=ON``\ ``wsrep-provider_options=gcache.size=1G; gcache.recover=yes``", The ``my.cnf`` file options to be passed to Percona XtraDB cluster nodes.
+  imagePullSecrets.name, string, ``private-registry-credentials``,`Kubernetes ImagePullSecret <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_
+  priorityClassName, string, ``high-priority``, `Kubernetes Pod priority class <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass>`_
+  annotations, label, ``iam.amazonaws.com/role: role-arn``, `Kubernetes annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_
+  labels, label, ``rack: rack-22``, `Kubernetes affinity labels <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/>`_
+  resources.requests.memory, string, ``1G``, `Kubernetes memory requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
+  resources.requests.cpu, string, ``600m``, `Kubernetes CPU requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
+  resources.limits.memory, string, ``1G``, `Kubernetes memory limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
+  nodeSelector, label, ``disktype: ssd``, `Kubernetes nodeSelector <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_
+  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `constraints`_ node anti-affinity constraint"
+  affinity.advanced, subdoc, , "If available , it makes a `topologyKey <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity-beta-feature>`_ node affinity constraint to be ignored."
+  affinity.tolerations, subdoc, """node.alpha.kubernetes.io/unreachable""", `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
+  podDisruptionBudet.maxUnavailable, int, ``1``, `Kubernetes podDisruptionBudget <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ specifies the number of pods from the set unavailable after the eviction.
+  podDisruptionBudet.minAvailable, int, ``0``, `Kubernetes podDisruptionBudet <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ the number of pods that must be available after an eviction.
+  volumeSpec.emptyDir, string, ``{}``, `Kubernetes emptyDir volume <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created on a node and accessible to the PXC pod containers.
+  volumeSpec.hostPath.path, string, ``/data``, `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ The volume that mounts a directory from the host node's filesystem into your pod. The path property is required.
+  volumeSpec.hostPath.type, string, ``Directory``, `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ An optional property for the hostPath.
+  volumeSpec.persistentVolumeClaim.storageClassName, string, ``standard``, "Set the `Kubernetes storage class <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC `PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_"
+  volumeSpec.PersistentVolumeClaim.accessModes, array, ``[ReadWriteOnce]``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ access modes for the Percona XtraDB cluster.
+  volumeSpec.resources.requests.storage, string, ``6Gi``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ size for the Percona XtraDB cluster.
+  gracePeriod, int, ``30``, The `Kubernetes grace period when terminating a pod <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_
+
 ProxySQL Section
 ----------------
 
 The ``proxysql`` section in the deploy/cr.yaml file contains
 configuration options for the ProxySQL daemon.
 
-+--------------------------------+-----------+----------+------------+
-| Key                            | Value     | Example  | Descriptio |
-|                                | Type      |          | n          |
-+================================+===========+==========+============+
-| enabled                        | boolean   | ``true`` | Enables or |
-|                                |           |          | disables   |
-|                                |           |          | `load      |
-|                                |           |          | balancing  |
-|                                |           |          | with       |
-|                                |           |          | ProxySQL < |
-|                                |           |          | https://ww |
-|                                |           |          | w.percona. |
-|                                |           |          | com/doc/pe |
-|                                |           |          | rcona-xtra |
-|                                |           |          | db-cluster |
-|                                |           |          | /5.7/howto |
-|                                |           |          | s/proxysql |
-|                                |           |          | .html>`__  |
-|                                |           |          | `Service < |
-|                                |           |          | https://ku |
-|                                |           |          | bernetes.i |
-|                                |           |          | o/docs/con |
-|                                |           |          | cepts/serv |
-|                                |           |          | ices-netwo |
-|                                |           |          | rking/serv |
-|                                |           |          | ice/>`__   |
-+--------------------------------+-----------+----------+------------+
-| size                           | int       | ``1``    | The number |
-|                                |           |          | of the     |
-|                                |           |          | ProxySQL   |
-|                                |           |          | daemons    |
-|                                |           |          | `to        |
-|                                |           |          | provide    |
-|                                |           |          | load       |
-|                                |           |          | balancing  |
-|                                |           |          | <https://w |
-|                                |           |          | ww.percona |
-|                                |           |          | .com/doc/p |
-|                                |           |          | ercona-xtr |
-|                                |           |          | adb-cluste |
-|                                |           |          | r/5.7/howt |
-|                                |           |          | os/proxysq |
-|                                |           |          | l.html>`__ |
-|                                |           |          | ,          |
-|                                |           |          | must be =  |
-|                                |           |          | 1 in       |
-|                                |           |          | current    |
-|                                |           |          | release    |
-+--------------------------------+-----------+----------+------------+
-| image                          | string    | ``percon | ProxySQL   |
-|                                |           | a/percon | docker     |
-|                                |           | a-xtradb | image to   |
-|                                |           | -cluster | use        |
-|                                |           | -operato |            |
-|                                |           | r:1.0.0- |            |
-|                                |           | proxysql |            |
-|                                |           | ``       |            |
-+--------------------------------+-----------+----------+------------+
-| imagePullSecrets.name          | string    | ``privat | `Kubernete |
-|                                |           | e-regist | s          |
-|                                |           | ry-crede | imagePullS |
-|                                |           | ntials`` | ecret <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/sec |
-|                                |           |          | ret/#using |
-|                                |           |          | -imagepull |
-|                                |           |          | secrets>`_ |
-|                                |           |          | _          |
-|                                |           |          | for the    |
-|                                |           |          | ProxySQL   |
-|                                |           |          | docker     |
-|                                |           |          | image      |
-+--------------------------------+-----------+----------+------------+
-| annotations                    | label     | ``iam.am | The        |
-|                                |           | azonaws. | `Kubernete |
-|                                |           | com/role | s          |
-|                                |           | : role-a | annotation |
-|                                |           | rn``     | s <https:/ |
-|                                |           |          | /kubernete |
-|                                |           |          | s.io/docs/ |
-|                                |           |          | concepts/o |
-|                                |           |          | verview/wo |
-|                                |           |          | rking-with |
-|                                |           |          | -objects/a |
-|                                |           |          | nnotations |
-|                                |           |          | />`__      |
-|                                |           |          | metadata   |
-+--------------------------------+-----------+----------+------------+
-| labels                         | label     | ``rack:  | `Labels are key/value pairs attached to objects.https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_          |
-|                                |           | rack-22` |            |
-|                                |           | `        |            |
-|                                |           |          |            |
-|                                |           |          |
-+--------------------------------+-----------+----------+------------+
-| resources.requests.memory      | string    | ``1G``   | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Memory     |
-|                                |           |          | requests < |
-|                                |           |          | https://ku |
-|                                |           |          | bernetes.i |
-|                                |           |          | o/docs/con |
-|                                |           |          | cepts/conf |
-|                                |           |          | iguration/ |
-|                                |           |          | manage-com |
-|                                |           |          | pute-resou |
-|                                |           |          | rces-conta |
-|                                |           |          | iner/#reso |
-|                                |           |          | urce-reque |
-|                                |           |          | sts-and-li |
-|                                |           |          | mits-of-po |
-|                                |           |          | d-and-cont |
-|                                |           |          | ainer>`__  |
-|                                |           |          | for a      |
-|                                |           |          | ProxySQL   |
-|                                |           |          | container  |
-+--------------------------------+-----------+----------+------------+
-| resources.requests.cpu         | string    | ``600m`` | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | CPU        |
-|                                |           |          | requests < |
-|                                |           |          | https://ku |
-|                                |           |          | bernetes.i |
-|                                |           |          | o/docs/con |
-|                                |           |          | cepts/conf |
-|                                |           |          | iguration/ |
-|                                |           |          | manage-com |
-|                                |           |          | pute-resou |
-|                                |           |          | rces-conta |
-|                                |           |          | iner/#reso |
-|                                |           |          | urce-reque |
-|                                |           |          | sts-and-li |
-|                                |           |          | mits-of-po |
-|                                |           |          | d-and-cont |
-|                                |           |          | ainer>`__  |
-|                                |           |          | for a      |
-|                                |           |          | ProxySQL   |
-|                                |           |          | container  |
-+--------------------------------+-----------+----------+------------+
-| resources.limits.memory        | string    | ``1G``   | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Memory     |
-|                                |           |          | limit <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/man |
-|                                |           |          | age-comput |
-|                                |           |          | e-resource |
-|                                |           |          | s-containe |
-|                                |           |          | r/#resourc |
-|                                |           |          | e-requests |
-|                                |           |          | -and-limit |
-|                                |           |          | s-of-pod-a |
-|                                |           |          | nd-contain |
-|                                |           |          | er>`__     |
-|                                |           |          | for a      |
-|                                |           |          | ProxySQL   |
-|                                |           |          | container  |
-+--------------------------------+-----------+----------+------------+
-| resources.limits.cpu           | string    | ``700m`` | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | CPU        |
-|                                |           |          | limit <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/man |
-|                                |           |          | age-comput |
-|                                |           |          | e-resource |
-|                                |           |          | s-containe |
-|                                |           |          | r/#resourc |
-|                                |           |          | e-requests |
-|                                |           |          | -and-limit |
-|                                |           |          | s-of-pod-a |
-|                                |           |          | nd-contain |
-|                                |           |          | er>`__     |
-|                                |           |          | for a      |
-|                                |           |          | ProxySQL   |
-|                                |           |          | container  |
-+--------------------------------+-----------+----------+------------+
-| priorityClassName              | string    | ``high-p | The        |
-|                                |           | riority` | `Kuberente |
-|                                |           | `        | s          |
-|                                |           |          | Pod        |
-|                                |           |          | priority   |
-|                                |           |          | class <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/pod |
-|                                |           |          | -priority- |
-|                                |           |          | preemption |
-|                                |           |          | /#priority |
-|                                |           |          | class>`__  |
-|                                |           |          | for        |
-|                                |           |          | ProxySQL   |
-+--------------------------------+-----------+----------+------------+
-| nodeSelector                   | label     | ``diskty | The        |
-|                                |           | pe: ssd` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | nodeSelect |
-|                                |           |          | or <https: |
-|                                |           |          | //kubernet |
-|                                |           |          | es.io/docs |
-|                                |           |          | /concepts/ |
-|                                |           |          | configurat |
-|                                |           |          | ion/assign |
-|                                |           |          | -pod-node/ |
-|                                |           |          | #nodeselec |
-|                                |           |          | tor>`__    |
-|                                |           |          | affinity   |
-|                                |           |          | constraint |
-+--------------------------------+-----------+----------+------------+
-| affinity.topologyKey           | string    | ``failur | The        |
-|                                |           | e-domain | `Operator  |
-|                                |           | .beta.ku | topologyKe |
-|                                |           | bernetes | y <./const |
-|                                |           | .io/zone | raints>`__ |
-|                                |           | ``       | node       |
-|                                |           |          | anti-affin |
-|                                |           |          | ity        |
-|                                |           |          | constraint |
-+--------------------------------+-----------+----------+------------+
-| affinity.advanced              | subdoc    |          | If         |
-|                                |           |          | available, |
-|                                |           |          | it makes   |
-|                                |           |          | `topologyK |
-|                                |           |          | ey <https: |
-|                                |           |          | //kubernet |
-|                                |           |          | es.io/docs |
-|                                |           |          | /concepts/ |
-|                                |           |          | configurat |
-|                                |           |          | ion/assign |
-|                                |           |          | -pod-node/ |
-|                                |           |          | #inter-pod |
-|                                |           |          | -affinity- |
-|                                |           |          | and-anti-a |
-|                                |           |          | ffinity-be |
-|                                |           |          | ta-feature |
-|                                |           |          | >`__       |
-|                                |           |          | possiblity to setup an advanced variant of affinity    |
-+--------------------------------+-----------+----------+------------+
-| affinity.tolerations           | subdoc    | ``node.a | The        |
-|                                |           | lpha.kub | [Kubernete |
-|                                |           | ernetes. | s          |
-|                                |           | io/unrea | Pod        |
-|                                |           | chable`` | toleration |
-|                                |           |          | s]         |
-|                                |           |          | (https://k |
-|                                |           |          | ubernetes. |
-|                                |           |          | io/docs/co |
-|                                |           |          | ncepts/con |
-|                                |           |          | figuration |
-|                                |           |          | /taint-and |
-|                                |           |          | -toleratio |
-|                                |           |          | n/#concept |
-|                                |           |          | s)         |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.emptyDir            | string    | ``{}``   | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | emptyDir   |
-|                                |           |          | volume <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/storag |
-|                                |           |          | e/volumes/ |
-|                                |           |          | #emptydir> |
-|                                |           |          | `__,       |
-|                                |           |          | i.e. the   |
-|                                |           |          | directory  |
-|                                |           |          | which will |
-|                                |           |          | be created |
-|                                |           |          | on a node, |
-|                                |           |          | and will   |
-|                                |           |          | be         |
-|                                |           |          | accessible |
-|                                |           |          | to the     |
-|                                |           |          | ProxySQL   |
-|                                |           |          | Pod        |
-|                                |           |          | containers |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.hostPath.path       | string    | ``/data` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | hostPath   |
-|                                |           |          | volume <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/storag |
-|                                |           |          | e/volumes/ |
-|                                |           |          | #hostpath> |
-|                                |           |          | `__,       |
-|                                |           |          | i.e. the   |
-|                                |           |          | file or    |
-|                                |           |          | directory  |
-|                                |           |          | of a node  |
-|                                |           |          | that will  |
-|                                |           |          | be         |
-|                                |           |          | accessible |
-|                                |           |          | to the     |
-|                                |           |          | ProxySQL   |
-|                                |           |          | Pod        |
-|                                |           |          | containers |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.hostPath.type       | string    | ``Direct | The        |
-|                                |           | ory``    | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | hostPath   |
-|                                |           |          | volume     |
-|                                |           |          | type <http |
-|                                |           |          | s://kubern |
-|                                |           |          | etes.io/do |
-|                                |           |          | cs/concept |
-|                                |           |          | s/storage/ |
-|                                |           |          | volumes/#h |
-|                                |           |          | ostpath>`_ |
-|                                |           |          | _          |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.persistentVolumeCla | string    | ``standa | The        |
-| im.storageClassName            |           | rd``     | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Storage    |
-|                                |           |          | Class <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/storage |
-|                                |           |          | /storage-c |
-|                                |           |          | lasses/>`_ |
-|                                |           |          | _          |
-|                                |           |          | to use     |
-|                                |           |          | with the   |
-|                                |           |          | ProxySQL   |
-|                                |           |          | `Persisten |
-|                                |           |          | t          |
-|                                |           |          | Volume     |
-|                                |           |          | Claim <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/storage |
-|                                |           |          | /persisten |
-|                                |           |          | t-volumes/ |
-|                                |           |          | #persisten |
-|                                |           |          | tvolumecla |
-|                                |           |          | ims>`__    |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.persistentVolumeCla | array     | ``[ "Rea | `Kubernete |
-| im.accessModes                 |           | dWriteOn | s          |
-|                                |           | ce" ]``  | Persistent |
-|                                |           |          | Volume <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/storag |
-|                                |           |          | e/persiste |
-|                                |           |          | nt-volumes |
-|                                |           |          | />`__      |
-|                                |           |          | access     |
-|                                |           |          | modes for  |
-|                                |           |          | ProxySQL   |
-+--------------------------------+-----------+----------+------------+
-| volumeSpec.resources.requests. | string    | ``2Gi``  | The        |
-| storage                        |           |          | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Persistent |
-|                                |           |          | Volume <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/storag |
-|                                |           |          | e/persiste |
-|                                |           |          | nt-volumes |
-|                                |           |          | />`__      |
-|                                |           |          | size for   |
-|                                |           |          | ProxySQL   |
-+--------------------------------+-----------+----------+------------+
-| podDisruptionBudget.maxUnavail | int       | ``1``    | `Kubernete |
-| able                           |           |          | s          |
-|                                |           |          | Disruption |
-|                                |           |          | Budget <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/tasks |
-|                                |           |          | /run-appli |
-|                                |           |          | cation/con |
-|                                |           |          | figure-pdb |
-|                                |           |          | />`__      |
-|                                |           |          | The number |
-|                                |           |          | of pods    |
-|                                |           |          | unavailabl |
-|                                |           |          | e          |
-|                                |           |          | after      |
-|                                |           |          | eviction   |
-+--------------------------------+-----------+----------+------------+
-| podDisruptionBudet.minAvailabl | int       | ``0``    | `Kubernete |
-| e                              |           |          | s          |
-|                                |           |          | Disruption |
-|                                |           |          | Budget <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/tasks |
-|                                |           |          | /run-appli |
-|                                |           |          | cation/con |
-|                                |           |          | figure-pdb |
-|                                |           |          | />`__      |
-|                                |           |          | The number |
-|                                |           |          | of pods    |
-|                                |           |          | available  |
-|                                |           |          | after      |
-|                                |           |          | eviction   |
-+--------------------------------+-----------+----------+------------+
-|
+.. csv-table:: proxysql Section
+  :header: "Key", "Value", "Example", "Description"
+  :widths: 35, 8,20,25
+
+  enabled, boolean, ``true``, "Enables or disables `load balancing with ProxySQL <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ `Services <https://kubernetes.io/docs/concepts/services-networking/service/>`_"
+  size, int, ``1``, The number of the ProxySQL daemons `to provide load balancing <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ must be = 1 in current release.
+  image, string, ``percona/percona-xtradb-cluster-operator:1.0.0-proxysql``, ProxySQL Docker image to use.
+  imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the ProxySQL image.
+  annotations, label, ``iam.amazonaws.com/role: role-arn``, `Kubernetes annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_ metadata.
+  labels, label, ``rack: rack-22``, `Labels are key-value pairs attached to objects. <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_
+  resources.requests.memory, string, ``1G``, `Kubernetes memory requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
+  resources.requests.cpu, string, ``600m``, `Kubernetes CPU requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
+  resources.limits.memory, string, ``1G``, `Kubernetes memory limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
+  resources.limits.cpu, string, ``700m``, `Kubernetes CPU limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
+  priorityClassName,string,``high-priority``, The `Kubernetes Pod Priority class <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass>`_ for ProxySQL.
+  nodeSelector, label, ``disktype: ssd``, `Kubernetes nodeSelector <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_
+  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `constraints`_ node anti-affinity constraint"
+  affinity.advanced, subdoc, , "If available , it makes a `topologyKey <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity-beta-feature>`_ node affinity constraint to be ignored."
+  affinity.tolerations, subdoc, """node.alpha.kubernetes.io/unreachable""", `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
+  volumeSpec.emptyDir, string, ``{}``, `Kubernetes emptyDir volume <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created on a node and accessible to the PXC pod containers.
+  volumeSpec.hostPath.path, string, ``/data``, `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ The volume that mounts a directory from the host node's filesystem into your pod. The path property is required.
+  volumeSpec.hostPath.type, string, ``Directory``, `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ An optional property for the hostPath.
+  volumeSpec.persistentVolumeClaim.storageClassName, string, ``standard``, "Set the `Kubernetes storage class <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC `PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_"
+  volumeSpec.PersistentVolumeClaim.accessModes, array, ``[ReadWriteOnce]``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ access modes for the Percona XtraDB cluster.
+  volumeSpec.resources.requests.storage, string, ``6Gi``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ size for the Percona XtraDB cluster.
+  podDisruptionBudet.maxUnavailable, int, ``1``, `Kubernetes podDisruptionBudget <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ specifies the number of pods from the set unavailable after the eviction.
+  podDisruptionBudet.minAvailable, int, ``0``, `Kubernetes podDisruptionBudet <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ the number of pods that must be available after an eviction.
+  gracePeriod, int, ``30``, The `Kubernetes grace period when terminating a pod <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_
+
 
 PMM Section
 -----------
@@ -894,35 +98,15 @@ PMM Section
 The ``pmm`` section in the deploy/cr.yaml file contains configuration
 options for Percona Monitoring and Management.
 
-+---------+----------+--------------------+----------------------------+
-| Key     | Value    | Example            | Description                |
-|         | Type     |                    |                            |
-+=========+==========+====================+============================+
-| enabled | boolean  | ``false``          | Enables or disables        |
-|         |          |                    | `monitoring Percona XtraDB |
-|         |          |                    | Cluster with               |
-|         |          |                    | PMM <https://www.percona.c |
-|         |          |                    | om/doc/percona-xtradb-clus |
-|         |          |                    | ter/LATEST/manual/monitori |
-|         |          |                    | ng.html#using-pmm>`__      |
-+---------+----------+--------------------+----------------------------+
-| image   | string   | ``perconalab/pmm-c | PMM Client docker image to |
-|         |          | lient``            | use                        |
-+---------+----------+--------------------+----------------------------+
-| serverH | string   | ``monitoring-servi | Address of the PMM Server  |
-| ost     |          | ce``               | to collect data from the   |
-|         |          |                    | Cluster                    |
-+---------+----------+--------------------+----------------------------+
-| serverU | string   | ``pmm``            | The `PMM Server            |
-| ser     |          |                    | user <https://www.percona. |
-|         |          |                    | com/doc/percona-monitoring |
-|         |          |                    | -and-management/glossary.o |
-|         |          |                    | ption.html#term-server-use |
-|         |          |                    | r>`__.                     |
-|         |          |                    | The PMM Server Password    |
-|         |          |                    | should be configured via   |
-|         |          |                    | secrets.                   |
-+---------+----------+--------------------+----------------------------+
+.. csv-table:: pmm Section
+  :header: "Key", "Value", "Example", "Description"
+  :widths: 35, 8,20,25
+
+  enabled, boolean, ``false``, Enables or disables `monitoring Percona XtraDB cluster with PMM <https://www.percona.com/doc/percona-xtradb-cluster/5.7/manual/monitoring.html>`_
+  image, string, ``perconalab/pmm-client:1.17.1``, PMM client Docker image to use.
+  serverHost, string, ``monitoring-service``, Address of the PMM Server to collect data from the cluster.
+  serverUser, string, ``pmm``, The `PMM Serve_User <https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html>`_. The PMM Server password should be configured using Secrets.
+
 
 backup section
 --------------
@@ -932,219 +116,22 @@ The ``backup`` section in the
 file contains the following configuration options for the regular
 Percona XtraDB Cluster backups.
 
-+--------------------------------+-----------+----------+------------+
-| Key                            | Value     | Example  | Descriptio |
-|                                | Type      |          | n          |
-+================================+===========+==========+============+
-| image                          | string    | ``percon | Percona    |
-|                                |           | a/percon | XtraDB     |
-|                                |           | a-xtradb | Cluster    |
-|                                |           | -cluster | docker     |
-|                                |           | -operato | image to   |
-|                                |           | r:0.4.0- | use for    |
-|                                |           | backup`` | the backup |
-|                                |           |          | functional |
-|                                |           |          | ity        |
-+--------------------------------+-----------+----------+------------+
-| imagePullSecrets.name          | string    | ``privat | `Kubernete |
-|                                |           | e-regist | s          |
-|                                |           | ry-crede | imagePullS |
-|                                |           | ntials`` | ecret <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/configu |
-|                                |           |          | ration/sec |
-|                                |           |          | ret/#using |
-|                                |           |          | -imagepull |
-|                                |           |          | secrets>`_ |
-|                                |           |          | _          |
-|                                |           |          | for the    |
-|                                |           |          | specified  |
-|                                |           |          | docker     |
-|                                |           |          | image      |
-+--------------------------------+-----------+----------+------------+
-| storages.type                  | string    | ``s3``   | Type of    |
-|                                |           |          | the cloud  |
-|                                |           |          | storage to |
-|                                |           |          | be used    |
-|                                |           |          | for        |
-|                                |           |          | backups.   |
-|                                |           |          | Currently  |
-|                                |           |          | only       |
-|                                |           |          | ``s3`` and |
-|                                |           |          | ``filesyst |
-|                                |           |          | em``       |
-|                                |           |          | types are  |
-|                                |           |          | supported  |
-+--------------------------------+-----------+----------+------------+
-| storages.s3.credentialsSecret  | string    | ``my-clu | `Kubernete |
-|                                |           | ster-nam | s          |
-|                                |           | e-backup | secret <ht |
-|                                |           | -s3``    | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/config |
-|                                |           |          | uration/se |
-|                                |           |          | cret/>`__  |
-|                                |           |          | for        |
-|                                |           |          | backups.   |
-|                                |           |          | It should  |
-|                                |           |          | contain    |
-|                                |           |          | ``AWS_ACCE |
-|                                |           |          | SS_KEY_ID` |
-|                                |           |          | `          |
-|                                |           |          | and        |
-|                                |           |          | ``AWS_SECR |
-|                                |           |          | ET_ACCESS_ |
-|                                |           |          | KEY``      |
-|                                |           |          | keys.      |
-+--------------------------------+-----------+----------+------------+
-| storages.s3.bucket             | string    |          | The        |
-|                                |           |          | `Amazon S3 |
-|                                |           |          | bucket <ht |
-|                                |           |          | tps://docs |
-|                                |           |          | .aws.amazo |
-|                                |           |          | n.com/en_u |
-|                                |           |          | s/AmazonS3 |
-|                                |           |          | /latest/de |
-|                                |           |          | v/UsingBuc |
-|                                |           |          | ket.html>` |
-|                                |           |          | __         |
-|                                |           |          | name for   |
-|                                |           |          | backups    |
-+--------------------------------+-----------+----------+------------+
-| storages.s3.region             | string    | ``us-eas | The `AWS   |
-|                                |           | t-1``    | region <ht |
-|                                |           |          | tps://docs |
-|                                |           |          | .aws.amazo |
-|                                |           |          | n.com/en_u |
-|                                |           |          | s/general/ |
-|                                |           |          | latest/gr/ |
-|                                |           |          | rande.html |
-|                                |           |          | >`__       |
-|                                |           |          | to use.    |
-|                                |           |          | Please     |
-|                                |           |          | note       |
-|                                |           |          | **this     |
-|                                |           |          | option is  |
-|                                |           |          | mandatory* |
-|                                |           |          | *          |
-|                                |           |          | not only   |
-|                                |           |          | for Amazon |
-|                                |           |          | S3, but    |
-|                                |           |          | for all    |
-|                                |           |          | S3-compati |
-|                                |           |          | ble        |
-|                                |           |          | storages.  |
-+--------------------------------+-----------+----------+------------+
-| storages.s3.endpointUrl        | string    |          | The        |
-|                                |           |          | endpoint   |
-|                                |           |          | URL of the |
-|                                |           |          | S3-compati |
-|                                |           |          | ble        |
-|                                |           |          | storage to |
-|                                |           |          | be used    |
-|                                |           |          | (not       |
-|                                |           |          | needed for |
-|                                |           |          | the        |
-|                                |           |          | original   |
-|                                |           |          | Amazon S3  |
-|                                |           |          | cloud)     |
-+--------------------------------+-----------+----------+------------+
-| storages.persistentVolumeClaim | string    | ``filesy | persistent |
-| .type                          |           | stem``   | volume     |
-|                                |           |          | type       |
-+--------------------------------+-----------+----------+------------+
-| storages.persistentVolumeClaim | string    | ``standa | Set the    |
-| .storageClassName              |           | rd``     | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Storage    |
-|                                |           |          | Class <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/storage |
-|                                |           |          | /storage-c |
-|                                |           |          | lasses/>`_ |
-|                                |           |          | _          |
-|                                |           |          | to use     |
-|                                |           |          | with the   |
-|                                |           |          | PXC        |
-|                                |           |          | backups    |
-|                                |           |          | `Persisten |
-|                                |           |          | t          |
-|                                |           |          | Volume     |
-|                                |           |          | Claim <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/storage |
-|                                |           |          | /persisten |
-|                                |           |          | t-volumes/ |
-|                                |           |          | #persisten |
-|                                |           |          | tvolumecla |
-|                                |           |          | ims>`__    |
-|                                |           |          | for the    |
-|                                |           |          | ``filesyst |
-|                                |           |          | em``       |
-|                                |           |          | storage    |
-|                                |           |          | type       |
-+--------------------------------+-----------+----------+------------+
-| storages.persistentVolumeClaim | array     | [“ReadWr | The        |
-| .accessModes                   |           | iteOnce” | `Kubernete |
-|                                |           | ]        | s          |
-|                                |           |          | Persistent |
-|                                |           |          | Volume     |
-|                                |           |          | access     |
-|                                |           |          | modes <htt |
-|                                |           |          | ps://kuber |
-|                                |           |          | netes.io/d |
-|                                |           |          | ocs/concep |
-|                                |           |          | ts/storage |
-|                                |           |          | /persisten |
-|                                |           |          | t-volumes/ |
-|                                |           |          | #access-mo |
-|                                |           |          | des>`__    |
-+--------------------------------+-----------+----------+------------+
-| storages.persistentVolumeClaim | string    | ``6Gi``  | Storage    |
-| .storage                       |           |          | size for   |
-|                                |           |          | the        |
-|                                |           |          | persistent |
-|                                |           |          | VolumeClai |
-|                                |           |          | m          |
-+--------------------------------+-----------+----------+------------+
-| schedule.name                  | string    | ``sat-ni | The backup |
-|                                |           | ght-back | name       |
-|                                |           | up``     |            |
-+--------------------------------+-----------+----------+------------+
-| schedule.schedule              | string    | ``0 0 *  | Scheduled  |
-|                                |           | * 6``    | time to    |
-|                                |           |          | make a     |
-|                                |           |          | backup,    |
-|                                |           |          | specified  |
-|                                |           |          | in the     |
-|                                |           |          | `crontab   |
-|                                |           |          | format <ht |
-|                                |           |          | tps://en.w |
-|                                |           |          | ikipedia.o |
-|                                |           |          | rg/wiki/Cr |
-|                                |           |          | on>`__     |
-+--------------------------------+-----------+----------+------------+
-| schedule.keep                  | int       | ``3``    | Number of  |
-|                                |           |          | backups to |
-|                                |           |          | store      |
-+--------------------------------+-----------+----------+------------+
-| schedule.storageName           | string    | ``st-us- | Name of    |
-|                                |           | west``   | the        |
-|                                |           |          | storage    |
-|                                |           |          | for        |
-|                                |           |          | backups,   |
-|                                |           |          | configured |
-|                                |           |          | in the     |
-|                                |           |          | ``storages |
-|                                |           |          | ``         |
-|                                |           |          | or         |
-|                                |           |          | ``fs-pvc`` |
-|                                |           |          | subsection |
-+--------------------------------+-----------+----------+------------+
+.. csv-table:: pmm Section
+  :header: "Key", "Value", "Example", "Description"
+  :widths: 35, 8,20,25
+
+  image, string, ``percona/percona-xtradb-cluster-operator:1.0.0-backup``, The Percona XtraDB cluster Docker image to use for the backup.
+  imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the specified image.
+  storages.type, string, ``s3``, The cloud storage type used for backups. Currently, only ``s3`` and ``filesystem`` types are supported.
+  storages.s3.credentialsSecret, string, ``my-cluster-name-backup-s3``, The `Kubernetes secret <https://kubernetes.io/docs/concepts/configuration/secret/>`_ for backups. It should contain ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` keys.
+  storages.s3.bucket, string, , The `Amazon S3 bucket <https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingBucket.html>`_ name for backups.
+  storages.s3.region, string, ``us-east-1``, The `AWS region <https://docs.aws.amazon.com/general/latest/gr/rande.html>`_ to use. Please note ** this option is mandatory** for Amazon and all S3-compatible storages.
+  storages.s3.endpointUrl, string, , The endpoint URL of the S3-compatible storage to be used (not needed for the original Amazon S3 cloud).
+  storages.persistentVolumeClaim.type, string, ``filesystem``, The persistent volume claim storage type
+  storages.persistentVolumeClaim.storageClassName, string, ``standard``, Set the `Kubernetes Storage Class <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC backups `PersistentVolumeClaims <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ for the ``filesystem`` storage type.
+  storages.persistentVolumeClaim.accessModes, array, ``[ReadWriteOne]``, The `Kubernetes PersistentVolume access modes <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes>`_
+  storages.persistentVolumeClaim.storage, string, ``6Gi``, Storage size for the PersistentVolume.
+  schedule.name, string, ``sat-night-backup``, The backup name
+  schedule.schedule, string, ``0 0 * * 6``, Scheduled time to make a backup, specified in the `crontab format <https://en.wikipedia.org/wiki/Cron>`_
+  schedule.keep, int, ``3``, Number of stored backups
+  schedule.storageName, string, ``s3-us-west``, The name of the storage for the backups, configured in the ``storages`` or ``fs-pvc`` subsection. 

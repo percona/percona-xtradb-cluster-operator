@@ -64,7 +64,7 @@ configuration options for the ProxySQL daemon.
 
 .. csv-table:: proxysql Section
   :header: "Key", "Value", "Example", "Description"
-  :widths: 35, 8,20,25
+  :widths: 25, 8,15,25
 
   enabled, boolean, ``true``, "Enables or disables `load balancing with ProxySQL <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ `Services <https://kubernetes.io/docs/concepts/services-networking/service/>`_"
   size, int, ``1``, The number of the ProxySQL daemons `to provide load balancing <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ must be = 1 in current release.
@@ -100,7 +100,7 @@ options for Percona Monitoring and Management.
 
 .. csv-table:: pmm Section
   :header: "Key", "Value", "Example", "Description"
-  :widths: 35, 8,20,25
+  :widths: 25, 8,15,25
 
   enabled, boolean, ``false``, Enables or disables `monitoring Percona XtraDB cluster with PMM <https://www.percona.com/doc/percona-xtradb-cluster/5.7/manual/monitoring.html>`_
   image, string, ``perconalab/pmm-client:1.17.1``, PMM client Docker image to use.
@@ -116,9 +116,9 @@ The ``backup`` section in the
 file contains the following configuration options for the regular
 Percona XtraDB Cluster backups.
 
-.. csv-table:: pmm Section
+.. csv-table:: Backup Section
   :header: "Key", "Value", "Example", "Description"
-  :widths: 35, 8,20,25
+  :widths: 25, 8,15,25
 
   image, string, ``percona/percona-xtradb-cluster-operator:1.0.0-backup``, The Percona XtraDB cluster Docker image to use for the backup.
   imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the specified image.

@@ -49,7 +49,7 @@ configuration options for the Percona XtraDB Cluster.
 |                                |           |          | a cluster  |
 |                                |           |          | with       |
 |                                |           |          | unsafe     |
-|                                |           |          | parameters |
+|                                |           |          | parameters such as starting the cluster with the number of nodes less than 3 or starting the cluster without TLS/SSL certificates. |
 +--------------------------------+-----------+----------+------------+
 | image                          | string    | ``percon | Percona    |
 |                                |           | a/percon | XtraDB     |
@@ -59,6 +59,12 @@ configuration options for the Percona XtraDB Cluster.
 |                                |           | r:1.0.0- | use        |
 |                                |           | pxc``    |            |
 +--------------------------------+-----------+----------+------------+
+| readinessDelaySec              | int       |`15`      | Checks if an application is ready to start processing traffic |
++--------------------------------+-----------+----------+---------------------------------------------------------------+
+| livenessDelaySec               | int       |`300`     | Ensures the application is healthy and capable of processing requests |
++--------------------------------+-----------+----------+-----------------------------------------------------------------------+
+|forceUnsafeBootstrap            | string    | `false`  | Prevents the use of outdated or unsafe TLS security settings |
++--------------------------------+-----------+----------+--------------------------------------------------------------+
 | configuration                  | string    | \|\ ``[m | The        |
 |                                |           | ysqld]`` | ``my.cnf`` |
 |                                |           | \ \ ``ws | file       |
@@ -442,7 +448,19 @@ configuration options for the Percona XtraDB Cluster.
 |                                |           |          | XtraDB     |
 |                                |           |          | Cluster    |
 +--------------------------------+-----------+----------+------------+
-
+| gracePeriod                    | int       | ``30``   | `Kubernete |
+|                                |           |          | s          |
+|                                |           |          | Grace      |
+|                                |           |          | period. <h |
+|                                |           |          | ttps://kub |
+|                                |           |          | ernetes.io |
+|                                |           |          | /docs/conc |
+|                                |           |          | epts/workl |
+|                                |           |          | oads/pods/ |
+|                                |           |          | pod/#termi |
+|                                |           |          | nation-of- |
+|                                |           |          | pods>`__   |
++--------------------------------+-----------+----------+------------+
 ProxySQL Section
 ----------------
 
@@ -540,18 +558,11 @@ configuration options for the ProxySQL daemon.
 |                                |           |          | />`__      |
 |                                |           |          | metadata   |
 +--------------------------------+-----------+----------+------------+
-| labels                         | label     | ``rack:  | The        |
-|                                |           | rack-22` | `Kubernete |
-|                                |           | `        | s          |
-|                                |           |          | affinity   |
-|                                |           |          | labels <ht |
-|                                |           |          | tps://kube |
-|                                |           |          | rnetes.io/ |
-|                                |           |          | docs/conce |
-|                                |           |          | pts/config |
-|                                |           |          | uration/as |
-|                                |           |          | sign-pod-n |
-|                                |           |          | ode/>`__   |
+| labels                         | label     | ``rack:  | `Labels are key/value pairs attached to objects.https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_          |
+|                                |           | rack-22` |            |
+|                                |           | `        |            |
+|                                |           |          |            |
+|                                |           |          |
 +--------------------------------+-----------+----------+------------+
 | resources.requests.memory      | string    | ``1G``   | `Kubernete |
 |                                |           |          | s          |
@@ -702,11 +713,7 @@ configuration options for the ProxySQL daemon.
 |                                |           |          | ffinity-be |
 |                                |           |          | ta-feature |
 |                                |           |          | >`__       |
-|                                |           |          | node       |
-|                                |           |          | affinity   |
-|                                |           |          | constraint |
-|                                |           |          | to be      |
-|                                |           |          | ignored    |
+|                                |           |          | possiblity to setup an advanced variant of affinity    |
 +--------------------------------+-----------+----------+------------+
 | affinity.tolerations           | subdoc    | ``node.a | The        |
 |                                |           | lpha.kub | [Kubernete |
@@ -879,19 +886,7 @@ configuration options for the ProxySQL daemon.
 |                                |           |          | after      |
 |                                |           |          | eviction   |
 +--------------------------------+-----------+----------+------------+
-| gracePeriod                    | int       | ``30``   | `Kubernete |
-|                                |           |          | s          |
-|                                |           |          | Grace      |
-|                                |           |          | period. <h |
-|                                |           |          | ttps://kub |
-|                                |           |          | ernetes.io |
-|                                |           |          | /docs/conc |
-|                                |           |          | epts/workl |
-|                                |           |          | oads/pods/ |
-|                                |           |          | pod/#termi |
-|                                |           |          | nation-of- |
-|                                |           |          | pods>`__   |
-+--------------------------------+-----------+----------+------------+
+|
 
 PMM Section
 -----------
@@ -1043,7 +1038,7 @@ Percona XtraDB Cluster backups.
 |                                |           |          | ble        |
 |                                |           |          | storages.  |
 +--------------------------------+-----------+----------+------------+
-| storage.s3.endpointUrl         | string    |          | The        |
+| storages.s3.endpointUrl        | string    |          | The        |
 |                                |           |          | endpoint   |
 |                                |           |          | URL of the |
 |                                |           |          | S3-compati |

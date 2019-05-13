@@ -8,7 +8,7 @@ main subsystems of the cluster:
 
 .. csv-table:: Custom Resource options
     :header: "Key", "Value Type", "Description"
-    :widths: 15, 15, 40
+    :widths: "auto" , "auto", "auto"
 
       "pxc", "subdoc", "Percona XtraDB Cluster general section"
       "proxysql", "subdoc", "ProxySQL section"
@@ -26,7 +26,7 @@ configuration options for the Percona XtraDB Cluster.
 
 .. csv-table:: PXC Section
   :header: "Key", "Value", "Example", "Description"
-  :widths: 35, 8,20,25
+  :widths: "auto" , "auto", "auto", "auto"
 
   "size", "int", ``3``, The size of the Percona XtraDB cluster must be >= 3 for `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_
   "allowUnsafeConfigurations", "string",``false``, "Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates"
@@ -64,7 +64,7 @@ configuration options for the ProxySQL daemon.
 
 .. csv-table:: proxysql Section
   :header: "Key", "Value", "Example", "Description"
-  :widths: 25, 8,15,25
+  :widths: "auto" , "auto", "auto", "auto"
 
   enabled, boolean, ``true``, "Enables or disables `load balancing with ProxySQL <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ `Services <https://kubernetes.io/docs/concepts/services-networking/service/>`_"
   size, int, ``1``, The number of the ProxySQL daemons `to provide load balancing <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ must be = 1 in current release.
@@ -100,7 +100,7 @@ options for Percona Monitoring and Management.
 
 .. csv-table:: pmm Section
   :header: "Key", "Value", "Example", "Description"
-  :widths: 25, 8,15,25
+  :widths: "auto" , "auto", "auto", "auto"
 
   enabled, boolean, ``false``, Enables or disables `monitoring Percona XtraDB cluster with PMM <https://www.percona.com/doc/percona-xtradb-cluster/5.7/manual/monitoring.html>`_
   image, string, ``perconalab/pmm-client:1.17.1``, PMM client Docker image to use.

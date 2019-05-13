@@ -134,4 +134,4 @@ Percona XtraDB Cluster backups.
   schedule.name, string, ``sat-night-backup``, The backup name
   schedule.schedule, string, ``0 0 * * 6``, Scheduled time to make a backup, specified in the `crontab format <https://en.wikipedia.org/wiki/Cron>`_
   schedule.keep, int, ``3``, Number of stored backups
-  schedule.storageName, string, ``s3-us-west``, The name of the storage for the backups, configured in the ``storages`` or ``fs-pvc`` subsection. 
+  schedule.storageName, string, ``s3-us-west``, The name of the storage for the backups, configured in the ``storages`` or ``fs-pvc`` subsection.

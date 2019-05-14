@@ -6,14 +6,15 @@ The operator is configured via the spec section of the
 file. This file contains the following spec sections to configure three
 main subsystems of the cluster:
 
+
 .. csv-table:: Custom Resource options
     :header: "Key", "Value Type", "Description"
     :widths: 15, 15, 40
 
-      "pxc", "subdoc", "Percona XtraDB Cluster general section"
-      "proxysql", "subdoc", "ProxySQL section"
-      "pmm", "subdoc", "Percona Moonitoring and Management section"
-      "backup", "subdoc", "Percona XtraDB Cluster backups section"
+    "pxc", "subdoc", "Percona XtraDB Cluster general section"
+    "proxysql", "subdoc", "ProxySQL section"
+    "pmm", "subdoc", "Percona Moonitoring and Management section"
+    "backup", "subdoc", "Percona XtraDB Cluster backups section"
 
 
 
@@ -23,6 +24,8 @@ PXC Section
 
 The ``pxc`` section in the deploy/cr.yaml file contains general
 configuration options for the Percona XtraDB Cluster.
+
+
 
 .. csv-table:: PXC Section
   :header: "Key", "Value", "Example", "Description"
@@ -34,7 +37,8 @@ configuration options for the Percona XtraDB Cluster.
   readinessDelaySec, int, ``15``, The delay before a check if the application is ready to process traffic
   livenessDelaySec, int, ``300``, Ensures the application is healthy and capable of processing requests
   forceUnsafeBootstrap, string, ``false``, Prevents the use of outdated and unsafe TLS security settings
-  configuration, string, " | ``[mysqld]``\ ``wsrep_debug=ON``\ ``wsrep-provider_options=gcache.size=1G; gcache.recover=yes``", The ``my.cnf`` file options to be passed to Percona XtraDB cluster nodes.
+  
+  configuration, string, "``|  unicode:: U+000A  [mysqld]  unicode:: U+000A  wsrep_debug=ON  unicode:: U+000A wsrep-provider_options= unicode:: U+201D gcache.size=1G; gcache.recover=yes unicode:: U+201C``, The ``my.cnf`` file options to be passed to Percona XtraDB cluster nodes.
   imagePullSecrets.name, string, ``private-registry-credentials``,`Kubernetes ImagePullSecret <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_
   priorityClassName, string, ``high-priority``, `Kubernetes Pod priority class <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass>`_
   annotations, label, ``iam.amazonaws.com/role: role-arn``, `Kubernetes annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_

@@ -150,6 +150,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 		return rr, err
 	}
 
+	_, err = cluster.CheckNSetDefaults()
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
+	}
+
 	lgr.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
 	err = r.setStatus(cr, api.RestoreStopCluster, "")
 	if err != nil {

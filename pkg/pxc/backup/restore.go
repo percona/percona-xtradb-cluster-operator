@@ -64,6 +64,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 			},
 		},
 		Spec: corev1.PodSpec{
+			ImagePullSecrets: cluster.Backup.ImagePullSecrets,
 			Containers: []corev1.Container{
 				{
 					Name:            "ncat",
@@ -118,6 +119,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
+					ImagePullSecrets: cluster.Backup.ImagePullSecrets,
 					Containers: []corev1.Container{
 						{
 							Name:            "xtrabackup",
@@ -197,6 +199,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
+					ImagePullSecrets: cluster.Backup.ImagePullSecrets,
 					Containers: []corev1.Container{
 						{
 							Name:            "xtrabackup",

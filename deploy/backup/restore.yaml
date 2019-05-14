@@ -1,7 +1,7 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterRestore
 metadata:
-  name: restore-job-name
+  name: restore1
 spec:
   pxcCluster: cluster1
   backupName: backup1

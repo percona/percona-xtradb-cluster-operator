@@ -124,7 +124,7 @@ Percona XtraDB Cluster backups.
   :header: "Key", "Value", "Example", "Description"
   :widths: "auto" , "auto", "auto", "auto"
 
-  image, string, ``percona/percona-xtradb-cluster-operator:1.0.0-backup``, The Percona XtraDB cluster Docker image to use for the backup.
+  "image", string, ``percona/percona-xtradb-cluster-operator:1.0.0-backup``, The Percona XtraDB cluster Docker image to use for the backup.
   imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the specified image.
   storages.type, string, ``s3``, The cloud storage type used for backups. Currently, only ``s3`` and ``filesystem`` types are supported.
   storages.s3.credentialsSecret, string, ``my-cluster-name-backup-s3``, The `Kubernetes secret <https://kubernetes.io/docs/concepts/configuration/secret/>`_ for backups. It should contain ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` keys.

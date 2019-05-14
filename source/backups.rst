@@ -72,16 +72,15 @@ Here is an example which uses Amazon S3 storage for backups:
         storageName: s3-us-west
      ...
 
-**Note:** *if you use some S3-compatible storage instead of the original
-Amazon S3, one more key is needed in the ``s3`` subsection: the
-``endpointUrl``, which points to the actual cloud used for backups and
-is specific to the cloud provider. For example, using*\ `Google
-Cloud <https://cloud.google.com>`__\ *involves the following one:
-``endpointUrl: https://storage.googleapis.com``.*
+if you use some S3-compatible storage instead of the original
+Amazon S3, the `endpointURL key`_ is needed in the `s3` subsection which points to the actual cloud used for backups and
+is specific to the cloud provider. For example, using `Google
+Cloud <https://cloud.google.com>`_ involves the following
+`endpointUrl <https://storage.googleapis.com>`_.
 
 The options within these three subsections are further explained in the
 `Operator
-Options <https://percona.github.io/percona-xtradb-cluster-operator/configure/operator>`__.
+Options <https://www.percona.com/doc/kubernetes-operator-for-pxc/operator.html>`__.
 
 The only option which should be mentioned separately is
 ``credentialsSecret`` which is a `Kubernetes

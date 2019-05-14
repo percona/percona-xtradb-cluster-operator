@@ -216,13 +216,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXt
 	return nil, fmt.Errorf("wrong cluster name: %q. Clusters avaliable: %q", cr.Spec.PXCCluster, availableClusters)
 }
 
-// VolumeStatus describe the status backup PVC
-type VolumeStatus string
-
-const (
-	VolumeUndefined VolumeStatus = "Undefined"
-)
-
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job, destination, storageName string, s3 *api.BackupStorageS3Spec) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 

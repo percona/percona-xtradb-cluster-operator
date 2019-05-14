@@ -22,35 +22,36 @@ You can generate certificates with the following steps:
     *  Server-key.pem - the private key
     *  ca.pem - Certificate Authority
 
-.. code:: bash
+    ::
+
      cat <<EOF | cfssl gencert -initca - | cfssljson -bare ca
-    {
-      "CN": "Root CA",
-      "key": {
-        "algo": "rsa",
-        "size": 2048
+      {
+        "CN": "Root CA",
+        "key": {
+          "algo": "rsa",
+          "size": 2048
+        }
       }
-    }
-    EOF
+      EOF
 
-    cat <<EOF | cfssl gencert -ca=ca.pem  -ca-key=ca-key.pem - | cfssljson -bare server
-    {
-      "hosts": [
-        "${CLUSTER_NAME}-proxysql",
-        "*.${CLUSTER_NAME}-proxysql-unready",
-        "*.${CLUSTER_NAME}-pxc"
-      ],
-      "CN": "${CLUSTER_NAME}-pxc",
-      "key": {
-        "algo": "rsa",
-        "size": 2048
+      cat <<EOF | cfssl gencert -ca=ca.pem  -ca-key=ca-key.pem - | cfssljson -bare server
+      {
+        "hosts": [
+          "${CLUSTER_NAME}-proxysql",
+          "*.${CLUSTER_NAME}-proxysql-unready",
+          "*.${CLUSTER_NAME}-pxc"
+        ],
+        "CN": "${CLUSTER_NAME}-pxc",
+        "key": {
+          "algo": "rsa",
+          "size": 2048
+        }
       }
-    }
-    EOF
+      EOF
 
-    kubectl create secret generic my-cluster-ssl --from-file=tls.crt=server.pem --
-    from-file=tls.key=server-key.pem --from-file=ca.crt=ca.pem --
-    type=kubernetes.io/tls
+      kubectl create secret generic my-cluster-ssl --from-file=tls.crt=server.pem --
+      from-file=tls.key=server-key.pem --from-file=ca.crt=ca.pem --
+      type=kubernetes.io/tls
 
   A disadvantage of generating certificates with the command line can make managing the infrastructure difficult to manage, document, and reproduce. You can use a YAML file to maintain your key and certificate data and save the file to a secure location.
 
@@ -69,7 +70,7 @@ You can generate certificates with the following steps:
 You define a Certificate Authority certificate, which is called the root certificate. From the command line, use base64 to encode the key and certificate values. Run the following statements::
 
   cat tls.crt | base64
-   cat tls.key | base64
+  cat tls.key | base64
 
 Copy and paste each encoded value into the appropriate sections of the YAML file. Each value is one line.
 

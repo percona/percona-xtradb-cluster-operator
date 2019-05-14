@@ -114,6 +114,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		return reconcile.Result{}, fmt.Errorf("invalid backup cluster: %v", err)
 	}
 
+	_, err = cluster.CheckNSetDefaults()
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
+	}
+
 	if cluster.Spec.Backup == nil {
 		return reconcile.Result{}, fmt.Errorf("a backup image should be set in the PXC config")
 	}

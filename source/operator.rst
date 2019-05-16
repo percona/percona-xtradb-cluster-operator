@@ -12,6 +12,7 @@ main subsystems of the cluster:
     :widths: 15, 15, 40
     :delim: ,
 
+
     "pxc", "subdoc", "Percona XtraDB Cluster general section"
     "proxysql", "subdoc", "ProxySQL section"
     "pmm", "subdoc", "Percona Moonitoring and Management section"
@@ -49,6 +50,7 @@ configuration options for the Percona XtraDB Cluster.
   resources.limits.memory, string, ``1G``, `Kubernetes memory limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
   nodeSelector, label, ``disktype: ssd``, `Kubernetes nodeSelector <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_
   affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `constraints`_ node anti-affinity constraint"
+
   affinity.advanced, subdoc,  , "In cases where the pods require complex tuning the `advanced` option turns off the `topologykey` effect. This setting allows the standard Kubernetes affinity constraints of any complexity to be used."
   affinity.tolerations, subdoc, ``node.alpha.kubernetes.io/unreachable``, `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
   podDisruptionBudet.maxUnavailable, int, ``1``, The `Kubernetes podDisruptionBudget <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ specifies the number of pods from the set unavailable after the eviction.
@@ -71,6 +73,7 @@ configuration options for the ProxySQL daemon.
   :header: "Key", "Value", "Example", "Description"
   :widths: 25, 8, 15, 25
   :delim: ,
+
 
   enabled, boolean, ``true``, "Enables or disables `load balancing with ProxySQL <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ `Services <https://kubernetes.io/docs/concepts/services-networking/service/>`_"
   size, int, ``1``, The number of the ProxySQL daemons `to provide load balancing <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ must be = 1 in current release.
@@ -143,3 +146,4 @@ Percona XtraDB Cluster backups.
   schedule.schedule, string, ``0 0 * * 6``, Scheduled time to make a backup specified in the `crontab format <https://en.wikipedia.org/wiki/Cron>`_
   schedule.keep, int, ``3``, Number of stored backups
   schedule.storageName, string, ``s3-us-west``, The name of the storage for the backups configured in the ``storages`` or ``fs-pvc`` subsection.
+

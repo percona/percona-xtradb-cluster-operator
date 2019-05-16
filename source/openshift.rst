@@ -8,7 +8,7 @@ Install Percona XtraDB Cluster on OpenShift
       git clone -b release-0.3.0 https://github.com/percona/percona-xtradb-cluster-operator
       cd percona-xtradb-cluster-operator
 
-   **Note:** *It is crucial to specify the right branch with ``-b``
+   **Note:** *It is crucial to specify the right branch with the\ `-b`
    option while cloning the code on this step. Please be careful.*
 
 1. Now Custom Resource Definition for PXC should be created from the
@@ -32,7 +32,7 @@ Install Percona XtraDB Cluster on OpenShift
 
    .. code:: bash
 
-      $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbbackups.pxc.percona.com
+      $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbclusters.pxc.percona.com/status,perconaxtradbclusterbackups.pxc.percona.com,perconaxtradbclusterbackups.pxc.percona.com/status,perconaxtradbclusterrestores.pxc.percona.com,perconaxtradbclusterrestores.pxc.percona.com/status,issuers.certmanager.k8s.io,certificates.certmanager.k8s.io
       $ oc adm policy add-cluster-role-to-user pxc-admin <some-user>
 
 2. The next thing to do is to create a new ``pxc`` project:
@@ -104,4 +104,4 @@ Install Percona XtraDB Cluster on OpenShift
    .. code:: bash
 
       $ oc run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
-      percona-client:/$ mysql -h cluster1-pxc-proxysql -uroot -proot_password
+      percona-client:/$ mysql -h cluster1-proxysql -uroot -proot_password

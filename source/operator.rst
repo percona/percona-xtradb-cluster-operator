@@ -36,7 +36,7 @@ configuration options for the Percona XtraDB Cluster.
   image, string, ``percona/percona-xtradb-cluster-operator:1.0.0-pxc``, The Docker image of the Percona cluster used.
   readinessDelaySec, int, ``15``, Adds a delay before a run check to verify the application is ready to process traffic
   livenessDelaySec, int, ``300``, Adds a delay before the run check, which ensures the application is healthy and capable of processing requests
-  forceUnsafeBootstrap, string, ``false``, Prevents the use of outdated and unsafe settings. The setting can be reset in case of a sudden crash, when all nodes may be considered unsafe to bootstrap from. The setting lets a node to be selected, set `safe_to_bootstrap`, and provides data recovery.
+  forceUnsafeBootstrap, string, ``false``, The setting can be reset in case of a sudden crash, when all nodes may be considered unsafe to bootstrap from. The setting lets a node be selected and set to `safe_to_bootstrap`, and provides data recovery.
   
   configuration, string, "``|  unicode:: U+000A  [mysqld]  unicode:: U+000A  wsrep_debug=ON  unicode:: U+000A wsrep-provider_options= unicode:: U+201D gcache.size=1G; gcache.recover=yes unicode:: U+201C``, The ``my.cnf`` file options to be passed to Percona XtraDB cluster nodes.
   imagePullSecrets.name, string, ``private-registry-credentials``,`Kubernetes ImagePullSecret <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_

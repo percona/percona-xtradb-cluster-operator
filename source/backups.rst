@@ -156,13 +156,13 @@ passing its content to the ``kubectl apply`` command as follows:*
       ::
 
          cat <<EOF | kubectl apply -f-
-         apiVersion: "pxc.percona.com/v1alpha1"
-         kind: "PerconaXtraDBBackup"
+         apiVersion: "pxc.percona.com/v1"
+         kind: "PerconaXtraDBClusterRestore"
          metadata:
-           name: "backup1"
+           name: "restore1"
          spec:
            pxcCluster: "cluster1"
-           storageName: "s3-us-west"
+           storageName: "backup1"
          EOF
 
 Delete the unneeded backup

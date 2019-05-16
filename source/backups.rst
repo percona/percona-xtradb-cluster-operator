@@ -148,7 +148,22 @@ Following steps are needed to restore a previously saved backup:
 
    ::
 
-      kubectl apply -f deploy/backup/restore.yaml 
+      kubectl apply -f deploy/backup/restore.yaml
+
+**Note:** *Storing backup settings in a separate file can be replaced by
+passing its content to the ``kubectl apply`` command as follows:*
+
+      ::
+
+         cat <<EOF | kubectl apply -f-
+         apiVersion: "pxc.percona.com/v1alpha1"
+         kind: "PerconaXtraDBBackup"
+         metadata:
+           name: "backup1"
+         spec:
+           pxcCluster: "cluster1"
+           storageName: "s3-us-west"
+         EOF
 
 Delete the unneeded backup
 --------------------------

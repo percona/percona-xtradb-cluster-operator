@@ -1,0 +1,46 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: perconaxtradbclusterbackups.pxc.percona.com
+spec:
+  group: pxc.percona.com
+  names:
+    kind: PerconaXtraDBClusterBackup
+    listKind: PerconaXtraDBClusterBackupList
+    plural: perconaxtradbclusterbackups
+    singular: perconaxtradbclusterbackup
+    shortNames:
+    - pxc-backup
+    - pxc-backups
+  scope: Namespaced
+  versions:
+    - name: v1
+      storage: true
+      served: true
+  version: v1
+  additionalPrinterColumns:
+    - name: Cluster
+      type: string
+      description: Cluster name
+      JSONPath: .spec.pxcCluster
+    - name: Storage
+      type: string
+      description: Storage name from pxc spec
+      JSONPath: .status.storageName
+    - name: Destination
+      type: string
+      description: Backup destination
+      JSONPath: .status.destination
+    - name: Status
+      type: string
+      description: Job status
+      JSONPath: .status.state
+    - name: Completed
+      description: Completed time
+      type: date
+      JSONPath: .status.completed
+    - name: Age
+      type: date
+      JSONPath: .metadata.creationTimestamp
+  subresources:
+    status: {}

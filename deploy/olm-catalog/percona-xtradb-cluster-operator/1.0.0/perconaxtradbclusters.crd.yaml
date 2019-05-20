@@ -1,0 +1,43 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: perconaxtradbclusters.pxc.percona.com
+spec:
+  group: pxc.percona.com
+  names:
+    kind: PerconaXtraDBCluster
+    listKind: PerconaXtraDBClusterList
+    plural: perconaxtradbclusters
+    singular: perconaxtradbcluster
+    shortNames:
+    - pxc
+    - pxcs
+  scope: Namespaced
+  versions:
+    - name: v1
+      storage: true
+      served: true
+    - name: v1alpha1
+      storage: false
+      served: true
+  version: v1
+  additionalPrinterColumns:
+    - name: Endpoint
+      type: string
+      JSONPath: .status.host
+    - name: Status
+      type: string
+      JSONPath: .status.state
+    - name: PXC
+      type: string
+      description: Ready pxc nodes
+      JSONPath: .status.pxc.ready
+    - name: proxysql
+      type: string
+      description: Ready pxc nodes
+      JSONPath: .status.proxysql.ready
+    - name: Age
+      type: date
+      JSONPath: .metadata.creationTimestamp
+  subresources:
+    status: {}

@@ -1,0 +1,163 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[{"apiVersion":"pxc.percona.com/v1","kind":"PerconaXtraDBCluster","metadata":{"finalizers":["delete-pxc-pods-in-order"],"name":"cluster1"},"spec":{"backup":{"image":"percona/percona-xtradb-cluster-operator:1.0.0-backup","schedule":[{"keep":3,"name":"sat-night-backup","schedule":"0
+      0 * * 6","storageName":"s3-us-west"},{"keep":5,"name":"daily-backup","schedule":"0
+      0 * * *","storageName":"fs-pvc"}],"storages":{"fs-pvc":{"type":"filesystem","volume":{"persistentVolumeClaim":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"6Gi"}}}}},"s3-us-west":{"s3":{"bucket":"S3-BACKUP-BUCKET-NAME-HERE","credentialsSecret":"my-cluster-name-backup-s3","region":"us-west-2"},"type":"s3"}}},"pmm":{"enabled":false,"image":"perconalab/pmm-client:1.17.1","serverHost":"monitoring-service","serverUser":"pmm"},"proxysql":{"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"enabled":true,"gracePeriod":30,"image":"percona/percona-xtradb-cluster-operator:1.0.0-proxysql","podDisruptionBudget":{"maxUnavailable":1},"resources":{"requests":{"cpu":"600m","memory":"1G"}},"size":3,"volumeSpec":{"persistentVolumeClaim":{"resources":{"requests":{"storage":"2Gi"}}}}},"pxc":{"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"allowUnsafeConfigurations":false,"gracePeriod":600,"image":"percona/percona-xtradb-cluster-operator:1.0.0-pxc","podDisruptionBudget":{"maxUnavailable":1},"resources":{"requests":{"cpu":"600m","memory":"1G"}},"size":3,"volumeSpec":{"persistentVolumeClaim":{"resources":{"requests":{"storage":"6Gi"}}}}},"secretsName":"my-cluster-secrets","sslInternalSecretName":"my-cluster-ssl-internal","sslSecretName":"my-cluster-ssl"}}]'
+    capabilities: Basic Install
+  name: percona-xtradb-cluster-operator.v1.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - kind: PerconaXtraDBCluster
+      name: perconaxtradbclusters.pxc.percona.com
+      version: ""
+    - kind: PerconaXtraDBClusterBackup
+      name: perconaxtradbclusterbackups.pxc.percona.com
+      version: ""
+    - kind: PerconaXtraDBClusterRestore
+      name: perconaxtradbclusterrestores.pxc.percona.com
+      version: ""
+    - kind: PerconaXtraDBBackup
+      name: perconaxtradbbackups.pxc.percona.com
+      version: ""
+  description: Placeholder description
+  displayName: Percona Xtradb Cluster Operator
+  install:
+    spec:
+      deployments:
+      - name: percona-xtradb-cluster-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: percona-xtradb-cluster-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: percona-xtradb-cluster-operator
+            spec:
+              containers:
+              - command:
+                - percona-xtradb-cluster-operator
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: OPERATOR_NAME
+                  value: percona-xtradb-cluster-operator
+                image: percona/percona-xtradb-cluster-operator:1.0.0
+                imagePullPolicy: Always
+                name: percona-xtradb-cluster-operator
+                ports:
+                - containerPort: 60000
+                  name: metrics
+                resources: {}
+      permissions:
+      - rules:
+        - apiGroups:
+          - pxc.percona.com
+          resources:
+          - perconaxtradbclusters
+          - perconaxtradbclusters/status
+          - perconaxtradbclusterbackups
+          - perconaxtradbclusterbackups/status
+          - perconaxtradbclusterrestores
+          - perconaxtradbclusterrestores/status
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - pods/exec
+          - configmaps
+          - services
+          - persistentvolumeclaims
+          - secrets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - replicasets
+          - statefulsets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          - cronjobs
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - policy
+          resources:
+          - poddisruptionbudgets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - certmanager.k8s.io
+          resources:
+          - issuers
+          - certificates
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+          - deletecollection
+        serviceAccountName: percona-xtradb-cluster-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  maturity: alpha
+  provider: {}
+  version: 1.0.0

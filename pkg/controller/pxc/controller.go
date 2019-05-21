@@ -345,17 +345,17 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
-func createSSL(cr *api.PerconaXtraDBCluster, index string) ([]byte, []byte, error) {
+func createSSL(cr *api.PerconaXtraDBCluster, index string) ([]byte, []byte, []byte, error) {
 	rsaBits := 2048
 	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	subject := pkix.Name{
-		Organization: []string{cr.Name},
+		Organization: []string{"Root CA"},
 	}
 	issuer := pkix.Name{
-		Organization: []string{cr.Name + index},
+		Organization: []string{"Root CA"},
 	}
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().Unix()),
@@ -372,12 +372,12 @@ func createSSL(cr *api.PerconaXtraDBCluster, index string) ([]byte, []byte, erro
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	certOut := &bytes.Buffer{}
 	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	cert := certOut.Bytes()
 
@@ -385,11 +385,34 @@ func createSSL(cr *api.PerconaXtraDBCluster, index string) ([]byte, []byte, erro
 	block := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}
 	err = pem.Encode(keyOut, block)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	privKey := keyOut.Bytes()
 
-	return cert, privKey, nil
+	template = x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().Unix()),
+		Subject:      subject,
+		Issuer:       issuer,
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour * 24 * 180),
+		DNSNames: []string{
+			"*." + cr.Name + index,
+			cr.Name + index,
+		},
+		IsCA: true,
+	}
+	tlsDerBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	tlsCertOut := &bytes.Buffer{}
+	err = pem.Encode(tlsCertOut, &pem.Block{Type: "CERTIFICATE", Bytes: tlsDerBytes})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	tlsCert := tlsCertOut.Bytes()
+
+	return cert, tlsCert, privKey, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster, namespace string) error {
@@ -493,12 +516,12 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 
 func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCluster, namespace string) error {
 	data := make(map[string][]byte)
-	cert, key, err := createSSL(cr, "-proxysql")
+	caCert, tlsCert, key, err := createSSL(cr, "-proxysql")
 	if err != nil {
 		return fmt.Errorf("create proxy certificate: %v", err)
 	}
-	data["ca.crt"] = cert
-	data["tls.crt"] = cert
+	data["ca.crt"] = caCert
+	data["tls.crt"] = tlsCert
 	data["tls.key"] = key
 	secretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -513,12 +536,12 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		return fmt.Errorf("create TLS secret: %v", err)
 	}
 
-	cert, key, err = createSSL(cr, "-pxc")
+	caCert, tlsCert, key, err = createSSL(cr, "-pxc")
 	if err != nil {
 		return fmt.Errorf("create pxc certificate: %v", err)
 	}
-	data["ca.crt"] = cert
-	data["tls.crt"] = cert
+	data["ca.crt"] = caCert
+	data["tls.crt"] = tlsCert
 	data["tls.key"] = key
 	secretObjInternal := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

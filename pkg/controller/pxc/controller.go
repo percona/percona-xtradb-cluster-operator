@@ -1,8 +1,15 @@
 package pxc
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +29,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	cm "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
@@ -345,6 +351,53 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
+func createSSL(cr *api.PerconaXtraDBCluster, index string) ([]byte, []byte, error) {
+	rsaBits := 2048
+	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
+	if err != nil {
+		return nil, nil, err
+	}
+	subject := pkix.Name{
+		Organization: []string{cr.Name},
+	}
+	issuer := pkix.Name{
+		Organization: []string{cr.Name + index},
+	}
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().Unix()),
+		Subject:      subject,
+		Issuer:       issuer,
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour * 24 * 180),
+		DNSNames: []string{
+			"*." + cr.Name + index,
+			cr.Name + index,
+		},
+		IsCA: true,
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, nil, err
+	}
+	certOut := &bytes.Buffer{}
+	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	if err != nil {
+		return nil, nil, err
+	}
+	cert := certOut.Bytes()
+
+	keyOut := &bytes.Buffer{}
+	block := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}
+	err = pem.Encode(keyOut, block)
+	if err != nil {
+		return nil, nil, err
+	}
+	privKey := keyOut.Bytes()
+
+	return cert, privKey, nil
+}
+
 func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster, namespace string) error {
 	if cr.Spec.PXC.AllowUnsafeConfig {
 		return nil
@@ -363,70 +416,45 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 		return fmt.Errorf("get secret: %v", err)
 	}
 
-	issuerKind := "Issuer"
-	issuerName := cr.Name + "-pxc-ca"
-
-	err = r.client.Create(context.TODO(), &cm.Issuer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      issuerName,
-			Namespace: namespace,
-		},
-		Spec: cm.IssuerSpec{
-			IssuerConfig: cm.IssuerConfig{
-				SelfSigned: &cm.SelfSignedIssuer{},
-			},
-		},
-	})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("create issuer: %v", err)
+	data := make(map[string][]byte)
+	cert, key, err := createSSL(cr, "-proxysql")
+	if err != nil {
+		return fmt.Errorf("create proxy certificate: %v", err)
 	}
-
-	err = r.client.Create(context.TODO(), &cm.Certificate{
+	data["ca.crt"] = cert
+	data["tls.crt"] = cert
+	data["tls.key"] = key
+	secretObj = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ssl",
-			Namespace: namespace,
+			Namespace: cr.Namespace,
 		},
-		Spec: cm.CertificateSpec{
-			SecretName: cr.Spec.PXC.SSLSecretName,
-			CommonName: cr.Name + "-proxysql",
-			DNSNames: []string{
-				"*." + cr.Name + "-proxysql",
-			},
-			IsCA: true,
-			IssuerRef: cm.ObjectReference{
-				Name: issuerName,
-				Kind: issuerKind,
-			},
-		},
-	})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("create certificate: %v", err)
+		Data: data,
+		Type: corev1.SecretTypeTLS,
+	}
+	err = r.client.Create(context.TODO(), &secretObj)
+	if err != nil {
+		return fmt.Errorf("create TLS secret: %v", err)
 	}
 
-	if cr.Spec.PXC.SSLSecretName == cr.Spec.PXC.SSLInternalSecretName {
-		return nil
+	cert, key, err = createSSL(cr, "-pxc")
+	if err != nil {
+		return fmt.Errorf("create pxc certificate: %v", err)
 	}
-
-	err = r.client.Create(context.TODO(), &cm.Certificate{
+	data["ca.crt"] = cert
+	data["tls.crt"] = cert
+	data["tls.key"] = key
+	secretObjInternal := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ssl-internal",
-			Namespace: namespace,
+			Namespace: cr.Namespace,
 		},
-		Spec: cm.CertificateSpec{
-			SecretName: cr.Spec.PXC.SSLInternalSecretName,
-			CommonName: cr.Name + "-pxc",
-			DNSNames: []string{
-				"*." + cr.Name + "-pxc",
-			},
-			IsCA: true,
-			IssuerRef: cm.ObjectReference{
-				Name: issuerName,
-				Kind: issuerKind,
-			},
-		},
-	})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("create internal certificate: %v", err)
+		Data: data,
+		Type: corev1.SecretTypeTLS,
+	}
+	err = r.client.Create(context.TODO(), &secretObjInternal)
+	if err != nil {
+		return fmt.Errorf("create TLS internal secret: %v", err)
 	}
 
 	return nil

@@ -2,11 +2,11 @@ Transport Layer Security (TLS)
 ******************************
 
 Security is configured at multiple levels. Transport Layer Security
-(TLS) secures the API endpoints and is a
+(TLS) is a
 cryptographic protocol. TLS provides secure communications over a computer
 network.
 
-The Percona Kubernetes Operator for PXC uses a cert-manager and supports manual configuration, which is available for all versions of K8s and is an upstream feature. A cert-manager is a Kubernetes tool widely used for to automate the management and issuance of TLS certificates.
+The Percona Kubernetes Operator for PXC uses a cert-manager and supports manual configuration, which is available for all versions of Kubernetes and is an upstream feature. A cert-manager is a Kubernetes tool widely used to automate the management and issuance of TLS certificates.
 
 The Percona Kubernetes Operator for PXC requires TLS for the following types of communication:
   * Internal - communication between PXC instances in the cluster
@@ -29,6 +29,8 @@ The following commands perform the needed actions:
 ::
 
     kubectl label namespace cert-manager certmanager.k8s.io/disable-validation=true
+    kubectl create namespace cert-manager
+     kubectl label namespace cert-manager certmanager.k8s.io/disable-validation=true
     kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml
 
 After the installation, you can verify the cert-manager by running the following command:
@@ -36,6 +38,7 @@ After the installation, you can verify the cert-manager by running the following
 ::
 
   kubectl get pods <cert-manager namespace>
+  kubectl get pods -n cert-manager
 
 The result displays the cert-manager and webhook active and running.
 
@@ -93,32 +96,12 @@ A created secret must be added to cr.yaml/spec/secretsName. A certificate genera
   from-file=tls.key=server-key.pem --from-file=ca.crt=ca.pem --
   type=kubernetes.io/tls
 
-A disadvantage of generating certificates with the command line can make managing the infrastructure difficult to manage, document, and reproduce. You can use a YAML file to maintain your key and certificate data and save the file to a secure location.
 
-The structure of the Secret-SSL.yaml file is::
-
-  apiVersion: v1
-    kind: Secret
-    metadata:
-      name: <your cluster name>
-    type: kubernetes.io/tls
-    data:
-      ca.crt: <encoded value>
-      tls.crt: <encoded value>
-      tls.key: <encoded value>
-
-You define a Certificate Authority certificate, which is called the root certificate. From the command line, use base64 to encode the key and certificate values. Run the following commands::
-
-  echo tls.crt | base64
-  echo tls.key | base64
-
-Copy and paste each encoded value into the appropriate sections of the YAML file. Each value is one line.
-
-You can use then use the YAML file to create the secret::
+You can use the YAML file to create the secret::
 
   kubectl create -f secret-ssl.yaml
 
 Run PXC without TLS
 ==========================
 
-We recommend that you run your cluster with the TLS protocol enabled. For demonstration purposes, disable the TLS protocol by editing the `cr.yaml/spec/pxc/allowUnstafeConfigurations` setting to `true`. Be sure to reset the value when you have completed your tasks.
+We recommend that you run your cluster with the TLS protocol enabled. For demonstration purposes, disable the TLS protocol by editing the `cr.yaml/spec/pxc/allowUnstafeConfigurations` setting to `true`.

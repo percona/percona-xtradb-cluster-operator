@@ -8,6 +8,11 @@ network.
 
 The Percona Kubernetes Operator for PXC uses a cert-manager and supports manual configuration, which is available for all versions of K8s and is an upstream feature. A cert-manager is a Kubernetes tool widely used for to automate the management and issuance of TLS certificates.
 
+The Percona Kubernetes Operator for PXC requires TLS for the following types of communication:
+  * Internal - communication between PXC instances in the cluster
+  * External - communication between the client application and ProxySQL
+
+The internal certificate is also an authorization method.
 
 Install the cert-manager
 ========================
@@ -34,11 +39,7 @@ After the installation, you can verify the cert-manager by running the following
 
 The result displays the cert-manager and webhook active and running.
 
-Run PXC with auto-generated certificates
-========================================
-
-
-When you deploy the operator, the operator creates a self-signed issuer. The self-signed issuer is a Certificate Authority (CA) and generates certificates. The Percona Operator self-signed issuer is local to the operator namespace. This self-signed issuer is created because PXC requires all certrificates are issued by the same CA.
+When you deploy the operator, the operator requests a certificate from the  cert-manager. The cert-manager is a self-signed issuer and generates certificates. The Percona Operator self-signed issuer is local to the operator namespace. This self-signed issuer is created because PXC requires all certificates are issued by the same CA.
 
 The creation of the self-signed issuer allows you to deploy and use the Percona Operator without creating a clusterissuer separately.
 
@@ -118,6 +119,5 @@ You can use then use the YAML file to create the secret::
 
 Run PXC without TLS
 ==========================
-
 
 We recommend that you run your cluster with the TLS protocol enabled. For demonstration purposes, disable the TLS protocol by editing the `cr.yaml/spec/pxc/allowUnstafeConfigurations` setting to `true`. Be sure to reset the value when you have completed your tasks.

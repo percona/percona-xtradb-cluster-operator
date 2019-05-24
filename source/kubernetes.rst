@@ -74,7 +74,14 @@ Install Percona XtraDB Cluster on Kubernetes
    More details about secrets can be found in a `separate
    section <../configure/users>`__.
 
-5. After the operator is started and user secrets are added, Percona
+5. Apply pre-generated certificates with the following command:
+
+  .. code:: bash
+
+    $ kubectl apply -f deploy/ssl-secrets.yaml
+
+
+6. After the operator is started and user secrets are added, Percona
    XtraDB Cluster can be created at any time with the following command:
 
    .. code:: bash
@@ -94,7 +101,7 @@ Install Percona XtraDB Cluster on Kubernetes
       cluster1-pxc-proxysql-0                           1/1     Running   0          5m
       percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
 
-6. Check connectivity to newly created cluster
+7. Check connectivity to newly created cluster
 
    .. code:: bash
 

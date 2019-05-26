@@ -349,30 +349,25 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 func (r *ReconcilePerconaXtraDBCluster) reconsileSpecConfig(cr *api.PerconaXtraDBCluster, nodeSet *appsv1.StatefulSet, configMap *corev1.ConfigMap) error {
 	configString := cr.Spec.PXC.Configuration
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
-	if nodeSet.Spec.Template.Annotations != nil {
-		nodeSet.Spec.Template.Annotations["cfg_hash"] = hash
-	} else {
-		annotMap := make(map[string]string)
-		annotMap["cfg_hash"] = hash
-		nodeSet.Spec.Template.Annotations = annotMap
+	if nodeSet.Spec.Template.Annotations == nil {
+		nodeSet.Spec.Template.Annotations = make(map[string]string)
 	}
+	nodeSet.Spec.Template.Annotations["cfg_hash"] = hash
 	stfSet := &appsv1.StatefulSet{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, stfSet)
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("get StatefulSetNode: %v", err)
 	}
-	if v, ok := stfSet.Spec.Template.Annotations["cfg_hash"]; ok {
-		if v != hash {
-			log.Info("new DB configuration")
-			err = r.client.Update(context.TODO(), configMap)
-			if err != nil {
-				return fmt.Errorf("update ConfigMap: %v", err)
-			}
+	if stfSet.Spec.Template.Annotations["cfg_hash"] != hash {
+		log.Info("new DB configuration")
+		err = r.client.Update(context.TODO(), configMap)
+		if err != nil {
+			return fmt.Errorf("update ConfigMap: %v", err)
+		}
 
-			err = r.client.Update(context.TODO(), nodeSet)
-			if err != nil {
-				return fmt.Errorf("update StatefulSetNode: %v", err)
-			}
+		err = r.client.Update(context.TODO(), nodeSet)
+		if err != nil {
+			return fmt.Errorf("update StatefulSetNode: %v", err)
 		}
 	}
 	return nil

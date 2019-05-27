@@ -113,13 +113,13 @@ passing its content to the ``kubectl apply`` command as follows:*
 ::
 
    cat <<EOF | kubectl apply -f-
-   apiVersion: "pxc.percona.com/v1alpha1"
-   kind: "PerconaXtraDBBackup"
+   apiVersion: pxc.percona.com/v1
+   kind: PerconaXtraDBClusterBackup
    metadata:
-     name: "backup1"
+     name: backup1
    spec:
-     pxcCluster: "cluster1"
-     storageName: "s3-us-west"
+     pxcCluster: cluster1
+     storageName: fs-pvc
    EOF
 
 Restore the cluster from a previously saved backup
@@ -147,7 +147,22 @@ Following steps are needed to restore a previously saved backup:
 
    ::
 
-      ./deploy/backup/restore-backup.sh <backup-name> <cluster-name>
+      kubectl apply -f deploy/backup/restore.yaml
+
+**Note:** *Storing backup settings in a separate file can be replaced by
+passing its content to the ``kubectl apply`` command as follows:*
+
+      ::
+
+         cat <<EOF | kubectl apply -f-
+         apiVersion: "pxc.percona.com/v1"
+         kind: "PerconaXtraDBClusterRestore"
+         metadata:
+           name: "restore1"
+         spec:
+           pxcCluster: "cluster1"
+           storageName: "backup1"
+         EOF
 
 Delete the unneeded backup
 --------------------------

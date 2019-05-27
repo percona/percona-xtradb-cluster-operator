@@ -114,13 +114,13 @@ passing its content to the ``kubectl apply`` command as follows:*
 ::
 
    cat <<EOF | kubectl apply -f-
-   apiVersion: "pxc.percona.com/v1alpha1"
-   kind: "PerconaXtraDBBackup"
+   apiVersion: pxc.percona.com/v1
+   kind: PerconaXtraDBClusterRestore
    metadata:
-     name: "backup1"
+     name: restore1
    spec:
-     pxcCluster: "cluster1"
-     storageName: "s3-us-west"
+     pxcCluster: cluster1
+     backupName: backup1
    EOF
 
 Restore the cluster from a previously saved backup

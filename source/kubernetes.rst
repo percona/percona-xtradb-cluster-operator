@@ -74,12 +74,13 @@ Install Percona XtraDB Cluster on Kubernetes
    More details about secrets can be found in a `separate
    section <../configure/users>`__.
 
-5. Apply pre-generated certificates with the following command:
+5. Now you need to `prepare certificates for TLS security <TLS.html>`_ and apply them with the following command:
 
-  .. code:: bash
+   .. code:: bash
 
-    $ kubectl apply -f deploy/ssl-secrets.yaml
+      $ kubectl apply -f <secrets file>
 
+   Pre-generated certificates are awailable in the ``deploy/ssl-secrets.yaml`` secrets file for test purposes, but we strongly recommend avoiding their usage on any production system.
 
 6. After the operator is started and user secrets are added, Percona
    XtraDB Cluster can be created at any time with the following command:

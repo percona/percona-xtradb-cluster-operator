@@ -72,16 +72,15 @@ Here is an example which uses Amazon S3 storage for backups:
         storageName: s3-us-west
      ...
 
-**Note:** *if you use some S3-compatible storage instead of the original
-Amazon S3, one more key is needed in the ``s3`` subsection: the
-``endpointUrl``, which points to the actual cloud used for backups and
-is specific to the cloud provider. For example, using*\ `Google
-Cloud <https://cloud.google.com>`__\ *involves the following one:
-``endpointUrl: https://storage.googleapis.com``.*
+if you use some S3-compatible storage instead of the original
+Amazon S3, the `endpointURL key`_ is needed in the `s3` subsection which points to the actual cloud used for backups and
+is specific to the cloud provider. For example, using `Google
+Cloud <https://cloud.google.com>`_ involves the following
+`endpointUrl <https://storage.googleapis.com>`_.
 
 The options within these three subsections are further explained in the
 `Operator
-Options <https://percona.github.io/percona-xtradb-cluster-operator/configure/operator>`__.
+Options <https://www.percona.com/doc/kubernetes-operator-for-pxc/operator.html>`__.
 
 The only option which should be mentioned separately is
 ``credentialsSecret`` which is a `Kubernetes
@@ -114,13 +113,13 @@ passing its content to the ``kubectl apply`` command as follows:*
 ::
 
    cat <<EOF | kubectl apply -f-
-   apiVersion: "pxc.percona.com/v1alpha1"
-   kind: "PerconaXtraDBBackup"
+   apiVersion: pxc.percona.com/v1
+   kind: PerconaXtraDBClusterBackup
    metadata:
-     name: "backup1"
+     name: backup1
    spec:
-     pxcCluster: "cluster1"
-     storageName: "s3-us-west"
+     pxcCluster: cluster1
+     storageName: fs-pvc
    EOF
 
 Restore the cluster from a previously saved backup
@@ -148,7 +147,22 @@ Following steps are needed to restore a previously saved backup:
 
    ::
 
-      ./deploy/backup/restore-backup.sh <backup-name> <cluster-name>
+      kubectl apply -f deploy/backup/restore.yaml
+
+**Note:** *Storing backup settings in a separate file can be replaced by
+passing its content to the ``kubectl apply`` command as follows:*
+
+      ::
+
+         cat <<EOF | kubectl apply -f-
+         apiVersion: "pxc.percona.com/v1"
+         kind: "PerconaXtraDBClusterRestore"
+         metadata:
+           name: "restore1"
+         spec:
+           pxcCluster: "cluster1"
+           storageName: "backup1"
+         EOF
 
 Delete the unneeded backup
 --------------------------

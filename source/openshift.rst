@@ -8,7 +8,7 @@ Install Percona XtraDB Cluster on OpenShift
       git clone -b release-0.3.0 https://github.com/percona/percona-xtradb-cluster-operator
       cd percona-xtradb-cluster-operator
 
-   **Note:** *It is crucial to specify the right branch with ``-b``
+   **Note:** *It is crucial to specify the right branch with the\ `-b`
    option while cloning the code on this step. Please be careful.*
 
 1. Now Custom Resource Definition for PXC should be created from the
@@ -32,7 +32,7 @@ Install Percona XtraDB Cluster on OpenShift
 
    .. code:: bash
 
-        oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbbackups.pxc.percona.com,perconaxtradbbackuprestores.pxc.percona.com,perconaxtradbbackuprestores.pxc.percona.com/status,issuers.certmanager.k8s.io,certificates.certmanager.k8s.io 
+      $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbclusters.pxc.percona.com/status,perconaxtradbclusterbackups.pxc.percona.com,perconaxtradbclusterbackups.pxc.percona.com/status,perconaxtradbclusterrestores.pxc.percona.com,perconaxtradbclusterrestores.pxc.percona.com/status,issuers.certmanager.k8s.io,certificates.certmanager.k8s.io
       $ oc adm policy add-cluster-role-to-user pxc-admin <some-user>
 
 2. The next thing to do is to create a new ``pxc`` project:
@@ -79,7 +79,15 @@ Install Percona XtraDB Cluster on OpenShift
    More details about secrets can be found in a `separate
    section <../configure/users>`__.
 
-5. After the operator is started and user secrets are added, Percona
+5. Now you need to `prepare certificates for TLS security <TLS.html>`_ and apply them with the following command:
+
+   .. code:: bash
+
+      $ oc apply -f <secrets file>
+
+   Pre-generated certificates are awailable in the ``deploy/ssl-secrets.yaml`` secrets file for test purposes, but we strongly recommend avoiding their usage on any production system.
+
+6. After the operator is started and user secrets are added, Percona
    XtraDB Cluster can be created at any time with the following command:
 
    .. code:: bash
@@ -99,9 +107,9 @@ Install Percona XtraDB Cluster on OpenShift
       cluster1-pxc-proxysql-0                           1/1     Running   0          5m
       percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
 
-6. Check connectivity to newly created cluster
+7. Check connectivity to newly created cluster
 
    .. code:: bash
 
       $ oc run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
-      percona-client:/$ mysql -h cluster1-pxc-proxysql -uroot -proot_password
+      percona-client:/$ mysql -h cluster1-proxysql -uroot -proot_password

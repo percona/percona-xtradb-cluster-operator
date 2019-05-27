@@ -64,7 +64,7 @@ The set of commands generate certificates with the following attributes:
 *  ``Server-key.pem`` - the private key
 *  ``ca.pem`` - Certificate Authority
 
-A created secret must be added to ``cr.yaml/spec/secretsName``. A certificate generated for internal communications must be added to the ``cr.yaml/spec/sslInternalSecretName``.
+You should generate certificates twice: one set is for external communications, and another set is for internal ones. A secret created for the external use must be added to ``cr.yaml/spec/secretsName``. A certificate generated for internal communications must be added to the ``cr.yaml/spec/sslInternalSecretName``.
 
 ::
 

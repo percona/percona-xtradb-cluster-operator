@@ -238,10 +238,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	err = r.reconsileSpecConfig(cr, nodeSet, configMap)
-	if err != nil {
-		return fmt.Errorf("handle spec config: %v", err)
+	configString := cr.Spec.PXC.Configuration
+	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
+	if nodeSet.Spec.Template.Annotations == nil {
+		nodeSet.Spec.Template.Annotations = make(map[string]string)
 	}
+	nodeSet.Spec.Template.Annotations["cfg_hash"] = hash
 
 	err = r.reconsileSSL(cr, nodeSet)
 	if err != nil {
@@ -346,33 +348,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconsileSpecConfig(cr *api.PerconaXtraDBCluster, nodeSet *appsv1.StatefulSet, configMap *corev1.ConfigMap) error {
-	configString := cr.Spec.PXC.Configuration
-	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
-	if nodeSet.Spec.Template.Annotations == nil {
-		nodeSet.Spec.Template.Annotations = make(map[string]string)
-	}
-	nodeSet.Spec.Template.Annotations["cfg_hash"] = hash
-	stfSet := &appsv1.StatefulSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, stfSet)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("get StatefulSetNode: %v", err)
-	}
-	if stfSet.Spec.Template.Annotations["cfg_hash"] != hash {
-		log.Info("new DB configuration")
-		err = r.client.Update(context.TODO(), configMap)
-		if err != nil {
-			return fmt.Errorf("update ConfigMap: %v", err)
-		}
-
-		err = r.client.Update(context.TODO(), nodeSet)
-		if err != nil {
-			return fmt.Errorf("update StatefulSetNode: %v", err)
-		}
-	}
-	return nil
-}
-
 func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster, nodeSet *appsv1.StatefulSet) error {
 	if cr.Spec.PXC.AllowUnsafeConfig {
 		return nil
@@ -386,7 +361,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 		&secretObj,
 	)
 	if err == nil {
-		return r.handleSSLSecret(secretObj, cr, nodeSet)
+		secretString := fmt.Sprintln(secretObj)
+		hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
+		nodeSet.Spec.Template.Annotations["ssl_hash"] = hash
+		return nil
 	} else if !errors.IsNotFound(err) {
 		return fmt.Errorf("get secret: %v", err)
 	}
@@ -457,33 +435,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 		return fmt.Errorf("create internal certificate: %v", err)
 	}
 
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) handleSSLSecret(secretObj corev1.Secret, cr *api.PerconaXtraDBCluster, nodeSet *appsv1.StatefulSet) error {
-	secretString := fmt.Sprintln(secretObj)
-	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
-	if nodeSet.Spec.Template.Annotations != nil {
-		nodeSet.Spec.Template.Annotations["ssl_hash"] = hash
-	} else {
-		annotMap := make(map[string]string)
-		annotMap["ssl_hash"] = hash
-		nodeSet.Spec.Template.Annotations = annotMap
-	}
-	stfSet := &appsv1.StatefulSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, stfSet)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("get StatefulSetNode: %v", err)
-	}
-	if v, ok := stfSet.Spec.Template.Annotations["ssl_hash"]; ok {
-		if v != hash {
-			log.Info("new SSL secret")
-			err = r.client.Update(context.TODO(), nodeSet)
-			if err != nil {
-				return fmt.Errorf("update StatefulSetNode: %v", err)
-			}
-		}
-	}
 	return nil
 }
 

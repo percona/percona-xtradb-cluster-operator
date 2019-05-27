@@ -9,7 +9,7 @@ The design of the operator is highly bound to the Percona XtraDB Cluster
 high availability implementation, which in its turn can be briefly
 described with the following diagram.
 
-.. image:: ./assets/images/operator.png
+.. image:: ./assets/images/replication.png
    :align: center
 
 Being a regular MySQL Server instance, each node contains the same set

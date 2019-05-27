@@ -9,9 +9,8 @@ The design of the operator is highly bound to the Percona XtraDB Cluster
 high availability implementation, which in its turn can be briefly
 described with the following diagram.
 
-
-|PXC HA|
-
+.. image:: ./assets/images/operator.png
+   :align: center
 
 Being a regular MySQL Server instance, each node contains the same set
 of data synchronized accross nodes. The recommended configuration is to
@@ -21,17 +20,18 @@ function if you take any of the nodes down. Additionally load balancing
 can be achieved with the ProxySQL daemon, which accepts incoming traffic
 from MySQL clients and forwards it to backend MySQL servers.
 
-**Note:** *Using ProxySQL results in *\ `more efficient database workload
-management <https://proxysql.com/compare>`__\ *in comparison with other
-load balancers which are not SQL-aware, including built-in ones of the
-cloud providers, or the Kubernetes NGINX Ingress Controller.*
+.. note:: Using ProxySQL results in `more efficient database workload
+   management <https://proxysql.com/compare>`_ in comparison with other
+   load balancers which are not SQL-aware, including built-in ones of the
+   cloud providers, or the Kubernetes NGINX Ingress Controller.
 
 To provide high availability operator uses `node
 affinity <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity>`__
 to run PXC instances on separate worker nodes if possible. If some node
 fails, the pod with it is automatically re-created on another node.
 
-|The Operator|\ {: .align-center}
+.. image:: ./assets/images/operator.png
+   :align: center
 
 To provide data storage for stateful applications, Kubernetes uses
 Persistent Volumes. A *PersistentVolumeClaim* (PVC) is used to implement
@@ -49,6 +49,3 @@ new PerconaXtraDBCluster object is created, or an existing one undergoes
 some changes or deletion, the operator automatically
 creates/changes/deletes all needed Kubernetes objects with the
 appropriate settings to provide a properly PXC operating.
-
-.. |PXC HA| image:: /assets/images/replication.png
-.. |The Operator| image:: /assets/images/operator.png

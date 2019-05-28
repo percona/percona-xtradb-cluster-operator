@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"math/big"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 var validityNotAfter = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
@@ -26,7 +24,7 @@ func Issue(hosts []string) (caCert []byte, tlsCert []byte, tlsKey []byte, err er
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "generate serial number for root")
+		return nil, nil, nil, fmt.Errorf("generate serial number for root: %v", err)
 	}
 	subject := pkix.Name{
 		Organization: []string{"Root CA"},
@@ -58,7 +56,7 @@ func Issue(hosts []string) (caCert []byte, tlsCert []byte, tlsKey []byte, err er
 
 	serialNumber, err = rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "generate serial number for client")
+		return nil, nil, nil, fmt.Errorf("generate serial number for client: %v", err)
 	}
 	subject = pkix.Name{
 		Organization: []string{"PXC"},
@@ -77,7 +75,7 @@ func Issue(hosts []string) (caCert []byte, tlsCert []byte, tlsKey []byte, err er
 	}
 	clientKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "generate client key")
+		return nil, nil, nil, fmt.Errorf("generate client key: %v", err)
 	}
 	tlsDerBytes, err := x509.CreateCertificate(rand.Reader, &tlsTemplate, &caTemplate, &clientKey.PublicKey, priv)
 	if err != nil {

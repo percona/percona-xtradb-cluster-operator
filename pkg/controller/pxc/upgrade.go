@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"fmt"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -32,16 +31,23 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// change DB configuration
-	err = r.handleSpecConfig(cr, currentSet)
+	configHash := r.getConfigHash(cr)
+	if currentSet.Spec.Template.Annotations == nil {
+		currentSet.Spec.Template.Annotations = make(map[string]string)
+	}
+	currentSet.Spec.Template.Annotations["cfg_hash"] = configHash
+
+	err = r.updateConfigMap(cr)
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update db config error: %v", err)
 	}
 
 	// change TLS secret configuration
-	err = r.handleTLSSecret(cr, currentSet)
+	tlsHash, err := r.getTLSHash(cr)
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
+	currentSet.Spec.Template.Annotations["ssl_hash"] = tlsHash
 
 	var newContainers []corev1.Container
 	var newInitContainers []corev1.Container
@@ -76,52 +82,49 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	return r.client.Update(context.TODO(), currentSet)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleSpecConfig(cr *api.PerconaXtraDBCluster, nodeSet *appsv1.StatefulSet) error {
+func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster) string {
+	configString := cr.Spec.PXC.Configuration
+	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
+
+	return hash
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateConfigMap(cr *api.PerconaXtraDBCluster) error {
 	stsApp := statefulset.NewNode(cr)
 	configMap := &corev1.ConfigMap{}
 	if cr.Spec.PXC.Configuration != "" {
 		ls := stsApp.Labels()
 		configMap = configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 	}
-	configString := cr.Spec.PXC.Configuration
-	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
-	if nodeSet.Spec.Template.Annotations == nil {
-		nodeSet.Spec.Template.Annotations = make(map[string]string)
+	err := r.client.Update(context.TODO(), configMap)
+	if err != nil {
+		return fmt.Errorf("update ConfigMap: %v", err)
 	}
-
-	if len(nodeSet.Spec.Template.Annotations["cfg_hash"]) > 0 && nodeSet.Spec.Template.Annotations["cfg_hash"] != hash {
-		log.Info("new DB configuration")
-		err := r.client.Update(context.TODO(), configMap)
-		if err != nil {
-			return fmt.Errorf("update ConfigMap: %v", err)
-		}
-	}
-	nodeSet.Spec.Template.Annotations["cfg_hash"] = hash
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleTLSSecret(cr *api.PerconaXtraDBCluster, nodeSet *appsv1.StatefulSet) error {
+func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster) (string, error) {
 	if cr.Spec.PXC.AllowUnsafeConfig {
-		return nil
+		return "", nil
 	}
 	secretObj := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
-			Namespace: nodeSet.Namespace,
+			Namespace: cr.Namespace,
 			Name:      cr.Spec.PXC.SSLSecretName,
 		},
 		&secretObj,
 	)
 	if err != nil {
-		return fmt.Errorf("get Secret object: %v", err)
+		return "", fmt.Errorf("get Secret object: %v", err)
 	}
 	secretString := fmt.Sprintln(secretObj)
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
-	if nodeSet.Spec.Template.Annotations == nil {
+	/*if nodeSet.Spec.Template.Annotations == nil {
 		nodeSet.Spec.Template.Annotations = make(map[string]string)
 	}
-	nodeSet.Spec.Template.Annotations["ssl_hash"] = hash
+	nodeSet.Spec.Template.Annotations["ssl_hash"] = hash*/
 
-	return nil
+	return hash, nil
 }

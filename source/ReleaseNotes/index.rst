@@ -1,7 +1,7 @@
 .. _rel_notes:
 
 ==================================================
-Percona Server for MongoDB |version| Release Notes
+Kubernetes Operator for XtraDB Cluster |version| Release Notes
 ==================================================
 
 .. toctree::

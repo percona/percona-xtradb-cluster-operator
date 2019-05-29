@@ -111,16 +111,25 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	defer func() {
+		err := r.updateStatus(o, err)
+		if err != nil {
+			log.Error(err, "Update status")
+		}
+	}()
+
 	changed, err := o.CheckNSetDefaults()
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
+		err = fmt.Errorf("wrong PXC options: %v", err)
+		return reconcile.Result{}, err
 	}
 
 	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
 	if changed {
 		err = r.client.Update(context.TODO(), o)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("update PXC CR: %v", err)
+			err = fmt.Errorf("update PXC CR: %v", err)
+			return reconcile.Result{}, err
 		}
 	}
 
@@ -161,7 +170,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	if o.Spec.PXC == nil {
-		return reconcile.Result{}, fmt.Errorf("pxc not specified")
+		err = fmt.Errorf("pxc not specified")
+		return reconcile.Result{}, err
 	}
 
 	err = r.deploy(o)
@@ -171,14 +181,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	err = r.updatePod(statefulset.NewNode(o), o.Spec.PXC, o)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("pxc upgrade error: %v", err)
+		err = fmt.Errorf("pxc upgrade error: %v", err)
+		return reconcile.Result{}, err
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("ProxySQL upgrade error: %v", err)
+			err = fmt.Errorf("ProxySQL upgrade error: %v", err)
+			return reconcile.Result{}, err
 		}
 	} else {
 		// check if there is need to delete pvc
@@ -199,11 +211,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	err = r.reconcileBackups(o)
 	if err != nil {
 		return reconcile.Result{}, err
-	}
-
-	err = r.updateStatus(o)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("update status: %v", err)
 	}
 
 	return rr, nil

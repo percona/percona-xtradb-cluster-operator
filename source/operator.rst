@@ -81,6 +81,7 @@ configuration options for the ProxySQL daemon.
   imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the ProxySQL image.
   annotations, label, ``iam.amazonaws.com/role: role-arn``, `Kubernetes annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_ metadata.
   labels, label, ``rack: rack-22``, `Labels are key-value pairs attached to objects. <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_
+  servicetype, string,``Cluster IP``, Specifies the type of IP address to be used. 
   resources.requests.memory, string, ``1G``, `Kubernetes memory requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
   resources.requests.cpu, string, ``600m``, `Kubernetes CPU requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
   resources.limits.memory, string, ``1G``, `Kubernetes memory limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
@@ -146,4 +147,3 @@ Percona XtraDB Cluster backups.
   schedule.schedule, string, ``0 0 * * 6``, Scheduled time to make a backup specified in the `crontab format <https://en.wikipedia.org/wiki/Cron>`_
   schedule.keep, int, ``3``, Number of stored backups
   schedule.storageName, string, ``s3-us-west``, The name of the storage for the backups configured in the ``storages`` or ``fs-pvc`` subsection.
-

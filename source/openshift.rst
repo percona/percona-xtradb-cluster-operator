@@ -5,7 +5,7 @@ Install Percona XtraDB Cluster on OpenShift
 
    .. code:: bash
 
-      git clone -b release-0.3.0 https://github.com/percona/percona-xtradb-cluster-operator
+      git clone -b release-1.0.0 https://github.com/percona/percona-xtradb-cluster-operator
       cd percona-xtradb-cluster-operator
 
    **Note:** *It is crucial to specify the right branch with the\ `-b`

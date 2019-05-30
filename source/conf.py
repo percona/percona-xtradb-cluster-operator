@@ -255,6 +255,6 @@ latex_toplevel_sectioning = 'part'
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for PXC',
+    ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
      [u'Percona LLC and/or its affiliates 2009-2019'], 1)
 ]

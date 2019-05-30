@@ -21,7 +21,7 @@ import sys, os
 # ones.
 sys.path.append(os.path.abspath('ext'))
 
-extensions=['sphinx.ext.intersphinx', 'sphinx.ext.todo', 
+extensions=['sphinx.ext.intersphinx', 'sphinx.ext.todo',
             'sphinx.ext.coverage', 'sphinx.ext.ifconfig','sphinx.ext.extlinks', 'sphinx-prompt', 'psdom', ]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -37,9 +37,9 @@ project = u'Percona Kubernetes Operator for PXC'
 copyright = u'Percona LLC and/or its affiliates 2009 - 2019'
 
 # the short X.Y version
-version = '0.3.0'
+version = '1.0.0'
 # the full version including alpha/beta/rc tags.
-release = '0.3.0'
+release = '1.0.0'
 
 
 # List of patterns, relative to source directory, that match files and
@@ -145,10 +145,10 @@ html_theme_path = ['.', './percona-theme']
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = 'Percona Kubernetes Operator for PXC Documentation'
+html_title = 'Percona Kubernetes Operator for Percona XtraDB Cluster Documentation'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_short_title = 'Percona Kubernetes Operator for PXC Documentation'
+html_short_title = 'Percona Kubernetes Operator for Percona XtraDB Cluster Documentation'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
@@ -221,7 +221,7 @@ htmlhelp_basename = 'pxcoperatorpxc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for PXC',
+  ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for Percona xtraDB Cluster',
      [u'Percona LLC and/or its affiliates 2009-2019'], 'manual'),
 ]
 

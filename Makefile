@@ -1,3 +1,22 @@
+Skip to content
+ 
+Search or jump to…
+
+Pull requests
+Issues
+Marketplace
+Explore
+ 
+@patrickbirch 
+0
+0 14 patrickbirch/percona-server-pxc-operator
+forked from percona/percona-server-pxc-operator
+ Code  Pull requests 0  Projects 0  Security  Insights  Settings
+percona-server-mongodb-operator/Makefile
+@patrickbirch patrickbirch
+6183de8 7 days ago
+146 lines (122 sloc)  5.05 KB
+    
 # Makefile for Sphinx documentation
 #
 
@@ -17,8 +36,8 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) sou
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  html       to make standalone HTML files"
-	@echo "  offhtml    to make standalone HTML files without fetching fresh percona-them files"
 	@echo "  dirhtml    to make HTML files named index.html in directories"
+	@echo "  offhtml    to make standalone HTML files without fetching the new theme files"
 	@echo "  singlehtml to make a single large HTML file"
 	@echo "  pickle     to make pickle files"
 	@echo "  json       to make JSON files"
@@ -39,7 +58,7 @@ clean:
 
 html:
 	@echo "Downloading percona-theme ..."
-	@wget -O percona-theme.tar.gz https://www.percona.com/docs/theme-1-4/percona-operator-for-pxc/1.0
+	@wget -O percona-theme.tar.gz https://www.percona.com/docs/theme-1-4/percona-server-for-mongodb/
 	@echo "Extracting theme."
 	@tar -mzxf percona-theme.tar.gz
 	@rm -rf source/percona-theme
@@ -112,7 +131,6 @@ latex:
 	@echo "Run \`make' in that directory to run these through (pdf)latex" \
 	      "(use \`make latexpdf' here to do that automatically)."
 
-
 latexpdf:
 	$(SPHINXBUILD) -b latex $(ALLSPHINXOPTS) $(BUILDDIR)/latex
 	@echo "Running LaTeX files through pdflatex..."
@@ -144,3 +162,15 @@ doctest:
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
+© 2019 GitHub, Inc.
+Terms
+Privacy
+Security
+Status
+Help
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About

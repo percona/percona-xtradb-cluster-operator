@@ -95,10 +95,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateConfigMap(cr *api.PerconaXtraDBClu
 	if cr.Spec.PXC.Configuration != "" {
 		ls := stsApp.Labels()
 		configMap = configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
-	}
-	err := r.client.Update(context.TODO(), configMap)
-	if err != nil {
-		return fmt.Errorf("update ConfigMap: %v", err)
+		err := r.client.Update(context.TODO(), configMap)
+		if err != nil {
+			return fmt.Errorf("update ConfigMap: %v", err)
+		}
 	}
 
 	return nil
@@ -121,10 +121,6 @@ func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster)
 	}
 	secretString := fmt.Sprintln(secretObj)
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
-	/*if nodeSet.Spec.Template.Annotations == nil {
-		nodeSet.Spec.Template.Annotations = make(map[string]string)
-	}
-	nodeSet.Spec.Template.Annotations["ssl_hash"] = hash*/
 
 	return hash, nil
 }

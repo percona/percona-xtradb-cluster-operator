@@ -112,9 +112,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	defer func() {
-		err := r.updateStatus(o, err)
-		if err != nil {
-			log.Error(err, "Update status")
+		uerr := r.updateStatus(o, err)
+		if uerr != nil {
+			log.Error(uerr, "Update status")
 		}
 	}()
 

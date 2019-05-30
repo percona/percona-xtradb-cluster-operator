@@ -221,7 +221,7 @@ htmlhelp_basename = 'pxcoperatorpxc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
+  ('index', 'percona-kubernetes-operator-for-pxc.tex', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
      [u'Percona LLC and/or its affiliates 2009-2019'], 'manual'),
 ]
 

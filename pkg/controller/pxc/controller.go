@@ -218,10 +218,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	stsApp := statefulset.NewNode(cr)
-	configMap := &corev1.ConfigMap{}
 	if cr.Spec.PXC.Configuration != "" {
 		ls := stsApp.Labels()
-		configMap = configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		configMap := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return err

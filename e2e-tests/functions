@@ -181,7 +181,7 @@ compare_kubectl() {
 
     kubectl get -o yaml ${resource} \
         | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|image:|clusterIP:|dataSource:" \
-        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: {}" \
+        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}" \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
         | $sed -e '/name: suffix/,+1d' \

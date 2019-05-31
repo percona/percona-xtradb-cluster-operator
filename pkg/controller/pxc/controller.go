@@ -2,9 +2,11 @@ package pxc
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -241,7 +243,14 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	err = r.reconsileSSL(cr, nodeSet.Namespace)
+	configString := cr.Spec.PXC.Configuration
+	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
+	if nodeSet.Spec.Template.Annotations == nil {
+		nodeSet.Spec.Template.Annotations = make(map[string]string)
+	}
+	nodeSet.Spec.Template.Annotations["cfg_hash"] = hash
+
+	err = r.reconsileSSL(cr, nodeSet)
 	if err != nil {
 		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.PXC.SSLSecretName+` and `+cr.Spec.PXC.SSLInternalSecretName+` manually or setup cert-manager correctly`, err)
 	}

@@ -14,8 +14,25 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster) (err error) {
-	cr.Status = api.PerconaXtraDBClusterStatus{}
+func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, reconcileErr error) (err error) {
+	if reconcileErr != nil {
+		if cr.Status.Status != api.ClusterError {
+			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+				Status:             api.ConditionTrue,
+				Type:               api.ClusterError,
+				Message:            reconcileErr.Error(),
+				Reason:             "ErrorReconcile",
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			})
+
+			cr.Status.Messages = append(cr.Status.Messages, "Error: "+reconcileErr.Error())
+			cr.Status.Status = api.ClusterError
+		}
+
+		return r.writeStatus(cr)
+	}
+
+	cr.Status.Messages = cr.Status.Messages[:0]
 
 	pxcStatus, err := r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC, cr.Namespace)
 	if err != nil {
@@ -99,7 +116,19 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		cr.Status.Status = api.AppStateUnknown
 	}
 
-	err = r.client.Status().Update(context.TODO(), cr)
+	if len(cr.Status.Conditions) == 0 {
+		cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.ClusterInit,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		})
+	}
+
+	return r.writeStatus(cr)
+}
+
+func (r *ReconcilePerconaXtraDBCluster) writeStatus(cr *api.PerconaXtraDBCluster) error {
+	err := r.client.Status().Update(context.TODO(), cr)
 	if err != nil {
 		// may be it's k8s v1.10 and erlier (e.g. oc3.9) that doesn't support status updates
 		// so try to update whole CR

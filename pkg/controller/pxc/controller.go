@@ -24,7 +24,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	cm "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
@@ -113,16 +112,25 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	defer func() {
+		uerr := r.updateStatus(o, err)
+		if uerr != nil {
+			log.Error(uerr, "Update status")
+		}
+	}()
+
 	changed, err := o.CheckNSetDefaults()
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
+		err = fmt.Errorf("wrong PXC options: %v", err)
+		return reconcile.Result{}, err
 	}
 
 	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
 	if changed {
 		err = r.client.Update(context.TODO(), o)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("update PXC CR: %v", err)
+			err = fmt.Errorf("update PXC CR: %v", err)
+			return reconcile.Result{}, err
 		}
 	}
 
@@ -163,7 +171,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	if o.Spec.PXC == nil {
-		return reconcile.Result{}, fmt.Errorf("pxc not specified")
+		err = fmt.Errorf("pxc not specified")
+		return reconcile.Result{}, err
 	}
 
 	err = r.deploy(o)
@@ -173,14 +182,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	err = r.updatePod(statefulset.NewNode(o), o.Spec.PXC, o)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("pxc upgrade error: %v", err)
+		err = fmt.Errorf("pxc upgrade error: %v", err)
+		return reconcile.Result{}, err
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("ProxySQL upgrade error: %v", err)
+			err = fmt.Errorf("ProxySQL upgrade error: %v", err)
+			return reconcile.Result{}, err
 		}
 	} else {
 		// check if there is need to delete pvc
@@ -201,11 +212,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	err = r.reconcileBackups(o)
 	if err != nil {
 		return reconcile.Result{}, err
-	}
-
-	err = r.updateStatus(o)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("update status: %v", err)
 	}
 
 	return rr, nil
@@ -342,96 +348,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		} else if !errors.IsNotFound(err) {
 			return fmt.Errorf("get ProxySQL stateful set: %v", err)
 		}
-	}
-
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster, nodeSet *appsv1.StatefulSet) error {
-	if cr.Spec.PXC.AllowUnsafeConfig {
-		return nil
-	}
-	secretObj := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: nodeSet.Namespace,
-			Name:      cr.Spec.PXC.SSLSecretName,
-		},
-		&secretObj,
-	)
-	if err == nil {
-		secretString := fmt.Sprintln(secretObj)
-		hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
-		nodeSet.Spec.Template.Annotations["ssl_hash"] = hash
-		return nil
-	} else if !errors.IsNotFound(err) {
-		return fmt.Errorf("get secret: %v", err)
-	}
-
-	issuerKind := "Issuer"
-	issuerName := cr.Name + "-pxc-ca"
-
-	err = r.client.Create(context.TODO(), &cm.Issuer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      issuerName,
-			Namespace: nodeSet.Namespace,
-		},
-		Spec: cm.IssuerSpec{
-			IssuerConfig: cm.IssuerConfig{
-				SelfSigned: &cm.SelfSignedIssuer{},
-			},
-		},
-	})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("create issuer: %v", err)
-	}
-
-	err = r.client.Create(context.TODO(), &cm.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-ssl",
-			Namespace: nodeSet.Namespace,
-		},
-		Spec: cm.CertificateSpec{
-			SecretName: cr.Spec.PXC.SSLSecretName,
-			CommonName: cr.Name + "-proxysql",
-			DNSNames: []string{
-				"*." + cr.Name + "-proxysql",
-			},
-			IsCA: true,
-			IssuerRef: cm.ObjectReference{
-				Name: issuerName,
-				Kind: issuerKind,
-			},
-		},
-	})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("create certificate: %v", err)
-	}
-
-	if cr.Spec.PXC.SSLSecretName == cr.Spec.PXC.SSLInternalSecretName {
-		return nil
-	}
-
-	err = r.client.Create(context.TODO(), &cm.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-ssl-internal",
-			Namespace: nodeSet.Namespace,
-		},
-		Spec: cm.CertificateSpec{
-			SecretName: cr.Spec.PXC.SSLInternalSecretName,
-			CommonName: cr.Name + "-pxc",
-			DNSNames: []string{
-				"*." + cr.Name + "-pxc",
-			},
-			IsCA: true,
-			IssuerRef: cm.ObjectReference{
-				Name: issuerName,
-				Kind: issuerKind,
-			},
-		},
-	})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("create internal certificate: %v", err)
 	}
 
 	return nil

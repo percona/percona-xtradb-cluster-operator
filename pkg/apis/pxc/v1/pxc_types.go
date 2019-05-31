@@ -68,6 +68,7 @@ type ClusterConditionType string
 
 const (
 	ClusterReady      ClusterConditionType = "Ready"
+	ClusterInit                            = "Initializing"
 	ClusterPXCReady                        = "PXCReady"
 	ClusterProxyReady                      = "ProxySQLReady"
 	ClusterError                           = "Error"
@@ -83,7 +84,7 @@ type ClusterCondition struct {
 
 type AppStatus struct {
 	Size    int32    `json:"size,omitempty"`
-	Ready   int32    `json:"ready,omitempty"`
+	Ready   int32    `json:"ready"`
 	Status  AppState `json:"status,omitempty"`
 	Message string   `json:"message,omitempty"`
 }

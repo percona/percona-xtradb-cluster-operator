@@ -27,3 +27,4 @@ spec:
     enabled: false
   backup:
     image: percona/percona-xtradb-cluster-operator:1.0.0-backup
+    serviceAccountName: percona-xtradb-cluster-operator

@@ -31,10 +31,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 		return fmt.Errorf("get secret: %v", err)
 	}
 
-	err = r.createSSLByCertManager(cr, cr.Namespace)
+	err = r.createSSLByCertManager(cr)
 	if err != nil {
 		log.Info("using cert-manger: " + err.Error())
-		err = r.createSSLManualy(cr, cr.Namespace)
+		err = r.createSSLManualy(cr)
 		if err != nil {
 			return fmt.Errorf("create ssl manualy: %v", err)
 		}
@@ -42,14 +42,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXtraDBCluster, namespace string) error {
+func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXtraDBCluster) error {
 	issuerKind := "Issuer"
 	issuerName := cr.Name + "-pxc-ca"
 
 	err := r.client.Create(context.TODO(), &cm.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      issuerName,
-			Namespace: namespace,
+			Namespace: cr.Namespace,
 		},
 		Spec: cm.IssuerSpec{
 			IssuerConfig: cm.IssuerConfig{
@@ -64,7 +64,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	err = r.client.Create(context.TODO(), &cm.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ssl",
-			Namespace: namespace,
+			Namespace: cr.Namespace,
 		},
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLSecretName,
@@ -92,7 +92,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	err = r.client.Create(context.TODO(), &cm.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ssl-internal",
-			Namespace: namespace,
+			Namespace: cr.Namespace,
 		},
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLInternalSecretName,
@@ -114,7 +114,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCluster, namespace string) error {
+func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCluster) error {
 	data := make(map[string][]byte)
 	proxyHosts := []string{
 		cr.Name + "-pxc",

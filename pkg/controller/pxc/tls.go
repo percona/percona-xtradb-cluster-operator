@@ -70,6 +70,8 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			SecretName: cr.Spec.PXC.SSLSecretName,
 			CommonName: cr.Name + "-proxysql",
 			DNSNames: []string{
+				cr.Name + "-pxc",
+				"*." + cr.Name + "-pxc",
 				"*." + cr.Name + "-proxysql",
 			},
 			IsCA: true,
@@ -115,8 +117,10 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCluster, namespace string) error {
 	data := make(map[string][]byte)
 	proxyHosts := []string{
-		"*." + cr.Name + "-proxysql",
+		cr.Name + "-pxc",
 		cr.Name + "-proxysql",
+		"*." + cr.Name + "-pxc",
+		"*." + cr.Name + "-proxysql",
 	}
 	caCert, tlsCert, key, err := pxctls.Issue(proxyHosts)
 	if err != nil {

@@ -116,9 +116,10 @@ deploy_helm() {
     local namespace="$1"
     if [ "$OPENSHIFT" == 1 ]; then
         export TILLER_NAMESPACE=tiller
+        HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/')
         oc new-project tiller || :
         oc project tiller
-        oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=v2.13.1 | oc apply -f -
+        oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=$HELM_VERSION | oc apply -f -
     else
         kubectl --namespace kube-system create sa tiller || :
         kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller || :

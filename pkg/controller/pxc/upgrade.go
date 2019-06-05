@@ -90,12 +90,15 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateConfigMap(cr *api.PerconaXtraDBCluster) error {
-	stsApp := statefulset.NewNode(cr)
-	configMap := &corev1.ConfigMap{}
 	if cr.Spec.PXC.Configuration != "" {
+		stsApp := statefulset.NewNode(cr)
 		ls := stsApp.Labels()
-		configMap = configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
-		err := r.client.Update(context.TODO(), configMap)
+		configMap := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return err
+		}
+		err = r.client.Update(context.TODO(), configMap)
 		if err != nil {
 			return fmt.Errorf("update ConfigMap: %v", err)
 		}

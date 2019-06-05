@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -250,10 +249,16 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 	nodeSet.Spec.Template.Annotations["cfg_hash"] = hash
 
-	err = r.reconsileSSL(cr, nodeSet)
+	err = r.reconsileSSL(cr)
 	if err != nil {
 		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.PXC.SSLSecretName+` and `+cr.Spec.PXC.SSLInternalSecretName+` manually or setup cert-manager correctly`, err)
 	}
+
+	tlsHash, err := r.getTLSHash(cr)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("get secret hash error: %v", err)
+	}
+	nodeSet.Spec.Template.Annotations["ssl_hash"] = tlsHash
 
 	err = setControllerReference(cr, nodeSet, r.scheme)
 	if err != nil {

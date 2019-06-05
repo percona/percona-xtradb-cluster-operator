@@ -11,7 +11,7 @@ test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
-if oc version | grep -q openshift; then
+if oc projects 2>&1 | egrep -q 'You have access to the following projects|You are not a member of any projects'; then
     OPENSHIFT=1
 fi
 
@@ -182,7 +182,7 @@ compare_kubectl() {
 
     kubectl get -o yaml ${resource} \
         | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|image:|clusterIP:|dataSource:" \
-        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}" \
+        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem" \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
         | $sed -e '/name: suffix/,+1d' \

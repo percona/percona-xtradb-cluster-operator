@@ -10,8 +10,6 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) error {
@@ -37,7 +35,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 	currentSet.Spec.Template.Annotations["cfg_hash"] = configHash
 
-	err = r.updateConfigMap(cr)
+	err = r.reconcileConfigMap(cr)
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update db config error: %v", err)
 	}
@@ -87,24 +85,6 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
 
 	return hash
-}
-
-func (r *ReconcilePerconaXtraDBCluster) updateConfigMap(cr *api.PerconaXtraDBCluster) error {
-	if cr.Spec.PXC.Configuration != "" {
-		stsApp := statefulset.NewNode(cr)
-		ls := stsApp.Labels()
-		configMap := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
-		err := setControllerReference(cr, configMap, r.scheme)
-		if err != nil {
-			return err
-		}
-		err = r.client.Update(context.TODO(), configMap)
-		if err != nil {
-			return fmt.Errorf("update ConfigMap: %v", err)
-		}
-	}
-
-	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster) (string, error) {

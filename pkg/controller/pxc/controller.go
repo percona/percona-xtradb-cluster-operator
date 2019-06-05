@@ -223,18 +223,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	stsApp := statefulset.NewNode(cr)
-	if cr.Spec.PXC.Configuration != "" {
-		ls := stsApp.Labels()
-		configMap := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
-		err := setControllerReference(cr, configMap, r.scheme)
-		if err != nil {
-			return err
-		}
-
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("create newConfigMap: %v", err)
-		}
+	err := r.reconcileConfigMap(cr)
+	if err != nil {
+		return err
 	}
 
 	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, serverVersion)
@@ -358,6 +349,29 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			}
 		} else if !errors.IsNotFound(err) {
 			return fmt.Errorf("get ProxySQL stateful set: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
+	if cr.Spec.PXC.Configuration != "" {
+		stsApp := statefulset.NewNode(cr)
+		ls := stsApp.Labels()
+		configMap := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return err
+		}
+		err = r.client.Create(context.TODO(), configMap)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("create ConfigMap: %v", err)
+		} else {
+			err = r.client.Update(context.TODO(), configMap)
+			if err != nil {
+				return fmt.Errorf("update ConfigMap: %v", err)
+			}
 		}
 	}
 

@@ -117,7 +117,7 @@ func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster)
 		&secretObj,
 	)
 	if err != nil {
-		return "", fmt.Errorf("get Secret object: %v", err)
+		return "", err
 	}
 	secretString := fmt.Sprintln(secretObj)
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))

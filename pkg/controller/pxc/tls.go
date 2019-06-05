@@ -13,14 +13,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster, namespace string) error {
+func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster) error {
 	if cr.Spec.PXC.AllowUnsafeConfig {
 		return nil
 	}
 	secretObj := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
-			Namespace: namespace,
+			Namespace: cr.Namespace,
 			Name:      cr.Spec.PXC.SSLSecretName,
 		},
 		&secretObj,
@@ -31,10 +31,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 		return fmt.Errorf("get secret: %v", err)
 	}
 
-	err = r.createSSLByCertManager(cr, namespace)
+	err = r.createSSLByCertManager(cr, cr.Namespace)
 	if err != nil {
 		log.Info("using cert-manger: " + err.Error())
-		err = r.createSSLManualy(cr, namespace)
+		err = r.createSSLManualy(cr, cr.Namespace)
 		if err != nil {
 			return fmt.Errorf("create ssl manualy: %v", err)
 		}

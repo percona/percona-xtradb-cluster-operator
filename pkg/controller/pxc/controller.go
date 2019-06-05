@@ -314,6 +314,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return err
 		}
 
+		if proxySet.Spec.Template.Annotations == nil {
+			proxySet.Spec.Template.Annotations = make(map[string]string)
+		}
+		proxySet.Spec.Template.Annotations["cfg_hash"] = hash
+		proxySet.Spec.Template.Annotations["ssl_hash"] = tlsHash
+
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("create newStatefulSetProxySQL: %v", err)

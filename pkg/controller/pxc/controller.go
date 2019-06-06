@@ -365,13 +365,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			return err
 		}
 		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("create ConfigMap: %v", err)
-		} else {
+		if err != nil && errors.IsAlreadyExists(err) {
 			err = r.client.Update(context.TODO(), configMap)
 			if err != nil {
 				return fmt.Errorf("update ConfigMap: %v", err)
 			}
+		} else if err != nil {
+			return fmt.Errorf("create ConfigMap: %v", err)
 		}
 	}
 

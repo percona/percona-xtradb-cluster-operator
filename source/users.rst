@@ -1,8 +1,8 @@
 Users
 =====
 
-As it is written in the installation part, the operator requires
-Kubernetes Secrets to be deployed before it is started. The name of the
+The Operator requires
+Kubernetes Secrets to be deployed before the Operator is started. The name of the
 required secrets can be set in ``deploy/cr.yaml`` under the
 ``spec.secrets`` section.
 
@@ -12,18 +12,18 @@ Unprivileged users
 There are no unprivileged (general purpose) user accounts created by
 default. If you need general purpose users, please run commands below:
 
-.. code:: bash
+.. code-block:: bash
 
    $ kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- mysql -hcluster1-pxc-nodes -uroot -proot_password
    mysql> GRANT ALL PRIVILEGES ON database1.* TO 'user1'@'%' IDENTIFIED BY 'password1';
 
 Sync users on the ProxySQL node:
 
-.. code:: bash
+.. code-block:: bash
 
    $ kubectl exec -it some-name-pxc-proxysql-0 -- proxysql-admin --config-file=/etc/proxysql-admin.cnf --syncusers
 
-Now check the newly created user. If everything is Ok with it, the
+Verify that the user was created successfully. If successful, the
 following command will let you successfully login to MySQL shell via
 ProxySQL:
 
@@ -33,7 +33,7 @@ ProxySQL:
    percona-client:/$ mysql -h cluster1-pxc-proxysql -uuser1 -ppassword1
    mysql> SELECT * FROM database1.table1 LIMIT 1;
 
-You may also try executing any simple SQL statement to make sure
+You may also try executing any simple SQL statement to ensure the 
 permissions have been successfully granted.
 
 System Users
@@ -48,57 +48,40 @@ deployment.
 
 **Warning:** *These users should not be used to run an application.*
 
-+--------------+-------------+---------------+------------------------+
-| User Purpose | Username    | Password      | Description            |
-|              |             | Secret Key    |                        |
-+==============+=============+===============+========================+
-| Admin        | root        | root          | Database               |
-|              |             |               | administrative user,   |
-|              |             |               | should be used for     |
-|              |             |               | maintenance tasks only |
-+--------------+-------------+---------------+------------------------+
-| ProxySQL     | proxyadmin  | proxyadmin    | ProxySQL               |
-| Admin        |             |               | administrative user,   |
-|              |             |               | can be used for        |
-|              |             |               | `adding new general    |
-|              |             |               | purpouse ProxySQL      |
-|              |             |               | users <https://github. |
-|              |             |               | com/sysown/proxysql/wi |
-|              |             |               | ki/Users-configuration |
-|              |             |               | #creating-a-new-user>` |
-|              |             |               | __.                    |
-+--------------+-------------+---------------+------------------------+
-| Backup       | xtrabackup  | xtrabackup    | `User for run          |
-|              |             |               | backups <https://www.p |
-|              |             |               | ercona.com/doc/percona |
-|              |             |               | -xtrabackup/2.4/using_ |
-|              |             |               | xtrabackup/privileges. |
-|              |             |               | html>`__               |
-+--------------+-------------+---------------+------------------------+
-| Cluster      | clusterchec | clustercheck  | `User for liveness and |
-| Check        | kuser       |               | readiness              |
-|              |             |               | checks <http://galerac |
-|              |             |               | luster.com/documentati |
-|              |             |               | on-webpages/monitoring |
-|              |             |               | thecluster.html>`__    |
-+--------------+-------------+---------------+------------------------+
-| PMM Client   | monitor     | monitor       | `User for PMM          |
-| User         |             |               | agent <https://www.per |
-|              |             |               | cona.com/doc/percona-m |
-|              |             |               | onitoring-and-manageme |
-|              |             |               | nt/security.html#pmm-s |
-|              |             |               | ecurity-password-prote |
-|              |             |               | ction-enabling>`__     |
-+--------------+-------------+---------------+------------------------+
-| PMM Server   | should be   | pmmserver     | `password to access    |
-| Password     | set via     |               | PMM                    |
-|              | `operator   |               | Server <https://www.pe |
-|              | options <op |               | rcona.com/doc/percona- |
-|              | erator>`__  |               | monitoring-and-managem |
-|              |             |               | ent/security.html#pmm- |
-|              |             |               | security-password-prot |
-|              |             |               | ection-enabling>`__    |
-+--------------+-------------+---------------+------------------------+
+.. tabularcolumns:: |p{1.5cm}|p{1.5cm}|p{1.5cm}|p{2.5cm}|L|
+
+.. list-table::
+    :header-rows: 1
+
+    * - User Purpose
+      - Username
+      - Password Secret Key
+      - Description
+    * - Admin
+      - root
+      - root
+      - Database administrative user, should only be used for maintenance tasks
+    * - ProxySQLAdmin   
+      - proxyadmin
+      - proxyadmin
+      - ProxySQL administrative user, can be used to `add general-purpose ProxySQL users <https://github.com/sysown/proxysql/wiki/Users-configuration>`__
+    * - Backup
+      - xtrabackup
+      - xtrabackup
+      - `User to run backups <https://www.percona.com/doc/percona-xtrabackup/2.4/using_xtrabackup/privileges.html>`__
+    * - Cluster Check
+      - clustercheck
+      - clustercheck
+      - `User for liveness checks and readiness checks <http://galeracluster.com/library/documentation/monitoring-cluster.html>`__
+    * - PMM Client User
+      - monitor
+      - monitor 
+      - `User for PMM agent <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__
+    * - PMM Server Password
+      - should be set through the `operator options <operator>`__
+      - pmmserver
+      - `Password used to access PMM Server <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__
+
 
 Development Mode
 ----------------

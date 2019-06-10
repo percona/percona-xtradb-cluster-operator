@@ -37,9 +37,9 @@ project = u'Percona Kubernetes Operator for PXC'
 copyright = u'Percona LLC and/or its affiliates 2009 - 2019'
 
 # the short X.Y version
-version = '0.3.0'
+version = '1.0.0'
 # the full version including alpha/beta/rc tags.
-release = '0.3.0'
+release = '1.0.0'
 
 
 # List of patterns, relative to source directory, that match files and
@@ -79,6 +79,10 @@ rst_prolog = '''
 .. |Percona Server|  replace:: *Percona Server*
 
 .. |Percona|  replace:: *Percona*
+
+.. |Percona Operator PXC| replace:: *Percona Kubernetes Operator for Percona XtraDB Cluster*
+
+.. |Percona Operator PSMongoDB| replace:: *Percona Kubernetes Operator for Percona Server for MongoDB*
 
 .. |pmm|  replace:: *PMM*
 

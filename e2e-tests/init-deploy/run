@@ -12,13 +12,7 @@ deploy_operator
 
 desc 'create first PXC cluster'
 cluster="some-name"
-kubectl apply \
-    -f $conf_dir/secrets.yml \
-    -f $conf_dir/$cluster.yml \
-    -f $conf_dir/client.yml
-desc 'check if all 3 Pods started'
-wait_for_running $cluster-proxysql 1
-wait_for_running $cluster-pxc 3
+spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 
 desc 'check if service and statefulset created with expected config'
 compare_kubectl statefulset/$cluster-pxc
@@ -47,21 +41,10 @@ compare_mysql_user "-h $cluster-proxysql -umonitor -pmonitor"
 compare_mysql_user "-h $cluster-proxysql -uproxyuser -ps3cret" "-proxysql"
 compare_mysql_user "-h $cluster-proxysql -upmmserver -pmonitor" "-proxysql"
 
-desc 'write data, read from all'
-run_mysql \
-    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-    "-h $cluster-pxc -uroot -proot_password"
-run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100500)' \
-    "-h $cluster-pxc -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
-
-desc 'write data to ProxySQL, read from all'
+desc 'write data directly, read from all'
 run_mysql \
     'INSERT myApp.myApp (id) VALUES (100501)' \
-    "-h $cluster-proxysql -uroot -proot_password"
+    "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"

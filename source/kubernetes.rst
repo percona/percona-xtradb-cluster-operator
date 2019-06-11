@@ -79,7 +79,18 @@ Install the |Percona Operator PXC| on Kubernetes
 
       .. _Users: https://www.percona.com/doc/kubernetes-operator-for-pxc/users.html
 
-5. After the operator is started and user secrets are added, |Percona XtraDB Cluster| can be created at any time with the following command:
+
+5. Now you need to `prepare certificates for TLS security <TLS.html>`_ and apply them with the following command:
+
+   .. code:: bash
+
+      $ kubectl apply -f <secrets file>
+
+   Pre-generated certificates are awailable in the :file:``deploy/ssl-secrets.yaml`` secrets file for test purposes, but we strongly recommend avoiding their usage on any production system.
+
+6. After the operator is started and user secrets are added, Percona
+   XtraDB Cluster can be created at any time with the following command:
+
 
    .. code-block:: bash
 
@@ -98,7 +109,7 @@ Install the |Percona Operator PXC| on Kubernetes
       cluster1-pxc-proxysql-0                           1/1     Running   0          5m
       percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
 
-6. Check connectivity to newly created cluster
+7. Check connectivity to newly created cluster
 
    .. code-block:: bash
 
@@ -107,3 +118,4 @@ Install the |Percona Operator PXC| on Kubernetes
 
 
 .. |Percona Operator PXC| replace:: *Percona Kubernetes Operator for Percona XtraDB Cluster*
+

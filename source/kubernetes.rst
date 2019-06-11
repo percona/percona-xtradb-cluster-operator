@@ -62,7 +62,7 @@ Install the |Percona Operator PXC| on Kubernetes
    documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`__
    for details).
 
-   **Note:** *the following command decodes the base64-encoded
+   .. admonition:: *the following command decodes the base64-encoded
    password:*
    ``$ echo -n 'plain-text-password' | base64``
 

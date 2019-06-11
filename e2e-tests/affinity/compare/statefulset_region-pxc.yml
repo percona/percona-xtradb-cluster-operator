@@ -22,6 +22,7 @@ spec:
   serviceName: region-pxc
   template:
     metadata:
+      annotations:
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: region

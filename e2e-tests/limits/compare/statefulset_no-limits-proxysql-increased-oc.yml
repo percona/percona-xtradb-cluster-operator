@@ -22,6 +22,7 @@ spec:
   serviceName: no-limits-proxysql-unready
   template:
     metadata:
+      annotations:
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: no-limits

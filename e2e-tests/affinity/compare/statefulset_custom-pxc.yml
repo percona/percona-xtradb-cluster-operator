@@ -22,6 +22,7 @@ spec:
   serviceName: custom-pxc
   template:
     metadata:
+      annotations:
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: custom

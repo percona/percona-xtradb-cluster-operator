@@ -22,6 +22,7 @@ spec:
   serviceName: zone-pxc
   template:
     metadata:
+      annotations:
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: zone

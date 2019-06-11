@@ -234,22 +234,28 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	configString := cr.Spec.PXC.Configuration
-	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
+	configHash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
 	if nodeSet.Spec.Template.Annotations == nil {
 		nodeSet.Spec.Template.Annotations = make(map[string]string)
 	}
-	nodeSet.Spec.Template.Annotations["cfg_hash"] = hash
+	nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
 
 	err = r.reconsileSSL(cr)
 	if err != nil {
 		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.PXC.SSLSecretName+` and `+cr.Spec.PXC.SSLInternalSecretName+` manually or setup cert-manager correctly`, err)
 	}
 
-	tlsHash, err := r.getTLSHash(cr)
+	sslHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLSecretName)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
-	nodeSet.Spec.Template.Annotations["ssl_hash"] = tlsHash
+	nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+
+	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("get secret hash error: %v", err)
+	}
+	nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 
 	err = setControllerReference(cr, nodeSet, r.scheme)
 	if err != nil {
@@ -308,8 +314,14 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if proxySet.Spec.Template.Annotations == nil {
 			proxySet.Spec.Template.Annotations = make(map[string]string)
 		}
-		proxySet.Spec.Template.Annotations["cfg_hash"] = hash
-		proxySet.Spec.Template.Annotations["ssl_hash"] = tlsHash
+		proxyConfigString := cr.Spec.ProxySQL.Configuration
+		proxyConfigHash := fmt.Sprintf("%x", md5.Sum([]byte(proxyConfigString)))
+		if nodeSet.Spec.Template.Annotations == nil {
+			nodeSet.Spec.Template.Annotations = make(map[string]string)
+		}
+		proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = proxyConfigHash
+		proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+		proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !errors.IsAlreadyExists(err) {

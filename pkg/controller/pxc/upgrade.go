@@ -33,7 +33,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if currentSet.Spec.Template.Annotations == nil {
 		currentSet.Spec.Template.Annotations = make(map[string]string)
 	}
-	currentSet.Spec.Template.Annotations["cfg_hash"] = configHash
+	currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
 
 	err = r.reconcileConfigMap(cr)
 	if err != nil {
@@ -41,11 +41,17 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// change TLS secret configuration
-	tlsHash, err := r.getTLSHash(cr)
+	sslHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLSecretName)
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
-	currentSet.Spec.Template.Annotations["ssl_hash"] = tlsHash
+	currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+
+	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
+	if err != nil {
+		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
+	}
+	currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 
 	var newContainers []corev1.Container
 	var newInitContainers []corev1.Container
@@ -87,7 +93,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 	return hash
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster, secretName string) (string, error) {
 	if cr.Spec.PXC.AllowUnsafeConfig {
 		return "", nil
 	}
@@ -95,7 +101,7 @@ func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster)
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
-			Name:      cr.Spec.PXC.SSLSecretName,
+			Name:      secretName,
 		},
 		&secretObj,
 	)

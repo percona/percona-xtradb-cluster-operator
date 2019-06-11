@@ -7,16 +7,16 @@ Install the |Percona Operator PXC| on Kubernetes
 
    .. code-block:: bash
 
-      git clone -b release-1.0.0 https://github.com/percona/percona-xtradb-cluster-operator
+      git clone -b release-|release| https://github.com/percona/percona-xtradb-cluster-operator
       cd percona-xtradb-cluster-operator
 
-   **Note:** *You must specify the correct branch with ``-b``
-   option while cloning the code on this step.*
+   .. admonition:: *Selecting the correct branch is crucial. You must specify the branch with ``-b``
+   option while cloning the code on this step. Selecting a different branch may create unintended results.*
 
 1. Now Custom Resource Definition for |Percona XtraDB Cluster| should be created from 
    :file:`deploy/crd.yaml`. Custom Resource Definition extends the
    standard set of resources which Kubernetes “knows” about with the new
-   items (in our case ones which are the core of the operator).
+   items (in our case ones which are the core of the Operator).
 
    This step should be done only once; it does not need to be repeated
    with the next Operator deployments, etc.
@@ -26,7 +26,7 @@ Install the |Percona Operator PXC| on Kubernetes
       $ kubectl apply -f deploy/crd.yaml
 
 2. The next thing to do is to add the ``pxc`` namespace to Kubernetes,
-   not forgetting to set the correspondent context for further steps:
+   and to set the correspondent context for further steps:
 
    .. code-block:: bash
 
@@ -44,12 +44,12 @@ Install the |Percona Operator PXC| on Kubernetes
 
       $ kubectl apply -f deploy/rbac.yaml
 
-   **Note:** *Setting RBAC requires your user to have cluster-admin role
-   privileges. For example, those using Google Kubernetes Engine can
-   grant user needed privileges with the following command:*
+   .. admonition:: *Setting RBAC requires your user to have cluster-admin role
+   privileges. For example, those using the Google Kubernetes Engine can
+   grant user-needed privileges with the following command:*
    ``$ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)``
 
-   Finally it’s time to start the operator within Kubernetes:
+   Finally it’s time to start the Operator within Kubernetes:
 
    .. code-block:: bash
 
@@ -57,7 +57,7 @@ Install the |Percona Operator PXC| on Kubernetes
 
 4. Now that’s time to add the |Percona XtraDB Cluster| Users secrets to Kubernetes. They
    should be placed in the data section of :file:``deploy/secrets.yaml``
-   as logins and base64-encoded passwords for the user accounts
+   as base64-encoded passwords for the user accounts
    (see `Kubernetes
    documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`__
    for details).
@@ -66,7 +66,7 @@ Install the |Percona Operator PXC| on Kubernetes
    password:*
    ``$ echo -n 'plain-text-password' | base64``
 
-   After editing the user name and password information the user secrets are created (or
+   After editing the password information, the user secrets should be created (or
    updated) with the following command:
 
    .. code-block:: bash

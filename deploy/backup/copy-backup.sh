@@ -130,10 +130,11 @@ start_tmp_pod() {
 
 copy_files_pvc() {
     local dest_dir=$1
+    local real_dest_dir=$(cd "$dest_dir"; pwd -P)
 
     echo ""
     echo "Downloading started"
-    $ctrl cp backup-access:/backup/ "${dest_dir%/}/"
+    $ctrl cp backup-access:/backup/ "${real_dest_dir%/}/"
     echo "Downloading finished"
 }
 

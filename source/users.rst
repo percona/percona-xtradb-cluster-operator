@@ -2,7 +2,7 @@ Users
 =====
 
 The Operator requires
-Kubernetes Secrets to be deployed before the Operator is started. The name of the
+Kubernetes Secrets to be deployed before the PXC Cluster is started. The name of the
 required secrets can be set in ``deploy/cr.yaml`` under the
 ``spec.secrets`` section.
 

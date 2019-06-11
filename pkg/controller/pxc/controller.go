@@ -246,16 +246,18 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	sslHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLSecretName)
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
 	nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 
 	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
-	nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+	if !errors.IsNotFound(err) {
+		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -48,10 +49,12 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 
 	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
-	currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+	if !errors.IsNotFound(err) {
+		currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+	}
 
 	var newContainers []corev1.Container
 	var newInitContainers []corev1.Container

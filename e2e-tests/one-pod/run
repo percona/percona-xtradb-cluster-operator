@@ -13,9 +13,10 @@ spinup_pxc() {
 
     desc 'create first PXC cluster'
     kubectl apply \
-        -f $conf_dir/secrets.yml \
-        -f $conf_dir/client.yml \
-        -f $config
+        -f $conf_dir/secrets.yml
+
+    apply_config "$conf_dir/client.yml"
+    apply_config "$config"
 
     desc 'check if all 3 Pods started'
     wait_for_running "$cluster-pxc" "$size"
@@ -36,8 +37,7 @@ spinup_pxc() {
 
 check_pvc_md5() {
     desc 'check backup file md5sum'
-    kubectl apply \
-        -f $test_dir/conf/client.yml
+    apply_config "$test_dir/conf/client.yml"
     sleep 10
     bak_client_pod=$(
         kubectl get pods \

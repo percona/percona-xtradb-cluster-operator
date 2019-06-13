@@ -10,25 +10,10 @@ check_cr_config() {
     local cluster="$1"
 
     # apply cr config
-    kubectl apply \
-        -f $test_dir/conf/$cluster.yml
-
-    # check if at least 1 Pod started
-    wait_for_running $cluster-pxc 3
+    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
     # check if statefulset created with expected config
     compare_kubectl statefulset/$cluster-pxc
-
-    # write data, read from all
-    run_mysql \
-        'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-        "-h $cluster-pxc -uroot -proot_password"
-    run_mysql \
-        'INSERT myApp.myApp (id) VALUES (100500)' \
-        "-h $cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
     # delete cluster
     kubectl delete \
@@ -38,8 +23,8 @@ check_cr_config() {
 main() {
     create_namespace $namespace
     deploy_operator
+    apply_config "$conf_dir/client.yml"
     kubectl apply \
-        -f $conf_dir/client.yml \
         -f $conf_dir/secrets.yml \
         -f $test_dir/conf/hostpath-helper.yml
 

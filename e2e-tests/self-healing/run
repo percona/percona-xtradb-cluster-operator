@@ -7,30 +7,6 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="some-name"
 
-
-setup_cluster() {
-    # create cluster
-    kubectl apply \
-        -f $conf_dir/secrets.yml \
-        -f $conf_dir/$cluster.yml \
-        -f $conf_dir/pumba.yml \
-        -f $conf_dir/client.yml
-
-    # check if all 3 Pods started
-    wait_for_running $cluster-pxc 3
-
-    desc 'check data consistency: write data, read from all'
-    run_mysql \
-        'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-        "-h $cluster-pxc -uroot -proot_password"
-    run_mysql \
-        'INSERT myApp.myApp (id) VALUES (100500)' \
-        "-h $cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
-}
-
 pumba_pod() {
     local action=$1
     local pod=$2
@@ -136,8 +112,7 @@ recreate() {
     wait_for_delete pod/$cluster-pxc-0
 
     # recreate cluster
-    kubectl apply \
-        -f $conf_dir/$cluster.yml
+    apply_config "$conf_dir/$cluster.yml"
 
     wait_for_running $cluster-pxc 3
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password" "-3rd"
@@ -157,7 +132,7 @@ main() {
     deploy_operator
 
     desc 'start cluster'
-    setup_cluster
+    spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 
     desc 'kill pod-0 pod'
     pumba_pod kill "$cluster-pxc-0"

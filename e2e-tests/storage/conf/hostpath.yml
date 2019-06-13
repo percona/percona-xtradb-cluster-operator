@@ -7,7 +7,7 @@ spec:
   sslSecretName: some-name-ssl
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.0.0-pxc
+    image: -pxc
     volumeSpec:
       hostPath:
         path: /tmp/data-dir

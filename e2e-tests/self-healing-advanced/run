@@ -7,29 +7,6 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="self-healing-advanced"
 
-setup_cluster() {
-    # create cluster
-    kubectl apply \
-        -f $conf_dir/secrets.yml \
-        -f $test_dir/conf/$cluster.yml \
-        -f $test_dir/conf/pumba.yml \
-        -f $conf_dir/client.yml
-
-    # check if all 3 Pods started
-    wait_for_running $cluster-pxc 3
-
-    desc 'check data consistency: write data, read from all'
-    run_mysql \
-        'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-        "-h $cluster-pxc -uroot -proot_password"
-    run_mysql \
-        'INSERT myApp.myApp (id) VALUES (100500)' \
-        "-h $cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
-}
-
 pumba_all_pods() {
     local action=$1
 
@@ -62,7 +39,7 @@ main() {
     deploy_operator
 
     desc 'start cluster'
-    setup_cluster
+    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
     # pumba should be run on all pxc
     desc 'kill all PXC pods'

@@ -9,7 +9,7 @@ spec:
   pause: false
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.0.0-pxc
+    image: -pxc
     resources:
       requests:
         memory: 0.1G
@@ -27,7 +27,7 @@ spec:
   proxysql:
     enabled: true
     size: 1
-    image: percona/percona-xtradb-cluster-operator:1.0.0-proxysql
+    image: -proxysql
     resources:
       requests:
         memory: 0.1G
@@ -48,7 +48,7 @@ spec:
     serverHost: monitoring-service
     serverUser: pmm
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.0.0-backup
+    image: -backup
     serviceAccountName: percona-xtradb-cluster-operator
     storages:
       pvc:

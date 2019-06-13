@@ -13,7 +13,8 @@ cluster="scaling-proxysql"
 spinup_pxc "$cluster" "$test_dir/conf/${cluster}.yml"
 
 desc 'scale up from 1 to 3'
-sed -e 's/size: 1/size: 3/' $test_dir/conf/$cluster.yml \
+cat_config "$test_dir/conf/$cluster.yml" \
+    | sed -e 's/size: 1/size: 3/' \
     | kubectl apply -f-
 
 desc 'check if all 5 Pods started'
@@ -47,7 +48,7 @@ run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P
     | grep $pod2
 
 desc 'scale down from 3 to 1'
-kubectl apply -f $test_dir/conf/$cluster.yml
+apply_config $test_dir/conf/$cluster.yml
 
 desc 'check if Pod deleted'
 wait_for_delete pod/$cluster-proxysql-2

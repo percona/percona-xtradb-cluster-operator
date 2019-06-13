@@ -64,7 +64,7 @@ compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cl
 
 desc 'check if possible to create no-proxysql cluster'
 cluster3="no-proxysql"
-kubectl apply -f $test_dir/conf/$cluster3.yml
+apply_config "$test_dir/conf/$cluster3.yml"
 wait_for_running "$cluster3-pxc" 3
 desc 'check if service and statefulset created'
 compare_kubectl service/$cluster3-pxc

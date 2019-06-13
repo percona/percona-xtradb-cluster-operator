@@ -11,8 +11,7 @@ check_affinity() {
     local skip_wait=$2
 
     # apply cr config
-    kubectl apply \
-        -f $test_dir/conf/$cluster.yml
+    apply_config "$test_dir/conf/$cluster.yml"
 
     # check if at least 1 Pod started
     if [ -z "$skip_wait" ]; then

@@ -8,17 +8,6 @@ test_dir=$(realpath $(dirname $0))
 cluster="no-limits"
 
 
-setup_cluster() {
-    # create cluster
-    kubectl apply \
-        -f $conf_dir/secrets.yml \
-        -f $test_dir/conf/$cluster.yml \
-        -f $test_dir/conf/pumba.yml
-
-    # check if all 3 Pods started
-    wait_for_running "$cluster-pxc" 3
-}
-
 pumba_pod() {
     local action=$1
     local pod=$(get_operator_pod)
@@ -81,7 +70,7 @@ main() {
     deploy_operator
 
     desc 'create PXC cluster'
-    setup_cluster
+    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
     desc 'kill operator'
     pumba_pod kill

@@ -8,8 +8,7 @@ test_dir=$(realpath $(dirname $0))
 
 check_pvc_md5() {
     desc 'check backup file md5sum'
-    kubectl apply \
-        -f $test_dir/conf/client.yml
+    apply_config "$test_dir/conf/client.yml"
     sleep 10
     bak_client_pod=$(
         kubectl get pods \

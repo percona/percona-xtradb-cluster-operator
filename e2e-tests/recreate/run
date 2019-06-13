@@ -11,27 +11,11 @@ deploy_operator
 
 desc 'create first PXC cluster'
 cluster="some-name"
-kubectl apply \
-    -f $conf_dir/secrets.yml \
-    -f $conf_dir/$cluster.yml \
-    -f $conf_dir/client.yml
-desc 'check if all 3 Pods started'
-wait_for_running "$cluster-proxysql" 1
-wait_for_running "$cluster-pxc" 3
-
-desc 'write data to ProxySQL, read from all'
-run_mysql \
-    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-    "-h $cluster-proxysql -uroot -proot_password"
-run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100500)' \
-    "-h $cluster-proxysql -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 
 desc 'pause'
-sed -e 's/pause: false/pause: true/' $conf_dir/$cluster.yml \
+cat_config "$conf_dir/$cluster.yml" \
+    | sed -e 's/pause: false/pause: true/' \
     | kubectl apply -f-
 wait_for_delete pod/$cluster-proxysql-0
 wait_for_delete pod/$cluster-pxc-2
@@ -39,7 +23,8 @@ wait_for_delete pod/$cluster-pxc-1
 wait_for_delete pod/$cluster-pxc-0
 
 desc 'unpause, check data'
-sed -e 's/pause: true/pause: false/' $conf_dir/$cluster.yml \
+cat_config "$conf_dir/$cluster.yml" \
+    | sed -e 's/pause: true/pause: false/' \
     | kubectl apply -f-
 wait_for_running "$cluster-proxysql" 1
 wait_for_running "$cluster-pxc" 3
@@ -62,8 +47,8 @@ wait_for_delete pod/$cluster-pxc-1
 wait_for_delete pod/$cluster-pxc-0
 
 desc 'recreate cluster, check data'
-sed -e 's/storage: 2Gi/storage: 3Gi/; s/size: 3/size: 5/; s/antiAffinityTopologyKey:.*/antiAffinityTopologyKey: none/' \
-    $conf_dir/$cluster.yml \
+cat_config "$conf_dir/$cluster.yml" \
+    | sed -e 's/storage: 2Gi/storage: 3Gi/; s/size: 3/size: 5/; s/antiAffinityTopologyKey:.*/antiAffinityTopologyKey: none/' \
     | kubectl apply -f-
 wait_for_running "$cluster-proxysql" 1
 wait_for_running "$cluster-pxc" 5

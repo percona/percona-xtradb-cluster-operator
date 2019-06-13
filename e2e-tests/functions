@@ -5,6 +5,7 @@ GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 IMAGE_PXC=${IMAGE_PXC:-"percona/percona-xtradb-cluster-operator:1.0.0-pxc"}
 IMAGE_PROXY=${IMAGE_PROXY:-"percona/percona-xtradb-cluster-operator:1.0.0-proxysql"}
+IMAGE_BACKUP=${IMAGE_BACKUP:-"percona/percona-xtradb-cluster-operator:1.0.0-backup"}
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -379,6 +380,18 @@ get_qan_values() {
         | jq '.Query[].Fingerprint'
 }
 
+cat_config() {
+    cat "$1" \
+        | $sed -e "s#image:.*-pxc\$#image: $IMAGE_PXC#" \
+        | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
+        | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#"
+}
+
+apply_config() {
+    cat_config "$1" \
+        | kubectl apply -f -
+}
+
 spinup_pxc() {
     local cluster=$1
     local config=$2
@@ -386,13 +399,10 @@ spinup_pxc() {
 
     desc 'create first PXC cluster'
     kubectl apply \
-        -f $conf_dir/secrets.yml \
-        -f $conf_dir/client.yml
+        -f $conf_dir/secrets.yml
 
-    cat "$config" \
-        | $sed -e "s#image:.*-pxc\$#image: $IMAGE_PXC#" \
-        | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
-        | kubectl apply -f -
+    apply_config "$conf_dir/client.yml"
+    apply_config "$config"
 
     desc 'check if all 3 Pods started'
     wait_for_running "$cluster-proxysql" 1

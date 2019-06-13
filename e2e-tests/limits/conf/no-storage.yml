@@ -8,7 +8,7 @@ spec:
   sslInternalSecretName: some-name-ssl-internal
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.0.0-pxc
+    image: -pxc
     volumeSpec:
 #      emptyDir: {}
 #      hostPath:
@@ -25,7 +25,7 @@ spec:
   proxysql:
     enabled: true
     size: 1
-    image: percona/percona-xtradb-cluster-operator:1.0.0-proxysql
+    image: -proxysql
     volumeSpec:
 #      emptyDir: {}
 #      hostPath:

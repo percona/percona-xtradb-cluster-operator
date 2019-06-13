@@ -22,10 +22,10 @@ run_recovery_check() {
 
     desc 'recover backup'
     cat $src_dir/deploy/backup/restore.yaml \
-    | $sed "s/pxcCluster: .*/pxcCluster: $cluster/" \
-    | $sed "s/backupName: .*/backupName: $backup1/" \
-    | $sed "s/name: .*/name: $restore_name/" \
-    | kubectl apply -f -
+        | $sed "s/pxcCluster: .*/pxcCluster: $cluster/" \
+        | $sed "s/backupName: .*/backupName: $backup1/" \
+        | $sed "s/name: .*/name: $restore_name/" \
+        | kubectl apply -f -
     wait_backup_restore ${restore_name}
 
     kubectl logs job/restore-job-${restore_name}-${cluster}
@@ -89,7 +89,7 @@ main() {
     sleep 10
 
     desc 'add backups schedule, wait for the first backup'
-    kubectl apply -f $test_dir/conf/${cluster}2.yml
+    apply_config "$test_dir/conf/${cluster}2.yml"
     sleep 10
 
     compare_kubectl cronjob/each-min-pvc
@@ -107,7 +107,7 @@ main() {
     backup_name_minio=$(get_backup_name "minio")
     backup_name_gcp=$(get_backup_name "gcp-cs")
 
-    kubectl apply -f $test_dir/conf/${cluster}1.yml
+    apply_config "$test_dir/conf/${cluster}1.yml"
 
     run_recovery_check "$cluster" "$backup_name_pvc"
     run_recovery_check "$cluster" "$backup_name_aws"

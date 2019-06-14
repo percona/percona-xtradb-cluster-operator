@@ -1,7 +1,7 @@
-apiVersion: "pxc.percona.com/v1"
-kind: "PerconaXtraDBCluster"
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
 metadata:
-  name: no-limits
+  name: scaling
 spec:
   secretsName: my-cluster-secrets
   sslSecretName: some-name-ssl
@@ -11,8 +11,8 @@ spec:
     image: -pxc
     resources:
       requests:
-        memory: 500M
-        cpu: 300m
+        memory: 0.1G
+        cpu: 100m
     volumeSpec:
       persistentVolumeClaim:
         resources:
@@ -26,8 +26,8 @@ spec:
     image: -proxysql
     resources:
       requests:
-        memory: 500M
-        cpu: 300m
+        memory: 0.1G
+        cpu: 100m
     volumeSpec:
       persistentVolumeClaim:
         resources:

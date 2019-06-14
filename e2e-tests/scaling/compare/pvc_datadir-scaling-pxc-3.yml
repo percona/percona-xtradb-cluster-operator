@@ -6,11 +6,11 @@ metadata:
     pv.kubernetes.io/bound-by-controller: "yes"
   labels:
     app.kubernetes.io/component: pxc
-    app.kubernetes.io/instance: no-limits
+    app.kubernetes.io/instance: scaling
     app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
     app.kubernetes.io/name: percona-xtradb-cluster
     app.kubernetes.io/part-of: percona-xtradb-cluster
-  name: datadir-no-limits-pxc-3
+  name: datadir-scaling-pxc-3
 spec:
   accessModes:
   - ReadWriteOnce

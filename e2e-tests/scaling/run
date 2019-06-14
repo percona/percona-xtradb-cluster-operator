@@ -5,7 +5,7 @@ set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
-cluster="no-limits"
+cluster="scaling"
 
 create_namespace $namespace
 deploy_operator

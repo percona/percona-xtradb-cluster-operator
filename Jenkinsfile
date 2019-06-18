@@ -10,6 +10,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
         """
    }
 }
+
 void pushArtifactFile(String FILE_NAME) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
@@ -53,6 +54,9 @@ void installRpms() {
         sudo yum install -y percona-xtrabackup-80 jq | true
     """
 }
+
+def skipRemainingStages = false
+
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
@@ -66,8 +70,14 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    skipRemainingStages = true
+                    println "skipRemainingStages = ${skipRemainingStages}"
+                }
+
                 installRpms()
                 sh '''
+                    env
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
                         curl https://sdk.cloud.google.com | bash
@@ -90,6 +100,11 @@ pipeline {
             }
         }
         stage('Build docker image') {
+            when {
+                expression {
+                    !skipRemainingStages
+                }
+            }
             steps {
                  withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
@@ -111,6 +126,11 @@ pipeline {
             }
         }
         stage('Run Tests') {
+            when {
+                expression {
+                    !skipRemainingStages
+                }
+            }
             parallel {
                 stage('E2E Basic Tests') {
                     steps {
@@ -149,35 +169,6 @@ pipeline {
     }
     post {
         always {
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    unstash 'IMAGE'
-                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    if (env.CHANGE_URL) {
-                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                            sh """
-                                curl -v -X POST \
-                                    -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                    -d "{\\"body\\":\\"PXC operator docker - ${IMAGE}\\"}" \
-                                    "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
-                            """
-                        }
-                    }
-                }
-            }
-            withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-                sh '''
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-                    gcloud config set project $GCP_PROJECT
-                    gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups
-                '''
-            }
-            sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf ./*
-                sudo rm -rf $HOME/google-cloud-sdk
-            '''
             deleteDir()
         }
     }

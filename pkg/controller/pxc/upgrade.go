@@ -29,7 +29,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return fmt.Errorf("upgradePod/updateApp error: create resources error: %v", err)
 	}
 
-	// change DB configuration
+	// embed DB configuration hash
+	// TODO: code duplication with deploy function
 	configHash := r.getConfigHash(cr)
 	if currentSet.Spec.Template.Annotations == nil {
 		currentSet.Spec.Template.Annotations = make(map[string]string)

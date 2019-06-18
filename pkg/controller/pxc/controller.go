@@ -233,6 +233,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
+	// TODO: code duplication with updatePod function
 	configString := cr.Spec.PXC.Configuration
 	configHash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
 	if nodeSet.Spec.Template.Annotations == nil {
@@ -313,6 +314,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return err
 		}
 
+		// TODO: code duplication with updatePod function
 		if proxySet.Spec.Template.Annotations == nil {
 			proxySet.Spec.Template.Annotations = make(map[string]string)
 		}

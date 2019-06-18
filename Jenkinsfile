@@ -53,6 +53,12 @@ void installRpms() {
         sudo yum install -y percona-xtrabackup-80 jq | true
     """
 }
+
+def skipBranchBulds = true
+if ( env.CHANGE_URL ) {
+    skipBranchBulds = false
+}
+
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
@@ -65,6 +71,11 @@ pipeline {
     }
     stages {
         stage('Prepare') {
+            when {
+                expression {
+                    !skipBranchBulds
+                }
+            }
             steps {
                 installRpms()
                 sh '''
@@ -90,6 +101,11 @@ pipeline {
             }
         }
         stage('Build docker image') {
+            when {
+                expression {
+                    !skipBranchBulds
+                }
+            }
             steps {
                  withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
@@ -111,6 +127,11 @@ pipeline {
             }
         }
         stage('Run Tests') {
+            when {
+                expression {
+                    !skipBranchBulds
+                }
+            }
             parallel {
                 stage('E2E Basic Tests') {
                     steps {
@@ -151,9 +172,9 @@ pipeline {
         always {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    unstash 'IMAGE'
-                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     if (env.CHANGE_URL) {
+                        unstash 'IMAGE'
+                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                             sh """
                                 curl -v -X POST \
@@ -165,18 +186,23 @@ pipeline {
                     }
                 }
             }
-            withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-                sh '''
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-                    gcloud config set project $GCP_PROJECT
-                    gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups
-                '''
+            script {
+                if (env.CHANGE_URL) {
+                    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+                    sh '''
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+                        gcloud config set project $GCP_PROJECT
+                        gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups
+                        sudo docker rmi -f \$(sudo docker images -q) || true
+
+                        sudo rm -rf $HOME/google-cloud-sdk
+                    '''
+                    }
+                }
             }
             sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./*
-                sudo rm -rf $HOME/google-cloud-sdk
             '''
             deleteDir()
         }

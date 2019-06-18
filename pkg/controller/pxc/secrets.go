@@ -2,9 +2,10 @@ package pxc
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"math/rand"
+	mrand "math/rand"
 	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -19,7 +20,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSecrets(cr *api.PerconaXtraDBCl
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
-			Name:      "my-cluster-secrets",
+			Name:      cr.Spec.SecretsName,
 		},
 		&secretObj,
 	)
@@ -30,15 +31,33 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSecrets(cr *api.PerconaXtraDBCl
 	}
 
 	data := make(map[string][]byte)
-	data["root"] = generatePass()
-	data["xtrabackup"] = generatePass()
-	data["monitor"] = generatePass()
-	data["clustercheck"] = generatePass()
-	data["proxyadmin"] = generatePass()
-	data["pmmserver"] = generatePass()
+	data["root"], err = generatePass()
+	if err != nil {
+		return fmt.Errorf("create root users password: %v", err)
+	}
+	data["xtrabackup"], err = generatePass()
+	if err != nil {
+		return fmt.Errorf("create xtrabackup users password: %v", err)
+	}
+	data["monitor"], err = generatePass()
+	if err != nil {
+		return fmt.Errorf("create monitor users password: %v", err)
+	}
+	data["clustercheck"], err = generatePass()
+	if err != nil {
+		return fmt.Errorf("create clustercheck users password: %v", err)
+	}
+	data["proxyadmin"], err = generatePass()
+	if err != nil {
+		return fmt.Errorf("create proxyadmin users password: %v", err)
+	}
+	data["pmmserver"], err = generatePass()
+	if err != nil {
+		return fmt.Errorf("create pmmserver users password: %v", err)
+	}
 	secretObj = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-cluster-secrets",
+			Name:      cr.Spec.SecretsName,
 			Namespace: cr.Namespace,
 		},
 		Data: data,
@@ -46,27 +65,23 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSecrets(cr *api.PerconaXtraDBCl
 	}
 	err = r.client.Create(context.TODO(), &secretObj)
 	if err != nil {
-		return fmt.Errorf("create TLS secret: %v", err)
+		return fmt.Errorf("create Users secret: %v", err)
 	}
 	return nil
 }
 
-func generatePass() []byte {
-	rand.Seed(time.Now().UnixNano())
-	all := "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789" +
-		"~=+%^*/()[]{}/!@#$?|"
-	length := 16
-	buf := make([]byte, length)
-
-	for i := 0; i < length; i++ {
-		buf[i] = all[rand.Intn(len(all))]
+func generatePass() ([]byte, error) {
+	mrand.Seed(time.Now().UnixNano())
+	max := 20
+	min := 16
+	ln := mrand.Intn(max-min) + min
+	b := make([]byte, ln)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
 	}
-	rand.Shuffle(len(buf), func(i, j int) {
-		buf[i], buf[j] = buf[j], buf[i]
-	})
-	b64Pass := make([]byte, base64.StdEncoding.EncodedLen(len(buf)))
-	base64.StdEncoding.Encode(b64Pass, buf)
-	return b64Pass
+	buf := make([]byte, base64.StdEncoding.EncodedLen(len(b)))
+	base64.StdEncoding.Encode(buf, b)
+
+	return buf, nil
 }

@@ -62,6 +62,8 @@ compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cl
 compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
+compare_mysql_cmd "max_allowed_packet-1" "SELECT @@max_allowed_packet;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+
 desc 'check if possible to create no-proxysql cluster'
 cluster3="no-proxysql"
 apply_config "$test_dir/conf/$cluster3.yml"
@@ -84,6 +86,7 @@ run_mysql \
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-0.$cluster3-pxc -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-1.$cluster3-pxc -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-2.$cluster3-pxc -uroot -proot_password"
+compare_mysql_cmd "max_allowed_packet-2" "SELECT @@max_allowed_packet;" "-h $cluster3-pxc-0.$cluster3-pxc -uroot -proot_password"
 kubectl delete -f $test_dir/conf/$cluster3.yml
 
 destroy $namespace

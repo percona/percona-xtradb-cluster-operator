@@ -51,10 +51,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 	if err != nil {
 		return fmt.Errorf("create proxyadmin users password: %v", err)
 	}
-	data["pmmserver"], err = generatePass()
-	if err != nil {
-		return fmt.Errorf("create pmmserver users password: %v", err)
-	}
+
 	secretObj = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Spec.SecretsName,
@@ -80,8 +77,9 @@ func generatePass() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	buf := make([]byte, base64.StdEncoding.EncodedLen(len(b)))
-	base64.StdEncoding.Encode(buf, b)
+	s := base64.URLEncoding.EncodeToString(b)
+	buf := make([]byte, base64.StdEncoding.EncodedLen(len(s)))
+	base64.StdEncoding.Encode(buf, []byte(s))
 
 	return buf, nil
 }

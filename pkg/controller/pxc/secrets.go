@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"math/big"
 	mrand "math/rand"
 	"time"
 
@@ -67,19 +68,27 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 	return nil
 }
 
+const (
+	max = 20
+	min = 16
+)
+
 func generatePass() ([]byte, error) {
 	mrand.Seed(time.Now().UnixNano())
-	max := 20
-	min := 16
+	passSymbols := "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+		"abcdefghijklmnopqrstuvwxyz" +
+		"0123456789"
 	ln := mrand.Intn(max-min) + min
 	b := make([]byte, ln)
-	_, err := rand.Read(b)
-	if err != nil {
-		return nil, err
+	for i := 0; i < ln; i++ {
+		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(passSymbols))))
+		if err != nil {
+			return nil, err
+		}
+		b[i] = passSymbols[randInt.Int64()]
 	}
-	s := base64.URLEncoding.EncodeToString(b)
-	buf := make([]byte, base64.StdEncoding.EncodedLen(len(s)))
-	base64.StdEncoding.Encode(buf, []byte(s))
+	buf := make([]byte, base64.StdEncoding.EncodedLen(len(b)))
+	base64.StdEncoding.Encode(buf, b)
 
 	return buf, nil
 }

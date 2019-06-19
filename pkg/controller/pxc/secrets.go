@@ -69,16 +69,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 }
 
 const (
-	max = 20
-	min = 16
+	passwordMaxLen = 20
+	passwordMinLen = 16
+	passSymbols    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+		"abcdefghijklmnopqrstuvwxyz" +
+		"0123456789"
 )
 
 func generatePass() ([]byte, error) {
 	mrand.Seed(time.Now().UnixNano())
-	passSymbols := "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789"
-	ln := mrand.Intn(max-min) + min
+	ln := mrand.Intn(passwordMaxLen-passwordMinLen) + passwordMinLen
 	b := make([]byte, ln)
 	for i := 0; i < ln; i++ {
 		randInt, err := rand.Int(rand.Reader, big.NewInt(int64(len(passSymbols))))

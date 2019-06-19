@@ -3,6 +3,7 @@ data:
   init.cnf: |
     [mysqld]
     wsrep_debug=ON
+    max_allowed_packet=789M
     [sst]
     wsrep_debug=ON
 kind: ConfigMap

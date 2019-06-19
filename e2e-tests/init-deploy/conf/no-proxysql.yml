@@ -10,6 +10,7 @@ spec:
     configuration: |
       [mysqld]
       wsrep_debug=ON
+      max_allowed_packet=789M
       [sst]
       wsrep_debug=ON
     resources:

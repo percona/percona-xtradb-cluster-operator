@@ -176,7 +176,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	err = r.reconcileUsersSecret(o)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("reconcile secrets: %v", err)
+		return reconcile.Result{}, fmt.Errorf("reconcile users secret: %v", err)
 	}
 
 	err = r.deploy(o)

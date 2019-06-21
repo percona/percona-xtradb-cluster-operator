@@ -238,6 +238,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
+	nodeSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
+
 	// TODO: code duplication with updatePod function
 	configString := cr.Spec.PXC.Configuration
 	configHash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))

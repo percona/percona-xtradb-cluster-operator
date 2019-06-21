@@ -12,15 +12,16 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform              *Platform           `json:"platform,omitempty"`
-	Pause                 bool                `json:"pause,omitempty"`
-	SecretsName           string              `json:"secretsName,omitempty"`
-	SSLSecretName         string              `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName string              `json:"sslInternalSecretName,omitempty"`
-	PXC                   *PodSpec            `json:"pxc,omitempty"`
-	ProxySQL              *PodSpec            `json:"proxysql,omitempty"`
-	PMM                   *PMMSpec            `json:"pmm,omitempty"`
-	Backup                *PXCScheduledBackup `json:"backup,omitempty"`
+	Platform              *Platform                            `json:"platform,omitempty"`
+	Pause                 bool                                 `json:"pause,omitempty"`
+	SecretsName           string                               `json:"secretsName,omitempty"`
+	SSLSecretName         string                               `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
+	PXC                   *PodSpec                             `json:"pxc,omitempty"`
+	ProxySQL              *PodSpec                             `json:"proxysql,omitempty"`
+	PMM                   *PMMSpec                             `json:"pmm,omitempty"`
+	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
+	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 }
 
 type PXCScheduledBackup struct {

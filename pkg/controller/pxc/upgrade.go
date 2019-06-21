@@ -24,6 +24,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
 
+	currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
+
 	res, err := sfs.Resources(podSpec.Resources)
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: create resources error: %v", err)

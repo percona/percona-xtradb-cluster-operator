@@ -36,7 +36,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 		log.Info("using cert-manger: " + err.Error())
 		err = r.createSSLManualy(cr)
 		if err != nil {
-			return fmt.Errorf("create ssl manualy: %v", err)
+			return fmt.Errorf("create ssl internally: %v", err)
 		}
 	}
 	return nil
@@ -131,7 +131,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	data["tls.key"] = key
 	secretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-ssl",
+			Name:      cr.Spec.PXC.SSLSecretName,
 			Namespace: cr.Namespace,
 		},
 		Data: data,
@@ -154,7 +154,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	data["tls.key"] = key
 	secretObjInternal := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-ssl-internal",
+			Name:      cr.Spec.PXC.SSLInternalSecretName,
 			Namespace: cr.Namespace,
 		},
 		Data: data,

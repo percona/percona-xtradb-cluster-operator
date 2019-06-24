@@ -48,8 +48,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 
 	err := r.client.Create(context.TODO(), &cm.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      issuerName,
-			Namespace: cr.Namespace,
+			Name:            issuerName,
+			Namespace:       cr.Namespace,
+			OwnerReferences: cr.OwnerReferences,
 		},
 		Spec: cm.IssuerSpec{
 			IssuerConfig: cm.IssuerConfig{
@@ -63,8 +64,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 
 	err = r.client.Create(context.TODO(), &cm.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-ssl",
-			Namespace: cr.Namespace,
+			Name:            cr.Name + "-ssl",
+			Namespace:       cr.Namespace,
+			OwnerReferences: cr.OwnerReferences,
 		},
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLSecretName,
@@ -91,8 +93,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 
 	err = r.client.Create(context.TODO(), &cm.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-ssl-internal",
-			Namespace: cr.Namespace,
+			Name:            cr.Name + "-ssl-internal",
+			Namespace:       cr.Namespace,
+			OwnerReferences: cr.OwnerReferences,
 		},
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLInternalSecretName,
@@ -131,8 +134,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	data["tls.key"] = key
 	secretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Spec.PXC.SSLSecretName,
-			Namespace: cr.Namespace,
+			Name:            cr.Spec.PXC.SSLSecretName,
+			Namespace:       cr.Namespace,
+			OwnerReferences: cr.OwnerReferences,
 		},
 		Data: data,
 		Type: corev1.SecretTypeTLS,
@@ -154,8 +158,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	data["tls.key"] = key
 	secretObjInternal := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Spec.PXC.SSLInternalSecretName,
-			Namespace: cr.Namespace,
+			Name:            cr.Spec.PXC.SSLInternalSecretName,
+			Namespace:       cr.Namespace,
+			OwnerReferences: cr.OwnerReferences,
 		},
 		Data: data,
 		Type: corev1.SecretTypeTLS,

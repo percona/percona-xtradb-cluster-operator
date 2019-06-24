@@ -84,6 +84,8 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		obj.Spec.VolumeClaimTemplates = sfsVolume.PVCs
 	}
 
+	obj.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
+
 	return obj, nil
 }
 

@@ -74,7 +74,7 @@ Install Percona XtraDB Cluster on Kubernetes
    More details about secrets can be found in a `separate
    section <../configure/users>`__.
 
-5. Now you need to `prepare certificates for TLS security <TLS.html>`_ and apply them with the following command:
+5. Install `cert-manager <https://docs.cert-manager.io/en/release-0.8/getting-started/install/kubernetes.html>`_ if it is not up and running yet then generate and apply certificates as secrets according to `TLS document <TLS.html>`:
 
    .. code:: bash
 

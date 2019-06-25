@@ -49,7 +49,7 @@ configuration options for the Percona XtraDB Cluster.
   resources.requests.cpu, string, ``600m``, `Kubernetes CPU requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
   resources.limits.memory, string, ``1G``, `Kubernetes memory limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
   nodeSelector, label, ``disktype: ssd``, `Kubernetes nodeSelector <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_
-  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `constraints`_ node anti-affinity constraint"
+  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `<https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity>`_ node anti-affinity constraint"
 
   affinity.advanced, subdoc,  , "In cases where the pods require complex tuning the `advanced` option turns off the `topologykey` effect. This setting allows the standard Kubernetes affinity constraints of any complexity to be used."
   affinity.tolerations, subdoc, ``node.alpha.kubernetes.io/unreachable``, `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
@@ -87,7 +87,7 @@ configuration options for the ProxySQL daemon.
   resources.limits.cpu, string, ``700m``, `Kubernetes CPU limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
   priorityClassName,string,``high-priority``, The `Kubernetes Pod Priority class <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass>`_ for ProxySQL.
   nodeSelector, label, ``disktype: ssd``, `Kubernetes nodeSelector <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_
-  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `constraints`_ node anti-affinity constraint"
+  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `<https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity>`_ node anti-affinity constraint"
   affinity.advanced, subdoc, , "If available it makes a `topologyKey <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity-beta-feature>`_ node affinity constraint to be ignored."
   affinity.tolerations, subdoc, """node.alpha.kubernetes.io/unreachable""", `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
   volumeSpec.emptyDir, string, ``{}``, `Kubernetes emptyDir volume <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created on a node and accessible to the PXC pod containers.

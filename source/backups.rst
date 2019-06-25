@@ -73,7 +73,7 @@ Here is an example which uses Amazon S3 storage for backups:
      ...
 
 if you use some S3-compatible storage instead of the original
-Amazon S3, the `endpointURL key`_ is needed in the `s3` subsection which points to the actual cloud used for backups and
+Amazon S3, the `endpointURL <https://docs.min.io/docs/aws-cli-with-minio.html>`_ is needed in the `s3` subsection which points to the actual cloud used for backups and
 is specific to the cloud provider. For example, using `Google
 Cloud <https://cloud.google.com>`_ involves the following
 `endpointUrl <https://storage.googleapis.com>`_.
@@ -161,7 +161,7 @@ passing its content to the ``kubectl apply`` command as follows:*
            name: "restore1"
          spec:
            pxcCluster: "cluster1"
-           storageName: "backup1"
+           backupName: "backup1"
          EOF
 
 Delete the unneeded backup

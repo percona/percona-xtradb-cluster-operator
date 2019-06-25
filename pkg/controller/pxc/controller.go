@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -102,7 +104,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	o := &api.PerconaXtraDBCluster{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, o)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			return rr, nil
@@ -258,10 +260,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 
 	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
-	if !errors.IsNotFound(err) {
+	if !k8serrors.IsNotFound(err) {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 
@@ -271,30 +273,17 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	err = r.client.Create(context.TODO(), nodeSet)
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create newStatefulSetNode: %v", err)
 	}
 
-	nodesServiceUnready := pxc.NewServicePXCUnready(cr)
-	err = setControllerReference(cr, nodesServiceUnready, r.scheme)
+	err = r.createService(cr, pxc.NewServicePXCUnready(cr))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "create PXC ServiceUnready")
 	}
-
-	err = r.client.Create(context.TODO(), nodesServiceUnready)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("create PXC Service: %v", err)
-	}
-
-	nodesService := pxc.NewServicePXC(cr)
-	err = setControllerReference(cr, nodesService, r.scheme)
+	err = r.createService(cr, pxc.NewServicePXC(cr))
 	if err != nil {
-		return err
-	}
-
-	err = r.client.Create(context.TODO(), nodesService)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("create PXC Service: %v", err)
+		return errors.Wrap(err, "create PXC Service")
 	}
 
 	// PodDisruptionBudget object for nodes
@@ -304,7 +293,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if err != nil {
 			return fmt.Errorf("PodDisruptionBudget for %s: %v", nodeSet.Name, err)
 		}
-	} else if !errors.IsNotFound(err) {
+	} else if !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get PXC stateful set: %v", err)
 	}
 
@@ -333,32 +322,20 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 
 		err = r.client.Create(context.TODO(), proxySet)
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create newStatefulSetProxySQL: %v", err)
 		}
 
 		// ProxySQL Service
-		proxys := pxc.NewServiceProxySQL(cr)
-		err = setControllerReference(cr, proxys, r.scheme)
+		err = r.createService(cr, pxc.NewServiceProxySQL(cr))
 		if err != nil {
-			return err
-		}
-
-		err = r.client.Create(context.TODO(), proxys)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("create ProxySQL Service: %v", err)
+			return errors.Wrap(err, "create ProxySQL Service")
 		}
 
 		// ProxySQL Unready Service
-		proxysh := pxc.NewServiceProxySQLUnready(cr)
-		err = setControllerReference(cr, proxysh, r.scheme)
+		err = r.createService(cr, pxc.NewServiceProxySQLUnready(cr))
 		if err != nil {
-			return err
-		}
-
-		err = r.client.Create(context.TODO(), proxysh)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("create ProxySQL Unready Service: %v", err)
+			return errors.Wrap(err, "create ProxySQL ServiceUnready")
 		}
 
 		// PodDisruptionBudget object for ProxySQL
@@ -368,12 +345,27 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			if err != nil {
 				return fmt.Errorf("PodDisruptionBudget for %s: %v", proxySet.Name, err)
 			}
-		} else if !errors.IsNotFound(err) {
+		} else if !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("get ProxySQL stateful set: %v", err)
 		}
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBCluster, svc *corev1.Service) error {
+	err := setControllerReference(cr, svc, r.scheme)
+	if err != nil {
+		return errors.Wrap(err, "setControllerReference")
+	}
+
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{})
+	if err != nil && k8serrors.IsNotFound(err) {
+		err := r.client.Create(context.TODO(), svc)
+		return errors.WithMessage(err, "create")
+	}
+
+	return errors.WithMessage(err, "check if exists")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
@@ -386,7 +378,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			return err
 		}
 		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && errors.IsAlreadyExists(err) {
+		if err != nil && k8serrors.IsAlreadyExists(err) {
 			err = r.client.Update(context.TODO(), configMap)
 			if err != nil {
 				return fmt.Errorf("update ConfigMap: %v", err)
@@ -412,7 +404,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 
 	cpdb := &policyv1beta1.PodDisruptionBudget{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pdb.Name, Namespace: namespace}, cpdb)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && k8serrors.IsNotFound(err) {
 		return r.client.Create(context.TODO(), pdb)
 	} else if err != nil {
 		return fmt.Errorf("get: %v", err)
@@ -465,7 +457,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSetPods(namespace string, s
 
 func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {
 	err := r.client.Delete(context.TODO(), sfs.StatefulSet())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("delete proxysql: %v", err)
 	}
 	if deletePVC {

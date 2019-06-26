@@ -45,12 +45,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXtraDBCluster) error {
 	issuerKind := "Issuer"
 	issuerName := cr.Name + "-pxc-ca"
-
-	err := r.client.Create(context.TODO(), &cm.Issuer{
+	owner, err := OwnerRef(cr, r.scheme)
+	if err != nil {
+		return err
+	}
+	ownerReferences := []metav1.OwnerReference{owner}
+	err = r.client.Create(context.TODO(), &cm.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            issuerName,
 			Namespace:       cr.Namespace,
-			OwnerReferences: cr.OwnerReferences,
+			OwnerReferences: ownerReferences,
 		},
 		Spec: cm.IssuerSpec{
 			IssuerConfig: cm.IssuerConfig{
@@ -66,7 +70,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            cr.Name + "-ssl",
 			Namespace:       cr.Namespace,
-			OwnerReferences: cr.OwnerReferences,
+			OwnerReferences: ownerReferences,
 		},
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLSecretName,
@@ -95,7 +99,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            cr.Name + "-ssl-internal",
 			Namespace:       cr.Namespace,
-			OwnerReferences: cr.OwnerReferences,
+			OwnerReferences: ownerReferences,
 		},
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLInternalSecretName,
@@ -132,11 +136,16 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	data["ca.crt"] = caCert
 	data["tls.crt"] = tlsCert
 	data["tls.key"] = key
+	owner, err := OwnerRef(cr, r.scheme)
+	if err != nil {
+		return err
+	}
+	ownerReferences := []metav1.OwnerReference{owner}
 	secretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            cr.Spec.PXC.SSLSecretName,
 			Namespace:       cr.Namespace,
-			OwnerReferences: cr.OwnerReferences,
+			OwnerReferences: ownerReferences,
 		},
 		Data: data,
 		Type: corev1.SecretTypeTLS,
@@ -160,7 +169,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            cr.Spec.PXC.SSLInternalSecretName,
 			Namespace:       cr.Namespace,
-			OwnerReferences: cr.OwnerReferences,
+			OwnerReferences: ownerReferences,
 		},
 		Data: data,
 		Type: corev1.SecretTypeTLS,

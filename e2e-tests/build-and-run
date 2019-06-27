@@ -11,11 +11,6 @@ create_namespace run-$GIT_BRANCH-$RANDOM
 deploy_operator
 
 desc 'create PXC cluster'
-kubectl apply -f $src_dir/deploy/secrets.yaml
-
-platform=(kubernetes openshift)
-cat $src_dir/deploy/cr.yaml \
-    | $sed "s/#platform: .*/platform: ${platform[${OPENSHIFT:-0}]}/" \
-    | kubectl apply -f -
+apply_cluster $src_dir/deploy/cr.yaml
 
 wait_for_running cluster1-pxc 3

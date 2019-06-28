@@ -3,7 +3,6 @@ package pxc
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"math/big"
 	mrand "math/rand"
@@ -87,8 +86,6 @@ func generatePass() ([]byte, error) {
 		}
 		b[i] = passSymbols[randInt.Int64()]
 	}
-	buf := make([]byte, base64.StdEncoding.EncodedLen(len(b)))
-	base64.StdEncoding.Encode(buf, b)
 
-	return buf, nil
+	return b, nil
 }

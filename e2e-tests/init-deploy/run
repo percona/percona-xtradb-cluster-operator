@@ -52,8 +52,9 @@ compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cl
 desc 'kill Primary Pod, check reelection, check data'
 initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0")
 kubectl delete pods --grace-period=0 --force $initial_primary
+sleep 10
 changed_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0")
-[ "$initial_primary" != "$changed_primary" ]
+[ -n "$changed_primary" ] && [ "$initial_primary" != "$changed_primary" ]
 run_mysql \
     'INSERT myApp.myApp (id) VALUES (100502)' \
     "-h $cluster-proxysql -uroot -proot_password"

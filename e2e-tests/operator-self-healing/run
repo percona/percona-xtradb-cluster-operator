@@ -28,7 +28,8 @@ pause_pod() {
     sleep 10
 
     desc 'check if operator works fine: scale down from 4 to 3'
-    sed -e 's/size: 4/size: 3/' $test_dir/conf/$cluster.yml \
+    cat_config "$test_dir/conf/$cluster.yml" \
+        | sed -e 's/size: 4/size: 3/' \
         | kubectl apply -f-
 
     # wait for unpause
@@ -50,7 +51,8 @@ netem_pod() {
     sleep 10
 
     desc 'check if operator works fine: scale up from 3 to 4'
-    sed -e 's/size: 3/size: 4/' $test_dir/conf/$cluster.yml \
+    cat_config "$test_dir/conf/$cluster.yml" \
+        | sed -e 's/size: 3/size: 4/' \
         | kubectl apply -f-
 
     # wait for unpause
@@ -68,6 +70,7 @@ main() {
     create_namespace $namespace
     ## TODO: kubectl apply -f $test_dir/conf/quota.yml
     deploy_operator
+    kubectl apply -f "$test_dir/conf/pumba.yml"
 
     desc 'create PXC cluster'
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
@@ -75,21 +78,24 @@ main() {
     desc 'kill operator'
     pumba_pod kill
     desc 'check if operator works fine: scale up from 3 to 4'
-    sed -e 's/size: 3/size: 4/' $test_dir/conf/$cluster.yml \
+    cat_config "$test_dir/conf/$cluster.yml" \
+        | sed -e 's/size: 3/size: 4/' \
         | kubectl apply -f-
     wait_for_running "$cluster-pxc" 4
 
     desc 'rm operator'
     pumba_pod rm
     desc 'check if operator works fine: scale down from 4 to 3'
-    sed -e 's/size: 4/size: 3/' $test_dir/conf/$cluster.yml \
+    cat_config "$test_dir/conf/$cluster.yml" \
+        | sed -e 's/size: 4/size: 3/' \
         | kubectl apply -f-
     wait_for_delete pod/$cluster-pxc-3
 
     desc 'stop operator'
     pumba_pod stop
     desc 'check if operator works fine: scale up from 3 to 4'
-    sed -e 's/size: 3/size: 4/' $test_dir/conf/$cluster.yml \
+    cat_config "$test_dir/conf/$cluster.yml" \
+        | sed -e 's/size: 3/size: 4/' \
         | kubectl apply -f-
     wait_for_running "$cluster-pxc" 4
 

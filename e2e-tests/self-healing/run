@@ -130,6 +130,7 @@ recreate() {
 main() {
     create_namespace $namespace
     deploy_operator
+    kubectl apply -f "$conf_dir/pumba.yml"
 
     desc 'start cluster'
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"

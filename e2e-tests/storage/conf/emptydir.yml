@@ -11,6 +11,10 @@ spec:
     volumeSpec:
       emptyDir: {}
   proxysql:
-    enabled: false
+    enabled: true
+    size: 1
+    image: -proxysql
+    volumeSpec:
+      emptyDir: {}
   pmm:
     enabled: false

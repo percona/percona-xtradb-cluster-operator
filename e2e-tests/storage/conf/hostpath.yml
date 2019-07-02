@@ -13,6 +13,12 @@ spec:
         path: /tmp/data-dir
         type: Directory
   proxysql:
-    enabled: false
+    enabled: true
+    size: 1
+    image: -proxysql
+    volumeSpec:
+      hostPath:
+        path: /tmp/proxy-dir
+        type: Directory
   pmm:
     enabled: false

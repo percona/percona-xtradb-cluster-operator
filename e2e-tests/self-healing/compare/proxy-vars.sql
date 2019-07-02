@@ -27,7 +27,7 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.0.3-percona-1.1
+admin-version	2.0.4-percona-1.2
 admin-web_enabled	false
 admin-web_port	6080
 mysql-add_ldap_user_comment	
@@ -63,6 +63,7 @@ mysql-have_ssl	true
 mysql-hostgroup_manager_verbose	1
 mysql-init_connect	
 mysql-interfaces	0.0.0.0:3306
+mysql-keep_multiplexing_variables	tx_isolation,version
 mysql-kill_backend_connection_when_disconnect	true
 mysql-ldap_user_variable	
 mysql-long_query_time	1000
@@ -71,12 +72,14 @@ mysql-max_connections	2048
 mysql-max_stmts_cache	10000
 mysql-max_stmts_per_connection	20
 mysql-max_transaction_time	14400000
+mysql-min_num_servers_lantency_awareness	1000
 mysql-mirror_max_concurrency	16
 mysql-mirror_max_queue_length	32000
 mysql-monitor_connect_interval	20000
 mysql-monitor_connect_timeout	600
 mysql-monitor_enabled	true
 mysql-monitor_galera_healthcheck_interval	1000
+mysql-monitor_galera_healthcheck_max_timeout_count	3
 mysql-monitor_galera_healthcheck_timeout	800
 mysql-monitor_groupreplication_healthcheck_interval	5000
 mysql-monitor_groupreplication_healthcheck_timeout	800
@@ -122,6 +125,7 @@ mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true
 mysql-sessions_sort	true
+mysql-show_processlist_extended	0
 mysql-shun_on_failures	5
 mysql-shun_recovery_time_sec	10
 mysql-ssl_p2s_ca	/etc/proxysql/ssl-internal/ca.crt

@@ -117,6 +117,10 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 				Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"] + "-unready",
 			},
 			{
+				Name:  "MONITOR_HOST",
+				Value: "%",
+			},
+			{
 				Name: "MYSQL_ROOT_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: app.SecretKeySelector(secrets, "root"),

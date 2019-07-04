@@ -1,0 +1,71 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+CLUSTER='upgrade'
+IMAGE='percona/percona-xtradb-cluster-operator:1.0.0'
+IMAGE_PXC='percona/percona-xtradb-cluster-operator:1.0.0-pxc'
+IMAGE_PROXY='percona/percona-xtradb-cluster-operator:1.0.0-proxysql'
+IMAGE_BACKUP='percona/percona-xtradb-cluster-operator:1.0.0-backup'
+IMAGE_TO_UPDATE='perconalab/percona-xtradb-cluster-operator:master'
+
+wait_cluster_consistency() {
+    cluster_name=$1
+    cluster_size=$2
+    until [[ "$(kubectl get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" \
+             && "$(kubectl get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" \
+             && "$(kubectl get pxc "${CLUSTER}" -o jsonpath='{.status.proxysql.ready}')" == "${cluster_size}"  ]]; do
+        echo 'waiting for cluster readyness'
+        sleep 20
+    done
+}
+
+check_pxc_cluster() {
+	wait_for_running "${1}-pxc" "${2}"
+
+    for i in $(seq 0 $(($2-1))); do
+    	sleep 10
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-$i.${CLUSTER}-pxc -uroot -proot_password"
+    done
+}
+
+check_pxc_livenes() {
+    cluster_name=$1
+    cluster_size=$2
+
+    wait_cluster_consistency "${cluster_name}" "${cluster_size}"
+    sleep 20
+    wait_cluster_consistency "${cluster_name}" "${cluster_size}"
+    sleep 20
+    wait_cluster_consistency "${cluster_name}" "${cluster_size}"
+    check_pxc_cluster "${cluster_name}" "${cluster_size}"
+}
+
+main() {
+    create_namespace $namespace
+    deploy_operator
+
+    spinup_pxc "${CLUSTER}" "${test_dir}/conf/${CLUSTER}.yml"
+
+    kubectl patch deployment percona-xtradb-cluster-operator \
+        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"'"${IMAGE_TO_UPDATE}"'"}]}}}}'
+    kubectl rollout status deployment/percona-xtradb-cluster-operator
+
+    wait_pod "$(kubectl get pods --selector=name=percona-xtradb-cluster-operator \
+    							-o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' \
+    							| grep "${IMAGE_TO_UPDATE}" |  awk '{print $1}')"
+
+    sleep 20
+    check_pxc_livenes "${CLUSTER}" 3
+
+    kubectl apply -f "${test_dir}/conf/${CLUSTER}-master.yml"
+    check_pxc_livenes "${CLUSTER}" 3
+
+    destroy "${namespace}"
+}
+
+main

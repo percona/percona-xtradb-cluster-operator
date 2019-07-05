@@ -119,9 +119,6 @@ main() {
         exit 1
     fi
 
-    for i in $(seq 0 $(($CLUSTER_SIZE-1))); do
-        kubectl logs ${CLUSTER}-pxc-$i | grep mysql_upgrade
-    done
     destroy "${namespace}"
 }
 

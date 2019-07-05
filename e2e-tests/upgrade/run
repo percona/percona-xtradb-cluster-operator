@@ -8,6 +8,7 @@ test_dir=$(realpath $(dirname $0))
 
 CONTAINERS=(pxc proxysql)
 CLUSTER='upgrade'
+CLUSTER_SIZE=3
 IMAGE_TO_UPDATE=${IMAGE}
 IMAGE_PXC_TO_UPDATE=${IMAGE_PXC}
 IMAGE_PROXY_TO_UPDATE=${IMAGE_PROXY}
@@ -50,10 +51,12 @@ check_pxc_livenes() {
 }
 
 compare_generation() {
-    step=$1
+    generation=$1
     for name in ${CONTAINERS[@]}; do
-        kubectl get statefulset "${CLUSTER}-${name}" -o jsonpath='{.metadata.generation}' > ${tmp_dir}/"${CLUSTER}-${name}".gen
-        diff "${test_dir}/compare/${step}.gen" "${tmp_dir}/${CLUSTER}-${name}.gen"
+        if [[ ${generation} != $(kubectl get statefulset "${CLUSTER}-${name}" -o jsonpath='{.metadata.generation}') ]]; then
+            echo "Resource ${name} has not been updated"
+            exit 1
+        fi
     done
 }
 
@@ -63,7 +66,7 @@ main() {
 
     spinup_pxc "${CLUSTER}" "${test_dir}/conf/${CLUSTER}.yml"
 
-    compare_generation "before_upgrade"
+    compare_generation "1"
 
     kubectl patch deployment "${OPERATOR_NAME}" \
         -p'{"spec":{"template":{"spec":{"containers":[{"name":"'"${OPERATOR_NAME}"'","image":"'"${IMAGE_TO_UPDATE}"'"}]}}}}'
@@ -87,32 +90,38 @@ main() {
         : Operator image has been updated correctly
     else
         echo 'Operator image has not been updated'
-        destroy "${namespace}"
         exit 1
     fi
 
-    compare_generation "operator_upgrade"
+    compare_generation "2"
     sleep 20
-    check_pxc_livenes "${CLUSTER}" 3
+    check_pxc_livenes "${CLUSTER}" $CLUSTER_SIZE
 
     IMAGE_PXC=$IMAGE_PXC_TO_UPDATE
     IMAGE_PROXY=$IMAGE_PROXY_TO_UPDATE
     IMAGE_BACKUP=$IMAGE_BACKUP_TO_UPDATE
-    apply_config "${test_dir}/conf/${CLUSTER}.yml"
+    kubectl patch pxc "${CLUSTER}" --type=merge --patch '{
+        "spec": {"pxc":{ "image": "'"$IMAGE_PXC_TO_UPDATE"'" },
+            "proxysql": { "image": "'"$IMAGE_PROXY_TO_UPDATE"'" },
+            "backup":   { "image": "'"$IMAGE_BACKUP_TO_UPDATE"'" }
+        }}'
 
     sleep 5
-    compare_generation "cluster_upgrade"
+    compare_generation "3"
 
-    check_pxc_livenes "${CLUSTER}" 3
+    check_pxc_livenes "${CLUSTER}" $CLUSTER_SIZE
 
     if [[ "${IMAGE_PROXY_TO_UPDATE}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
           && "${IMAGE_PXC_TO_UPDATE}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
         : Cluster image has been updated correctly
     else
         echo 'Cluster image has not been updated'
-        destroy "${namespace}"
         exit 1
     fi
+
+    for i in $(seq 0 $(($CLUSTER_SIZE-1))); do
+        kubectl logs ${CLUSTER}-pxc-$i | grep mysql_upgrade
+    done
     destroy "${namespace}"
 }
 

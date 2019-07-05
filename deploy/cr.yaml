@@ -11,6 +11,10 @@ spec:
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
 #  pause: false
+#  updateStrategy:
+#    rollingUpdate:
+#      partition: 0
+#    type: RollingUpdate
   pxc:
     size: 3
     allowUnsafeConfigurations: false
@@ -158,5 +162,3 @@ spec:
         schedule: "0 0 * * *"
         keep: 5
         storageName: fs-pvc
-#    serviceAccountName: default
-#  updateStrategy: default

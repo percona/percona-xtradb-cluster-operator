@@ -6,12 +6,18 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+CONTAINERS=(pxc proxysql)
 CLUSTER='upgrade'
+IMAGE_TO_UPDATE=${IMAGE}
+IMAGE_PXC_TO_UPDATE=${IMAGE_PXC}
+IMAGE_PROXY_TO_UPDATE=${IMAGE_PROXY}
+IMAGE_BACKUP_TO_UPDATE=${IMAGE_BACKUP}
 IMAGE='percona/percona-xtradb-cluster-operator:1.0.0'
 IMAGE_PXC='percona/percona-xtradb-cluster-operator:1.0.0-pxc'
 IMAGE_PROXY='percona/percona-xtradb-cluster-operator:1.0.0-proxysql'
 IMAGE_BACKUP='percona/percona-xtradb-cluster-operator:1.0.0-backup'
-IMAGE_TO_UPDATE='perconalab/percona-xtradb-cluster-operator:master'
+OPERATOR_NAME='percona-xtradb-cluster-operator'
+
 
 wait_cluster_consistency() {
     cluster_name=$1
@@ -33,12 +39,21 @@ check_pxc_livenes() {
     wait_cluster_consistency "${cluster_name}" "${cluster_size}"
     sleep 20
     wait_cluster_consistency "${cluster_name}" "${cluster_size}"
+    sleep 20
+    wait_cluster_consistency "${cluster_name}" "${cluster_size}"
     
     wait_for_running "${cluster_name}-pxc" "${cluster_size}"
 
     for i in $(seq 0 $(($cluster_size-1))); do
-        sleep 10
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster_name}-pxc-$i.${cluster_name}-pxc -uroot -proot_password"
+    done
+}
+
+compare_generation() {
+    step=$1
+    for name in ${CONTAINERS[@]}; do
+        kubectl get statefulset "${CLUSTER}-${name}" -o jsonpath='{.metadata.generation}' > ${tmp_dir}/"${CLUSTER}-${name}".gen
+        diff "${test_dir}/compare/${step}.gen" "${tmp_dir}/${CLUSTER}-${name}.gen"
     done
 }
 
@@ -48,20 +63,56 @@ main() {
 
     spinup_pxc "${CLUSTER}" "${test_dir}/conf/${CLUSTER}.yml"
 
-    kubectl patch deployment percona-xtradb-cluster-operator \
-        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"'"${IMAGE_TO_UPDATE}"'"}]}}}}'
-    kubectl rollout status deployment/percona-xtradb-cluster-operator
+    compare_generation "before_upgrade"
 
-    wait_pod "$(kubectl get pods --selector=name=percona-xtradb-cluster-operator \
+    kubectl patch deployment "${OPERATOR_NAME}" \
+        -p'{"spec":{"template":{"spec":{"containers":[{"name":"'"${OPERATOR_NAME}"'","image":"'"${IMAGE_TO_UPDATE}"'"}]}}}}'
+    kubectl rollout status deployment/"${OPERATOR_NAME}"
+
+    echo 'Waiting for operator upgrade'
+    until [[ $(kubectl get pods --selector=name=${OPERATOR_NAME} \
+                                -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' \
+                                | grep -v 'NAME' | wc -l | awk '{print $1}') -eq 1 ]]; do
+        sleep 5
+    done
+
+    wait_pod "$(kubectl get pods --selector=name=${OPERATOR_NAME} \
                                 -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' \
                                 | grep "${IMAGE_TO_UPDATE}" |  awk '{print $1}')"
 
+
+    if [[ "${IMAGE_TO_UPDATE}" == $(kubectl get pod --selector=name="${OPERATOR_NAME}" -o jsonpath='{.items[*].spec.containers[?(@.name == "'"${OPERATOR_NAME}"'")].image}') \
+          && "${IMAGE_PROXY}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
+          && "${IMAGE_PXC}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
+        : Operator image has been updated correctly
+    else
+        echo 'Operator image has not been updated'
+        destroy "${namespace}"
+        exit 1
+    fi
+
+    compare_generation "operator_upgrade"
     sleep 20
     check_pxc_livenes "${CLUSTER}" 3
 
-    kubectl apply -f "${test_dir}/conf/${CLUSTER}-master.yml"
+    IMAGE_PXC=$IMAGE_PXC_TO_UPDATE
+    IMAGE_PROXY=$IMAGE_PROXY_TO_UPDATE
+    IMAGE_BACKUP=$IMAGE_BACKUP_TO_UPDATE
+    apply_config "${test_dir}/conf/${CLUSTER}.yml"
+
+    sleep 5
+    compare_generation "cluster_upgrade"
+
     check_pxc_livenes "${CLUSTER}" 3
 
+    if [[ "${IMAGE_PROXY_TO_UPDATE}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
+          && "${IMAGE_PXC_TO_UPDATE}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
+        : Cluster image has been updated correctly
+    else
+        echo 'Cluster image has not been updated'
+        destroy "${namespace}"
+        exit 1
+    fi
     destroy "${namespace}"
 }
 

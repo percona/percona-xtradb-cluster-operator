@@ -11,10 +11,7 @@ spec:
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
 #  pause: false
-#  updateStrategy:
-#    rollingUpdate:
-#      partition: 0
-#    type: RollingUpdate
+#  updateStrategy: RollingUpdate
   pxc:
     size: 3
     allowUnsafeConfigurations: false

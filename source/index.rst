@@ -29,6 +29,7 @@ Installation
 
   kubernetes
   openshift
+  minikube
   scaling
   monitoring
   custom-registry

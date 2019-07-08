@@ -2,15 +2,15 @@ Install Percona XtraDB Cluster on minikube
 ============================================
 
 Installing PXC Operator on `minikube <https://github.com/kubernetes/minikube>`_
-is the easiest way to try it locally without cloud provider. Minikube runs
-Kubernetes on GNU/Linux, Windows, or macOS system with help of a system-wide
+is the easiest way to try it locally without a cloud provider. Minikube runs
+Kubernetes on GNU/Linux, Windows, or macOS system using a system-wide
 hypervisor, such as VirtualBox, KVM/QEMU, VMware Fusion or Hyper-V. Using it is
 a popular way to test Kubernetes application locally prior to deploying it on a
 cloud.
 
 Following steps are needed to run PXC Operator on minikube:
 
-0. `Install minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_, using a way recommended for your system. This includes installation of the following three components:
+0. `Install minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_, using a way recommended for your system. This includes the installation of the following three components:
    #. kubectl tool,
    #. a hypervisor, if it is not already installed,
    #. actual minikube package
@@ -24,21 +24,21 @@ Following steps are needed to run PXC Operator on minikube:
 
 1. Clone the percona-xtradb-cluster-operator repository::
 
-     git clone -b release-1.0.0 https://github.com/percona/percona-xtradb-cluster-operator
+     git clone -b release-1.1.0 https://github.com/percona/percona-xtradb-cluster-operator
      cd percona-xtradb-cluster-operator
 
 2. Deploy the operator with the following command::
 
      kubectl apply -f deploy/bundle.yaml
 
-3. Edit the ``deploy/cr.yaml`` file to remove/comment the following keys in
+3. Edit the ``deploy/cr.yaml`` file to change the following keys in
    ``pxc`` and ``proxysql`` sections, which would otherwise prevent running
    Percona XtraDB Cluster on your local Kubernetes installation:
 
-   #. ``resources.requests.memory``, 
-   #. ``affinity.antiAffinityTopologyKey``
+   #. comment ``resources.requests.memory`` and ``resources.requests.cpu`` keys 
+   #. set ``affinity.antiAffinityTopologyKey`` key to ``"none"``
 
-   Also switch ``allowUnsafeConfigurations`` key to ``true``. 
+   Also, switch ``allowUnsafeConfigurations`` key to ``true``. 
 
 4. Now apply the ``deploy/cr.yaml`` file with the following command::
 

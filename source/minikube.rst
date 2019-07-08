@@ -44,7 +44,7 @@ Following steps are needed to run PXC Operator on minikube:
 
      kubectl apply -f deploy/cr.yaml
 
-5. During previous steps Operator have generated several secrets, including the
+5. During previous steps the Operator have generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the
    password for the ``root`` user, which you will definitely need to access the
    cluster. Use ``kubectl get secrets`` to see the list of secrets objects (by
    default secrets object you are interested in has ``my-cluster-secrets`` name). 
@@ -61,7 +61,7 @@ Following steps are needed to run PXC Operator on minikube:
    ``echo 'cm9vdF9wYXNzd29yZA==' | base64 --decode`` will bring it back to a
    human-readable form.
 
-6. Check connectivity to a newly created cluster:
+6. Check connectivity to a newly created cluster.
 
    First of all, run percona-client and connect it's console output to your
    terminal (running it may require some time to deploy the correspondent Pod): 
@@ -70,7 +70,7 @@ Following steps are needed to run PXC Operator on minikube:
 
       kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
    
-   Next, run ``mysql`` tool in the percona-client command shell using the password
+   Now run ``mysql`` tool in the percona-client command shell using the password
    obtained from the secret:
    
    .. code:: bash

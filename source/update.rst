@@ -54,13 +54,14 @@ Manual update
         }}'
 
 #. Pod with the newer Percona XtraDB Cluster image will start after you
-   you delete it. Delete targeted Pods to make them restart manually, one by one:
+   delete it. Delete targeted Pods manually one by one to make them restart in
+   desired order:
 
    #. Delete the Pod using its name with the command like the following one::
 
          kubectl delete pod cluster1-pxc-2
 
-   #. Wait untill Pod becomes ready::
+   #. Wait until Pod becomes ready::
 
          kubectl get pod cluster1-pxc-2
 

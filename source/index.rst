@@ -31,6 +31,7 @@ Installation
   openshift
   minikube
   scaling
+  update
   monitoring
   custom-registry
 

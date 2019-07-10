@@ -12,6 +12,7 @@ type Backup struct {
 	image              string
 	imagePullSecrets   []corev1.LocalObjectReference
 	serviceAccountName string
+	nodeSelector       map[string]string
 }
 
 func New(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *Backup {
@@ -21,5 +22,6 @@ func New(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *Backup {
 		image:              spec.Image,
 		imagePullSecrets:   spec.ImagePullSecrets,
 		serviceAccountName: spec.ServiceAccountName,
+		nodeSelector:       spec.NodeSelector,
 	}
 }

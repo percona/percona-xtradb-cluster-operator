@@ -30,6 +30,7 @@ type PXCScheduledBackup struct {
 	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
+	NodeSelector       map[string]string             `json:"nodeSelector,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {

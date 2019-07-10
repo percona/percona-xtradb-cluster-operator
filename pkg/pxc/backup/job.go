@@ -70,6 +70,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, secret
 						},
 					},
 				},
+				NodeSelector: bcp.nodeSelector,
 			},
 		},
 	}

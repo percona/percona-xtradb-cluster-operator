@@ -150,6 +150,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 					},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Volumes:       jobPVCs,
+					NodeSelector:  bcp.Spec.NodeSelector,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
@@ -254,6 +255,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 					Volumes: []corev1.Volume{
 						jobPVC,
 					},
+					NodeSelector: bcp.Spec.NodeSelector,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),

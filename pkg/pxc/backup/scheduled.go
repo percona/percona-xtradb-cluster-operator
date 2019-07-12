@@ -55,12 +55,11 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec) batchv1.JobSpec {
 	var nodeSelectorStr string
 	for k, v := range bcp.nodeSelector {
-		nodeSelectorStr += fmt.Sprintf("    %s: %s", k, v)
+		nodeSelectorStr += fmt.Sprintf("									    %s: %s\n", k, v)
 	}
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
-				ServiceAccountName: bcp.serviceAccountName,
 				Containers: []corev1.Container{
 					{
 						Name:  "run-backup",
@@ -91,7 +90,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 									  pxcCluster: "${pxcCluster}"
 									  storageName: "` + spec.StorageName + `"
 									  nodeSelector:
-                                    ` + nodeSelectorStr + `
+` + nodeSelectorStr + `
 							EOF
 							`,
 						},

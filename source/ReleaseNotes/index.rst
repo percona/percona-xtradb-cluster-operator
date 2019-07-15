@@ -8,3 +8,4 @@ Percona Kubernetes Operator for Percona XtraDB Cluster |version| Release Notes
    :maxdepth: 1
 
    Kubernetes-Operator-for-PXC-RN1.0.0
+   Kubernetes-Operator-for-PXC-RN1.1.0

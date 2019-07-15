@@ -1,11 +1,11 @@
 Update Percona XtraDB Cluster Operator
 ======================================
 
-Starting from the version 1.1.0 Percona Kubernetes Operator for Percona XtraDB
+Starting from the version 1.1.0 the Percona Kubernetes Operator for Percona XtraDB
 Cluster allows upgrades to newer versions. This upgrade can be done either in
 semi-automatic or in manual mode.
 
-.. note:: Manual update mode is the recomended way for a production cluster.
+.. note:: The manual update mode is the recomended way for a production cluster.
 
 Semi-automatic update
 ---------------------
@@ -16,7 +16,7 @@ Semi-automatic update
 #. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
    deployment, supplying necessary image names with a newer version tag. This
    is done with the ``kubectl patch deployment`` command. For example, updating
-   to ``1.1.0`` version should look as follows::
+   to the ``1.1.0`` version should look as follows::
 
      kubectl patch deployment percona-xtradb-cluster-operator \
         -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:1.1.0"}]}}}}'
@@ -28,7 +28,7 @@ Semi-automatic update
         }}'
 
 #. The deployment rollout will be automatically triggered by the applied patch.
-   You can track the rolluot process in real time with the
+   You can track the rollout process in real time with the
    ``kubectl rollout status`` command with the name of your cluster::
 
      kubectl rollout status sts cluster1-pxc
@@ -42,7 +42,7 @@ Manual update
 #. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
    deployment, supplying necessary image names with a newer version tag. This
    is done with the ``kubectl patch deployment`` command. For example, updating
-   to ``1.1.0`` version should look as follows::
+   to the ``1.1.0`` version should look as follows::
 
      kubectl patch deployment percona-xtradb-cluster-operator \
         -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:1.1.0"}]}}}}'
@@ -53,7 +53,7 @@ Manual update
             "backup":   { "image": "percona/percona-xtradb-cluster-operator:1.1.0-backup" }
         }}'
 
-#. Pod with the newer Percona XtraDB Cluster image will start after you
+#. The Pod with the newer Percona XtraDB Cluster image will start after you
    delete it. Delete targeted Pods manually one by one to make them restart in
    desired order:
 

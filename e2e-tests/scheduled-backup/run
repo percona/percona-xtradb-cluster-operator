@@ -25,11 +25,11 @@ run_recovery_check() {
         | $sed "s/pxcCluster: .*/pxcCluster: $cluster/" \
         | $sed "s/backupName: .*/backupName: $backup1/" \
         | $sed "s/name: .*/name: $restore_name/" \
-        | kubectl apply -f -
+        | kubectl_bin apply -f -
     wait_backup_restore ${restore_name}
 
-    kubectl logs job/restore-job-${restore_name}-${cluster}
-    kubectl delete pxc-restore/${restore_name}
+    kubectl_bin logs job/restore-job-${restore_name}-${cluster}
+    kubectl_bin delete pxc-restore/${restore_name}
     
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
@@ -41,7 +41,7 @@ run_recovery_check() {
 }
 
 get_backup_name() {
-    kubectl get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+    kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
         | grep ":$1:Succeeded" \
         | tail -1 \
         | cut -d ':' -f 1
@@ -68,10 +68,10 @@ start_minio() {
         --set environment.MINIO_REGION=us-east-1 \
         --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
         stable/minio
-    MINIO_POD=$(kubectl get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
+    MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
     wait_pod $MINIO_POD
 
-    kubectl run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+    kubectl_bin run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
         /usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
         /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
 }
@@ -79,7 +79,7 @@ start_minio() {
 main() {
     create_namespace $namespace
     deploy_operator
-    kubectl apply \
+    kubectl_bin apply \
         -f $conf_dir/minio-secret.yml \
         -f $conf_dir/cloud-secret.yml
     start_minio

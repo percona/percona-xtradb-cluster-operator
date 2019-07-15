@@ -23,14 +23,14 @@ pause_pod() {
     local pod=$(get_operator_pod)
 
     # run chaos for Pod
-    kubectl exec -it "$(get_pumba)" -- /pumba -l info pause --duration 1m "re2:$pod" &
+    kubectl_bin exec -it "$(get_pumba)" -- /pumba -l info pause --duration 1m "re2:$pod" &
     pid=$!
     sleep 10
 
     desc 'check if operator works fine: scale down from 4 to 3'
     cat_config "$test_dir/conf/$cluster.yml" \
         | sed -e 's/size: 4/size: 3/' \
-        | kubectl apply -f-
+        | kubectl_bin apply -f-
 
     # wait for unpause
     wait $pid
@@ -46,14 +46,14 @@ netem_pod() {
     local pod=$(get_operator_pod)
 
     # run chaos for Pod
-    kubectl exec -it "$(get_pumba)" -- /pumba -l info netem --tc-image 'gaiadocker/iproute2' --duration 1m loss --percent 100 --correlation 100 "re2:$pod" &
+    kubectl_bin exec -it "$(get_pumba)" -- /pumba -l info netem --tc-image 'gaiadocker/iproute2' --duration 1m loss --percent 100 --correlation 100 "re2:$pod" &
     pid=$!
     sleep 10
 
     desc 'check if operator works fine: scale up from 3 to 4'
     cat_config "$test_dir/conf/$cluster.yml" \
         | sed -e 's/size: 3/size: 4/' \
-        | kubectl apply -f-
+        | kubectl_bin apply -f-
 
     # wait for unpause
     wait $pid
@@ -70,7 +70,7 @@ main() {
     create_namespace $namespace
     ## TODO: kubectl apply -f $test_dir/conf/quota.yml
     deploy_operator
-    kubectl apply -f "$test_dir/conf/pumba.yml"
+    kubectl_bin apply -f "$test_dir/conf/pumba.yml"
 
     desc 'create PXC cluster'
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
@@ -80,7 +80,7 @@ main() {
     desc 'check if operator works fine: scale up from 3 to 4'
     cat_config "$test_dir/conf/$cluster.yml" \
         | sed -e 's/size: 3/size: 4/' \
-        | kubectl apply -f-
+        | kubectl_bin apply -f-
     wait_for_running "$cluster-pxc" 4
 
     desc 'rm operator'
@@ -88,7 +88,7 @@ main() {
     desc 'check if operator works fine: scale down from 4 to 3'
     cat_config "$test_dir/conf/$cluster.yml" \
         | sed -e 's/size: 4/size: 3/' \
-        | kubectl apply -f-
+        | kubectl_bin apply -f-
     wait_for_delete pod/$cluster-pxc-3
 
     desc 'stop operator'
@@ -96,7 +96,7 @@ main() {
     desc 'check if operator works fine: scale up from 3 to 4'
     cat_config "$test_dir/conf/$cluster.yml" \
         | sed -e 's/size: 3/size: 4/' \
-        | kubectl apply -f-
+        | kubectl_bin apply -f-
     wait_for_running "$cluster-pxc" 4
 
     desc 'pause operator'

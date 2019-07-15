@@ -16,7 +16,7 @@ check_cr_config() {
     compare_kubectl statefulset/$cluster-pxc
 
     # delete cluster
-    kubectl delete \
+    kubectl_bin delete \
         -f $test_dir/conf/$cluster.yml
 }
 
@@ -24,7 +24,7 @@ main() {
     create_namespace $namespace
     deploy_operator
     apply_config "$conf_dir/client.yml"
-    kubectl apply \
+    kubectl_bin apply \
         -f $conf_dir/secrets.yml \
         -f $test_dir/conf/hostpath-helper.yml
 

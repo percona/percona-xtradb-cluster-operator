@@ -16,14 +16,14 @@ pumba_all_pods() {
     done
     sleep 60
 
-    kubectl get pods \
+    kubectl_bin get pods \
         | grep $cluster-pxc- \
         | grep CrashLoopBackOff
 
     cat_config "$test_dir/conf/$cluster.yml" \
         | sed -e 's/forceUnsafeBootstrap: false/forceUnsafeBootstrap: true/' \
-        | kubectl apply -f-
-    kubectl delete pod self-healing-advanced-pxc-0 self-healing-advanced-pxc-1 self-healing-advanced-pxc-2
+        | kubectl_bin apply -f-
+    kubectl_bin delete pod self-healing-advanced-pxc-0 self-healing-advanced-pxc-1 self-healing-advanced-pxc-2
 
     # check if all 3 Pods started
     wait_for_running $cluster-pxc 3
@@ -38,7 +38,7 @@ pumba_all_pods() {
 main() {
     create_namespace $namespace
     deploy_operator
-    kubectl apply -f "$test_dir/conf/pumba.yml"
+    kubectl_bin apply -f "$test_dir/conf/pumba.yml"
 
     desc 'start cluster'
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"

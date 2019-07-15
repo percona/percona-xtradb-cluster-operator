@@ -15,7 +15,7 @@ spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 desc 'scale up from 3 to 5'
 cat_config "$test_dir/conf/$cluster.yml" \
     | sed -e 's/size: 3/size: 5/' \
-    | kubectl apply -f-
+    | kubectl_bin apply -f-
 
 desc 'check if all 5 Pods started'
 wait_for_running $cluster-pxc 5

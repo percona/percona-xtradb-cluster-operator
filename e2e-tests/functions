@@ -439,6 +439,7 @@ kubectl_bin() {
     error_container='error.msg'
 
     for (( i = 0; i < 3; i++ )); do
+        echo "kubectl ${@}" 1>&2
         kubectl "$@" 2>${error_container}
         exit_status="$?"
 
@@ -448,7 +449,7 @@ kubectl_bin() {
             return ${exit_status}
         fi
     done
-    cat ${error_container}
+    cat ${error_container} 1>&2
     rm -f ${error_container}
     return ${exit_status}
 }

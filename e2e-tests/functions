@@ -50,7 +50,7 @@ wait_pod() {
         sleep 1
         echo -n .
         let retry+=1
-        if [ $retry -ge 240 ]; then
+        if [ $retry -ge 480 ]; then
             kubectl_bin describe pod/$pod
             kubectl_bin logs $pod
             kubectl_bin logs $(get_operator_pod)

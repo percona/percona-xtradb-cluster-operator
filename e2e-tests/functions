@@ -43,7 +43,6 @@ get_operator_pod() {
 wait_pod() {
     local pod=$1
 
-    set +o xtrace
     retry=0
     echo -n $pod
     #until kubectl_bin get pod/$pod -o jsonpath='{.status.phase}' 2>/dev/null | grep 'Running'; do
@@ -59,13 +58,11 @@ wait_pod() {
             exit 1
         fi
     done
-    set -o xtrace
 }
 
 wait_backup() {
     local backup=$1
 
-    set +o xtrace
     retry=0
     echo -n $backup
     until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
@@ -78,13 +75,11 @@ wait_backup() {
             exit 1
         fi
     done
-    set -o xtrace
 }
 
 wait_backup_restore() {
     local name=$1
 
-    set +o xtrace
     retry=0
     echo -n $name
     until kubectl_bin get pxc-restore/$name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
@@ -97,7 +92,6 @@ wait_backup_restore() {
             exit 1
         fi
     done
-    set -o xtrace
 }
 
 deploy_operator() {
@@ -157,7 +151,6 @@ wait_for_running() {
 wait_for_delete() {
     local res="$1"
 
-    set +o xtrace
     echo -n "$res - "
     retry=0
     until (kubectl_bin get $res || :) 2>&1 | grep NotFound; do
@@ -170,7 +163,6 @@ wait_for_delete() {
             exit 1
         fi
     done
-    set -o xtrace
 }
 
 compare_kubectl() {
@@ -207,12 +199,13 @@ run_mysql() {
 
     client_pod=$(get_client_pod)
     wait_pod $client_pod 1>&2
-    set +o xtrace
+
+    set -o noglob
     kubectl_bin exec $client_pod -- \
-        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
+        bash -c "printf '$command\n' | mysql -sN $uri" "2>&1"  \
         | sed -e 's/mysql: //' \
         | (grep -v 'Using a password on the command line interface can be insecure.' || :)
-    set -o xtrace
+    set +o noglob
 }
 
 run_mysql_local() {
@@ -220,12 +213,12 @@ run_mysql_local() {
     local uri="$2"
     local pod="$3"
 
-    set +o xtrace
+    set -o noglob
     kubectl_bin exec $pod -- \
-        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
+        bash -c "printf '$command\n' | mysql -sN $uri" "2>&1" \
         | sed -e 's/mysql: //' \
         | (egrep -v 'Using a password on the command line interface can be insecure.|Defaulting container name|see all of the containers in this pod' || :)
-    set -o xtrace
+    set +o noglob
 }
 
 compare_mysql_cmd() {
@@ -435,21 +428,28 @@ deploy_cert_manager() {
 }
 
 kubectl_bin() {
+
     timeout=4
-    error_container='error.msg'
+    redirect_item=('2>&1')
+    redirect_stderr=$(printf '%s\n' "${@}" | grep -o '2>&1' || true)
 
     for (( i = 0; i < 3; i++ )); do
-        echo "kubectl ${@}" 1>&2
-        kubectl "$@" 2>${error_container}
+        output=''
+        if [[ -n ${redirect_stderr} ]]; then
+            output=$(kubectl "${@/$redirect_item}" 2>&1)
+        else
+            output=$(kubectl "$@")
+        fi
+
         exit_status="$?"
 
         if [[ ${exit_status} != 0 ]]; then
             sleep "$((timeout * i))"
         else
+            echo "${output}"
             return ${exit_status}
         fi
     done
-    cat ${error_container} 1>&2
-    rm -f ${error_container}
+    echo "${output}"
     return ${exit_status}
 }

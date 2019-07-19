@@ -211,12 +211,10 @@ run_mysql_local() {
     local uri="$2"
     local pod="$3"
 
-    set -o noglob
     kubectl_bin exec $pod -- \
         bash -c "printf '$command\n' | mysql -sN $uri" "2>&1" \
         | sed -e 's/mysql: //' \
         | (egrep -v 'Using a password on the command line interface can be insecure.|Defaulting container name|see all of the containers in this pod' || :)
-    set +o noglob
 }
 
 compare_mysql_cmd() {

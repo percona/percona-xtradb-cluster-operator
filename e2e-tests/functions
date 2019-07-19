@@ -200,12 +200,10 @@ run_mysql() {
     client_pod=$(get_client_pod)
     wait_pod $client_pod 1>&2
 
-    set -o noglob
     kubectl_bin exec $client_pod -- \
         bash -c "printf '$command\n' | mysql -sN $uri" "2>&1"  \
         | sed -e 's/mysql: //' \
         | (grep -v 'Using a password on the command line interface can be insecure.' || :)
-    set +o noglob
 }
 
 run_mysql_local() {

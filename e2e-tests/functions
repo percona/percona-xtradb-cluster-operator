@@ -446,6 +446,6 @@ kubectl_bin() {
         fi
     done
     echo "${output}"
-    return ${exit_status}
     set -o errexit
+    return ${exit_status}
 }

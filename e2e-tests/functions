@@ -1,5 +1,8 @@
 #!/bin/bash
 
+exec 5>&2
+BASH_XTRACEFD="5"
+
 GIT_COMMIT=$(git rev-parse HEAD)
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
@@ -200,10 +203,12 @@ run_mysql() {
     client_pod=$(get_client_pod)
     wait_pod $client_pod 1>&2
 
+    set +o xtrace
     kubectl_bin exec $client_pod -- \
-        bash -c "printf '$command\n' | mysql -sN $uri" "2>&1"  \
+        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1  \
         | sed -e 's/mysql: //' \
         | (grep -v 'Using a password on the command line interface can be insecure.' || :)
+    set -o xtrace
 }
 
 run_mysql_local() {
@@ -211,10 +216,12 @@ run_mysql_local() {
     local uri="$2"
     local pod="$3"
 
+    set +o xtrace
     kubectl_bin exec $pod -- \
-        bash -c "printf '$command\n' | mysql -sN $uri" "2>&1" \
+        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
         | sed -e 's/mysql: //' \
         | (egrep -v 'Using a password on the command line interface can be insecure.|Defaulting container name|see all of the containers in this pod' || :)
+    set -o xtrace
 }
 
 compare_mysql_cmd() {
@@ -424,28 +431,25 @@ deploy_cert_manager() {
 }
 
 kubectl_bin() {
-    set +o errexit
-    timeout=4
-    redirect_item=('2>&1')
-    redirect_stderr=$(printf '%s\n' "${@}" | grep -o '2>&1' || true)
-
-    for (( i = 0; i < 3; i++ )); do
-        output=''
-        if [[ -n ${redirect_stderr} ]]; then
-            output=$(kubectl "${@/$redirect_item}" 2>&1)
-        else
-            output=$(kubectl "$@")
-        fi
-        exit_status="$?"
-
+    local LAST_OUT="$(mktemp)"
+    local LAST_ERR="$(mktemp)"
+    local exit_status=0
+    for i in $(seq 0 2); do
+        kubectl "$@" 1>"$LAST_OUT" 2>"$LAST_ERR"
+        exit_status=$?
+        echo "--- $i stdout" | cat - "$LAST_OUT" >&$BASH_XTRACEFD
+        echo "--- $i stderr" | cat - "$LAST_ERR" >&$BASH_XTRACEFD
         if [[ ${exit_status} != 0 ]]; then
             sleep "$((timeout * i))"
         else
-            echo "${output}"
+            cat "$LAST_OUT"
+            cat "$LAST_ERR" >&2
+            rm "$LAST_OUT" "$LAST_ERR"
             return ${exit_status}
         fi
     done
-    echo "${output}"
-    set -o errexit
+    cat "$LAST_OUT"
+    cat "$LAST_ERR" >&2
+    rm "$LAST_OUT" "$LAST_ERR"
     return ${exit_status}
 }

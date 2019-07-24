@@ -146,9 +146,11 @@ wait_for_running() {
     local name="$1"
     let last_pod="$(($2-1))" || :
 
+    set +o xtrace
     for i in $(seq 0 $last_pod); do
         wait_pod ${name}-${i}
     done
+    set -o xtrace
 }
 
 wait_for_delete() {
@@ -437,8 +439,8 @@ kubectl_bin() {
     for i in $(seq 0 2); do
         kubectl "$@" 1>"$LAST_OUT" 2>"$LAST_ERR"
         exit_status=$?
-        echo "--- $i stdout" | cat - "$LAST_OUT" >&$BASH_XTRACEFD
-        echo "--- $i stderr" | cat - "$LAST_ERR" >&$BASH_XTRACEFD
+        [[ ${-/x} != $- ]] && echo "--- $i stdout" | cat - "$LAST_OUT" >&$BASH_XTRACEFD
+        [[ ${-/x} != $- ]] && echo "--- $i stderr" | cat - "$LAST_ERR" >&$BASH_XTRACEFD
         if [[ ${exit_status} != 0 ]]; then
             sleep "$((timeout * i))"
         else

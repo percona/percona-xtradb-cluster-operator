@@ -46,6 +46,7 @@ get_operator_pod() {
 wait_pod() {
     local pod=$1
 
+    set +o xtrace
     retry=0
     echo -n $pod
     #until kubectl_bin get pod/$pod -o jsonpath='{.status.phase}' 2>/dev/null | grep 'Running'; do
@@ -61,11 +62,13 @@ wait_pod() {
             exit 1
         fi
     done
+    set -o xtrace
 }
 
 wait_backup() {
     local backup=$1
 
+    set +o xtrace
     retry=0
     echo -n $backup
     until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
@@ -78,11 +81,13 @@ wait_backup() {
             exit 1
         fi
     done
+    set -o xtrace
 }
 
 wait_backup_restore() {
     local name=$1
 
+    set +o xtrace
     retry=0
     echo -n $name
     until kubectl_bin get pxc-restore/$name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
@@ -95,6 +100,7 @@ wait_backup_restore() {
             exit 1
         fi
     done
+    set -o xtrace
 }
 
 deploy_operator() {
@@ -146,16 +152,15 @@ wait_for_running() {
     local name="$1"
     let last_pod="$(($2-1))" || :
 
-    set +o xtrace
     for i in $(seq 0 $last_pod); do
         wait_pod ${name}-${i}
     done
-    set -o xtrace
 }
 
 wait_for_delete() {
     local res="$1"
 
+    set +o xtrace
     echo -n "$res - "
     retry=0
     until (kubectl_bin get $res || :) 2>&1 | grep NotFound; do
@@ -168,6 +173,7 @@ wait_for_delete() {
             exit 1
         fi
     done
+    set -o xtrace
 }
 
 compare_kubectl() {

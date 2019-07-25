@@ -41,7 +41,12 @@ build_operator() {
     fi
 }
 
+if [[ $BUILD = "0" ]]; then
+    exit 0
+fi
+
 until docker ps;
     do sleep 1;
 done
+
 build_operator

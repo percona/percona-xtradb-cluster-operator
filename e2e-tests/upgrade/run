@@ -23,9 +23,9 @@ OPERATOR_NAME='percona-xtradb-cluster-operator'
 wait_cluster_consistency() {
     cluster_name=$1
     cluster_size=$2
-    until [[ "$(kubectl get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" \
-             && "$(kubectl get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" \
-             && "$(kubectl get pxc "${CLUSTER}" -o jsonpath='{.status.proxysql.ready}')" == "${cluster_size}"  ]]; do
+    until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" \
+             && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" \
+             && "$(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.status.proxysql.ready}')" == "${cluster_size}"  ]]; do
         echo 'waiting for cluster readyness'
         sleep 20
     done
@@ -53,7 +53,7 @@ check_pxc_livenes() {
 compare_generation() {
     generation=$1
     for name in ${CONTAINERS[@]}; do
-        if [[ ${generation} != $(kubectl get statefulset "${CLUSTER}-${name}" -o jsonpath='{.metadata.generation}') ]]; then
+        if [[ ${generation} != $(kubectl_bin get statefulset "${CLUSTER}-${name}" -o jsonpath='{.metadata.generation}') ]]; then
             echo "Resource ${name} has not been updated"
             exit 1
         fi
@@ -68,25 +68,25 @@ main() {
 
     compare_generation "1"
 
-    kubectl patch deployment "${OPERATOR_NAME}" \
+    kubectl_bin patch deployment "${OPERATOR_NAME}" \
         -p'{"spec":{"template":{"spec":{"containers":[{"name":"'"${OPERATOR_NAME}"'","image":"'"${IMAGE_TO_UPDATE}"'"}]}}}}'
-    kubectl rollout status deployment/"${OPERATOR_NAME}"
+    kubectl_bin rollout status deployment/"${OPERATOR_NAME}"
 
     echo 'Waiting for operator upgrade'
-    until [[ $(kubectl get pods --selector=name=${OPERATOR_NAME} \
+    until [[ $(kubectl_bin get pods --selector=name=${OPERATOR_NAME} \
                                 -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' \
                                 | grep -v 'NAME' | wc -l | awk '{print $1}') -eq 1 ]]; do
         sleep 5
     done
 
-    wait_pod "$(kubectl get pods --selector=name=${OPERATOR_NAME} \
+    wait_pod "$(kubectl_bin get pods --selector=name=${OPERATOR_NAME} \
                                 -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' \
                                 | grep "${IMAGE_TO_UPDATE}" |  awk '{print $1}')"
 
 
-    if [[ "${IMAGE_TO_UPDATE}" == $(kubectl get pod --selector=name="${OPERATOR_NAME}" -o jsonpath='{.items[*].spec.containers[?(@.name == "'"${OPERATOR_NAME}"'")].image}') \
-          && "${IMAGE_PROXY}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
-          && "${IMAGE_PXC}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
+    if [[ "${IMAGE_TO_UPDATE}" == $(kubectl_bin get pod --selector=name="${OPERATOR_NAME}" -o jsonpath='{.items[*].spec.containers[?(@.name == "'"${OPERATOR_NAME}"'")].image}') \
+          && "${IMAGE_PROXY}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
+          && "${IMAGE_PXC}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
         : Operator image has been updated correctly
     else
         echo 'Operator image has not been updated'
@@ -100,7 +100,7 @@ main() {
     IMAGE_PXC=$IMAGE_PXC_TO_UPDATE
     IMAGE_PROXY=$IMAGE_PROXY_TO_UPDATE
     IMAGE_BACKUP=$IMAGE_BACKUP_TO_UPDATE
-    kubectl patch pxc "${CLUSTER}" --type=merge --patch '{
+    kubectl_bin patch pxc "${CLUSTER}" --type=merge --patch '{
         "spec": {"pxc":{ "image": "'"$IMAGE_PXC_TO_UPDATE"'" },
             "proxysql": { "image": "'"$IMAGE_PROXY_TO_UPDATE"'" },
             "backup":   { "image": "'"$IMAGE_BACKUP_TO_UPDATE"'" }
@@ -111,8 +111,8 @@ main() {
 
     check_pxc_livenes "${CLUSTER}" $CLUSTER_SIZE
 
-    if [[ "${IMAGE_PROXY_TO_UPDATE}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
-          && "${IMAGE_PXC_TO_UPDATE}" == $(kubectl get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
+    if [[ "${IMAGE_PROXY_TO_UPDATE}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
+          && "${IMAGE_PXC_TO_UPDATE}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
         : Cluster image has been updated correctly
     else
         echo 'Cluster image has not been updated'

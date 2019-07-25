@@ -25,7 +25,7 @@ check_affinity() {
     compare_kubectl statefulset/$cluster-proxysql
 
     # delete cluster
-    kubectl delete \
+    kubectl_bin delete \
         -f $test_dir/conf/$cluster.yml
 }
 

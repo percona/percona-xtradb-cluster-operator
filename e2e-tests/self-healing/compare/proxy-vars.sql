@@ -120,7 +120,7 @@ mysql-query_processor_iterations	0
 mysql-query_retries_on_failure	1
 mysql-reset_connection_algorithm	2
 mysql-server_capabilities	571947
-mysql-server_version	Percona XtraDB Cluster Operator 1.1.0
+mysql-server_version	5.5.30
 mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true

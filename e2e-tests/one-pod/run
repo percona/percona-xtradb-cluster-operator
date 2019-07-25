@@ -12,7 +12,7 @@ spinup_pxc() {
     local size="${3:-3}"
 
     desc 'create first PXC cluster'
-    kubectl apply \
+    kubectl_bin apply \
         -f $conf_dir/secrets.yml
 
     apply_config "$conf_dir/client.yml"
@@ -40,14 +40,14 @@ check_pvc_md5() {
     apply_config "$test_dir/conf/client.yml"
     sleep 10
     bak_client_pod=$(
-        kubectl get pods \
+        kubectl_bin get pods \
             --selector=name=backup-client \
             -o 'jsonpath={.items[].metadata.name}'
     )
     wait_pod $bak_client_pod
-    kubectl exec $bak_client_pod -- \
+    kubectl_bin exec $bak_client_pod -- \
         bash -c "cd /backup; md5sum -c md5sum.txt"
-    kubectl delete \
+    kubectl_bin delete \
         -f $test_dir/conf/client.yml
 }
 
@@ -56,7 +56,7 @@ run_backup() {
     local backup1=$2
 
     desc 'make backup'
-    kubectl apply \
+    kubectl_bin apply \
         -f $test_dir/conf/$backup1.yml
     wait_backup $backup1
 }
@@ -72,10 +72,10 @@ run_recovery_check() {
     compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 
     desc 'recover backup'
-    kubectl apply -f "$test_dir/conf/restore-${backup1}.yaml"
+    kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
     wait_backup_restore ${backup1}
-    kubectl logs job/restore-job-${backup1}-${cluster}
-    kubectl delete -f "$test_dir/conf/restore-${backup1}.yaml"
+    kubectl_bin logs job/restore-job-${backup1}-${cluster}
+    kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
     wait_for_running "$cluster-pxc" 1
 
     desc 'check data after backup'
@@ -85,7 +85,7 @@ run_recovery_check() {
 main() {
     create_namespace $namespace
     deploy_operator
-    kubectl apply \
+    kubectl_bin apply \
         -f $conf_dir/cloud-secret.yml
 
     cluster="one-pod"

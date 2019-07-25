@@ -51,7 +51,7 @@ compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cl
 
 desc 'kill Primary Pod, check reelection, check data'
 initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0")
-kubectl delete pods --grace-period=0 --force $initial_primary
+kubectl_bin delete pods --grace-period=0 --force $initial_primary
 sleep 10
 changed_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0")
 [ -n "$changed_primary" ] && [ "$initial_primary" != "$changed_primary" ]
@@ -88,6 +88,6 @@ compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-0.$c
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-1.$cluster3-pxc -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-2.$cluster3-pxc -uroot -proot_password"
 compare_mysql_cmd "max_allowed_packet-2" "SELECT @@max_allowed_packet;" "-h $cluster3-pxc-0.$cluster3-pxc -uroot -proot_password"
-kubectl delete -f $test_dir/conf/$cluster3.yml
+kubectl_bin delete -f $test_dir/conf/$cluster3.yml
 
 destroy $namespace

@@ -134,6 +134,8 @@ spec:
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials
+#    nodeSelector:
+#      env: online
     storages:
       s3-us-west:
         type: s3

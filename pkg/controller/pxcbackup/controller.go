@@ -133,7 +133,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 	var destination string
 	var s3status *api.BackupStorageS3Spec
 
-	job.Spec = bcp.JobSpec(instance.Spec, r.serverVersion, cluster.Spec.SecretsName)
+	job.Spec = bcp.JobSpec(instance.Spec, r.serverVersion, cluster.Spec)
 	switch bcpStorage.Type {
 	case api.BackupStorageFilesystem:
 		pvc := backup.NewPVC(instance)

@@ -30,7 +30,6 @@ type PXCScheduledBackup struct {
 	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
-	NodeSelector       map[string]string             `json:"nodeSelector,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
@@ -165,9 +164,10 @@ type ResourcesList struct {
 }
 
 type BackupStorageSpec struct {
-	Type   BackupStorageType   `json:"type"`
-	S3     BackupStorageS3Spec `json:"s3,omitempty"`
-	Volume *VolumeSpec         `json:"volume,omitempty"`
+	Type         BackupStorageType   `json:"type"`
+	S3           BackupStorageS3Spec `json:"s3,omitempty"`
+	Volume       *VolumeSpec         `json:"volume,omitempty"`
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
 }
 
 type BackupStorageType string

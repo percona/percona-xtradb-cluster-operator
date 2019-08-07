@@ -30,7 +30,7 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup) *batchv1.Job {
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, secrets string) batchv1.JobSpec {
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluster api.PerconaXtraDBClusterSpec) batchv1.JobSpec {
 	var fsgroup *int64
 	if sv.Platform == api.PlatformKubernetes {
 		var tp int64 = 1001
@@ -64,12 +64,13 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, secret
 							{
 								Name: "MYSQL_ROOT_PASSWORD",
 								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+									SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, "root"),
 								},
 							},
 						},
 					},
 				},
+				NodeSelector: cluster.Backup.Storages[spec.StorageName].NodeSelector,
 			},
 		},
 	}

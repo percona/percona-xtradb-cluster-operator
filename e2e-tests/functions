@@ -210,6 +210,7 @@ run_mysql() {
 
     client_pod=$(get_client_pod)
     wait_pod $client_pod 1>&2
+    [[ ${-/x} != $- ]] && echo "+ kubectl exec -it $client_pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
     set +o xtrace
     kubectl_bin exec $client_pod -- \
@@ -223,6 +224,8 @@ run_mysql_local() {
     local command="$1"
     local uri="$2"
     local pod="$3"
+
+    [[ ${-/x} != $- ]] && echo "+ kubectl exec -it $pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
     set +o xtrace
     kubectl_bin exec $pod -- \

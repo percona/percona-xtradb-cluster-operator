@@ -94,11 +94,18 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 }
 
 func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) *batchv1.Job {
+	nodeSelector := make(map[string]string)
+	if val, ok := cluster.Backup.Storages[bcp.Spec.StorageName]; ok {
+		nodeSelector = val.NodeSelector
+	}
+
 	jobPVC := corev1.Volume{
 		Name: "datadir",
-	}
-	jobPVC.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-		ClaimName: "datadir-" + bcp.Spec.PXCCluster + "-pxc-0",
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: "datadir-" + bcp.Spec.PXCCluster + "-pxc-0",
+			},
+		},
 	}
 
 	jobPVCs := []corev1.Volume{
@@ -150,7 +157,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 					},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Volumes:       jobPVCs,
-					NodeSelector:  cluster.Backup.Storages[bcp.Spec.StorageName].NodeSelector,
+					NodeSelector:  nodeSelector,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
@@ -177,15 +184,22 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 
 // S3RestoreJob returns restore job object for s3
 func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
+	nodeSelector := make(map[string]string)
+	if val, ok := cluster.Backup.Storages[bcp.Spec.StorageName]; ok {
+		nodeSelector = val.NodeSelector
+	}
+
 	if bcp.Status.S3 == nil {
 		return nil, errors.New("nil s3 backup status")
 	}
 
 	jobPVC := corev1.Volume{
 		Name: "datadir",
-	}
-	jobPVC.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{
-		ClaimName: "datadir-" + bcp.Spec.PXCCluster + "-pxc-0",
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: "datadir-" + bcp.Spec.PXCCluster + "-pxc-0",
+			},
+		},
 	}
 
 	job := &batchv1.Job{
@@ -255,7 +269,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 					Volumes: []corev1.Volume{
 						jobPVC,
 					},
-					NodeSelector: cluster.Backup.Storages[bcp.Spec.StorageName].NodeSelector,
+					NodeSelector: nodeSelector,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),

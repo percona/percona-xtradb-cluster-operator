@@ -19,6 +19,7 @@ cat_config "$test_dir/conf/$cluster.yml" \
 
 desc 'check if all 5 Pods started'
 wait_for_running $cluster-proxysql 3
+sleep 15
 
 desc 'check if PVC created'
 compare_kubectl pvc/proxydata-$cluster-proxysql-1

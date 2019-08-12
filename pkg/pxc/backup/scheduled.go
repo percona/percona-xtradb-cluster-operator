@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"fmt"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -53,10 +52,6 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 }
 
 func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec) batchv1.JobSpec {
-	var nodeSelectorStr string
-	for k, v := range strg.NodeSelector {
-		nodeSelectorStr += fmt.Sprintf("									    %s: %s\n", k, v)
-	}
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
@@ -90,8 +85,6 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 									spec:
 									  pxcCluster: "${pxcCluster}"
 									  storageName: "` + spec.StorageName + `"
-									  nodeSelector:
-` + nodeSelectorStr + `
 							EOF
 							`,
 						},

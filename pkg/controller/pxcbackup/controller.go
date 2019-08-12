@@ -108,6 +108,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
+	if instance.Status.State == api.BackupSucceeded || instance.Status.State == api.BackupFailed {
+		// Skip finished backups
+		return reconcile.Result{}, nil
+	}
+
 	cluster, err := r.getClusterConfig(instance)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("invalid backup cluster: %v", err)

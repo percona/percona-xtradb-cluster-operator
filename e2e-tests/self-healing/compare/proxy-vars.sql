@@ -4,14 +4,14 @@ admin-checksum_mysql_servers	true
 admin-checksum_mysql_users	true
 admin-cluster_check_interval_ms	200
 admin-cluster_check_status_frequency	100
-admin-cluster_mysql_query_rules_diffs_before_sync	3
+admin-cluster_mysql_query_rules_diffs_before_sync	1
 admin-cluster_mysql_query_rules_save_to_disk	true
-admin-cluster_mysql_servers_diffs_before_sync	3
+admin-cluster_mysql_servers_diffs_before_sync	1
 admin-cluster_mysql_servers_save_to_disk	true
-admin-cluster_mysql_users_diffs_before_sync	3
+admin-cluster_mysql_users_diffs_before_sync	1
 admin-cluster_mysql_users_save_to_disk	true
 admin-cluster_password	admin_password
-admin-cluster_proxysql_servers_diffs_before_sync	3
+admin-cluster_proxysql_servers_diffs_before_sync	1
 admin-cluster_proxysql_servers_save_to_disk	true
 admin-cluster_username	proxyadmin
 admin-hash_passwords	true
@@ -27,10 +27,12 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.0.4-percona-1.2
+admin-version	2.0.5-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
 mysql-add_ldap_user_comment	
+mysql-auditlog_filename	
+mysql-auditlog_filesize	104857600
 mysql-auto_increment_delay_multiplex	5
 mysql-autocommit_false_is_transaction	false
 mysql-autocommit_false_not_reusable	false
@@ -120,7 +122,7 @@ mysql-query_processor_iterations	0
 mysql-query_retries_on_failure	1
 mysql-reset_connection_algorithm	2
 mysql-server_capabilities	571947
-mysql-server_version	5.5.30
+mysql-server_version	5.7.26
 mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true

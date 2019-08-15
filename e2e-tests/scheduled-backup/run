@@ -10,7 +10,7 @@ run_recovery_check() {
     local cluster=$1
     local backup1=$2
 
-    restore_name="restore-name"
+    restore_name="restore-name-${backup1:22:32}"
 
     desc 'write data after backup'
     run_mysql \
@@ -29,7 +29,6 @@ run_recovery_check() {
     wait_backup_restore ${restore_name}
 
     kubectl_bin logs job/restore-job-${restore_name}-${cluster}
-    kubectl_bin delete pxc-restore/${restore_name}
     
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
@@ -49,6 +48,18 @@ get_backup_name() {
 
 wait_backup() {
     while [ -z "$(get_backup_name $1)" ]; do
+        sleep 10
+    done
+}
+
+get_running_backups_amount() {
+    kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+        | grep -v ":Succeeded" \
+        | wc -l
+}
+
+wait_all_backups() {
+    while [[ "$(get_running_backups_amount)" -ne 0 ]]; do
         sleep 10
     done
 }
@@ -107,6 +118,8 @@ main() {
     backup_name_minio=$(get_backup_name "minio")
     backup_name_gcp=$(get_backup_name "gcp-cs")
 
+    apply_config "$test_dir/conf/${cluster}3.yml"
+    wait_all_backups
     apply_config "$test_dir/conf/${cluster}1.yml"
 
     run_recovery_check "$cluster" "$backup_name_pvc"

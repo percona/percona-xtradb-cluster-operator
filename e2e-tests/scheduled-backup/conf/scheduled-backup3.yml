@@ -1,0 +1,59 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: scheduled-backup
+spec:
+  secretsName: my-cluster-secrets
+  sslSecretName: some-name-ssl
+  sslInternalSecretName: some-name-ssl-internal
+  pxc:
+    size: 3
+    image: -pxc
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+  proxysql:
+    enabled: true
+    size: 1
+    image: -proxysql
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+  pmm:
+    enabled: false
+  backup:
+    image: -backup
+    serviceAccountName: percona-xtradb-cluster-operator
+    storages:
+      pvc:
+        type: filesystem
+        volume:
+          persistentVolumeClaim:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 1Gi
+      aws-s3:
+        type: s3
+        s3:
+          region: us-east-1
+          bucket: operator-testing
+          credentialsSecret: aws-s3-secret
+      minio:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: http://minio-service:9000/
+      gcp-cs:
+        type: s3
+        s3:
+          credentialsSecret: gcp-cs-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: https://storage.googleapis.com

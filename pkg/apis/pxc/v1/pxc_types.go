@@ -22,6 +22,7 @@ type PerconaXtraDBClusterSpec struct {
 	PMM                   *PMMSpec                             `json:"pmm,omitempty"`
 	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
+	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 }
 
 type PXCScheduledBackup struct {
@@ -254,6 +255,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 
 	c := cr.Spec
 	if c.PXC != nil {
+		c.PXC.AllowUnsafeConfig = c.AllowUnsafeConfig
 		if c.PXC.VolumeSpec == nil {
 			return false, fmt.Errorf("PXC: volumeSpec should be specified")
 		}
@@ -303,6 +305,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+		c.ProxySQL.AllowUnsafeConfig = c.AllowUnsafeConfig
 		if c.ProxySQL.VolumeSpec == nil {
 			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")
 		}

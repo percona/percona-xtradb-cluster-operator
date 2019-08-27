@@ -28,7 +28,7 @@ by editing the configuration section of the deploy/cr.yaml.
            wsrep_debug=ON
 
 See the `Custom Resource options, PXC
-section <https://percona.github.io/percona-xtradb-cluster-operator/configure/operator.html>`__
+section <operator.html#operator-pxc-section>`_
 for more details
 
 Use a ConfigMap

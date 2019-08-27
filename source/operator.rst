@@ -1,8 +1,10 @@
-Custom Resource options
-=======================
+.. _operator.custom-resource-options:
+
+`Custom Resource options <operator.html#operator-custom-resource-options>`_
+===============================================================================
 
 The operator is configured via the spec section of the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
 file. This file contains the following spec sections to configure three
 main subsystems of the cluster:
 
@@ -19,12 +21,12 @@ main subsystems of the cluster:
     "backup", "subdoc", "Percona XtraDB Cluster backups section"
 
 
+.. _operator.pxc-section:
 
+`PXC Section <operator.html#operator-pxc-section>`_
+--------------------------------------------------------------------------------
 
-PXC Section
------------
-
-The ``pxc`` section in the deploy/cr.yaml file contains general
+The ``pxc`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains general
 configuration options for the Percona XtraDB Cluster.
 
 
@@ -63,10 +65,12 @@ configuration options for the Percona XtraDB Cluster.
   volumeSpec.resources.requests.storage, string, ``6Gi``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ size for the Percona XtraDB cluster.
   gracePeriod, int, ``600``, The `Kubernetes grace period when terminating a pod <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_
 
-ProxySQL Section
-----------------
+.. _operator.proxysql-section:
 
-The ``proxysql`` section in the deploy/cr.yaml file contains
+`ProxySQL Section <operator.html#operator-proxysql-section>`_
+--------------------------------------------------------------------------------
+
+The ``proxysql`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains
 configuration options for the ProxySQL daemon.
 
 .. csv-table:: proxysql Section
@@ -101,11 +105,12 @@ configuration options for the ProxySQL daemon.
   podDisruptionBudet.minAvailable, int, ``0``, `Kubernetes podDisruptionBudet <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ the number of pods that must be available after an eviction.
   gracePeriod, int, ``30``, The `Kubernetes grace period when terminating a pod <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_
 
+.. _operator.pmm-section:
 
-PMM Section
------------
+`PMM Section <operator.html#operator-pmm-section>`_
+--------------------------------------------------------------------------------
 
-The ``pmm`` section in the deploy/cr.yaml file contains configuration
+The ``pmm`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_  file contains configuration
 options for Percona Monitoring and Management.
 
 .. csv-table:: pmm Section
@@ -118,12 +123,13 @@ options for Percona Monitoring and Management.
   serverHost, string, ``monitoring-service``, Address of the PMM Server to collect data from the cluster.
   serverUser, string, ``pmm``, The `PMM Serve_User <https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html>`_. The PMM Server password should be configured using Secrets.
 
+.. _operator.backup-section:
 
-backup section
---------------
+`Backup Section <operator.html#operator-backup-section>`_
+--------------------------------------------------------------------------------
 
 The ``backup`` section in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
 file contains the following configuration options for the regular
 Percona XtraDB Cluster backups.
 

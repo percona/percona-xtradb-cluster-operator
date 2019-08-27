@@ -65,8 +65,8 @@ deployment.
 |              |             |               | users <https://github. |
 |              |             |               | com/sysown/proxysql/wi |
 |              |             |               | ki/Users-configuration |
-|              |             |               | #creating-a-new-user>` |
-|              |             |               | __                     |
+|              |             |               | #creating-a-new-       |
+|              |             |               | user>`__               |
 +--------------+-------------+---------------+------------------------+
 | Backup       | xtrabackup  | xtrabackup    | `User for run          |
 |              |             |               | backups <https://www.p |

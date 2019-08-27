@@ -87,5 +87,4 @@ Make changed options visible to the Percona XtraDB Cluster
 
 Do not forget to restart Percona XtraDB Cluster to ensure the cluster
 has updated the configuration (see details on how to connect in the
-`Install Percona XtraDB Cluster on Kubernetes
-page. <https://percona.github.io/percona-xtradb-cluster-operator/install/kubernetes>`__).
+`Install Percona XtraDB Cluster on Kubernetes <kubernetes.html>`_ page).

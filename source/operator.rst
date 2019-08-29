@@ -1,8 +1,10 @@
-Custom Resource options
-=======================
+.. _operator.custom-resource-options:
+
+`Custom Resource options <operator.html#operator-custom-resource-options>`_
+===============================================================================
 
 The operator is configured via the spec section of the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
 file. This file contains the following spec sections to configure three
 main subsystems of the cluster:
 
@@ -19,12 +21,12 @@ main subsystems of the cluster:
     "backup", "subdoc", "Percona XtraDB Cluster backups section"
 
 
+.. _operator.pxc-section:
 
+`PXC Section <operator.html#operator-pxc-section>`_
+--------------------------------------------------------------------------------
 
-PXC Section
------------
-
-The ``pxc`` section in the deploy/cr.yaml file contains general
+The ``pxc`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains general
 configuration options for the Percona XtraDB Cluster.
 
 
@@ -49,7 +51,7 @@ configuration options for the Percona XtraDB Cluster.
   resources.requests.cpu, string, ``600m``, `Kubernetes CPU requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
   resources.limits.memory, string, ``1G``, `Kubernetes memory limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
   nodeSelector, label, ``disktype: ssd``, `Kubernetes nodeSelector <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_
-  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `constraints`_ node anti-affinity constraint"
+  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `<https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity>`_ node anti-affinity constraint"
 
   affinity.advanced, subdoc,  , "In cases where the pods require complex tuning the `advanced` option turns off the `topologykey` effect. This setting allows the standard Kubernetes affinity constraints of any complexity to be used."
   affinity.tolerations, subdoc, ``node.alpha.kubernetes.io/unreachable``, `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
@@ -63,10 +65,12 @@ configuration options for the Percona XtraDB Cluster.
   volumeSpec.resources.requests.storage, string, ``6Gi``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ size for the Percona XtraDB cluster.
   gracePeriod, int, ``600``, The `Kubernetes grace period when terminating a pod <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_
 
-ProxySQL Section
-----------------
+.. _operator.proxysql-section:
 
-The ``proxysql`` section in the deploy/cr.yaml file contains
+`ProxySQL Section <operator.html#operator-proxysql-section>`_
+--------------------------------------------------------------------------------
+
+The ``proxysql`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains
 configuration options for the ProxySQL daemon.
 
 .. csv-table:: proxysql Section
@@ -81,13 +85,14 @@ configuration options for the ProxySQL daemon.
   imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the ProxySQL image.
   annotations, label, ``iam.amazonaws.com/role: role-arn``, `Kubernetes annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_ metadata.
   labels, label, ``rack: rack-22``, `Labels are key-value pairs attached to objects. <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_
+  servicetype, string,``ClusterIP``, Specifies the type of `Kubernetes Service <https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types>`_ to be used. 
   resources.requests.memory, string, ``1G``, `Kubernetes memory requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
   resources.requests.cpu, string, ``600m``, `Kubernetes CPU requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
   resources.limits.memory, string, ``1G``, `Kubernetes memory limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
   resources.limits.cpu, string, ``700m``, `Kubernetes CPU limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
   priorityClassName,string,``high-priority``, The `Kubernetes Pod Priority class <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass>`_ for ProxySQL.
   nodeSelector, label, ``disktype: ssd``, `Kubernetes nodeSelector <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_
-  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `constraints`_ node anti-affinity constraint"
+  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `<https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity>`_ node anti-affinity constraint"
   affinity.advanced, subdoc, , "If available it makes a `topologyKey <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity-beta-feature>`_ node affinity constraint to be ignored."
   affinity.tolerations, subdoc, """node.alpha.kubernetes.io/unreachable""", `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
   volumeSpec.emptyDir, string, ``{}``, `Kubernetes emptyDir volume <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created on a node and accessible to the PXC pod containers.
@@ -100,11 +105,12 @@ configuration options for the ProxySQL daemon.
   podDisruptionBudet.minAvailable, int, ``0``, `Kubernetes podDisruptionBudet <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ the number of pods that must be available after an eviction.
   gracePeriod, int, ``30``, The `Kubernetes grace period when terminating a pod <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_
 
+.. _operator.pmm-section:
 
-PMM Section
------------
+`PMM Section <operator.html#operator-pmm-section>`_
+--------------------------------------------------------------------------------
 
-The ``pmm`` section in the deploy/cr.yaml file contains configuration
+The ``pmm`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_  file contains configuration
 options for Percona Monitoring and Management.
 
 .. csv-table:: pmm Section
@@ -117,12 +123,13 @@ options for Percona Monitoring and Management.
   serverHost, string, ``monitoring-service``, Address of the PMM Server to collect data from the cluster.
   serverUser, string, ``pmm``, The `PMM Serve_User <https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html>`_. The PMM Server password should be configured using Secrets.
 
+.. _operator.backup-section:
 
-backup section
---------------
+`Backup Section <operator.html#operator-backup-section>`_
+--------------------------------------------------------------------------------
 
 The ``backup`` section in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
 file contains the following configuration options for the regular
 Percona XtraDB Cluster backups.
 
@@ -146,4 +153,3 @@ Percona XtraDB Cluster backups.
   schedule.schedule, string, ``0 0 * * 6``, Scheduled time to make a backup specified in the `crontab format <https://en.wikipedia.org/wiki/Cron>`_
   schedule.keep, int, ``3``, Number of stored backups
   schedule.storageName, string, ``s3-us-west``, The name of the storage for the backups configured in the ``storages`` or ``fs-pvc`` subsection.
-

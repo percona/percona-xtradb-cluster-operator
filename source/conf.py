@@ -37,9 +37,9 @@ project = u'Percona Kubernetes Operator for PXC'
 copyright = u'Percona LLC and/or its affiliates 2009 - 2019'
 
 # the short X.Y version
-version = '1.0.0'
+version = '1.1.0'
 # the full version including alpha/beta/rc tags.
-release = '1.0.0'
+release = '1.1.0'
 
 
 # List of patterns, relative to source directory, that match files and
@@ -222,7 +222,7 @@ htmlhelp_basename = 'pxcoperatorpxc'
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'percona-kubernetes-operator-for-pxc.tex', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
-     [u'Percona LLC and/or its affiliates 2009-2019'], 'manual'),
+     u'Percona LLC and/or its affiliates 2009-2019', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

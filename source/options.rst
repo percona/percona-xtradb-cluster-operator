@@ -28,7 +28,7 @@ by editing the configuration section of the deploy/cr.yaml.
            wsrep_debug=ON
 
 See the `Custom Resource options, PXC
-section <https://percona.github.io/percona-xtradb-cluster-operator/configure/operator.html>`__
+section <operator.html#operator-pxc-section>`_
 for more details
 
 Use a ConfigMap
@@ -87,5 +87,4 @@ Make changed options visible to the Percona XtraDB Cluster
 
 Do not forget to restart Percona XtraDB Cluster to ensure the cluster
 has updated the configuration (see details on how to connect in the
-`Install Percona XtraDB Cluster on Kubernetes
-page. <https://percona.github.io/percona-xtradb-cluster-operator/install/kubernetes>`__).
+`Install Percona XtraDB Cluster on Kubernetes <kubernetes.html>`_ page).

@@ -7,10 +7,32 @@ import (
 )
 
 func PMMClient(spec *api.PMMSpec, secrets string) corev1.Container {
+	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
+
+	for i := 30100; i <= 30200; i++ {
+		ports = append(ports, corev1.ContainerPort{ContainerPort: int32(i)})
+	}
+
 	pmmEnvs := []corev1.EnvVar{
 		{
 			Name:  "PMM_SERVER",
 			Value: spec.ServerHost,
+		},
+		{
+			Name:  "CLIENT_NAME",
+			Value: "pmm-k8s-agent",
+		},
+		{
+			Name:  "CLIENT_PORT_LISTEN",
+			Value: "7777",
+		},
+		{
+			Name:  "CLIENT_PORT_MIN",
+			Value: "30100",
+		},
+		{
+			Name:  "CLIENT_PORT_MAX",
+			Value: "30200",
 		},
 	}
 
@@ -23,6 +45,7 @@ func PMMClient(spec *api.PMMSpec, secrets string) corev1.Container {
 		Image:           spec.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		Env:             pmmEnvs,
+		Ports:           ports,
 	}
 }
 

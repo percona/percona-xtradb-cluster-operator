@@ -174,6 +174,18 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container 
 			Name:  "DB_ARGS",
 			Value: "--query-source=perfschema",
 		},
+		{
+			Name:  "DB_CLUSTER",
+			Value: app.Name,
+		},
+		{
+			Name:  "DB_HOST",
+			Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"],
+		},
+		{
+			Name:  "DB_PORT",
+			Value: "3306",
+		},
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 

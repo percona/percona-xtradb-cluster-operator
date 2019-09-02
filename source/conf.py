@@ -258,3 +258,17 @@ man_pages = [
     ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
      [u'Percona LLC and/or its affiliates 2009-2019'], 1)
 ]
+
+def ultimateReplace(app, docname, source):
+    result = source[0]
+    for key in app.config.ultimate_replacements:
+        result = result.replace(key, app.config.ultimate_replacements[key])
+    source[0] = result
+
+ultimate_replacements = {
+    "{{release}}" : release
+}
+
+def setup(app):
+   app.add_config_value('ultimate_replacements', {}, True)
+   app.connect('source-read', ultimateReplace)

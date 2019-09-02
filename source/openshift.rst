@@ -5,11 +5,11 @@ Install Percona XtraDB Cluster on OpenShift
 
    .. code:: bash
 
-      git clone -b release-1.0.0 https://github.com/percona/percona-xtradb-cluster-operator
+      git clone -b release-{{release}} https://github.com/percona/percona-xtradb-cluster-operator
       cd percona-xtradb-cluster-operator
 
-   **Note:** *It is crucial to specify the right branch with the\ `-b`
-   option while cloning the code on this step. Please be careful.*
+   .. note:: It is crucial to specify the right branch with the\ `-b`
+      option while cloning the code on this step. Please be careful.
 
 1. Now Custom Resource Definition for PXC should be created from the
    ``deploy/crd.yaml`` file. Custom Resource Definition extends the
@@ -23,8 +23,8 @@ Install Percona XtraDB Cluster on OpenShift
 
       $ oc apply -f deploy/crd.yaml
 
-   **Note:** *Setting Custom Resource Definition requires your user to
-   have cluster-admin role privileges.*
+   .. note:: Setting Custom Resource Definition requires your user to
+      have cluster-admin role privileges.
 
    An extra action is needed if you want to manage PXC cluster from a
    non-privileged user. Necessary permissions can be granted by applying
@@ -65,9 +65,9 @@ Install Percona XtraDB Cluster on OpenShift
    documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`__
    for details).
 
-   **Note:** *the following command can be used to get base64-encoded
-   password from a plain text string:*
-   ``$ echo -n 'plain-text-password' | base64``
+   .. note:: The following command can be used to get base64-encoded
+      password from a plain text string:
+      ``$ echo -n 'plain-text-password' | base64``
 
    After editing is finished, users secrets should be created (or
    updated with the new passwords) using the following command:

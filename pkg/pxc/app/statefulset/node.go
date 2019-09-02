@@ -171,10 +171,6 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container 
 			},
 		},
 		{
-			Name:  "DB_ARGS",
-			Value: "--query-source=perfschema",
-		},
-		{
 			Name:  "DB_CLUSTER",
 			Value: app.Name,
 		},

@@ -147,6 +147,32 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 					},
 				},
+				{
+					Name:  "DB_TYPE",
+					Value: "mysql",
+				},
+				{
+					Name:  "DB_USER",
+					Value: "monitor",
+				},
+				{
+					Name: "DB_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					},
+				},
+				{
+					Name:  "DB_CLUSTER",
+					Value: app.Name,
+				},
+				{
+					Name:  "DB_HOST",
+					Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"],
+				},
+				{
+					Name:  "DB_PORT",
+					Value: "3306",
+				},
 			},
 		},
 

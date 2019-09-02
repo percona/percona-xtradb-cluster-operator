@@ -209,10 +209,6 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container
 				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 			},
 		},
-		{
-			Name:  "DB_ARGS",
-			Value: "--dsn $(MONITOR_USER):$(MONITOR_PASSWORD)@tcp(localhost:6032)/",
-		},
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 

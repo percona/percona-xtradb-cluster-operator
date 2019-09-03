@@ -157,6 +157,7 @@ type PMMSpec struct {
 	ServerHost string `json:"serverHost,omitempty"`
 	Image      string `json:"image,omitempty"`
 	ServerUser string `json:"serverUser,omitempty"`
+	ServerPass string `json:"ServerPass,omitempty"`
 }
 
 type ResourcesList struct {

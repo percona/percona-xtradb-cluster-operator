@@ -25,6 +25,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		},
 		NodeSelector:                  podSpec.NodeSelector,
 		Tolerations:                   podSpec.Tolerations,
+		SchedulerName:                 podSpec.SchedulerName,
 		PriorityClassName:             podSpec.PriorityClassName,
 		ImagePullSecrets:              podSpec.ImagePullSecrets,
 		TerminationGracePeriodSeconds: podSpec.TerminationGracePeriodSeconds,

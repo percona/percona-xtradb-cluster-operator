@@ -51,7 +51,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 	if err != nil {
 		return fmt.Errorf("create proxyadmin users password: %v", err)
 	}
-	if cr.Spec.PMM.ServerPass != nil {
+	if &cr.Spec.PMM.ServerPass != nil {
 		data["pmmserver"] = []byte(cr.Spec.PMM.ServerPass)
 	}
 

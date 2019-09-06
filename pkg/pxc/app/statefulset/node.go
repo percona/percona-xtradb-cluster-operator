@@ -182,6 +182,10 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container 
 			Name:  "DB_PORT",
 			Value: "3306",
 		},
+		{
+			Name:  "DATA_SOURCE_NAME",
+			Value: "monitor:IncyabLALj5zjidn0ri@(localhost:3306)",
+		},
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 

@@ -175,16 +175,16 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container 
 			Value: app.Name,
 		},
 		{
-			Name:  "DB_HOST",
-			Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"],
+			Name: "DB_HOST",
+			Value: "localhost",
 		},
 		{
 			Name:  "DB_PORT",
 			Value: "3306",
 		},
 		{
-			Name:  "DATA_SOURCE_NAME",
-			Value: "monitor:IncyabLALj5zjidn0ri@(localhost:3306)",
+			Name:  "DB_ARGS",
+			Value: "--query-source=perfschema",
 		},
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)

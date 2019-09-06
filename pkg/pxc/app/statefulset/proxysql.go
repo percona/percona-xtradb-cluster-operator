@@ -229,7 +229,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container
 		},
 		{
 			Name:  "DB_PORT",
-			Value: "3306",
+			Value: "6032",
 		},
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)

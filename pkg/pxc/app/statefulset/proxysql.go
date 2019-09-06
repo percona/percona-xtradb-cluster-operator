@@ -225,7 +225,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container
 		},
 		{
 			Name:  "DB_HOST",
-			Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"],
+			Value: "localhost",
 		},
 		{
 			Name:  "DB_PORT",

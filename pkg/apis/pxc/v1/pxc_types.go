@@ -31,6 +31,7 @@ type PXCScheduledBackup struct {
 	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
+	SchedulerName      string                        `json:"schedulerName,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
@@ -135,6 +136,7 @@ type PodSpec struct {
 	ServiceType                   *corev1.ServiceType           `json:"serviceType,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
 	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
+	SchedulerName                 string                        `json:"schedulerName,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

@@ -32,6 +32,9 @@ type PXCScheduledBackup struct {
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
 	SchedulerName      string                        `json:"schedulerName,omitempty"`
+	Affinity           *PodAffinity                  `json:"affinity,omitempty"`
+	Tolerations        []corev1.Toleration           `json:"tolerations,omitempty"`
+	PriorityClassName  string                        `json:"priorityClassName,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {

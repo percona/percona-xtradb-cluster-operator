@@ -28,8 +28,19 @@ void popArtifactFile(String FILE_NAME) {
         """
     }
 }
+
+TestsReport = '| Test name  | Status |\\r\\n| ------------- | ------------- |'
+testsReportMap = [:]
+
+void makeReport() {
+    for ( test in testsReportMap ) {
+        TestsReport = TestsReport + "\\r\\n| ${test.key} | ${test.value} |"
+    }
+}
+
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     popArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME")
+    testsReportMap[TEST_NAME] = 'failed'
     sh """
         if [ -f "$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME" ]; then
             echo Skip $TEST_NAME test
@@ -40,6 +51,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             touch $GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME
         fi
     """
+    testsReportMap[TEST_NAME] = 'passed'
     pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME")
 
     sh """
@@ -173,8 +185,8 @@ pipeline {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     if (env.CHANGE_URL) {
-                        unstash 'IMAGE'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                        makeReport()
                         withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                             sh """
                                 curl -v -X POST \
@@ -188,6 +200,16 @@ pipeline {
             }
             script {
                 if (env.CHANGE_URL) {
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                        makeReport()
+                        sh """
+                            curl -v -X POST \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                -d "{\\"body\\":\\"${TestsReport}\\"}" \
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
+                        """
+                    }
+
                     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                     sh '''
                         source $HOME/google-cloud-sdk/path.bash.inc

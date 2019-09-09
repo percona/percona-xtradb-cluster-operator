@@ -84,7 +84,9 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 									    type: "cron"
 									spec:
 									  pxcCluster: "${pxcCluster}"
-									  storageName: "` + spec.StorageName + `"
+										storageName: "` + spec.StorageName + `"
+										schedulerName: "` + spec.SchedulerName + `"
+										priorityClassName: "` + spec.PriorityClassName + `"
 							EOF
 							`,
 						},

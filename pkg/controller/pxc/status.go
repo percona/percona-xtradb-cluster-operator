@@ -123,7 +123,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		})
 	}
-
+	if time.Now().Unix()-cr.Status.Conditions[len(cr.Status.Conditions)-1].LastTransitionTime.Unix() < int64(10) {
+		cr.Status.Status = api.AppStateInit
+		return nil
+	}
 	return r.writeStatus(cr)
 }
 

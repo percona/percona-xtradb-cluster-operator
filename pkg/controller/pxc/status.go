@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
@@ -124,7 +127,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		})
 	}
 
-	if cr.Status.UpdateInProgress {
+	err = r.setUpgradeInProgress(cr)
+	if err != nil {
+		log.Info(err.Error())
+	}
+
+	if cr.Status.UpgradeInProgress {
 		cr.Status.Status = api.AppStateInit
 	}
 
@@ -140,6 +148,21 @@ func (r *ReconcilePerconaXtraDBCluster) writeStatus(cr *api.PerconaXtraDBCluster
 		if err != nil {
 			return fmt.Errorf("send update: %v", err)
 		}
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) setUpgradeInProgress(cr *api.PerconaXtraDBCluster) error {
+	sfsObj := &appsv1.StatefulSet{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name + "-" + app.Name, Namespace: cr.Namespace}, sfsObj)
+	if err != nil {
+		return err
+	}
+
+	cr.Status.UpgradeInProgress = false
+	if sfsObj.Status.Replicas > sfsObj.Status.UpdatedReplicas {
+		cr.Status.UpgradeInProgress = true
 	}
 
 	return nil

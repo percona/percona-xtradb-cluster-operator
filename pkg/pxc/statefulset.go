@@ -86,11 +86,6 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 
 	obj.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
 
-	cr.Status.UpdateInProgress = false
-	if obj.Status.Replicas > obj.Status.UpdatedReplicas {
-		cr.Status.UpdateInProgress = true
-	}
-
 	return obj, nil
 }
 

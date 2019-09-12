@@ -127,12 +127,13 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		})
 	}
 
-	err = r.setUpgradeInProgress(cr)
+	inProgres, err := r.upgradeInProgress(cr)
 	if err != nil {
-		log.Info(err.Error())
+		return fmt.Errorf("check upgrade progress: %v", err)
 	}
 
-	if cr.Status.UpgradeInProgress {
+	switch {
+	case inProgres:
 		cr.Status.Status = api.AppStateInit
 	}
 
@@ -153,19 +154,19 @@ func (r *ReconcilePerconaXtraDBCluster) writeStatus(cr *api.PerconaXtraDBCluster
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) setUpgradeInProgress(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBCluster) (bool, error) {
 	sfsObj := &appsv1.StatefulSet{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name + "-" + app.Name, Namespace: cr.Namespace}, sfsObj)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	cr.Status.UpgradeInProgress = false
-	if sfsObj.Status.Replicas > sfsObj.Status.UpdatedReplicas {
-		cr.Status.UpgradeInProgress = true
-	}
+	//cr.Status.UpgradeInProgress = false
+	//if sfsObj.Status.Replicas > sfsObj.Status.UpdatedReplicas {
+	//	cr.Status.UpgradeInProgress = true
+	//}
 
-	return nil
+	return sfsObj.Status.Replicas > sfsObj.Status.UpdatedReplicas, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.App, podSpec *api.PodSpec, namespace string) (api.AppStatus, error) {

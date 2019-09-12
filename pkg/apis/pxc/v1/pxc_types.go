@@ -50,13 +50,12 @@ const (
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
 type PerconaXtraDBClusterStatus struct {
-	PXC               AppStatus          `json:"pxc,omitempty"`
-	ProxySQL          AppStatus          `json:"proxysql,omitempty"`
-	Host              string             `json:"host,omitempty"`
-	Messages          []string           `json:"message,omitempty"`
-	Status            AppState           `json:"state,omitempty"`
-	Conditions        []ClusterCondition `json:"conditions,omitempty"`
-	UpgradeInProgress bool               `json:"upgradeInProgress"`
+	PXC        AppStatus          `json:"pxc,omitempty"`
+	ProxySQL   AppStatus          `json:"proxysql,omitempty"`
+	Host       string             `json:"host,omitempty"`
+	Messages   []string           `json:"message,omitempty"`
+	Status     AppState           `json:"state,omitempty"`
+	Conditions []ClusterCondition `json:"conditions,omitempty"`
 }
 
 type ConditionStatus string

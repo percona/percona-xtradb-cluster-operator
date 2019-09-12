@@ -16,6 +16,7 @@ spec:
   pxc:
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.1.0-pxc
+#    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300
 #    forceUnsafeBootstrap: false
@@ -75,6 +76,7 @@ spec:
     enabled: true
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.1.0-proxysql
+#    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:

@@ -1,7 +1,6 @@
 package v1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -20,12 +19,10 @@ type PerconaXtraDBClusterBackupList struct {
 type PerconaXtraDBClusterBackup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              PXCBackupSpec       `json:"spec"`
-	Status            PXCBackupStatus     `json:"status,omitempty"`
-	SchedulerName     string              `json:"schedulerName,omitempty"`
-	Affinity          *PodAffinity        `json:"affinity,omitempty"`
-	Tolerations       []corev1.Toleration `json:"tolerations,omitempty"`
-	PriorityClassName string              `json:"priorityClassName,omitempty"`
+	Spec              PXCBackupSpec   `json:"spec"`
+	Status            PXCBackupStatus `json:"status,omitempty"`
+	SchedulerName     string          `json:"schedulerName,omitempty"`
+	PriorityClassName string          `json:"priorityClassName,omitempty"`
 }
 
 type PXCBackupSpec struct {

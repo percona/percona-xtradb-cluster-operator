@@ -141,7 +141,6 @@ type PodSpec struct {
 	SchedulerName                 string                        `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
 	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
-	SchedulerName                 string                        `json:"schedulerName,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

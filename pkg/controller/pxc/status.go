@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
@@ -63,7 +66,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	if cr.Status.PXC.Message != "" {
 		cr.Status.Messages = append(cr.Status.Messages, "PXC: "+cr.Status.PXC.Message)
 	}
-
+	inProgres := false
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		proxyStatus, err := r.appStatus(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr.Namespace)
 		if err != nil {
@@ -95,6 +98,17 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if cr.Status.ProxySQL.Message != "" {
 			cr.Status.Messages = append(cr.Status.Messages, "ProxySQL: "+cr.Status.ProxySQL.Message)
 		}
+		inProgres, err = r.upgradeInProgress(cr, "proxysql")
+		if err != nil {
+			return fmt.Errorf("check proxysql upgrade progress: %v", err)
+		}
+	}
+
+	if !inProgres {
+		inProgres, err = r.upgradeInProgress(cr, app.Name)
+		if err != nil {
+			return fmt.Errorf("check pxc upgrade progress: %v", err)
+		}
 	}
 
 	switch {
@@ -124,6 +138,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		})
 	}
 
+	if inProgres {
+		cr.Status.Status = api.AppStateInit
+	}
+
 	return r.writeStatus(cr)
 }
 
@@ -139,6 +157,15 @@ func (r *ReconcilePerconaXtraDBCluster) writeStatus(cr *api.PerconaXtraDBCluster
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBCluster, appName string) (bool, error) {
+	sfsObj := &appsv1.StatefulSet{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name + "-" + app.Name, Namespace: cr.Namespace}, sfsObj)
+	if err != nil {
+		return false, err
+	}
+	return sfsObj.Status.Replicas > sfsObj.Status.UpdatedReplicas, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.App, podSpec *api.PodSpec, namespace string) (api.AppStatus, error) {

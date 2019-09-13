@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"

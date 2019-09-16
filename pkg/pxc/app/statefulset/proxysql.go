@@ -191,8 +191,8 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 	}
 }
 
-func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container {
-	ct := app.PMMClient(spec, secrets)
+func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, availableVersion bool) corev1.Container {
+	ct := app.PMMClient(spec, secrets, availableVersion)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -209,6 +209,9 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container
 				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 			},
 		},
+	}
+
+	dbEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_USER",
 			Value: "monitor",
@@ -232,7 +235,11 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container
 			Value: "6032",
 		},
 	}
+
 	ct.Env = append(ct.Env, pmmEnvs...)
+	if availableVersion {
+		ct.Env = append(ct.Env, dbEnvs...)
+	}
 
 	return ct
 }

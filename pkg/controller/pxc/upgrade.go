@@ -78,7 +78,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	// pmm container
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName)
+		pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, cr.VersionLessThanLast())
 		newContainers = append(newContainers, pmmC)
 	}
 

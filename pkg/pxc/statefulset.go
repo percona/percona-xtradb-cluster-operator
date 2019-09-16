@@ -54,7 +54,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pod.Containers = append(pod.Containers, sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName))
+		pod.Containers = append(pod.Containers, sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, cr.VersionLessThanLast()))
 	}
 
 	ls := sfs.Labels()

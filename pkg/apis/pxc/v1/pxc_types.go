@@ -230,7 +230,7 @@ type ServerVersion struct {
 type App interface {
 	AppContainer(spec *PodSpec, secrets string) corev1.Container
 	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
-	PMMContainer(spec *PMMSpec, secrets string) corev1.Container
+	PMMContainer(spec *PMMSpec, secrets string, availableVersion bool) corev1.Container
 	Volumes(podSpec *PodSpec) *Volume
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
 	Labels() map[string]string
@@ -373,14 +373,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 		}
 	}
 
-	if !cr.acceptableVersionForPMM() {
-		cr.Spec.PMM = nil
-	}
-
 	return changed, nil
 }
 
-func (cr *PerconaXtraDBCluster) acceptableVersionForPMM() bool {
+func (cr *PerconaXtraDBCluster) VersionLessThanLast() bool {
 	apiVersion := cr.APIVersion
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
@@ -399,7 +395,7 @@ func (cr *PerconaXtraDBCluster) acceptableVersionForPMM() bool {
 	if err != nil {
 		return false
 	}
-	return currentVersion.GreaterThanOrEqual(checkVersion)
+	return currentVersion.LessThan(checkVersion)
 }
 
 const AffinityTopologyKeyOff = "none"

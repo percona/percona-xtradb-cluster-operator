@@ -6,7 +6,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
-func PMMClient(spec *api.PMMSpec, secrets string) corev1.Container {
+func PMMClient(spec *api.PMMSpec, secrets string, availableVersion bool) corev1.Container {
 	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
 
 	for i := 30100; i <= 30200; i++ {
@@ -18,6 +18,9 @@ func PMMClient(spec *api.PMMSpec, secrets string) corev1.Container {
 			Name:  "PMM_SERVER",
 			Value: spec.ServerHost,
 		},
+	}
+
+	clientEnvs := []corev1.EnvVar{
 		{
 			Name:  "CLIENT_NAME",
 			Value: "pmm-k8s-agent",
@@ -40,13 +43,19 @@ func PMMClient(spec *api.PMMSpec, secrets string) corev1.Container {
 		pmmEnvs = append(pmmEnvs, pmmEnvServerUser(spec.ServerUser, secrets)...)
 	}
 
-	return corev1.Container{
+	container := corev1.Container{
 		Name:            "pmm-client",
 		Image:           spec.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		Env:             pmmEnvs,
-		Ports:           ports,
 	}
+
+	if availableVersion {
+		container.Env = append(container.Env, clientEnvs...)
+		container.Ports = ports
+	}
+
+	return container
 }
 
 func pmmEnvServerUser(user, secrets string) []corev1.EnvVar {

@@ -6,7 +6,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
-func PMMClient(spec *api.PMMSpec, secrets string, availableVersion bool) corev1.Container {
+func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Container {
 	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
 
 	for i := 30100; i <= 30200; i++ {
@@ -46,7 +46,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, availableVersion bool) corev1.
 		Env:             pmmEnvs,
 	}
 
-	if availableVersion {
+	if v120OrGreater {
 		container.Env = append(container.Env, clientEnvs...)
 		container.Ports = ports
 	}

@@ -191,8 +191,8 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 	}
 }
 
-func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, availableVersion bool) corev1.Container {
-	ct := app.PMMClient(spec, secrets, availableVersion)
+func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Container {
+	ct := app.PMMClient(spec, secrets, v120OrGreater)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -244,7 +244,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, availableVersion
 	}
 
 	ct.Env = append(ct.Env, pmmEnvs...)
-	switch availableVersion {
+	switch v120OrGreater {
 	case true:
 		ct.Env = append(ct.Env, dbEnvs...)
 	default:

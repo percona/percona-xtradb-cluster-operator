@@ -130,7 +130,7 @@ spec:
     enabled: false
     image: perconalab/pmm-client:1.17.1
     serverHost: monitoring-service:443
-    serverUser: admin
+    serverUser: pmm
   backup:
     image: percona/percona-xtradb-cluster-operator:1.2.0-backup
     serviceAccountName: percona-xtradb-cluster-operator

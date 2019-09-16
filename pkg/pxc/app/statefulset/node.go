@@ -159,8 +159,8 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 
 func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
 
-func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, availableVersion bool) corev1.Container {
-	ct := app.PMMClient(spec, secrets, availableVersion)
+func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Container {
+	ct := app.PMMClient(spec, secrets, v120OrGreater)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -177,7 +177,6 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, availableVersion 
 				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 			},
 		},
-
 		{
 			Name:  "DB_ARGS",
 			Value: "--query-source=perfschema",
@@ -200,7 +199,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, availableVersion 
 	}
 
 	ct.Env = append(ct.Env, pmmEnvs...)
-	if availableVersion {
+	if v120OrGreater {
 		ct.Env = append(ct.Env, clusterEnvs...)
 	}
 

@@ -51,9 +51,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 	if err != nil {
 		return fmt.Errorf("create proxyadmin users password: %v", err)
 	}
-	if cr.Spec.PMM != nil && !cr.VersionLessThan120() {
-		data["pmmserver"] = []byte(cr.Spec.PMM.ServerPass)
-	}
 
 	secretObj = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

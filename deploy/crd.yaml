@@ -17,6 +17,9 @@ spec:
     - name: v1
       storage: true
       served: true
+    - name: v1-2-0
+      storage: false
+      served: true
     - name: v1alpha1
       storage: false
       served: true

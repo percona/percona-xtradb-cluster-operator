@@ -15,7 +15,7 @@ spec:
 #  updateStrategy: RollingUpdate
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.1.0-pxc
+    image: percona/percona-xtradb-cluster-operator:1.2.0-pxc
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300
 #    forceUnsafeBootstrap: false
@@ -74,7 +74,7 @@ spec:
   proxysql:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.1.0-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.2.0-proxysql
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:
@@ -131,7 +131,7 @@ spec:
     serverUser: admin
     serverPass: admin
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.1.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.2.0-backup
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

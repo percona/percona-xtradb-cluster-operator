@@ -21,6 +21,8 @@ type PerconaXtraDBClusterBackup struct {
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              PXCBackupSpec   `json:"spec"`
 	Status            PXCBackupStatus `json:"status,omitempty"`
+	SchedulerName     string          `json:"schedulerName,omitempty"`
+	PriorityClassName string          `json:"priorityClassName,omitempty"`
 }
 
 type PXCBackupSpec struct {

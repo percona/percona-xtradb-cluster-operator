@@ -34,13 +34,18 @@ type PXCScheduledBackup struct {
 	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
+	Resources          *PodResources                 `json:"resources,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
-	Name        string `json:"name,omitempty"`
-	Schedule    string `json:"schedule,omitempty"`
-	Keep        int    `json:"keep,omitempty"`
-	StorageName string `json:"storageName,omitempty"`
+	Name              string              `json:"name,omitempty"`
+	Schedule          string              `json:"schedule,omitempty"`
+	Keep              int                 `json:"keep,omitempty"`
+	StorageName       string              `json:"storageName,omitempty"`
+	SchedulerName     string              `json:"schedulerName,omitempty"`
+	Affinity          *PodAffinity        `json:"affinity,omitempty"`
+	Tolerations       []corev1.Toleration `json:"tolerations,omitempty"`
+	PriorityClassName string              `json:"priorityClassName,omitempty"`
 }
 type AppState string
 
@@ -136,6 +141,7 @@ type PodSpec struct {
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
 	ServiceType                   *corev1.ServiceType           `json:"serviceType,omitempty"`
+	SchedulerName                 string                        `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
 	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
 }
@@ -161,6 +167,7 @@ type PMMSpec struct {
 	Image      string `json:"image,omitempty"`
 	ServerUser string `json:"serverUser,omitempty"`
 	ServerPass string `json:"serverPass,omitempty"`
+  Resources  *PodResources `json:"resources,omitempty"`
 }
 
 type ResourcesList struct {
@@ -173,6 +180,7 @@ type BackupStorageSpec struct {
 	S3           BackupStorageS3Spec `json:"s3,omitempty"`
 	Volume       *VolumeSpec         `json:"volume,omitempty"`
 	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Resources    *PodResources       `json:"resources,omitempty"`
 }
 
 type BackupStorageType string
@@ -305,6 +313,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 
 		if c.Pause {
 			c.PXC.Size = 0
+		}
+
+		if c.PMM != nil {
+			c.PMM.Resources = c.PXC.Resources
 		}
 	}
 

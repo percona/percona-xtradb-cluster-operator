@@ -236,9 +236,19 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, availableVersion
 		},
 	}
 
+	dbArgsEnv := []corev1.EnvVar{
+		{
+			Name:  "DB_ARGS",
+			Value: "--dsn $(MONITOR_USER):$(MONITOR_PASSWORD)@tcp(localhost:6032)/",
+		},
+	}
+
 	ct.Env = append(ct.Env, pmmEnvs...)
-	if availableVersion {
+	switch availableVersion {
+	case true:
 		ct.Env = append(ct.Env, dbEnvs...)
+	default:
+		ct.Env = append(ct.Env, dbArgsEnv...)
 	}
 
 	return ct

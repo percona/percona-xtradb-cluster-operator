@@ -22,10 +22,6 @@ func PMMClient(spec *api.PMMSpec, secrets string, availableVersion bool) corev1.
 
 	clientEnvs := []corev1.EnvVar{
 		{
-			Name:  "CLIENT_NAME",
-			Value: "pmm-k8s-agent",
-		},
-		{
 			Name:  "CLIENT_PORT_LISTEN",
 			Value: "7777",
 		},

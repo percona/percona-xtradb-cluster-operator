@@ -162,12 +162,12 @@ type PodResources struct {
 }
 
 type PMMSpec struct {
-	Enabled    bool   `json:"enabled,omitempty"`
-	ServerHost string `json:"serverHost,omitempty"`
-	Image      string `json:"image,omitempty"`
-	ServerUser string `json:"serverUser,omitempty"`
-	ServerPass string `json:"serverPass,omitempty"`
-  Resources  *PodResources `json:"resources,omitempty"`
+	Enabled    bool          `json:"enabled,omitempty"`
+	ServerHost string        `json:"serverHost,omitempty"`
+	Image      string        `json:"image,omitempty"`
+	ServerUser string        `json:"serverUser,omitempty"`
+	ServerPass string        `json:"serverPass,omitempty"`
+	Resources  *PodResources `json:"resources,omitempty"`
 }
 
 type ResourcesList struct {
@@ -388,7 +388,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	return changed, nil
 }
 
-func (cr *PerconaXtraDBCluster) VersionLessThanLast() bool {
+func (cr *PerconaXtraDBCluster) VersionLessThan120() bool {
 	apiVersion := cr.APIVersion
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster

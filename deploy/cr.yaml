@@ -127,11 +127,10 @@ spec:
 #      minAvailable: 0
     gracePeriod: 30
   pmm:
-    enabled: true
-    image: perconalab/pmm-client-fb:PR-410-ab7f2a5
+    enabled: false
+    image: perconalab/pmm-client:1.17.1
     serverHost: monitoring-service:443
     serverUser: admin
-    serverPass: admin
   backup:
     image: percona/percona-xtradb-cluster-operator:1.2.0-backup
     serviceAccountName: percona-xtradb-cluster-operator

@@ -9,7 +9,7 @@ import (
 func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Container {
 	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
 
-	for i := 30100; i <= 30200; i++ {
+	for i := 30100; i <= 30105; i++ {
 		ports = append(ports, corev1.ContainerPort{ContainerPort: int32(i)})
 	}
 
@@ -31,7 +31,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Con
 		},
 		{
 			Name:  "CLIENT_PORT_MAX",
-			Value: "30200",
+			Value: "30105",
 		},
 	}
 

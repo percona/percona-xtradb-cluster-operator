@@ -128,7 +128,7 @@ spec:
     gracePeriod: 30
   pmm:
     enabled: false
-    image: perconalab/pmm-client:1.17.1
+    image: percona/percona-xtradb-cluster-operator:1.2.0-pmm
     serverHost: monitoring-service:443
     serverUser: pmm
   backup:

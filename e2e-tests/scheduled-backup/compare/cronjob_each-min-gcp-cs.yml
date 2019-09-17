@@ -37,7 +37,8 @@ spec:
               \ name: \"cron-${pxcCluster:0:16}-$(date -u \"+%Y%m%d%H%M%S\")-${suffix}\"\n\t\t\t\t\t\t\t\t\t
               \ labels:\n\t\t\t\t\t\t\t\t\t    ancestor: \"each-min-gcp-cs\"\n\t\t\t\t\t\t\t\t\t
               \   cluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t    type: \"cron\"\n\t\t\t\t\t\t\t\t\tspec:\n\t\t\t\t\t\t\t\t\t
-              \ pxcCluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  storageName: \"gcp-cs\"\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
+              \ pxcCluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  storageName: \"gcp-cs\"\n\t\t\t\t\t\t\t\t\t
+              \ schedulerName: \"\"\n\t\t\t\t\t\t\t\t\t  priorityClassName: \"\"\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
             env:
             - name: pxcCluster
               value: scheduled-backup

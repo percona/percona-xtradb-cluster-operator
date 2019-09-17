@@ -394,6 +394,7 @@ get_qan_values() {
 
 cat_config() {
     cat "$1" \
+        | $sed -e "s#apiVersion: pxc.percona.com/v1\$#apiVersion: pxc.percona.com/v1-2-0#" \
         | $sed -e "s#image:.*-pxc\$#image: $IMAGE_PXC#" \
         | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
         | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#"

@@ -200,6 +200,14 @@
   revision = "c63ab54fda8f77302f8d414e19933f2b6026a089"
 
 [[projects]]
+  digest = "1:53a4ebb0e1eb24a4644a3eec9457ba6ead5476a9ea5af43bf2c8b8b1a8ce47f2"
+  name = "github.com/hashicorp/go-version"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "ac23dc3fea5d1a983c43f6a0f6e2c13f0195d8bd"
+  version = "v1.2.0"
+
+[[projects]]
   digest = "1:b42cde0e1f3c816dd57f57f7bbcf05ca40263ad96f168714c130c611fc0856a6"
   name = "github.com/hashicorp/golang-lru"
   packages = [
@@ -224,6 +232,7 @@
   packages = [
     "pkg/apis/certmanager",
     "pkg/apis/certmanager/v1alpha1",
+    "pkg/client/clientset/versioned/scheme",
   ]
   pruneopts = "NT"
   revision = "193c5e22d6d2ad56956b97c7e4899267bd4ac3ac"
@@ -763,7 +772,9 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/hashicorp/go-version",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
+    "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/scheme",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/ready",

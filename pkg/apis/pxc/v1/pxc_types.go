@@ -1,8 +1,11 @@
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 
+	v "github.com/hashicorp/go-version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -234,7 +237,7 @@ type ServerVersion struct {
 type App interface {
 	AppContainer(spec *PodSpec, secrets string) corev1.Container
 	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
-	PMMContainer(spec *PMMSpec, secrets string) corev1.Container
+	PMMContainer(spec *PMMSpec, secrets string, v120OrGreater bool) corev1.Container
 	Volumes(podSpec *PodSpec) *Volume
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
 	Labels() map[string]string
@@ -382,6 +385,28 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	}
 
 	return changed, nil
+}
+
+func (cr *PerconaXtraDBCluster) VersionLessThan120() bool {
+	apiVersion := cr.APIVersion
+	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
+		var newCR PerconaXtraDBCluster
+		err := json.Unmarshal([]byte(lastCR), &newCR)
+		if err != nil {
+			return false
+		}
+		apiVersion = newCR.APIVersion
+	}
+	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
+	checkVersion, err := v.NewVersion("1.2.0")
+	if err != nil {
+		return false
+	}
+	currentVersion, err := v.NewVersion(crVersion)
+	if err != nil {
+		return false
+	}
+	return currentVersion.LessThan(checkVersion)
 }
 
 const AffinityTopologyKeyOff = "none"

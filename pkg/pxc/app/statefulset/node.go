@@ -159,8 +159,8 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 
 func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
 
-func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container {
-	ct := app.PMMClient(spec, secrets)
+func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Container {
+	ct := app.PMMClient(spec, secrets, v120OrGreater)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -182,7 +182,26 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container 
 			Value: "--query-source=perfschema",
 		},
 	}
+
+	clusterEnvs := []corev1.EnvVar{
+		{
+			Name:  "DB_CLUSTER",
+			Value: app.Name,
+		},
+		{
+			Name:  "DB_HOST",
+			Value: "localhost",
+		},
+		{
+			Name:  "DB_PORT",
+			Value: "3306",
+		},
+	}
+
 	ct.Env = append(ct.Env, pmmEnvs...)
+	if v120OrGreater {
+		ct.Env = append(ct.Env, clusterEnvs...)
+	}
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{

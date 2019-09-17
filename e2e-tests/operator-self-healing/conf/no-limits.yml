@@ -1,5 +1,5 @@
-apiVersion: "pxc.percona.com/v1"
-kind: "PerconaXtraDBCluster"
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
 metadata:
   name: no-limits
 spec:

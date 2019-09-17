@@ -191,8 +191,8 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 	}
 }
 
-func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container {
-	ct := app.PMMClient(spec, secrets)
+func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Container {
+	ct := app.PMMClient(spec, secrets, v120OrGreater)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -209,12 +209,47 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string) corev1.Container
 				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 			},
 		},
+	}
+
+	dbEnvs := []corev1.EnvVar{
+		{
+			Name:  "DB_USER",
+			Value: "monitor",
+		},
+		{
+			Name: "DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+			},
+		},
+		{
+			Name:  "DB_CLUSTER",
+			Value: app.Name,
+		},
+		{
+			Name:  "DB_HOST",
+			Value: "localhost",
+		},
+		{
+			Name:  "DB_PORT",
+			Value: "6032",
+		},
+	}
+
+	dbArgsEnv := []corev1.EnvVar{
 		{
 			Name:  "DB_ARGS",
 			Value: "--dsn $(MONITOR_USER):$(MONITOR_PASSWORD)@tcp(localhost:6032)/",
 		},
 	}
+
 	ct.Env = append(ct.Env, pmmEnvs...)
+	switch v120OrGreater {
+	case true:
+		ct.Env = append(ct.Env, dbEnvs...)
+	default:
+		ct.Env = append(ct.Env, dbArgsEnv...)
+	}
 
 	return ct
 }

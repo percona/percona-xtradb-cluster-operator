@@ -76,6 +76,12 @@ spec:
       - env:
         - name: PMM_SERVER
           value: monitoring-service
+        - name: CLIENT_PORT_LISTEN
+          value: "7777"
+        - name: CLIENT_PORT_MIN
+          value: "30100"
+        - name: CLIENT_PORT_MAX
+          value: "30105"
         - name: DB_TYPE
           value: proxysql
         - name: MONITOR_USER
@@ -85,11 +91,40 @@ spec:
             secretKeyRef:
               key: monitor
               name: my-cluster-secrets
-        - name: DB_ARGS
-          value: --dsn $(MONITOR_USER):$(MONITOR_PASSWORD)@tcp(localhost:6032)/
+        - name: DB_USER
+          value: monitor
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        - name: DB_CLUSTER
+          value: pxc
+        - name: DB_HOST
+          value: localhost
+        - name: DB_PORT
+          value: "6032"
         imagePullPolicy: Always
         name: pmm-client
-        resources: {}
+        ports:
+        - containerPort: 7777
+          protocol: TCP
+        - containerPort: 30100
+          protocol: TCP
+        - containerPort: 30101
+          protocol: TCP
+        - containerPort: 30102
+          protocol: TCP
+        - containerPort: 30103
+          protocol: TCP
+        - containerPort: 30104
+          protocol: TCP
+        - containerPort: 30105
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 300m
+            memory: 500M
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
       - args:

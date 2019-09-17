@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1
+apiVersion: pxc.percona.com/v1-2-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -15,7 +15,7 @@ spec:
 #  updateStrategy: RollingUpdate
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.1.0-pxc
+    image: percona/percona-xtradb-cluster-operator:1.2.0-pxc
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300
@@ -75,7 +75,7 @@ spec:
   proxysql:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.1.0-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.2.0-proxysql
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -128,11 +128,11 @@ spec:
     gracePeriod: 30
   pmm:
     enabled: false
-    image: perconalab/pmm-client:1.17.1
+    image: percona/percona-xtradb-cluster-operator:1.2.0-pmm
     serverHost: monitoring-service
     serverUser: pmm
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.1.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.2.0-backup
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

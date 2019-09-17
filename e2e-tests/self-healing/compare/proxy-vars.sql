@@ -27,7 +27,7 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.0.5-percona-1.1
+admin-version	2.0.6-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
 mysql-add_ldap_user_comment	
@@ -39,6 +39,7 @@ mysql-autocommit_false_not_reusable	false
 mysql-binlog_reader_connect_retry_msec	3000
 mysql-client_found_rows	true
 mysql-client_multi_statements	true
+mysql-client_session_track_gtid	true
 mysql-commands_stats	true
 mysql-connect_retries_delay	1
 mysql-connect_retries_on_failure	10
@@ -56,8 +57,10 @@ mysql-default_schema	information_schema
 mysql-default_sql_mode	
 mysql-default_time_zone	SYSTEM
 mysql-enforce_autocommit_on_reads	false
+mysql-eventslog_default_log	0
 mysql-eventslog_filename	
 mysql-eventslog_filesize	104857600
+mysql-eventslog_format	1
 mysql-forward_autocommit	false
 mysql-free_connections_pct	10
 mysql-have_compress	true
@@ -117,6 +120,7 @@ mysql-query_digests_lowercase	false
 mysql-query_digests_max_digest_length	2048
 mysql-query_digests_max_query_length	65000
 mysql-query_digests_normalize_digest_text	false
+mysql-query_digests_replace_null	false
 mysql-query_digests_track_hostname	false
 mysql-query_processor_iterations	0
 mysql-query_retries_on_failure	1
@@ -127,6 +131,7 @@ mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true
 mysql-sessions_sort	true
+mysql-set_query_lock_on_hostgroup	1
 mysql-show_processlist_extended	0
 mysql-shun_on_failures	5
 mysql-shun_recovery_time_sec	10

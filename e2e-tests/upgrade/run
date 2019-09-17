@@ -9,14 +9,18 @@ test_dir=$(realpath $(dirname $0))
 CONTAINERS=(pxc proxysql)
 CLUSTER='upgrade'
 CLUSTER_SIZE=3
+API_TO_UPDATE=${API}
 IMAGE_TO_UPDATE=${IMAGE}
 IMAGE_PXC_TO_UPDATE=${IMAGE_PXC}
+IMAGE_PMM_TO_UPDATE=${IMAGE_PMM}
 IMAGE_PROXY_TO_UPDATE=${IMAGE_PROXY}
 IMAGE_BACKUP_TO_UPDATE=${IMAGE_BACKUP}
-IMAGE='percona/percona-xtradb-cluster-operator:1.0.0'
-IMAGE_PXC='percona/percona-xtradb-cluster-operator:1.0.0-pxc'
-IMAGE_PROXY='percona/percona-xtradb-cluster-operator:1.0.0-proxysql'
-IMAGE_BACKUP='percona/percona-xtradb-cluster-operator:1.0.0-backup'
+API='pxc.percona.com/v1'
+IMAGE='percona/percona-xtradb-cluster-operator:1.1.0'
+IMAGE_PXC='percona/percona-xtradb-cluster-operator:1.1.0-pxc'
+IMAGE_PMM='perconalab/pmm-client:1.17.1'
+IMAGE_PROXY='percona/percona-xtradb-cluster-operator:1.1.0-proxysql'
+IMAGE_BACKUP='percona/percona-xtradb-cluster-operator:1.1.0-backup'
 OPERATOR_NAME='percona-xtradb-cluster-operator'
 
 
@@ -93,21 +97,24 @@ main() {
         exit 1
     fi
 
-    compare_generation "2"
+    compare_generation "1"
     sleep 20
     check_pxc_livenes "${CLUSTER}" $CLUSTER_SIZE
 
     IMAGE_PXC=$IMAGE_PXC_TO_UPDATE
+    IMAGE_PMM=$IMAGE_PMM_TO_UPDATE
     IMAGE_PROXY=$IMAGE_PROXY_TO_UPDATE
     IMAGE_BACKUP=$IMAGE_BACKUP_TO_UPDATE
     kubectl_bin patch pxc "${CLUSTER}" --type=merge --patch '{
+        "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"'"$API_TO_UPDATE"'\"}" }},
         "spec": {"pxc":{ "image": "'"$IMAGE_PXC_TO_UPDATE"'" },
+            "pmm":      { "image": "'"$IMAGE_PMM_TO_UPDATE"'" },
             "proxysql": { "image": "'"$IMAGE_PROXY_TO_UPDATE"'" },
             "backup":   { "image": "'"$IMAGE_BACKUP_TO_UPDATE"'" }
         }}'
 
     sleep 5
-    compare_generation "3"
+    compare_generation "2"
 
     check_pxc_livenes "${CLUSTER}" $CLUSTER_SIZE
 

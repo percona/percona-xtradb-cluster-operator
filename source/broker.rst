@@ -3,11 +3,12 @@ Deploy Percona XtraDB Cluster with Service Broker
 
 Percona Service Broker provides the `Open Service Broker <https://www.openservicebrokerapi.org/>`_ object to facilitate the operator deployment within high-level visual tools. Following steps are needed to use it while installing the Percona XtraDB Cluster on the OpenShift platform:
 
-1. The Percona Service Broker is to be deployed based on the ``deploy/percona-broker.yaml`` file. To use it you should first enable the `Service Catalog <https://docs.openshift.com/container-platform/4.1/applications/service_brokers/installing-service-catalog.html>`_, which can be done with the following command:
+1. The Percona Service Broker is to be deployed based on the ``percona-broker.yaml`` file. To use it you should first enable the `Service Catalog <https://docs.openshift.com/container-platform/4.1/applications/service_brokers/installing-service-catalog.html>`_, which can be done with the following command:
 
    .. code:: bash
 
       $ oc patch servicecatalogapiservers cluster --patch '{"spec":{"managementState":"Managed"}}' --type=merge
+      $ oc patch servicecatalogcontrollermanagers cluster --patch '{"spec":{"managementState":"Managed"}}' --type=merge
 
    When Service Catalog is enabled, download and install the Percona Service
    Broker in a typical OpenShift way:

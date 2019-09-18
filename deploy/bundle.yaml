@@ -17,6 +17,9 @@ spec:
     - name: v1
       storage: true
       served: true
+    - name: v1-2-0
+      storage: false
+      served: true
     - name: v1alpha1
       storage: false
       served: true
@@ -294,7 +297,7 @@ spec:
       serviceAccountName: percona-xtradb-cluster-operator
       containers:
         - name: percona-xtradb-cluster-operator
-          image: percona/percona-xtradb-cluster-operator:1.1.0
+          image: percona/percona-xtradb-cluster-operator:1.2.0
           ports:
           - containerPort: 60000
             name: metrics

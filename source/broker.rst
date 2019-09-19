@@ -1,4 +1,4 @@
-Deploy Percona server for MongoDB with Service Broker
+Deploy Percona XtraDB Cluster with Service Broker
 =====================================================
 
 Percona Service Broker provides the `Open Service Broker <https://www.openservicebrokerapi.org/>`_ object to facilitate the operator deployment within high-level visual tools. Following steps are needed to use it while installing the Percona XtraDB Cluster on the OpenShift platform:

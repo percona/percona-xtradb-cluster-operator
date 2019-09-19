@@ -3,9 +3,14 @@ Update Percona XtraDB Cluster Operator
 
 Starting from the version 1.1.0 the Percona Kubernetes Operator for Percona XtraDB
 Cluster allows upgrades to newer versions. This upgrade can be done either in
-semi-automatic or in manual mode.
+semi-automatic or in manual mode. 
 
 .. note:: The manual update mode is the recomended way for a production cluster.
+
+.. note:: Only the incremental update to a nearest minor version is supported
+   (for example, update from 1.1.0 to 1.2.0).
+   To update to a newer version, which differs from the current version by more
+   than one, make several incremental updates sequentially.
 
 Semi-automatic update
 ---------------------

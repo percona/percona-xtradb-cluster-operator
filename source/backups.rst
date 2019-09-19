@@ -99,13 +99,13 @@ Making on-demand backup
 To make on-demand backup, user should use YAML file with correct names
 for the backup and the PXC Cluster, and correct PVC settings. The
 example of such file is
-`deploy/backup/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/cr.yaml>`__.
+`deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`__.
 
 When the backup config file is ready, actual backup command is executed:
 
 ::
 
-   kubectl apply -f deploy/backup/cr.yaml
+   kubectl apply -f deploy/backup/backup.yaml
 
 **Note:** *Storing backup settings in a separate file can be replaced by
 passing its content to the ``kubectl apply`` command as follows:*

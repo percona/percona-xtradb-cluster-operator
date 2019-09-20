@@ -24,7 +24,6 @@ Percona Service Broker provides the `Open Service Broker <https://www.openservic
 2. Now login to your `OpenShift Console Web UI <https://github.com/openshift/console>`_ and switch to the percona-service-broker project. You can check its Pod running on a correspondent page:
 
    .. image:: img/broker-pods.png
-      :width: 800px
       :align: center
       :alt: Broker in the OpenShift Console
 
@@ -32,7 +31,6 @@ Percona Service Broker provides the `Open Service Broker <https://www.openservic
    Operator:
 
    .. image:: img/broker-dev-catalog.png
-      :width: 800px
       :align: center
       :alt: Developer Catalog
 
@@ -43,7 +41,6 @@ Percona Service Broker provides the `Open Service Broker <https://www.openservic
 3. Clicking the *Create Service Instance* button guides you to the next page:
 
    .. image:: img/broker-create-service-instance.png
-      :width: 800px
       :align: center
       :alt: Developer Catalog
 
@@ -54,7 +51,6 @@ Percona Service Broker provides the `Open Service Broker <https://www.openservic
    the process of the cluster creation process:
 
    .. image:: img/broker-creation.png
-      :width: 800px
       :align: center
       :alt: Developer Catalog
 

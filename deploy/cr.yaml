@@ -31,6 +31,7 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
+#   schedulerName: "default"
     resources:
       requests:
         memory: 1G
@@ -84,6 +85,7 @@ spec:
 #    labels:
 #      rack: rack-22
 #    serviceType: ClusterIP
+#    schedulerName: "default"
     resources:
       requests:
         memory: 1G
@@ -136,6 +138,12 @@ spec:
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials
+#    serviceAccountName: "default"
+#    priorityClassName: "deafault"
+#    resources:
+#      requests:
+#        memory: 1G
+#        cpu: 600m
     storages:
       s3-us-west:
         type: s3

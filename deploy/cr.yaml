@@ -138,10 +138,6 @@ spec:
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials
-#    resources:
-#      requests:
-#        memory: 1G
-#        cpu: 600m
     storages:
       s3-us-west:
         type: s3

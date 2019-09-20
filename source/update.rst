@@ -30,7 +30,7 @@ Semi-automatic update
         "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pxc.percona.com/v1-2-0\"}" }},
         "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:1.2.0-pxc" },
             "proxysql": { "image": "percona/percona-xtradb-cluster-operator:1.2.0-proxysql" },
-            "backup":   { "image": "percona/percona-xtradb-cluster-operator:1.2.0-backup" }
+            "backup":   { "image": "percona/percona-xtradb-cluster-operator:1.2.0-backup" },
             "pmm":      { "image": "percona/percona-xtradb-cluster-operator:1.2.0-pmm" }
         }}'
 

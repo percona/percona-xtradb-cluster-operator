@@ -138,8 +138,6 @@ spec:
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials
-#    serviceAccountName: "default"
-#    priorityClassName: "deafault"
 #    resources:
 #      requests:
 #        memory: 1G
@@ -148,7 +146,7 @@ spec:
       s3-us-west:
         type: s3
 #        nodeSelector:
-#          env: online
+#          storage: tape
         s3:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
@@ -156,7 +154,7 @@ spec:
       fs-pvc:
         type: filesystem
 #        nodeSelector:
-#          env: online
+#          storage: tape
         volume:
           persistentVolumeClaim:
 #            storageClassName: standard

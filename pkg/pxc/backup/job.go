@@ -70,7 +70,8 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluste
 						},
 					},
 				},
-				NodeSelector: cluster.Backup.Storages[spec.StorageName].NodeSelector,
+				NodeSelector:  cluster.Backup.Storages[spec.StorageName].NodeSelector,
+				SchedulerName: spec.SchedulerName,
 			},
 		},
 	}

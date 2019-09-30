@@ -53,11 +53,11 @@ in the OpenShift environment.
 
    .. code:: bash
 
-      $ docker pull docker.io/perconalab/percona-xtradb-cluster-operator@sha256:8895ff4647602dcbcabbf6ea5d1be1611e9d7a9769c3bb3415c3a73aba2adda0
+      $ docker pull docker.io/perconalab/percona-xtradb-cluster-operator@sha256:841c07eef30605080bfe80e549f9332ab6b9755fcbc42aacbf86e4ac9ef0e444
       Trying to pull repository docker.io/perconalab/percona-xtradb-cluster-operator ...
-      sha256:8895ff4647602dcbcabbf6ea5d1be1611e9d7a9769c3bb3415c3a73aba2adda0: Pulling from docker.io/perconalab/percona-xtradb-cluster-operator
-      Digest: sha256:8895ff4647602dcbcabbf6ea5d1be1611e9d7a9769c3bb3415c3a73aba2adda0
-      Status: Image is up to date for docker.io/perconalab/percona-xtradb-cluster-operator@sha256:8895ff4647602dcbcabbf6ea5d1be1611e9d7a9769c3bb3415c3a73aba2adda0
+      sha256:841c07eef30605080bfe80e549f9332ab6b9755fcbc42aacbf86e4ac9ef0e444: Pulling from docker.io/perconalab/percona-xtradb-cluster-operator
+      Digest: sha256:841c07eef30605080bfe80e549f9332ab6b9755fcbc42aacbf86e4ac9ef0e444
+      Status: Image is up to date for docker.io/perconalab/percona-xtradb-cluster-operator@sha256:841c07eef30605080bfe80e549f9332ab6b9755fcbc42aacbf86e4ac9ef0e444
 
 5. The following way is used to push an image to the custom registry
    (into the OpenShift pxc project):
@@ -65,9 +65,9 @@ in the OpenShift environment.
    .. code:: bash
 
       $ docker tag \
-          docker.io/perconalab/percona-xtradb-cluster-operator@sha256:8895ff4647602dcbcabbf6ea5d1be1611e9d7a9769c3bb3415c3a73aba2adda0 \
-          172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:0.3.0
-      $ docker push 172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:0.3.0
+          docker.io/perconalab/percona-xtradb-cluster-operator@sha256:841c07eef30605080bfe80e549f9332ab6b9755fcbc42aacbf86e4ac9ef0e444 \
+          172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:1.2.0
+      $ docker push 172.30.162.173:5000/pxc/percona-xtradb-cluster-operator:1.2.0
 
 6. Check the image in the OpenShift registry with the following command:
 
@@ -75,7 +75,7 @@ in the OpenShift environment.
 
       $ oc get is
       NAME                              DOCKER REPO                                                            TAGS      UPDATED
-      percona-xtradb-cluster-operator   docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator   0.3.0     2 hours ago
+      percona-xtradb-cluster-operator   docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator   1.2.0     2 hours ago
 
 7. When the custom registry image is Ok, put a Docker Repo + Tag string
    (it should look like
@@ -98,69 +98,38 @@ Percona certified images
 Following table presents Percona’s certified images to be used with the
 Percona XtraDB Cluster Operator:
 
-0.3.0
-~~~~~
 
-+--------------------------------+-------------------------------------+
-| Image                          | Digest                              |
-+================================+=====================================+
-| percona/percona-xtradb-cluster | f4a0d604bb13678cbcd72fd261d1b2a287a |
-| -operator:0.3.0                | 09e69270b1f91b04b46c85f9592dc       |
-+--------------------------------+-------------------------------------+
-| percona/percona-xtradb-cluster | 51a478ff24e6e16315e090e7c8b372ad589 |
-| -operator:0.3.0-pxc            | 09d9560a8c5b428c1ca9588912bb2       |
-+--------------------------------+-------------------------------------+
-| percona/percona-xtradb-cluster | 673b954eec7395ca4571024a62f8faab389 |
-| -operator:0.3.0-proxysql       | 7b183f3134e220ad5332866afa4a1       |
-+--------------------------------+-------------------------------------+
-| percona/percona-xtradb-cluster | a205e8f86993373ece95d9bcfc3068b7f83 |
-| -operator:0.3.0-backup         | f96d61582dbe07d7a4b6cb359cc03       |
-+--------------------------------+-------------------------------------+
-| perconalab/pmm-client:1.17.1   | f762cda2eda9ef17bfd1242ede70ee72595 |
-|                                | 611511d8d0c5c46931ecbc968e9af       |
-+--------------------------------+-------------------------------------+
+      .. list-table::
+         :widths: 15 30
+         :header-rows: 1
 
-.. _section-1:
-
-0.2.0
-~~~~~
-
-+------------------------------+---------------------------------------+
-| Image                        | Digest                                |
-+==============================+=======================================+
-| perconalab/percona-xtradb-cl | 8895ff4647602dcbcabbf6ea5d1be1611e9d7 |
-| uster-operator:0.2.0         | a9769c3bb3415c3a73aba2adda0           |
-+------------------------------+---------------------------------------+
-| perconalab/pxc-openshift:0.2 | a9f6568cc71e1e7b5bbfe69b3ea561e2c3bae |
-| .0                           | 92a75caba7ffffa88bd3c730bc9           |
-+------------------------------+---------------------------------------+
-| perconalab/proxysql-openshif | cdd114b82f34312ef73419282a695063387c7 |
-| t:0.2.0                      | 15d3e80677902938f991ef94f13           |
-+------------------------------+---------------------------------------+
-| perconalab/backupjob-openshi | 1ded5511a59fc2cc5a6b23234495e6d243d5f |
-| ft:0.2.0                     | 8b55e1b6061781779e19887cdc9           |
-+------------------------------+---------------------------------------+
-| perconalab/pmm-client:1.17.0 | efdce369d5fb29b0a1b03a7026dfbc2efe07b |
-|                              | 618471aba5db308d0c21b8e118d           |
-+------------------------------+---------------------------------------+
-
-.. _section-2:
-
-0.1.0
-~~~~~
-
-+------------------------------+---------------------------------------+
-| Image                        | Digest                                |
-+==============================+=======================================+
-| perconalab/percona-xtradb-cl | 9e4b44ef6859e995d70c0ef7db9be9b9c2875 |
-| uster-operator:0.1.0         | d1116a2b6ff7e5a7f5e5fcb39b7           |
-+------------------------------+---------------------------------------+
-| perconalab/pxc-openshift:0.1 | c72eb45c3f103f105f864f05668a2b029bb6a |
-| .0                           | 3ba9fc8a1d0467040c6c83f3e53           |
-+------------------------------+---------------------------------------+
-| perconalab/proxysql-openshif | 482b6f4161aafc78585b3e377a4aec9a983f4 |
-| t:0.1.0                      | e4860e0bd8576f0e39eee52909d           |
-+------------------------------+---------------------------------------+
-| perconalab/pmm-client:1.17.0 | efdce369d5fb29b0a1b03a7026dfbc2efe07b |
-|                              | 618471aba5db308d0c21b8e118d           |
-+------------------------------+---------------------------------------+
+         * - Image
+           - Digest
+         * - percona/percona-xtradb-cluster-operator:1.2.0
+           - 841c07eef30605080bfe80e549f9332ab6b9755fcbc42aacbf86e4ac9ef0e444
+         * - percona/percona-xtradb-cluster-operator:1.2.0-pxc
+           - d38482fcbe0d0f169e41eefd889404e967e8abc65a6890cbab4dd1f3ea2229df
+         * - percona/percona-xtradb-cluster-operator:1.2.0-proxysql
+           - 1385b77d3498cebc201426821fda620e0884e8fdaba6756240c9821948864af3
+         * - percona/percona-xtradb-cluster-operator:1.2.0-backup
+           - bd45486507321de67ff8ad2fa40c4f55fc20bd15db6369b61c73a5db11bb57cd
+         * - percona/percona-xtradb-cluster-operator:1.2.0-broker
+           - c0903f41539767fcfe49da815e1c3bfefe4e48a36912b64fb5350b09b51cab32
+         * - percona/percona-xtradb-cluster-operator:1.2.0-pmm
+           - 28bbb6693689a15c407c85053755334cd25d864e632ef7fed890bc85726cfb68
+         * - percona/percona-xtradb-cluster-operator:1.1.0
+           - fbfc2fc5c3afc80f18dddc5a1c3439fab89950081cf86c3439a226d4c97198eb
+         * - percona/percona-xtradb-cluster-operator:1.1.0-pxc
+           - a66a9212760e823af3c666a78e4b480cc7cc0d8be5cfa29c8141319c0036706e
+         * - percona/percona-xtradb-cluster-operator:1.1.0-proxysql
+           - ac952afb3721eafe86431155da7c3f7f90c4e800491c400a4222b650fd393357
+         * - percona/percona-xtradb-cluster-operator:1.1.0-backup
+           - 4852da039dd2a1d3ae9243ec634c14fd9f9e5af18a1fc6c7c9d25d4287dd6941
+         * - percona/percona-xtradb-cluster-operator:1.0.0
+           - b9e97c66a69f448898f8d43b92dd0314aaf53997b70824056dd3d0aec62488eb
+         * - percona/percona-xtradb-cluster-operator:1.0.0-pxc
+           - 6797c8492cff8092b39cdce75d7d85b9c2d4d08c4f6e0ba7b05c21562a54f168
+         * - percona/percona-xtradb-cluster-operator:1.0.0-proxysql
+           - b9360f1a8dc1e57e5ae7442373df02869ddc4da69ef9190190edde70b465235e
+         * - percona/percona-xtradb-cluster-operator:1.0.0-backup
+           - 652be455c8faf2d610de15e3568ff57fe8630fa353b6d97ff1c6b91d44741f8b

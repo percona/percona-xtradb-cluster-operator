@@ -11,6 +11,7 @@ $dir/limits/run
 $dir/scaling/run
 $dir/scaling-proxysql/run
 $dir/monitoring/run
+$dir/monitoring-2-0/run
 $dir/affinity/run
 $dir/demand-backup/run
 $dir/scheduled-backup/run

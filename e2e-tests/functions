@@ -370,9 +370,16 @@ get_service_endpoint() {
 get_metric_values() {
     local metric=$1
     local instance=$2
+    local user_pass=$3
     local start=$($date -u "+%s" -d "-1 minute")
     local end=$($date -u "+%s")
     local endpoint=$(get_service_endpoint monitoring-service)
+    if [[ "x${user_pass}" != "x" ]]; then
+        curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7Bcontainer_name%3D%22$instance%22%7D&start=$start&end=$end&step=60" \
+            | jq '.data.result[0].values[][1]' \
+            | grep '^"[0-9]'
+        return $?
+    fi
     curl -s -k "https://$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7Binstance%3D%22$instance%22%7D&start=$start&end=$end&step=60" \
         | jq '.data.result[0].values[][1]' \
         | grep '^"[0-9]'
@@ -393,6 +400,49 @@ get_qan_values() {
     curl -s -k "https://$endpoint/qan-api/qan/profile/$uuid?begin=$start&end=$end&offset=0" \
         | jq '.Query[].Fingerprint'
 }
+
+get_qan20_values() {
+     local instance=$1
+     local user_pass=$2
+     local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
+     local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
+     local endpoint=$(get_service_endpoint monitoring-service)
+
+     cat > payload.json << EOF
+{
+   "columns":[
+      "load",
+      "num_queries",
+      "query_time"
+   ],
+   "first_seen": false,
+   "group_by": "queryid",
+   "include_only_fields": [],
+   "keyword": "",
+   "labels": [
+       {
+           "key": "cluster",
+           "value": ["pxc"]
+   }],
+   "limit": 10,
+   "offset": 0,
+   "order_by": "-load",
+   "main_metric": "load",
+   "period_start_from": "$($date -u -d '-12 hour' '+%Y-%m-%dT%H:%M:%S%:z')",
+   "period_start_to": "$($date -u '+%Y-%m-%dT%H:%M:%S%:z')"
+}
+EOF
+
+    if [[ "x${user_pass}" != "x" ]]; then
+        curl -s -k -XPOST -d @payload.json "https://${user_pass}@$endpoint/v0/qan/GetReport" \
+            | jq '.rows[].fingerprint'
+    else
+        curl -s -k -XPOST -d @payload.json "https://$endpoint/v0/qan/GetReport" \
+            | jq '.rows[].fingerprint'
+    fi
+    rm -f payload.json
+}
+
 
 cat_config() {
     cat "$1" \

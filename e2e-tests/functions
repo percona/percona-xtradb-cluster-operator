@@ -374,13 +374,8 @@ get_metric_values() {
     local start=$($date -u "+%s" -d "-1 minute")
     local end=$($date -u "+%s")
     local endpoint=$(get_service_endpoint monitoring-service)
-    if [[ "x${user_pass}" != "x" ]]; then
-        curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7Bcontainer_name%3D%22$instance%22%7D&start=$start&end=$end&step=60" \
-            | jq '.data.result[0].values[][1]' \
-            | grep '^"[0-9]'
-        return $?
-    fi
-    curl -s -k "https://$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7Binstance%3D%22$instance%22%7D&start=$start&end=$end&step=60" \
+
+    curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7bcontainer_name%3d%22$instance%22%7d%20or%20$metric%7binstance%3d%22$instance%22%7d&start=$start&end=$end&step=60" \
         | jq '.data.result[0].values[][1]' \
         | grep '^"[0-9]'
 }
@@ -433,13 +428,9 @@ get_qan20_values() {
 }
 EOF
 
-    if [[ "x${user_pass}" != "x" ]]; then
-        curl -s -k -XPOST -d @payload.json "https://${user_pass}@$endpoint/v0/qan/GetReport" \
-            | jq '.rows[].fingerprint'
-    else
-        curl -s -k -XPOST -d @payload.json "https://$endpoint/v0/qan/GetReport" \
-            | jq '.rows[].fingerprint'
-    fi
+    curl -s -k -XPOST -d @payload.json "https://${user_pass}@$endpoint/v0/qan/GetReport" \
+        | jq '.rows[].fingerprint'
+
     rm -f payload.json
 }
 

@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+cluster="monitoring"
+
+create_namespace $namespace
+deploy_helm $namespace
+deploy_operator
+
+
+desc 'install PMM Server'
+platform=kubernetes
+if [ "$OPENSHIFT" == 1 ]; then
+    platform=openshift
+fi
+helm del --purge monitoring || :
+helm install --name monitoring --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-2.0.0.tgz
+
+desc 'create PXC cluster'
+spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
+
+desc 'check if pmm-client container enabled'
+compare_kubectl statefulset/$cluster-pxc
+compare_kubectl statefulset/$cluster-proxysql
+
+desc 'check mysql metrics'
+get_metric_values node_boot_time_seconds $cluster-pxc-0 admin:admin
+get_metric_values mysql_global_status_uptime $cluster-pxc-0 admin:admin
+
+desc 'check proxysql metrics'
+get_metric_values node_boot_time_seconds $cluster-proxysql-0 admin:admin
+get_metric_values proxysql_connection_pool_status $cluster-proxysql-0 admin:admin
+
+# wait for QAN
+sleep 90
+
+desc 'check QAN data'
+get_qan20_values $cluster-pxc-0 admin:admin
+
+helm delete --purge monitoring
+destroy $namespace

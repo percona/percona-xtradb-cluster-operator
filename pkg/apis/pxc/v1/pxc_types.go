@@ -41,17 +41,16 @@ type PXCScheduledBackup struct {
 	Tolerations        []corev1.Toleration           `json:"tolerations,omitempty"`
 	Annotations        map[string]string             `json:"annotations,omitempty"`
 	Labels             map[string]string             `json:"labels,omitempty"`
+	PriorityClassName  string                        `json:"priorityClassName,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
-	Name              string              `json:"name,omitempty"`
-	Schedule          string              `json:"schedule,omitempty"`
-	Keep              int                 `json:"keep,omitempty"`
-	StorageName       string              `json:"storageName,omitempty"`
-	SchedulerName     string              `json:"schedulerName,omitempty"`
-	Affinity          *PodAffinity        `json:"affinity,omitempty"`
-	Tolerations       []corev1.Toleration `json:"tolerations,omitempty"`
-	PriorityClassName string              `json:"priorityClassName,omitempty"`
+	Name        string              `json:"name,omitempty"`
+	Schedule    string              `json:"schedule,omitempty"`
+	Keep        int                 `json:"keep,omitempty"`
+	StorageName string              `json:"storageName,omitempty"`
+	Affinity    *PodAffinity        `json:"affinity,omitempty"`
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 type AppState string
 

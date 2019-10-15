@@ -87,12 +87,12 @@ wait_backup() {
 }
 
 wait_backup_restore() {
-    local name=$1
+    local backup_name=$1
 
     set +o xtrace
     retry=0
-    echo -n $name
-    until kubectl_bin get pxc-restore/$name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+    echo -n $backup_name
+    until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
         sleep 1
         echo -n .
         let retry+=1
@@ -102,19 +102,20 @@ wait_backup_restore() {
             exit 1
         fi
     done
+    echo
     set -o xtrace
 }
 
 deploy_operator() {
     desc 'start operator'
-    sed -e "s^image: .*^image: ${IMAGE}^" \
-        ${src_dir}/deploy/operator.yaml \
-        > ${tmp_dir}/operator.yml
 
     kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
-    kubectl_bin apply \
-        -f ${src_dir}/deploy/rbac.yaml \
-        -f ${tmp_dir}/operator.yml
+    kubectl_bin apply -f ${src_dir}/deploy/rbac.yaml
+
+    cat ${src_dir}/deploy/operator.yaml \
+        | sed -e "s^image: .*^image: ${IMAGE}^" \
+        | kubectl_bin apply -f -
+
     sleep 2
 
     wait_pod $(get_operator_pod)
@@ -305,6 +306,12 @@ run_pumba() {
     kubectl_bin exec -it "$(get_pumba)" -- /pumba -l info ${cmd}
 }
 
+deploy_cert_manager() {
+    kubectl_bin create namespace cert-manager || :
+    kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
+    kubectl_bin apply -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml --validate=false || : 2>/dev/null
+}
+
 destroy() {
     local namespace="$1"
 
@@ -378,6 +385,7 @@ get_metric_values() {
     curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7bcontainer_name%3d%22$instance%22%7d%20or%20$metric%7binstance%3d%22$instance%22%7d&start=$start&end=$end&step=60" \
         | jq '.data.result[0].values[][1]' \
         | grep '^"[0-9]'
+
 }
 
 get_qan_values() {
@@ -397,13 +405,13 @@ get_qan_values() {
 }
 
 get_qan20_values() {
-     local instance=$1
-     local user_pass=$2
-     local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
-     local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
-     local endpoint=$(get_service_endpoint monitoring-service)
+    local instance=$1
+    local user_pass=$2
+    local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
+    local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
+    local endpoint=$(get_service_endpoint monitoring-service)
 
-     cat > payload.json << EOF
+    cat > payload.json << EOF
 {
    "columns":[
       "load",
@@ -430,10 +438,8 @@ EOF
 
     curl -s -k -XPOST -d @payload.json "https://${user_pass}@$endpoint/v0/qan/GetReport" \
         | jq '.rows[].fingerprint'
-
     rm -f payload.json
 }
-
 
 cat_config() {
     cat "$1" \
@@ -478,12 +484,6 @@ spinup_pxc() {
     for i in $(seq 0 $(($size-1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
     done
-}
-
-deploy_cert_manager() {
-    kubectl_bin create namespace cert-manager || :
-    kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
-    kubectl_bin apply -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml --validate=false || : 2>/dev/null
 }
 
 kubectl_bin() {

@@ -152,6 +152,7 @@ pipeline {
                         runTest('storage', 'basic')
                         runTest('limits', 'basic')
                         runTest('monitoring', 'basic')
+                        runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
                    }
                 }

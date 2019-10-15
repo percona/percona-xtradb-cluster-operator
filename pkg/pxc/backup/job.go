@@ -137,6 +137,24 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 	job.Template.Spec.Volumes = []corev1.Volume{
 		pvc,
 	}
+
+	if cr.Spec.Backup.Resources != nil {
+		job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Resources
+	}
+	job.Template.Spec.SchedulerName = cr.Spec.Backup.SchedulerName
+	if len(cr.Spec.Backup.Tolerations) > 0 {
+		job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
+	}
+	if cr.Spec.Backup.Affinity.Advanced != nil {
+		job.Template.Spec.Affinity = cr.Spec.Backup.Affinity.Advanced
+	}
+	if len(cr.Spec.Backup.Labels) > 0 {
+		job.Template.Labels = cr.Spec.Backup.Labels
+	}
+	if len(cr.Spec.Backup.Annotations) > 0 {
+		job.Template.Annotations = cr.Spec.Backup.Annotations
+	}
+
 	appendStorageSecret(job, cr)
 
 	return nil
@@ -182,6 +200,23 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 		Value: strings.TrimLeft(u.Path, "/"),
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
+
+	if cr.Spec.Backup.Resources != nil {
+		job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Resources
+	}
+	job.Template.Spec.SchedulerName = cr.Spec.Backup.SchedulerName
+	if len(cr.Spec.Backup.Tolerations) > 0 {
+		job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
+	}
+	if cr.Spec.Backup.Affinity.Advanced != nil {
+		job.Template.Spec.Affinity = cr.Spec.Backup.Affinity.Advanced
+	}
+	if len(cr.Spec.Backup.Labels) > 0 {
+		job.Template.Labels = cr.Spec.Backup.Labels
+	}
+	if len(cr.Spec.Backup.Annotations) > 0 {
+		job.Template.Annotations = cr.Spec.Backup.Annotations
+	}
 
 	// add SSL volumes
 	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}

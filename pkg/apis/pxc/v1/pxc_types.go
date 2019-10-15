@@ -35,7 +35,12 @@ type PXCScheduledBackup struct {
 	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
-	Resources          *PodResources                 `json:"resources,omitempty"`
+	Resources          *corev1.ResourceRequirements  `json:"resources,omitempty"`
+	SchedulerName      string                        `json:"schedulerName,omitempty"`
+	Affinity           *PodAffinity                  `json:"affinity,omitempty"`
+	Tolerations        []corev1.Toleration           `json:"tolerations,omitempty"`
+	Annotations        map[string]string             `json:"annotations,omitempty"`
+	Labels             map[string]string             `json:"labels,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {

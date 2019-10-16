@@ -175,7 +175,8 @@ pipeline {
                         CreateCluster('backups')
                         runTest('recreate', 'backups')
                         runTest('demand-backup', 'backups')
-                        runTest('scheduled-backup', 'backups')
+                        // disable temporary, due to CLOUD-422
+                        // runTest('scheduled-backup', 'backups')
                     }
                 }
             }

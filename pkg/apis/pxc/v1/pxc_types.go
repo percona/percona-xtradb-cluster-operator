@@ -45,12 +45,10 @@ type PXCScheduledBackup struct {
 }
 
 type PXCScheduledBackupSchedule struct {
-	Name        string              `json:"name,omitempty"`
-	Schedule    string              `json:"schedule,omitempty"`
-	Keep        int                 `json:"keep,omitempty"`
-	StorageName string              `json:"storageName,omitempty"`
-	Affinity    *PodAffinity        `json:"affinity,omitempty"`
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Schedule    string `json:"schedule,omitempty"`
+	Keep        int    `json:"keep,omitempty"`
+	StorageName string `json:"storageName,omitempty"`
 }
 type AppState string
 

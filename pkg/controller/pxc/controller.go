@@ -371,19 +371,22 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	if cr.Spec.PXC.Configuration != "" {
 		stsApp := statefulset.NewNode(cr)
 		ls := stsApp.Labels()
-		configMap := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
-		err := setControllerReference(cr, configMap, r.scheme)
+		configMap, err := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 		if err != nil {
-			return err
+			return errors.Wrap(err, "new config map")
+		}
+		err = setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set controller ref")
 		}
 		err = r.client.Create(context.TODO(), configMap)
 		if err != nil && k8serrors.IsAlreadyExists(err) {
 			err = r.client.Update(context.TODO(), configMap)
 			if err != nil {
-				return fmt.Errorf("update ConfigMap: %v", err)
+				return errors.Wrap(err, "update ConfigMap")
 			}
 		} else if err != nil {
-			return fmt.Errorf("create ConfigMap: %v", err)
+			return errors.Wrap(err, "create ConfigMap")
 		}
 	}
 

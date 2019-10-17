@@ -1,7 +1,7 @@
 package configmap
 
 import (
-	"fmt"
+	"errors"
 	"strconv"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -10,26 +10,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) *corev1.ConfigMap {
-	autotune := ""
+func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.ConfigMap, error) {
+	conf := cr.Spec.PXC.Configuration
+
 	if len(cr.Spec.PXC.Resources.Requests.Memory) > 0 && len(cr.Spec.PXC.Resources.Requests.CPU) > 0 {
-		q, err := res.ParseQuantity(cr.Spec.PXC.Resources.Limits.Memory)
+		autotuneParams, err := autotune(cr)
 		if err != nil {
-			fmt.Println("error:", err)
+			return nil, err
 		}
-		poolSize := q.Value() / int64(100) * int64(75)
-		strPoolSize := strconv.FormatInt(poolSize, 10)
-		bufPool := "\ninnodb_buffer_pool_size = " + strPoolSize
-		autotune += bufPool
-
-		flushMethod := "\ninnodb_flush_method = O_DIRECT"
-		autotune += flushMethod
-
-		devider := int64(12582880)
-		maxConnSize := q.Value() / devider
-		strMaxConnSize := strconv.FormatInt(maxConnSize, 10)
-		maxSize := "\nmax_connections = " + strMaxConnSize
-		autotune += maxSize
+		conf += autotuneParams
 	}
 
 	cm := &corev1.ConfigMap{
@@ -42,9 +31,36 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) *corev1.ConfigMap
 			Namespace: cr.Namespace,
 		},
 		Data: map[string]string{
-			"init.cnf": cr.Spec.PXC.Configuration,
+			"init.cnf": conf,
 		},
 	}
 
-	return cm
+	return cm, nil
+}
+
+func autotune(cr *api.PerconaXtraDBCluster) (string, error) {
+	autotuneParams := ""
+	q, err := res.ParseQuantity(cr.Spec.PXC.Resources.Limits.Memory)
+	if err != nil {
+		return "", err
+	}
+	poolSize := q.Value() / int64(100) * int64(75)
+	poolSizeVal := strconv.FormatInt(poolSize, 10)
+	bufPool := "\ninnodb_buffer_pool_size = " + poolSizeVal
+	autotuneParams += bufPool
+
+	flushMethodVal := "O_DIRECT"
+	flushMethod := "\ninnodb_flush_method = " + flushMethodVal
+	autotuneParams += flushMethod
+
+	devider := int64(12582880)
+	if q.Value() < devider {
+		return "", errors.New("not enough memory")
+	}
+	maxConnSize := q.Value() / devider
+	maxConnSizeVal := strconv.FormatInt(maxConnSize, 10)
+	maxSize := "\nmax_connections = " + maxConnSizeVal
+	autotuneParams += maxSize
+
+	return autotuneParams, nil
 }

@@ -13,8 +13,12 @@ import (
 func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.ConfigMap, error) {
 	conf := cr.Spec.PXC.Configuration
 
-	if len(cr.Spec.PXC.Resources.Requests.Memory) > 0 && len(cr.Spec.PXC.Resources.Requests.CPU) > 0 {
-		autotuneParams, err := autotune(cr)
+	if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 || len(cr.Spec.PXC.Resources.Requests.Memory) > 0 {
+		memory := cr.Spec.PXC.Resources.Requests.Memory
+		if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 {
+			memory = cr.Spec.PXC.Resources.Limits.Memory
+		}
+		autotuneParams, err := autotune(memory)
 		if err != nil {
 			return nil, err
 		}
@@ -38,9 +42,9 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.ConfigMa
 	return cm, nil
 }
 
-func autotune(cr *api.PerconaXtraDBCluster) (string, error) {
+func autotune(memory string) (string, error) {
 	autotuneParams := ""
-	q, err := res.ParseQuantity(cr.Spec.PXC.Resources.Limits.Memory)
+	q, err := res.ParseQuantity(memory)
 	if err != nil {
 		return "", err
 	}

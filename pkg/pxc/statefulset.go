@@ -43,18 +43,6 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		return nil, err
 	}
 
-	if podSpec.ForceUnsafeBootstrap {
-		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init"
-		ic.ReadinessProbe = nil
-		ic.LivenessProbe = nil
-		ic.Command = []string{"/unsafe-bootstrap.sh"}
-		pod.InitContainers = append(pod.InitContainers, *ic)
-	}
-
-	pod.Containers = append(pod.Containers, appC)
-	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
-
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, !cr.VersionLessThan120())
 		if !cr.VersionLessThan120() {
@@ -66,6 +54,18 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		}
 		pod.Containers = append(pod.Containers, pmmC)
 	}
+
+	if podSpec.ForceUnsafeBootstrap {
+		ic := appC.DeepCopy()
+		ic.Name = ic.Name + "-init"
+		ic.ReadinessProbe = nil
+		ic.LivenessProbe = nil
+		ic.Command = []string{"/unsafe-bootstrap.sh"}
+		pod.InitContainers = append(pod.InitContainers, *ic)
+	}
+
+	pod.Containers = append(pod.Containers, appC)
+	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 
 	ls := sfs.Labels()
 	for k, v := range podSpec.Labels {

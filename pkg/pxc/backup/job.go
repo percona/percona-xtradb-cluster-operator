@@ -50,8 +50,8 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluste
 					{
 						Name:            "xtrabackup",
 						Image:           bcp.image,
-						Command:         []string{"bash", "/usr/bin/backup.sh"},
 						ImagePullPolicy: corev1.PullAlways,
+						Command:         []string{"bash", "/usr/bin/backup.sh"},
 						Env: []corev1.EnvVar{
 							{
 								Name:  "BACKUP_DIR",

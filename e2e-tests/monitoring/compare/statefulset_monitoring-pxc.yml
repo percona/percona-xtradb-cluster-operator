@@ -32,6 +32,58 @@ spec:
     spec:
       containers:
       - env:
+        - name: PMM_SERVER
+          value: monitoring-service
+        - name: CLIENT_PORT_LISTEN
+          value: "7777"
+        - name: CLIENT_PORT_MIN
+          value: "30100"
+        - name: CLIENT_PORT_MAX
+          value: "30105"
+        - name: DB_TYPE
+          value: mysql
+        - name: DB_USER
+          value: monitor
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        - name: DB_ARGS
+          value: --query-source=perfschema
+        - name: DB_CLUSTER
+          value: pxc
+        - name: DB_HOST
+          value: localhost
+        - name: DB_PORT
+          value: "3306"
+        imagePullPolicy: Always
+        name: pmm-client
+        ports:
+        - containerPort: 7777
+          protocol: TCP
+        - containerPort: 30100
+          protocol: TCP
+        - containerPort: 30101
+          protocol: TCP
+        - containerPort: 30102
+          protocol: TCP
+        - containerPort: 30103
+          protocol: TCP
+        - containerPort: 30104
+          protocol: TCP
+        - containerPort: 30105
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 300m
+            memory: 500M
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: datadir
+      - env:
         - name: PXC_SERVICE
           value: monitoring-pxc-unready
         - name: MONITOR_HOST
@@ -106,58 +158,6 @@ spec:
           name: ssl
         - mountPath: /etc/mysql/ssl-internal
           name: ssl-internal
-      - env:
-        - name: PMM_SERVER
-          value: monitoring-service
-        - name: CLIENT_PORT_LISTEN
-          value: "7777"
-        - name: CLIENT_PORT_MIN
-          value: "30100"
-        - name: CLIENT_PORT_MAX
-          value: "30105"
-        - name: DB_TYPE
-          value: mysql
-        - name: DB_USER
-          value: monitor
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: monitor
-              name: my-cluster-secrets
-        - name: DB_ARGS
-          value: --query-source=perfschema
-        - name: DB_CLUSTER
-          value: pxc
-        - name: DB_HOST
-          value: localhost
-        - name: DB_PORT
-          value: "3306"
-        imagePullPolicy: Always
-        name: pmm-client
-        ports:
-        - containerPort: 7777
-          protocol: TCP
-        - containerPort: 30100
-          protocol: TCP
-        - containerPort: 30101
-          protocol: TCP
-        - containerPort: 30102
-          protocol: TCP
-        - containerPort: 30103
-          protocol: TCP
-        - containerPort: 30104
-          protocol: TCP
-        - containerPort: 30105
-          protocol: TCP
-        resources:
-          requests:
-            cpu: 300m
-            memory: 500M
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        volumeMounts:
-        - mountPath: /var/lib/mysql
-          name: datadir
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler

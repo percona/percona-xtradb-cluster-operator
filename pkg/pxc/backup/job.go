@@ -144,8 +144,8 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 	if len(cr.Spec.Backup.Tolerations) > 0 {
 		job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
 	}
-	if cr.Spec.Backup.Affinity.Advanced != nil {
-		job.Template.Spec.Affinity = cr.Spec.Backup.Affinity.Advanced
+	if cr.Spec.Backup.Affinity != nil {
+		job.Template.Spec.Affinity = cr.Spec.Backup.Affinity
 	}
 	if len(cr.Spec.Backup.Labels) > 0 {
 		job.Template.Labels = cr.Spec.Backup.Labels
@@ -208,14 +208,17 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 	if len(cr.Spec.Backup.Tolerations) > 0 {
 		job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
 	}
-	if cr.Spec.Backup.Affinity.Advanced != nil {
-		job.Template.Spec.Affinity = cr.Spec.Backup.Affinity.Advanced
+	if cr.Spec.Backup.Affinity != nil {
+		job.Template.Spec.Affinity = cr.Spec.Backup.Affinity
 	}
 	if len(cr.Spec.Backup.Labels) > 0 {
 		job.Template.Labels = cr.Spec.Backup.Labels
 	}
 	if len(cr.Spec.Backup.Annotations) > 0 {
 		job.Template.Annotations = cr.Spec.Backup.Annotations
+	}
+	if len(cr.Spec.Backup.NodeSelector) > 0 {
+		job.Template.Spec.NodeSelector = cr.Spec.Backup.NodeSelector
 	}
 	job.Template.Spec.SchedulerName = cr.Spec.Backup.SchedulerName
 	job.Template.Spec.PriorityClassName = cr.Spec.Backup.PriorityClassName

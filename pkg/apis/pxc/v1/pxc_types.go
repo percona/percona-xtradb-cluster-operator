@@ -409,6 +409,28 @@ func (cr *PerconaXtraDBCluster) VersionLessThan120() bool {
 	return currentVersion.LessThan(checkVersion)
 }
 
+func (cr *PerconaXtraDBCluster) VersionGreaterOrEqual130() bool {
+	apiVersion := cr.APIVersion
+	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
+		var newCR PerconaXtraDBCluster
+		err := json.Unmarshal([]byte(lastCR), &newCR)
+		if err != nil {
+			return false
+		}
+		apiVersion = newCR.APIVersion
+	}
+	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
+	checkVersion, err := v.NewVersion("1.3.0")
+	if err != nil {
+		return false
+	}
+	currentVersion, err := v.NewVersion(crVersion)
+	if err != nil {
+		return false
+	}
+	return currentVersion.GreaterThanOrEqual(checkVersion)
+}
+
 const AffinityTopologyKeyOff = "none"
 
 var affinityValidTopologyKeys = map[string]struct{}{

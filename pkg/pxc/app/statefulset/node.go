@@ -102,8 +102,12 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 				MountPath: "/var/lib/mysql",
 			},
 			{
+				Name:      "auto-config",
+				MountPath: "/etc/my.cnf.d",
+			},
+			{
 				Name:      "config",
-				MountPath: "/etc/mysql/conf.d",
+				MountPath: "/etc/percona-xtradb-cluster.conf.d",
 			},
 			{
 				Name:      "tmp",
@@ -224,6 +228,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 		vol.Volumes,
 		app.GetTmpVolume(),
 		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
+		app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
 	return vol

@@ -10,7 +10,6 @@ import (
 
 var params = []string{
 	"innodb_buffer_pool_size",
-	"innodb_flush_method",
 	"max_connections",
 }
 
@@ -30,9 +29,6 @@ func GetAutoTuneParams(config string, memory string) (string, error) {
 			poolSize := q.Value() / int64(100) * int64(75)
 			poolSizeVal := strconv.FormatInt(poolSize, 10)
 			paramValue = "\n" + p + " = " + poolSizeVal
-		case "innodb_flush_method":
-			flushMethodVal := "O_DIRECT"
-			paramValue = "\n" + p + " = " + flushMethodVal
 		case "max_connections":
 			devider := int64(12582880)
 			if q.Value() < devider {

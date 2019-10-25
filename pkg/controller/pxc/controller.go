@@ -368,9 +368,28 @@ func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
+	stsApp := statefulset.NewNode(cr)
+	ls := stsApp.Labels()
+	if cr.VersionGreaterOrEqual130() {
+		autoConfigMap, err := configmap.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		if err != nil {
+			return errors.Wrap(err, "new auto-config map")
+		}
+		err = setControllerReference(cr, autoConfigMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set auto-config controller ref")
+		}
+		err = r.client.Create(context.TODO(), autoConfigMap)
+		if err != nil && k8serrors.IsAlreadyExists(err) {
+			err = r.client.Update(context.TODO(), autoConfigMap)
+			if err != nil {
+				return errors.Wrap(err, "update AutoConfigMap")
+			}
+		} else if err != nil {
+			return errors.Wrap(err, "create AutoConfigMap")
+		}
+	}
 	if cr.Spec.PXC.Configuration != "" {
-		stsApp := statefulset.NewNode(cr)
-		ls := stsApp.Labels()
 		configMap, err := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 		if err != nil {
 			return errors.Wrap(err, "new config map")

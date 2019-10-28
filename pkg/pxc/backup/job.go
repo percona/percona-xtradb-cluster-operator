@@ -138,13 +138,13 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 		pvc,
 	}
 
-	if cr.Spec.Backup.Resources != nil {
+	if len(cr.Spec.Backup.Resources.String()) > 0 {
 		job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Resources
 	}
 	if len(cr.Spec.Backup.Tolerations) > 0 {
 		job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
 	}
-	if cr.Spec.Backup.Affinity != nil {
+	if len(cr.Spec.Backup.Affinity.String()) > 0 {
 		job.Template.Spec.Affinity = cr.Spec.Backup.Affinity
 	}
 	if len(cr.Spec.Backup.Labels) > 0 {

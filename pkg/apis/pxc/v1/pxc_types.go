@@ -26,6 +26,7 @@ type PerconaXtraDBClusterSpec struct {
 	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+	SecurityContext       *corev1.PodSecurityContext           `json:"securityContext,omitempty"`
 }
 
 type PXCScheduledBackup struct {

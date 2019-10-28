@@ -30,20 +30,11 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup) *batchv1.Job {
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluster api.PerconaXtraDBClusterSpec) batchv1.JobSpec {
-	var fsgroup *int64
-	if sv.Platform == api.PlatformKubernetes {
-		var tp int64 = 1001
-		fsgroup = &tp
-	}
-
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClusterSpec) batchv1.JobSpec {
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
-				SecurityContext: &corev1.PodSecurityContext{
-					SupplementalGroups: []int64{1001},
-					FSGroup:            fsgroup,
-				},
+				SecurityContext:  cluster.SecurityContext,
 				ImagePullSecrets: bcp.imagePullSecrets,
 				RestartPolicy:    corev1.RestartPolicyNever,
 				Containers: []corev1.Container{

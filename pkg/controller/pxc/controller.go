@@ -228,13 +228,15 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		serverVersion.Platform = *cr.Spec.Platform
 	}
 
+	r.setSecurityContext(cr)
+
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
 	if err != nil {
 		return err
 	}
 
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, serverVersion)
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr)
 	if err != nil {
 		return err
 	}
@@ -298,7 +300,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, serverVersion)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr)
 		if err != nil {
 			return fmt.Errorf("create ProxySQL Service: %v", err)
 		}
@@ -490,6 +492,25 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) setSecurityContext(cr *api.PerconaXtraDBCluster) {
+	if cr.Spec.SecurityContext == nil {
+		serverVersion := r.serverVersion
+		if cr.Spec.Platform != nil {
+			serverVersion.Platform = *cr.Spec.Platform
+		}
+		var fsgroup *int64
+		if serverVersion.Platform == api.PlatformKubernetes {
+			var tp int64 = 1001
+			fsgroup = &tp
+		}
+		sc := &corev1.PodSecurityContext{
+			SupplementalGroups: []int64{1001},
+			FSGroup:            fsgroup,
+		}
+		cr.Spec.SecurityContext = sc
+	}
 }
 
 func setControllerReference(ro runtime.Object, obj metav1.Object, scheme *runtime.Scheme) error {

@@ -95,10 +95,10 @@ Install Percona XtraDB Cluster on Kubernetes
 
       $ kubectl get pods
       NAME                                              READY   STATUS    RESTARTS   AGE
-      cluster1-pxc-node-0                               1/1     Running   0          5m
-      cluster1-pxc-node-1                               1/1     Running   0          4m
-      cluster1-pxc-node-2                               1/1     Running   0          2m
-      cluster1-pxc-proxysql-0                           1/1     Running   0          5m
+      cluster1-pxc-0                                    1/1     Running   0          5m
+      cluster1-pxc-1                                    1/1     Running   0          4m
+      cluster1-pxc-2                                    1/1     Running   0          2m
+      cluster1-proxysql-0                               1/1     Running   0          5m
       percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
 
 7. Check connectivity to newly created cluster

@@ -37,11 +37,11 @@ configuration options for the Percona XtraDB Cluster.
   :delim: ,
 
   size, int, ``3``, The size of the Percona XtraDB cluster must be >= 3 for `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_
-  allowUnsafeConfigurations, string,``false``, Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates"
+  allowUnsafeConfigurations, boolean,``false``, Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates"
   image, string, ``percona/percona-xtradb-cluster-operator:1.0.0-pxc``, The Docker image of the Percona cluster used.
   readinessDelaySec, int, ``15``, Adds a delay before a run check to verify the application is ready to process traffic
   livenessDelaySec, int, ``300``, Adds a delay before the run check ensures the application is healthy and capable of processing requests
-  forceUnsafeBootstrap, string, ``false``, The setting can be reset in case of a sudden crash when all nodes may be considered unsafe to bootstrap from. The setting lets a node be selected and set to `safe_to_bootstrap` and provides data recovery.
+  forceUnsafeBootstrap, boolean, ``false``, The setting can be reset in case of a sudden crash when all nodes may be considered unsafe to bootstrap from. The setting lets a node be selected and set to `safe_to_bootstrap` and provides data recovery.
   configuration, string, ``|``   ``[mysqld]``    ``wsrep_debug=ON`` ``wsrep-provider_options=gcache.size=1G;gcache.recover=yes``, The ``my.cnf`` file options to be passed to Percona XtraDB cluster nodes.
   imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes ImagePullSecret <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_
   priorityClassName, string, ``high-priority``, The `Kubernetes Pod priority class <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass>`_

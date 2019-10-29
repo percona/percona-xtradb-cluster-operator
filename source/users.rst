@@ -25,7 +25,7 @@ Sync users on the ProxySQL node:
 
 .. code-block:: bash
 
-   $ kubectl exec -it cluster1-pxc-proxysql-0 -- proxysql-admin --config-file=/etc/proxysql-admin.cnf --syncusers
+   $ kubectl exec -it cluster1-proxysql-0 -- proxysql-admin --config-file=/etc/proxysql-admin.cnf --syncusers
 
 Verify that the user was created successfully. If successful, the
 following command will let you successfully login to MySQL shell via

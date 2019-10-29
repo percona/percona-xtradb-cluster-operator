@@ -387,7 +387,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	return changed, nil
 }
 
-func (cr *PerconaXtraDBCluster) VersionLessThan120() bool {
+func (cr *PerconaXtraDBCluster) VVersionLessThan120() bool {
 	apiVersion := cr.APIVersion
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
@@ -409,7 +409,7 @@ func (cr *PerconaXtraDBCluster) VersionLessThan120() bool {
 	return currentVersion.LessThan(checkVersion)
 }
 
-func (cr *PerconaXtraDBCluster) VersionGreaterOrEqual130() bool {
+func (cr *PerconaXtraDBCluster) VVersionGreaterOrEqual130() bool {
 	apiVersion := cr.APIVersion
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
@@ -429,6 +429,29 @@ func (cr *PerconaXtraDBCluster) VersionGreaterOrEqual130() bool {
 		return false
 	}
 	return currentVersion.GreaterThanOrEqual(checkVersion)
+}
+
+// CompareVersion compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareVersion(version string) (int, error) {
+	apiVersion := cr.APIVersion
+	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
+		var newCR PerconaXtraDBCluster
+		err := json.Unmarshal([]byte(lastCR), &newCR)
+		if err != nil {
+			return 0, err
+		}
+		apiVersion = newCR.APIVersion
+	}
+	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
+	checkVersion, err := v.NewVersion(version)
+	if err != nil {
+		return 0, err
+	}
+	currentVersion, err := v.NewVersion(crVersion)
+	if err != nil {
+		return 0, err
+	}
+	return currentVersion.Compare(checkVersion), nil
 }
 
 const AffinityTopologyKeyOff = "none"

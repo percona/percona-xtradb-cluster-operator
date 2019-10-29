@@ -26,7 +26,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
@@ -370,8 +370,12 @@ func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBClust
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
 	stsApp := statefulset.NewNode(cr)
 	ls := stsApp.Labels()
-	if cr.VersionGreaterOrEqual130() {
-		autoConfigMap, err := configmap.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+	compare, err := cr.CompareVersion("1.3.0")
+	if err != nil {
+		return errors.Wrap(err, "compare version")
+	}
+	if compare == 0 || compare == 1 {
+		autoConfigMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 		if err != nil {
 			return errors.Wrap(err, "new auto-config map")
 		}
@@ -389,12 +393,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			return errors.Wrap(err, "create AutoConfigMap")
 		}
 	}
+
 	if cr.Spec.PXC.Configuration != "" {
-		configMap, err := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
-		if err != nil {
-			return errors.Wrap(err, "new config map")
-		}
-		err = setControllerReference(cr, configMap, r.scheme)
+		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref")
 		}

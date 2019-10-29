@@ -56,8 +56,16 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, !cr.VersionLessThan120())
-		if !cr.VersionLessThan120() {
+		var versionLessThan120 bool
+		compare, err := cr.CompareVersion("1.2.0")
+		if err != nil {
+			return nil, fmt.Errorf("compare version", err)
+		}
+		if compare == -1 {
+			versionLessThan120 = true
+		}
+		pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, !versionLessThan120)
+		if !versionLessThan120 {
 			res, err := sfs.Resources(cr.Spec.PMM.Resources)
 			if err != nil {
 				return nil, fmt.Errorf("pmm container error: create resources error: %v", err)

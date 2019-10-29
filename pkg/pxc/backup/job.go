@@ -145,15 +145,15 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 		if cr.Spec.Backup.Affinity != nil {
 			job.Template.Spec.Affinity = cr.Spec.Backup.Affinity
 		}
-	}
-	if len(cr.Spec.Backup.Tolerations) > 0 {
-		job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
-	}
-	if len(cr.Spec.Backup.Labels) > 0 {
-		job.Template.Labels = cr.Spec.Backup.Labels
-	}
-	if len(cr.Spec.Backup.Annotations) > 0 {
-		job.Template.Annotations = cr.Spec.Backup.Annotations
+		if len(cr.Spec.Backup.Tolerations) > 0 {
+			job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
+		}
+		if len(cr.Spec.Backup.Labels) > 0 {
+			job.Template.Labels = cr.Spec.Backup.Labels
+		}
+		if len(cr.Spec.Backup.Annotations) > 0 {
+			job.Template.Annotations = cr.Spec.Backup.Annotations
+		}
 	}
 	job.Template.Spec.SchedulerName = cr.Spec.Backup.SchedulerName
 	job.Template.Spec.PriorityClassName = cr.Spec.Backup.PriorityClassName
@@ -203,24 +203,25 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 		Value: strings.TrimLeft(u.Path, "/"),
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
-
-	if cr.Spec.Backup.Resources != nil {
-		job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Resources
-	}
-	if len(cr.Spec.Backup.Tolerations) > 0 {
-		job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
-	}
-	if cr.Spec.Backup.Affinity != nil {
-		job.Template.Spec.Affinity = cr.Spec.Backup.Affinity
-	}
-	if len(cr.Spec.Backup.Labels) > 0 {
-		job.Template.Labels = cr.Spec.Backup.Labels
-	}
-	if len(cr.Spec.Backup.Annotations) > 0 {
-		job.Template.Annotations = cr.Spec.Backup.Annotations
-	}
-	if len(cr.Spec.Backup.NodeSelector) > 0 {
-		job.Template.Spec.NodeSelector = cr.Spec.Backup.NodeSelector
+	if cr.Spec.Backup != nil {
+		if cr.Spec.Backup.Resources != nil {
+			job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Resources
+		}
+		if len(cr.Spec.Backup.Tolerations) > 0 {
+			job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
+		}
+		if cr.Spec.Backup.Affinity != nil {
+			job.Template.Spec.Affinity = cr.Spec.Backup.Affinity
+		}
+		if len(cr.Spec.Backup.Labels) > 0 {
+			job.Template.Labels = cr.Spec.Backup.Labels
+		}
+		if len(cr.Spec.Backup.Annotations) > 0 {
+			job.Template.Annotations = cr.Spec.Backup.Annotations
+		}
+		if len(cr.Spec.Backup.NodeSelector) > 0 {
+			job.Template.Spec.NodeSelector = cr.Spec.Backup.NodeSelector
+		}
 	}
 	job.Template.Spec.SchedulerName = cr.Spec.Backup.SchedulerName
 	job.Template.Spec.PriorityClassName = cr.Spec.Backup.PriorityClassName

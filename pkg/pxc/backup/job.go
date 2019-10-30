@@ -27,6 +27,13 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup) *batchv1.Job {
 				"type":    "xtrabackup",
 			},
 		},
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					SchedulerName: cr.Spec.SchedulerName,
+				},
+			},
+		},
 	}
 }
 
@@ -45,7 +52,10 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluste
 					FSGroup:            fsgroup,
 				},
 				ImagePullSecrets: bcp.imagePullSecrets,
+				SchedulerName:    bcp.schedulerName,
 				RestartPolicy:    corev1.RestartPolicyNever,
+				Tolerations:      spec.Tolerations,
+				Affinity:         spec.Affinity,
 				Containers: []corev1.Container{
 					{
 						Name:            "xtrabackup",

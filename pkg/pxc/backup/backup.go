@@ -10,8 +10,9 @@ type Backup struct {
 	cluster            string
 	namespace          string
 	image              string
-	imagePullSecrets   []corev1.LocalObjectReference
 	serviceAccountName string
+	schedulerName      string
+	imagePullSecrets   []corev1.LocalObjectReference
 }
 
 func New(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *Backup {

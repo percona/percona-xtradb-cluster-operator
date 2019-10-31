@@ -1,6 +1,7 @@
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -26,8 +27,9 @@ type PerconaXtraDBClusterBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster  string `json:"pxcCluster"`
-	StorageName string `json:"storageName,omitempty"`
+	PXCCluster      string                     `json:"pxcCluster"`
+	StorageName     string                     `json:"storageName,omitempty"`
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
 }
 
 type PXCBackupStatus struct {

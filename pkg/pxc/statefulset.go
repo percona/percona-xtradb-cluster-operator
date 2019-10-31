@@ -14,7 +14,7 @@ import (
 // StatefulSet returns StatefulSet according for app to podSpec
 func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	pod := corev1.PodSpec{
-		SecurityContext:               cr.Spec.SecurityContext,
+		SecurityContext:               podSpec.SecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,
 		Tolerations:                   podSpec.Tolerations,
 		SchedulerName:                 podSpec.SchedulerName,

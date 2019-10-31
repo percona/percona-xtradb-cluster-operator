@@ -26,7 +26,6 @@ type PerconaXtraDBClusterSpec struct {
 	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
-	SecurityContext       *corev1.PodSecurityContext           `json:"securityContext,omitempty"`
 }
 
 type PXCScheduledBackup struct {
@@ -36,6 +35,7 @@ type PXCScheduledBackup struct {
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
 	Resources          *PodResources                 `json:"resources,omitempty"`
+	SecurityContext    *corev1.PodSecurityContext    `json:"securityContext,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
@@ -145,6 +145,7 @@ type PodSpec struct {
 	SchedulerName                 string                        `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
 	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
+	SecurityContext               *corev1.PodSecurityContext    `json:"securityContext,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

@@ -495,21 +495,27 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 }
 
 func (r *ReconcilePerconaXtraDBCluster) setSecurityContext(cr *api.PerconaXtraDBCluster) {
-	if cr.Spec.SecurityContext == nil {
-		serverVersion := r.serverVersion
-		if cr.Spec.Platform != nil {
-			serverVersion.Platform = *cr.Spec.Platform
-		}
-		var fsgroup *int64
-		if serverVersion.Platform == api.PlatformKubernetes {
-			var tp int64 = 1001
-			fsgroup = &tp
-		}
-		sc := &corev1.PodSecurityContext{
-			SupplementalGroups: []int64{1001},
-			FSGroup:            fsgroup,
-		}
-		cr.Spec.SecurityContext = sc
+	serverVersion := r.serverVersion
+	if cr.Spec.Platform != nil {
+		serverVersion.Platform = *cr.Spec.Platform
+	}
+	var fsgroup *int64
+	if serverVersion.Platform == api.PlatformKubernetes {
+		var tp int64 = 1001
+		fsgroup = &tp
+	}
+	sc := &corev1.PodSecurityContext{
+		SupplementalGroups: []int64{1001},
+		FSGroup:            fsgroup,
+	}
+	if cr.Spec.PXC.SecurityContext == nil {
+		cr.Spec.PXC.SecurityContext = sc
+	}
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.SecurityContext == nil {
+		cr.Spec.ProxySQL.SecurityContext = sc
+	}
+	if cr.Spec.PMM != nil && cr.Spec.PMM.SecurityContext == nil {
+		cr.Spec.PMM.SecurityContext = sc
 	}
 }
 

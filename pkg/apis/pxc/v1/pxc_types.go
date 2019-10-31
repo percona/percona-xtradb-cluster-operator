@@ -164,11 +164,12 @@ type PodResources struct {
 }
 
 type PMMSpec struct {
-	Enabled    bool          `json:"enabled,omitempty"`
-	ServerHost string        `json:"serverHost,omitempty"`
-	Image      string        `json:"image,omitempty"`
-	ServerUser string        `json:"serverUser,omitempty"`
-	Resources  *PodResources `json:"resources,omitempty"`
+	Enabled         bool                       `json:"enabled,omitempty"`
+	ServerHost      string                     `json:"serverHost,omitempty"`
+	Image           string                     `json:"image,omitempty"`
+	ServerUser      string                     `json:"serverUser,omitempty"`
+	Resources       *PodResources              `json:"resources,omitempty"`
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
 }
 
 type ResourcesList struct {

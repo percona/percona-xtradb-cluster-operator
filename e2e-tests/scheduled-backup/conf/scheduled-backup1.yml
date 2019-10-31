@@ -26,5 +26,21 @@ spec:
   pmm:
     enabled: false
   backup:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelector:
+          - matchExpressions:
+            - key: backupWorker
+              operator: In
+              values:
+              - 'True'
+    tolerations:
+      - key: "backupWorker"
+        operator: "Equal"
+        value: "True"
+        effect: "NoSchedule"
+    annotations:
+      testName: scheduled-backup
     image: -backup
     serviceAccountName: percona-xtradb-cluster-operator

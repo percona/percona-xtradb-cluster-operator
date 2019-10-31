@@ -87,6 +87,18 @@ start_minio() {
         /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
 }
 
+taint_node() {
+    TAINTED_NODE=$(kubectl_bin get nodes -o custom-columns=NAME:.metadata.name --no-headers=true | head -n1)
+
+    kubectl_bin taint nodes "${TAINTED_NODE}" backupWorker=True:NoSchedule --overwrite
+    kubectl_bin label nodes "${TAINTED_NODE}" backupWorker=True --overwrite
+}
+
+untaint_node() {
+    kubectl_bin taint nodes "${TAINTED_NODE}" backupWorker=True:NoSchedule- --overwrite | true
+    kubectl_bin label nodes "${TAINTED_NODE}" backupWorker- --overwrite
+}
+
 main() {
     create_namespace $namespace
     deploy_operator
@@ -101,6 +113,7 @@ main() {
 
     desc 'add backups schedule, wait for the first backup'
     apply_config "$test_dir/conf/${cluster}2.yml"
+    taint_node
     sleep 10
 
     compare_kubectl cronjob/each-min-pvc
@@ -112,6 +125,27 @@ main() {
     wait_backup "aws-s3"
     wait_backup "minio"
     wait_backup "gcp-cs"
+
+    if [[ $(kubectl_bin get pods -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName --no-headers=true \
+            | grep ${cluster}-xb-cron-${cluster} \
+            | awk '{print $2}' \
+            | sort \
+            | uniq \
+            | wc -l \
+            | awk '{$1=$1};1') != 1 ]]; then
+        echo "Taint/toleration rules have been violated."
+        exit 1
+    fi
+
+    kubectl_bin taint nodes "${TAINTED_NODE}" backupWorker=False:NoSchedule-
+
+    if [[ $(kubectl_bin get pods -o jsonpath='{range .items[*]}{.metadata.name}:{.metadata.annotations.testName}{"\n"}' \
+            | grep ':scheduled-backup$' \
+            | wc -l ) == 0 ]]; then
+
+        echo "No backup worker pods with target annotation"
+        exit 1
+    fi
 
     backup_name_pvc=$(get_backup_name "pvc")
     backup_name_aws=$(get_backup_name "aws-s3")
@@ -127,6 +161,7 @@ main() {
     run_recovery_check "$cluster" "$backup_name_minio"
     run_recovery_check "$cluster" "$backup_name_gcp"
 
+    untaint_node
     destroy $namespace
 }
 

@@ -117,7 +117,7 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
-func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, volName string) error {
+func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, volName, storageName string) error {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}
@@ -142,17 +142,17 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 		if cr.Spec.Backup.Resources != nil {
 			job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Resources
 		}
-		if cr.Spec.Backup.Affinity != nil {
-			job.Template.Spec.Affinity = cr.Spec.Backup.Affinity
+		if cr.Spec.Backup.Storages[storageName].Affinity != nil {
+			job.Template.Spec.Affinity = cr.Spec.Backup.Storages[storageName].Affinity
 		}
-		if len(cr.Spec.Backup.Tolerations) > 0 {
-			job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
+		if len(cr.Spec.Backup.Storages[storageName].Tolerations) > 0 {
+			job.Template.Spec.Tolerations = cr.Spec.Backup.Storages[storageName].Tolerations
 		}
-		if len(cr.Spec.Backup.Labels) > 0 {
-			job.Template.Labels = cr.Spec.Backup.Labels
+		if len(cr.Spec.Backup.Storages[storageName].Labels) > 0 {
+			job.Template.Labels = cr.Spec.Backup.Storages[storageName].Labels
 		}
-		if len(cr.Spec.Backup.Annotations) > 0 {
-			job.Template.Annotations = cr.Spec.Backup.Annotations
+		if len(cr.Spec.Backup.Storages[storageName].Annotations) > 0 {
+			job.Template.Annotations = cr.Spec.Backup.Storages[storageName].Annotations
 		}
 	}
 	job.Template.Spec.SchedulerName = cr.Spec.Backup.SchedulerName
@@ -163,7 +163,7 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 	return nil
 }
 
-func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s3 api.BackupStorageS3Spec, destination string) error {
+func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s3 api.BackupStorageS3Spec, destination, storageName string) error {
 	accessKey := corev1.EnvVar{
 		Name: "ACCESS_KEY_ID",
 		ValueFrom: &corev1.EnvVarSource{
@@ -207,20 +207,20 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 		if cr.Spec.Backup.Resources != nil {
 			job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Resources
 		}
-		if len(cr.Spec.Backup.Tolerations) > 0 {
-			job.Template.Spec.Tolerations = cr.Spec.Backup.Tolerations
+		if len(cr.Spec.Backup.Storages[storageName].Tolerations) > 0 {
+			job.Template.Spec.Tolerations = cr.Spec.Backup.Storages[storageName].Tolerations
 		}
-		if cr.Spec.Backup.Affinity != nil {
-			job.Template.Spec.Affinity = cr.Spec.Backup.Affinity
+		if cr.Spec.Backup.Storages[storageName].Affinity != nil {
+			job.Template.Spec.Affinity = cr.Spec.Backup.Storages[storageName].Affinity
 		}
-		if len(cr.Spec.Backup.Labels) > 0 {
-			job.Template.Labels = cr.Spec.Backup.Labels
+		if len(cr.Spec.Backup.Storages[storageName].Labels) > 0 {
+			job.Template.Labels = cr.Spec.Backup.Storages[storageName].Labels
 		}
-		if len(cr.Spec.Backup.Annotations) > 0 {
-			job.Template.Annotations = cr.Spec.Backup.Annotations
+		if len(cr.Spec.Backup.Storages[storageName].Annotations) > 0 {
+			job.Template.Annotations = cr.Spec.Backup.Storages[storageName].Annotations
 		}
-		if len(cr.Spec.Backup.NodeSelector) > 0 {
-			job.Template.Spec.NodeSelector = cr.Spec.Backup.NodeSelector
+		if len(cr.Spec.Backup.Storages[storageName].NodeSelector) > 0 {
+			job.Template.Spec.NodeSelector = cr.Spec.Backup.Storages[storageName].NodeSelector
 		}
 	}
 	job.Template.Spec.SchedulerName = cr.Spec.Backup.SchedulerName

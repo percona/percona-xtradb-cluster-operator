@@ -191,7 +191,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 	}
 }
 
-func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Container {
+func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) (corev1.Container, error) {
 	ct := app.PMMClient(spec, secrets, v120OrGreater)
 
 	pmmEnvs := []corev1.EnvVar{
@@ -251,7 +251,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bo
 		ct.Env = append(ct.Env, dbArgsEnv...)
 	}
 
-	return ct
+	return ct, nil
 }
 
 func (c *Proxy) Resources(spec *api.PodResources) (corev1.ResourceRequirements, error) {

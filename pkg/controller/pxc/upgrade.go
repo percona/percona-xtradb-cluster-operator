@@ -78,22 +78,19 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	// pmm container
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		var versionLessThan120 bool
-		compare, err := cr.CompareVersion("1.2.0")
+		var versionGreaterOrEqual120 bool
+		compare, err := cr.CompareVersionWith("1.2.0")
 		if err != nil {
 			return fmt.Errorf("compare version", err)
 		}
-		if compare == -1 {
-			versionLessThan120 = true
+		if compare >= 1 {
+			versionGreaterOrEqual120 = true
 		}
-		pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, !versionLessThan120)
-		if !versionLessThan120 {
-			res, err := sfs.Resources(cr.Spec.PMM.Resources)
-			if err != nil {
-				return fmt.Errorf("pmm container error: create resources error: %v", err)
-			}
-			pmmC.Resources = res
+		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, versionGreaterOrEqual120)
+		if err != nil {
+			return fmt.Errorf("pmm container error: %v", err)
 		}
+
 		newContainers = append(newContainers, pmmC)
 	}
 

@@ -1,6 +1,8 @@
 package statefulset
 
 import (
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -163,7 +165,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 
 func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
 
-func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Container {
+func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) (corev1.Container, error) {
 	ct := app.PMMClient(spec, secrets, v120OrGreater)
 
 	pmmEnvs := []corev1.EnvVar{
@@ -186,25 +188,29 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater boo
 			Value: "--query-source=perfschema",
 		},
 	}
-
-	clusterEnvs := []corev1.EnvVar{
-		{
-			Name:  "DB_CLUSTER",
-			Value: app.Name,
-		},
-		{
-			Name:  "DB_HOST",
-			Value: "localhost",
-		},
-		{
-			Name:  "DB_PORT",
-			Value: "3306",
-		},
-	}
-
 	ct.Env = append(ct.Env, pmmEnvs...)
+
 	if v120OrGreater {
+		clusterEnvs := []corev1.EnvVar{
+			{
+				Name:  "DB_CLUSTER",
+				Value: app.Name,
+			},
+			{
+				Name:  "DB_HOST",
+				Value: "localhost",
+			},
+			{
+				Name:  "DB_PORT",
+				Value: "3306",
+			},
+		}
 		ct.Env = append(ct.Env, clusterEnvs...)
+		res, err := c.Resources(spec.Resources)
+		if err != nil {
+			return ct, fmt.Errorf("create resources error: %v", err)
+		}
+		ct.Resources = res
 	}
 
 	ct.VolumeMounts = []corev1.VolumeMount{
@@ -214,7 +220,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater boo
 		},
 	}
 
-	return ct
+	return ct, nil
 }
 
 func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, error) {

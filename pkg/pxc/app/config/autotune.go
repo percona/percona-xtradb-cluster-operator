@@ -7,11 +7,6 @@ import (
 	res "k8s.io/apimachinery/pkg/api/resource"
 )
 
-var params = []string{
-	"innodb_buffer_pool_size",
-	"max_connections",
-}
-
 func getAutoTuneParams(memory string) (string, error) {
 	autotuneParams := ""
 	q, err := res.ParseQuantity(memory)

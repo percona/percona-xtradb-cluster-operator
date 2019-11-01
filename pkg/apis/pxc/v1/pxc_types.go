@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	v "github.com/hashicorp/go-version"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -237,7 +238,7 @@ type ServerVersion struct {
 type App interface {
 	AppContainer(spec *PodSpec, secrets string) corev1.Container
 	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
-	PMMContainer(spec *PMMSpec, secrets string, v120OrGreater bool) corev1.Container
+	PMMContainer(spec *PMMSpec, secrets string, v120OrGreater bool) (corev1.Container, error)
 	Volumes(podSpec *PodSpec) *Volume
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
 	Labels() map[string]string
@@ -387,69 +388,26 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	return changed, nil
 }
 
-func (cr *PerconaXtraDBCluster) VVersionLessThan120() bool {
+// CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) (int, error) {
 	apiVersion := cr.APIVersion
+	// Need to do this becose API always returns "v1"
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
 		err := json.Unmarshal([]byte(lastCR), &newCR)
 		if err != nil {
-			return false
-		}
-		apiVersion = newCR.APIVersion
-	}
-	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
-	checkVersion, err := v.NewVersion("1.2.0")
-	if err != nil {
-		return false
-	}
-	currentVersion, err := v.NewVersion(crVersion)
-	if err != nil {
-		return false
-	}
-	return currentVersion.LessThan(checkVersion)
-}
-
-func (cr *PerconaXtraDBCluster) VVersionGreaterOrEqual130() bool {
-	apiVersion := cr.APIVersion
-	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
-		var newCR PerconaXtraDBCluster
-		err := json.Unmarshal([]byte(lastCR), &newCR)
-		if err != nil {
-			return false
-		}
-		apiVersion = newCR.APIVersion
-	}
-	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
-	checkVersion, err := v.NewVersion("1.3.0")
-	if err != nil {
-		return false
-	}
-	currentVersion, err := v.NewVersion(crVersion)
-	if err != nil {
-		return false
-	}
-	return currentVersion.GreaterThanOrEqual(checkVersion)
-}
-
-// CompareVersion compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
-func (cr *PerconaXtraDBCluster) CompareVersion(version string) (int, error) {
-	apiVersion := cr.APIVersion
-	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
-		var newCR PerconaXtraDBCluster
-		err := json.Unmarshal([]byte(lastCR), &newCR)
-		if err != nil {
-			return 0, err
+			return -1, errors.Wrap(err, "unmarshal cr")
 		}
 		apiVersion = newCR.APIVersion
 	}
 	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
 	checkVersion, err := v.NewVersion(version)
 	if err != nil {
-		return 0, err
+		return -1, errors.Wrap(err, "get check version")
 	}
 	currentVersion, err := v.NewVersion(crVersion)
 	if err != nil {
-		return 0, err
+		return -1, errors.Wrap(err, "get cr version")
 	}
 	return currentVersion.Compare(checkVersion), nil
 }

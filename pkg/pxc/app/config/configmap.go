@@ -7,7 +7,34 @@ import (
 )
 
 func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) *corev1.ConfigMap {
-	conf := cr.Spec.PXC.Configuration
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cmName,
+			Namespace: cr.Namespace,
+		},
+		Data: map[string]string{
+			"init.cnf": cr.Spec.PXC.Configuration,
+		},
+	}
+}
+
+func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.ConfigMap, error) {
+	var memory string
+	if len(cr.Spec.PXC.Resources.Requests.Memory) > 0 {
+		memory = cr.Spec.PXC.Resources.Requests.Memory
+	}
+	// Use limits memory in priority if it set
+	if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 {
+		memory = cr.Spec.PXC.Resources.Limits.Memory
+	}
+	autotuneParams, err := getAutoTuneParams(memory)
+	if err != nil {
+		return nil, err
+	}
 
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -19,38 +46,7 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) *corev1.ConfigMap
 			Namespace: cr.Namespace,
 		},
 		Data: map[string]string{
-			"init.cnf": conf,
+			"init.cnf": "[mysqld]" + autotuneParams,
 		},
-	}
-}
-
-func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.ConfigMap, error) {
-	var conf string
-	if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 || len(cr.Spec.PXC.Resources.Requests.Memory) > 0 {
-		memory := cr.Spec.PXC.Resources.Requests.Memory
-		if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 {
-			memory = cr.Spec.PXC.Resources.Limits.Memory
-		}
-		autotuneParams, err := getAutoTuneParams(memory)
-		if err != nil {
-			return nil, err
-		}
-		conf = "[mysqld]" + autotuneParams
-	}
-
-	cm := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cmName,
-			Namespace: cr.Namespace,
-		},
-		Data: map[string]string{
-			"init.cnf": conf,
-		},
-	}
-
-	return cm, nil
+	}, nil
 }

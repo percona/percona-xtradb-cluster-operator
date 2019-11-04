@@ -35,7 +35,6 @@ type PXCScheduledBackup struct {
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
 	Resources          *PodResources                 `json:"resources,omitempty"`
-	SecurityContext    *corev1.PodSecurityContext    `json:"securityContext,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
@@ -178,11 +177,12 @@ type ResourcesList struct {
 }
 
 type BackupStorageSpec struct {
-	Type         BackupStorageType   `json:"type"`
-	S3           BackupStorageS3Spec `json:"s3,omitempty"`
-	Volume       *VolumeSpec         `json:"volume,omitempty"`
-	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
-	Resources    *PodResources       `json:"resources,omitempty"`
+	Type            BackupStorageType          `json:"type"`
+	S3              BackupStorageS3Spec        `json:"s3,omitempty"`
+	Volume          *VolumeSpec                `json:"volume,omitempty"`
+	NodeSelector    map[string]string          `json:"nodeSelector,omitempty"`
+	Resources       *PodResources              `json:"resources,omitempty"`
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
 }
 
 type BackupStorageType string

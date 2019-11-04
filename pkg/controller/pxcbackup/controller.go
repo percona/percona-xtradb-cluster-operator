@@ -213,7 +213,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXt
 	availableClusters := make([]string, 0)
 	for _, cluster := range clusterList.Items {
 		if cluster.Name == cr.Spec.PXCCluster {
-			cr.Spec.SecurityContext = cluster.Spec.Backup.SecurityContext
 			return &cluster, nil
 		}
 		availableClusters = append(availableClusters, cluster.Name)

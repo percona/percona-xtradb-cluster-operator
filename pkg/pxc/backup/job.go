@@ -34,7 +34,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
-				SecurityContext:  spec.SecurityContext,
+				SecurityContext:  cluster.Backup.Storages[spec.StorageName].SecurityContext,
 				ImagePullSecrets: bcp.imagePullSecrets,
 				RestartPolicy:    corev1.RestartPolicyNever,
 				Containers: []corev1.Container{

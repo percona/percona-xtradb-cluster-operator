@@ -139,8 +139,8 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 	}
 
 	if cr.Spec.Backup != nil {
-		if cr.Spec.Backup.Resources != nil {
-			job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Resources
+		if cr.Spec.Backup.Storages[storageName].Resources != nil {
+			job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Storages[storageName].Resources
 		}
 		if cr.Spec.Backup.Storages[storageName].Affinity != nil {
 			job.Template.Spec.Affinity = cr.Spec.Backup.Storages[storageName].Affinity
@@ -154,9 +154,12 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 		if len(cr.Spec.Backup.Storages[storageName].Annotations) > 0 {
 			job.Template.Annotations = cr.Spec.Backup.Storages[storageName].Annotations
 		}
+		if len(cr.Spec.Backup.Storages[storageName].NodeSelector) > 0 {
+			job.Template.Spec.NodeSelector = cr.Spec.Backup.Storages[storageName].NodeSelector
+		}
 	}
-	job.Template.Spec.SchedulerName = cr.Spec.Backup.SchedulerName
-	job.Template.Spec.PriorityClassName = cr.Spec.Backup.PriorityClassName
+	job.Template.Spec.SchedulerName = cr.Spec.Backup.Storages[storageName].SchedulerName
+	job.Template.Spec.PriorityClassName = cr.Spec.Backup.Storages[storageName].PriorityClassName
 
 	appendStorageSecret(job, cr)
 
@@ -204,8 +207,8 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
 	if cr.Spec.Backup != nil {
-		if cr.Spec.Backup.Resources != nil {
-			job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Resources
+		if cr.Spec.Backup.Storages[storageName].Resources != nil {
+			job.Template.Spec.Containers[0].Resources = *cr.Spec.Backup.Storages[storageName].Resources
 		}
 		if len(cr.Spec.Backup.Storages[storageName].Tolerations) > 0 {
 			job.Template.Spec.Tolerations = cr.Spec.Backup.Storages[storageName].Tolerations
@@ -223,8 +226,8 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 			job.Template.Spec.NodeSelector = cr.Spec.Backup.Storages[storageName].NodeSelector
 		}
 	}
-	job.Template.Spec.SchedulerName = cr.Spec.Backup.SchedulerName
-	job.Template.Spec.PriorityClassName = cr.Spec.Backup.PriorityClassName
+	job.Template.Spec.SchedulerName = cr.Spec.Backup.Storages[storageName].SchedulerName
+	job.Template.Spec.PriorityClassName = cr.Spec.Backup.Storages[storageName].PriorityClassName
 
 	// add SSL volumes
 	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}

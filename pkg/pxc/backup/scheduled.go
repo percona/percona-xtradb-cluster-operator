@@ -52,7 +52,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 }
 
 func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec) batchv1.JobSpec {
-	return batchv1.JobSpec{
+	job := batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				ServiceAccountName: bcp.serviceAccountName,
@@ -97,4 +97,28 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 			},
 		},
 	}
+
+	if strg.Resources != nil {
+		job.Template.Spec.Containers[0].Resources = *strg.Resources
+	}
+	if strg.Affinity != nil {
+		job.Template.Spec.Affinity = strg.Affinity
+	}
+	if len(strg.Tolerations) > 0 {
+		job.Template.Spec.Tolerations = strg.Tolerations
+	}
+	if len(strg.Labels) > 0 {
+		job.Template.Labels = strg.Labels
+	}
+	if len(strg.Annotations) > 0 {
+		job.Template.Annotations = strg.Annotations
+	}
+	if len(strg.NodeSelector) > 0 {
+		job.Template.Spec.NodeSelector = strg.NodeSelector
+	}
+
+	job.Template.Spec.SchedulerName = strg.SchedulerName
+	job.Template.Spec.PriorityClassName = strg.PriorityClassName
+
+	return job
 }

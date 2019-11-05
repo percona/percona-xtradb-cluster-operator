@@ -66,6 +66,20 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if err != nil {
 		return fmt.Errorf("compare version", err)
 	}
+
+	// pmm container
+	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
+		pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, !cr.VersionLessThan120())
+		if !cr.VersionLessThan120() {
+			res, err := sfs.Resources(cr.Spec.PMM.Resources)
+			if err != nil {
+				return fmt.Errorf("pmm container error: create resources error: %v", err)
+			}
+			pmmC.Resources = res
+		}
+		newContainers = append(newContainers, pmmC)
+	}
+
 	// application container
 	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName, v)
 	appC.Resources = res
@@ -78,24 +92,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		ic.LivenessProbe = nil
 		ic.Command = []string{"/unsafe-bootstrap.sh"}
 		newInitContainers = append(newInitContainers, *ic)
-	}
-
-	// pmm container
-	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		var versionGreaterOrEqual120 bool
-		compare, err := cr.CompareVersionWith("1.2.0")
-		if err != nil {
-			return fmt.Errorf("compare version", err)
-		}
-		if compare >= 1 {
-			versionGreaterOrEqual120 = true
-		}
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, versionGreaterOrEqual120)
-		if err != nil {
-			return fmt.Errorf("pmm container error: %v", err)
-		}
-
-		newContainers = append(newContainers, pmmC)
 	}
 
 	// sidecars

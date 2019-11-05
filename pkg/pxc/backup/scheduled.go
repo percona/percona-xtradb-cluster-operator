@@ -58,8 +58,9 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 				ServiceAccountName: bcp.serviceAccountName,
 				Containers: []corev1.Container{
 					{
-						Name:  "run-backup",
-						Image: bcp.image,
+						Name:            "run-backup",
+						Image:           bcp.image,
+						ImagePullPolicy: corev1.PullAlways,
 						Env: []corev1.EnvVar{
 							{
 								Name:  "pxcCluster",

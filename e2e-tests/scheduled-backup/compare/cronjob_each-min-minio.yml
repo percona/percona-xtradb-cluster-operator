@@ -42,7 +42,7 @@ spec:
             env:
             - name: pxcCluster
               value: scheduled-backup
-            imagePullPolicy: IfNotPresent
+            imagePullPolicy: Always
             name: run-backup
             resources: {}
             terminationMessagePath: /dev/termination-log

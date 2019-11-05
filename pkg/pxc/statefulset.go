@@ -48,18 +48,6 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		return nil, err
 	}
 
-	if podSpec.ForceUnsafeBootstrap {
-		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init"
-		ic.ReadinessProbe = nil
-		ic.LivenessProbe = nil
-		ic.Command = []string{"/unsafe-bootstrap.sh"}
-		pod.InitContainers = append(pod.InitContainers, *ic)
-	}
-
-	pod.Containers = append(pod.Containers, appC)
-	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
-
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		var versionGreaterOrEqual120 bool
 		compare, err := cr.CompareVersionWith("1.2.0")
@@ -75,6 +63,18 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		}
 		pod.Containers = append(pod.Containers, pmmC)
 	}
+
+	if podSpec.ForceUnsafeBootstrap {
+		ic := appC.DeepCopy()
+		ic.Name = ic.Name + "-init"
+		ic.ReadinessProbe = nil
+		ic.LivenessProbe = nil
+		ic.Command = []string{"/unsafe-bootstrap.sh"}
+		pod.InitContainers = append(pod.InitContainers, *ic)
+	}
+
+	pod.Containers = append(pod.Containers, appC)
+	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 
 	ls := sfs.Labels()
 	for k, v := range podSpec.Labels {

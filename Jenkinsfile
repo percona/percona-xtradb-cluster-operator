@@ -5,7 +5,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters create --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version 1.12 --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX}
+            gcloud container clusters create --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version 1.14 --machine-type n1-standard-4 --preemptible --num-nodes=3 --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX}
             kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
         """
    }
@@ -28,7 +28,18 @@ void popArtifactFile(String FILE_NAME) {
         """
     }
 }
+
+TestsReport = '| Test name  | Status |\\r\\n| ------------- | ------------- |'
+testsReportMap = [:]
+
+void makeReport() {
+    for ( test in testsReportMap ) {
+        TestsReport = TestsReport + "\\r\\n| ${test.key} | ${test.value} |"
+    }
+}
+
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
+    testsReportMap[TEST_NAME] = 'failed'
     popArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME")
     sh """
         if [ -f "$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME" ]; then
@@ -40,6 +51,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             touch $GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME
         fi
     """
+    testsReportMap[TEST_NAME] = 'passed'
     pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME")
 
     sh """
@@ -140,6 +152,7 @@ pipeline {
                         runTest('storage', 'basic')
                         runTest('limits', 'basic')
                         runTest('monitoring', 'basic')
+                        runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
                    }
                 }
@@ -188,6 +201,16 @@ pipeline {
             }
             script {
                 if (env.CHANGE_URL) {
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                        makeReport()
+                        sh """
+                            curl -v -X POST \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                -d "{\\"body\\":\\"${TestsReport}\\"}" \
+                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
+                        """
+                    }
+
                     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                     sh '''
                         source $HOME/google-cloud-sdk/path.bash.inc

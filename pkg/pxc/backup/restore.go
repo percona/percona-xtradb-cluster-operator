@@ -215,6 +215,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: cluster.Backup.ImagePullSecrets,
+					SecurityContext:  cluster.Backup.Storages[bcp.Status.StorageName].SecurityContext,
 					Containers: []corev1.Container{
 						{
 							Name:            "xtrabackup",

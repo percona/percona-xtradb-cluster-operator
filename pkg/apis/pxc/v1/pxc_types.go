@@ -236,10 +236,10 @@ type ServerVersion struct {
 }
 
 type App interface {
-	AppContainer(spec *PodSpec, secrets string) corev1.Container
+	AppContainer(spec *PodSpec, secrets string, compare130Version int) corev1.Container
 	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
 	PMMContainer(spec *PMMSpec, secrets string, v120OrGreater bool) (corev1.Container, error)
-	Volumes(podSpec *PodSpec) *Volume
+	Volumes(podSpec *PodSpec, compare130Version int) *Volume
 	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
 	Labels() map[string]string
 }

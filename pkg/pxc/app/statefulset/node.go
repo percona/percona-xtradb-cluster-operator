@@ -55,7 +55,7 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 	}
 }
 
-func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container {
+func (c *Node) AppContainer(spec *api.PodSpec, secrets string, version130Compare int) corev1.Container {
 	redinessDelay := int32(15)
 	if spec.ReadinessInitialDelaySeconds != nil {
 		redinessDelay = *spec.ReadinessInitialDelaySeconds
@@ -102,10 +102,6 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 			{
 				Name:      DataVolumeName,
 				MountPath: "/var/lib/mysql",
-			},
-			{
-				Name:      "auto-config",
-				MountPath: "/etc/my.cnf.d",
 			},
 			{
 				Name:      "config",
@@ -159,7 +155,12 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 			},
 		},
 	}
-
+	if version130Compare > 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "auto-config",
+			MountPath: "/etc/my.cnf.d",
+		})
+	}
 	return appc
 }
 
@@ -227,7 +228,7 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 	return app.CreateResources(spec)
 }
 
-func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
+func (c *Node) Volumes(podSpec *api.PodSpec, version130Compare int) *api.Volume {
 	vol := app.Volumes(podSpec, DataVolumeName)
 	ls := c.Labels()
 	vol.Volumes = append(
@@ -237,6 +238,11 @@ func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 		app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
+	if version130Compare > 0 {
+		vol.Volumes = append(
+			vol.Volumes,
+			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
+	}
 	return vol
 }
 

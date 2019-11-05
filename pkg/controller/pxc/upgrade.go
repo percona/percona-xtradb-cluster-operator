@@ -62,8 +62,12 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	var newContainers []corev1.Container
 	var newInitContainers []corev1.Container
 
+	v, err := cr.CompareVersionWith("1.3.0")
+	if err != nil {
+		return fmt.Errorf("compare version", err)
+	}
 	// application container
-	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName)
+	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName, v)
 	appC.Resources = res
 	newContainers = append(newContainers, appC)
 

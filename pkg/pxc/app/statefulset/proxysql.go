@@ -47,7 +47,7 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 	}
 }
 
-func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string) corev1.Container {
+func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, compare130Version int) corev1.Container {
 	appc := corev1.Container{
 		Name:            proxyName,
 		Image:           spec.Image,
@@ -258,7 +258,7 @@ func (c *Proxy) Resources(spec *api.PodResources) (corev1.ResourceRequirements, 
 	return app.CreateResources(spec)
 }
 
-func (c *Proxy) Volumes(podSpec *api.PodSpec) *api.Volume {
+func (c *Proxy) Volumes(podSpec *api.PodSpec, compare130Version int) *api.Volume {
 	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	vol.Volumes = append(
 		vol.Volumes,

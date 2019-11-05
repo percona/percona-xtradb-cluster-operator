@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/pkg/errors"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
@@ -33,11 +34,15 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
-	sfsVolume := sfs.Volumes(podSpec)
+	v, err := cr.CompareVersionWith("1.3.0")
+	if err != nil {
+		return nil, errors.Wrap(err, "compare version")
+	}
+
+	sfsVolume := sfs.Volumes(podSpec, v)
 	pod.Volumes = sfsVolume.Volumes
 
-	var err error
-	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName)
+	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName, v)
 	appC.Resources, err = sfs.Resources(podSpec.Resources)
 	if err != nil {
 		return nil, err

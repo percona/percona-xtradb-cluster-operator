@@ -143,15 +143,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
 				// because we never reach this point without finalizers
-				err = r.deleteStatfulSet(o.Namespace, sfs, true)
+				err = r.deleteStatefulSet(o.Namespace, sfs, true)
 			case "delete-pxc-pvc":
 				sfs = statefulset.NewNode(o)
-				err = r.deleteStatfulSet(o.Namespace, sfs, true)
+				err = r.deleteStatefulSet(o.Namespace, sfs, true)
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
 			case "delete-pxc-pods-in-order":
 				sfs = statefulset.NewNode(o)
-				err = r.deleteStatfulSetPods(o.Namespace, sfs)
+				err = r.deleteStatefulSetPods(o.Namespace, sfs)
 			}
 			if err != nil {
 				finalizers = append(finalizers, fnlz)
@@ -208,7 +208,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			}
 		}
 
-		err = r.deleteStatfulSet(o.Namespace, proxysqlSet, deletePVC)
+		err = r.deleteStatefulSet(o.Namespace, proxysqlSet, deletePVC)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -416,7 +416,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 // ErrWaitingForDeletingPods indicating that the stateful set have more than a one pods left
 var ErrWaitingForDeletingPods = fmt.Errorf("waiting for pods to be deleted")
 
-func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSetPods(namespace string, sfs api.StatefulApp) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, sfs api.StatefulApp) error {
 	list := corev1.PodList{}
 
 	err := r.client.List(context.TODO(),
@@ -454,7 +454,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSetPods(namespace string, s
 	return ErrWaitingForDeletingPods
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {
 	err := r.client.Delete(context.TODO(), sfs.StatefulSet())
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("delete proxysql: %v", err)

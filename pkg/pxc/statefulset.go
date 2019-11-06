@@ -34,30 +34,21 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
-	v, err := cr.CompareVersionWith("1.3.0")
-	if err != nil {
-		return nil, errors.Wrap(err, "compare version")
-	}
 
-	sfsVolume := sfs.Volumes(podSpec, v)
+	sfsVolume, err := sfs.Volumes(podSpec, cr)
 	pod.Volumes = sfsVolume.Volumes
 
-	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName, v)
+	appC, err := sfs.AppContainer(podSpec, cr.Spec.SecretsName, cr)
+	if err != nil {
+		return nil, errors.Wrap(err, "app container")
+	}
 	appC.Resources, err = sfs.Resources(podSpec.Resources)
 	if err != nil {
 		return nil, err
 	}
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		var versionGreaterOrEqual120 bool
-		compare, err := cr.CompareVersionWith("1.2.0")
-		if err != nil {
-			return nil, fmt.Errorf("compare version: %v", err)
-		}
-		if compare >= 1 {
-			versionGreaterOrEqual120 = true
-		}
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, versionGreaterOrEqual120)
+		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, cr)
 		if err != nil {
 			return nil, fmt.Errorf("pmm container error: %v", err)
 		}

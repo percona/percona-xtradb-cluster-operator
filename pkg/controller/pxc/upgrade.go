@@ -26,11 +26,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
 
-	res, err := sfs.Resources(podSpec.Resources)
-	if err != nil {
-		return fmt.Errorf("upgradePod/updateApp error: create resources error: %v", err)
-	}
-
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function
 	configHash := r.getConfigHash(cr)
@@ -62,32 +57,22 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	var newContainers []corev1.Container
 	var newInitContainers []corev1.Container
 
-	v, err := cr.CompareVersionWith("1.3.0")
-	if err != nil {
-		return fmt.Errorf("compare version", err)
-	}
-	var versionGreaterOrEqual120 bool
-	compare, err := cr.CompareVersionWith("1.2.0")
-	if err != nil {
-		return fmt.Errorf("compare version: %v", err)
-	}
-	if compare >= 1 {
-		versionGreaterOrEqual120 = true
-	}
 	// pmm container
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, versionGreaterOrEqual120)
+		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, cr)
 		if err != nil {
 			return fmt.Errorf("pmm container error: %v", err)
 		}
-		pmmC.Resources = res
 
 		newContainers = append(newContainers, pmmC)
 	}
 
 	// application container
-	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName, v)
-	appC.Resources = res
+	appC, err := sfs.AppContainer(podSpec, cr.Spec.SecretsName, cr)
+	if err != nil {
+		return fmt.Errorf("app container error: %v", err)
+	}
+
 	newContainers = append(newContainers, appC)
 
 	if podSpec.ForceUnsafeBootstrap {

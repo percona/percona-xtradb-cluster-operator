@@ -1,6 +1,8 @@
 package statefulset
 
 import (
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +49,7 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 	}
 }
 
-func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, compare130Version int) corev1.Container {
+func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            proxyName,
 		Image:           spec.Image,
@@ -106,7 +108,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, compare130Versio
 		},
 	}
 
-	return appc
+	return appc, nil
 }
 
 func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container {
@@ -191,8 +193,16 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 	}
 }
 
-func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) (corev1.Container, error) {
-	ct := app.PMMClient(spec, secrets, v120OrGreater)
+func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+	var versionGreaterOrEqual120 bool
+	compare, err := cr.CompareVersionWith("1.2.0")
+	if err != nil {
+		return corev1.Container{}, fmt.Errorf("compare version: %v", err)
+	}
+	if compare >= 1 {
+		versionGreaterOrEqual120 = true
+	}
+	ct := app.PMMClient(spec, secrets, versionGreaterOrEqual120)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -244,9 +254,14 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bo
 	}
 
 	ct.Env = append(ct.Env, pmmEnvs...)
-	switch v120OrGreater {
+	switch versionGreaterOrEqual120 {
 	case true:
 		ct.Env = append(ct.Env, dbEnvs...)
+		res, err := c.Resources(spec.Resources)
+		if err != nil {
+			return ct, fmt.Errorf("create resources error: %v", err)
+		}
+		ct.Resources = res
 	default:
 		ct.Env = append(ct.Env, dbArgsEnv...)
 	}
@@ -258,13 +273,13 @@ func (c *Proxy) Resources(spec *api.PodResources) (corev1.ResourceRequirements, 
 	return app.CreateResources(spec)
 }
 
-func (c *Proxy) Volumes(podSpec *api.PodSpec, compare130Version int) *api.Volume {
+func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
-	return vol
+	return vol, nil
 }
 
 func (c *Proxy) StatefulSet() *appsv1.StatefulSet {

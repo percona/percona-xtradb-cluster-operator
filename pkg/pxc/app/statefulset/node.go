@@ -55,7 +55,16 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 	}
 }
 
-func (c *Node) AppContainer(spec *api.PodSpec, secrets string, version130Compare int) corev1.Container {
+func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+	compareVersion130, err := cr.CompareVersionWith("1.3.0")
+	if err != nil {
+		return corev1.Container{}, fmt.Errorf("compare version 1.3.0: %v", err)
+	}
+	compareVersion120, err := cr.CompareVersionWith("1.2.0")
+	if err != nil {
+		return corev1.Container{}, fmt.Errorf("compare version 1.2.0: %v", err)
+	}
+
 	redinessDelay := int32(15)
 	if spec.ReadinessInitialDelaySeconds != nil {
 		redinessDelay = *spec.ReadinessInitialDelaySeconds
@@ -102,10 +111,6 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, version130Compare
 			{
 				Name:      DataVolumeName,
 				MountPath: "/var/lib/mysql",
-			},
-			{
-				Name:      "config",
-				MountPath: "/etc/percona-xtradb-cluster.conf.d",
 			},
 			{
 				Name:      "tmp",
@@ -155,19 +160,45 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, version130Compare
 			},
 		},
 	}
-	if version130Compare > 0 {
+	if compareVersion130 < 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "config",
+			MountPath: "/etc/mysql/conf.d",
+		})
+	}
+	if compareVersion130 > 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "auto-config",
 			MountPath: "/etc/my.cnf.d",
 		})
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "config",
+			MountPath: "/etc/percona-xtradb-cluster.conf.d",
+		})
 	}
-	return appc
+	if compareVersion120 > 0 {
+		res, err := c.Resources(spec.Resources)
+		if err != nil {
+			return appc, fmt.Errorf("create resources error: %v", err)
+		}
+		appc.Resources = res
+	}
+	return appc, nil
 }
 
 func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
 
-func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) (corev1.Container, error) {
-	ct := app.PMMClient(spec, secrets, v120OrGreater)
+func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+	var versionGreaterOrEqual120 bool
+	compare, err := cr.CompareVersionWith("1.2.0")
+	if err != nil {
+		return corev1.Container{}, fmt.Errorf("compare version: %v", err)
+	}
+	if compare >= 1 {
+		versionGreaterOrEqual120 = true
+	}
+
+	ct := app.PMMClient(spec, secrets, versionGreaterOrEqual120)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -191,7 +222,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater boo
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 
-	if v120OrGreater {
+	if versionGreaterOrEqual120 {
 		clusterEnvs := []corev1.EnvVar{
 			{
 				Name:  "DB_CLUSTER",
@@ -228,22 +259,26 @@ func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, e
 	return app.CreateResources(spec)
 }
 
-func (c *Node) Volumes(podSpec *api.PodSpec, version130Compare int) *api.Volume {
+func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
+	compareVersion130, err := cr.CompareVersionWith("1.3.0")
+	if err != nil {
+		return nil, fmt.Errorf("compare version: %v", err)
+	}
+
 	vol := app.Volumes(podSpec, DataVolumeName)
 	ls := c.Labels()
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetTmpVolume(),
 		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
-		app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
-	if version130Compare > 0 {
+	if compareVersion130 > 0 {
 		vol.Volumes = append(
 			vol.Volumes,
 			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
 	}
-	return vol
+	return vol, nil
 }
 
 func (c *Node) StatefulSet() *appsv1.StatefulSet {

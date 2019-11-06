@@ -179,25 +179,14 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 		}
 	}
 
-	if cluster.Backup.Storages[bcp.Status.StorageName].Resources != nil {
-		job.Spec.Template.Spec.Containers[0].Resources = *cluster.Backup.Storages[bcp.Status.StorageName].Resources
-	}
 	if cluster.Backup.Storages[bcp.Status.StorageName].Affinity != nil {
 		job.Spec.Template.Spec.Affinity = cluster.Backup.Storages[bcp.Status.StorageName].Affinity
 	}
-	if len(cluster.Backup.Storages[bcp.Status.StorageName].Tolerations) > 0 {
-		job.Spec.Template.Spec.Tolerations = cluster.Backup.Storages[bcp.Status.StorageName].Tolerations
-	}
-	if len(cluster.Backup.Storages[bcp.Status.StorageName].Labels) > 0 {
-		job.Spec.Template.Labels = cluster.Backup.Storages[bcp.Status.StorageName].Labels
-	}
-	if len(cluster.Backup.Storages[bcp.Status.StorageName].Annotations) > 0 {
-		job.Spec.Template.Annotations = cluster.Backup.Storages[bcp.Status.StorageName].Annotations
-	}
-	if len(cluster.Backup.Storages[bcp.Status.StorageName].NodeSelector) > 0 {
-		job.Spec.Template.Spec.NodeSelector = cluster.Backup.Storages[bcp.Status.StorageName].NodeSelector
-	}
-
+	job.Spec.Template.Spec.Containers[0].Resources = cluster.Backup.Storages[bcp.Status.StorageName].Resources
+	job.Spec.Template.Spec.Tolerations = cluster.Backup.Storages[bcp.Status.StorageName].Tolerations
+	job.Spec.Template.Labels = cluster.Backup.Storages[bcp.Status.StorageName].Labels
+	job.Spec.Template.Annotations = cluster.Backup.Storages[bcp.Status.StorageName].Annotations
+	job.Spec.Template.Spec.NodeSelector = cluster.Backup.Storages[bcp.Status.StorageName].NodeSelector
 	job.Spec.Template.Spec.SchedulerName = cluster.Backup.Storages[bcp.Status.StorageName].SchedulerName
 	job.Spec.Template.Spec.PriorityClassName = cluster.Backup.Storages[bcp.Status.StorageName].PriorityClassName
 

@@ -199,7 +199,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 	if err != nil {
 		return corev1.Container{}, fmt.Errorf("compare version: %v", err)
 	}
-	if compare >= 1 {
+	if compare >= 0 {
 		versionGreaterOrEqual120 = true
 	}
 	ct := app.PMMClient(spec, secrets, versionGreaterOrEqual120)
@@ -254,15 +254,14 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 	}
 
 	ct.Env = append(ct.Env, pmmEnvs...)
-	switch versionGreaterOrEqual120 {
-	case true:
+	if versionGreaterOrEqual120 {
 		ct.Env = append(ct.Env, dbEnvs...)
 		res, err := c.Resources(spec.Resources)
 		if err != nil {
 			return ct, fmt.Errorf("create resources error: %v", err)
 		}
 		ct.Resources = res
-	default:
+	} else {
 		ct.Env = append(ct.Env, dbArgsEnv...)
 	}
 

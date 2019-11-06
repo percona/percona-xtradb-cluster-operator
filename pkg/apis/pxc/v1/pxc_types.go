@@ -240,7 +240,6 @@ type App interface {
 	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
 	PMMContainer(spec *PMMSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster) (*Volume, error)
-	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
 	Labels() map[string]string
 }
 

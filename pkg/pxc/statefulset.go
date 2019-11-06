@@ -42,10 +42,6 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	if err != nil {
 		return nil, errors.Wrap(err, "app container")
 	}
-	appC.Resources, err = sfs.Resources(podSpec.Resources)
-	if err != nil {
-		return nil, err
-	}
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, cr)

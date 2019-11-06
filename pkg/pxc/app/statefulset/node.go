@@ -166,7 +166,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			MountPath: "/etc/mysql/conf.d",
 		})
 	}
-	if compareVersion130 > 0 {
+	if compareVersion130 >= 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "auto-config",
 			MountPath: "/etc/my.cnf.d",
@@ -176,7 +176,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			MountPath: "/etc/percona-xtradb-cluster.conf.d",
 		})
 	}
-	if compareVersion120 > 0 {
+	if compareVersion120 >= 0 {
 		res, err := c.Resources(spec.Resources)
 		if err != nil {
 			return appc, fmt.Errorf("create resources error: %v", err)
@@ -189,16 +189,12 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
-	var versionGreaterOrEqual120 bool
-	compare, err := cr.CompareVersionWith("1.2.0")
+	compareVersion120, err := cr.CompareVersionWith("1.2.0")
 	if err != nil {
 		return corev1.Container{}, fmt.Errorf("compare version: %v", err)
 	}
-	if compare >= 1 {
-		versionGreaterOrEqual120 = true
-	}
 
-	ct := app.PMMClient(spec, secrets, versionGreaterOrEqual120)
+	ct := app.PMMClient(spec, secrets, compareVersion120 >= 0)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -222,7 +218,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 
-	if versionGreaterOrEqual120 {
+	if compareVersion120 >= 0 {
 		clusterEnvs := []corev1.EnvVar{
 			{
 				Name:  "DB_CLUSTER",
@@ -273,7 +269,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
-	if compareVersion130 > 0 {
+	if compareVersion130 >= 0 {
 		vol.Volumes = append(
 			vol.Volumes,
 			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))

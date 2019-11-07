@@ -108,8 +108,9 @@ type PerconaXtraDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PerconaXtraDBClusterSpec   `json:"spec,omitempty"`
-	Status PerconaXtraDBClusterStatus `json:"status,omitempty"`
+	Spec    PerconaXtraDBClusterSpec   `json:"spec,omitempty"`
+	Status  PerconaXtraDBClusterStatus `json:"status,omitempty"`
+	Version *v.Version
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -260,6 +261,11 @@ var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
 func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
+	err = cr.setVersion()
+	if err != nil {
+		return false, errors.Wrap(err, "set version")
+	}
+
 	if len(cr.Name) > clusterNameMaxLen {
 		return false, ErrClusterNameOverflow
 	}
@@ -387,28 +393,27 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	return changed, nil
 }
 
-// CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
-func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) (int, error) {
-	apiVersion := cr.APIVersion
+func (cr *PerconaXtraDBCluster) setVersion() error {
 	// Need to do this becose API always returns "v1"
+	apiVersion := cr.APIVersion
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
 		err := json.Unmarshal([]byte(lastCR), &newCR)
 		if err != nil {
-			return -1, errors.Wrap(err, "unmarshal cr")
+			return errors.Wrap(err, "unmarshal cr")
 		}
 		apiVersion = newCR.APIVersion
 	}
 	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
-	checkVersion, err := v.NewVersion(version)
-	if err != nil {
-		return -1, errors.Wrap(err, "get check version")
-	}
-	currentVersion, err := v.NewVersion(crVersion)
-	if err != nil {
-		return -1, errors.Wrap(err, "get cr version")
-	}
-	return currentVersion.Compare(checkVersion), nil
+	cr.Version = v.Must(v.NewVersion(crVersion))
+	return nil
+}
+
+// CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
+	checkVersion := v.Must(v.NewVersion(version))
+
+	return cr.Version.Compare(checkVersion)
 }
 
 const AffinityTopologyKeyOff = "none"

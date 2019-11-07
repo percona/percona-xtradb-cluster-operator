@@ -370,11 +370,8 @@ func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBClust
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
 	stsApp := statefulset.NewNode(cr)
 	ls := stsApp.Labels()
-	compare, err := cr.CompareVersionWith("1.3.0")
-	if err != nil {
-		return errors.Wrap(err, "compare version")
-	}
-	if compare >= 0 {
+
+	if cr.CompareVersionWith("1.3.0") >= 0 {
 		if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 || len(cr.Spec.PXC.Resources.Requests.Memory) > 0 {
 			autoConfigMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 			if err != nil {

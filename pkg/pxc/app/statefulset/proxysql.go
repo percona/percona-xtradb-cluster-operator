@@ -194,11 +194,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 }
 
 func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
-	compareVersion120, err := cr.CompareVersionWith("1.2.0")
-	if err != nil {
-		return corev1.Container{}, fmt.Errorf("compare version: %v", err)
-	}
-	ct := app.PMMClient(spec, secrets, compareVersion120 >= 0)
+	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -250,7 +246,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 	}
 
 	ct.Env = append(ct.Env, pmmEnvs...)
-	if compareVersion120 >= 0 {
+	if cr.CompareVersionWith("1.2.0") >= 0 {
 		ct.Env = append(ct.Env, dbEnvs...)
 		res, err := app.CreateResources(spec.Resources)
 		if err != nil {

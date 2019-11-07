@@ -56,15 +56,6 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 }
 
 func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
-	compareVersion130, err := cr.CompareVersionWith("1.3.0")
-	if err != nil {
-		return corev1.Container{}, fmt.Errorf("compare version 1.3.0: %v", err)
-	}
-	compareVersion120, err := cr.CompareVersionWith("1.2.0")
-	if err != nil {
-		return corev1.Container{}, fmt.Errorf("compare version 1.2.0: %v", err)
-	}
-
 	redinessDelay := int32(15)
 	if spec.ReadinessInitialDelaySeconds != nil {
 		redinessDelay = *spec.ReadinessInitialDelaySeconds
@@ -160,13 +151,13 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			},
 		},
 	}
-	if compareVersion130 < 0 {
+	if cr.CompareVersionWith("1.3.0") < 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "config",
 			MountPath: "/etc/mysql/conf.d",
 		})
 	}
-	if compareVersion130 >= 0 {
+	if cr.CompareVersionWith("1.3.0") >= 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "auto-config",
 			MountPath: "/etc/my.cnf.d",
@@ -176,7 +167,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			MountPath: "/etc/percona-xtradb-cluster.conf.d",
 		})
 	}
-	if compareVersion120 >= 0 {
+	if cr.CompareVersionWith("1.2.0") >= 0 {
 		res, err := app.CreateResources(spec.Resources)
 		if err != nil {
 			return appc, fmt.Errorf("create resources error: %v", err)
@@ -189,12 +180,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
-	compareVersion120, err := cr.CompareVersionWith("1.2.0")
-	if err != nil {
-		return corev1.Container{}, fmt.Errorf("compare version: %v", err)
-	}
-
-	ct := app.PMMClient(spec, secrets, compareVersion120 >= 0)
+	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -218,7 +204,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 
-	if compareVersion120 >= 0 {
+	if cr.CompareVersionWith("1.2.0") >= 0 {
 		clusterEnvs := []corev1.EnvVar{
 			{
 				Name:  "DB_CLUSTER",
@@ -252,11 +238,6 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 }
 
 func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
-	compareVersion130, err := cr.CompareVersionWith("1.3.0")
-	if err != nil {
-		return nil, fmt.Errorf("compare version: %v", err)
-	}
-
 	vol := app.Volumes(podSpec, DataVolumeName)
 	ls := c.Labels()
 	vol.Volumes = append(
@@ -265,7 +246,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
-	if compareVersion130 >= 0 {
+	if cr.CompareVersionWith("1.3.0") >= 0 {
 		vol.Volumes = append(
 			vol.Volumes,
 			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))

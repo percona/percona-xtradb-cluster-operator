@@ -197,9 +197,7 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
 	if cr.Spec.Backup != nil {
-		if cr.Spec.Backup.Storages[storageName].Affinity != nil {
-			job.Template.Spec.Affinity = cr.Spec.Backup.Storages[storageName].Affinity
-		}
+		job.Template.Spec.Affinity = cr.Spec.Backup.Storages[storageName].Affinity
 		job.Template.Spec.Containers[0].Resources = cr.Spec.Backup.Storages[storageName].Resources
 		job.Template.Spec.Tolerations = cr.Spec.Backup.Storages[storageName].Tolerations
 		job.Template.Labels = cr.Spec.Backup.Storages[storageName].Labels

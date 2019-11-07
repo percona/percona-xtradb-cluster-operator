@@ -179,9 +179,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 		}
 	}
 
-	if cluster.Backup.Storages[bcp.Status.StorageName].Affinity != nil {
-		job.Spec.Template.Spec.Affinity = cluster.Backup.Storages[bcp.Status.StorageName].Affinity
-	}
+	job.Spec.Template.Spec.Affinity = cluster.Backup.Storages[bcp.Status.StorageName].Affinity
 	job.Spec.Template.Spec.Containers[0].Resources = cluster.Backup.Storages[bcp.Status.StorageName].Resources
 	job.Spec.Template.Spec.Tolerations = cluster.Backup.Storages[bcp.Status.StorageName].Tolerations
 	job.Spec.Template.Labels = cluster.Backup.Storages[bcp.Status.StorageName].Labels

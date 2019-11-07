@@ -97,9 +97,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 			},
 		},
 	}
-	if strg.Affinity != nil {
-		job.Template.Spec.Affinity = strg.Affinity
-	}
+	job.Template.Spec.Affinity = strg.Affinity
 	job.Template.Spec.Containers[0].Resources = strg.Resources
 	job.Template.Spec.Tolerations = strg.Tolerations
 	job.Template.Labels = strg.Labels

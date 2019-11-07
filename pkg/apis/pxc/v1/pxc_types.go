@@ -110,7 +110,7 @@ type PerconaXtraDBCluster struct {
 
 	Spec    PerconaXtraDBClusterSpec   `json:"spec,omitempty"`
 	Status  PerconaXtraDBClusterStatus `json:"status,omitempty"`
-	Version *v.Version
+	version *v.Version
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -405,15 +405,19 @@ func (cr *PerconaXtraDBCluster) setVersion() error {
 		apiVersion = newCR.APIVersion
 	}
 	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
-	cr.Version = v.Must(v.NewVersion(crVersion))
+	version, err := v.NewVersion(crVersion)
+	if err != nil {
+		return errors.Wrap(err, "new version")
+	}
+	cr.version = version
+
 	return nil
 }
 
 // CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
 func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
-	checkVersion := v.Must(v.NewVersion(version))
-
-	return cr.Version.Compare(checkVersion)
+	//using Must because "version" must be right format
+	return cr.version.Compare(v.Must(v.NewVersion(version)))
 }
 
 const AffinityTopologyKeyOff = "none"

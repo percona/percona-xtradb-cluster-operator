@@ -177,7 +177,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 	if compareVersion120 >= 0 {
-		res, err := c.Resources(spec.Resources)
+		res, err := app.CreateResources(spec.Resources)
 		if err != nil {
 			return appc, fmt.Errorf("create resources error: %v", err)
 		}
@@ -234,7 +234,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 			},
 		}
 		ct.Env = append(ct.Env, clusterEnvs...)
-		res, err := c.Resources(spec.Resources)
+		res, err := app.CreateResources(spec.Resources)
 		if err != nil {
 			return ct, fmt.Errorf("create resources error: %v", err)
 		}
@@ -249,10 +249,6 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 	}
 
 	return ct, nil
-}
-
-func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, error) {
-	return app.CreateResources(spec)
 }
 
 func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {

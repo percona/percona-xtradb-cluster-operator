@@ -52,7 +52,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 }
 
 func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec) batchv1.JobSpec {
-	job := batchv1.JobSpec{
+	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			Spec: corev1.PodSpec{
 				ServiceAccountName: bcp.serviceAccountName,
@@ -61,6 +61,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 						Name:            "run-backup",
 						Image:           bcp.image,
 						ImagePullPolicy: corev1.PullAlways,
+						Resources:       strg.Resources,
 						Env: []corev1.EnvVar{
 							{
 								Name:  "pxcCluster",
@@ -91,20 +92,16 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 						},
 					},
 				},
-				RestartPolicy:    corev1.RestartPolicyNever,
-				ImagePullSecrets: bcp.imagePullSecrets,
-				NodeSelector:     strg.NodeSelector,
+				RestartPolicy:     corev1.RestartPolicyNever,
+				ImagePullSecrets:  bcp.imagePullSecrets,
+				NodeSelector:      strg.NodeSelector,
+				Affinity:          strg.Affinity,
+				Tolerations:       strg.Tolerations,
+				Labels:            strg.Labels,
+				SchedulerName:     strg.SchedulerName,
+				Annotations:       strg.Annotations,
+				PriorityClassName: strg.PriorityClassName,
 			},
 		},
 	}
-	job.Template.Spec.Affinity = strg.Affinity
-	job.Template.Spec.Containers[0].Resources = strg.Resources
-	job.Template.Spec.Tolerations = strg.Tolerations
-	job.Template.Labels = strg.Labels
-	job.Template.Annotations = strg.Annotations
-	job.Template.Spec.NodeSelector = strg.NodeSelector
-	job.Template.Spec.SchedulerName = strg.SchedulerName
-	job.Template.Spec.PriorityClassName = strg.PriorityClassName
-
-	return job
 }

@@ -1,0 +1,44 @@
+{
+  "affinity": {
+    "nodeAffinity": {
+      "requiredDuringSchedulingIgnoredDuringExecution": {
+        "nodeSelectorTerms": [
+          {
+            "matchExpressions": [
+              {
+                "key": "backupWorker",
+                "operator": "In",
+                "values": [
+                  "True"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "annotations": {
+    "testName": "scheduled-backup"
+  },
+  "labels": {
+    "backupWorker": "True"
+  },
+  "nodeSelector": {
+    "backupWorker": "True"
+  },
+  "priorityClassName": "high-priority",
+  "schedulerName": "default-scheduler",
+  "tolerations": {
+    "effect": "NoSchedule",
+    "key": "backupWorker",
+    "operator": "Equal",
+    "value": "True"
+  },
+  "resources": {
+    "requests": {
+      "cpu": "600m",
+      "memory": "1G"
+    }
+  }
+}

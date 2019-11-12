@@ -87,16 +87,60 @@ start_minio() {
         /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
 }
 
-taint_node() {
-    TAINTED_NODE=$(kubectl_bin get nodes -o custom-columns=NAME:.metadata.name --no-headers=true | head -n1)
+label_node() {
+    LABELED_NODE=$(kubectl_bin get nodes -o custom-columns=NAME:.metadata.name --no-headers=true | head -n1)
 
-    kubectl_bin taint nodes "${TAINTED_NODE}" backupWorker=True:NoSchedule --overwrite
-    kubectl_bin label nodes "${TAINTED_NODE}" backupWorker=True --overwrite
+    kubectl_bin label nodes "${LABELED_NODE}" backupWorker=True --overwrite
 }
 
-untaint_node() {
-    kubectl_bin taint nodes "${TAINTED_NODE}" backupWorker=True:NoSchedule- --overwrite | true
-    kubectl_bin label nodes "${TAINTED_NODE}" backupWorker- --overwrite
+unlabel_node() {
+    kubectl_bin label nodes "${LABELED_NODE}" backupWorker- --overwrite
+}
+
+compare_extrafields() {
+    local resource_type="$1"
+    local resource="$2"
+    local expected_result=${test_dir}/compare/extra-fields.json
+    local new_result="${tmp_dir}/${resource//\//_}.json"
+
+    if [ "$OPENSHIFT" = 1 -a -f ${expected_result//.json/-oc.json} ]; then
+        expected_result=${expected_result//.json/-oc.json}
+    fi
+
+    case ${resource_type} in
+        job)
+            kubectl_bin get ${resource_type} ${resource} -o json | jq "{
+                                                                            affinity: .spec.template.spec.affinity, \
+                                                                            annotations: .spec.template.metadata.annotations, \
+                                                                            labels: \
+                                                                                { \
+                                                                                    backupWorker: .spec.template.metadata.labels.backupWorker \
+                                                                                }, \
+                                                                            nodeSelector: .spec.template.spec.nodeSelector, \
+                                                                            priorityClassName: .spec.template.spec.priorityClassName, \
+                                                                            schedulerName: .spec.template.spec.schedulerName, \
+                                                                            tolerations: .spec.template.spec.tolerations[0], \
+                                                                            resources: .spec.template.spec.containers[0].resources\
+                                                                        }"  > ${new_result}
+            ;;
+        pod)
+            kubectl_bin get ${resource_type} ${resource} -o json | jq "{\
+                                                                            affinity: .spec.affinity, \
+                                                                            annotations: .metadata.annotations, \
+                                                                            labels: \
+                                                                                {  \
+                                                                                    backupWorker: .metadata.labels.backupWorker\
+                                                                                }, \
+                                                                            nodeSelector: .spec.nodeSelector, \
+                                                                            priorityClassName: .spec.priorityClassName, \
+                                                                            schedulerName: .spec.schedulerName, \
+                                                                            tolerations: .spec.tolerations[0], \
+                                                                            resources: .spec.containers[0].resources\
+                                                                        }"  > ${new_result}
+            ;;
+    esac
+    
+    diff -u ${expected_result} ${new_result}
 }
 
 main() {
@@ -108,12 +152,23 @@ main() {
     start_minio
 
     cluster="scheduled-backup"
+
+    cat - <<-EOF | kubectl apply -f -
+        apiVersion: scheduling.k8s.io/v1beta1        
+        kind: PriorityClass
+        metadata:
+            name: high-priority
+        value: 1000000
+        globalDefault: false
+        description: "This priority class should be used for backup service pods only."
+	EOF
+
     spinup_pxc "$cluster" "$test_dir/conf/${cluster}1.yml"
     sleep 10
 
     desc 'add backups schedule, wait for the first backup'
     apply_config "$test_dir/conf/${cluster}2.yml"
-    taint_node
+    label_node
     sleep 10
 
     compare_kubectl cronjob/each-min-pvc
@@ -126,26 +181,34 @@ main() {
     wait_backup "minio"
     wait_backup "gcp-cs"
 
-    if [[ $(kubectl_bin get pods -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName --no-headers=true \
-            | grep ${cluster}-xb-cron-${cluster} \
-            | awk '{print $2}' \
-            | sort \
-            | uniq \
-            | wc -l \
-            | awk '{$1=$1};1') != 1 ]]; then
-        echo "Taint/toleration rules have been violated."
-        exit 1
-    fi
+    FIRST_PVC_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep pvc | head -n1| cut -d: -f1)
+    JOB_PVC_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_PVC_BACKUP} | awk '{print $1}')
+    POD_PVC_BACKUP=$(kubectl_bin get pods | grep ${JOB_PVC_BACKUP%-*}  | awk '{print $1}')
 
-    kubectl_bin taint nodes "${TAINTED_NODE}" backupWorker=False:NoSchedule-
+    FIRST_MINIO_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep minio | head -n1| cut -d: -f1)
+    JOB_MINIO_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_MINIO_BACKUP} | awk '{print $1}')
+    POD_MINIO_BACKUP=$(kubectl_bin get pods | grep ${JOB_MINIO_BACKUP%-*}  | awk '{print $1}')
 
-    if [[ $(kubectl_bin get pods -o jsonpath='{range .items[*]}{.metadata.name}:{.metadata.annotations.testName}{"\n"}' \
-            | grep ':scheduled-backup$' \
-            | wc -l ) == 0 ]]; then
+    FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1| cut -d: -f1)
+    JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
+    POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*}  | awk '{print $1}')
 
-        echo "No backup worker pods with target annotation"
-        exit 1
-    fi
+    FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1| cut -d: -f1)
+    JOB_GCP_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_GCP_BACKUP} | awk '{print $1}')
+    POD_GCP_BACKUP=$(kubectl_bin get pods | grep ${JOB_GCP_BACKUP%-*}  | awk '{print $1}')
+
+    compare_extrafields job ${JOB_PVC_BACKUP}
+    compare_extrafields pod ${POD_PVC_BACKUP}
+
+    compare_extrafields job ${JOB_MINIO_BACKUP}
+    compare_extrafields pod ${POD_MINIO_BACKUP}
+
+    compare_extrafields job ${JOB_AWS_BACKUP}
+    compare_extrafields pod ${POD_AWS_BACKUP}
+
+    compare_extrafields job ${JOB_GCP_BACKUP}
+    compare_extrafields pod ${POD_GCP_BACKUP}
+
 
     backup_name_pvc=$(get_backup_name "pvc")
     backup_name_aws=$(get_backup_name "aws-s3")
@@ -161,7 +224,7 @@ main() {
     run_recovery_check "$cluster" "$backup_name_minio"
     run_recovery_check "$cluster" "$backup_name_gcp"
 
-    untaint_node
+    unlabel_node
     destroy $namespace
 }
 

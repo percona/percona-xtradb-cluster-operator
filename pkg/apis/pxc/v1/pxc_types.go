@@ -172,17 +172,17 @@ type ResourcesList struct {
 }
 
 type BackupStorageSpec struct {
-	Type              BackupStorageType           `json:"type"`
-	S3                BackupStorageS3Spec         `json:"s3,omitempty"`
-	Volume            *VolumeSpec                 `json:"volume,omitempty"`
-	NodeSelector      map[string]string           `json:"nodeSelector,omitempty"`
-	Resources         corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity          *corev1.Affinity            `json:"affinity,omitempty"`
-	Tolerations       []corev1.Toleration         `json:"tolerations,omitempty"`
-	Annotations       map[string]string           `json:"annotations,omitempty"`
-	Labels            map[string]string           `json:"labels,omitempty"`
-	SchedulerName     string                      `json:"schedulerName,omitempty"`
-	PriorityClassName string                      `json:"priorityClassName,omitempty"`
+	Type              BackupStorageType   `json:"type"`
+	S3                BackupStorageS3Spec `json:"s3,omitempty"`
+	Volume            *VolumeSpec         `json:"volume,omitempty"`
+	NodeSelector      map[string]string   `json:"nodeSelector,omitempty"`
+	Resources         *PodResources       `json:"resources,omitempty"`
+	Affinity          *corev1.Affinity    `json:"affinity,omitempty"`
+	Tolerations       []corev1.Toleration `json:"tolerations,omitempty"`
+	Annotations       map[string]string   `json:"annotations,omitempty"`
+	Labels            map[string]string   `json:"labels,omitempty"`
+	SchedulerName     string              `json:"schedulerName,omitempty"`
+	PriorityClassName string              `json:"priorityClassName,omitempty"`
 }
 
 type BackupStorageType string

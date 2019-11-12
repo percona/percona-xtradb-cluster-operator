@@ -7,43 +7,46 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
-func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec) *batchv1beta1.CronJob {
+func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, cr *api.PerconaXtraDBCluster) *batchv1beta1.CronJob {
+	// Copy from the original labels to the backup labels
+	labels := make(map[string]string)
+	for key, value := range strg.Labels {
+		labels[key] = value
+	}
+	labels["type"] = "cron"
+	labels["cluster"] = bcp.cluster
+	labels["schedule"] = genScheduleLabel(spec.Schedule)
+
 	jb := &batchv1beta1.CronJob{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1beta1",
 			Kind:       "CronJob",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      spec.Name,
-			Namespace: bcp.namespace,
-			Labels: map[string]string{
-				"type":     "cron",
-				"cluster":  bcp.cluster,
-				"schedule": genScheduleLabel(spec.Schedule),
-			},
+			Name:        spec.Name,
+			Namespace:   bcp.namespace,
+			Labels:      labels,
+			Annotations: strg.Annotations,
 		},
 		Spec: batchv1beta1.CronJobSpec{
 			Schedule:                   spec.Schedule,
 			SuccessfulJobsHistoryLimit: func(i int32) *int32 { return &i }(1),
+			JobTemplate: batchv1beta1.JobTemplateSpec{
+				Spec: bcp.scheduledJob(spec, strg, labels),
+			},
 		},
 	}
-
-	jb.Spec.JobTemplate.ObjectMeta.Labels = map[string]string{
-		"cluster": bcp.cluster,
-		"type":    "xtrabackup",
-	}
-	jb.Spec.JobTemplate.Labels = jb.Labels
-	jb.Spec.JobTemplate.Spec = bcp.scheduledJob(spec, strg)
 
 	jb.Spec.JobTemplate.SetOwnerReferences(
 		append(jb.Spec.JobTemplate.GetOwnerReferences(),
 			metav1.OwnerReference{
-				APIVersion: jb.APIVersion,
-				Kind:       jb.Kind,
-				Name:       jb.GetName(),
-				UID:        jb.GetUID(),
+				APIVersion: cr.APIVersion,
+				Kind:       cr.Kind,
+				Name:       cr.GetName(),
+				UID:        cr.GetUID(),
 			},
 		),
 	)
@@ -51,9 +54,18 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 	return jb
 }
 
-func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec) batchv1.JobSpec {
+func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, labels map[string]string) batchv1.JobSpec {
+	resources, err := app.CreateResources(strg.Resources)
+	if err != nil {
+		log.Info("cannot parse backup resources: ", err)
+	}
+
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: strg.Annotations,
+				Labels:      labels,
+			},
 			Spec: corev1.PodSpec{
 				ServiceAccountName: bcp.serviceAccountName,
 				Containers: []corev1.Container{
@@ -61,7 +73,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 						Name:            "run-backup",
 						Image:           bcp.image,
 						ImagePullPolicy: corev1.PullAlways,
-						Resources:       strg.Resources,
+						Resources:       resources,
 						Env: []corev1.EnvVar{
 							{
 								Name:  "pxcCluster",
@@ -97,9 +109,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 				NodeSelector:      strg.NodeSelector,
 				Affinity:          strg.Affinity,
 				Tolerations:       strg.Tolerations,
-				Labels:            strg.Labels,
 				SchedulerName:     strg.SchedulerName,
-				Annotations:       strg.Annotations,
 				PriorityClassName: strg.PriorityClassName,
 			},
 		},

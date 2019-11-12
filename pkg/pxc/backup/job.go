@@ -13,32 +13,53 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
-func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup) *batchv1.Job {
+func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
+	// Copy from the original labels to the backup labels
+	labels := make(map[string]string)
+	for key, value := range cluster.Spec.Backup.Storages[cr.Spec.StorageName].Labels {
+		labels[key] = value
+	}
+	labels["type"] = "xtrabackup"
+	labels["cluster"] = cr.Spec.PXCCluster
+	labels["job-name"] = genName63(cr)
+
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      genName63(cr),
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"cluster": cr.Spec.PXCCluster,
-				"type":    "xtrabackup",
-			},
+			Name:        labels["job-name"],
+			Namespace:   cr.Namespace,
+			Labels:      labels,
+			Annotations: cluster.Spec.Backup.Storages[cr.Spec.StorageName].Annotations,
 		},
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluster api.PerconaXtraDBClusterSpec) batchv1.JobSpec {
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluster api.PerconaXtraDBClusterSpec, job *batchv1.Job) batchv1.JobSpec {
 	var fsgroup *int64
 	if sv.Platform == api.PlatformKubernetes {
 		var tp int64 = 1001
 		fsgroup = &tp
 	}
 
+	resources, err := app.CreateResources(cluster.Backup.Storages[spec.StorageName].Resources)
+	if err != nil {
+		log.Info("cannot parse Backup resources: ", err)
+	}
+
+	manualSelector := true
 	return batchv1.JobSpec{
+		ManualSelector: &manualSelector,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: job.Labels,
+		},
 		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      job.Labels,
+				Annotations: cluster.Backup.Storages[spec.StorageName].Annotations,
+			},
 			Spec: corev1.PodSpec{
 				SecurityContext: &corev1.PodSecurityContext{
 					SupplementalGroups: []int64{1001},
@@ -68,9 +89,14 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluste
 								},
 							},
 						},
+						Resources: resources,
 					},
 				},
-				NodeSelector: cluster.Backup.Storages[spec.StorageName].NodeSelector,
+				Affinity:          cluster.Backup.Storages[spec.StorageName].Affinity,
+				Tolerations:       cluster.Backup.Storages[spec.StorageName].Tolerations,
+				NodeSelector:      cluster.Backup.Storages[spec.StorageName].NodeSelector,
+				SchedulerName:     cluster.Backup.Storages[spec.StorageName].SchedulerName,
+				PriorityClassName: cluster.Backup.Storages[spec.StorageName].PriorityClassName,
 			},
 		},
 	}
@@ -117,7 +143,7 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
-func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, volName, storageName string) error {
+func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, volName string) error {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}
@@ -137,26 +163,12 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 	job.Template.Spec.Volumes = []corev1.Volume{
 		pvc,
 	}
-
-	if cr.Spec.Backup != nil {
-		if cr.Spec.Backup.Storages[storageName].Affinity != nil {
-			job.Template.Spec.Affinity = cr.Spec.Backup.Storages[storageName].Affinity
-		}
-		job.Template.Spec.Containers[0].Resources = cr.Spec.Backup.Storages[storageName].Resources
-		job.Template.Spec.Tolerations = cr.Spec.Backup.Storages[storageName].Tolerations
-		job.Template.Labels = cr.Spec.Backup.Storages[storageName].Labels
-		job.Template.Annotations = cr.Spec.Backup.Storages[storageName].Annotations
-		job.Template.Spec.NodeSelector = cr.Spec.Backup.Storages[storageName].NodeSelector
-	}
-	job.Template.Spec.SchedulerName = cr.Spec.Backup.Storages[storageName].SchedulerName
-	job.Template.Spec.PriorityClassName = cr.Spec.Backup.Storages[storageName].PriorityClassName
-
 	appendStorageSecret(job, cr)
 
 	return nil
 }
 
-func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s3 api.BackupStorageS3Spec, destination, storageName string) error {
+func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s3 api.BackupStorageS3Spec, destination string) error {
 	accessKey := corev1.EnvVar{
 		Name: "ACCESS_KEY_ID",
 		ValueFrom: &corev1.EnvVarSource{
@@ -196,16 +208,6 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 		Value: strings.TrimLeft(u.Path, "/"),
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
-	if cr.Spec.Backup != nil {
-		job.Template.Spec.Affinity = cr.Spec.Backup.Storages[storageName].Affinity
-		job.Template.Spec.Containers[0].Resources = cr.Spec.Backup.Storages[storageName].Resources
-		job.Template.Spec.Tolerations = cr.Spec.Backup.Storages[storageName].Tolerations
-		job.Template.Labels = cr.Spec.Backup.Storages[storageName].Labels
-		job.Template.Annotations = cr.Spec.Backup.Storages[storageName].Annotations
-		job.Template.Spec.NodeSelector = cr.Spec.Backup.Storages[storageName].NodeSelector
-	}
-	job.Template.Spec.SchedulerName = cr.Spec.Backup.Storages[storageName].SchedulerName
-	job.Template.Spec.PriorityClassName = cr.Spec.Backup.Storages[storageName].PriorityClassName
 
 	// add SSL volumes
 	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}

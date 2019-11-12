@@ -127,18 +127,18 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		return reconcile.Result{}, fmt.Errorf("a backup image should be set in the PXC config")
 	}
 
-	bcp := backup.New(cluster, cluster.Spec.Backup)
-	job := bcp.Job(instance)
-
 	bcpStorage, ok := cluster.Spec.Backup.Storages[instance.Spec.StorageName]
 	if !ok {
 		return reconcile.Result{}, fmt.Errorf("bcpStorage %s doesn't exist", instance.Spec.StorageName)
 	}
 
+	bcp := backup.New(cluster)
+	job := bcp.Job(instance, cluster)
+	job.Spec = bcp.JobSpec(instance.Spec, r.serverVersion, cluster.Spec, job)
+
 	var destination string
 	var s3status *api.BackupStorageS3Spec
 
-	job.Spec = bcp.JobSpec(instance.Spec, r.serverVersion, cluster.Spec)
 	switch bcpStorage.Type {
 	case api.BackupStorageFilesystem:
 		pvc := backup.NewPVC(instance)
@@ -163,7 +163,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 			return reconcile.Result{}, fmt.Errorf("get backup pvc: %v", err)
 		}
 
-		err := bcp.SetStoragePVC(&job.Spec, cluster, pvc.Name, instance.Spec.StorageName)
+		err := bcp.SetStoragePVC(&job.Spec, cluster, pvc.Name)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
 		}
@@ -172,7 +172,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		if !strings.HasPrefix(bcpStorage.S3.Bucket, "s3://") {
 			destination = "s3://" + destination
 		}
-		err := bcp.SetStorageS3(&job.Spec, cluster, bcpStorage.S3, destination, instance.Spec.StorageName)
+		err := bcp.SetStorageS3(&job.Spec, cluster, bcpStorage.S3, destination)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
 		}

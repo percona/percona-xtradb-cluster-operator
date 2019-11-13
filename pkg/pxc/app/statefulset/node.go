@@ -104,6 +104,10 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				MountPath: "/var/lib/mysql",
 			},
 			{
+				Name:      "config",
+				MountPath: "/etc/mysql/conf.d",
+			},
+			{
 				Name:      "tmp",
 				MountPath: "/tmp",
 			},
@@ -151,29 +155,26 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			},
 		},
 	}
-	if cr.CompareVersionWith("1.3.0") < 0 {
-		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "config",
-			MountPath: "/etc/mysql/conf.d",
-		})
-	}
+
 	if cr.CompareVersionWith("1.3.0") >= 0 {
+		for k, v := range appc.VolumeMounts {
+			if v.Name == "config" {
+				appc.VolumeMounts[k].MountPath = "/etc/percona-xtradb-cluster.conf.d"
+				break
+			}
+		}
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "auto-config",
 			MountPath: "/etc/my.cnf.d",
 		})
-		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "config",
-			MountPath: "/etc/percona-xtradb-cluster.conf.d",
-		})
 	}
-	if cr.CompareVersionWith("1.2.0") >= 0 {
-		res, err := app.CreateResources(spec.Resources)
-		if err != nil {
-			return appc, fmt.Errorf("create resources error: %v", err)
-		}
-		appc.Resources = res
+
+	res, err := app.CreateResources(spec.Resources)
+	if err != nil {
+		return appc, fmt.Errorf("create resources error: %v", err)
 	}
+	appc.Resources = res
+
 	return appc, nil
 }
 

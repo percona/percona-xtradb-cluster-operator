@@ -108,6 +108,12 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		},
 	}
 
+	res, err := app.CreateResources(spec.Resources)
+	if err != nil {
+		return appc, fmt.Errorf("create resources error: %v", err)
+	}
+	appc.Resources = res
+
 	return appc, nil
 }
 

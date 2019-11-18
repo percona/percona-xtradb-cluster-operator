@@ -179,6 +179,12 @@ pipeline {
                         runTest('scheduled-backup', 'backups')
                     }
                 }
+                stage('E2E BigData') {
+                    steps {
+                        CreateCluster('big-data')
+                        runTest('big-data', 'big-data')
+                    }
+                }
             }
         }
     }

@@ -18,6 +18,7 @@ $dir/scheduled-backup/run
 $dir/one-pod/run
 $dir/upgrade/run
 $dir/auto-tuning/run
+$dir/big-data/run
 
 $dir/storage/run
 $dir/self-healing/run

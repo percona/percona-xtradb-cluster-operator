@@ -106,7 +106,7 @@ wait_backup_restore() {
         sleep 1
         echo -n .
         let retry+=1
-        if [ $retry -ge 600 ]; then
+        if [ $retry -ge 1500 ]; then
             kubectl_bin logs $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1

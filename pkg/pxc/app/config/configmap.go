@@ -17,7 +17,7 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) *corev1.ConfigMap
 			Namespace: cr.Namespace,
 		},
 		Data: map[string]string{
-			"init.cnf": cr.Spec.PXC.Configuration,
+			"user.cnf": cr.Spec.PXC.Configuration,
 		},
 	}
 }
@@ -46,7 +46,7 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.
 			Namespace: cr.Namespace,
 		},
 		Data: map[string]string{
-			"init.cnf": "[mysqld]" + autotuneParams,
+			"auto-config.cnf": "[mysqld]" + autotuneParams,
 		},
 	}, nil
 }

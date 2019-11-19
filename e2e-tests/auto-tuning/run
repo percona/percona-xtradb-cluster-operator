@@ -13,7 +13,6 @@ deploy_operator
 
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-MYSQL_PASSWORD=$(kubectl_bin get secret my-cluster-secrets -o jsonpath='{.data.root}' | base64 -d)
 AUTO_INNODB_SIZE=$(run_mysql \
                         'SELECT @@innodb_buffer_pool_size;' \
                         "-h $cluster-pxc -uroot -proot_password")

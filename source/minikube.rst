@@ -41,7 +41,7 @@ The following steps are needed to run PXC Operator on Minikube:
       will be unable to spread the cluster on several nodes)
 
    Also, switch ``allowUnsafeConfigurations`` key to ``true`` (this option turns
-   off the Operator’s control over the cluster size, making it possible to
+   off the Operator’s control over the cluster configuration, making it possible to
    deploy Percona XtraDB Cluster as a one-node cluster).
 
 4. Now apply the ``deploy/cr.yaml`` file with the following command::

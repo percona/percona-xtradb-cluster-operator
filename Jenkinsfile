@@ -168,6 +168,7 @@ pipeline {
                         CreateCluster('selfhealing')
                         runTest('self-healing', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('auto-tuning', 'selfhealing')
                     }
                 }
                 stage('E2E Backups') {

@@ -1,6 +1,8 @@
 package statefulset
 
 import (
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,7 +55,7 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 	}
 }
 
-func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container {
+func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
 	redinessDelay := int32(15)
 	if spec.ReadinessInitialDelaySeconds != nil {
 		redinessDelay = *spec.ReadinessInitialDelaySeconds
@@ -154,13 +156,32 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string) corev1.Container 
 		},
 	}
 
-	return appc
+	if cr.CompareVersionWith("1.3.0") >= 0 {
+		for k, v := range appc.VolumeMounts {
+			if v.Name == "config" {
+				appc.VolumeMounts[k].MountPath = "/etc/percona-xtradb-cluster.conf.d"
+				break
+			}
+		}
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "auto-config",
+			MountPath: "/etc/my.cnf.d",
+		})
+	}
+
+	res, err := app.CreateResources(spec.Resources)
+	if err != nil {
+		return appc, fmt.Errorf("create resources error: %v", err)
+	}
+	appc.Resources = res
+
+	return appc, nil
 }
 
 func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
 
-func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Container {
-	ct := app.PMMClient(spec, secrets, v120OrGreater)
+func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -182,25 +203,29 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater boo
 			Value: "--query-source=perfschema",
 		},
 	}
-
-	clusterEnvs := []corev1.EnvVar{
-		{
-			Name:  "DB_CLUSTER",
-			Value: app.Name,
-		},
-		{
-			Name:  "DB_HOST",
-			Value: "localhost",
-		},
-		{
-			Name:  "DB_PORT",
-			Value: "3306",
-		},
-	}
-
 	ct.Env = append(ct.Env, pmmEnvs...)
-	if v120OrGreater {
+
+	if cr.CompareVersionWith("1.2.0") >= 0 {
+		clusterEnvs := []corev1.EnvVar{
+			{
+				Name:  "DB_CLUSTER",
+				Value: app.Name,
+			},
+			{
+				Name:  "DB_HOST",
+				Value: "localhost",
+			},
+			{
+				Name:  "DB_PORT",
+				Value: "3306",
+			},
+		}
 		ct.Env = append(ct.Env, clusterEnvs...)
+		res, err := app.CreateResources(spec.Resources)
+		if err != nil {
+			return ct, fmt.Errorf("create resources error: %v", err)
+		}
+		ct.Resources = res
 	}
 
 	ct.VolumeMounts = []corev1.VolumeMount{
@@ -210,14 +235,10 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, v120OrGreater boo
 		},
 	}
 
-	return ct
+	return ct, nil
 }
 
-func (c *Node) Resources(spec *api.PodResources) (corev1.ResourceRequirements, error) {
-	return app.CreateResources(spec)
-}
-
-func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
+func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, DataVolumeName)
 	ls := c.Labels()
 	vol.Volumes = append(
@@ -226,7 +247,12 @@ func (c *Node) Volumes(podSpec *api.PodSpec) *api.Volume {
 		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, podSpec.AllowUnsafeConfig))
-	return vol
+	if cr.CompareVersionWith("1.3.0") >= 0 {
+		vol.Volumes = append(
+			vol.Volumes,
+			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
+	}
+	return vol, nil
 }
 
 func (c *Node) StatefulSet() *appsv1.StatefulSet {

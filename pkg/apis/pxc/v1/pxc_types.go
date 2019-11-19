@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	v "github.com/hashicorp/go-version"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,8 +108,9 @@ type PerconaXtraDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PerconaXtraDBClusterSpec   `json:"spec,omitempty"`
-	Status PerconaXtraDBClusterStatus `json:"status,omitempty"`
+	Spec    PerconaXtraDBClusterSpec   `json:"spec,omitempty"`
+	Status  PerconaXtraDBClusterStatus `json:"status,omitempty"`
+	version *v.Version
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -235,11 +237,10 @@ type ServerVersion struct {
 }
 
 type App interface {
-	AppContainer(spec *PodSpec, secrets string) corev1.Container
+	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
-	PMMContainer(spec *PMMSpec, secrets string, v120OrGreater bool) corev1.Container
-	Volumes(podSpec *PodSpec) *Volume
-	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
+	PMMContainer(spec *PMMSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
+	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster) (*Volume, error)
 	Labels() map[string]string
 }
 
@@ -260,6 +261,11 @@ var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
 func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
+	err = cr.setVersion()
+	if err != nil {
+		return false, errors.Wrap(err, "set version")
+	}
+
 	if len(cr.Name) > clusterNameMaxLen {
 		return false, ErrClusterNameOverflow
 	}
@@ -387,26 +393,31 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	return changed, nil
 }
 
-func (cr *PerconaXtraDBCluster) VersionLessThan120() bool {
+func (cr *PerconaXtraDBCluster) setVersion() error {
+	// Need to do this becose API always returns "v1"
 	apiVersion := cr.APIVersion
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
 		err := json.Unmarshal([]byte(lastCR), &newCR)
 		if err != nil {
-			return false
+			return errors.Wrap(err, "unmarshal cr")
 		}
 		apiVersion = newCR.APIVersion
 	}
 	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
-	checkVersion, err := v.NewVersion("1.2.0")
+	version, err := v.NewVersion(crVersion)
 	if err != nil {
-		return false
+		return errors.Wrap(err, "new version")
 	}
-	currentVersion, err := v.NewVersion(crVersion)
-	if err != nil {
-		return false
-	}
-	return currentVersion.LessThan(checkVersion)
+	cr.version = version
+
+	return nil
+}
+
+// CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
+	//using Must because "version" must be right format
+	return cr.version.Compare(v.Must(v.NewVersion(version)))
 }
 
 const AffinityTopologyKeyOff = "none"

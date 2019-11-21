@@ -24,12 +24,19 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) *corev1.ConfigMap
 
 func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.ConfigMap, error) {
 	var memory string
-	if len(cr.Spec.PXC.Resources.Requests.Memory) > 0 {
-		memory = cr.Spec.PXC.Resources.Requests.Memory
-	}
-	// Use limits memory in priority if it set
-	if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 {
-		memory = cr.Spec.PXC.Resources.Limits.Memory
+
+	if cr.Spec.PXC.Resources != nil {
+		if cr.Spec.PXC.Resources.Requests != nil {
+			if len(cr.Spec.PXC.Resources.Requests.Memory) > 0 {
+				memory = cr.Spec.PXC.Resources.Requests.Memory
+			}
+		}
+		// Use limits memory in priority if it set
+		if cr.Spec.PXC.Resources.Limits != nil {
+			if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 {
+				memory = cr.Spec.PXC.Resources.Limits.Memory
+			}
+		}
 	}
 	autotuneParams, err := getAutoTuneParams(memory)
 	if err != nil {

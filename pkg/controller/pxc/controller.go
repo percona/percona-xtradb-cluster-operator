@@ -370,9 +370,24 @@ func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBClust
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
 	stsApp := statefulset.NewNode(cr)
 	ls := stsApp.Labels()
+	limitMemory := ""
+	requestMemory := ""
+
+	if cr.Spec.PXC.Resources != nil {
+		if cr.Spec.PXC.Resources.Limits != nil {
+			if cr.Spec.PXC.Resources.Limits.Memory != "" {
+				limitMemory = cr.Spec.PXC.Resources.Limits.Memory
+			}
+		}
+		if cr.Spec.PXC.Resources.Requests != nil {
+			if cr.Spec.PXC.Resources.Requests.Memory != "" {
+				requestMemory = cr.Spec.PXC.Resources.Requests.Memory
+			}
+		}
+	}
 
 	if cr.CompareVersionWith("1.3.0") >= 0 {
-		if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 || len(cr.Spec.PXC.Resources.Requests.Memory) > 0 {
+		if len(limitMemory) > 0 || len(requestMemory) > 0 {
 			autoConfigMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 			if err != nil {
 				return errors.Wrap(err, "new auto-config map")

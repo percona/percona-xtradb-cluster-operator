@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1
+apiVersion: pxc.percona.com/v1-3-0
 kind: PerconaXtraDBCluster
 metadata:
   name: auto-tuning
@@ -11,7 +11,7 @@ spec:
     image: -pxc
     resources:
       requests:
-        memory: 0.1G
+        memory: 1Gi
         cpu: 100m
     volumeSpec:
       persistentVolumeClaim:
@@ -26,7 +26,7 @@ spec:
     image: -proxysql
     resources:
       requests:
-        memory: 0.1G
+        memory: 1Gi
         cpu: 100m
     volumeSpec:
       persistentVolumeClaim:

@@ -32,12 +32,8 @@ if [[ ${AUTO_CONNECTIONS} != $((${RAM_SIZE} / ${RDS_MEM_INSTANCE})) ]]; then
     exit 1
 fi
 
-kubectl_bin delete pxc --all
-kubectl_bin delete pvc --all
-
-sleep 10
-
-spinup_pxc "$cluster" "${test_dir}/conf/${cluster}2.yml"
+apply_config "${test_dir}/conf/${cluster}2.yml"
+wait_cluster_consistency "$cluster" 3
 
 AUTO_INNODB_SIZE=$(run_mysql \
                         'SELECT @@innodb_buffer_pool_size;' \
@@ -56,12 +52,8 @@ if [[ ${AUTO_CONNECTIONS} != $((${RAM_SIZE} / ${RDS_MEM_INSTANCE})) ]]; then
     exit 1
 fi
 
-kubectl_bin delete pxc --all
-kubectl_bin delete pvc --all
-
-sleep 10
-
-spinup_pxc "$cluster" "${test_dir}/conf/${cluster}3.yml"
+apply_config "${test_dir}/conf/${cluster}3.yml"
+wait_cluster_consistency "$cluster" 3
 
 INNODB_SIZE=$(run_mysql \
                         'SELECT @@innodb_buffer_pool_size;' \

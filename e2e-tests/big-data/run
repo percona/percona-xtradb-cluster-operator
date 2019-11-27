@@ -29,7 +29,9 @@ main() {
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
     
-    kubectl_bin delete pod/"$cluster-pxc-2" pvc/"datadir-$cluster-pxc-2"
+    kubectl_bin delete pvc/"datadir-$cluster-pxc-2" pod/"$cluster-pxc-2"
+    sleep 1
+    kubectl_bin delete pod/"$cluster-pxc-2"
 
     wait_for_running "$cluster-pxc" 3
     destroy $namespace

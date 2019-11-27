@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	v "github.com/hashicorp/go-version"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,18 +35,13 @@ type PXCScheduledBackup struct {
 	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
-	Resources          *PodResources                 `json:"resources,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
-	Name              string              `json:"name,omitempty"`
-	Schedule          string              `json:"schedule,omitempty"`
-	Keep              int                 `json:"keep,omitempty"`
-	StorageName       string              `json:"storageName,omitempty"`
-	SchedulerName     string              `json:"schedulerName,omitempty"`
-	Affinity          *PodAffinity        `json:"affinity,omitempty"`
-	Tolerations       []corev1.Toleration `json:"tolerations,omitempty"`
-	PriorityClassName string              `json:"priorityClassName,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Schedule    string `json:"schedule,omitempty"`
+	Keep        int    `json:"keep,omitempty"`
+	StorageName string `json:"storageName,omitempty"`
 }
 type AppState string
 
@@ -107,8 +103,9 @@ type PerconaXtraDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PerconaXtraDBClusterSpec   `json:"spec,omitempty"`
-	Status PerconaXtraDBClusterStatus `json:"status,omitempty"`
+	Spec    PerconaXtraDBClusterSpec   `json:"spec,omitempty"`
+	Status  PerconaXtraDBClusterStatus `json:"status,omitempty"`
+	version *v.Version
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -177,12 +174,18 @@ type ResourcesList struct {
 }
 
 type BackupStorageSpec struct {
-	Type            BackupStorageType          `json:"type"`
-	S3              BackupStorageS3Spec        `json:"s3,omitempty"`
-	Volume          *VolumeSpec                `json:"volume,omitempty"`
-	NodeSelector    map[string]string          `json:"nodeSelector,omitempty"`
-	Resources       *PodResources              `json:"resources,omitempty"`
-	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
+	Type              BackupStorageType          `json:"type"`
+	S3                BackupStorageS3Spec        `json:"s3,omitempty"`
+	Volume            *VolumeSpec                `json:"volume,omitempty"`
+	NodeSelector      map[string]string          `json:"nodeSelector,omitempty"`
+	Resources         *PodResources              `json:"resources,omitempty"`
+	SecurityContext   *corev1.PodSecurityContext `json:"securityContext,omitempty"`
+	Affinity          *corev1.Affinity           `json:"affinity,omitempty"`
+	Tolerations       []corev1.Toleration        `json:"tolerations,omitempty"`
+	Annotations       map[string]string          `json:"annotations,omitempty"`
+	Labels            map[string]string          `json:"labels,omitempty"`
+	SchedulerName     string                     `json:"schedulerName,omitempty"`
+	PriorityClassName string                     `json:"priorityClassName,omitempty"`
 }
 
 type BackupStorageType string
@@ -238,11 +241,10 @@ type ServerVersion struct {
 }
 
 type App interface {
-	AppContainer(spec *PodSpec, secrets string) corev1.Container
+	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
-	PMMContainer(spec *PMMSpec, secrets string, v120OrGreater bool) corev1.Container
-	Volumes(podSpec *PodSpec) *Volume
-	Resources(spec *PodResources) (corev1.ResourceRequirements, error)
+	PMMContainer(spec *PMMSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
+	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster) (*Volume, error)
 	Labels() map[string]string
 }
 
@@ -263,6 +265,11 @@ var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
 func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
+	err = cr.setVersion()
+	if err != nil {
+		return false, errors.Wrap(err, "set version")
+	}
+
 	if len(cr.Name) > clusterNameMaxLen {
 		return false, ErrClusterNameOverflow
 	}
@@ -390,26 +397,31 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 	return changed, nil
 }
 
-func (cr *PerconaXtraDBCluster) VersionLessThan120() bool {
+func (cr *PerconaXtraDBCluster) setVersion() error {
+	// Need to do this becose API always returns "v1"
 	apiVersion := cr.APIVersion
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
 		err := json.Unmarshal([]byte(lastCR), &newCR)
 		if err != nil {
-			return false
+			return errors.Wrap(err, "unmarshal cr")
 		}
 		apiVersion = newCR.APIVersion
 	}
 	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
-	checkVersion, err := v.NewVersion("1.2.0")
+	version, err := v.NewVersion(crVersion)
 	if err != nil {
-		return false
+		return errors.Wrap(err, "new version")
 	}
-	currentVersion, err := v.NewVersion(crVersion)
-	if err != nil {
-		return false
-	}
-	return currentVersion.LessThan(checkVersion)
+	cr.version = version
+
+	return nil
+}
+
+// CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
+	//using Must because "version" must be right format
+	return cr.version.Compare(v.Must(v.NewVersion(version)))
 }
 
 const AffinityTopologyKeyOff = "none"

@@ -14,12 +14,12 @@ type Backup struct {
 	serviceAccountName string
 }
 
-func New(cr *api.PerconaXtraDBCluster, spec *api.PXCScheduledBackup) *Backup {
+func New(cr *api.PerconaXtraDBCluster) *Backup {
 	return &Backup{
 		cluster:            cr.Name,
 		namespace:          cr.Namespace,
-		image:              spec.Image,
-		imagePullSecrets:   spec.ImagePullSecrets,
-		serviceAccountName: spec.ServiceAccountName,
+		image:              cr.Spec.Backup.Image,
+		imagePullSecrets:   cr.Spec.Backup.ImagePullSecrets,
+		serviceAccountName: cr.Spec.Backup.ServiceAccountName,
 	}
 }

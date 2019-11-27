@@ -26,7 +26,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/configmap"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
@@ -143,15 +143,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
 				// because we never reach this point without finalizers
-				err = r.deleteStatfulSet(o.Namespace, sfs, true)
+				err = r.deleteStatefulSet(o.Namespace, sfs, true)
 			case "delete-pxc-pvc":
 				sfs = statefulset.NewNode(o)
-				err = r.deleteStatfulSet(o.Namespace, sfs, true)
+				err = r.deleteStatefulSet(o.Namespace, sfs, true)
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
 			case "delete-pxc-pods-in-order":
 				sfs = statefulset.NewNode(o)
-				err = r.deleteStatfulSetPods(o.Namespace, sfs)
+				err = r.deleteStatefulSetPods(o.Namespace, sfs)
 			}
 			if err != nil {
 				finalizers = append(finalizers, fnlz)
@@ -208,7 +208,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			}
 		}
 
-		err = r.deleteStatfulSet(o.Namespace, proxysqlSet, deletePVC)
+		err = r.deleteStatefulSet(o.Namespace, proxysqlSet, deletePVC)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -370,22 +370,45 @@ func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
+	stsApp := statefulset.NewNode(cr)
+	ls := stsApp.Labels()
+
+	if cr.CompareVersionWith("1.3.0") >= 0 {
+		if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 || len(cr.Spec.PXC.Resources.Requests.Memory) > 0 {
+			autoConfigMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+			if err != nil {
+				return errors.Wrap(err, "new auto-config map")
+			}
+			err = setControllerReference(cr, autoConfigMap, r.scheme)
+			if err != nil {
+				return errors.Wrap(err, "set auto-config controller ref")
+			}
+			err = r.client.Create(context.TODO(), autoConfigMap)
+			if err != nil && k8serrors.IsAlreadyExists(err) {
+				err = r.client.Update(context.TODO(), autoConfigMap)
+				if err != nil {
+					return errors.Wrap(err, "update AutoConfigMap")
+				}
+			} else if err != nil {
+				return errors.Wrap(err, "create AutoConfigMap")
+			}
+		}
+	}
+
 	if cr.Spec.PXC.Configuration != "" {
-		stsApp := statefulset.NewNode(cr)
-		ls := stsApp.Labels()
-		configMap := configmap.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "set controller ref")
 		}
 		err = r.client.Create(context.TODO(), configMap)
 		if err != nil && k8serrors.IsAlreadyExists(err) {
 			err = r.client.Update(context.TODO(), configMap)
 			if err != nil {
-				return fmt.Errorf("update ConfigMap: %v", err)
+				return errors.Wrap(err, "update ConfigMap")
 			}
 		} else if err != nil {
-			return fmt.Errorf("create ConfigMap: %v", err)
+			return errors.Wrap(err, "create ConfigMap")
 		}
 	}
 
@@ -418,7 +441,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 // ErrWaitingForDeletingPods indicating that the stateful set have more than a one pods left
 var ErrWaitingForDeletingPods = fmt.Errorf("waiting for pods to be deleted")
 
-func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSetPods(namespace string, sfs api.StatefulApp) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, sfs api.StatefulApp) error {
 	list := corev1.PodList{}
 
 	err := r.client.List(context.TODO(),
@@ -456,7 +479,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSetPods(namespace string, s
 	return ErrWaitingForDeletingPods
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteStatfulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {
 	err := r.client.Delete(context.TODO(), sfs.StatefulSet())
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("delete proxysql: %v", err)

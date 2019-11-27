@@ -13,26 +13,47 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
-func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup) *batchv1.Job {
+func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
+	// Copy from the original labels to the backup labels
+	labels := make(map[string]string)
+	for key, value := range cluster.Spec.Backup.Storages[cr.Spec.StorageName].Labels {
+		labels[key] = value
+	}
+	labels["type"] = "xtrabackup"
+	labels["cluster"] = cr.Spec.PXCCluster
+	labels["job-name"] = genName63(cr)
+
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      genName63(cr),
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"cluster": cr.Spec.PXCCluster,
-				"type":    "xtrabackup",
-			},
+			Name:        labels["job-name"],
+			Namespace:   cr.Namespace,
+			Labels:      labels,
+			Annotations: cluster.Spec.Backup.Storages[cr.Spec.StorageName].Annotations,
 		},
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClusterSpec) batchv1.JobSpec {
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClusterSpec, job *batchv1.Job) batchv1.JobSpec {
+	resources, err := app.CreateResources(cluster.Backup.Storages[spec.StorageName].Resources)
+	if err != nil {
+		log.Info("cannot parse Backup resources: ", err)
+	}
+
+	manualSelector := true
 	return batchv1.JobSpec{
+		ManualSelector: &manualSelector,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: job.Labels,
+		},
 		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      job.Labels,
+				Annotations: cluster.Backup.Storages[spec.StorageName].Annotations,
+			},
 			Spec: corev1.PodSpec{
 				SecurityContext:  cluster.Backup.Storages[spec.StorageName].SecurityContext,
 				ImagePullSecrets: bcp.imagePullSecrets,
@@ -59,9 +80,14 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 								},
 							},
 						},
+						Resources: resources,
 					},
 				},
-				NodeSelector: cluster.Backup.Storages[spec.StorageName].NodeSelector,
+				Affinity:          cluster.Backup.Storages[spec.StorageName].Affinity,
+				Tolerations:       cluster.Backup.Storages[spec.StorageName].Tolerations,
+				NodeSelector:      cluster.Backup.Storages[spec.StorageName].NodeSelector,
+				SchedulerName:     cluster.Backup.Storages[spec.StorageName].SchedulerName,
+				PriorityClassName: cluster.Backup.Storages[spec.StorageName].PriorityClassName,
 			},
 		},
 	}

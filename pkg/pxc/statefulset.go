@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/pkg/errors"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
@@ -24,14 +25,21 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
-	sfsVolume := sfs.Volumes(podSpec)
+
+	sfsVolume, err := sfs.Volumes(podSpec, cr)
 	pod.Volumes = sfsVolume.Volumes
 
-	var err error
-	appC := sfs.AppContainer(podSpec, cr.Spec.SecretsName)
-	appC.Resources, err = sfs.Resources(podSpec.Resources)
+	appC, err := sfs.AppContainer(podSpec, cr.Spec.SecretsName, cr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "app container")
+	}
+
+	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
+		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, cr)
+		if err != nil {
+			return nil, fmt.Errorf("pmm container error: %v", err)
+		}
+		pod.Containers = append(pod.Containers, pmmC)
 	}
 
 	if podSpec.ForceUnsafeBootstrap {
@@ -45,18 +53,6 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 
 	pod.Containers = append(pod.Containers, appC)
 	pod.Containers = append(pod.Containers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
-
-	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pmmC := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, !cr.VersionLessThan120())
-		if !cr.VersionLessThan120() {
-			res, err := sfs.Resources(cr.Spec.PMM.Resources)
-			if err != nil {
-				return nil, fmt.Errorf("pmm container error: create resources error: %v", err)
-			}
-			pmmC.Resources = res
-		}
-		pod.Containers = append(pod.Containers, pmmC)
-	}
 
 	ls := sfs.Labels()
 	for k, v := range podSpec.Labels {

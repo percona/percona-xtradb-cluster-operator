@@ -17,7 +17,7 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) *corev1.ConfigMap
 			Namespace: cr.Namespace,
 		},
 		Data: map[string]string{
-			"user.cnf": cr.Spec.PXC.Configuration,
+			"init.cnf": cr.Spec.PXC.Configuration,
 		},
 	}
 }

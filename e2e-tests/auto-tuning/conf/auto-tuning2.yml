@@ -11,7 +11,7 @@ spec:
     image: -pxc
     resources:
       requests:
-        memory: 1Gi
+        memory: 0.5Gi
         cpu: 100m
     volumeSpec:
       persistentVolumeClaim:
@@ -26,7 +26,7 @@ spec:
     image: -proxysql
     resources:
       requests:
-        memory: 1Gi
+        memory: 0.5Gi
         cpu: 100m
     volumeSpec:
       persistentVolumeClaim:

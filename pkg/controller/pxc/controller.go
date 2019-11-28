@@ -245,7 +245,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if nodeSet.Spec.Template.Annotations == nil {
 		nodeSet.Spec.Template.Annotations = make(map[string]string)
 	}
-	nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
+	if cr.CompareVersionWith("1.1.0") >= 0 {
+		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
+	}
 
 	err = r.reconsileSSL(cr)
 	if err != nil {
@@ -256,13 +258,15 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
-	nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+	if cr.CompareVersionWith("1.1.0") >= 0 {
+		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+	}
 
 	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
-	if !k8serrors.IsNotFound(err) {
+	if !k8serrors.IsNotFound(err) && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 
@@ -316,9 +320,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if nodeSet.Spec.Template.Annotations == nil {
 			nodeSet.Spec.Template.Annotations = make(map[string]string)
 		}
-		proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = proxyConfigHash
-		proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-		proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+		if cr.CompareVersionWith("1.1.0") >= 0 {
+			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = proxyConfigHash
+			proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+			proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+		}
 
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {

@@ -32,7 +32,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if currentSet.Spec.Template.Annotations == nil {
 		currentSet.Spec.Template.Annotations = make(map[string]string)
 	}
-	currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
+	if cr.CompareVersionWith("1.1.0") >= 0 {
+		currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
+	}
 
 	err = r.reconcileConfigMap(cr)
 	if err != nil {
@@ -44,13 +46,15 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
-	currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+	if cr.CompareVersionWith("1.1.0") >= 0 {
+		currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+	}
 
 	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
-	if !errors.IsNotFound(err) {
+	if !errors.IsNotFound(err) && cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 

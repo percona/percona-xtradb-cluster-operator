@@ -161,6 +161,7 @@ pipeline {
                         CreateCluster('scaling')
                         runTest('scaling', 'scaling')
                         runTest('scaling-proxysql', 'scaling')
+                        runTest('upgrade', 'scaling')
                         runTest('upgrade-consistency', 'scaling')
                     }
                 }
@@ -168,7 +169,9 @@ pipeline {
                     steps {
                         CreateCluster('selfhealing')
                         runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-advanced', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('one-pod', 'selfhealing')
                         runTest('auto-tuning', 'selfhealing')
                     }
                 }

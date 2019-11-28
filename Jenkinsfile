@@ -161,6 +161,7 @@ pipeline {
                         CreateCluster('scaling')
                         runTest('scaling', 'scaling')
                         runTest('scaling-proxysql', 'scaling')
+                        runTest('upgrade-consistency', 'scaling')
                     }
                 }
                 stage('E2E SelfHealing') {

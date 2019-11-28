@@ -55,8 +55,8 @@ configuration options for the Percona XtraDB Cluster.
 
   affinity.advanced, subdoc,  , "In cases where the pods require complex tuning the `advanced` option turns off the `topologykey` effect. This setting allows the standard Kubernetes affinity constraints of any complexity to be used."
   affinity.tolerations, subdoc, ``node.alpha.kubernetes.io/unreachable``, `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
-  podDisruptionBudet.maxUnavailable, int, ``1``, The `Kubernetes podDisruptionBudget <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ specifies the number of pods from the set unavailable after the eviction.
-  podDisruptionBudet.minAvailable, int, ``0``, The `Kubernetes podDisruptionBudet <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ defines the number of pods that must be available after an eviction.
+  podDisruptionBudget.maxUnavailable, int, ``1``, The `Kubernetes podDisruptionBudget <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ specifies the number of pods from the set unavailable after the eviction.
+  podDisruptionBudget.minAvailable, int, ``0``, The `Kubernetes podDisruptionBudget <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ defines the number of pods that must be available after an eviction.
   volumeSpec.emptyDir, string, ``{}``, The `Kubernetes emptyDir volume <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created on a node and accessible to the PXC pod containers.
   volumeSpec.hostPath.path, string, ``/data``, `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ The volume that mounts a directory from the host node's filesystem into your pod. The path property is required.
   volumeSpec.hostPath.type, string, ``Directory``, The `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ An optional property for the hostPath.

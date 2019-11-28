@@ -5,8 +5,10 @@ You may require a configuration change for your application. MySQL
 allows the option to configure the database with a configuration file.
 You can pass the MySQL options from the
 `my.cnf <https://dev.mysql.com/doc/refman/8.0/en/option-files.html>`__
-configuration file to the cluster in one of the following ways: \*
-CR.yaml \* ConfigMap
+configuration file to the cluster in one of the following ways:
+
+* Edit the CR.yaml file
+* Use a ConfigMap
 
 Edit the CR.yaml
 ----------------
@@ -88,3 +90,20 @@ Make changed options visible to the Percona XtraDB Cluster
 Do not forget to restart Percona XtraDB Cluster to ensure the cluster
 has updated the configuration (see details on how to connect in the
 `Install Percona XtraDB Cluster on Kubernetes <kubernetes.html>`_ page).
+
+Auto-tuning MySQL options
+--------------------------
+
+Two configuration options for MySQL can be calculated and set by the Operator
+automatically based on the available Pod resources (memory and CPU) **if
+these options are not specified by user** (either in CR.yaml or in ConfigMap).
+
+Options which can be set automatically are the following ones:
+
+* ``innodb_buffer_pool_size``
+* ``max_connections``
+
+If PXC Pod limits are defined, then limits values are used to calculate these
+options. If PXC Pod limits are not defined, Operator looks for PXC Pod requests
+as the basis for calculations.if neither PXC Pod limits nor PXC Pod requests are
+defined, auto-tuning is not done.

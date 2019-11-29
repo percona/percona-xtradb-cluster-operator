@@ -119,7 +119,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}()
 
-	changed, err := o.CheckNSetDefaults()
+	changed, err := o.CheckNSetDefaults(r.serverVersion)
 	if err != nil {
 		err = fmt.Errorf("wrong PXC options: %v", err)
 		return reconcile.Result{}, err
@@ -223,13 +223,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
-	serverVersion := r.serverVersion
-	if cr.Spec.Platform != nil {
-		serverVersion.Platform = *cr.Spec.Platform
-	}
-
-	r.setSecurityContext(cr)
-
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
 	if err != nil {
@@ -515,31 +508,6 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 	}
 
 	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) setSecurityContext(cr *api.PerconaXtraDBCluster) {
-	serverVersion := r.serverVersion
-	if cr.Spec.Platform != nil {
-		serverVersion.Platform = *cr.Spec.Platform
-	}
-	var fsgroup *int64
-	if serverVersion.Platform == api.PlatformKubernetes {
-		var tp int64 = 1001
-		fsgroup = &tp
-	}
-	sc := &corev1.PodSecurityContext{
-		SupplementalGroups: []int64{1001},
-		FSGroup:            fsgroup,
-	}
-	if cr.Spec.PXC.SecurityContext == nil {
-		cr.Spec.PXC.SecurityContext = sc
-	}
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.SecurityContext == nil {
-		cr.Spec.ProxySQL.SecurityContext = sc
-	}
-	if cr.Spec.PMM != nil && cr.Spec.PMM.SecurityContext == nil {
-		cr.Spec.PMM.SecurityContext = sc
-	}
 }
 
 func setControllerReference(ro runtime.Object, obj metav1.Object, scheme *runtime.Scheme) error {

@@ -74,6 +74,10 @@ spec:
             storage: 6Gi
     gracePeriod: 600
   proxysql:
+    securityContext:
+      runAsUser: 1001
+      runAsGroup: 1001
+      fsGroup: 1001
     enabled: true
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.2.0-proxysql

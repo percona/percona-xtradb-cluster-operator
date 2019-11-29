@@ -26,14 +26,20 @@ Install Percona XtraDB Cluster on OpenShift
    .. note:: Setting Custom Resource Definition requires your user to
       have cluster-admin role privileges.
 
-   An extra action is needed if you want to manage PXC cluster from a
-   non-privileged user. Necessary permissions can be granted by applying
-   the next clusterrole:
+   If you want to manage your PXC cluster with a non-privileged user, necessary
+   permissions can be granted by applying the next clusterrole:
 
    .. code:: bash
 
-      $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbclusters.pxc.percona.com/status,perconaxtradbclusterbackups.pxc.percona.com,perconaxtradbclusterbackups.pxc.percona.com/status,perconaxtradbclusterrestores.pxc.percona.com,perconaxtradbclusterrestores.pxc.percona.com/status,issuers.certmanager.k8s.io,certificates.certmanager.k8s.io
+      $ oc create clusterrole pxc-admin --verb="*" --resource=perconaxtradbclusters.pxc.percona.com,perconaxtradbclusters.pxc.percona.com/status,perconaxtradbclusterbackups.pxc.percona.com,perconaxtradbclusterbackups.pxc.percona.com/status,perconaxtradbclusterrestores.pxc.percona.com,perconaxtradbclusterrestores.pxc.percona.com/status
       $ oc adm policy add-cluster-role-to-user pxc-admin <some-user>
+
+   If you have a `cert-manager <https://docs.cert-manager.io/en/release-0.8/getting-started/install/openshift.html>`_ installed, then you have to execute two more commands to be able to manage your PXC cluster with a non-privileged user:
+
+   .. code:: bash
+
+      $ oc create clusterrole cert-admin --verb="*" --resource=issuers.certmanager.k8s.io,certificates.certmanager.k8s.io
+      $ oc adm policy add-cluster-role-to-user cert-admin <some-user>
 
 2. The next thing to do is to create a new ``pxc`` project:
 

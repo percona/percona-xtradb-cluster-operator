@@ -48,6 +48,7 @@ Configuration
   storage
   constraints
   options
+  proxysql-conf
   TLS
 
 Reference

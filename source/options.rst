@@ -105,5 +105,5 @@ Options which can be set automatically are the following ones:
 
 If PXC Pod limits are defined, then limits values are used to calculate these
 options. If PXC Pod limits are not defined, Operator looks for PXC Pod requests
-as the basis for calculations.if neither PXC Pod limits nor PXC Pod requests are
+as the basis for calculations. if neither PXC Pod limits nor PXC Pod requests are
 defined, auto-tuning is not done.

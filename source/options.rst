@@ -94,7 +94,7 @@ has updated the configuration (see details on how to connect in the
 Auto-tuning MySQL options
 --------------------------
 
-Two configuration options for MySQL can be calculated and set by the Operator
+Few configuration options for MySQL can be calculated and set by the Operator
 automatically based on the available Pod resources (memory and CPU) **if
 these options are not specified by user** (either in CR.yaml or in ConfigMap).
 

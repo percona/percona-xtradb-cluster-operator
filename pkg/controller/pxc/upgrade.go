@@ -91,9 +91,16 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// sidecars
 	newContainers = append(newContainers, sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)...)
 
+	// volumes
+	sfsVolume, err := sfs.Volumes(podSpec, cr)
+	if err != nil {
+		return fmt.Errorf("volumes error: %v", err)
+	}
+
 	currentSet.Spec.Template.Spec.Containers = newContainers
 	currentSet.Spec.Template.Spec.InitContainers = newInitContainers
 	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
+	currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
 
 	return r.client.Update(context.TODO(), currentSet)
 }

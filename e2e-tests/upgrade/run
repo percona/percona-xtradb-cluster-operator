@@ -15,12 +15,12 @@ IMAGE_PXC_TO_UPDATE=${IMAGE_PXC}
 IMAGE_PMM_TO_UPDATE=${IMAGE_PMM}
 IMAGE_PROXY_TO_UPDATE=${IMAGE_PROXY}
 IMAGE_BACKUP_TO_UPDATE=${IMAGE_BACKUP}
-API='pxc.percona.com/v1'
-IMAGE='percona/percona-xtradb-cluster-operator:1.1.0'
-IMAGE_PXC='percona/percona-xtradb-cluster-operator:1.1.0-pxc'
+API='pxc.percona.com/v1-2-0'
+IMAGE='percona/percona-xtradb-cluster-operator:1.2.0'
+IMAGE_PXC='percona/percona-xtradb-cluster-operator:1.2.0-pxc'
 IMAGE_PMM='perconalab/pmm-client:1.17.1'
-IMAGE_PROXY='percona/percona-xtradb-cluster-operator:1.1.0-proxysql'
-IMAGE_BACKUP='percona/percona-xtradb-cluster-operator:1.1.0-backup'
+IMAGE_PROXY='percona/percona-xtradb-cluster-operator:1.2.0-proxysql'
+IMAGE_BACKUP='percona/percona-xtradb-cluster-operator:1.2.0-backup'
 OPERATOR_NAME='percona-xtradb-cluster-operator'
 
 

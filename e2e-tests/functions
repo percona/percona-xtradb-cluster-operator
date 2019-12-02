@@ -26,6 +26,8 @@ fi
 wait_cluster_consistency() {
     cluster_name=$1
     cluster_size=$2
+
+    sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
     until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" \
              && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" \
              && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.proxysql.ready}')" == "${cluster_size}"  ]]; do

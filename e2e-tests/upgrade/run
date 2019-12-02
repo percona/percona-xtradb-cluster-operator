@@ -29,13 +29,7 @@ check_pxc_livenes() {
     cluster_size=$2
 
     wait_cluster_consistency "${cluster_name}" "${cluster_size}"
-    sleep 20
-    wait_cluster_consistency "${cluster_name}" "${cluster_size}"
-    sleep 20
-    wait_cluster_consistency "${cluster_name}" "${cluster_size}"
-    sleep 20
-    wait_cluster_consistency "${cluster_name}" "${cluster_size}"
-    
+
     wait_for_running "${cluster_name}-pxc" "${cluster_size}"
 
     for i in $(seq 0 $(($cluster_size-1))); do
@@ -58,7 +52,6 @@ main() {
     deploy_operator
 
     spinup_pxc "${CLUSTER}" "${test_dir}/conf/${CLUSTER}.yml"
-
     compare_generation "1"
 
     kubectl_bin patch deployment "${OPERATOR_NAME}" \
@@ -86,9 +79,8 @@ main() {
         exit 1
     fi
 
-    compare_generation "1"
-    sleep 20
     check_pxc_livenes "${CLUSTER}" $CLUSTER_SIZE
+    compare_generation "1"
 
     IMAGE_PXC=$IMAGE_PXC_TO_UPDATE
     IMAGE_PMM=$IMAGE_PMM_TO_UPDATE
@@ -102,10 +94,8 @@ main() {
             "backup":   { "image": "'"$IMAGE_BACKUP_TO_UPDATE"'" }
         }}'
 
-    sleep 5
-    compare_generation "2"
-
     check_pxc_livenes "${CLUSTER}" $CLUSTER_SIZE
+    compare_generation "2"
 
     if [[ "${IMAGE_PROXY_TO_UPDATE}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
           && "${IMAGE_PXC_TO_UPDATE}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then

@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sversion "k8s.io/apimachinery/pkg/version"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
@@ -262,10 +261,7 @@ var defaultPXCGracePeriodSec int64 = 600
 // ErrClusterNameOverflow upspring when the cluster name is longer than acceptable
 var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no more than %d characters", clusterNameMaxLen)
 
-var log = logf.Log.WithName("test")
-
 func (cr *PerconaXtraDBCluster) setSecurityContext(serverVersion *ServerVersion) {
-	log.Info("setSecurityContext")
 	if cr.Spec.Platform != nil {
 		serverVersion.Platform = *cr.Spec.Platform
 	}
@@ -279,15 +275,12 @@ func (cr *PerconaXtraDBCluster) setSecurityContext(serverVersion *ServerVersion)
 		FSGroup:            fsgroup,
 	}
 	if cr.Spec.PXC.SecurityContext == nil {
-		log.Info("cr.Spec.PXC.SecurityContext == nil")
 		cr.Spec.PXC.SecurityContext = sc
 	}
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.SecurityContext == nil {
-		log.Info("cr.Spec.ProxySQL.SecurityContext == nil")
 		cr.Spec.ProxySQL.SecurityContext = sc
 	}
 	if cr.Spec.PMM != nil && cr.Spec.PMM.SecurityContext == nil {
-		log.Info("cr.Spec.PMM.SecurityContext == nil")
 		cr.Spec.PMM.SecurityContext = sc
 	}
 }

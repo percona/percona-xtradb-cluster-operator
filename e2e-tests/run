@@ -17,6 +17,7 @@ $dir/demand-backup/run
 $dir/scheduled-backup/run
 $dir/one-pod/run
 $dir/upgrade/run
+$dir/upgrade-consistency/run
 $dir/auto-tuning/run
 $dir/big-data/run
 

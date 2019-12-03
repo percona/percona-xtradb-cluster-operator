@@ -26,7 +26,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
 
-	currentSet.Spec.Template.Spec.SecurityContext = podSpec.SecurityContext
+	currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext
 
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function

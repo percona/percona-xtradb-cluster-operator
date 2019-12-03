@@ -141,7 +141,8 @@ type PodSpec struct {
 	SchedulerName                 string                        `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
 	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
-	SecurityContext               *corev1.PodSecurityContext    `json:"securityContext,omitempty"`
+	PodSecurityContext            *corev1.PodSecurityContext    `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext      *corev1.SecurityContext       `json:"containerSecurityContext,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -160,12 +161,12 @@ type PodResources struct {
 }
 
 type PMMSpec struct {
-	Enabled         bool                       `json:"enabled,omitempty"`
-	ServerHost      string                     `json:"serverHost,omitempty"`
-	Image           string                     `json:"image,omitempty"`
-	ServerUser      string                     `json:"serverUser,omitempty"`
-	Resources       *PodResources              `json:"resources,omitempty"`
-	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty"`
+	Enabled                  bool                    `json:"enabled,omitempty"`
+	ServerHost               string                  `json:"serverHost,omitempty"`
+	Image                    string                  `json:"image,omitempty"`
+	ServerUser               string                  `json:"serverUser,omitempty"`
+	Resources                *PodResources           `json:"resources,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 }
 
 type ResourcesList struct {
@@ -274,14 +275,21 @@ func (cr *PerconaXtraDBCluster) setSecurityContext(serverVersion *ServerVersion)
 		SupplementalGroups: []int64{1001},
 		FSGroup:            fsgroup,
 	}
-	if cr.Spec.PXC.SecurityContext == nil {
-		cr.Spec.PXC.SecurityContext = sc
+
+	if cr.Spec.PXC.PodSecurityContext == nil {
+		cr.Spec.PXC.PodSecurityContext = sc
 	}
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.SecurityContext == nil {
-		cr.Spec.ProxySQL.SecurityContext = sc
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.PodSecurityContext == nil {
+		cr.Spec.ProxySQL.PodSecurityContext = sc
 	}
-	if cr.Spec.PMM != nil && cr.Spec.PMM.SecurityContext == nil {
-		cr.Spec.PMM.SecurityContext = sc
+	if cr.Spec.PXC.ContainerSecurityContext == nil {
+		cr.Spec.PXC.ContainerSecurityContext = &corev1.SecurityContext{}
+	}
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.ContainerSecurityContext == nil {
+		cr.Spec.ProxySQL.ContainerSecurityContext = &corev1.SecurityContext{}
+	}
+	if cr.Spec.PMM != nil && cr.Spec.PMM.ContainerSecurityContext == nil {
+		cr.Spec.PMM.ContainerSecurityContext = &corev1.SecurityContext{}
 	}
 }
 

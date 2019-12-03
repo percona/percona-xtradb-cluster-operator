@@ -154,6 +154,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				},
 			},
 		},
+		SecurityContext: spec.ContainerSecurityContext,
 	}
 
 	if cr.CompareVersionWith("1.3.0") >= 0 {

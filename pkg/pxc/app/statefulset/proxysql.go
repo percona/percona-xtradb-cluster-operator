@@ -106,6 +106,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 				},
 			},
 		},
+		SecurityContext: spec.ContainerSecurityContext,
 	}
 
 	res, err := app.CreateResources(spec.Resources)

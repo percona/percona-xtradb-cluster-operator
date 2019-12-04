@@ -74,7 +74,7 @@ spec:
             storage: 6Gi
     gracePeriod: 600
   proxysql:
-    enabled: true
+    enabled: false
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.2.0-proxysql
 #    schedulerName: mycustom-scheduler

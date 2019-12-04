@@ -39,31 +39,32 @@ void makeReport() {
 }
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
+    FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME"
     testsReportMap[TEST_NAME] = 'failed'
-    popArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME")
+    popArtifactFile(FILE_NAME)
     sh """
-        if [ -f "$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME" ]; then
+        if [ -f "$FILE_NAME" ]; then
             echo Skip $TEST_NAME test
         else
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
             ./e2e-tests/$TEST_NAME/run
-            touch $GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME
+            touch $FILE_NAME
         fi
     """
     testsReportMap[TEST_NAME] = 'passed'
-    pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME")
+    pushArtifactFile(FILE_NAME)
 
     sh """
-        rm -rf $GIT_BRANCH-$GIT_SHORT_COMMIT-$TEST_NAME
+        rm -rf $FILE_NAME
     """
 }
 void installRpms() {
-    sh """
+    sh '''
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
         sudo yum install -y percona-xtrabackup-80 jq | true
-    """
+    '''
 }
 
 def skipBranchBulds = true
@@ -97,10 +98,10 @@ pipeline {
                     fi
 
                     source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud components update kubectl
-                    gcloud version
+                    gcloud components install alpha
+                    gcloud components install kubectl
 
-                    curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.14.0-linux-amd64.tar.gz \
+                    curl -s https://storage.googleapis.com/kubernetes-helm/helm-v2.16.1-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
@@ -119,19 +120,20 @@ pipeline {
                 }
             }
             steps {
-                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
                         DOCKER_TAG=perconalab/percona-xtradb-cluster-operator:$VERSION
                         docker_tag_file='./results/docker/TAG'
                         mkdir -p $(dirname ${docker_tag_file})
                         echo ${DOCKER_TAG} > "${docker_tag_file}"
 
-                        sg docker -c "
-                            docker login -u '${USER}' -p '${PASS}'
-                            export IMAGE=\$DOCKER_TAG
-                            ./e2e-tests/build
-                            docker logout
-                        "
+                            sg docker -c "
+                                docker login -u '${USER}' -p '${PASS}'
+                                export IMAGE=\$DOCKER_TAG
+                                ./e2e-tests/build
+                                docker logout
+                            "
+                            sudo rm -rf ./build
                     '''
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
@@ -161,13 +163,18 @@ pipeline {
                         CreateCluster('scaling')
                         runTest('scaling', 'scaling')
                         runTest('scaling-proxysql', 'scaling')
+                        runTest('upgrade', 'scaling')
+                        runTest('upgrade-consistency', 'scaling')
                     }
                 }
                 stage('E2E SelfHealing') {
                     steps {
                         CreateCluster('selfhealing')
                         runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-advanced', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('one-pod', 'selfhealing')
+                        runTest('auto-tuning', 'selfhealing')
                     }
                 }
                 stage('E2E Backups') {
@@ -176,6 +183,12 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('demand-backup', 'backups')
                         runTest('scheduled-backup', 'backups')
+                    }
+                }
+                stage('E2E BigData') {
+                    steps {
+                        CreateCluster('bigdata')
+                        runTest('big-data', 'bigdata')
                     }
                 }
             }
@@ -212,20 +225,22 @@ pipeline {
                     }
 
                     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-                    sh '''
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-                        gcloud config set project $GCP_PROJECT
-                        gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups
-                        sudo docker rmi -f \$(sudo docker images -q) || true
+                        sh '''
+                            source $HOME/google-cloud-sdk/path.bash.inc
+                            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+                            gcloud config set project $GCP_PROJECT
+                            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata
+                            sudo docker rmi -f \$(sudo docker images -q) || true
 
-                        sudo rm -rf $HOME/google-cloud-sdk
-                    '''
+                            sudo rm -rf $HOME/google-cloud-sdk
+                        '''
                     }
                 }
             }
             sh '''
+                sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./*
+                sudo rm -rf $HOME/google-cloud-sdk
             '''
             deleteDir()
         }

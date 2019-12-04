@@ -7,13 +7,14 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="auto-tuning"
 
+RAM_SIZE=1073741824 # 1Gi
+RDS_MEM_INSTANCE=12582880
 
 create_namespace $namespace
 deploy_operator
 
-spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+spinup_pxc "$cluster" "${test_dir}/conf/${cluster}1.yml"
 
-MYSQL_PASSWORD=$(kubectl_bin get secret my-cluster-secrets -o jsonpath='{.data.root}' | base64 -d)
 AUTO_INNODB_SIZE=$(run_mysql \
                         'SELECT @@innodb_buffer_pool_size;' \
                         "-h $cluster-pxc -uroot -proot_password")
@@ -21,15 +22,38 @@ AUTO_CONNECTIONS=$(run_mysql \
                         'SELECT @@max_connections;' \
                         "-h $cluster-pxc -uroot -proot_password")
 
-kubectl_bin patch pxc "${cluster}" --type merge -p'{"spec": {"pxc": {"configuration": "[mysqld]\ninnodb_buffer_pool_size=150000000\nmax_connections=200\n"}}}'
+if [[ ${AUTO_INNODB_SIZE} != $((${RAM_SIZE} * 75 / 100)) ]]; then
+    echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with cr.pxc.limits.memory * 0.75"
+    exit 1
+fi
 
+if [[ ${AUTO_CONNECTIONS} != $((${RAM_SIZE} / ${RDS_MEM_INSTANCE})) ]]; then
+    echo "max_connections is set to ${AUTO_CONNECTIONS}, which does not correlate with cr.pxc.limits.memory / ${RDS_MEM_INSTANCE}"
+    exit 1
+fi
 
-wait_cluster_consistency "${cluster}" 3
-sleep 20
-wait_cluster_consistency "${cluster}" 3
-sleep 20
-wait_cluster_consistency "${cluster}" 3
-sleep 20
+apply_config "${test_dir}/conf/${cluster}2.yml"
+wait_cluster_consistency "$cluster" 3
+
+AUTO_INNODB_SIZE=$(run_mysql \
+                        'SELECT @@innodb_buffer_pool_size;' \
+                        "-h $cluster-pxc -uroot -proot_password")
+AUTO_CONNECTIONS=$(run_mysql \
+                        'SELECT @@max_connections;' \
+                        "-h $cluster-pxc -uroot -proot_password")
+
+if [[ ${AUTO_INNODB_SIZE} != $(( ${RAM_SIZE} / 2 * 75 / 100)) ]]; then
+    echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with cr.pxc.requests.memory * 0.75"
+    exit 1
+fi
+
+if [[ ${AUTO_CONNECTIONS} != $(( ${RAM_SIZE} / 2 / ${RDS_MEM_INSTANCE})) ]]; then
+    echo "max_connections is set to ${AUTO_CONNECTIONS}, which does not correlate with cr.pxc.requests.memory / ${RDS_MEM_INSTANCE}"
+    exit 1
+fi
+
+apply_config "${test_dir}/conf/${cluster}3.yml"
+wait_cluster_consistency "$cluster" 3
 
 INNODB_SIZE=$(run_mysql \
                         'SELECT @@innodb_buffer_pool_size;' \
@@ -38,13 +62,13 @@ CONNECTIONS=$(run_mysql \
                         'SELECT @@max_connections;' \
                         "-h $cluster-pxc -uroot -proot_password")
 
-if [[ ${AUTO_INNODB_SIZE} == ${INNODB_SIZE} ]]; then
-    echo "Automatic innodb_buffer_pool_size has not been set"
+if [[ ${INNODB_SIZE} != 805306368 ]]; then
+    echo "innodb_buffer_pool_size ${AUTO_INNODB_SIZE} is not set to 805306368"
     exit 1
 fi
 
-if [[ ${AUTO_CONNECTIONS} == ${CONNECTIONS} ]]; then
-    echo "Automatic max_connections has not been set"
+if [[ ${CONNECTIONS} != 200 ]]; then
+    echo "max_connections ${CONNECTIONS} is not set to 200"
     exit 1
 fi
 

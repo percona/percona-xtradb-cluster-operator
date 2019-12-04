@@ -10,9 +10,9 @@ spec:
     size: 3
     image: -pxc
     resources:
-      requests:
-        memory: 0.1G
-        cpu: 100m
+      limits:
+        memory: 1Gi
+        cpu: 1000m
     volumeSpec:
       persistentVolumeClaim:
         resources:
@@ -25,9 +25,9 @@ spec:
     size: 3
     image: -proxysql
     resources:
-      requests:
-        memory: 0.1G
-        cpu: 100m
+      limits:
+        memory: 0.2Gi
+        cpu: 200m
     volumeSpec:
       persistentVolumeClaim:
         resources:

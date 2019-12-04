@@ -6,6 +6,7 @@ set -o xtrace
 test_dir="$(dirname $0)"
 . $(dirname $0)/functions
 src_dir="$(realpath ${test_dir}/..)"
+IMAGE=$(echo "$IMAGE" | sed -e 's#percona/#perconalab/#')
 
 build_operator() {
     package=github.com/percona/percona-xtradb-cluster-operator

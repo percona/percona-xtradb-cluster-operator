@@ -15,7 +15,7 @@ spec:
       wsrep_debug=ON
     resources:
       requests:
-        memory: 10M
+        memory: 100M
         cpu: 100m
     volumeSpec:
       persistentVolumeClaim:

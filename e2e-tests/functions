@@ -5,7 +5,7 @@ BASH_XTRACEFD="5"
 
 GIT_COMMIT=$(git rev-parse HEAD)
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-API="pxc.percona.com/v1-2-0"
+API="pxc.percona.com/v1-3-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:master-pxc"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/percona-xtradb-cluster-operator:master-pmm"}
@@ -26,6 +26,8 @@ fi
 wait_cluster_consistency() {
     cluster_name=$1
     cluster_size=$2
+
+    sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
     until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" \
              && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" \
              && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.proxysql.ready}')" == "${cluster_size}"  ]]; do
@@ -106,7 +108,7 @@ wait_backup_restore() {
         sleep 1
         echo -n .
         let retry+=1
-        if [ $retry -ge 600 ]; then
+        if [ $retry -ge 1500 ]; then
             kubectl_bin logs $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1

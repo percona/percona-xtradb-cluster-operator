@@ -106,7 +106,7 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/mysql
           name: datadir
-        - mountPath: /etc/mysql/conf.d
+        - mountPath: /etc/percona-xtradb-cluster.conf.d
           name: config
         - mountPath: /tmp
           name: tmp
@@ -114,6 +114,8 @@ spec:
           name: ssl
         - mountPath: /etc/mysql/ssl-internal
           name: ssl-internal
+        - mountPath: /etc/my.cnf.d
+          name: auto-config
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -142,6 +144,11 @@ spec:
           defaultMode: 420
           optional: false
           secretName: some-name-ssl
+      - configMap:
+          defaultMode: 420
+          name: auto-emptydir-pxc
+          optional: true
+        name: auto-config
   updateStrategy:
     rollingUpdate:
       partition: 0

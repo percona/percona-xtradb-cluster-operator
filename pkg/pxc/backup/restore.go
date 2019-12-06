@@ -44,6 +44,9 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtra
 func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) *corev1.Pod {
 	if _, ok := cluster.Backup.Storages[bcp.Spec.StorageName]; !ok {
 		log.Info("storage " + bcp.Spec.StorageName + " doesn't exist")
+		if len(cluster.Backup.Storages) == 0 {
+			cluster.Backup.Storages = map[string]*api.BackupStorageSpec{}
+		}
 		cluster.Backup.Storages[bcp.Spec.StorageName] = &api.BackupStorageSpec{}
 	}
 

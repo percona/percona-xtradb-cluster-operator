@@ -133,6 +133,10 @@ spec:
     image: percona/percona-xtradb-cluster-operator:1.2.0-pmm
     serverHost: monitoring-service
     serverUser: pmm
+#    resources:
+#      requests:
+#        memory: 200M
+#       cpu: 500m
   backup:
     image: percona/percona-xtradb-cluster-operator:1.2.0-backup
     serviceAccountName: percona-xtradb-cluster-operator

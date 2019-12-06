@@ -355,7 +355,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 			c.PXC.Size = 0
 		}
 
-		if c.PMM != nil {
+		if c.PMM != nil && c.PMM.Resources == nil {
 			c.PMM.Resources = c.PXC.Resources
 		}
 	}

@@ -93,7 +93,6 @@ spec:
           requests:
             cpu: 100m
             memory: 10M
-        securityContext: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:

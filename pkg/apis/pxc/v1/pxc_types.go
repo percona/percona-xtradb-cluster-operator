@@ -175,18 +175,19 @@ type ResourcesList struct {
 }
 
 type BackupStorageSpec struct {
-	Type              BackupStorageType          `json:"type"`
-	S3                BackupStorageS3Spec        `json:"s3,omitempty"`
-	Volume            *VolumeSpec                `json:"volume,omitempty"`
-	NodeSelector      map[string]string          `json:"nodeSelector,omitempty"`
-	Resources         *PodResources              `json:"resources,omitempty"`
-	SecurityContext   *corev1.PodSecurityContext `json:"securityContext,omitempty"`
-	Affinity          *corev1.Affinity           `json:"affinity,omitempty"`
-	Tolerations       []corev1.Toleration        `json:"tolerations,omitempty"`
-	Annotations       map[string]string          `json:"annotations,omitempty"`
-	Labels            map[string]string          `json:"labels,omitempty"`
-	SchedulerName     string                     `json:"schedulerName,omitempty"`
-	PriorityClassName string                     `json:"priorityClassName,omitempty"`
+	Type                     BackupStorageType          `json:"type"`
+	S3                       BackupStorageS3Spec        `json:"s3,omitempty"`
+	Volume                   *VolumeSpec                `json:"volume,omitempty"`
+	NodeSelector             map[string]string          `json:"nodeSelector,omitempty"`
+	Resources                *PodResources              `json:"resources,omitempty"`
+	Affinity                 *corev1.Affinity           `json:"affinity,omitempty"`
+	Tolerations              []corev1.Toleration        `json:"tolerations,omitempty"`
+	Annotations              map[string]string          `json:"annotations,omitempty"`
+	Labels                   map[string]string          `json:"labels,omitempty"`
+	SchedulerName            string                     `json:"schedulerName,omitempty"`
+	PriorityClassName        string                     `json:"priorityClassName,omitempty"`
+	PodSecurityContext       *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
 }
 
 type BackupStorageType string
@@ -282,14 +283,10 @@ func (cr *PerconaXtraDBCluster) setSecurityContext(serverVersion *ServerVersion)
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.PodSecurityContext == nil {
 		cr.Spec.ProxySQL.PodSecurityContext = sc
 	}
-	if cr.Spec.PXC.ContainerSecurityContext == nil {
-		cr.Spec.PXC.ContainerSecurityContext = &corev1.SecurityContext{}
-	}
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.ContainerSecurityContext == nil {
-		cr.Spec.ProxySQL.ContainerSecurityContext = &corev1.SecurityContext{}
-	}
-	if cr.Spec.PMM != nil && cr.Spec.PMM.ContainerSecurityContext == nil {
-		cr.Spec.PMM.ContainerSecurityContext = &corev1.SecurityContext{}
+	if cr.Spec.Backup != nil {
+		for k := range cr.Spec.Backup.Storages {
+			cr.Spec.Backup.Storages[k].PodSecurityContext = sc
+		}
 	}
 }
 

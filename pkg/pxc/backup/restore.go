@@ -72,13 +72,14 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 		},
 		Spec: corev1.PodSpec{
 			ImagePullSecrets: cluster.Backup.ImagePullSecrets,
-			SecurityContext:  cluster.Backup.Storages[bcp.Status.StorageName].SecurityContext,
+			SecurityContext:  cluster.Backup.Storages[bcp.Status.StorageName].PodSecurityContext,
 			Containers: []corev1.Container{
 				{
 					Name:            "ncat",
 					Image:           cluster.Backup.Image,
 					ImagePullPolicy: corev1.PullAlways,
 					Command:         []string{"recovery-pvc-donor.sh"},
+					SecurityContext: cluster.Backup.Storages[bcp.Status.StorageName].ContainerSecurityContext,
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "backup",
@@ -163,6 +164,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 							Image:           cluster.Backup.Image,
 							ImagePullPolicy: corev1.PullAlways,
 							Command:         []string{"recovery-pvc-joiner.sh"},
+							SecurityContext: cluster.PXC.ContainerSecurityContext,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "datadir",
@@ -261,6 +263,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 							Image:           cluster.Backup.Image,
 							ImagePullPolicy: corev1.PullAlways,
 							Command:         []string{"recovery-s3.sh"},
+							SecurityContext: cluster.PXC.ContainerSecurityContext,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "datadir",

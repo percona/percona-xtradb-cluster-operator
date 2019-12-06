@@ -70,7 +70,6 @@ spec:
           priorityClassName: high-priority
           restartPolicy: Never
           schedulerName: default-scheduler
-          securityContext: {}
           serviceAccount: percona-xtradb-cluster-operator
           serviceAccountName: percona-xtradb-cluster-operator
           terminationGracePeriodSeconds: 30

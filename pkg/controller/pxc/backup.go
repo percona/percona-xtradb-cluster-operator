@@ -43,9 +43,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				}
 			} else if err != nil {
 				return fmt.Errorf("create scheduled backup '%s': %v", bcp.Name, err)
-			}
-
-			if bcp.Schedule != bcpjob.Spec.Schedule {
+			} else {
 				bcpjob.Spec.Schedule = bcp.Schedule
 				err = r.client.Update(context.TODO(), bcpjob)
 				if err != nil {

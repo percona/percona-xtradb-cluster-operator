@@ -22,7 +22,7 @@ spec:
       ownerReferences:
       - apiVersion: batch/v1beta1
         kind: CronJob
-        name: scheduled-backup
+        name: each-min-gcp-cs
     spec:
       template:
         metadata:

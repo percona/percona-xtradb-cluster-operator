@@ -122,6 +122,7 @@ type PodSpec struct {
 	Size                          int32                         `json:"size,omitempty"`
 	Image                         string                        `json:"image,omitempty"`
 	Resources                     *PodResources                 `json:"resources,omitempty"`
+	SidecarResources              *PodResources                 `json:"sidecarResources,omitempty"`
 	VolumeSpec                    *VolumeSpec                   `json:"volumeSpec,omitempty"`
 	Affinity                      *PodAffinity                  `json:"affinity,omitempty"`
 	NodeSelector                  map[string]string             `json:"nodeSelector,omitempty"`
@@ -239,7 +240,7 @@ type ServerVersion struct {
 
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
-	SidecarContainers(spec *PodSpec, secrets string) []corev1.Container
+	SidecarContainers(spec *PodSpec, secrets string) ([]corev1.Container, error)
 	PMMContainer(spec *PMMSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster) (*Volume, error)
 	Labels() map[string]string

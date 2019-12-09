@@ -117,7 +117,12 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 	return appc, nil
 }
 
-func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container {
+func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1.Container, error) {
+	res, err := app.CreateResources(spec.SidecarResources)
+	if err != nil {
+		return nil, fmt.Errorf("create sidecar resources error: %v", err)
+	}
+
 	return []corev1.Container{
 		{
 			Name:            "pxc-monit",
@@ -128,6 +133,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 				"-on-change=/usr/bin/add_pxc_nodes.sh",
 				"-service=$(PXC_SERVICE)",
 			},
+			Resources: res,
 			Env: []corev1.EnvVar{
 				{
 					Name:  "PXC_SERVICE",
@@ -167,6 +173,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 				"-on-change=/usr/bin/add_proxysql_nodes.sh",
 				"-service=$(PROXYSQL_SERVICE)",
 			},
+			Resources: res,
 			Env: []corev1.EnvVar{
 				{
 					Name:  "PROXYSQL_SERVICE",
@@ -196,7 +203,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Co
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {

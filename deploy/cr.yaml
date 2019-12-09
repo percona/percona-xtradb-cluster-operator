@@ -96,6 +96,13 @@ spec:
 #    priorityClassName: high-priority
 #    nodeSelector:
 #      disktype: ssd
+    # sidecarResources:
+    #   requests:
+    #     memory: 1G
+    #     cpu: 500m
+    #   limits:
+    #     memory: 2G
+    #     cpu: 600m
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:

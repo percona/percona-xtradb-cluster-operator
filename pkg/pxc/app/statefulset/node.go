@@ -184,7 +184,9 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 	return appc, nil
 }
 
-func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) []corev1.Container { return nil }
+func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1.Container, error) {
+	return nil, nil
+}
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
 	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0)

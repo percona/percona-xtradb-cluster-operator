@@ -43,10 +43,10 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 	jb.Spec.JobTemplate.SetOwnerReferences(
 		append(jb.Spec.JobTemplate.GetOwnerReferences(),
 			metav1.OwnerReference{
-				APIVersion: cr.APIVersion,
-				Kind:       cr.Kind,
-				Name:       cr.GetName(),
-				UID:        cr.GetUID(),
+				APIVersion: jb.APIVersion,
+				Kind:       jb.Kind,
+				Name:       jb.GetName(),
+				UID:        jb.GetUID(),
 			},
 		),
 	)

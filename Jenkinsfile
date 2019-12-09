@@ -11,8 +11,11 @@ void CreateCluster(String CLUSTER_PREFIX) {
    }
 }
 void pushArtifactFile(String FILE_NAME) {
+    echo "Push $FILE_NAME file to S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
+            touch ${FILE_NAME}
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
@@ -21,6 +24,8 @@ void pushArtifactFile(String FILE_NAME) {
 }
 
 void popArtifactFile(String FILE_NAME) {
+    echo "Try to get $FILE_NAME file from S3!"
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
@@ -30,7 +35,8 @@ void popArtifactFile(String FILE_NAME) {
 }
 
 TestsReport = '| Test name  | Status |\\r\\n| ------------- | ------------- |'
-testsReportMap = [:]
+testsReportMap  = [:]
+testsResultsMap = [:]
 
 void makeReport() {
     for ( test in testsReportMap ) {
@@ -38,26 +44,27 @@ void makeReport() {
     }
 }
 
+void setTestsresults() {
+    testsResultsMap.each { file ->
+        pushArtifactFile("${file.key}")
+    }
+}
+
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
-    FILE_NAME = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME"
     testsReportMap[TEST_NAME] = 'failed'
-    popArtifactFile(FILE_NAME)
+    popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME")
+
     sh """
-        if [ -f "$FILE_NAME" ]; then
+        if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME" ]; then
             echo Skip $TEST_NAME test
         else
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
             ./e2e-tests/$TEST_NAME/run
-            touch $FILE_NAME
         fi
     """
     testsReportMap[TEST_NAME] = 'passed'
-    pushArtifactFile(FILE_NAME)
-
-    sh """
-        rm -rf $FILE_NAME
-    """
+    testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME"] = 'passed'
 }
 void installRpms() {
     sh '''
@@ -197,6 +204,7 @@ pipeline {
     post {
         always {
             script {
+                setTestsresults()
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     if (env.CHANGE_URL) {
                         unstash 'IMAGE'

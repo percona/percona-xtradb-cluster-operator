@@ -285,7 +285,9 @@ func (cr *PerconaXtraDBCluster) setSecurityContext(serverVersion *ServerVersion)
 	}
 	if cr.Spec.Backup != nil {
 		for k := range cr.Spec.Backup.Storages {
-			cr.Spec.Backup.Storages[k].PodSecurityContext = sc
+			if cr.Spec.Backup.Storages[k].PodSecurityContext == nil {
+				cr.Spec.Backup.Storages[k].PodSecurityContext = sc
+			}
 		}
 	}
 }

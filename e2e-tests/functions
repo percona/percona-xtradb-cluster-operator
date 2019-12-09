@@ -144,7 +144,7 @@ deploy_helm() {
     else
         kubectl_bin --namespace kube-system create sa tiller || :
         kubectl_bin create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller || :
-        if ["$(helm version --short)" < "3.0.0"]; then
+        if [[ "$(helm version --short)" < "3.0.0" ]]; then
             helm init --service-account tiller
         fi
         kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="kube-system"

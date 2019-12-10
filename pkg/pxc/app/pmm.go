@@ -44,6 +44,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Con
 		Image:           spec.Image,
 		ImagePullPolicy: corev1.PullAlways,
 		Env:             pmmEnvs,
+		SecurityContext: spec.ContainerSecurityContext,
 	}
 
 	if v120OrGreater {

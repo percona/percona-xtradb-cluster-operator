@@ -118,7 +118,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		return reconcile.Result{}, fmt.Errorf("invalid backup cluster: %v", err)
 	}
 
-	_, err = cluster.CheckNSetDefaults()
+	_, err = cluster.CheckNSetDefaults(r.serverVersion)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
 	}
@@ -134,7 +134,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(instance, cluster)
-	job.Spec = bcp.JobSpec(instance.Spec, r.serverVersion, cluster.Spec, job)
+	job.Spec = bcp.JobSpec(instance.Spec, cluster.Spec, job)
 
 	var destination string
 	var s3status *api.BackupStorageS3Spec

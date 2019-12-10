@@ -13,18 +13,9 @@ import (
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, sv *api.ServerVersion) (*appsv1.StatefulSet, error) {
-	var fsgroup *int64
-	if sv.Platform == api.PlatformKubernetes {
-		var tp int64 = 1001
-		fsgroup = &tp
-	}
-
+func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
 	pod := corev1.PodSpec{
-		SecurityContext: &corev1.PodSecurityContext{
-			SupplementalGroups: []int64{1001},
-			FSGroup:            fsgroup,
-		},
+		SecurityContext:               podSpec.PodSecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,
 		Tolerations:                   podSpec.Tolerations,
 		SchedulerName:                 podSpec.SchedulerName,

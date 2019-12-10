@@ -141,6 +141,8 @@ type PodSpec struct {
 	SchedulerName                 string                        `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
 	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
+	PodSecurityContext            *corev1.PodSecurityContext    `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext      *corev1.SecurityContext       `json:"containerSecurityContext,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -159,11 +161,12 @@ type PodResources struct {
 }
 
 type PMMSpec struct {
-	Enabled    bool          `json:"enabled,omitempty"`
-	ServerHost string        `json:"serverHost,omitempty"`
-	Image      string        `json:"image,omitempty"`
-	ServerUser string        `json:"serverUser,omitempty"`
-	Resources  *PodResources `json:"resources,omitempty"`
+	Enabled                  bool                    `json:"enabled,omitempty"`
+	ServerHost               string                  `json:"serverHost,omitempty"`
+	Image                    string                  `json:"image,omitempty"`
+	ServerUser               string                  `json:"serverUser,omitempty"`
+	Resources                *PodResources           `json:"resources,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 }
 
 type ResourcesList struct {
@@ -172,17 +175,19 @@ type ResourcesList struct {
 }
 
 type BackupStorageSpec struct {
-	Type              BackupStorageType   `json:"type"`
-	S3                BackupStorageS3Spec `json:"s3,omitempty"`
-	Volume            *VolumeSpec         `json:"volume,omitempty"`
-	NodeSelector      map[string]string   `json:"nodeSelector,omitempty"`
-	Resources         *PodResources       `json:"resources,omitempty"`
-	Affinity          *corev1.Affinity    `json:"affinity,omitempty"`
-	Tolerations       []corev1.Toleration `json:"tolerations,omitempty"`
-	Annotations       map[string]string   `json:"annotations,omitempty"`
-	Labels            map[string]string   `json:"labels,omitempty"`
-	SchedulerName     string              `json:"schedulerName,omitempty"`
-	PriorityClassName string              `json:"priorityClassName,omitempty"`
+	Type                     BackupStorageType          `json:"type"`
+	S3                       BackupStorageS3Spec        `json:"s3,omitempty"`
+	Volume                   *VolumeSpec                `json:"volume,omitempty"`
+	NodeSelector             map[string]string          `json:"nodeSelector,omitempty"`
+	Resources                *PodResources              `json:"resources,omitempty"`
+	Affinity                 *corev1.Affinity           `json:"affinity,omitempty"`
+	Tolerations              []corev1.Toleration        `json:"tolerations,omitempty"`
+	Annotations              map[string]string          `json:"annotations,omitempty"`
+	Labels                   map[string]string          `json:"labels,omitempty"`
+	SchedulerName            string                     `json:"schedulerName,omitempty"`
+	PriorityClassName        string                     `json:"priorityClassName,omitempty"`
+	PodSecurityContext       *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
 }
 
 type BackupStorageType string
@@ -258,10 +263,39 @@ var defaultPXCGracePeriodSec int64 = 600
 // ErrClusterNameOverflow upspring when the cluster name is longer than acceptable
 var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no more than %d characters", clusterNameMaxLen)
 
+func (cr *PerconaXtraDBCluster) setSecurityContext(serverVersion *ServerVersion) {
+	if cr.Spec.Platform != nil {
+		serverVersion.Platform = *cr.Spec.Platform
+	}
+	var fsgroup *int64
+	if serverVersion.Platform == PlatformKubernetes {
+		var tp int64 = 1001
+		fsgroup = &tp
+	}
+	sc := &corev1.PodSecurityContext{
+		SupplementalGroups: []int64{1001},
+		FSGroup:            fsgroup,
+	}
+
+	if cr.Spec.PXC.PodSecurityContext == nil {
+		cr.Spec.PXC.PodSecurityContext = sc
+	}
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.PodSecurityContext == nil {
+		cr.Spec.ProxySQL.PodSecurityContext = sc
+	}
+	if cr.Spec.Backup != nil {
+		for k := range cr.Spec.Backup.Storages {
+			if cr.Spec.Backup.Storages[k].PodSecurityContext == nil {
+				cr.Spec.Backup.Storages[k].PodSecurityContext = sc
+			}
+		}
+	}
+}
+
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
-func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
+func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) (changed bool, err error) {
 	err = cr.setVersion()
 	if err != nil {
 		return false, errors.Wrap(err, "set version")
@@ -390,6 +424,8 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults() (changed bool, err error) {
 			}
 		}
 	}
+
+	cr.setSecurityContext(serverVersion)
 
 	return changed, nil
 }

@@ -37,13 +37,7 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluster api.PerconaXtraDBClusterSpec, job *batchv1.Job) batchv1.JobSpec {
-	var fsgroup *int64
-	if sv.Platform == api.PlatformKubernetes {
-		var tp int64 = 1001
-		fsgroup = &tp
-	}
-
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClusterSpec, job *batchv1.Job) batchv1.JobSpec {
 	resources, err := app.CreateResources(cluster.Backup.Storages[spec.StorageName].Resources)
 	if err != nil {
 		log.Info("cannot parse Backup resources: ", err)
@@ -61,16 +55,14 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, sv *api.ServerVersion, cluste
 				Annotations: cluster.Backup.Storages[spec.StorageName].Annotations,
 			},
 			Spec: corev1.PodSpec{
-				SecurityContext: &corev1.PodSecurityContext{
-					SupplementalGroups: []int64{1001},
-					FSGroup:            fsgroup,
-				},
+				SecurityContext:  cluster.Backup.Storages[spec.StorageName].PodSecurityContext,
 				ImagePullSecrets: bcp.imagePullSecrets,
 				RestartPolicy:    corev1.RestartPolicyNever,
 				Containers: []corev1.Container{
 					{
 						Name:            "xtrabackup",
 						Image:           bcp.image,
+						SecurityContext: cluster.Backup.Storages[spec.StorageName].ContainerSecurityContext,
 						ImagePullPolicy: corev1.PullAlways,
 						Command:         []string{"bash", "/usr/bin/backup.sh"},
 						Env: []corev1.EnvVar{

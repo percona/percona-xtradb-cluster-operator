@@ -119,7 +119,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}()
 
-	changed, err := o.CheckNSetDefaults()
+	changed, err := o.CheckNSetDefaults(r.serverVersion)
 	if err != nil {
 		err = fmt.Errorf("wrong PXC options: %v", err)
 		return reconcile.Result{}, err
@@ -223,18 +223,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
-	serverVersion := r.serverVersion
-	if cr.Spec.Platform != nil {
-		serverVersion.Platform = *cr.Spec.Platform
-	}
-
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
 	if err != nil {
 		return err
 	}
 
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, serverVersion)
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr)
 	if err != nil {
 		return err
 	}
@@ -302,7 +297,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, serverVersion)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr)
 		if err != nil {
 			return fmt.Errorf("create ProxySQL Service: %v", err)
 		}

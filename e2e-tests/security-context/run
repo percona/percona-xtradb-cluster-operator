@@ -19,4 +19,14 @@ desc 'check if service and statefulset created with expected config'
 compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-proxysql
 
+desc 'change security context in PXC cluster'
+pfx="-changes"
+apply_config "$test_dir/conf/$cluster$pfx.yml"
+
+sleep 10
+
+desc 'check if service and statefulset chenged to expected config'
+compare_kubectl statefulset/$cluster-pxc $pfx
+compare_kubectl statefulset/$cluster-proxysql $pfx
+
 destroy $namespace

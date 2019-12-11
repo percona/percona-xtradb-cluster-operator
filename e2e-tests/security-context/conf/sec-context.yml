@@ -1,0 +1,75 @@
+apiVersion: pxc.percona.com/v1-2-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: sec-context
+  finalizers:
+    - delete-pxc-pods-in-order
+spec:
+  secretsName: my-cluster-secrets
+  sslSecretName: some-name-ssl
+  sslInternalSecretName: some-name-ssl-internal
+  pxc:
+    containerSecurityContext:
+      privileged: true
+    podSecurityContext:
+      fsGroup: 1001
+      runAsUser: 1001
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "1G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  proxysql:
+    enabled: true
+    containerSecurityContext:
+      privileged: true
+    podSecurityContext:
+      fsGroup: 1001
+      runAsUser: 1001
+    size: 1
+    image: -proxysql
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 6Gi
+    affinity:
+      antiAffinityTopologyKey: none
+  backup:
+    image: -backup
+    serviceAccountName: percona-xtradb-cluster-operator
+    storages:
+      pvc:
+        type: filesystem
+        volume:
+          persistentVolumeClaim:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 1Gi
+      aws-s3:
+        type: s3
+        s3:
+          region: us-east-1
+          bucket: operator-testing
+          credentialsSecret: aws-s3-secret
+    schedule:
+      - name: "sat-night-backup"
+        schedule: "0 0 * * 6"
+        keep: 3
+        storageName: aws-s3

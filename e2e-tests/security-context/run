@@ -29,4 +29,12 @@ desc 'check if service and statefulset chenged to expected config'
 compare_kubectl statefulset/$cluster-pxc $pfx
 compare_kubectl statefulset/$cluster-proxysql $pfx
 
+desc 'run on-demand backup'
+backup="-on-demand-backup-pvc"
+apply_config "$test_dir/conf/$cluster$backup.yml"
+wait_backup $cluster$backup.yml
+compare_kubectl statefulset/$cluster-backup $backup
+sleep 10
+
+
 destroy $namespace

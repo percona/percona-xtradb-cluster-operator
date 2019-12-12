@@ -53,6 +53,12 @@ spec:
     affinity:
       antiAffinityTopologyKey: none
   backup:
+    containerSecurityContext:
+      privileged: false
+    podSecurityContext:
+      runAsUser: 1001
+      runAsGroup: 1001
+      supplementalGroups: [1001]
     image: -backup
     serviceAccountName: percona-xtradb-cluster-operator
     storages:

@@ -31,10 +31,7 @@ compare_kubectl statefulset/$cluster-proxysql $pfx
 
 desc 'run on-demand backup'
 backup="-on-demand-backup-pvc"
-apply_config "$test_dir/conf/$cluster$backup.yml"
-wait_backup $cluster$backup.yml
-compare_kubectl statefulset/$cluster-backup $backup
-sleep 10
-
+kubectl_bin apply -f "$test_dir/conf/$cluster$backup.yml"
+compare_kubectl job.batch/$cluster-xb$backup
 
 destroy $namespace

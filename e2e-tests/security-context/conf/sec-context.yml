@@ -50,26 +50,4 @@ spec:
             storage: 6Gi
     affinity:
       antiAffinityTopologyKey: none
-  backup:
-    image: -backup
-    serviceAccountName: percona-xtradb-cluster-operator
-    storages:
-      pvc:
-        type: filesystem
-        volume:
-          persistentVolumeClaim:
-            accessModes: [ "ReadWriteOnce" ]
-            resources:
-              requests:
-                storage: 1Gi
-      aws-s3:
-        type: s3
-        s3:
-          region: us-east-1
-          bucket: operator-testing
-          credentialsSecret: aws-s3-secret
-    schedule:
-      - name: "sat-night-backup"
-        schedule: "0 0 * * 6"
-        keep: 3
-        storageName: aws-s3
+

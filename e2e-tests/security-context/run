@@ -22,16 +22,23 @@ compare_kubectl statefulset/$cluster-proxysql
 desc 'change security context in PXC cluster'
 pfx="-changes"
 apply_config "$test_dir/conf/$cluster$pfx.yml"
-
 sleep 10
 
 desc 'check if service and statefulset chenged to expected config'
 compare_kubectl statefulset/$cluster-pxc $pfx
 compare_kubectl statefulset/$cluster-proxysql $pfx
 
-desc 'run on-demand backup'
-backup="-on-demand-backup-pvc"
-kubectl_bin apply -f "$test_dir/conf/$cluster$backup.yml"
-compare_kubectl job.batch/$cluster-xb$backup
+desc 'run pvc backup'
+backup="on-demand-backup-pvc"
+kubectl_bin apply -f "$test_dir/conf/$cluster-$backup.yml"
+wait_backup $backup
+compare_kubectl job.batch/$cluster-xb-$backup
+
+desc 'run pvc restore'
+restore="restore-pvc"
+kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
+wait_backup_restore $restore
+compare_kubectl job.batch/restore-job-$restore-$cluster
+compare_kubectl pod/restore-src-$restore-$cluster
 
 destroy $namespace

@@ -58,11 +58,10 @@ spec:
     storages:
       pvc:
         containerSecurityContext:
-          privileged: false
+          privileged: true
         podSecurityContext:
-          runAsUser: 1001
-          runAsGroup: 1001
-          supplementalGroups: [1001]
+          fsGroup: 1001
+          supplementalGroups: [1001, 1002, 1003]
         type: filesystem
         volume:
           persistentVolumeClaim:
@@ -76,8 +75,3 @@ spec:
           region: us-east-1
           bucket: operator-testing
           credentialsSecret: aws-s3-secret
-    schedule:
-      - name: "sat-night-backup"
-        schedule: "0 0 * * 6"
-        keep: 3
-        storageName: aws-s3

@@ -1,0 +1,7 @@
+apiVersion: pxc.percona.com/v1-2-0
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: on-demand-backup-pvc
+spec:
+  pxcCluster: sec-context
+  storageName: pvc

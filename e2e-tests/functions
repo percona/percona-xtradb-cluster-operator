@@ -209,6 +209,8 @@ compare_kubectl() {
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
         | $sed -e '/name: suffix/,+1d' \
+        | $sed -e '/name: S3_BUCKET_PATH/,+1d' \
+        | $sed -e '/name: S3_BUCKET_URL/,+1d' \
         > ${new_result}
     diff -u ${expected_result} ${new_result}
 }

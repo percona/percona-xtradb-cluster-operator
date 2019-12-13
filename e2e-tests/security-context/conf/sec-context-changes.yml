@@ -69,9 +69,15 @@ spec:
             resources:
               requests:
                 storage: 1Gi
-      aws-s3:
+      minio:
+        containerSecurityContext:
+          privileged: true
+        podSecurityContext:
+          fsGroup: 1001
+          supplementalGroups: [1001, 1002, 1003]
         type: s3
         s3:
+          credentialsSecret: minio-secret
           region: us-east-1
           bucket: operator-testing
-          credentialsSecret: aws-s3-secret
+          endpointUrl: http://minio-service:9000/

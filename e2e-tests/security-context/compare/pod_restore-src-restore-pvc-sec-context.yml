@@ -32,7 +32,6 @@ spec:
       readOnly: true
   dnsPolicy: ClusterFirst
   enableServiceLinks: true
-  nodeName: gke-paval-10861-default-pool-757f2d41-72j1
   priority: 0
   restartPolicy: Always
   schedulerName: default-scheduler

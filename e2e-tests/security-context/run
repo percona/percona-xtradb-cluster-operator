@@ -35,6 +35,9 @@ kubectl_bin apply -f "$test_dir/conf/$cluster-$backup.yml"
 wait_backup $backup
 compare_kubectl job.batch/$cluster-xb-$backup
 
+desc 'run pvc backup'
+compare_kubectl cronjob/each-hour-pvc
+
 desc 'run pvc restore'
 restore="restore-pvc"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"

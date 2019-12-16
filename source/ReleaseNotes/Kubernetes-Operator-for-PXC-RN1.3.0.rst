@@ -36,6 +36,8 @@ All of Percona’s software is open-source and free.
   modules to reduce the cluster deployment time.
 * :cloudjira:`390`: Helm chart for Percona Monitoring and Management (PMM) 2.0
   have been provided.
+* :cloudjira:`383`: Affinity constraints and tolerations were added to the
+  backup container
 
 **Fixed bugs:**
 
@@ -51,8 +53,6 @@ All of Percona’s software is open-source and free.
   reconciliation cycle and in all subsequent reconciliation cycles, causing
   Kubernetes to trigger an unnecessary ProxySQL restart once during the cluster
   creation.
-* :cloudbug:`383`: Affinity constraints and tolerations were added to the backup
-  container
 * :cloudbug:`376`: Long-running SST caused liveness probe check to fail it's
   grace period timeout, resulting in an unrecoverable failure
 * :cloudbug:`243`: Using `MYSQL_ROOT_PASSWORD` with special characters in

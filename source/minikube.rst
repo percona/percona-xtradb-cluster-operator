@@ -24,7 +24,7 @@ The following steps are needed to run PXC Operator on Minikube:
 
 1. Clone the percona-xtradb-cluster-operator repository::
 
-     git clone -b release-{{release}} https://github.com/percona/percona-xtradb-cluster-operator
+     git clone -b release-{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
      cd percona-xtradb-cluster-operator
 
 2. Deploy the operator with the following command::

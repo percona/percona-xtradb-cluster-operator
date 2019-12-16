@@ -38,7 +38,7 @@ configuration options for the Percona XtraDB Cluster.
 
   size, int, ``3``, The size of the Percona XtraDB cluster must be >= 3 for `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_
   allowUnsafeConfigurations, boolean,``false``, Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates"
-  image, string, ``percona/percona-xtradb-cluster-operator:1.0.0-pxc``, The Docker image of the Percona cluster used.
+  image, string, ``percona/percona-xtradb-cluster-operator:{{{release}}}-pxc``, The Docker image of the Percona cluster used.
   readinessDelaySec, int, ``15``, Adds a delay before a run check to verify the application is ready to process traffic
   livenessDelaySec, int, ``300``, Adds a delay before the run check ensures the application is healthy and capable of processing requests
   forceUnsafeBootstrap, boolean, ``false``, The setting can be reset in case of a sudden crash when all nodes may be considered unsafe to bootstrap from. The setting lets a node be selected and set to `safe_to_bootstrap` and provides data recovery.
@@ -81,7 +81,7 @@ configuration options for the ProxySQL daemon.
 
   enabled, boolean, ``true``, "Enables or disables `load balancing with ProxySQL <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ `Services <https://kubernetes.io/docs/concepts/services-networking/service/>`_"
   size, int, ``1``, The number of the ProxySQL daemons `to provide load balancing <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ must be = 1 in current release.
-  image, string, ``percona/percona-xtradb-cluster-operator:1.0.0-proxysql``, ProxySQL Docker image to use.
+  image, string, ``percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql``, ProxySQL Docker image to use.
   imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the ProxySQL image.
   annotations, label, ``iam.amazonaws.com/role: role-arn``, `Kubernetes annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_ metadata.
   labels, label, ``rack: rack-22``, `Labels are key-value pairs attached to objects. <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_
@@ -138,7 +138,7 @@ Percona XtraDB Cluster backups.
   :widths: 25 , 10, 15, 25
   :delim: ,
 
-  "image", string, ``percona/percona-xtradb-cluster-operator:1.0.0-backup``, The Percona XtraDB cluster Docker image to use for the backup.
+  "image", string, ``percona/percona-xtradb-cluster-operator:{{{release}}}-backup``, The Percona XtraDB cluster Docker image to use for the backup.
   imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the specified image.
   storages.type, string, ``s3``, The cloud storage type used for backups. Only ``s3`` and ``filesystem`` types are supported.
   storages.s3.credentialsSecret, string, ``my-cluster-name-backup-s3``, The `Kubernetes secret <https://kubernetes.io/docs/concepts/configuration/secret/>`_ for backups. It should contain ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` keys.

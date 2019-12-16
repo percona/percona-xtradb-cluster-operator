@@ -8,7 +8,7 @@ semi-automatic or in manual mode.
 .. note:: The manual update mode is the recomended way for a production cluster.
 
 .. note:: Only the incremental update to a nearest minor version is supported
-   (for example, update from 1.1.0 to 1.2.0).
+   (for example, update from 1.2.0 to 1.3.0).
    To update to a newer version, which differs from the current version by more
    than one, make several incremental updates sequentially.
 
@@ -21,17 +21,17 @@ Semi-automatic update
 #. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
    deployment, supplying necessary image names with a newer version tag. This
    is done with the ``kubectl patch deployment`` command. For example, updating
-   to the ``1.2.0`` version should look as follows::
+   to the ``{{{release}}}`` version should look as follows::
 
      kubectl patch deployment percona-xtradb-cluster-operator \
-        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:1.2.0"}]}}}}'
+        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
 
      kubectl patch pxc cluster1 --type=merge --patch '{
-        "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pxc.percona.com/v1-2-0\"}" }},
-        "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:1.2.0-pxc" },
-            "proxysql": { "image": "percona/percona-xtradb-cluster-operator:1.2.0-proxysql" },
-            "backup":   { "image": "percona/percona-xtradb-cluster-operator:1.2.0-backup" },
-            "pmm":      { "image": "percona/percona-xtradb-cluster-operator:1.2.0-pmm" }
+        "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pxc.percona.com/v1-3-0\"}" }},
+        "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc" },
+            "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
+            "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-backup" },
+            "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
         }}'
 
 #. The deployment rollout will be automatically triggered by the applied patch.
@@ -49,17 +49,17 @@ Manual update
 #. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
    deployment, supplying necessary image names with a newer version tag. This
    is done with the ``kubectl patch deployment`` command. For example, updating
-   to the ``1.2.0`` version should look as follows::
+   to the ``{{{release}}}`` version should look as follows::
 
      kubectl patch deployment percona-xtradb-cluster-operator \
-        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:1.2.0"}]}}}}'
+        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
 
      kubectl patch pxc cluster1 --type=merge --patch '{
-        "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pxc.percona.com/v1-2-0\"}" }},
-        "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:1.2.0-pxc" },
-            "proxysql": { "image": "percona/percona-xtradb-cluster-operator:1.2.0-proxysql" },
-            "backup":   { "image": "percona/percona-xtradb-cluster-operator:1.2.0-backup" },
-            "pmm":      { "image": "percona/percona-xtradb-cluster-operator:1.2.0-pmm" }
+        "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pxc.percona.com/v1-3-0\"}" }},
+        "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc" },
+            "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
+            "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-backup" },
+            "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
         }}'
 
 #. The Pod with the newer Percona XtraDB Cluster image will start after you

@@ -47,7 +47,10 @@ All of Percona’s software is open-source and free.
   OpenShift platform
 * :cloudbug:`399`: The iputils package was added to the backup docker image to
   provide backup jobs with the ping command
-* :cloudbug:`393`: Fix StatefulSet generation bump for ProxySQL if PMM enabled
+* :cloudbug:`393`: The Operator generated various StatefulSets in the first
+  reconciliation cycle and in all subsequent reconciliation cycles, causing
+  Kubernetes to trigger an unnecessary ProxySQL restart once during the cluster
+  creation.
 * :cloudbug:`383`: Affinity constraints and tolerations were added to the backup
   container
 * :cloudbug:`376`: Long-running SST caused liveness probe check to fail it's

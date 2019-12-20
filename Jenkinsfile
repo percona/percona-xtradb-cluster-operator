@@ -10,6 +10,17 @@ void CreateCluster(String CLUSTER_PREFIX) {
         """
    }
 }
+void ShutdownCluster(String CLUSTER_PREFIX) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            source $HOME/google-cloud-sdk/path.bash.inc
+            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+            gcloud config set project $GCP_PROJECT
+            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX}
+        """
+   }
+}
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -51,20 +62,28 @@ void setTestsresults() {
 }
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
-    testsReportMap[TEST_NAME] = 'failed'
-    popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME")
+    try {
+        echo "The $TEST_NAME test was started!"
+        testsReportMap[TEST_NAME] = 'failed'
+        popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME")
 
-    sh """
-        if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME" ]; then
-            echo Skip $TEST_NAME test
-        else
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
-            source $HOME/google-cloud-sdk/path.bash.inc
-            ./e2e-tests/$TEST_NAME/run
-        fi
-    """
-    testsReportMap[TEST_NAME] = 'passed'
-    testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME"] = 'passed'
+        sh """
+            if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME" ]; then
+                echo Skip $TEST_NAME test
+            else
+                export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                source $HOME/google-cloud-sdk/path.bash.inc
+                ./e2e-tests/$TEST_NAME/run
+            fi
+        """
+        testsReportMap[TEST_NAME] = 'passed'
+        testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME"] = 'passed'
+    }
+    catch (exc) {
+        currentBuild.result = 'FAILURE'
+    }
+
+    echo "The $TEST_NAME test was finished!"
 }
 void installRpms() {
     sh '''
@@ -163,6 +182,7 @@ pipeline {
                         runTest('monitoring', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
+                        ShutdownCluster('basic')
                    }
                 }
                 stage('E2E Scaling') {
@@ -172,6 +192,7 @@ pipeline {
                         runTest('scaling-proxysql', 'scaling')
                         runTest('upgrade', 'scaling')
                         runTest('upgrade-consistency', 'scaling')
+                        ShutdownCluster('scaling')
                     }
                 }
                 stage('E2E SelfHealing') {
@@ -182,6 +203,7 @@ pipeline {
                         runTest('operator-self-healing', 'selfhealing')
                         runTest('one-pod', 'selfhealing')
                         runTest('auto-tuning', 'selfhealing')
+                        ShutdownCluster('selfhealing')
                     }
                 }
                 stage('E2E Backups') {
@@ -190,12 +212,14 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('demand-backup', 'backups')
                         runTest('scheduled-backup', 'backups')
+                        ShutdownCluster('backups')
                     }
                 }
                 stage('E2E BigData') {
                     steps {
                         CreateCluster('bigdata')
                         runTest('big-data', 'bigdata')
+                        ShutdownCluster('bigdata')
                     }
                 }
             }
@@ -237,7 +261,7 @@ pipeline {
                             source $HOME/google-cloud-sdk/path.bash.inc
                             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                             gcloud config set project $GCP_PROJECT
-                            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata
+                            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata | true
                             sudo docker rmi -f \$(sudo docker images -q) || true
 
                             sudo rm -rf $HOME/google-cloud-sdk

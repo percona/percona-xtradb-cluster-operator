@@ -147,7 +147,7 @@ spec:
           defaultMode: 420
           optional: false
           secretName: some-name-ssl
-       - configMap:
+      - configMap:
           defaultMode: 420
           name: auto-hostname-pxc
           optional: true

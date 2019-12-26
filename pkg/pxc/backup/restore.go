@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -344,21 +345,25 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 }
 
 func xbMemoryUse(cluster api.PerconaXtraDBClusterSpec) (useMem string, k8sQuantity resource.Quantity, err error) {
+	var memory string
+
 	if cluster.PXC.Resources != nil {
-		if cluster.PXC.Resources.Requests != nil {
-			useMem = cluster.PXC.Resources.Requests.Memory
-			k8sQuantity, err = resource.ParseQuantity(cluster.PXC.Resources.Requests.Memory)
+		if cluster.PXC.Resources.Requests != nil && cluster.PXC.Resources.Requests.Memory != "" {
+			memory = cluster.PXC.Resources.Requests.Memory
 		}
 
 		if cluster.PXC.Resources.Limits != nil && cluster.PXC.Resources.Limits.Memory != "" {
-			useMem = cluster.PXC.Resources.Limits.Memory
-			k8sQuantity, err = resource.ParseQuantity(cluster.PXC.Resources.Limits.Memory)
+			memory = cluster.PXC.Resources.Limits.Memory
 		}
 
-		// make the 90% value
-		q := k8sQuantity.DeepCopy()
-		q.Sub(*resource.NewQuantity(k8sQuantity.Value()/10, k8sQuantity.Format))
-		useMem = q.String()
+		k8sQuantity, err = resource.ParseQuantity(memory)
+		if err != nil {
+			return "", resource.Quantity{}, err
+		}
+
+		poolSize := k8sQuantity.Value() / int64(100) * int64(75)
+		useMem = strconv.FormatInt(poolSize, 10)
+
 		// transform Gi/Mi/etc to G/M
 		if strings.Contains(useMem, "i") {
 			useMem = strings.Replace(useMem, "i", "", -1)

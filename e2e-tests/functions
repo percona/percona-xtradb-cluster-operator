@@ -523,3 +523,19 @@ kubectl_bin() {
     rm "$LAST_OUT" "$LAST_ERR"
     return ${exit_status}
 }
+
+retry() {
+    local max=$1
+    local delay=$2
+    shift 2 # cut delay and max args
+    local n=1
+
+    until "$@"; do
+        if [[ $n -ge $max ]]; then
+            echo "The command '$@' has failed after $n attempts."
+            exit 1
+        fi
+        ((n++))
+        sleep $delay
+    done
+}

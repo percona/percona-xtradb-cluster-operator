@@ -68,7 +68,7 @@ start_minio() {
 
     desc 'install Minio'
     helm del --purge minio-service || :
-    helm install \
+    retry 10 60 helm install \
         --name minio-service \
         --set accessKey=some-access-key \
         --set secretKey=some-secret-key \

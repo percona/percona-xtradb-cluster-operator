@@ -182,6 +182,7 @@ pipeline {
                         runTest('monitoring', 'basic')
                         runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
+                        runTest('proxysql-sidecar-res-limits', 'basic')
                         ShutdownCluster('basic')
                    }
                 }

@@ -20,6 +20,7 @@ $dir/upgrade/run
 $dir/upgrade-consistency/run
 $dir/auto-tuning/run
 $dir/big-data/run
+$dir/proxysql-sidecar-res-limits/run
 
 $dir/storage/run
 $dir/self-healing/run

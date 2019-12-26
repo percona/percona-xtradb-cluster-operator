@@ -361,8 +361,8 @@ func xbMemoryUse(cluster api.PerconaXtraDBClusterSpec) (useMem string, k8sQuanti
 			return "", resource.Quantity{}, err
 		}
 
-		poolSize := k8sQuantity.Value() / int64(100) * int64(75)
-		useMem = strconv.FormatInt(poolSize, 10)
+		useMem75 := k8sQuantity.Value() / int64(100) * int64(75)
+		useMem = strconv.FormatInt(useMem75, 10)
 
 		// transform Gi/Mi/etc to G/M
 		if strings.Contains(useMem, "i") {

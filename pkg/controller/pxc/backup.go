@@ -34,7 +34,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			}
 
 			// Check if this Job already exists
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: bcpjob.Name, Namespace: bcpjob.Namespace}, bcpjob)
+			currentBcpJob := new(batchv1beta1.CronJob)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: bcpjob.Name, Namespace: bcpjob.Namespace}, currentBcpJob)
 			if err != nil && errors.IsNotFound(err) {
 				// reqLogger.Info("Creating a new backup job", "Namespace", bcpjob.Namespace, "Name", bcpjob.Name)
 				err = r.client.Create(context.TODO(), bcpjob)
@@ -44,7 +45,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			} else if err != nil {
 				return fmt.Errorf("create scheduled backup '%s': %v", bcp.Name, err)
 			} else {
-				bcpjob.Spec.Schedule = bcp.Schedule
 				err = r.client.Update(context.TODO(), bcpjob)
 				if err != nil {
 					return fmt.Errorf("update backup schedule '%s': %v", bcp.Name, err)

@@ -24,11 +24,9 @@ All of Percona’s software is open-source and free.
 
 **New features and improvements:**
 
-* :cloudjira:`CLOUD-448`: A standardized go-package was created to interact with
-  the Operator
-* :cloudjira:`412`: Auto-Tuning of the MySQL Parameters based on Pod resources
-  (memory and CPU) was implemented in case of Percona XtraDB Cluster Pod limits
-  or at least Pod requests specified in the cr.yaml file.
+* :cloudjira:`412`: Auto-Tuning of the MySQL Parameters based on Pod memory
+  resources was implemented in case of Percona XtraDB Cluster Pod limits
+  (or at least Pod requests) specified in the cr.yaml file.
 * :cloudjira:`411`: Now user is able to adjust securityContext, thus replacing
   the automatically generated securityContext with the customized one.
 * :cloudjira:`394`: The Percona XtraDB Cluster, ProxySQL, and backup images have
@@ -37,11 +35,12 @@ All of Percona’s software is open-source and free.
 * :cloudjira:`390`: Helm chart for Percona Monitoring and Management (PMM) 2.0
   have been provided.
 * :cloudjira:`383`: Affinity constraints and tolerations were added to the
-  backup container
+  backup Pod
 
 **Fixed bugs:**
 
 * :cloudbug:`462`: Resource requests/limits were set not for all containers
+  in a ProxySQL Pod
 * :cloudbug:`437`: Percona Monitoring and Management Client was taking
   resources definition from the Percona XtraDB Cluster, despite the much lower
   need in resources, particularly lower memory footprint.

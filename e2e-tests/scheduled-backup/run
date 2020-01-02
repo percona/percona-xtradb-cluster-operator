@@ -176,10 +176,9 @@ main() {
     compare_kubectl cronjob/each-min-minio
     compare_kubectl cronjob/each-min-gcp-cs
 
-    wait_backup "pvc"
-    wait_backup "aws-s3"
-    wait_backup "minio"
-    wait_backup "gcp-cs"
+    sleep 300
+    apply_config "${test_dir}/conf/${cluster}3.yml"
+    wait_all_backups
 
     FIRST_PVC_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep pvc | head -n1| cut -d: -f1)
     JOB_PVC_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_PVC_BACKUP} | awk '{print $1}')
@@ -215,8 +214,6 @@ main() {
     backup_name_minio=$(get_backup_name "minio")
     backup_name_gcp=$(get_backup_name "gcp-cs")
 
-    apply_config "$test_dir/conf/${cluster}3.yml"
-    wait_all_backups
     apply_config "$test_dir/conf/${cluster}1.yml"
 
     run_recovery_check "$cluster" "$backup_name_pvc"

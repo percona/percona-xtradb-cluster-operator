@@ -118,9 +118,6 @@ extlinks = {'bug':
 'wsrepbug':
 ('https://github.com/codership/mysql-wsrep/issues/%s',
                       '#'),
-'cloudbug':
-('https://jira.percona.com/browse/CLOUD-%s',
-                      'CLOUD-'),
 'cloudjira':
 ('https://jira.percona.com/browse/CLOUD-%s',
                       'CLOUD-')}

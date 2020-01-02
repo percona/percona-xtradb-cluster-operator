@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 2
+  generation: 1
   name: monitoring-proxysql
   ownerReferences:
   - apiVersion: pxc.percona.com/v1

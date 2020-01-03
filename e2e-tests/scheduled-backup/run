@@ -109,34 +109,40 @@ compare_extrafields() {
 
     case ${resource_type} in
         job)
-            kubectl_bin get ${resource_type} ${resource} -o json | jq "{
-                                                                            affinity: .spec.template.spec.affinity, \
-                                                                            annotations: .spec.template.metadata.annotations, \
-                                                                            labels: \
-                                                                                { \
-                                                                                    backupWorker: .spec.template.metadata.labels.backupWorker \
-                                                                                }, \
-                                                                            nodeSelector: .spec.template.spec.nodeSelector, \
-                                                                            priorityClassName: .spec.template.spec.priorityClassName, \
-                                                                            schedulerName: .spec.template.spec.schedulerName, \
-                                                                            tolerations: .spec.template.spec.tolerations[0], \
-                                                                            resources: .spec.template.spec.containers[0].resources\
-                                                                        }"  > ${new_result}
+            kubectl_bin get ${resource_type} ${resource} -o json | jq '{
+                                                                            affinity: .spec.template.spec.affinity,
+                                                                            annotations:
+                                                                                {
+                                                                                    testName: .spec.template.metadata.annotations.testName
+                                                                                },
+                                                                            labels:
+                                                                                {
+                                                                                    backupWorker: .spec.template.metadata.labels.backupWorker
+                                                                                },
+                                                                            nodeSelector: .spec.template.spec.nodeSelector,
+                                                                            priorityClassName: .spec.template.spec.priorityClassName,
+                                                                            schedulerName: .spec.template.spec.schedulerName,
+                                                                            tolerations: (.spec.template.spec.tolerations[] | select(.key | contains("backupWorker"))),
+                                                                            resources: .spec.template.spec.containers[0].resources
+                                                                        }'  > ${new_result}
             ;;
         pod)
-            kubectl_bin get ${resource_type} ${resource} -o json | jq "{\
-                                                                            affinity: .spec.affinity, \
-                                                                            annotations: .metadata.annotations, \
-                                                                            labels: \
-                                                                                {  \
-                                                                                    backupWorker: .metadata.labels.backupWorker\
-                                                                                }, \
-                                                                            nodeSelector: .spec.nodeSelector, \
-                                                                            priorityClassName: .spec.priorityClassName, \
-                                                                            schedulerName: .spec.schedulerName, \
-                                                                            tolerations: .spec.tolerations[0], \
-                                                                            resources: .spec.containers[0].resources\
-                                                                        }"  > ${new_result}
+            kubectl_bin get ${resource_type} ${resource} -o json | jq '{
+                                                                            affinity: .spec.affinity,
+                                                                            annotations: 
+                                                                            {
+                                                                                testName: .metadata.annotations.testName
+                                                                            },
+                                                                            labels:
+                                                                                {
+                                                                                    backupWorker: .metadata.labels.backupWorker
+                                                                                },
+                                                                            nodeSelector: .spec.nodeSelector,
+                                                                            priorityClassName: .spec.priorityClassName,
+                                                                            schedulerName: .spec.schedulerName,
+                                                                            tolerations: (.spec.tolerations[] | select(.key | contains("backupWorker"))),
+                                                                            resources: .spec.containers[0].resources
+                                                                        }'  > ${new_result}
             ;;
     esac
     

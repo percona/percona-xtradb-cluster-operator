@@ -36,6 +36,8 @@ All of Percona’s software is open-source and free.
   has been provided.
 * :cloudjira:`383`: Affinity constraints and tolerations were added to the
   backup Pod
+* :cloudjira:`430`: Image URL in the CronJob Pod template is automatically
+  updated when the Operator detects changed backup image URL
 
 **Fixed bugs:**
 
@@ -45,9 +47,10 @@ All of Percona’s software is open-source and free.
   resources definition from the Percona XtraDB Cluster despite having much lower
   need in resources, particularly lower memory footprint.
 * :cloudjira:`434`: Restoring Percona XtraDB Cluster was failing on the
-  OpenShift platform
+  OpenShift platform with customized security settings
 * :cloudjira:`399`: The iputils package was added to the backup docker image to
-  provide backup jobs with the ping command
+  provide backup jobs with the ping command for a better network connection
+  handling
 * :cloudjira:`393`: The Operator generated various StatefulSets in the first
   reconciliation cycle and in all subsequent reconciliation cycles, causing
   Kubernetes to trigger an unnecessary ProxySQL restart once during the cluster

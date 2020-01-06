@@ -14,7 +14,6 @@ main subsystems of the cluster:
     :widths: 15, 15, 40
     :delim: ,
 
-
     "pxc", "subdoc", "Percona XtraDB Cluster general section"
     "proxysql", "subdoc", "ProxySQL section"
     "pmm", "subdoc", "Percona Moonitoring and Management section"
@@ -29,41 +28,361 @@ main subsystems of the cluster:
 The ``pxc`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains general
 configuration options for the Percona XtraDB Cluster.
 
+.. tabularcolumns:: |p{2cm}|p{13.6cm}|
 
-
-.. csv-table:: PXC Section
-  :header: "Key", "Value", "Example", "Description"
-  :widths: 25, 8, 15, 25
-  :delim: ,
-
-  size, int, ``3``, The size of the Percona XtraDB cluster must be >= 3 for `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_
-  allowUnsafeConfigurations, boolean,``false``, Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates"
-  image, string, ``percona/percona-xtradb-cluster-operator:{{{release}}}-pxc``, The Docker image of the Percona cluster used.
-  readinessDelaySec, int, ``15``, Adds a delay before a run check to verify the application is ready to process traffic
-  livenessDelaySec, int, ``300``, Adds a delay before the run check ensures the application is healthy and capable of processing requests
-  forceUnsafeBootstrap, boolean, ``false``, The setting can be reset in case of a sudden crash when all nodes may be considered unsafe to bootstrap from. The setting lets a node be selected and set to `safe_to_bootstrap` and provides data recovery.
-  configuration, string, ``|``   ``[mysqld]``    ``wsrep_debug=ON`` ``wsrep-provider_options=gcache.size=1G;gcache.recover=yes``, The ``my.cnf`` file options to be passed to Percona XtraDB cluster nodes.
-  imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes ImagePullSecret <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_
-  priorityClassName, string, ``high-priority``, The `Kubernetes Pod priority class <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass>`_
-  annotations, label, ``iam.amazonaws.com/role: role-arn``, The `Kubernetes annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_
-  labels, label, ``rack: rack-22``, `Labels are key-value pairs attached to objects. <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_
-  resources.requests.memory, string, ``1G``, The `Kubernetes memory requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
-  resources.requests.cpu, string, ``600m``, `Kubernetes CPU requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
-  resources.limits.memory, string, ``1G``, `Kubernetes memory limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a PXC container.
-  nodeSelector, label, ``disktype: ssd``, `Kubernetes nodeSelector <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_
-  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `<https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity>`_ node anti-affinity constraint"
-
-  affinity.advanced, subdoc,  , "In cases where the pods require complex tuning the `advanced` option turns off the `topologykey` effect. This setting allows the standard Kubernetes affinity constraints of any complexity to be used."
-  affinity.tolerations, subdoc, ``node.alpha.kubernetes.io/unreachable``, `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
-  podDisruptionBudget.maxUnavailable, int, ``1``, The `Kubernetes podDisruptionBudget <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ specifies the number of pods from the set unavailable after the eviction.
-  podDisruptionBudget.minAvailable, int, ``0``, The `Kubernetes podDisruptionBudget <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ defines the number of pods that must be available after an eviction.
-  volumeSpec.emptyDir, string, ``{}``, The `Kubernetes emptyDir volume <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created on a node and accessible to the PXC pod containers.
-  volumeSpec.hostPath.path, string, ``/data``, `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ The volume that mounts a directory from the host node's filesystem into your pod. The path property is required.
-  volumeSpec.hostPath.type, string, ``Directory``, The `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ An optional property for the hostPath.
-  volumeSpec.persistentVolumeClaim.storageClassName, string, ``standard``, "Set the `Kubernetes storage class <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC `PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_"
-  volumeSpec.PersistentVolumeClaim.accessModes, array, ``[ReadWriteOnce]``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ access modes for the Percona XtraDB cluster.
-  volumeSpec.resources.requests.storage, string, ``6Gi``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ size for the Percona XtraDB cluster.
-  gracePeriod, int, ``600``, The `Kubernetes grace period when terminating a pod <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.size                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``3``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The size of the Percona XtraDB cluster must be >= 3 for                                   |
+|                 | `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_  |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.allowUnsafeConfigurations                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | boolean                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``false``                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Prevents users from configuring a cluster with unsafe parameters such as starting the     |
+|                 | cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.image                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-pxc``                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The Docker image of the Percona cluster used                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.readinessDelaySec                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``15``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Adds a delay before a run check to verify the application is ready to process traffic     |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.livenessDelaySec                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``300``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Adds a delay before the run check ensures the application is healthy and capable of       |
+|                 | processing requests                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.forceUnsafeBootstrap                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | boolean                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``false``                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The setting can be reset in case of a sudden crash when all nodes may be considered       |
+|                 | unsafe to bootstrap from. The setting lets a node be selected and set to                  |
+|                 | ``safe_to_bootstrap`` and provides data recovery                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.configuration                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``|``                                                                                     |
+|                 |                                                                                           |
+|                 | ``[mysqld]``                                                                              |
+|                 |                                                                                           |
+|                 | ``wsrep_debug=ON``                                                                        |
+|                 |                                                                                           |
+|                 | ``wsrep-provider_options=gcache.size=1G;gcache.recover=yes``                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The ``my.cnf`` file options to be passed to Percona XtraDB cluster nodes                  |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.imagePullSecrets.name                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``private-registry-credentials``                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes ImagePullSecret                                                           |
+|                 | <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_      |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.priorityClassName                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``high-priority``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes Pod priority class                                                        |
+|                 | <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/               |
+|                 | #priorityclass>`_                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.schedulerName                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``default-scheduler``                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes Scheduler                                                                 |
+|                 | <https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers>`_     |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.annotations                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | label                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``iam.amazonaws.com/role: role-arn``                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes annotations                                                               |
+|                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.labels                                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | label                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``rack: rack-22``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Labels are key-value pairs attached to objects                                           |
+|                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.resources.requests.memory                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1G``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes memory requests                                                           |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
+|                 | for a PXC container                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.resources.requests.cpu                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``600m``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes CPU requests                                                                  |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PXC container                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.resources.limits.memory                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1G``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes memory limits                                                                 |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PXC container                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.nodeSelector                                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | label                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``disktype: ssd``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes nodeSelector                                                                  |
+|                 | <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.affinity.topologyKey                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``kubernetes.io/hostname``                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The Operator `topology key                                                                |
+|                 | <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/                       |
+|                 | #affinity-and-anti-affinity>`_ node anti-affinity constraint                              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.affinity.advanced                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     |                                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | In cases where the Pods require complex tuning the `advanced` option turns off the        |
+|                 | ``topologyKey`` effect. This setting allows the standard Kubernetes affinity constraints  |
+|                 | of any complexity to be used                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.affinity.tolerations                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``node.alpha.kubernetes.io/unreachable``                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes Pod tolerations                                                               |
+|                 | <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_               |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.podDisruptionBudget.maxUnavailable                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes podDisruptionBudget                                                       |
+|                 | <https://kubernetes.io/docs/tasks/run-application/configure-pdb/                          |
+|                 | #specifying-a-poddisruptionbudget>`_ specifies the number of Pods from the set            |
+|                 | unavailable after the eviction                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.podDisruptionBudget.minAvailable                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``0``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes podDisruptionBudget                                                       |
+|                 | <https://kubernetes.io/docs/tasks/run-application/configure-pdb/                          |
+|                 | #specifying-a-poddisruptionbudget>`_ Pods that must be available after an eviction        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.volumeSpec.emptyDir                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``{}``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes emptyDir volume                                                           |
+|                 | <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created   |
+|                 | on a node and accessible to the PXC Pod containers                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.volumeSpec.hostPath.path                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``/data``                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_    |
+|                 | The volume that mounts a directory from the host node's filesystem into your Pod. The     |
+|                 | path property is required                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.volumeSpec.hostPath.type                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Directory``                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/            |
+|                 | #hostpath>`_. An optional property for the hostPath                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.volumeSpec.persistentVolumeClaim.storageClassName                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``standard``                                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Set the `Kubernetes storage class                                                         |
+|                 | <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC      |
+|                 | `PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/   |
+|                 | #persistentvolumeclaims>`_                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.volumeSpec.persistentVolumeClaim.accessModes                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | array                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``[ReadWriteOnce]``                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes PersistentVolumeClaim                                                     |
+|                 | <https://kubernetes.io/docs/concepts/storage/persistent-volumes/                          |
+|                 | #persistentvolumeclaims>`_ access modes for the Percona XtraDB cluster                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.volumeSpec.resources.requests.storage                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``6Gi``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes PersistentVolumeClaim                                                     |
+|                 | <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#                         |
+|                 | persistentvolumeclaims>`_ size for the Percona XtraDB cluster                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.gracePeriod                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``600``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes grace period when terminating a Pod                                       |
+|                 | <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.containerSecurityContext                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``privileged: true``                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Container                                     |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.podSecurityContext                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``fsGroup: 1001``                                                                         |
+|                 |                                                                                           |
+|                 | ``supplementalGroups: [1001, 1002, 1003]``                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Pod                                           |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.proxysql-section:
 
@@ -73,37 +392,315 @@ configuration options for the Percona XtraDB Cluster.
 The ``proxysql`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains
 configuration options for the ProxySQL daemon.
 
-.. csv-table:: proxysql Section
-  :header: "Key", "Value", "Example", "Description"
-  :widths: 25, 8, 15, 25
-  :delim: ,
+.. tabularcolumns:: |p{2cm}|p{13.6cm}|
 
-
-  enabled, boolean, ``true``, "Enables or disables `load balancing with ProxySQL <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ `Services <https://kubernetes.io/docs/concepts/services-networking/service/>`_"
-  size, int, ``1``, The number of the ProxySQL daemons `to provide load balancing <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ must be = 1 in current release.
-  image, string, ``percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql``, ProxySQL Docker image to use.
-  imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the ProxySQL image.
-  annotations, label, ``iam.amazonaws.com/role: role-arn``, `Kubernetes annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_ metadata.
-  labels, label, ``rack: rack-22``, `Labels are key-value pairs attached to objects. <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_
-  servicetype, string,``ClusterIP``, Specifies the type of `Kubernetes Service <https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types>`_ to be used. 
-  resources.requests.memory, string, ``1G``, `Kubernetes memory requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
-  resources.requests.cpu, string, ``600m``, `Kubernetes CPU requests <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
-  resources.limits.memory, string, ``1G``, `Kubernetes memory limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
-  resources.limits.cpu, string, ``700m``, `Kubernetes CPU limits <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container.
-  priorityClassName,string,``high-priority``, The `Kubernetes Pod Priority class <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass>`_ for ProxySQL.
-  nodeSelector, label, ``disktype: ssd``, `Kubernetes nodeSelector <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_
-  affinity.topologyKey, string, ``kubernetes.io/hostname``, "The Operator topology key `<https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity>`_ node anti-affinity constraint"
-  affinity.advanced, subdoc, , "If available it makes a `topologyKey <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity-beta-feature>`_ node affinity constraint to be ignored."
-  affinity.tolerations, subdoc, """node.alpha.kubernetes.io/unreachable""", `Kubernetes pod tolerations <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_
-  volumeSpec.emptyDir, string, ``{}``, `Kubernetes emptyDir volume <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created on a node and accessible to the PXC pod containers.
-  volumeSpec.hostPath.path, string, ``/data``, `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ The volume that mounts a directory from the host node's filesystem into your pod. The path property is required.
-  volumeSpec.hostPath.type, string, ``Directory``, `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_ An optional property for the hostPath.
-  volumeSpec.persistentVolumeClaim.storageClassName, string, ``standard``, "Set the `Kubernetes storage class <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC `PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_"
-  volumeSpec.PersistentVolumeClaim.accessModes, array, ``[ReadWriteOnce]``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ access modes for the Percona XtraDB cluster.
-  volumeSpec.resources.requests.storage, string, ``6Gi``, The `Kubernetes PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ size for the Percona XtraDB cluster.
-  podDisruptionBudet.maxUnavailable, int, ``1``, `Kubernetes podDisruptionBudget <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ specifies the number of pods from the set unavailable after the eviction.
-  podDisruptionBudet.minAvailable, int, ``0``, `Kubernetes podDisruptionBudet <https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget>`_ the number of pods that must be available after an eviction.
-  gracePeriod, int, ``30``, The `Kubernetes grace period when terminating a pod <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.enabled                                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | boolean                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``true``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Enables or disables `load balancing with ProxySQL                                         |
+|                 | <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_ `Services |
+|                 | <https://kubernetes.io/docs/concepts/services-networking/service/>`_                      |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.size                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The number of the ProxySQL daemons `to provide load balancing                             |
+|                 | <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_           |
+|                 | must be = 1 in current release                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.image                                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql``                        |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | ProxySQL Docker image to use                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.imagePullSecrets.name                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``private-registry-credentials``                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes imagePullSecrets                                                          |
+|                 | <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for  |
+|                 | the ProxySQL image                                                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.annotations                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | label                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``iam.amazonaws.com/role: role-arn``                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes annotations                                                               |
+|                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_        |
+|                 | metadata                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.labels                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | label                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``rack: rack-22``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Labels are key-value pairs attached to objects                                           |
+|                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.servicetype                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``ClusterIP``                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Specifies the type of `Kubernetes Service                                                 |
+|                 | <https://kubernetes.io/docs/concepts/services-networking/service/                         |
+|                 | #publishing-services-service-types>`_ to be used                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.resources.requests.memory                                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1G``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes memory requests                                                           |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
+|                 | for a ProxySQL container                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.resources.requests.cpu                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``600m``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes CPU requests                                                                  |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container            |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.resources.limits.memory                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1G``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes memory limits                                                                 |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container            |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.resources.limits.cpu                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``700m``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes CPU limits                                                                    |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container            |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.priorityClassName                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``high-priority``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes Pod Priority class                                                        |
+|                 | <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/               |
+|                 | #priorityclass>`_ for ProxySQL                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.schedulerName                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``default-scheduler``                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes Scheduler                                                                 |
+|                 | <https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers>`_     |
++-----------------+-------------------------------------------------------------------------------------------+ 
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.nodeSelector                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | label                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``disktype: ssd``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes nodeSelector                                                                  |
+|                 | <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.affinity.topologyKey                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``kubernetes.io/hostname``                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The Operator `topology key                                                                |
+|                 | <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/                       |
+|                 | #affinity-and-anti-affinity>`_ node anti-affinity constraint                              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.affinity.advanced                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     |                                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | If available it makes a `topologyKey                                                      |
+|                 | <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/                       |
+|                 | #inter-pod-affinity-and-anti-affinity-beta-feature>`_ node affinity constraint to be      |
+|                 | ignored                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.affinity.tolerations                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``node.alpha.kubernetes.io/unreachable``                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes Pod tolerations                                                               |
+|                 | <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_               |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.volumeSpec.emptyDir                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``{}``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes emptyDir volume                                                           |
+|                 | <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created   |
+|                 | on a node and accessible to the PXC Pod containers                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.volumeSpec.hostPath.path                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``/data``                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/#hostpath>`_    |
+|                 | The volume that mounts a directory from the host node's filesystem into your Pod. The     |
+|                 | path property is required                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.volumeSpec.hostPath.type                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Directory``                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes hostPath <https://kubernetes.io/docs/concepts/storage/volumes/            |
+|                 | #hostpath>`_. An optional property for the hostPath                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.volumeSpec.persistentVolumeClaim.storageClassName                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``standard``                                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Set the `Kubernetes storage class                                                         |
+|                 | <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC      |
+|                 | `PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/   |
+|                 | #persistentvolumeclaims>`_                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.volumeSpec.persistentVolumeClaim.accessModes                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | array                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``[ReadWriteOnce]``                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes PersistentVolumeClaim                                                     |
+|                 | <https://kubernetes.io/docs/concepts/storage/persistent-volumes/                          |
+|                 | #persistentvolumeclaims>`_ access modes for the Percona XtraDB cluster                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.volumeSpec.resources.requests.storage                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``6Gi``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes PersistentVolumeClaim                                                     |
+|                 | <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#                         |
+|                 | persistentvolumeclaims>`_ size for the Percona XtraDB cluster                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.podDisruptionBudget.maxUnavailable                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes podDisruptionBudget                                                       |
+|                 | <https://kubernetes.io/docs/tasks/run-application/configure-pdb/                          |
+|                 | #specifying-a-poddisruptionbudget>`_ specifies the number of Pods from the set            |
+|                 | unavailable after the eviction                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.podDisruptionBudget.minAvailable                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``0``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes podDisruptionBudget                                                       |
+|                 | <https://kubernetes.io/docs/tasks/run-application/configure-pdb/                          |
+|                 | #specifying-a-poddisruptionbudget>`_ Pods that must be available after an eviction        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.gracePeriod                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``30``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes grace period when terminating a Pod                                       |
+|                 | <https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods>`_           |
++-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.pmm-section:
 
@@ -113,15 +710,50 @@ configuration options for the ProxySQL daemon.
 The ``pmm`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_  file contains configuration
 options for Percona Monitoring and Management.
 
-.. csv-table:: pmm Section
-  :header: "Key", "Value", "Example", "Description"
-  :widths: 25, 8,15,25
-  :delim: ,
+.. tabularcolumns:: |p{2cm}|p{13.6cm}|
 
-  enabled, boolean, ``false``, Enables or disables `monitoring Percona XtraDB cluster with PMM <https://www.percona.com/doc/percona-xtradb-cluster/5.7/manual/monitoring.html>`_
-  image, string, ``perconalab/pmm-client:1.17.1``, PMM client Docker image to use.
-  serverHost, string, ``monitoring-service``, Address of the PMM Server to collect data from the cluster.
-  serverUser, string, ``pmm``, The `PMM Serve_User <https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html>`_. The PMM Server password should be configured using Secrets.
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pmm.enabled                                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | boolean                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``false``                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Enables or disables `monitoring Percona XtraDB cluster with PMM                           |
+|                 | <https://www.percona.com/doc/percona-xtradb-cluster/5.7/manual/monitoring.html>`_         |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pmm.image                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``perconalab/pmm-client:1.17.1``                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | PMM client Docker image to use                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pmm.serverHost                                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       |  string                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     |  ``monitoring-service``                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Address of the PMM Server to collect data from the cluster                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pmm.serverUser                                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``pmm``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `PMM Serve_User                                                                       |
+|                 | <https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html>`_.   |
+|                 | The PMM Server password should be configured using Secrets                                |
++-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.backup-section:
 
@@ -133,23 +765,322 @@ The ``backup`` section in the
 file contains the following configuration options for the regular
 Percona XtraDB Cluster backups.
 
-.. csv-table:: backup Section
-  :header: "Key", "Value", "Example", "Description"
-  :widths: 25 , 10, 15, 25
-  :delim: ,
+.. tabularcolumns:: |p{2cm}|p{13.6cm}|
 
-  "image", string, ``percona/percona-xtradb-cluster-operator:{{{release}}}-backup``, The Percona XtraDB cluster Docker image to use for the backup.
-  imagePullSecrets.name, string, ``private-registry-credentials``, The `Kubernetes imagePullSecrets <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for the specified image.
-  storages.type, string, ``s3``, The cloud storage type used for backups. Only ``s3`` and ``filesystem`` types are supported.
-  storages.s3.credentialsSecret, string, ``my-cluster-name-backup-s3``, The `Kubernetes secret <https://kubernetes.io/docs/concepts/configuration/secret/>`_ for backups. It should contain ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` keys.
-  storages.s3.bucket, string, , The `Amazon S3 bucket <https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingBucket.html>`_ name for backups.
-  storages.s3.region, string, ``us-east-1``, The `AWS region <https://docs.aws.amazon.com/general/latest/gr/rande.html>`_ to use. Please note ** this option is mandatory** for Amazon and all S3-compatible storages.
-  storages.s3.endpointUrl, string, , The endpoint URL of the S3-compatible storage to be used (not needed for the original Amazon S3 cloud).
-  storages.persistentVolumeClaim.type, string, ``filesystem``, The persistent volume claim storage type
-  storages.persistentVolumeClaim.storageClassName, string, ``standard``, Set the `Kubernetes Storage Class <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC backups `PersistentVolumeClaims <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_ for the ``filesystem`` storage type.
-  storages.persistentVolumeClaim.accessModes, array, ``[ReadWriteOne]``, The `Kubernetes PersistentVolume access modes <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes>`_
-  storages.persistentVolumeClaim.storage, string, ``6Gi``, Storage size for the PersistentVolume.
-  schedule.name, string, ``sat-night-backup``, The backup name
-  schedule.schedule, string, ``0 0 * * 6``, Scheduled time to make a backup specified in the `crontab format <https://en.wikipedia.org/wiki/Cron>`_
-  schedule.keep, int, ``3``, Number of stored backups
-  schedule.storageName, string, ``s3-us-west``, The name of the storage for the backups configured in the ``storages`` or ``fs-pvc`` subsection.
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.image                                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-backup``                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The Percona XtraDB cluster Docker image to use for the backup                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.imagePullSecrets.name                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``private-registry-credentials``                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes imagePullSecrets                                                          |
+|                 | <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for  |
+|                 | the specified image                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.storages.type                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``s3``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The cloud storage type used for backups. Only ``s3`` and ``filesystem`` types are         |
+|                 | supported                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.storages.s3.credentialsSecret                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``my-cluster-name-backup-s3``                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes secret <https://kubernetes.io/docs/concepts/configuration/secret/>`_ for  |
+|                 | backups. It should contain ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` keys.      |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.storages.s3.bucket                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     |                                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Amazon S3 bucket <https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingBucket.html>`_|
+|                 | name for backups                                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.storages.s3.region                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``us-east-1``                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `AWS region <https://docs.aws.amazon.com/general/latest/gr/rande.html>`_ to use.      |
+|                 | Please note **this option is mandatory** for Amazon and all S3-compatible storages        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.storages.s3.endpointUrl                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     |                                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The endpoint URL of the S3-compatible storage to be used (not needed for the original     |
+|                 | Amazon S3 cloud)                                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.storages.persistentVolumeClaim.type                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``filesystem``                                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The persistent volume claim storage type                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.storages.persistentVolumeClaim.storageClassName                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``standard``                                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Set the `Kubernetes Storage Class                                                         |
+|                 | <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC      |
+|                 | backups `PersistentVolumeClaims                                                           |
+|                 | <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_|
+|                 | for the ``filesystem`` storage type                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.storages.persistentVolumeClaim.accessModes                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | array                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``[ReadWriteOne]``                                                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes PersistentVolume access modes                                             |
+|                 | <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes>`_          |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.storages.persistentVolumeClaim.storage                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``6Gi``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Storage size for the PersistentVolume                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.schedule.name                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``sat-night-backup``                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The backup name                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.schedule.schedule                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``0 0 * * 6``                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Scheduled time to make a backup specified in the                                          |
+|                 | `crontab format <https://en.wikipedia.org/wiki/Cron>`_                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.schedule.keep                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``3``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Number of stored backups                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.schedule.storageName                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``s3-us-west``                                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The name of the storage for the backups configured in the ``storages`` or ``fs-pvc``      |
+|                 | subsection                                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.annotations                                                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | label                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``iam.amazonaws.com/role: role-arn``                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes annotations                                                               |
+|                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.labels                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | label                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``rack: rack-22``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Labels are key-value pairs attached to objects                                           |
+|                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.resources.requests.memory                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1G``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes memory requests                                                           |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
+|                 | for a PXC container                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.resources.requests.cpu                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``600m``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes CPU requests                                                                  |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PXC container                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.resources.limits.memory                                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1G``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes memory limits                                                                 |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PXC container                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.nodeSelector                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | label                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``disktype: ssd``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes nodeSelector                                                                  |
+|                 | <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector>`_       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.affinity.topologyKey                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``kubernetes.io/hostname``                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The Operator `topology key                                                                |
+|                 | <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/                       |
+|                 | #affinity-and-anti-affinity>`_ node anti-affinity constraint                              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.affinity.advanced                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``kubernetes.io/hostname``                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | In cases where the Pods require complex tuning the `advanced` option turns off the        |
+|                 | ``topologyKey`` effect. This setting allows the standard Kubernetes affinity constraints  |
+|                 | of any complexity to be used                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.affinity.tolerations                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``backupWorker``                                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes Pod tolerations                                                               |
+|                 | <https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/>`_               |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pxc.priorityClassName                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``high-priority``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes Pod priority class                                                        |
+|                 | <https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/               |
+|                 | #priorityclass>`_                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.schedulerName                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``default-scheduler``                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes Scheduler                                                                 |
+|                 | <https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers>`_     |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.containerSecurityContext                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``privileged: true``                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Container                                     |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | backup.podSecurityContext                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``fsGroup: 1001``                                                                         |
+|                 |                                                                                           |
+|                 | ``supplementalGroups: [1001, 1002, 1003]``                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Pod                                           |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+

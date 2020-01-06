@@ -57,7 +57,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``percona/percona-xtradb-cluster-operator:1.0.0-pxc``                                     |
+| **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-pxc``                             |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The Docker image of the Percona cluster used                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -232,7 +232,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | subdoc                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``kubernetes.io/hostname``                                                                |
+| **Example**     |                                                                                           |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | In cases where the Pods require complex tuning the `advanced` option turns off the        |
 |                 | ``topologyKey`` effect. This setting allows the standard Kubernetes affinity constraints  |
@@ -423,7 +423,7 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``percona/percona-xtradb-cluster-operator:1.0.0-proxysql``                                |
+| **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql``                        |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | ProxySQL Docker image to use                                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -772,7 +772,7 @@ Percona XtraDB Cluster backups.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``percona/percona-xtradb-cluster-operator:1.0.0-backup``                                  |
+| **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-backup``                          |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The Percona XtraDB cluster Docker image to use for the backup                             |
 +-----------------+-------------------------------------------------------------------------------------------+

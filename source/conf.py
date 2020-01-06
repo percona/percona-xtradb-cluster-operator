@@ -34,12 +34,12 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Percona Kubernetes Operator for PXC'
-copyright = u'Percona LLC and/or its affiliates 2009 - 2019'
+copyright = u'Percona LLC and/or its affiliates 2009 - 2020'
 
 # the short X.Y version
-version = '1.2.0'
+version = '1.3.0'
 # the full version including alpha/beta/rc tags.
-release = '1.2.0'
+release = '1.3.0'
 
 
 # List of patterns, relative to source directory, that match files and
@@ -118,10 +118,9 @@ extlinks = {'bug':
 'wsrepbug':
 ('https://github.com/codership/mysql-wsrep/issues/%s',
                       '#'),
-'pmmbug':
+'cloudjira':
 ('https://jira.percona.com/browse/CLOUD-%s',
                       'CLOUD-')}
-
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
 
@@ -222,7 +221,7 @@ htmlhelp_basename = 'pxcoperatorpxc'
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'percona-kubernetes-operator-for-pxc.tex', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
-     u'Percona LLC and/or its affiliates 2009-2019', 'manual'),
+     u'Percona LLC and/or its affiliates 2009-2020', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -256,7 +255,7 @@ latex_preamble = '\setcounter{tocdepth}{2}'
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
-     [u'Percona LLC and/or its affiliates 2009-2019'], 1)
+     [u'Percona LLC and/or its affiliates 2009-2020'], 1)
 ]
 
 def ultimateReplace(app, docname, source):
@@ -266,7 +265,7 @@ def ultimateReplace(app, docname, source):
     source[0] = result
 
 ultimate_replacements = {
-    "{{release}}" : release
+    "{{{release}}}" : release
 }
 
 def setup(app):

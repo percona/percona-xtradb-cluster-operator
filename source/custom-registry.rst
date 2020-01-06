@@ -75,11 +75,11 @@ in the OpenShift environment.
 
       $ oc get is
       NAME                              DOCKER REPO                                                            TAGS      UPDATED
-      percona-xtradb-cluster-operator   docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator   1.2.0     2 hours ago
+      percona-xtradb-cluster-operator   docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator   {{{release}}}     2 hours ago
 
 7. When the custom registry image is Ok, put a Docker Repo + Tag string
    (it should look like
-   ``docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator:0.3.0``)
+   ``docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator:{{{release}}}``)
    into the ``image:`` option in ``deploy/operator.yaml`` configuration
    file.
 

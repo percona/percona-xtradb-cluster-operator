@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-2-0
+apiVersion: pxc.percona.com/v1-3-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -15,7 +15,7 @@ spec:
 #  updateStrategy: RollingUpdate
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.2.0-pxc
+    image: percona/percona-xtradb-cluster-operator:1.3.0-pxc
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300
@@ -31,7 +31,12 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
-#   schedulerName: "default"
+#    containerSecurityContext:
+#      privileged: false
+#    podSecurityContext:
+#      runAsUser: 1001
+#      runAsGroup: 1001
+#      supplementalGroups: [1001]
     resources:
       requests:
         memory: 1G
@@ -76,7 +81,7 @@ spec:
   proxysql:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.2.0-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.3.0-proxysql
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -137,15 +142,15 @@ spec:
     gracePeriod: 30
   pmm:
     enabled: false
-    image: percona/percona-xtradb-cluster-operator:1.2.0-pmm
+    image: percona/percona-xtradb-cluster-operator:1.3.0-pmm
     serverHost: monitoring-service
     serverUser: pmm
 #    resources:
 #      requests:
 #        memory: 200M
-#       cpu: 500m
+#        cpu: 500m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.2.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.3.0-backup
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -154,6 +159,36 @@ spec:
         type: s3
 #        nodeSelector:
 #          storage: tape
+#          backupWorker: 'True'
+#        resources:
+#          requests:
+#            memory: 1G
+#            cpu: 600m
+#        affinity:
+#          nodeAffinity:
+#            requiredDuringSchedulingIgnoredDuringExecution:
+#              nodeSelectorTerms:
+#              - matchExpressions:
+#                - key: backupWorker
+#                  operator: In
+#                  values:
+#                  - 'True'
+#        tolerations:
+#          - key: "backupWorker"
+#            operator: "Equal"
+#            value: "True"
+#            effect: "NoSchedule"
+#        annotations:
+#          testName: scheduled-backup
+#        labels:
+#          backupWorker: 'True'
+#        schedulerName: 'default-scheduler'
+#        priorityClassName: 'high-priority'
+#        containerSecurityContext:
+#          privileged: true
+#        podSecurityContext:
+#          fsGroup: 1001
+#          supplementalGroups: [1001, 1002, 1003]
         s3:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
@@ -162,6 +197,36 @@ spec:
         type: filesystem
 #        nodeSelector:
 #          storage: tape
+#          backupWorker: 'True'
+#        resources:
+#          requests:
+#            memory: 1G
+#            cpu: 600m
+#        affinity:
+#          nodeAffinity:
+#            requiredDuringSchedulingIgnoredDuringExecution:
+#              nodeSelectorTerms:
+#              - matchExpressions:
+#                - key: backupWorker
+#                  operator: In
+#                  values:
+#                  - 'True'
+#        tolerations:
+#          - key: "backupWorker"
+#            operator: "Equal"
+#            value: "True"
+#            effect: "NoSchedule"
+#        annotations:
+#          testName: scheduled-backup
+#        labels:
+#          backupWorker: 'True'
+#        schedulerName: 'default-scheduler'
+#        priorityClassName: 'high-priority'
+#        containerSecurityContext:
+#          privileged: true
+#        podSecurityContext:
+#          fsGroup: 1001
+#          supplementalGroups: [1001, 1002, 1003]
         volume:
           persistentVolumeClaim:
 #            storageClassName: standard

@@ -173,6 +173,9 @@ pipeline {
                     !skipBranchBulds
                 }
             }
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             parallel {
                 stage('E2E Basic Tests') {
                     steps {

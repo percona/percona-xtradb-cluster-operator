@@ -119,7 +119,10 @@ compare_extrafields() {
                                                                                 {
                                                                                     backupWorker: .spec.template.metadata.labels.backupWorker
                                                                                 },
-                                                                            nodeSelector: .spec.template.spec.nodeSelector,
+                                                                            nodeSelector:
+                                                                                {
+                                                                                    backupWorker: .spec.template.spec.nodeSelector.backupWorker
+                                                                                },
                                                                             priorityClassName: .spec.template.spec.priorityClassName,
                                                                             schedulerName: .spec.template.spec.schedulerName,
                                                                             tolerations: (.spec.template.spec.tolerations[] | select(.key | contains("backupWorker"))),
@@ -137,7 +140,10 @@ compare_extrafields() {
                                                                                 {
                                                                                     backupWorker: .metadata.labels.backupWorker
                                                                                 },
-                                                                            nodeSelector: .spec.nodeSelector,
+                                                                            nodeSelector:
+                                                                                {
+                                                                                    backupWorker: .spec.nodeSelector.backupWorker
+                                                                                },
                                                                             priorityClassName: .spec.priorityClassName,
                                                                             schedulerName: .spec.schedulerName,
                                                                             tolerations: (.spec.tolerations[] | select(.key | contains("backupWorker"))),

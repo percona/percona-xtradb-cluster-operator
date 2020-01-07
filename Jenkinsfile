@@ -119,6 +119,9 @@ pipeline {
             steps {
                 installRpms()
                 sh '''
+                    env
+                    git show -s --pretty=%ae
+
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
                         curl https://sdk.cloud.google.com | bash

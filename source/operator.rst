@@ -754,7 +754,31 @@ options for Percona Monitoring and Management.
 |                 | <https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html>`_.   |
 |                 | The PMM Server password should be configured using Secrets                                |
 +-----------------+-------------------------------------------------------------------------------------------+
-
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pmm.resources.requests.memory                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``200M``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes memory requests                                                           |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
+|                 | for a PMM container                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | pmm.resources.requests.cpu                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``500m``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes CPU requests                                                                  |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PMM container                 |
++-----------------+-------------------------------------------------------------------------------------------+
 .. _operator.backup-section:
 
 `Backup Section <operator.html#operator-backup-section>`_

@@ -61,6 +61,18 @@ main() {
     compare_kubectl statefulset/$cluster-pxc "-130"
     compare_kubectl statefulset/$cluster-proxysql "-130"
 
+    # test 1.4.0
+    API="pxc.percona.com/v1-4-0"
+    kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"'"$API"'\"}" }}
+    }'
+    wait_for_running "$cluster-pxc" "1"
+
+    compare_kubectl service/$cluster-pxc "-140"
+    compare_kubectl service/$cluster-proxysql "-140"
+    compare_kubectl statefulset/$cluster-pxc "-140"
+    compare_kubectl statefulset/$cluster-proxysql "-140"
+
     destroy "${namespace}"
 }
 

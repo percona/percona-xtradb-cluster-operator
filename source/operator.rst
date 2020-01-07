@@ -485,7 +485,7 @@ configuration options for the ProxySQL daemon.
 | **Description** | The `Kubernetes memory requests                                                           |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
 |                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
-|                 | for a ProxySQL container                                                                  |
+|                 | for the main ProxySQL container                                                           |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -497,7 +497,7 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes CPU requests                                                                  |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container            |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for the main ProxySQL container     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -509,7 +509,7 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes memory limits                                                                 |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container            |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for the main ProxySQL container     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -521,7 +521,56 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes CPU limits                                                                    |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL container            |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for the main ProxySQL container     |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.sidecarResources.requests.memory                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1G``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes memory requests                                                           |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
+|                 | for the sidecar ProxySQL containers                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.sidecarResources.requests.cpu                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``500m``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes CPU requests                                                                  |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for the sidecar ProxySQL containers |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.sidecarResources.limits.memory                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``2G``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes memory limits                                                                 |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for the sidecar ProxySQL containers |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Key**         | proxysql.sidecarResources.limits.cpu                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``600m``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes CPU limits                                                                    |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for the sidecar ProxySQL containers |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

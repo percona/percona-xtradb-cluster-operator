@@ -15,7 +15,7 @@ spec:
 #  updateStrategy: RollingUpdate
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.3.0-pxc
+    image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300

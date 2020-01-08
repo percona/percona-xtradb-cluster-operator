@@ -2,11 +2,23 @@
 
 set -o errexit
 
+nobuild=0
+if [[ $# -ge 1 ]]; then
+  if [[ ( $1 = "-nb" ) || ( $1 == "--nobuild") ]]; then
+     shift
+     nobuild=1
+  fi
+fi
+
 test_dir="$(dirname $0)"
 . $(dirname $0)/functions
 src_dir="$(realpath $test_dir/..)"
 
-$test_dir/build
+if [[ $nobuild -eq 0  ]]; then
+    echo "building, use -nb or --nobuild to suppress this"
+    $test_dir/build
+fi
+
 create_namespace run-$GIT_BRANCH-$RANDOM
 deploy_operator
 

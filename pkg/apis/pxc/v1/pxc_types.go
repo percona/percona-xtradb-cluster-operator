@@ -329,11 +329,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}
 
-		// pxc replicas shouldn't be less than 3 for safe configuration
-		if c.PXC.Size < 3 && !c.PXC.AllowUnsafeConfig {
-			c.PXC.Size = 3
-		}
-
 		// number of pxc replicas should be an odd
 		if c.PXC.Size%2 == 0 && !c.PXC.AllowUnsafeConfig {
 			c.PXC.Size++

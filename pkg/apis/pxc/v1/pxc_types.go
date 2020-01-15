@@ -329,6 +329,16 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}
 
+		// pxc replicas shouldn't be less than 3 for safe configuration
+		if c.PXC.Size < 3 && !c.PXC.AllowUnsafeConfig {
+			c.PXC.Size = 3
+		}
+
+		// number of pxc replicas should be an odd
+		if c.PXC.Size%2 == 0 && !c.PXC.AllowUnsafeConfig {
+			c.PXC.Size++
+		}
+
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-PXC.
 		// It's a description of the number of pods from that set that can be unavailable after the eviction.
 		if c.PXC.PodDisruptionBudget == nil {

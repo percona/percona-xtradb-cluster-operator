@@ -44,9 +44,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 	}
 
 	manualSelector := true
-	backoffLimit := int32(15)
 	return batchv1.JobSpec{
-		BackoffLimit:   &backoffLimit,
 		ManualSelector: &manualSelector,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: job.Labels,

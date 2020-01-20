@@ -1,0 +1,1576 @@
++++ dirname ./e2e-tests/scaling/run
+++ realpath ./e2e-tests/scaling
++ test_dir=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling
++ . /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/../functions
+++ exec
+++ BASH_XTRACEFD=5
++++ git rev-parse HEAD
+++ GIT_COMMIT=d4c8ea614ff60da8098d0cb0ce78e1c0f7c44cd3
++++ git rev-parse --abbrev-ref HEAD
++++ sed -e 's^/^-^g; s^[.]^-^g;'
++++ tr '[:upper:]' '[:lower:]'
+++ GIT_BRANCH=cloud-429
+++ API=pxc.percona.com/v1-3-0
+++ IMAGE=perconalab/percona-xtradb-cluster-operator:cloud-429
+++ IMAGE_PXC=perconalab/percona-xtradb-cluster-operator:master-pxc8.0
+++ IMAGE_PMM=perconalab/percona-xtradb-cluster-operator:master-pmm
+++ IMAGE_PROXY=perconalab/percona-xtradb-cluster-operator:master-proxysql
+++ IMAGE_BACKUP=perconalab/percona-xtradb-cluster-operator:master-backup
++++ mktemp -d
+++ tmp_dir=/tmp/tmp.jxNXpap7Mf
++++ which gsed
++++ which sed
+++ sed=/usr/bin/sed
++++ which gdate
++++ which date
+++ date=/usr/bin/date
++++ basename /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling
+++ test_name=scaling
+++ namespace=scaling-21343
++++ realpath /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/../conf
+++ conf_dir=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf
++++ realpath /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/../..
+++ src_dir=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator
+++ oc projects
+++ egrep -q 'You have access to the following projects|You are not a member of any projects|You have one project on this server'
++ cluster=scaling
++ create_namespace scaling-21343
++ local namespace=scaling-21343
++ '[' '' == 1 ']'
++ kubectl_bin delete namespace scaling-21343
+++ mktemp
++ local LAST_OUT=/tmp/tmp.uqQdQhsWWN
+++ mktemp
++ local LAST_ERR=/tmp/tmp.bD07gJZQPO
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl delete namespace scaling-21343
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.uqQdQhsWWN
+--- 0 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.bD07gJZQPO
+--- 0 stderr
+Error from server (NotFound): namespaces "scaling-21343" not found
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl delete namespace scaling-21343
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 1 stdout'
++ cat - /tmp/tmp.uqQdQhsWWN
+--- 1 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 1 stderr'
++ cat - /tmp/tmp.bD07gJZQPO
+--- 1 stderr
+Error from server (NotFound): namespaces "scaling-21343" not found
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl delete namespace scaling-21343
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 2 stdout'
++ cat - /tmp/tmp.uqQdQhsWWN
+--- 2 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 2 stderr'
++ cat - /tmp/tmp.bD07gJZQPO
+--- 2 stderr
+Error from server (NotFound): namespaces "scaling-21343" not found
++ [[ 1 != 0 ]]
++ sleep 0
++ cat /tmp/tmp.uqQdQhsWWN
++ cat /tmp/tmp.bD07gJZQPO
+Error from server (NotFound): namespaces "scaling-21343" not found
++ rm /tmp/tmp.uqQdQhsWWN /tmp/tmp.bD07gJZQPO
++ return 1
++ :
++ wait_for_delete namespace/scaling-21343
++ local res=namespace/scaling-21343
++ set +o xtrace
+namespace/scaling-21343 - Error from server (NotFound): namespaces "scaling-21343" not found
++ kubectl_bin create namespace scaling-21343
+++ mktemp
++ local LAST_OUT=/tmp/tmp.6l2dABRXO0
+++ mktemp
++ local LAST_ERR=/tmp/tmp.MQUJ6Bgmnx
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl create namespace scaling-21343
++ exit_status=0
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.6l2dABRXO0
++ echo '--- 0 stdout'
+--- 0 stdout
+namespace/scaling-21343 created
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.MQUJ6Bgmnx
++ echo '--- 0 stderr'
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.6l2dABRXO0
+namespace/scaling-21343 created
++ cat /tmp/tmp.MQUJ6Bgmnx
++ rm /tmp/tmp.6l2dABRXO0 /tmp/tmp.MQUJ6Bgmnx
++ return 0
+++ kubectl_bin config current-context
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.10cekSOkVQ
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.LXuTKtqPjg
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl config current-context
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.10cekSOkVQ
+--- 0 stdout
+gke_cloud-dev-112233_us-central1-a_paval-1203
+++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.LXuTKtqPjg
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.10cekSOkVQ
+++ cat /tmp/tmp.LXuTKtqPjg
+++ rm /tmp/tmp.10cekSOkVQ /tmp/tmp.LXuTKtqPjg
+++ return 0
++ kubectl_bin config set-context gke_cloud-dev-112233_us-central1-a_paval-1203 --namespace=scaling-21343
+++ mktemp
++ local LAST_OUT=/tmp/tmp.vzgnMq9H3F
+++ mktemp
++ local LAST_ERR=/tmp/tmp.J2YMr05NS5
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl config set-context gke_cloud-dev-112233_us-central1-a_paval-1203 --namespace=scaling-21343
++ exit_status=0
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.vzgnMq9H3F
++ echo '--- 0 stdout'
+--- 0 stdout
+Context "gke_cloud-dev-112233_us-central1-a_paval-1203" modified.
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.J2YMr05NS5
++ echo '--- 0 stderr'
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.vzgnMq9H3F
+Context "gke_cloud-dev-112233_us-central1-a_paval-1203" modified.
++ cat /tmp/tmp.J2YMr05NS5
++ rm /tmp/tmp.vzgnMq9H3F /tmp/tmp.J2YMr05NS5
++ return 0
++ deploy_operator
++ desc 'start operator'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+start operator
+-----------------------------------------------------------------------------------
+
++ kubectl_bin apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/crd.yaml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.yG4aW4in0w
+++ mktemp
++ local LAST_ERR=/tmp/tmp.JI82hGvxMr
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/crd.yaml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.yG4aW4in0w
+--- 0 stdout
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusters.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusterbackups.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusterrestores.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbbackups.pxc.percona.com configured
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.JI82hGvxMr
++ echo '--- 0 stderr'
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.yG4aW4in0w
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusters.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusterbackups.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusterrestores.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbbackups.pxc.percona.com configured
++ cat /tmp/tmp.JI82hGvxMr
++ rm /tmp/tmp.yG4aW4in0w /tmp/tmp.JI82hGvxMr
++ return 0
++ kubectl_bin apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/rbac.yaml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.LWsQw548yP
+++ mktemp
++ local LAST_ERR=/tmp/tmp.Rbh7C4bdlk
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/rbac.yaml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.LWsQw548yP
+--- 0 stdout
+role.rbac.authorization.k8s.io/percona-xtradb-cluster-operator created
+serviceaccount/percona-xtradb-cluster-operator created
+rolebinding.rbac.authorization.k8s.io/service-account-percona-xtradb-cluster-operator created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.Rbh7C4bdlk
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.LWsQw548yP
+role.rbac.authorization.k8s.io/percona-xtradb-cluster-operator created
+serviceaccount/percona-xtradb-cluster-operator created
+rolebinding.rbac.authorization.k8s.io/service-account-percona-xtradb-cluster-operator created
++ cat /tmp/tmp.Rbh7C4bdlk
++ rm /tmp/tmp.LWsQw548yP /tmp/tmp.Rbh7C4bdlk
++ return 0
++ kubectl_bin apply -f -
++ cat /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/operator.yaml
++ sed -e 's^image: .*^image: perconalab/percona-xtradb-cluster-operator:cloud-429^'
+++ mktemp
++ local LAST_OUT=/tmp/tmp.cbyF90upDr
+++ mktemp
++ local LAST_ERR=/tmp/tmp.CioxSEs1eb
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f -
++ exit_status=0
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.cbyF90upDr
++ echo '--- 0 stdout'
+--- 0 stdout
+deployment.apps/percona-xtradb-cluster-operator created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.CioxSEs1eb
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.cbyF90upDr
+deployment.apps/percona-xtradb-cluster-operator created
++ cat /tmp/tmp.CioxSEs1eb
++ rm /tmp/tmp.cbyF90upDr /tmp/tmp.CioxSEs1eb
++ return 0
++ sleep 2
+++ get_operator_pod
+++ kubectl_bin get pods --selector=name=percona-xtradb-cluster-operator -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.YpFI07JzgY
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.71USv0uRBj
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=percona-xtradb-cluster-operator -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.YpFI07JzgY
+--- 0 stdout
+percona-xtradb-cluster-operator-f6475bf-kc9xv++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.71USv0uRBj
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.YpFI07JzgY
+++ cat /tmp/tmp.71USv0uRBj
+++ rm /tmp/tmp.YpFI07JzgY /tmp/tmp.71USv0uRBj
+++ return 0
++ wait_pod percona-xtradb-cluster-operator-f6475bf-kc9xv
++ local pod=percona-xtradb-cluster-operator-f6475bf-kc9xv
++ set +o xtrace
+percona-xtradb-cluster-operator-f6475bf-kc9xvtrue
++ spinup_pxc scaling /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
++ local cluster=scaling
++ local config=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
++ local size=3
++ local sleep=10
++ desc 'create first PXC cluster'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+create first PXC cluster
+-----------------------------------------------------------------------------------
+
++ kubectl_bin apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/secrets.yml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.EWu4MKNVwY
+++ mktemp
++ local LAST_ERR=/tmp/tmp.itgeulfAV1
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/secrets.yml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.EWu4MKNVwY
+--- 0 stdout
+secret/my-cluster-secrets created
+secret/some-name-ssl created
+secret/some-name-ssl-internal created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.itgeulfAV1
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.EWu4MKNVwY
+secret/my-cluster-secrets created
+secret/some-name-ssl created
+secret/some-name-ssl-internal created
++ cat /tmp/tmp.itgeulfAV1
++ rm /tmp/tmp.EWu4MKNVwY /tmp/tmp.itgeulfAV1
++ return 0
++ apply_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/client.yml
++ cat_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/client.yml
++ cat /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/client.yml
++ /usr/bin/sed -e 's#image:.*-proxysql$#image: perconalab/percona-xtradb-cluster-operator:master-proxysql#'
++ /usr/bin/sed -e 's#image:.*-backup$#image: perconalab/percona-xtradb-cluster-operator:master-backup#'
++ /usr/bin/sed -e 's#image:.*-pxc$#image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0#'
++ /usr/bin/sed -e 's#apiVersion: pxc.percona.com/v.*$#apiVersion: pxc.percona.com/v1-3-0#'
++ kubectl_bin apply -f -
++ /usr/bin/sed -e 's#image:.*-pmm$#image: perconalab/percona-xtradb-cluster-operator:master-pmm#'
+++ mktemp
++ local LAST_OUT=/tmp/tmp.QMO6OQDALv
+++ mktemp
++ local LAST_ERR=/tmp/tmp.EbMeczKhtJ
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f -
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.QMO6OQDALv
+--- 0 stdout
+deployment.apps/pxc-client created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.EbMeczKhtJ
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.QMO6OQDALv
+deployment.apps/pxc-client created
++ cat /tmp/tmp.EbMeczKhtJ
++ rm /tmp/tmp.QMO6OQDALv /tmp/tmp.EbMeczKhtJ
++ return 0
++ apply_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
++ kubectl_bin apply -f -
++ cat_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
+++ mktemp
++ /usr/bin/sed -e 's#image:.*-pxc$#image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0#'
++ /usr/bin/sed -e 's#image:.*-backup$#image: perconalab/percona-xtradb-cluster-operator:master-backup#'
++ /usr/bin/sed -e 's#image:.*-proxysql$#image: perconalab/percona-xtradb-cluster-operator:master-proxysql#'
++ local LAST_OUT=/tmp/tmp.CbGIaECVIS
++ /usr/bin/sed -e 's#image:.*-pmm$#image: perconalab/percona-xtradb-cluster-operator:master-pmm#'
+++ mktemp
++ cat /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
++ local LAST_ERR=/tmp/tmp.zC3yX8CVqL
++ local exit_status=0
++ /usr/bin/sed -e 's#apiVersion: pxc.percona.com/v.*$#apiVersion: pxc.percona.com/v1-3-0#'
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f -
++ exit_status=0
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.CbGIaECVIS
++ echo '--- 0 stdout'
+--- 0 stdout
+perconaxtradbcluster.pxc.percona.com/scaling created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.zC3yX8CVqL
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.CbGIaECVIS
+perconaxtradbcluster.pxc.percona.com/scaling created
++ cat /tmp/tmp.zC3yX8CVqL
++ rm /tmp/tmp.CbGIaECVIS /tmp/tmp.zC3yX8CVqL
++ return 0
++ desc 'check if all 3 Pods started'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+check if all 3 Pods started
+-----------------------------------------------------------------------------------
+
++ wait_for_running scaling-proxysql 1
++ local name=scaling-proxysql
++ let last_pod=0
++ :
+++ seq 0 0
++ for i in $(seq 0 $last_pod)
++ wait_pod scaling-proxysql-0
++ local pod=scaling-proxysql-0
++ set +o xtrace
+scaling-proxysql-0...............true
++ wait_for_running scaling-pxc 3
++ local name=scaling-pxc
++ let last_pod=2
+++ seq 0 2
++ for i in $(seq 0 $last_pod)
++ wait_pod scaling-pxc-0
++ local pod=scaling-pxc-0
++ set +o xtrace
+scaling-pxc-0......................true
++ for i in $(seq 0 $last_pod)
++ wait_pod scaling-pxc-1
++ local pod=scaling-pxc-1
++ set +o xtrace
+scaling-pxc-1..........................true
++ for i in $(seq 0 $last_pod)
++ wait_pod scaling-pxc-2
++ local pod=scaling-pxc-2
++ set +o xtrace
+scaling-pxc-2......................................true
++ sleep 10
++ desc 'write data'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+write data
+-----------------------------------------------------------------------------------
+
++ run_mysql 'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' '-h scaling-proxysql -uroot -proot_password'
++ local 'command=CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);'
++ local 'uri=-h scaling-proxysql -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.M0ktclC2Ju
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.jlxvilVWvD
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.M0ktclC2Ju
+--- 0 stdout
+pxc-client-995b8f849-rbbs5++ [[ hB != hxB ]]
+++ cat - /tmp/tmp.jlxvilVWvD
+++ echo '--- 0 stderr'
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.M0ktclC2Ju
+++ cat /tmp/tmp.jlxvilVWvD
+++ rm /tmp/tmp.M0ktclC2Ju /tmp/tmp.jlxvilVWvD
+++ return 0
++ client_pod=pxc-client-995b8f849-rbbs5
++ wait_pod pxc-client-995b8f849-rbbs5
++ local pod=pxc-client-995b8f849-rbbs5
++ set +o xtrace
+pxc-client-995b8f849-rbbs5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf '\''CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);\n'\'' | mysql -sN -h scaling-proxysql -uroot -proot_password"'
++ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf 'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);\n' | mysql -sN -h scaling-proxysql -uroot -proot_password"
++ set +o xtrace
++ run_mysql 'INSERT myApp.myApp (id) VALUES (100500)' '-h scaling-proxysql -uroot -proot_password'
++ local 'command=INSERT myApp.myApp (id) VALUES (100500)'
++ local 'uri=-h scaling-proxysql -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.qhHFWI4LkF
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.TbTW2C8mzD
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.qhHFWI4LkF
+--- 0 stdout
+pxc-client-995b8f849-rbbs5++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.TbTW2C8mzD
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.qhHFWI4LkF
+++ cat /tmp/tmp.TbTW2C8mzD
+++ rm /tmp/tmp.qhHFWI4LkF /tmp/tmp.TbTW2C8mzD
+++ return 0
++ client_pod=pxc-client-995b8f849-rbbs5
++ wait_pod pxc-client-995b8f849-rbbs5
++ local pod=pxc-client-995b8f849-rbbs5
++ set +o xtrace
+pxc-client-995b8f849-rbbs5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf '\''INSERT myApp.myApp (id) VALUES (100500)\n'\'' | mysql -sN -h scaling-proxysql -uroot -proot_password"'
++ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf 'INSERT myApp.myApp (id) VALUES (100500)\n' | mysql -sN -h scaling-proxysql -uroot -proot_password"
++ set +o xtrace
+++ seq 0 2
++ for i in $(seq 0 $(($size-1)))
++ compare_mysql_cmd select-1 'SELECT * from myApp.myApp;' '-h scaling-pxc-0.scaling-pxc -uroot -proot_password'
++ local command_id=select-1
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-0.scaling-pxc -uroot -proot_password'
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql
++ [[ perconalab/percona-xtradb-cluster-operator:master-pxc8.0 =~ 8\.0$ ]]
++ '[' -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1-80.sql ']'
++ run_mysql 'SELECT * from myApp.myApp;' '-h scaling-pxc-0.scaling-pxc -uroot -proot_password'
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-0.scaling-pxc -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.6kLfdRW84G
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.XQAYWPZh06
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ cat - /tmp/tmp.6kLfdRW84G
+++ echo '--- 0 stdout'
+--- 0 stdout
+pxc-client-995b8f849-rbbs5++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.XQAYWPZh06
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.6kLfdRW84G
+++ cat /tmp/tmp.XQAYWPZh06
+++ rm /tmp/tmp.6kLfdRW84G /tmp/tmp.XQAYWPZh06
+++ return 0
++ client_pod=pxc-client-995b8f849-rbbs5
++ wait_pod pxc-client-995b8f849-rbbs5
++ local pod=pxc-client-995b8f849-rbbs5
++ set +o xtrace
+pxc-client-995b8f849-rbbs5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf '\''SELECT * from myApp.myApp;\n'\'' | mysql -sN -h scaling-pxc-0.scaling-pxc -uroot -proot_password"'
++ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf 'SELECT * from myApp.myApp;\n' | mysql -sN -h scaling-pxc-0.scaling-pxc -uroot -proot_password"
++ set +o xtrace
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql /tmp/tmp.jxNXpap7Mf/select-1.sql
++ for i in $(seq 0 $(($size-1)))
++ compare_mysql_cmd select-1 'SELECT * from myApp.myApp;' '-h scaling-pxc-1.scaling-pxc -uroot -proot_password'
++ local command_id=select-1
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-1.scaling-pxc -uroot -proot_password'
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql
++ [[ perconalab/percona-xtradb-cluster-operator:master-pxc8.0 =~ 8\.0$ ]]
++ '[' -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1-80.sql ']'
++ run_mysql 'SELECT * from myApp.myApp;' '-h scaling-pxc-1.scaling-pxc -uroot -proot_password'
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-1.scaling-pxc -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.aYK54yrp8Z
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.e823Cl6x2h
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.aYK54yrp8Z
+--- 0 stdout
+pxc-client-995b8f849-rbbs5++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.e823Cl6x2h
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.aYK54yrp8Z
+++ cat /tmp/tmp.e823Cl6x2h
+++ rm /tmp/tmp.aYK54yrp8Z /tmp/tmp.e823Cl6x2h
+++ return 0
++ client_pod=pxc-client-995b8f849-rbbs5
++ wait_pod pxc-client-995b8f849-rbbs5
++ local pod=pxc-client-995b8f849-rbbs5
++ set +o xtrace
+pxc-client-995b8f849-rbbs5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf '\''SELECT * from myApp.myApp;\n'\'' | mysql -sN -h scaling-pxc-1.scaling-pxc -uroot -proot_password"'
++ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf 'SELECT * from myApp.myApp;\n' | mysql -sN -h scaling-pxc-1.scaling-pxc -uroot -proot_password"
++ set +o xtrace
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql /tmp/tmp.jxNXpap7Mf/select-1.sql
++ for i in $(seq 0 $(($size-1)))
++ compare_mysql_cmd select-1 'SELECT * from myApp.myApp;' '-h scaling-pxc-2.scaling-pxc -uroot -proot_password'
++ local command_id=select-1
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-2.scaling-pxc -uroot -proot_password'
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql
++ [[ perconalab/percona-xtradb-cluster-operator:master-pxc8.0 =~ 8\.0$ ]]
++ '[' -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1-80.sql ']'
++ run_mysql 'SELECT * from myApp.myApp;' '-h scaling-pxc-2.scaling-pxc -uroot -proot_password'
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-2.scaling-pxc -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.v7TsyT7To2
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.qB4ZjnIz1s
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.v7TsyT7To2
+--- 0 stdout
+pxc-client-995b8f849-rbbs5++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.qB4ZjnIz1s
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.v7TsyT7To2
+++ cat /tmp/tmp.qB4ZjnIz1s
+++ rm /tmp/tmp.v7TsyT7To2 /tmp/tmp.qB4ZjnIz1s
+++ return 0
++ client_pod=pxc-client-995b8f849-rbbs5
++ wait_pod pxc-client-995b8f849-rbbs5
++ local pod=pxc-client-995b8f849-rbbs5
++ set +o xtrace
+pxc-client-995b8f849-rbbs5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf '\''SELECT * from myApp.myApp;\n'\'' | mysql -sN -h scaling-pxc-2.scaling-pxc -uroot -proot_password"'
++ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf 'SELECT * from myApp.myApp;\n' | mysql -sN -h scaling-pxc-2.scaling-pxc -uroot -proot_password"
++ set +o xtrace
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql /tmp/tmp.jxNXpap7Mf/select-1.sql
++ desc 'scale up from 3 to 5'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+scale up from 3 to 5
+-----------------------------------------------------------------------------------
+
++ cat_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
++ sed -e 's/size: 3/size: 5/'
++ cat /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
++ /usr/bin/sed -e 's#image:.*-pxc$#image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0#'
++ /usr/bin/sed -e 's#apiVersion: pxc.percona.com/v.*$#apiVersion: pxc.percona.com/v1-3-0#'
++ /usr/bin/sed -e 's#image:.*-proxysql$#image: perconalab/percona-xtradb-cluster-operator:master-proxysql#'
++ /usr/bin/sed -e 's#image:.*-pmm$#image: perconalab/percona-xtradb-cluster-operator:master-pmm#'
++ /usr/bin/sed -e 's#image:.*-backup$#image: perconalab/percona-xtradb-cluster-operator:master-backup#'
++ kubectl_bin apply -f-
+++ mktemp
++ local LAST_OUT=/tmp/tmp.Gsu4Xc7l00
+++ mktemp
++ local LAST_ERR=/tmp/tmp.C2RjxcYz2e
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f-
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.Gsu4Xc7l00
+--- 0 stdout
+perconaxtradbcluster.pxc.percona.com/scaling configured
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.C2RjxcYz2e
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.Gsu4Xc7l00
+perconaxtradbcluster.pxc.percona.com/scaling configured
++ cat /tmp/tmp.C2RjxcYz2e
++ rm /tmp/tmp.Gsu4Xc7l00 /tmp/tmp.C2RjxcYz2e
++ return 0
++ desc 'check if all 5 Pods started'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+check if all 5 Pods started
+-----------------------------------------------------------------------------------
+
++ wait_for_running scaling-pxc 5
++ local name=scaling-pxc
++ let last_pod=4
+++ seq 0 4
++ for i in $(seq 0 $last_pod)
++ wait_pod scaling-pxc-0
++ local pod=scaling-pxc-0
++ set +o xtrace
+scaling-pxc-0true
++ for i in $(seq 0 $last_pod)
++ wait_pod scaling-pxc-1
++ local pod=scaling-pxc-1
++ set +o xtrace
+scaling-pxc-1true
++ for i in $(seq 0 $last_pod)
++ wait_pod scaling-pxc-2
++ local pod=scaling-pxc-2
++ set +o xtrace
+scaling-pxc-2true
++ for i in $(seq 0 $last_pod)
++ wait_pod scaling-pxc-3
++ local pod=scaling-pxc-3
++ set +o xtrace
+scaling-pxc-3...........................true
++ for i in $(seq 0 $last_pod)
++ wait_pod scaling-pxc-4
++ local pod=scaling-pxc-4
++ set +o xtrace
+scaling-pxc-4.......................................true
++ sleep 15
++ desc 'check if PVC created'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+check if PVC created
+-----------------------------------------------------------------------------------
+
++ compare_kubectl pvc/datadir-scaling-pxc-3
++ local resource=pvc/datadir-scaling-pxc-3
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-3.yml
++ local new_result=/tmp/tmp.jxNXpap7Mf/pvc_datadir-scaling-pxc-3.yml
++ '[' '' = 1 -a -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-3-oc.yml ']'
++ kubectl_bin get -o yaml pvc/datadir-scaling-pxc-3
++ egrep -v 'namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:'
++ egrep -v '^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem'
++ egrep -v 'percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:'
+++ mktemp
++ egrep -v 'healthCheckNodePort:|nodePort:|nodeName:'
++ /usr/bin/sed -e '/name: S3_BUCKET_URL/,+1d'
++ /usr/bin/sed -e '/name: suffix/,+1d'
++ /usr/bin/sed -e '/^status:$/,+100500d'
++ /usr/bin/sed -e /NAMESPACE/,+1d
++ local LAST_OUT=/tmp/tmp.ohP8pY4a4L
++ /usr/bin/sed -e '/name: S3_BUCKET_PATH/,+1d'
+++ mktemp
++ local LAST_ERR=/tmp/tmp.uZ3CuCoNPd
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl get -o yaml pvc/datadir-scaling-pxc-3
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.ohP8pY4a4L
+--- 0 stdout
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: kubernetes.io/gce-pd
+  creationTimestamp: "2020-01-20T11:41:56Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  labels:
+    app.kubernetes.io/component: pxc
+    app.kubernetes.io/instance: scaling
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+  name: datadir-scaling-pxc-3
+  namespace: scaling-21343
+  resourceVersion: "17482634"
+  selfLink: /api/v1/namespaces/scaling-21343/persistentvolumeclaims/datadir-scaling-pxc-3
+  uid: dc73d6fe-3b79-11ea-9305-42010a800213
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 6Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+  volumeName: pvc-dc73d6fe-3b79-11ea-9305-42010a800213
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 6Gi
+  phase: Bound
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.uZ3CuCoNPd
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.ohP8pY4a4L
++ cat /tmp/tmp.uZ3CuCoNPd
++ rm /tmp/tmp.ohP8pY4a4L /tmp/tmp.uZ3CuCoNPd
++ return 0
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-3.yml /tmp/tmp.jxNXpap7Mf/pvc_datadir-scaling-pxc-3.yml
++ compare_kubectl pvc/datadir-scaling-pxc-4
++ local resource=pvc/datadir-scaling-pxc-4
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-4.yml
++ local new_result=/tmp/tmp.jxNXpap7Mf/pvc_datadir-scaling-pxc-4.yml
++ '[' '' = 1 -a -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-4-oc.yml ']'
++ egrep -v '^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem'
++ egrep -v 'namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:'
++ egrep -v 'percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:'
++ egrep -v 'healthCheckNodePort:|nodePort:|nodeName:'
++ /usr/bin/sed -e /NAMESPACE/,+1d
++ /usr/bin/sed -e '/name: suffix/,+1d'
++ /usr/bin/sed -e '/name: S3_BUCKET_PATH/,+1d'
++ /usr/bin/sed -e '/name: S3_BUCKET_URL/,+1d'
++ kubectl_bin get -o yaml pvc/datadir-scaling-pxc-4
+++ mktemp
++ /usr/bin/sed -e '/^status:$/,+100500d'
++ local LAST_OUT=/tmp/tmp.zmt4t1AlyS
+++ mktemp
++ local LAST_ERR=/tmp/tmp.ddTuu5abVu
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl get -o yaml pvc/datadir-scaling-pxc-4
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.zmt4t1AlyS
+--- 0 stdout
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: kubernetes.io/gce-pd
+  creationTimestamp: "2020-01-20T11:42:46Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  labels:
+    app.kubernetes.io/component: pxc
+    app.kubernetes.io/instance: scaling
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+  name: datadir-scaling-pxc-4
+  namespace: scaling-21343
+  resourceVersion: "17482838"
+  selfLink: /api/v1/namespaces/scaling-21343/persistentvolumeclaims/datadir-scaling-pxc-4
+  uid: fa4037fe-3b79-11ea-9305-42010a800213
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 6Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+  volumeName: pvc-fa4037fe-3b79-11ea-9305-42010a800213
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 6Gi
+  phase: Bound
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.ddTuu5abVu
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.zmt4t1AlyS
++ cat /tmp/tmp.ddTuu5abVu
++ rm /tmp/tmp.zmt4t1AlyS /tmp/tmp.ddTuu5abVu
++ return 0
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-4.yml /tmp/tmp.jxNXpap7Mf/pvc_datadir-scaling-pxc-4.yml
++ desc 'check data consistency for new Pods'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+check data consistency for new Pods
+-----------------------------------------------------------------------------------
+
++ compare_mysql_cmd select-1 'SELECT * from myApp.myApp;' '-h scaling-pxc-3.scaling-pxc -uroot -proot_password'
++ local command_id=select-1
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-3.scaling-pxc -uroot -proot_password'
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql
++ [[ perconalab/percona-xtradb-cluster-operator:master-pxc8.0 =~ 8\.0$ ]]
++ '[' -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1-80.sql ']'
++ run_mysql 'SELECT * from myApp.myApp;' '-h scaling-pxc-3.scaling-pxc -uroot -proot_password'
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-3.scaling-pxc -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.GXJrRzJnQm
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.cjN22ZqYEI
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.GXJrRzJnQm
+--- 0 stdout
+pxc-client-995b8f849-rbbs5++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.cjN22ZqYEI
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.GXJrRzJnQm
+++ cat /tmp/tmp.cjN22ZqYEI
+++ rm /tmp/tmp.GXJrRzJnQm /tmp/tmp.cjN22ZqYEI
+++ return 0
++ client_pod=pxc-client-995b8f849-rbbs5
++ wait_pod pxc-client-995b8f849-rbbs5
++ local pod=pxc-client-995b8f849-rbbs5
++ set +o xtrace
+pxc-client-995b8f849-rbbs5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf '\''SELECT * from myApp.myApp;\n'\'' | mysql -sN -h scaling-pxc-3.scaling-pxc -uroot -proot_password"'
++ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf 'SELECT * from myApp.myApp;\n' | mysql -sN -h scaling-pxc-3.scaling-pxc -uroot -proot_password"
++ set +o xtrace
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql /tmp/tmp.jxNXpap7Mf/select-1.sql
++ compare_mysql_cmd select-1 'SELECT * from myApp.myApp;' '-h scaling-pxc-4.scaling-pxc -uroot -proot_password'
++ local command_id=select-1
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-4.scaling-pxc -uroot -proot_password'
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql
++ [[ perconalab/percona-xtradb-cluster-operator:master-pxc8.0 =~ 8\.0$ ]]
++ '[' -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1-80.sql ']'
++ run_mysql 'SELECT * from myApp.myApp;' '-h scaling-pxc-4.scaling-pxc -uroot -proot_password'
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h scaling-pxc-4.scaling-pxc -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.JemRBGqNmf
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.8XrNlHnFMR
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.JemRBGqNmf
+--- 0 stdout
+pxc-client-995b8f849-rbbs5++ [[ hB != hxB ]]
+++ cat - /tmp/tmp.8XrNlHnFMR
+++ echo '--- 0 stderr'
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.JemRBGqNmf
+++ cat /tmp/tmp.8XrNlHnFMR
+++ rm /tmp/tmp.JemRBGqNmf /tmp/tmp.8XrNlHnFMR
+++ return 0
++ client_pod=pxc-client-995b8f849-rbbs5
++ wait_pod pxc-client-995b8f849-rbbs5
++ local pod=pxc-client-995b8f849-rbbs5
++ set +o xtrace
+pxc-client-995b8f849-rbbs5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf '\''SELECT * from myApp.myApp;\n'\'' | mysql -sN -h scaling-pxc-4.scaling-pxc -uroot -proot_password"'
++ kubectl exec -it pxc-client-995b8f849-rbbs5 -- bash -c "printf 'SELECT * from myApp.myApp;\n' | mysql -sN -h scaling-pxc-4.scaling-pxc -uroot -proot_password"
++ set +o xtrace
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/select-1.sql /tmp/tmp.jxNXpap7Mf/select-1.sql
++ desc 'check new Pods exists in ProxySQL'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+check new Pods exists in ProxySQL
+-----------------------------------------------------------------------------------
+
++ [[ perconalab/percona-xtradb-cluster-operator:master-pxc8.0 =~ 8\.0$ ]]
++ pod3_ip=scaling-pxc-3
++ pod4_ip=scaling-pxc-4
++ grep scaling-pxc-3
++ run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' '-h127.0.0.1 -P6032 -uproxyadmin -padmin_password' scaling-proxysql-0
++ local 'command=SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";'
++ local 'uri=-h127.0.0.1 -P6032 -uproxyadmin -padmin_password'
++ local pod=scaling-proxysql-0
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it scaling-proxysql-0 -- bash -c "printf '\''SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";\n'\'' | mysql -sN -h127.0.0.1 -P6032 -uproxyadmin -padmin_password"'
++ kubectl exec -it scaling-proxysql-0 -- bash -c "printf 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";\n' | mysql -sN -h127.0.0.1 -P6032 -uproxyadmin -padmin_password"
++ set +o xtrace
+scaling-pxc-3.scaling-pxc.scaling-21343.svc.cluster.local
+scaling-pxc-3.scaling-pxc.scaling-21343.svc.cluster.local
++ run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' '-h127.0.0.1 -P6032 -uproxyadmin -padmin_password' scaling-proxysql-0
++ grep scaling-pxc-4
++ local 'command=SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";'
++ local 'uri=-h127.0.0.1 -P6032 -uproxyadmin -padmin_password'
++ local pod=scaling-proxysql-0
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it scaling-proxysql-0 -- bash -c "printf '\''SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";\n'\'' | mysql -sN -h127.0.0.1 -P6032 -uproxyadmin -padmin_password"'
++ kubectl exec -it scaling-proxysql-0 -- bash -c "printf 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";\n' | mysql -sN -h127.0.0.1 -P6032 -uproxyadmin -padmin_password"
++ set +o xtrace
+scaling-pxc-4.scaling-pxc.scaling-21343.svc.cluster.local
++ desc 'scale down from 5 to 3'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+scale down from 5 to 3
+-----------------------------------------------------------------------------------
+
++ apply_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
++ cat_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
++ kubectl_bin apply -f -
+++ mktemp
++ /usr/bin/sed -e 's#image:.*-pmm$#image: perconalab/percona-xtradb-cluster-operator:master-pmm#'
++ cat /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/conf/scaling.yml
++ /usr/bin/sed -e 's#image:.*-pxc$#image: perconalab/percona-xtradb-cluster-operator:master-pxc8.0#'
++ /usr/bin/sed -e 's#image:.*-proxysql$#image: perconalab/percona-xtradb-cluster-operator:master-proxysql#'
++ /usr/bin/sed -e 's#image:.*-backup$#image: perconalab/percona-xtradb-cluster-operator:master-backup#'
++ local LAST_OUT=/tmp/tmp.BATqLvQLNM
++ /usr/bin/sed -e 's#apiVersion: pxc.percona.com/v.*$#apiVersion: pxc.percona.com/v1-3-0#'
+++ mktemp
++ local LAST_ERR=/tmp/tmp.woYOZkYQLB
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f -
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.BATqLvQLNM
+--- 0 stdout
+perconaxtradbcluster.pxc.percona.com/scaling configured
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.woYOZkYQLB
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.BATqLvQLNM
+perconaxtradbcluster.pxc.percona.com/scaling configured
++ cat /tmp/tmp.woYOZkYQLB
++ rm /tmp/tmp.BATqLvQLNM /tmp/tmp.woYOZkYQLB
++ return 0
++ sleep 25
++ desc 'check if Pod deleted'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+check if Pod deleted
+-----------------------------------------------------------------------------------
+
++ wait_for_delete pod/scaling-pxc-3
++ local res=pod/scaling-pxc-3
++ set +o xtrace
+pod/scaling-pxc-3 - ..........Error from server (NotFound): pods "scaling-pxc-3" not found
++ wait_for_delete pod/scaling-pxc-4
++ local res=pod/scaling-pxc-4
++ set +o xtrace
+pod/scaling-pxc-4 - Error from server (NotFound): pods "scaling-pxc-4" not found
++ desc 'check if PVC not deleted'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+check if PVC not deleted
+-----------------------------------------------------------------------------------
+
++ compare_kubectl pvc/datadir-scaling-pxc-3
++ local resource=pvc/datadir-scaling-pxc-3
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-3.yml
++ local new_result=/tmp/tmp.jxNXpap7Mf/pvc_datadir-scaling-pxc-3.yml
++ '[' '' = 1 -a -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-3-oc.yml ']'
++ kubectl_bin get -o yaml pvc/datadir-scaling-pxc-3
++ egrep -v '^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem'
++ egrep -v 'healthCheckNodePort:|nodePort:|nodeName:'
++ /usr/bin/sed -e /NAMESPACE/,+1d
++ /usr/bin/sed -e '/name: S3_BUCKET_PATH/,+1d'
++ /usr/bin/sed -e '/name: S3_BUCKET_URL/,+1d'
++ egrep -v 'namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:'
++ /usr/bin/sed -e '/name: suffix/,+1d'
++ /usr/bin/sed -e '/^status:$/,+100500d'
+++ mktemp
++ egrep -v 'percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:'
++ local LAST_OUT=/tmp/tmp.1XUkDiwXJh
+++ mktemp
++ local LAST_ERR=/tmp/tmp.XK3uH4G2bn
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl get -o yaml pvc/datadir-scaling-pxc-3
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.1XUkDiwXJh
+--- 0 stdout
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: kubernetes.io/gce-pd
+  creationTimestamp: "2020-01-20T11:41:56Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  labels:
+    app.kubernetes.io/component: pxc
+    app.kubernetes.io/instance: scaling
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+  name: datadir-scaling-pxc-3
+  namespace: scaling-21343
+  resourceVersion: "17482634"
+  selfLink: /api/v1/namespaces/scaling-21343/persistentvolumeclaims/datadir-scaling-pxc-3
+  uid: dc73d6fe-3b79-11ea-9305-42010a800213
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 6Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+  volumeName: pvc-dc73d6fe-3b79-11ea-9305-42010a800213
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 6Gi
+  phase: Bound
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.XK3uH4G2bn
++ echo '--- 0 stderr'
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.1XUkDiwXJh
++ cat /tmp/tmp.XK3uH4G2bn
++ rm /tmp/tmp.1XUkDiwXJh /tmp/tmp.XK3uH4G2bn
++ return 0
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-3.yml /tmp/tmp.jxNXpap7Mf/pvc_datadir-scaling-pxc-3.yml
++ compare_kubectl pvc/datadir-scaling-pxc-4
++ local resource=pvc/datadir-scaling-pxc-4
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-4.yml
++ local new_result=/tmp/tmp.jxNXpap7Mf/pvc_datadir-scaling-pxc-4.yml
++ '[' '' = 1 -a -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-4-oc.yml ']'
++ kubectl_bin get -o yaml pvc/datadir-scaling-pxc-4
++ egrep -v 'namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:'
++ egrep -v '^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem'
++ egrep -v 'percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:'
++ egrep -v 'healthCheckNodePort:|nodePort:|nodeName:'
++ /usr/bin/sed -e /NAMESPACE/,+1d
++ /usr/bin/sed -e '/name: suffix/,+1d'
++ /usr/bin/sed -e '/^status:$/,+100500d'
++ /usr/bin/sed -e '/name: S3_BUCKET_PATH/,+1d'
++ /usr/bin/sed -e '/name: S3_BUCKET_URL/,+1d'
+++ mktemp
++ local LAST_OUT=/tmp/tmp.4xQIagZP3M
+++ mktemp
++ local LAST_ERR=/tmp/tmp.SEskQaE5S1
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl get -o yaml pvc/datadir-scaling-pxc-4
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.4xQIagZP3M
+--- 0 stdout
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    pv.kubernetes.io/bind-completed: "yes"
+    pv.kubernetes.io/bound-by-controller: "yes"
+    volume.beta.kubernetes.io/storage-provisioner: kubernetes.io/gce-pd
+  creationTimestamp: "2020-01-20T11:42:46Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  labels:
+    app.kubernetes.io/component: pxc
+    app.kubernetes.io/instance: scaling
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+  name: datadir-scaling-pxc-4
+  namespace: scaling-21343
+  resourceVersion: "17482838"
+  selfLink: /api/v1/namespaces/scaling-21343/persistentvolumeclaims/datadir-scaling-pxc-4
+  uid: fa4037fe-3b79-11ea-9305-42010a800213
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 6Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+  volumeName: pvc-fa4037fe-3b79-11ea-9305-42010a800213
+status:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 6Gi
+  phase: Bound
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.SEskQaE5S1
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.4xQIagZP3M
++ cat /tmp/tmp.SEskQaE5S1
++ rm /tmp/tmp.4xQIagZP3M /tmp/tmp.SEskQaE5S1
++ return 0
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/scaling/compare/pvc_datadir-scaling-pxc-4.yml /tmp/tmp.jxNXpap7Mf/pvc_datadir-scaling-pxc-4.yml
++ desc 'check if Pod deleted from ProxySQL'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+check if Pod deleted from ProxySQL
+-----------------------------------------------------------------------------------
+
++ run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;' '-h127.0.0.1 -P6032 -uproxyadmin -padmin_password' scaling-proxysql-0
++ grep scaling-pxc-3
++ local 'command=SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;'
++ local 'uri=-h127.0.0.1 -P6032 -uproxyadmin -padmin_password'
++ local pod=scaling-proxysql-0
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it scaling-proxysql-0 -- bash -c "printf '\''SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;\n'\'' | mysql -sN -h127.0.0.1 -P6032 -uproxyadmin -padmin_password"'
++ kubectl exec -it scaling-proxysql-0 -- bash -c "printf 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;\n' | mysql -sN -h127.0.0.1 -P6032 -uproxyadmin -padmin_password"
++ set +o xtrace
++ :
++ run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;' '-h127.0.0.1 -P6032 -uproxyadmin -padmin_password' scaling-proxysql-0
++ local 'command=SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;'
++ grep scaling-pxc-4
++ local 'uri=-h127.0.0.1 -P6032 -uproxyadmin -padmin_password'
++ local pod=scaling-proxysql-0
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it scaling-proxysql-0 -- bash -c "printf '\''SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;\n'\'' | mysql -sN -h127.0.0.1 -P6032 -uproxyadmin -padmin_password"'
++ kubectl exec -it scaling-proxysql-0 -- bash -c "printf 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;\n' | mysql -sN -h127.0.0.1 -P6032 -uproxyadmin -padmin_password"
++ set +o xtrace
++ :
++ destroy scaling-21343
++ local namespace=scaling-21343
++ grep -v 'get backup status: Job.batch'
++ grep -v 'the object has been modified'
++ /usr/bin/sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g'
+++ get_operator_pod
+++ kubectl_bin get pods --selector=name=percona-xtradb-cluster-operator -o 'jsonpath={.items[].metadata.name}'
++ grep -v '"level":"info"'
++ sort -u
++ tee /tmp/tmp.jxNXpap7Mf/operator.log
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.d7azr0b2vl
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.qZ7shEZhdE
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=percona-xtradb-cluster-operator -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.d7azr0b2vl
+--- 0 stdout
+percona-xtradb-cluster-operator-f6475bf-kc9xv++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.qZ7shEZhdE
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.d7azr0b2vl
+++ cat /tmp/tmp.qZ7shEZhdE
+++ rm /tmp/tmp.d7azr0b2vl /tmp/tmp.qZ7shEZhdE
+++ return 0
++ kubectl_bin logs percona-xtradb-cluster-operator-f6475bf-kc9xv
+++ mktemp
++ local LAST_OUT=/tmp/tmp.cPZcs0M5OU
+++ mktemp
++ local LAST_ERR=/tmp/tmp.Hm1rRgAi47
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl logs percona-xtradb-cluster-operator-f6475bf-kc9xv
++ exit_status=0
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.cPZcs0M5OU
++ echo '--- 0 stdout'
+--- 0 stdout
+{"level":"info","ts":1579520302.0744905,"logger":"cmd","caller":"manager/main.go:53","msg":"Runs on","platform":"kubernetes","version":"v1.14.8-gke.17"}
+{"level":"info","ts":1579520302.0745966,"logger":"cmd","caller":"manager/main.go:33","msg":"Git commit: f8d2758f96c6d1d2f96b701d229bf34d984452d9 Git branch: cloud-429"}
+{"level":"info","ts":1579520302.0746121,"logger":"cmd","caller":"manager/main.go:34","msg":"Go Version: go1.12.14"}
+{"level":"info","ts":1579520302.0746312,"logger":"cmd","caller":"manager/main.go:35","msg":"Go OS/Arch: linux/amd64"}
+{"level":"info","ts":1579520302.07464,"logger":"cmd","caller":"manager/main.go:36","msg":"operator-sdk Version: v0.2.1"}
+{"level":"info","ts":1579520302.0752141,"logger":"leader","caller":"leader/leader.go:55","msg":"Trying to become the leader."}
+{"level":"info","ts":1579520302.5421503,"logger":"cmd","caller":"manager/main.go:88","msg":"Registering Components."}
+{"level":"info","ts":1579520302.5425084,"logger":"kubebuilder.controller","caller":"controller/controller.go:120","msg":"Starting EventSource","Controller":"perconaxtradbcluster-controller","Source":{"Type":{"metadata":{"creationTimestamp":null},"spec":{},"status":{"pxc":{"ready":0},"proxysql":{"ready":0}}}}}
+{"level":"info","ts":1579520302.5438564,"logger":"kubebuilder.controller","caller":"controller/controller.go:120","msg":"Starting EventSource","Controller":"perconaxtradbclusterbackup-controller","Source":{"Type":{"metadata":{"creationTimestamp":null},"spec":{"pxcCluster":""},"status":{}}}}
+{"level":"info","ts":1579520302.5441062,"logger":"kubebuilder.controller","caller":"controller/controller.go:120","msg":"Starting EventSource","Controller":"perconaxtradbclusterrestore-controller","Source":{"Type":{"metadata":{"creationTimestamp":null},"spec":{"pxcCluster":"","backupName":""},"status":{}}}}
+{"level":"info","ts":1579520302.544276,"logger":"cmd","caller":"manager/main.go:108","msg":"Starting the Cmd."}
+{"level":"info","ts":1579520302.644633,"logger":"kubebuilder.controller","caller":"controller/controller.go:134","msg":"Starting Controller","Controller":"perconaxtradbclusterrestore-controller"}
+{"level":"info","ts":1579520302.6446385,"logger":"kubebuilder.controller","caller":"controller/controller.go:134","msg":"Starting Controller","Controller":"perconaxtradbcluster-controller"}
+{"level":"info","ts":1579520302.644697,"logger":"kubebuilder.controller","caller":"controller/controller.go:134","msg":"Starting Controller","Controller":"perconaxtradbclusterbackup-controller"}
+{"level":"info","ts":1579520302.7449205,"logger":"kubebuilder.controller","caller":"controller/controller.go:153","msg":"Starting workers","Controller":"perconaxtradbclusterrestore-controller","WorkerCount":1}
+{"level":"info","ts":1579520302.7449238,"logger":"kubebuilder.controller","caller":"controller/controller.go:153","msg":"Starting workers","Controller":"perconaxtradbclusterbackup-controller","WorkerCount":1}
+{"level":"info","ts":1579520302.7449713,"logger":"kubebuilder.controller","caller":"controller/controller.go:153","msg":"Starting workers","Controller":"perconaxtradbcluster-controller","WorkerCount":1}
+{"level":"error","ts":1579520310.600706,"logger":"kubebuilder.controller","caller":"controller/controller.go:209","msg":"Reconciler error","Controller":"perconaxtradbcluster-controller","Request":"scaling-21343/scaling","error":"ProxySQL upgrade error: Operation cannot be fulfilled on statefulsets.apps \"scaling-proxysql\": the object has been modified; please apply your changes to the latest version and try again","stacktrace":"github.com/percona/percona-xtradb-cluster-operator/vendor/github.com/go-logr/zapr.(*zapLogger).Error\n\t/go/src/github.com/percona/percona-xtradb-cluster-operator/vendor/github.com/go-logr/zapr/zapr.go:128\ngithub.com/percona/percona-xtradb-cluster-operator/vendor/sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller).processNextWorkItem\n\t/go/src/github.com/percona/percona-xtradb-cluster-operator/vendor/sigs.k8s.io/controller-runtime/pkg/internal/controller/controller.go:209\ngithub.com/percona/percona-xtradb-cluster-operator/vendor/sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller).Start.func1\n\t/go/src/github.com/percona/percona-xtradb-cluster-operator/vendor/sigs.k8s.io/controller-runtime/pkg/internal/controller/controller.go:157\ngithub.com/percona/percona-xtradb-cluster-operator/vendor/k8s.io/apimachinery/pkg/util/wait.JitterUntil.func1\n\t/go/src/github.com/percona/percona-xtradb-cluster-operator/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:133\ngithub.com/percona/percona-xtradb-cluster-operator/vendor/k8s.io/apimachinery/pkg/util/wait.JitterUntil\n\t/go/src/github.com/percona/percona-xtradb-cluster-operator/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:134\ngithub.com/percona/percona-xtradb-cluster-operator/vendor/k8s.io/apimachinery/pkg/util/wait.Until\n\t/go/src/github.com/percona/percona-xtradb-cluster-operator/vendor/k8s.io/apimachinery/pkg/util/wait/wait.go:88"}
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.Hm1rRgAi47
++ echo '--- 0 stderr'
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.cPZcs0M5OU
++ cat /tmp/tmp.Hm1rRgAi47
++ rm /tmp/tmp.cPZcs0M5OU /tmp/tmp.Hm1rRgAi47
++ return 0
++ kubectl_bin delete pxc --all
+++ mktemp
++ local LAST_OUT=/tmp/tmp.zyXe1g7MKf
+++ mktemp
++ local LAST_ERR=/tmp/tmp.IuXEuWMI5j
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl delete pxc --all
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.zyXe1g7MKf
+--- 0 stdout
+perconaxtradbcluster.pxc.percona.com "scaling" deleted
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.IuXEuWMI5j
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.zyXe1g7MKf
+perconaxtradbcluster.pxc.percona.com "scaling" deleted
++ cat /tmp/tmp.IuXEuWMI5j
++ rm /tmp/tmp.zyXe1g7MKf /tmp/tmp.IuXEuWMI5j
++ return 0
++ kubectl_bin delete pxc-backup --all
+++ mktemp
++ local LAST_OUT=/tmp/tmp.2BnrN4ZDrD
+++ mktemp
++ local LAST_ERR=/tmp/tmp.cIwvEsCqSZ
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl delete pxc-backup --all
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.2BnrN4ZDrD
+--- 0 stdout
+No resources found
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.cIwvEsCqSZ
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.2BnrN4ZDrD
+No resources found
++ cat /tmp/tmp.cIwvEsCqSZ
++ rm /tmp/tmp.2BnrN4ZDrD /tmp/tmp.cIwvEsCqSZ
++ return 0
++ kubectl_bin delete pxc-restore --all
+++ mktemp
++ local LAST_OUT=/tmp/tmp.7JGVpwBykF
+++ mktemp
++ local LAST_ERR=/tmp/tmp.xEzGZ8qkFo
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl delete pxc-restore --all
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.7JGVpwBykF
+--- 0 stdout
+No resources found
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.xEzGZ8qkFo
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.7JGVpwBykF
+No resources found
++ cat /tmp/tmp.xEzGZ8qkFo
++ rm /tmp/tmp.7JGVpwBykF /tmp/tmp.xEzGZ8qkFo
++ return 0
++ kubectl_bin delete -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.gP7xbBi1lf
+++ mktemp
++ local LAST_ERR=/tmp/tmp.08YNPVgJFm
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl delete -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.gP7xbBi1lf
+--- 0 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.08YNPVgJFm
+--- 0 stderr
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "certificates.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "challenges.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "clusterissuers.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "issuers.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "orders.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": namespaces "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": serviceaccounts "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": serviceaccounts "cert-manager-webhook" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": serviceaccounts "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterrolebindings.rbac.authorization.k8s.io "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterrolebindings.rbac.authorization.k8s.io "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-view" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-edit" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterrolebindings.rbac.authorization.k8s.io "cert-manager-webhook:auth-delegator" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": rolebindings.rbac.authorization.k8s.io "cert-manager-webhook:webhook-authentication-reader" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-webhook:webhook-requester" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": services "cert-manager-webhook" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": deployments.apps "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": deployments.apps "cert-manager-webhook" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": deployments.apps "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": apiservices.apiregistration.k8s.io "v1beta1.admission.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": validatingwebhookconfigurations.admissionregistration.k8s.io "cert-manager-webhook" not found
+[unable to recognize "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": no matches for kind "Issuer" in version "certmanager.k8s.io/v1alpha1", unable to recognize "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": no matches for kind "Certificate" in version "certmanager.k8s.io/v1alpha1"]
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl delete -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 1 stdout'
++ cat - /tmp/tmp.gP7xbBi1lf
+--- 1 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 1 stderr'
++ cat - /tmp/tmp.08YNPVgJFm
+--- 1 stderr
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "certificates.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "challenges.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "clusterissuers.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "issuers.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "orders.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": namespaces "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": serviceaccounts "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": serviceaccounts "cert-manager-webhook" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": serviceaccounts "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterrolebindings.rbac.authorization.k8s.io "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterrolebindings.rbac.authorization.k8s.io "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-view" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-edit" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterrolebindings.rbac.authorization.k8s.io "cert-manager-webhook:auth-delegator" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": rolebindings.rbac.authorization.k8s.io "cert-manager-webhook:webhook-authentication-reader" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-webhook:webhook-requester" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": services "cert-manager-webhook" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": deployments.apps "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": deployments.apps "cert-manager-webhook" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": deployments.apps "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": apiservices.apiregistration.k8s.io "v1beta1.admission.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": validatingwebhookconfigurations.admissionregistration.k8s.io "cert-manager-webhook" not found
+[unable to recognize "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": no matches for kind "Issuer" in version "certmanager.k8s.io/v1alpha1", unable to recognize "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": no matches for kind "Certificate" in version "certmanager.k8s.io/v1alpha1"]
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl delete -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 2 stdout'
++ cat - /tmp/tmp.gP7xbBi1lf
+--- 2 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 2 stderr'
++ cat - /tmp/tmp.08YNPVgJFm
+--- 2 stderr
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "certificates.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "challenges.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "clusterissuers.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "issuers.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": customresourcedefinitions.apiextensions.k8s.io "orders.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": namespaces "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": serviceaccounts "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": serviceaccounts "cert-manager-webhook" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": serviceaccounts "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterrolebindings.rbac.authorization.k8s.io "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterrolebindings.rbac.authorization.k8s.io "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-view" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-edit" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterrolebindings.rbac.authorization.k8s.io "cert-manager-webhook:auth-delegator" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": rolebindings.rbac.authorization.k8s.io "cert-manager-webhook:webhook-authentication-reader" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": clusterroles.rbac.authorization.k8s.io "cert-manager-webhook:webhook-requester" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": services "cert-manager-webhook" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": deployments.apps "cert-manager-cainjector" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": deployments.apps "cert-manager-webhook" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": deployments.apps "cert-manager" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": apiservices.apiregistration.k8s.io "v1beta1.admission.certmanager.k8s.io" not found
+Error from server (NotFound): error when deleting "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": validatingwebhookconfigurations.admissionregistration.k8s.io "cert-manager-webhook" not found
+[unable to recognize "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": no matches for kind "Issuer" in version "certmanager.k8s.io/v1alpha1", unable to recognize "https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml": no matches for kind "Certificate" in version "certmanager.k8s.io/v1alpha1"]
++ [[ 1 != 0 ]]
++ sleep 0
++ cat /tmp/tmp.gP7xbBi1lf
++ cat /tmp/tmp.08YNPVgJFm
++ rm /tmp/tmp.gP7xbBi1lf /tmp/tmp.08YNPVgJFm
++ return 1
++ :
++ '[' '' == 1 ']'
++ kubectl_bin delete --grace-period=0 --force=true namespace scaling-21343
+++ mktemp
++ local LAST_OUT=/tmp/tmp.bfmEkTYzlB
+++ mktemp
++ local LAST_ERR=/tmp/tmp.FYPd9Ci9CE
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl delete --grace-period=0 --force=true namespace scaling-21343
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.bfmEkTYzlB
+--- 0 stdout
+namespace "scaling-21343" force deleted
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.FYPd9Ci9CE
+--- 0 stderr
+warning: Immediate deletion does not wait for confirmation that the running resource has been terminated. The resource may continue to run on the cluster indefinitely.
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.bfmEkTYzlB
+namespace "scaling-21343" force deleted
++ cat /tmp/tmp.FYPd9Ci9CE
+warning: Immediate deletion does not wait for confirmation that the running resource has been terminated. The resource may continue to run on the cluster indefinitely.
++ rm /tmp/tmp.bfmEkTYzlB /tmp/tmp.FYPd9Ci9CE
++ return 0
++ rm -rf /tmp/tmp.jxNXpap7Mf

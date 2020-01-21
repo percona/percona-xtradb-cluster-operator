@@ -17,7 +17,7 @@ spec:
       log-bin=binlog
       log-slave-updates
 
-      wsrep_debug=ON
+      wsrep_debug=1
       wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
     volumeSpec:
       persistentVolumeClaim:

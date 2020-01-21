@@ -23,7 +23,7 @@ check_cr_config() {
     cat_config "$test_dir/conf/$cluster.yml" \
         | sed -e 's/300m/600m/' \
         | sed -e 's/500M/1G/' \
-        | sed -e 's/800M/1G/' \
+        | sed -e 's/600M/1G/' \
         | sed -e 's/0.5G/1G/' \
         | kubectl_bin apply -f-
     sleep 2

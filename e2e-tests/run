@@ -7,7 +7,7 @@ dir=$(realpath $(dirname $0))
 
 $dir/init-deploy/run
 $dir/recreate/run
-#$dir/limits/run
+$dir/limits/run
 $dir/scaling/run
 $dir/scaling-proxysql/run
 $dir/monitoring/run

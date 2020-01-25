@@ -171,7 +171,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	if o.Spec.PXC == nil {
-		err = fmt.Errorf("pxc not specified")
+		err = fmt.Errorf("spec.pxc section is not specified. Please check %s cluster settings", o.ClusterName)
 		return reconcile.Result{}, err
 	}
 

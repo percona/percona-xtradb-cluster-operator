@@ -18,6 +18,7 @@ import (
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, reconcileErr error) (err error) {
+	maxStatusesQuantity := 20
 	if reconcileErr != nil {
 		if cr.Status.Status != api.ClusterError {
 			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
@@ -136,6 +137,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			Type:               api.ClusterInit,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		})
+	}
+
+	if len(cr.Status.Conditions) > maxStatusesQuantity {
+		cr.Status.Conditions = cr.Status.Conditions[len(cr.Status.Conditions)-maxStatusesQuantity:]
 	}
 
 	if inProgres {

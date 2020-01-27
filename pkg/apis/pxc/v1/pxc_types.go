@@ -307,6 +307,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 	}
 
 	c := cr.Spec
+	if c.PXC == nil {
+		return false, fmt.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
+	}
+
 	if c.PXC != nil {
 		c.PXC.AllowUnsafeConfig = c.AllowUnsafeConfig
 		if c.PXC.VolumeSpec == nil {

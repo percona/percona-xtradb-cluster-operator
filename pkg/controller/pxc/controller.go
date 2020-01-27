@@ -112,18 +112,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	changed, err := o.CheckNSetDefaults(r.serverVersion)
+	if err != nil {
+		err = fmt.Errorf("wrong PXC options: %v", err)
+		return reconcile.Result{}, err
+	}
+
 	defer func() {
 		uerr := r.updateStatus(o, err)
 		if uerr != nil {
 			log.Error(uerr, "Update status")
 		}
 	}()
-
-	changed, err := o.CheckNSetDefaults(r.serverVersion)
-	if err != nil {
-		err = fmt.Errorf("wrong PXC options: %v", err)
-		return reconcile.Result{}, err
-	}
 
 	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
 	if changed {
@@ -168,11 +168,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 		// object is being deleted, no need in further actions
 		return rr, err
-	}
-
-	if o.Spec.PXC == nil {
-		err = fmt.Errorf("spec.pxc section is not specified. Please check %s cluster settings", o.ClusterName)
-		return reconcile.Result{}, err
 	}
 
 	err = r.reconcileUsersSecret(o)

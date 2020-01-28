@@ -21,7 +21,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	maxStatusesQuantity := 20
 	clusterCondition := api.ClusterCondition{
 		Status:             api.ConditionTrue,
-		Type:               api.ClusterInit,
+		Type:               api.ClusterReady,
 		LastTransitionTime: metav1.NewTime(time.Now()),
 	}
 
@@ -139,6 +139,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	if len(cr.Status.Conditions) == 0 {
+		clusterCondition := api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.ClusterInit,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
 		cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
 	}
 

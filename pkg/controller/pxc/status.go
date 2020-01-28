@@ -19,15 +19,22 @@ import (
 
 func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, reconcileErr error) (err error) {
 	maxStatusesQuantity := 20
+	clusterCondition := api.ClusterCondition{
+		Status:             api.ConditionTrue,
+		Type:               api.ClusterInit,
+		LastTransitionTime: metav1.NewTime(time.Now()),
+	}
+
 	if reconcileErr != nil {
 		if cr.Status.Status != api.ClusterError {
-			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+			clusterCondition = api.ClusterCondition{
 				Status:             api.ConditionTrue,
 				Type:               api.ClusterError,
 				Message:            reconcileErr.Error(),
 				Reason:             "ErrorReconcile",
 				LastTransitionTime: metav1.NewTime(time.Now()),
-			})
+			}
+			cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
 
 			cr.Status.Messages = append(cr.Status.Messages, "Error: "+reconcileErr.Error())
 			cr.Status.Status = api.ClusterError
@@ -44,21 +51,21 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 	if pxcStatus.Status != cr.Status.PXC.Status {
 		if pxcStatus.Status == api.AppStateReady {
-			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+			clusterCondition = api.ClusterCondition{
 				Status:             api.ConditionTrue,
 				Type:               api.ClusterPXCReady,
 				LastTransitionTime: metav1.NewTime(time.Now()),
-			})
+			}
 		}
 
 		if pxcStatus.Status == api.AppStateError {
-			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+			clusterCondition = api.ClusterCondition{
 				Status:             api.ConditionTrue,
 				Message:            "PXC" + pxcStatus.Message,
 				Reason:             "ErrorPXC",
 				Type:               api.ClusterError,
 				LastTransitionTime: metav1.NewTime(time.Now()),
-			})
+			}
 		}
 	}
 
@@ -76,21 +83,21 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 		if proxyStatus.Status != cr.Status.ProxySQL.Status {
 			if proxyStatus.Status == api.AppStateReady {
-				cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+				clusterCondition = api.ClusterCondition{
 					Status:             api.ConditionTrue,
 					Type:               api.ClusterProxyReady,
 					LastTransitionTime: metav1.NewTime(time.Now()),
-				})
+				}
 			}
 
 			if proxyStatus.Status == api.AppStateError {
-				cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+				clusterCondition = api.ClusterCondition{
 					Status:             api.ConditionTrue,
 					Message:            "ProxySQL:" + proxyStatus.Message,
 					Reason:             "ErrorProxySQL",
 					Type:               api.ClusterError,
 					LastTransitionTime: metav1.NewTime(time.Now()),
-				})
+				}
 			}
 		}
 
@@ -116,11 +123,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	case cr.Status.PXC.Status == cr.Status.ProxySQL.Status:
 		if cr.Status.Status != api.AppStateReady &&
 			cr.Status.PXC.Status == api.AppStateReady {
-			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+			clusterCondition = api.ClusterCondition{
 				Status:             api.ConditionTrue,
 				Type:               api.ClusterReady,
 				LastTransitionTime: metav1.NewTime(time.Now()),
-			})
+			}
 		}
 		cr.Status.Status = cr.Status.PXC.Status
 	case cr.Status.PXC.Status == api.AppStateError || cr.Status.ProxySQL.Status == api.AppStateError:
@@ -132,11 +139,16 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	if len(cr.Status.Conditions) == 0 {
-		cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
-			Status:             api.ConditionTrue,
-			Type:               api.ClusterInit,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		})
+		cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
+	}
+
+	lastClusterCondition := cr.Status.Conditions[len(cr.Status.Conditions)-1]
+
+	switch {
+	case lastClusterCondition.Type != clusterCondition.Type:
+		cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
+	default:
+		cr.Status.Conditions[len(cr.Status.Conditions)-1] = lastClusterCondition
 	}
 
 	if len(cr.Status.Conditions) > maxStatusesQuantity {

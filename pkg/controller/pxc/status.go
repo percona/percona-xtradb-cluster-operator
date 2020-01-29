@@ -155,15 +155,15 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 		cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
-	}
+	} else {
+		lastClusterCondition := cr.Status.Conditions[len(cr.Status.Conditions)-1]
 
-	lastClusterCondition := cr.Status.Conditions[len(cr.Status.Conditions)-1]
-
-	switch {
-	case lastClusterCondition.Type != clusterCondition.Type:
-		cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
-	default:
-		cr.Status.Conditions[len(cr.Status.Conditions)-1] = lastClusterCondition
+		switch {
+		case lastClusterCondition.Type != clusterCondition.Type:
+			cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
+		default:
+			cr.Status.Conditions[len(cr.Status.Conditions)-1] = lastClusterCondition
+		}
 	}
 
 	if len(cr.Status.Conditions) > maxStatusesQuantity {

@@ -131,8 +131,18 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		}
 		cr.Status.Status = cr.Status.PXC.Status
 	case cr.Status.PXC.Status == api.AppStateError || cr.Status.ProxySQL.Status == api.AppStateError:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.ClusterError,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
 		cr.Status.Status = api.AppStateError
 	case cr.Status.PXC.Status == api.AppStateInit || cr.Status.ProxySQL.Status == api.AppStateInit:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.ClusterInit,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
 		cr.Status.Status = api.AppStateInit
 	default:
 		cr.Status.Status = api.AppStateUnknown

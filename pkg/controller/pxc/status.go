@@ -17,8 +17,9 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
+const maxStatusesQuantity = 20
+
 func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, reconcileErr error) (err error) {
-	maxStatusesQuantity := 20
 	clusterCondition := api.ClusterCondition{
 		Status:             api.ConditionTrue,
 		Type:               api.ClusterInit,

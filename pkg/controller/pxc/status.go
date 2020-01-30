@@ -168,7 +168,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	if inProgres {
 		cr.Status.Status = api.AppStateInit
 	}
-
+	cr.Status.ObservedGeneration = cr.ObjectMeta.Generation
 	return r.writeStatus(cr)
 }
 

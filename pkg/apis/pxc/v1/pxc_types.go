@@ -60,7 +60,7 @@ type PerconaXtraDBClusterStatus struct {
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`
 	Conditions         []ClusterCondition `json:"conditions,omitempty"`
-	ObservedGeneration int64              `json:"observedGeneration, omitepty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitepty"`
 }
 
 type ConditionStatus string
@@ -91,7 +91,7 @@ type ClusterCondition struct {
 
 type AppStatus struct {
 	Size    int32    `json:"size,omitempty"`
-	Ready   int32    `json:"ready"`
+	Ready   int32    `json:"ready,omitempty"`
 	Status  AppState `json:"status,omitempty"`
 	Message string   `json:"message,omitempty"`
 }

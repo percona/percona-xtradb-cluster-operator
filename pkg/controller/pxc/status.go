@@ -111,6 +111,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if err != nil {
 			return fmt.Errorf("check proxysql upgrade progress: %v", err)
 		}
+	} else {
+		cr.Status.ProxySQL = api.AppStatus{}
 	}
 
 	if !inProgres {
@@ -128,6 +130,13 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 				Type:               api.ClusterReady,
 				LastTransitionTime: metav1.NewTime(time.Now()),
 			}
+		}
+		cr.Status.Status = cr.Status.PXC.Status
+	case cr.Spec.ProxySQL == nil && cr.Status.PXC.Status == api.AppStateReady:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.ClusterReady,
+			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 		cr.Status.Status = cr.Status.PXC.Status
 	case cr.Status.PXC.Status == api.AppStateError || cr.Status.ProxySQL.Status == api.AppStateError:

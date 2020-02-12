@@ -38,12 +38,16 @@ compare_kubectl job.batch/$cluster-xb-$backup
 desc 'run pvc backup'
 compare_kubectl cronjob/each-hour-pvc
 
+pfx=""
+if [[ "$IMAGE_PXC" =~ 8\.0$ ]]; then
+    pfx="-80"
+fi
+
 desc 'run pvc restore'
 restore="restore-pvc"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
 wait_backup_restore $restore
-compare_kubectl job.batch/restore-job-$restore-$cluster
-compare_kubectl pod/restore-src-$restore-$cluster
+compare_kubectl job.batch/restore-job-$restore-$cluster $pfx
 
 desc 'run s3 backup'
 kubectl_bin apply -f $conf_dir/minio-secret.yml
@@ -57,6 +61,6 @@ desc 'run s3 restore'
 restore="restore-s3"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
 wait_backup_restore $restore
-compare_kubectl job.batch/restore-job-$restore-$cluster
+compare_kubectl job.batch/restore-job-$restore-$cluster $pfx
 
 destroy $namespace

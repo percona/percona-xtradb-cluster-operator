@@ -436,8 +436,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 	return changed, nil
 }
 
+// setVersion sets the API version of a PXC resource.
+// The new (semver-matching) version is determined either by the CR's API version or an API version specified via the CR's annotations.
+// If the CR's API version is an empty string, it returns "v1"
 func (cr *PerconaXtraDBCluster) setVersion() error {
-	// Need to do this becose API always returns "v1"
 	apiVersion := cr.APIVersion
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
@@ -448,6 +450,9 @@ func (cr *PerconaXtraDBCluster) setVersion() error {
 		apiVersion = newCR.APIVersion
 	}
 	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
+	if len(crVersion) == 0 {
+		crVersion = "v1"
+	}
 	version, err := v.NewVersion(crVersion)
 	if err != nil {
 		return errors.Wrap(err, "new version")

@@ -30,8 +30,6 @@ pumba_all_pods() {
         | kubectl_bin apply -f-
     kubectl_bin delete pod self-healing-advanced-pxc-0 self-healing-advanced-pxc-1 self-healing-advanced-pxc-2 --grace-period=0 --force
 
-    sleep 10
-
     # check if all 3 Pods started
     wait_for_running $cluster-pxc 3
     sleep 10

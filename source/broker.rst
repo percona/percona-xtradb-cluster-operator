@@ -15,7 +15,7 @@ Percona Service Broker provides the `Open Service Broker <https://www.openservic
 
    .. code:: bash
 
-      $ oc apply -f https://raw.githubusercontent.com/Percona-Lab/percona-dbaas-cli/master/deploy/percona-broker.yaml
+      $ oc apply -f https://raw.githubusercontent.com/Percona-Lab/percona-dbaas-cli/broker/deploy/percona-broker.yaml
 
    .. note:: This step should be done only once; the step does not need to be repeated
       with any other Operator deployments. It will automatically create and setup

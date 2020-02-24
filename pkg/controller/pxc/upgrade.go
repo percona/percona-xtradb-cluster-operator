@@ -11,6 +11,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) error {
@@ -24,7 +25,13 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
 
-	currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
+	switch cr.Spec.UpdateStrategy {
+	case "OnDelete":
+		currentSet.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{}
+		currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
+	default:
+		currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
+	}
 
 	currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext
 

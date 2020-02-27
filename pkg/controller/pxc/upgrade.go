@@ -127,7 +127,18 @@ func (r *ReconcilePerconaXtraDBCluster) updateService(svc *corev1.Service, podSp
 	}
 
 	if podSpec.ServiceType != nil {
-		currentService.Spec.Type = *podSpec.ServiceType
+		switch *podSpec.ServiceType {
+		case corev1.ServiceTypeClusterIP:
+			currentService.Spec.Ports = []corev1.ServicePort{
+				{
+					Port: 3306,
+					Name: "mysql",
+				},
+			}
+			currentService.Spec.Type = *podSpec.ServiceType
+		default:
+			currentService.Spec.Type = *podSpec.ServiceType
+		}
 	}
 
 	return r.client.Update(context.TODO(), currentService)

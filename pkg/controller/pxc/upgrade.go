@@ -126,7 +126,9 @@ func (r *ReconcilePerconaXtraDBCluster) updateService(svc *corev1.Service, podSp
 		return fmt.Errorf("failed to get sate: %v", err)
 	}
 
-	currentService.Spec.Type = *podSpec.ServiceType
+	if podSpec.ServiceType != nil {
+		currentService.Spec.Type = *podSpec.ServiceType
+	}
 
 	return r.client.Update(context.TODO(), currentService)
 }

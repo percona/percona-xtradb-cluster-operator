@@ -187,10 +187,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
+	proxysqlService := pxc.NewServiceProxySQL(o)
+	proxysqlServiceUnready := pxc.NewServiceProxySQLUnready(o)
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o)
 		if err != nil {
 			err = fmt.Errorf("ProxySQL upgrade error: %v", err)
+			return reconcile.Result{}, err
+		}
+		err = r.updateService(proxysqlService, o.Spec.ProxySQL)
+		if err != nil {
+			err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
+			return reconcile.Result{}, err
+		}
+		err = r.updateService(proxysqlServiceUnready, o.Spec.ProxySQL)
+		if err != nil {
+			err = fmt.Errorf("ProxySQL unready service upgrade error: %v", err)
 			return reconcile.Result{}, err
 		}
 	} else {

@@ -118,6 +118,19 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	return r.client.Update(context.TODO(), currentSet)
 }
 
+func (r *ReconcilePerconaXtraDBCluster) updateService(svc *corev1.Service, podSpec *api.PodSpec) error {
+	currentService := svc
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentService.Name, Namespace: currentService.Namespace}, currentService)
+
+	if err != nil {
+		return fmt.Errorf("failed to get sate: %v", err)
+	}
+
+	currentService.Spec.Type = *podSpec.ServiceType
+
+	return r.client.Update(context.TODO(), currentService)
+}
+
 func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster) string {
 	configString := cr.Spec.PXC.Configuration
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))

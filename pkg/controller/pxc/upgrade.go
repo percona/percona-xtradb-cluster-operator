@@ -137,7 +137,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateService(svc *corev1.Service, podSp
 		},
 	}
 
-	if podSpec.ServiceType != nil {
+	if podSpec.ServiceType != nil && currentService.Spec.ClusterIP != "None" {
 		switch *podSpec.ServiceType {
 		case corev1.ServiceTypeClusterIP:
 			for i := range currentService.Spec.Ports {
@@ -145,9 +145,6 @@ func (r *ReconcilePerconaXtraDBCluster) updateService(svc *corev1.Service, podSp
 			}
 			currentService.Spec.Type = *podSpec.ServiceType
 		case corev1.ServiceTypeLoadBalancer:
-			if currentService.Spec.ClusterIP == "None" {
-				currentService.Spec.ClusterIP = ""
-			}
 			currentService.Spec.Type = *podSpec.ServiceType
 		}
 	}

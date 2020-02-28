@@ -126,14 +126,22 @@ func (r *ReconcilePerconaXtraDBCluster) updateService(svc *corev1.Service, podSp
 		return fmt.Errorf("failed to get sate: %v", err)
 	}
 
+	ServicePorts := []corev1.ServicePort{
+		{
+			Port: 3306,
+			Name: "mysql",
+		},
+		{
+			Port: 6032,
+			Name: "proxyadm",
+		},
+	}
+
 	if podSpec.ServiceType != nil {
 		switch *podSpec.ServiceType {
 		case corev1.ServiceTypeClusterIP:
-			currentService.Spec.Ports = []corev1.ServicePort{
-				{
-					Port: 3306,
-					Name: "mysql",
-				},
+			for i := range currentService.Spec.Ports {
+				currentService.Spec.Ports[i] = ServicePorts[i]
 			}
 			currentService.Spec.Type = *podSpec.ServiceType
 		case corev1.ServiceTypeLoadBalancer:

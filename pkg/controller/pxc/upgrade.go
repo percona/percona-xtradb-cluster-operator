@@ -121,7 +121,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 func (r *ReconcilePerconaXtraDBCluster) updateService(svc *corev1.Service, podSpec *api.PodSpec) error {
 	currentService := &corev1.Service{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, currentService)
-
 	if err != nil {
 		return fmt.Errorf("failed to get sate: %v", err)
 	}

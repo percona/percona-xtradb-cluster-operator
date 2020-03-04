@@ -6,7 +6,7 @@ metadata:
   labels:
     backupWorker: "True"
     cluster: scheduled-backup
-    schedule: NE10_N_N_N_N
+    schedule: NE1_N_N_N_N
     type: cron
   name: each-min-pvc
   ownerReferences:
@@ -31,7 +31,7 @@ spec:
           labels:
             backupWorker: "True"
             cluster: scheduled-backup
-            schedule: NE10_N_N_N_N
+            schedule: NE1_N_N_N_N
             type: cron
         spec:
           affinity:
@@ -82,6 +82,6 @@ spec:
             key: backupWorker
             operator: Equal
             value: "True"
-  schedule: '*/10 * * * *'
+  schedule: '*/1 * * * *'
   successfulJobsHistoryLimit: 1
   suspend: false

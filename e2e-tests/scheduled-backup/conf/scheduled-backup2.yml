@@ -163,18 +163,18 @@ spec:
         priorityClassName: 'high-priority'
     schedule:
       - name: each-min-pvc
-        schedule: "*/10 * * * *"
+        schedule: "*/1 * * * *"
         keep: 30
         storageName: pvc
       - name: each-min-aws-s3
-        schedule: "*/10 * * * *"
+        schedule: "*/1 * * * *"
         keep: 30
         storageName: aws-s3
       - name: each-min-minio
-        schedule: "*/10 * * * *"
+        schedule: "*/1 * * * *"
         keep: 30
         storageName: minio
       - name: each-min-gcp-cs
-        schedule: "*/10 * * * *"
+        schedule: "*/1 * * * *"
         keep: 30
         storageName: gcp-cs

@@ -25,7 +25,7 @@ $dir/one-pod/run || fail "one-pod"
 $dir/upgrade/run || fail "upgrade"
 $dir/upgrade-consistency/run || fail "upgrade-consistency"
 $dir/auto-tuning/run || fail "auto-tuning"
-# $dir/big-data/run || fail "big-data" # TODO: use old backup
+$dir/big-data/run || fail "big-data"
 $dir/proxysql-sidecar-res-limits/run || fail "proxysql-sidecar-res-limits"
 $dir/security-context/run || fail "security-context"
 $dir/storage/run || fail "storage"

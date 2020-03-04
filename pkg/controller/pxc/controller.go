@@ -212,17 +212,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 						Name: "mysql",
 					},
 				}
-				switch *o.Spec.ProxySQL.ServiceType {
-				case corev1.ServiceTypeClusterIP:
-					currentService.Spec.Type = *o.Spec.ProxySQL.ServiceType
-				case corev1.ServiceTypeLoadBalancer:
-					currentService.Spec.Type = *o.Spec.ProxySQL.ServiceType
-				}
-				err := r.client.Update(context.TODO(), currentService)
-				if err != nil {
-					err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
-					return reconcile.Result{}, err
-				}
+				currentService.Spec.Type = *o.Spec.ProxySQL.ServiceType
 			}
 			//Checking default ServiceType
 		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
@@ -233,11 +223,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 				},
 			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
-			err := r.client.Update(context.TODO(), currentService)
-			if err != nil {
-				err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
-				return reconcile.Result{}, err
-			}
+		}
+		err = r.client.Update(context.TODO(), currentService)
+		if err != nil {
+			err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
+			return reconcile.Result{}, err
 		}
 
 	} else {

@@ -206,14 +206,14 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if o.Spec.ProxySQL.ServiceType != nil {
 			//Upgrading service only if something is changed
 			if currentService.Spec.Type != *o.Spec.ProxySQL.ServiceType {
+				currentService.Spec.Ports = []corev1.ServicePort{
+					{
+						Port: 3306,
+						Name: "mysql",
+					},
+				}
 				switch *o.Spec.ProxySQL.ServiceType {
 				case corev1.ServiceTypeClusterIP:
-					currentService.Spec.Ports = []corev1.ServicePort{
-						{
-							Port: 3306,
-							Name: "mysql",
-						},
-					}
 					currentService.Spec.Type = *o.Spec.ProxySQL.ServiceType
 				case corev1.ServiceTypeLoadBalancer:
 					currentService.Spec.Type = *o.Spec.ProxySQL.ServiceType

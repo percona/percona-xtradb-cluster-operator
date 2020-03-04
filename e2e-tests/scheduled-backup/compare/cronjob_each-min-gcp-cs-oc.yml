@@ -6,7 +6,7 @@ metadata:
   labels:
     backupWorker: "True"
     cluster: scheduled-backup
-    schedule: NE1_N_N_N_N
+    schedule: N_N_N_N_N
     type: cron
   name: each-min-gcp-cs
   ownerReferences:
@@ -31,7 +31,7 @@ spec:
           labels:
             backupWorker: "True"
             cluster: scheduled-backup
-            schedule: NE1_N_N_N_N
+            schedule: N_N_N_N_N
             type: cron
         spec:
           affinity:
@@ -81,6 +81,6 @@ spec:
             key: backupWorker
             operator: Equal
             value: "True"
-  schedule: '*/1 * * * *'
+  schedule: '* * * * *'
   successfulJobsHistoryLimit: 1
   suspend: false

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -15,20 +15,20 @@ func main() {
 	hosts := GetHostsFromEnvVar("PXC_CONNS")
 	um, err := manager.New(hosts, rootPass)
 	if err != nil {
-		errors.Wrap(err, "create user manager")
+		log.Println(errors.Wrap(err, "create user manager"))
 		os.Exit(1)
 	}
 	err = um.GetUsers()
 	if err != nil {
-		errors.Wrap(err, "get users")
+		log.Println(errors.Wrap(err, "get users"))
 		os.Exit(1)
 	}
 	err = um.ManageUsers()
 	if err != nil {
-		errors.Wrap(err, "manage users")
+		log.Println(errors.Wrap(err, "manage users"))
 		os.Exit(1)
 	}
-	fmt.Println("Done")
+	log.Println("Done")
 }
 
 func GetHostsFromEnvVar(varName string) []string {

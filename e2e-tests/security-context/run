@@ -48,6 +48,7 @@ restore="restore-pvc"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
 wait_backup_restore $restore
 compare_kubectl job.batch/restore-job-$restore-$cluster $pfx
+compare_kubectl pod/restore-src-$restore-$cluster
 
 desc 'run s3 backup'
 kubectl_bin apply -f $conf_dir/minio-secret.yml

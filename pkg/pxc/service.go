@@ -3,7 +3,6 @@ package pxc
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
@@ -97,22 +96,12 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Port:     3306,
-					Name:     "mysql",
-					Protocol: corev1.ProtocolTCP,
-					TargetPort: intstr.IntOrString{
-						Type:   intstr.Int,
-						IntVal: 3306,
-					},
+					Port: 3306,
+					Name: "mysql",
 				},
 				{
-					Port:     6032,
-					Name:     "proxyadm",
-					Protocol: corev1.ProtocolTCP,
-					TargetPort: intstr.IntOrString{
-						Type:   intstr.Int,
-						IntVal: 6032,
-					},
+					Port: 6032,
+					Name: "proxyadm",
 				},
 			},
 			ClusterIP: "None",
@@ -149,13 +138,8 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Type: svcType,
 			Ports: []corev1.ServicePort{
 				{
-					Port:     3306,
-					Name:     "mysql",
-					Protocol: corev1.ProtocolTCP,
-					TargetPort: intstr.IntOrString{
-						Type:   intstr.Int,
-						IntVal: 3306,
-					},
+					Port: 3306,
+					Name: "mysql",
 				},
 			},
 			Selector: map[string]string{

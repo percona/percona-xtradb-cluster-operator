@@ -186,26 +186,60 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	pxcService := pxc.NewServicePXC(o)
-	err = r.updateService(pxcService, o.Spec.PXC)
-	if err != nil {
-		err = fmt.Errorf("PXC service upgrade error: %v", err)
-		return reconcile.Result{}, err
-	}
-
 	proxysqlSet := statefulset.NewProxy(o)
-	proxysqlService := pxc.NewServiceProxySQL(o)
+
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o)
 		if err != nil {
 			err = fmt.Errorf("ProxySQL upgrade error: %v", err)
 			return reconcile.Result{}, err
 		}
-		err = r.updateService(proxysqlService, o.Spec.ProxySQL)
+
+		proxysqlService := pxc.NewServiceProxySQL(o)
+		currentService := &corev1.Service{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: proxysqlService.Name, Namespace: proxysqlService.Namespace}, currentService)
 		if err != nil {
-			err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
+			err = fmt.Errorf("failed to get sate: %v", err)
 			return reconcile.Result{}, err
 		}
+
+		if o.Spec.ProxySQL.ServiceType != nil {
+			//Upgrading service only if something is changed
+			if currentService.Spec.Type != *o.Spec.ProxySQL.ServiceType {
+				switch *o.Spec.ProxySQL.ServiceType {
+				case corev1.ServiceTypeClusterIP:
+					currentService.Spec.Ports = []corev1.ServicePort{
+						{
+							Port: 3306,
+							Name: "mysql",
+						},
+					}
+					currentService.Spec.Type = *o.Spec.ProxySQL.ServiceType
+				case corev1.ServiceTypeLoadBalancer:
+					currentService.Spec.Type = *o.Spec.ProxySQL.ServiceType
+				}
+				err := r.client.Update(context.TODO(), currentService)
+				if err != nil {
+					err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
+					return reconcile.Result{}, err
+				}
+			}
+			//Checking default ServiceType
+		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
+			currentService.Spec.Ports = []corev1.ServicePort{
+				{
+					Port: 3306,
+					Name: "mysql",
+				},
+			}
+			currentService.Spec.Type = corev1.ServiceTypeClusterIP
+			err := r.client.Update(context.TODO(), currentService)
+			if err != nil {
+				err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
+				return reconcile.Result{}, err
+			}
+		}
+
 	} else {
 		// check if there is need to delete pvc
 		deletePVC := false

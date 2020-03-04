@@ -394,9 +394,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 			c.ProxySQL.PodDisruptionBudget = &PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
 		}
 
-		if c.PXC.TerminationGracePeriodSeconds == nil {
+		if c.ProxySQL.TerminationGracePeriodSeconds == nil {
 			graceSec := int64(30)
-			c.PXC.TerminationGracePeriodSeconds = &graceSec
+			c.ProxySQL.TerminationGracePeriodSeconds = &graceSec
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()

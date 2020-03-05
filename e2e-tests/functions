@@ -201,6 +201,10 @@ compare_kubectl() {
         expected_result=${expected_result//.yml/-oc.yml}
     fi
 
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
+        expected_result=${expected_result//.yml/-80.yml}
+    fi
+
     kubectl_bin get -o yaml ${resource} \
         | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem" \

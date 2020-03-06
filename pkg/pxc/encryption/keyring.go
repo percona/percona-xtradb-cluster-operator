@@ -127,8 +127,8 @@ func key() ([]byte, error) {
 }
 
 func aesKey() ([]byte, error) {
-	b := make([]byte, keyLen)
-	_, err := rand.Read(b)
+	aes := make([]byte, keyLen)
+	_, err := rand.Read(aes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate random sequence of bytes: %v", err)
 	}
@@ -136,13 +136,13 @@ func aesKey() ([]byte, error) {
 	obfuscator := []byte("*305=Ljt0*!@$Hnm(*-9-w;:")
 	i := 0
 	l := 0
-	for i < len(b) {
-		b[i] ^= obfuscator[l]
+	for i < len(aes) {
+		aes[i] ^= obfuscator[l]
 		i++
 		l = (l + 1) % len(obfuscator)
 	}
 
-	return b, nil
+	return aes, nil
 }
 
 func podSize(keyIDLen int) int {

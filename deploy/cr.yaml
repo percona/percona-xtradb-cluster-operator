@@ -8,6 +8,8 @@ metadata:
 #    - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
+#  usersSecrets:
+#  - "secret-for-users"
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
   allowUnsafeConfigurations: false

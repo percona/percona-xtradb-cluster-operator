@@ -19,6 +19,7 @@ type PerconaXtraDBClusterSpec struct {
 	Platform              *Platform                            `json:"platform,omitempty"`
 	Pause                 bool                                 `json:"pause,omitempty"`
 	SecretsName           string                               `json:"secretsName,omitempty"`
+	UsersSecrets          []string                             `json:"usersSecrets,omitempty"`
 	SSLSecretName         string                               `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
 	PXC                   *PodSpec                             `json:"pxc,omitempty"`

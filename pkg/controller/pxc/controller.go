@@ -283,7 +283,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.reconsileKeyring(cr)
 	if err != nil {
-		return fmt.Errorf("failed to reconcile keyring: %v", err)
+		return fmt.Errorf("failed to reconsile keyring: %v", err)
 	}
 
 	sslHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLSecretName)

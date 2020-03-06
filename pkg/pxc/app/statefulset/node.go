@@ -119,6 +119,10 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Name:      "ssl-internal",
 				MountPath: "/etc/mysql/ssl-internal",
 			},
+			{
+				Name:      "keyring",
+				MountPath: "/var/lib/mysql-all-keyring",
+			},
 		},
 		Env: []corev1.EnvVar{
 			{
@@ -258,7 +262,8 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		vol.Volumes = append(
 			vol.Volumes,
-			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
+			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
+			app.GetSecretVolumes("keyring", "keyring", false))
 	}
 	return vol, nil
 }

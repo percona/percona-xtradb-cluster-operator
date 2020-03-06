@@ -281,6 +281,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.PXC.SSLSecretName+` and `+cr.Spec.PXC.SSLInternalSecretName+` manually or setup cert-manager correctly`, err)
 	}
 
+	err = r.reconsileKeyring(cr)
+	if err != nil {
+		return fmt.Errorf("failed to reconcile keyring: %v", err)
+	}
+
 	sslHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLSecretName)
 	if err != nil {
 		return fmt.Errorf("get secret hash error: %v", err)

@@ -37,7 +37,7 @@ type Table struct {
 	Privileges string `yaml:"privileges"`
 }
 
-func New(hosts []string, rootPass string) (Manager, error) {
+func New(hosts []string, rootPass, secretPath string) (Manager, error) {
 	var um Manager
 	var err error
 	for _, host := range hosts {
@@ -52,8 +52,10 @@ func New(hosts []string, rootPass string) (Manager, error) {
 	if um.db == nil {
 		return um, errors.Wrap(err, "cannot connect to any host")
 	}
-	um.secretPath = "./secret.yaml"
-
+	um.secretPath = "./data/secret.yaml"
+	if len(secretPath) > 0 {
+		um.secretPath = secretPath
+	}
 	return um, nil
 }
 

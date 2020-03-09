@@ -13,7 +13,8 @@ import (
 func main() {
 	rootPass := os.Getenv("MYSQL_ROOT_PASSWORD")
 	hosts := GetHostsFromEnvVar("PXC_SERVICE")
-	um, err := manager.New(hosts, rootPass)
+	secretPass := os.Getenv("SECRET_PATH")
+	um, err := manager.New(hosts, rootPass, secretPass)
 	if err != nil {
 		log.Println(errors.Wrap(err, "create user manager"))
 		os.Exit(1)

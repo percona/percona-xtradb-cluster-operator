@@ -98,14 +98,14 @@ func (u *Manager) ManageUsers() error {
 				return errors.Wrap(err, "begin transaction")
 			}
 			log.Println("drop user", user.Name)
-			_, err = u.db.Exec(fmt.Sprintf("DROP USER [IF EXISTS] '%s'@'%s'", user.Name, host))
+			_, err = u.db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%s'", user.Name, host))
 			if err != nil {
 				tx.Rollback()
 				return errors.Wrap(err, "drop user")
 			}
 
 			log.Println("create user", user.Name)
-			_, err = u.db.Exec(fmt.Sprintf("CREATE USER '%s'@'%s' IDENTIFIED BY '%s'", user.Name, user.Pass, host))
+			_, err = u.db.Exec(fmt.Sprintf("CREATE USER '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, user.Pass))
 			if err != nil {
 				tx.Rollback()
 				return errors.Wrap(err, "create user")

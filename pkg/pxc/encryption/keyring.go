@@ -17,6 +17,7 @@ const (
 	userID     = ""
 	keyLen     = 32
 	paddingLen = 5
+	obfuscator = "*305=Ljt0*!@$Hnm(*-9-w;:"
 )
 
 func NewKeyring() ([]byte, error) {
@@ -69,13 +70,9 @@ func aesKey() ([]byte, error) {
 		return nil, fmt.Errorf("failed to generate random sequence of bytes: %v", err)
 	}
 
-	obfuscator := []byte("*305=Ljt0*!@$Hnm(*-9-w;:")
-	i := 0
-	l := 0
-	for i < len(aes) {
-		aes[i] ^= obfuscator[l]
-		i++
-		l = (l + 1) % len(obfuscator)
+	obfuscator := []byte(obfuscator)
+	for i := 0; i < len(aes); i++ {
+		aes[i] ^= obfuscator[i%len(obfuscator)]
 	}
 
 	return aes, nil

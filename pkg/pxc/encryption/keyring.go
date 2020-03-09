@@ -43,7 +43,7 @@ func NewKeyring() ([]byte, error) {
 		return nil, fmt.Errorf("failed to write eof: %v", err)
 	}
 
-	_, err = keyring.Write(sha)
+	_, err = keyring.Write(sha[:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to write SHA sum : %v", err)
 	}

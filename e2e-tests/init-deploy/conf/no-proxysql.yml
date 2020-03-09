@@ -9,10 +9,10 @@ spec:
     image: -pxc
     configuration: |
       [mysqld]
-      wsrep_debug=ON
+      wsrep_debug=1
       max_allowed_packet=789M
       [sst]
-      wsrep_debug=ON
+      wsrep_debug=1
     resources:
       requests:
         memory: 100M

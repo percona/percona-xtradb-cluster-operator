@@ -16,6 +16,8 @@ run_recovery_check() {
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100501)' \
         "-h $cluster-proxysql -uroot -proot_password"
+
+    sleep 10
     compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
@@ -32,6 +34,7 @@ run_recovery_check() {
     
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
+    sleep 10
 
     desc 'check data after backup'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"

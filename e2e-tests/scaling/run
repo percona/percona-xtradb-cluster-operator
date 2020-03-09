@@ -30,8 +30,14 @@ compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-3.$cl
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-4.$cluster-pxc -uroot -proot_password"
 
 desc 'check new Pods exists in ProxySQL'
-pod3_ip=$(get_pod_ip $cluster-pxc-3)
-pod4_ip=$(get_pod_ip $cluster-pxc-4)
+if [[ "$IMAGE_PXC" =~ 8\.0$ ]] ; then
+    # PXC 8.0 returns full pod name instead of IP
+    pod3_ip=$cluster-pxc-3
+    pod4_ip=$cluster-pxc-4
+else
+    pod3_ip=$(get_pod_ip $cluster-pxc-3)
+    pod4_ip=$(get_pod_ip $cluster-pxc-4)
+fi
 run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
     | grep "$pod3_ip"
 run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \

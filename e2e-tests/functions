@@ -201,6 +201,10 @@ compare_kubectl() {
         expected_result=${expected_result//.yml/-oc.yml}
     fi
 
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
+        expected_result=${expected_result//.yml/-80.yml}
+    fi
+
     kubectl_bin get -o yaml ${resource} \
         | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem" \
@@ -257,10 +261,15 @@ compare_mysql_cmd() {
     local command="$2"
     local uri="$3"
     local postfix="$4"
+    local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
+
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
+        expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
+    fi
 
     run_mysql "$command" "$uri" \
         > $tmp_dir/${command_id}.sql
-    diff ${test_dir}/compare/${command_id}${postfix}.sql $tmp_dir/${command_id}.sql
+    diff -u $expected_result $tmp_dir/${command_id}.sql
 }
 
 get_proxy_primary() {
@@ -273,7 +282,11 @@ get_proxy_primary() {
         ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod")
     done
 
-    get_pod_name "$ip"
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] ; then
+        echo $ip | cut -d'.' -f1
+    else
+        get_pod_name "$ip"
+    fi
 }
 
 get_pod_name() {
@@ -290,11 +303,16 @@ compare_mysql_user(){
     local uri="$1"
     local postfix="$2"
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
+    local expected_result=${test_dir}/compare/$user$postfix.sql
+
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
+        expected_result=${test_dir}/compare/$user$postfix-80.sql
+    fi
 
     (run_mysql "SHOW GRANTS;" "$uri" || :) \
         | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
-    diff $test_dir/compare/$user$postfix.sql $tmp_dir/$user.sql
+    diff -u $expected_result $tmp_dir/$user.sql
 }
 
 compare_mysql_user_local(){
@@ -302,11 +320,16 @@ compare_mysql_user_local(){
     local pod="$2"
     local postfix="$3"
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
+    local expected_result=$test_dir/compare/$user$postfix.sql
+
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
+        expected_result=${test_dir}/compare/$user$postfix-80.sql
+    fi
 
     (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" || :) \
         | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
-    diff $test_dir/compare/$user$postfix.sql $tmp_dir/$user.sql
+    diff -u $expected_result $tmp_dir/$user.sql
 }
 
 get_pumba() {

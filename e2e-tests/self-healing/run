@@ -102,7 +102,12 @@ recreate() {
         "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
         | grep -v ssor_regex \
         >$tmp_dir/proxy-vars1.sql
-    diff -u $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars1.sql
+
+    local expected_result=$test_dir/compare/proxy-vars.sql
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f $test_dir/compare/proxy-vars-80.sql ]; then
+        expected_result=$test_dir/compare/proxy-vars-80.sql
+    fi
+    diff -u $expected_result $tmp_dir/proxy-vars1.sql
 
     # delete cluster
     kubectl_bin delete \
@@ -124,7 +129,12 @@ recreate() {
         "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
         | grep -v ssor_regex \
         >$tmp_dir/proxy-vars2.sql
-    diff -u $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars2.sql
+
+    local expected_result=$test_dir/compare/proxy-vars.sql
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f $test_dir/compare/proxy-vars-80.sql ]; then
+        expected_result=$test_dir/compare/proxy-vars-80.sql
+    fi
+    diff -u $expected_result $tmp_dir/proxy-vars2.sql
 }
 
 main() {

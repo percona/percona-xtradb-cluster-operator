@@ -39,7 +39,7 @@ spec:
               key: AWS_SECRET_ACCESS_KEY
               name: minio-secret
         - name: XB_USE_MEMORY
-          value: 900M
+          value: "750000000"
         imagePullPolicy: Always
         name: xtrabackup
         resources:

@@ -54,7 +54,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileKeyring(cr *api.PerconaXtraDBCl
 	dataLen := len(secretObj.Data)
 	diff := int(cr.Spec.PXC.Size) - len(secretObj.Data)
 
-	if diff == 0 {
+	if diff <= 0 {
 		return nil
 	}
 

@@ -120,6 +120,8 @@ spec:
           name: ssl
         - mountPath: /etc/mysql/ssl-internal
           name: ssl-internal
+        - mountPath: /var/lib/mysql-all-keyring
+          name: keyring
         - mountPath: /etc/my.cnf.d
           name: auto-config
       dnsPolicy: ClusterFirst
@@ -152,6 +154,11 @@ spec:
           name: auto-hostname-pxc
           optional: true
         name: auto-config
+      - name: keyring
+        secret:
+          defaultMode: 420
+          optional: false
+          secretName: keyring
   updateStrategy:
     rollingUpdate:
       partition: 0

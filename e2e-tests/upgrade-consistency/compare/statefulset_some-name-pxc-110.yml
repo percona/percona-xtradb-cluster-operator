@@ -120,6 +120,8 @@ spec:
           name: ssl
         - mountPath: /etc/mysql/ssl-internal
           name: ssl-internal
+        - mountPath: /var/lib/mysql-all-keyring
+          name: keyring
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler

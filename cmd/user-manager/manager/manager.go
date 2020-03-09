@@ -3,13 +3,12 @@ package manager
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
-	"gopkg.in/yaml.v2"
-
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 type Manager struct {
@@ -61,32 +60,18 @@ func New(hosts []string, rootPass, secretPath string) (Manager, error) {
 }
 
 func (u *Manager) GetUsers() error {
-	secret, err := u.readSecretFile()
+	file, err := os.Open(u.secretPath)
 	if err != nil {
-		return errors.Wrap(err, "read secret")
+		return errors.Wrap(err, "open secret file")
 	}
 	var data Data
-	err = yaml.Unmarshal(secret, &data)
+	err = yaml.NewDecoder(file).Decode(&data)
 	if err != nil {
 		return errors.Wrap(err, "unmarshal secret")
 	}
 	u.Users = data.Users
 
 	return nil
-}
-
-func (u *Manager) readSecretFile() ([]byte, error) {
-	file, err := os.Open(u.secretPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "open secret file")
-	}
-	defer file.Close()
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, errors.Wrap(err, "read secret file")
-	}
-
-	return b, nil
 }
 
 func (u *Manager) ManageUsers() error {

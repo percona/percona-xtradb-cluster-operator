@@ -25,10 +25,7 @@ func NewKeyring() ([]byte, error) {
 		return nil, fmt.Errorf("failed to generate new key: %v", err)
 	}
 
-	sha, err := shaSum(key)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate sha256 sum")
-	}
+	sha := sha256.Sum256(key)
 
 	keyring := bytes.NewBuffer(make([]byte, 0))
 	_, err = keyring.WriteString(version)
@@ -52,15 +49,6 @@ func NewKeyring() ([]byte, error) {
 	}
 
 	return keyring.Bytes(), nil
-}
-
-func shaSum(data []byte) ([]byte, error) {
-	h := sha256.New()
-	_, err := h.Write(data)
-	if err != nil {
-		return nil, err
-	}
-	return h.Sum(nil), nil
 }
 
 func key() ([]byte, error) {
@@ -148,8 +136,7 @@ func aesKey() ([]byte, error) {
 func podSize(keyIDLen int) int {
 	size := 4*8 + keyIDLen + len(keyType) + len(userID) + 8 + keyLen
 	padding := (8 - (size % 8)) % 8
-	aligned := size + padding
-	return aligned
+	return size + padding
 }
 
 func keyID() string {

@@ -27,89 +27,37 @@ func NewKeyring() ([]byte, error) {
 
 	sha := sha256.Sum256(key)
 
-	keyring := bytes.NewBuffer(make([]byte, 0))
-	_, err = keyring.WriteString(version)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write version: %v", err)
-	}
+	keyring := new(bytes.Buffer)
 
-	_, err = keyring.Write(key)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write key: %v", err)
-	}
-
-	_, err = keyring.WriteString(eof)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write eof: %v", err)
-	}
-
-	_, err = keyring.Write(sha[:])
-	if err != nil {
-		return nil, fmt.Errorf("failed to write SHA sum : %v", err)
-	}
+	keyring.WriteString(version)
+	keyring.Write(key)
+	keyring.WriteString(eof)
+	keyring.Write(sha[:])
 
 	return keyring.Bytes(), nil
 }
 
 func key() ([]byte, error) {
 	keyID := keyID()
-	buf := make([]byte, 0)
-	key := bytes.NewBuffer(buf)
+	key := new(bytes.Buffer)
 
-	err := binary.Write(key, binary.LittleEndian, int64(podSize(len(keyID))))
-	if err != nil {
-		return nil, fmt.Errorf("failed to write key pod size: %v", err)
-	}
+	_ = binary.Write(key, binary.LittleEndian, int64(podSize(len(keyID))))
+	_ = binary.Write(key, binary.LittleEndian, int64(len(keyID)))
+	_ = binary.Write(key, binary.LittleEndian, int64(len(keyType)))
+	_ = binary.Write(key, binary.LittleEndian, int64(len(userID)))
+	_ = binary.Write(key, binary.LittleEndian, int64(keyLen))
 
-	err = binary.Write(key, binary.LittleEndian, int64(len(keyID)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to write length of key id: %v", err)
-	}
-
-	err = binary.Write(key, binary.LittleEndian, int64(len(keyType)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to write length of key type: %v", err)
-	}
-
-	err = binary.Write(key, binary.LittleEndian, int64(len(userID)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to write length of user id: %v", err)
-	}
-
-	err = binary.Write(key, binary.LittleEndian, int64(keyLen))
-	if err != nil {
-		return nil, fmt.Errorf("failed to write length of AES key: %v", err)
-	}
-
-	_, err = key.WriteString(keyID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write key id: %v", err)
-	}
-
-	_, err = key.WriteString(keyType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write key type: %v", err)
-	}
-
-	_, err = key.WriteString(userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write user id: %v", err)
-	}
+	key.WriteString(keyID)
+	key.WriteString(keyType)
+	key.WriteString(userID)
 
 	aes, err := aesKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate AES key: %v", err)
 	}
 
-	_, err = key.Write(aes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write AES key: %v", err)
-	}
-
-	_, err = key.Write(make([]byte, paddingLen))
-	if err != nil {
-		return nil, fmt.Errorf("failed to write padding: %v", err)
-	}
+	key.Write(aes)
+	key.Write(make([]byte, paddingLen))
 
 	return key.Bytes(), nil
 }

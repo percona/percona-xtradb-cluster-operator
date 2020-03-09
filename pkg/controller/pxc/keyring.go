@@ -53,8 +53,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileKeyring(cr *api.PerconaXtraDBCl
 
 	dataLen := len(secretObj.Data)
 	diff := int(cr.Spec.PXC.Size) - len(secretObj.Data)
+
+	if diff == 0 {
+		return nil
+	}
+
 	for i := len(secretObj.Data); i < dataLen+diff; i++ {
-		id := fmt.Sprintf("%s-%d", cr.Name+"-"+app.Name, i)
+		id := fmt.Sprintf("%s-%s-%d", cr.Name, app.Name, i)
 		log.Info(fmt.Sprintf("generate new keyring %s", id))
 
 		keyring, err := encryption.NewKeyring()

@@ -7,6 +7,24 @@ test_dir=$(realpath $(dirname $0))
 . "${test_dir}"/../functions
 cluster="self-healing-advanced"
 
+pumba_all_pods() {
+    local action=$1
+
+    # run chaos for Pod
+    for _ in $(seq 1 5); do
+        run_pumba "$action" "re2:$cluster-pxc-[0-9]+_"
+    done
+
+    # check if all 3 Pods started
+    wait_for_running $cluster-pxc 3
+    sleep 10
+
+    desc 'check data consistency for chaosed Pod'
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+}
+
 delete_all_pods() {
     # run chaos for Pods
     for _ in $(seq 1 5); do
@@ -41,6 +59,11 @@ main() {
 
     desc 'start cluster'
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]]; then
+        desc 'kill all PXC pods'
+        pumba_all_pods kill
+    fi
 
     desc 'delete all PXC pods'
     delete_all_pods

@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/user-manager/manager"
 	"github.com/pkg/errors"
 )

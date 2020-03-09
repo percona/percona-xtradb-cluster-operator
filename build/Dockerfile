@@ -9,5 +9,6 @@ LABEL name="Percona XtraDB Cluster Operator" \
 
 COPY LICENSE /licenses/
 COPY build/_output/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
+COPY build/_output/bin/user-manager /usr/local/bin/user-manager
 
 USER nobody

@@ -12,7 +12,7 @@ metadata:
     kind: PerconaXtraDBClusterBackup
     name: on-demand-backup-s3
 spec:
-  backoffLimit: 6
+  backoffLimit: 10
   completions: 1
   manualSelector: true
   parallelism: 1

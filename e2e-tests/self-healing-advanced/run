@@ -4,16 +4,17 @@ set -o errexit
 set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
-. ${test_dir}/../functions
+. "${test_dir}"/../functions
 cluster="self-healing-advanced"
 
 pumba_all_pods() {
     local action=$1
 
     # run chaos for Pod
-    for i in $(seq 1 5); do
-        run_pumba $action "re2:$cluster-pxc-[0-9]+_"
+    for _ in $(seq 1 5); do
+        run_pumba "$action" "re2:$cluster-pxc-[0-9]+_"
     done
+
     sleep 60
 
     kubectl_bin get pods \
@@ -23,7 +24,7 @@ pumba_all_pods() {
     cat_config "$test_dir/conf/$cluster.yml" \
         | sed -e 's/forceUnsafeBootstrap: false/forceUnsafeBootstrap: true/' \
         | kubectl_bin apply -f-
-    kubectl_bin delete pod self-healing-advanced-pxc-0 self-healing-advanced-pxc-1 self-healing-advanced-pxc-2
+    kubectl_bin delete pod self-healing-advanced-pxc-0 self-healing-advanced-pxc-1 self-healing-advanced-pxc-2 --grace-period=0 --force
 
     # check if all 3 Pods started
     wait_for_running $cluster-pxc 3
@@ -36,7 +37,7 @@ pumba_all_pods() {
 }
 
 main() {
-    create_namespace $namespace
+    create_namespace "$namespace"
     deploy_operator
     kubectl_bin apply -f "$test_dir/conf/pumba.yml"
 
@@ -47,7 +48,7 @@ main() {
     desc 'kill all PXC pods'
     pumba_all_pods kill
 
-    destroy $namespace
+    destroy "$namespace"
 }
 
 main

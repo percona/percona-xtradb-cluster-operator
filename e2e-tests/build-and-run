@@ -6,7 +6,11 @@ test_dir="$(dirname $0)"
 . $(dirname $0)/functions
 src_dir="$(realpath $test_dir/..)"
 
-$test_dir/build
+if [[ $BUILD != "0" ]]; then
+    echo "building, set BUILD=0 to suppress this"
+    $test_dir/build
+fi
+
 create_namespace run-$GIT_BRANCH-$RANDOM
 deploy_operator
 

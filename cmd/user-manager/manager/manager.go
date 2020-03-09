@@ -2,6 +2,7 @@ package manager
 
 import (
 	"database/sql"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -97,14 +98,14 @@ func (u *Manager) ManageUsers() error {
 				return errors.Wrap(err, "begin transaction")
 			}
 			log.Println("drop user", user.Name)
-			_, err = u.db.Exec("DROP USER [IF EXISTS] '?'@'?'", user.Name, host)
+			_, err = u.db.Exec(fmt.Sprintf("DROP USER [IF EXISTS] '%s'@'%s'", user.Name, host))
 			if err != nil {
 				tx.Rollback()
 				return errors.Wrap(err, "drop user")
 			}
 
 			log.Println("create user", user.Name)
-			_, err = u.db.Exec("CREATE USER '?'@'?' IDENTIFIED BY '?'", user.Name, user.Pass, host)
+			_, err = u.db.Exec(fmt.Sprintf("CREATE USER '%s'@'%s' IDENTIFIED BY '%s'", user.Name, user.Pass, host))
 			if err != nil {
 				tx.Rollback()
 				return errors.Wrap(err, "create user")
@@ -112,7 +113,7 @@ func (u *Manager) ManageUsers() error {
 
 			for _, table := range user.Tables {
 				log.Println("grant privileges for user ", user.Name)
-				_, err = u.db.Exec("GRANT ? ON ? TO '?'@'?'", table.Privileges, table.Name, user.Name, host)
+				_, err = u.db.Exec(fmt.Sprintf("GRANT %s ON %s TO '%s'@'%s'", table.Privileges, table.Name, user.Name, host))
 				if err != nil {
 					tx.Rollback()
 					return errors.Wrap(err, "grant privileges")

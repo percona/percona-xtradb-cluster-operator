@@ -262,7 +262,11 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		vol.Volumes = append(
 			vol.Volumes,
-			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
+			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
+	}
+	if cr.CompareVersionWith("1.4.0") >= 0 {
+		vol.Volumes = append(
+			vol.Volumes,
 			app.GetSecretVolumes("keyring", "keyring", false))
 	}
 	return vol, nil

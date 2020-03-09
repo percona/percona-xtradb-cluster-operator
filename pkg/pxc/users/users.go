@@ -30,11 +30,11 @@ func JobSpec(rootPass string, conns string, job *batchv1.Job) batchv1.JobSpec {
 				Containers: []corev1.Container{
 					{
 						Name:            "pxcusers",
-						Image:           "perconalab/percona-xtradb-cluster-operator",
+						Image:           "",
 						ImagePullPolicy: corev1.PullAlways,
 						VolumeMounts: []corev1.VolumeMount{
 							{
-								MountPath: "/",
+								MountPath: "/data",
 								Name:      "userssecret",
 								ReadOnly:  true,
 							},

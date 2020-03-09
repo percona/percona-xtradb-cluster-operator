@@ -46,7 +46,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, secretObj corev1.Secret, cr *api.PerconaXtraDBCluster) error {
-	log.Info("secret name inside: " + secretName)
 	usersSecretObj := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{

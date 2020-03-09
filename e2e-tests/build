@@ -23,6 +23,11 @@ build_operator() {
             -ldflags '-w -s -X main.GitCommit=${GIT_COMMIT} -X main.GitBranch=${GIT_BRANCH}' \
             -o build/_output/bin/percona-xtradb-cluster-operator \
             cmd/manager/main.go
+
+        GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
+            -ldflags '-w -s -X main.GitCommit=${GIT_COMMIT} -X main.GitBranch=${GIT_BRANCH}' \
+            -o build/_output/bin/user-manager \
+            cmd/user-manager/main.go
     "
 
     dockerfile=build/Dockerfile

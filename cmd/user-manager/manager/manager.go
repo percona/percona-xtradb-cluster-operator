@@ -8,7 +8,6 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/user-manager/db"
 	"github.com/pkg/errors"
 )
 
@@ -42,7 +41,7 @@ func New(hosts []string, rootPass string) (Manager, error) {
 	var um Manager
 	var err error
 	for _, host := range hosts {
-		mysqlDB, err := db.Conn("root:" + rootPass + "@tcp(" + host + ")/")
+		mysqlDB, err := sql.Open("mysql", "root:"+rootPass+"@tcp("+host+")/")
 		if err != nil {
 			return um, errors.Wrap(err, "create db connection")
 		}
@@ -88,30 +87,45 @@ func (u *Manager) readSecretFile() ([]byte, error) {
 }
 
 func (u *Manager) ManageUsers() error {
+	defer u.db.Close()
 	for _, user := range u.Users {
 		for _, host := range user.Hosts {
-			log.Println("drop user", user.Name)
-			_, err := u.db.Exec(db.DropUser(user.Name, host))
+			tx, err := u.db.Begin()
 			if err != nil {
-				// no need to return because can be no user yet
-				log.Println(errors.Wrap(err, "drop user"))
+				return errors.Wrap(err, "begin transaction")
 			}
-			log.Println("create user", user.Name)
-			_, err = u.db.Exec(db.CreateUser(user.Name, user.Pass, host))
+			log.Println("drop user", user.Name)
+			_, err = u.db.Exec("DROP USER [IF EXISTS] '?'@'?'", user.Name, host)
 			if err != nil {
+				tx.Rollback()
+				return errors.Wrap(err, "drop user")
+			}
+
+			log.Println("create user", user.Name)
+			_, err = u.db.Exec("CREATE USER '?'@'?' IDENTIFIED BY '?'", user.Name, user.Pass, host)
+			if err != nil {
+				tx.Rollback()
 				return errors.Wrap(err, "create user")
 			}
+
 			for _, table := range user.Tables {
 				log.Println("grant privileges for user ", user.Name)
-				_, err = u.db.Exec(db.GrantUser(table.Privileges, table.Name, user.Name, host))
+				_, err = u.db.Exec("GRANT ? ON ? TO '?'@'?'", table.Privileges, table.Name, user.Name, host)
 				if err != nil {
+					tx.Rollback()
 					return errors.Wrap(err, "grant privileges")
 				}
-				log.Println("flush privileges for user ", user.Name)
-				_, err = u.db.Exec(db.FlushPrivileges())
-				if err != nil {
-					return errors.Wrap(err, "flush privileges")
-				}
+			}
+			log.Println("flush privileges for user ", user.Name)
+			_, err = u.db.Exec("FLUSH PRIVILEGES")
+			if err != nil {
+				tx.Rollback()
+				return errors.Wrap(err, "flush privileges")
+			}
+
+			err = tx.Commit()
+			if err != nil {
+				return errors.Wrap(err, "commit transaction")
 			}
 		}
 	}

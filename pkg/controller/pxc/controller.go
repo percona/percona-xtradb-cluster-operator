@@ -112,18 +112,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	changed, err := o.CheckNSetDefaults(r.serverVersion)
+	if err != nil {
+		err = fmt.Errorf("wrong PXC options: %v", err)
+		return reconcile.Result{}, err
+	}
+
 	defer func() {
 		uerr := r.updateStatus(o, err)
 		if uerr != nil {
 			log.Error(uerr, "Update status")
 		}
 	}()
-
-	changed, err := o.CheckNSetDefaults(r.serverVersion)
-	if err != nil {
-		err = fmt.Errorf("wrong PXC options: %v", err)
-		return reconcile.Result{}, err
-	}
 
 	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
 	if changed {
@@ -170,11 +170,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return rr, err
 	}
 
-	if o.Spec.PXC == nil {
-		err = fmt.Errorf("pxc not specified")
-		return reconcile.Result{}, err
-	}
-
 	err = r.reconcileUsersSecret(o)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("reconcile users secret: %v", err)
@@ -192,12 +187,49 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
+
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o)
 		if err != nil {
 			err = fmt.Errorf("ProxySQL upgrade error: %v", err)
 			return reconcile.Result{}, err
 		}
+
+		proxysqlService := pxc.NewServiceProxySQL(o)
+		currentService := &corev1.Service{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: proxysqlService.Name, Namespace: proxysqlService.Namespace}, currentService)
+		if err != nil {
+			err = fmt.Errorf("failed to get sate: %v", err)
+			return reconcile.Result{}, err
+		}
+
+		if o.Spec.ProxySQL.ServiceType != nil {
+			//Upgrading service only if something is changed
+			if currentService.Spec.Type != *o.Spec.ProxySQL.ServiceType {
+				currentService.Spec.Ports = []corev1.ServicePort{
+					{
+						Port: 3306,
+						Name: "mysql",
+					},
+				}
+				currentService.Spec.Type = *o.Spec.ProxySQL.ServiceType
+			}
+			//Checking default ServiceType
+		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
+			currentService.Spec.Ports = []corev1.ServicePort{
+				{
+					Port: 3306,
+					Name: "mysql",
+				},
+			}
+			currentService.Spec.Type = corev1.ServiceTypeClusterIP
+		}
+		err = r.client.Update(context.TODO(), currentService)
+		if err != nil {
+			err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
+			return reconcile.Result{}, err
+		}
+
 	} else {
 		// check if there is need to delete pvc
 		deletePVC := false

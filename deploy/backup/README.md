@@ -1,8 +1,8 @@
 ## Make on-demand backup
-1. correct the backup name, cluster name, and PVC settings in the `deploy/backup/cr.yaml` file
+1. correct the backup name, cluster name, and PVC settings in the `deploy/backup/backup.yaml` file
 2. run backup
    ```
-   kubectl apply -f deploy/backup/cr.yaml
+   kubectl apply -f deploy/backup/backup.yaml
    ```
 ## Restore from backup
 1. Make sure that the cluster is running
@@ -16,7 +16,7 @@
    ```
 4. start the resoration process
    ```
-   ./deploy/backup/restore-backup.sh <backup-name> <cluster-name>
+   kubectl apply -f deploy/backup/restore.yaml
    ```
 ## Copy backup to local machine
 1. List available backups

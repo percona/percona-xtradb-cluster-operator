@@ -57,14 +57,24 @@ wait_backup() {
 
 get_running_backups_amount() {
     kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
-        | grep -v ":Succeeded" \
+        | grep -vE ":Succeeded|:Failed" \
+        | wc -l
+}
+
+get_failed_backups_amount() {
+    kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+        | grep ":Failed" \
         | wc -l
 }
 
 wait_all_backups() {
-    while [[ "$(get_running_backups_amount)" -ne 0 ]]; do
+    while [[ "$(get_running_backups_amount)" -ne 0 && "$(get_failed_backups_amount)" -eq 0 ]]; do
         sleep 10
     done
+    if [[ "$(get_failed_backups_amount)" -gt 0 ]]; then
+        echo "One or more backups have been failed!"
+        exit 1
+    fi
 }
 
 start_minio() {

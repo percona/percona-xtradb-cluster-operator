@@ -245,7 +245,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 	case job.Status.Succeeded == 1:
 		status.State = api.BackupSucceeded
 		status.CompletedAt = job.Status.CompletionTime
-	case job.Status.Failed == 1:
+	case job.Status.Failed >= 1:
 		status.State = api.BackupFailed
 	}
 

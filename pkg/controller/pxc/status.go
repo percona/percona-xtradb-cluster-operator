@@ -17,16 +17,25 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 )
 
+const maxStatusesQuantity = 20
+
 func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, reconcileErr error) (err error) {
+	clusterCondition := api.ClusterCondition{
+		Status:             api.ConditionTrue,
+		Type:               api.ClusterInit,
+		LastTransitionTime: metav1.NewTime(time.Now()),
+	}
+
 	if reconcileErr != nil {
 		if cr.Status.Status != api.ClusterError {
-			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+			clusterCondition = api.ClusterCondition{
 				Status:             api.ConditionTrue,
 				Type:               api.ClusterError,
 				Message:            reconcileErr.Error(),
 				Reason:             "ErrorReconcile",
 				LastTransitionTime: metav1.NewTime(time.Now()),
-			})
+			}
+			cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
 
 			cr.Status.Messages = append(cr.Status.Messages, "Error: "+reconcileErr.Error())
 			cr.Status.Status = api.ClusterError
@@ -43,21 +52,21 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 	if pxcStatus.Status != cr.Status.PXC.Status {
 		if pxcStatus.Status == api.AppStateReady {
-			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+			clusterCondition = api.ClusterCondition{
 				Status:             api.ConditionTrue,
 				Type:               api.ClusterPXCReady,
 				LastTransitionTime: metav1.NewTime(time.Now()),
-			})
+			}
 		}
 
 		if pxcStatus.Status == api.AppStateError {
-			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+			clusterCondition = api.ClusterCondition{
 				Status:             api.ConditionTrue,
 				Message:            "PXC" + pxcStatus.Message,
 				Reason:             "ErrorPXC",
 				Type:               api.ClusterError,
 				LastTransitionTime: metav1.NewTime(time.Now()),
-			})
+			}
 		}
 	}
 
@@ -75,21 +84,21 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 		if proxyStatus.Status != cr.Status.ProxySQL.Status {
 			if proxyStatus.Status == api.AppStateReady {
-				cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+				clusterCondition = api.ClusterCondition{
 					Status:             api.ConditionTrue,
 					Type:               api.ClusterProxyReady,
 					LastTransitionTime: metav1.NewTime(time.Now()),
-				})
+				}
 			}
 
 			if proxyStatus.Status == api.AppStateError {
-				cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+				clusterCondition = api.ClusterCondition{
 					Status:             api.ConditionTrue,
 					Message:            "ProxySQL:" + proxyStatus.Message,
 					Reason:             "ErrorProxySQL",
 					Type:               api.ClusterError,
 					LastTransitionTime: metav1.NewTime(time.Now()),
-				})
+				}
 			}
 		}
 
@@ -102,6 +111,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if err != nil {
 			return fmt.Errorf("check proxysql upgrade progress: %v", err)
 		}
+	} else {
+		cr.Status.ProxySQL = api.AppStatus{}
 	}
 
 	if !inProgres {
@@ -113,35 +124,60 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 	switch {
 	case cr.Status.PXC.Status == cr.Status.ProxySQL.Status:
-		if cr.Status.Status != api.AppStateReady &&
-			cr.Status.PXC.Status == api.AppStateReady {
-			cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
+		if cr.Status.PXC.Status == api.AppStateReady {
+			clusterCondition = api.ClusterCondition{
 				Status:             api.ConditionTrue,
 				Type:               api.ClusterReady,
 				LastTransitionTime: metav1.NewTime(time.Now()),
-			})
+			}
+		}
+		cr.Status.Status = cr.Status.PXC.Status
+	case (cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled) && cr.Status.PXC.Status == api.AppStateReady:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.ClusterReady,
+			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 		cr.Status.Status = cr.Status.PXC.Status
 	case cr.Status.PXC.Status == api.AppStateError || cr.Status.ProxySQL.Status == api.AppStateError:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.ClusterError,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
 		cr.Status.Status = api.AppStateError
-	case cr.Status.PXC.Status == api.AppStateInit || cr.Status.ProxySQL.Status == api.AppStateInit:
+	case cr.Status.PXC.Status == api.AppStateInit || (cr.Spec.ProxySQL != nil && cr.Status.ProxySQL.Status == api.AppStateInit):
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.ClusterInit,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
 		cr.Status.Status = api.AppStateInit
 	default:
 		cr.Status.Status = api.AppStateUnknown
 	}
 
 	if len(cr.Status.Conditions) == 0 {
-		cr.Status.Conditions = append(cr.Status.Conditions, api.ClusterCondition{
-			Status:             api.ConditionTrue,
-			Type:               api.ClusterInit,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		})
+		cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
+	} else {
+		lastClusterCondition := cr.Status.Conditions[len(cr.Status.Conditions)-1]
+
+		switch {
+		case lastClusterCondition.Type != clusterCondition.Type:
+			cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
+		default:
+			cr.Status.Conditions[len(cr.Status.Conditions)-1] = lastClusterCondition
+		}
+	}
+
+	if len(cr.Status.Conditions) > maxStatusesQuantity {
+		cr.Status.Conditions = cr.Status.Conditions[len(cr.Status.Conditions)-maxStatusesQuantity:]
 	}
 
 	if inProgres {
 		cr.Status.Status = api.AppStateInit
 	}
-
+	cr.Status.ObservedGeneration = cr.ObjectMeta.Generation
 	return r.writeStatus(cr)
 }
 

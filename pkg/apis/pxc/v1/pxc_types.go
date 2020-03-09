@@ -54,12 +54,13 @@ const (
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
 type PerconaXtraDBClusterStatus struct {
-	PXC        AppStatus          `json:"pxc,omitempty"`
-	ProxySQL   AppStatus          `json:"proxysql,omitempty"`
-	Host       string             `json:"host,omitempty"`
-	Messages   []string           `json:"message,omitempty"`
-	Status     AppState           `json:"state,omitempty"`
-	Conditions []ClusterCondition `json:"conditions,omitempty"`
+	PXC                AppStatus          `json:"pxc,omitempty"`
+	ProxySQL           AppStatus          `json:"proxysql,omitempty"`
+	Host               string             `json:"host,omitempty"`
+	Messages           []string           `json:"message,omitempty"`
+	Status             AppState           `json:"state,omitempty"`
+	Conditions         []ClusterCondition `json:"conditions,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitepty"`
 }
 
 type ConditionStatus string
@@ -90,7 +91,7 @@ type ClusterCondition struct {
 
 type AppStatus struct {
 	Size    int32    `json:"size,omitempty"`
-	Ready   int32    `json:"ready"`
+	Ready   int32    `json:"ready,omitempty"`
 	Status  AppState `json:"status,omitempty"`
 	Message string   `json:"message,omitempty"`
 }
@@ -307,6 +308,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 	}
 
 	c := cr.Spec
+	if c.PXC == nil {
+		return false, fmt.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
+	}
+
 	if c.PXC != nil {
 		c.PXC.AllowUnsafeConfig = c.AllowUnsafeConfig
 		if c.PXC.VolumeSpec == nil {
@@ -389,9 +394,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 			c.ProxySQL.PodDisruptionBudget = &PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
 		}
 
-		if c.PXC.TerminationGracePeriodSeconds == nil {
+		if c.ProxySQL.TerminationGracePeriodSeconds == nil {
 			graceSec := int64(30)
-			c.PXC.TerminationGracePeriodSeconds = &graceSec
+			c.ProxySQL.TerminationGracePeriodSeconds = &graceSec
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
@@ -431,8 +436,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 	return changed, nil
 }
 
+// setVersion sets the API version of a PXC resource.
+// The new (semver-matching) version is determined either by the CR's API version or an API version specified via the CR's annotations.
+// If the CR's API version is an empty string, it returns "v1"
 func (cr *PerconaXtraDBCluster) setVersion() error {
-	// Need to do this becose API always returns "v1"
 	apiVersion := cr.APIVersion
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
@@ -443,6 +450,9 @@ func (cr *PerconaXtraDBCluster) setVersion() error {
 		apiVersion = newCR.APIVersion
 	}
 	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
+	if len(crVersion) == 0 {
+		crVersion = "v1"
+	}
 	version, err := v.NewVersion(crVersion)
 	if err != nil {
 		return errors.Wrap(err, "new version")

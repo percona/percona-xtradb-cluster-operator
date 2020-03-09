@@ -16,7 +16,7 @@ pumba_all_pods() {
     done
 
     sleep 60
-    
+
     kubectl_bin get pods \
         | grep $cluster-pxc- \
         | grep CrashLoopBackOff

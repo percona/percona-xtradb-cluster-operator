@@ -42,6 +42,8 @@ func key() ([]byte, error) {
 	keyID := keyID()
 	key := new(bytes.Buffer)
 
+	// ignore returned error; the reason is bytes.Buffer passed as a Writer
+	// which is always return nil as error
 	_ = binary.Write(key, binary.LittleEndian, int64(podSize(len(keyID))))
 	_ = binary.Write(key, binary.LittleEndian, int64(len(keyID)))
 	_ = binary.Write(key, binary.LittleEndian, int64(len(keyType)))
@@ -70,7 +72,6 @@ func aesKey() ([]byte, error) {
 		return nil, fmt.Errorf("failed to generate random sequence of bytes: %v", err)
 	}
 
-	obfuscator := []byte(obfuscator)
 	for i := 0; i < len(aes); i++ {
 		aes[i] ^= obfuscator[i%len(obfuscator)]
 	}

@@ -31,16 +31,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileKeyring(cr *api.PerconaXtraDBCl
 	if errors.IsNotFound(err) {
 		log.Info("keyring secret not found create a new one")
 
-		owner, err := OwnerRef(cr, r.scheme)
-		if err != nil {
-			return err
-		}
-		ownerReferences := []metav1.OwnerReference{owner}
 		secretObj = corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:            "keyring",
-				Namespace:       cr.Namespace,
-				OwnerReferences: ownerReferences,
+				Name:      "keyring",
+				Namespace: cr.Namespace,
 			},
 			Data: make(map[string][]byte),
 		}

@@ -121,7 +121,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			},
 			{
 				Name:      "keyring",
-				MountPath: "/var/lib/mysql-all-keyring",
+				MountPath: "/var/lib/mysql-keyrings",
 			},
 		},
 		Env: []corev1.EnvVar{

@@ -14,14 +14,14 @@ func Job(cr *api.PerconaXtraDBCluster) *batchv1.Job {
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
+			Name:      cr.Name + "-pxc-user-manager",
 			Namespace: cr.Namespace,
 		},
 	}
 }
 
-func JobSpec(rootPass string, conns string, job *batchv1.Job) batchv1.JobSpec {
-	backbackoffLimit := int32(1)
+func JobSpec(rootPass, conns, image string, job *batchv1.Job) batchv1.JobSpec {
+	backbackoffLimit := int32(3)
 	return batchv1.JobSpec{
 		BackoffLimit: &backbackoffLimit,
 		Template: corev1.PodTemplateSpec{
@@ -29,8 +29,8 @@ func JobSpec(rootPass string, conns string, job *batchv1.Job) batchv1.JobSpec {
 				RestartPolicy: corev1.RestartPolicyNever,
 				Containers: []corev1.Container{
 					{
-						Name:            "pxcusers",
-						Image:           "",
+						Name:            job.Name,
+						Image:           image + "-docker",
 						ImagePullPolicy: corev1.PullAlways,
 						VolumeMounts: []corev1.VolumeMount{
 							{

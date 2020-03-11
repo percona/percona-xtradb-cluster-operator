@@ -52,6 +52,7 @@ run_recovery_check() {
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
 
+    sleep 20
     desc 'check data after backup'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"

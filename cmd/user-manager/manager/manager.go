@@ -2,11 +2,11 @@ package manager
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
+
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -41,7 +41,7 @@ func New(hosts []string, rootPass, secretPath string) (Manager, error) {
 	var um Manager
 	var err error
 	for _, host := range hosts {
-		mysqlDB, err := sql.Open("mysql", "root:"+rootPass+"@tcp("+host+")/")
+		mysqlDB, err := sql.Open("mysql", "root:"+rootPass+"@tcp("+host+")/?interpolateParams=true")
 		if err != nil {
 			return um, errors.Wrap(err, "create db connection")
 		}
@@ -76,46 +76,80 @@ func (u *Manager) GetUsers() error {
 
 func (u *Manager) ManageUsers() error {
 	defer u.db.Close()
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
 	for _, user := range u.Users {
 		for _, host := range user.Hosts {
-			tx, err := u.db.Begin()
-			if err != nil {
-				return errors.Wrap(err, "begin transaction")
-			}
 			log.Println("drop user", user.Name)
-			_, err = u.db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%s'", user.Name, host))
+			_, err = tx.Exec("DROP USER IF EXISTS ?@?", user.Name, host)
 			if err != nil {
 				tx.Rollback()
-				return errors.Wrap(err, "drop user")
+				return errors.Wrap(err, "drop user with query")
 			}
-
-			log.Println("create user", user.Name)
-			_, err = u.db.Exec(fmt.Sprintf("CREATE USER '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, user.Pass))
+			_, err = tx.Exec("CREATE USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)
 			if err != nil {
 				tx.Rollback()
-				return errors.Wrap(err, "create user")
+				return errors.Wrap(err, "cretae user")
 			}
-
 			for _, table := range user.Tables {
 				log.Println("grant privileges for user ", user.Name)
-				_, err = u.db.Exec(fmt.Sprintf("GRANT %s ON %s TO '%s'@'%s'", table.Privileges, table.Name, user.Name, host))
+				err = grant(user, table, host, tx)
 				if err != nil {
-					tx.Rollback()
 					return errors.Wrap(err, "grant privileges")
 				}
 			}
 			log.Println("flush privileges for user ", user.Name)
-			_, err = u.db.Exec("FLUSH PRIVILEGES")
+			_, err = tx.Exec("FLUSH PRIVILEGES")
 			if err != nil {
 				tx.Rollback()
 				return errors.Wrap(err, "flush privileges")
 			}
-
-			err = tx.Commit()
-			if err != nil {
-				return errors.Wrap(err, "commit transaction")
-			}
 		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit transaction")
+	}
+	return nil
+}
+
+func grant(user User, table Table, host string, tx *sql.Tx) error {
+	_, err := tx.Exec(`SET @username = ?`, user.Name)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "set usernmae")
+	}
+	_, err = tx.Exec(`SET @userhost = ?`, host)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "set host")
+	}
+	_, err = tx.Exec(`SET @table = ?`, table.Name)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "set table")
+	}
+	_, err = tx.Exec(`SET @priveleges = ?`, table.Privileges)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "set priveleges")
+	}
+	_, err = tx.Exec(`SET @grantUser = CONCAT('GRANT ',@priveleges,' ON ',@table,' TO "',@username,'"@"',@userhost,'" ')`)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "cretae user")
+	}
+	_, err = tx.Exec(`PREPARE st FROM @grantUser`)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "prepare grant")
+	}
+	_, err = tx.Exec(`EXECUTE st`)
+	if err != nil {
+		tx.Rollback()
+		return errors.Wrap(err, "exec grant st")
 	}
 
 	return nil

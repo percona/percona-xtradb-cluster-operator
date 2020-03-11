@@ -139,7 +139,7 @@ func grant(user User, table Table, host string, tx *sql.Tx) error {
 	_, err = tx.Exec(`SET @grantUser = CONCAT('GRANT ',@priveleges,' ON ',@table,' TO "',@username,'"@"',@userhost,'" ')`)
 	if err != nil {
 		tx.Rollback()
-		return errors.Wrap(err, "cretae user")
+		return errors.Wrap(err, "create grant user")
 	}
 	_, err = tx.Exec(`PREPARE st FROM @grantUser`)
 	if err != nil {

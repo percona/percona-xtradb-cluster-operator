@@ -20,7 +20,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
-	if len(cr.Spec.UsersSecrets) == 0 {
+
+	if len(cr.Spec.Users.Secrets) == 0 {
 		return nil
 	}
 	secretObj := corev1.Secret{}
@@ -48,7 +49,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "get operator deployment")
 	}
 
-	for _, secretName := range cr.Spec.UsersSecrets {
+	for _, secretName := range cr.Spec.Users.Secrets {
 		err = r.handleUsersSecret(secretName, operator.Spec.Containers[0].Image, secretObj, cr)
 		if err != nil {
 			log.Error(err, "handle users secret "+secretName)
@@ -97,7 +98,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName, containerI
 	}
 
 	job := users.Job(cr)
-	job.Spec = users.JobSpec(string(secretObj.Data["root"]), cr.Name+"-pxc", containerImage, job)
+	job.Spec = users.JobSpec(string(secretObj.Data["root"]), cr.Name+"-pxc", containerImage, job, cr)
 
 	currentJob := new(batchv1.Job)
 

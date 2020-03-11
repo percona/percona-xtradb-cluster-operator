@@ -19,7 +19,7 @@ type PerconaXtraDBClusterSpec struct {
 	Platform              *Platform                            `json:"platform,omitempty"`
 	Pause                 bool                                 `json:"pause,omitempty"`
 	SecretsName           string                               `json:"secretsName,omitempty"`
-	UsersSecrets          []string                             `json:"usersSecrets,omitempty"`
+	Users                 UsersSpec                            `json:"users,omitempty"`
 	SSLSecretName         string                               `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
 	PXC                   *PodSpec                             `json:"pxc,omitempty"`
@@ -205,6 +205,20 @@ type BackupStorageS3Spec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
 	Region            string `json:"region,omitempty"`
 	EndpointURL       string `json:"endpointUrl,omitempty"`
+}
+
+type UsersSpec struct {
+	Secrets                  []string                   `json:"secrets,omitempty"`
+	NodeSelector             map[string]string          `json:"nodeSelector,omitempty"`
+	Resources                *PodResources              `json:"resources,omitempty"`
+	Affinity                 *corev1.Affinity           `json:"affinity,omitempty"`
+	Tolerations              []corev1.Toleration        `json:"tolerations,omitempty"`
+	Annotations              map[string]string          `json:"annotations,omitempty"`
+	Labels                   map[string]string          `json:"labels,omitempty"`
+	SchedulerName            string                     `json:"schedulerName,omitempty"`
+	PriorityClassName        string                     `json:"priorityClassName,omitempty"`
+	PodSecurityContext       *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
 }
 
 type VolumeSpec struct {

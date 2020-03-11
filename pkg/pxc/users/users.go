@@ -2,35 +2,57 @@ package users
 
 import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
+var log = logf.Log.WithName("users-manager")
+
 func Job(cr *api.PerconaXtraDBCluster) *batchv1.Job {
+	labels := make(map[string]string)
+	for key, value := range cr.Spec.Users.Labels {
+		labels[key] = value
+	}
+	labels["type"] = "user-manager"
+	labels["cluster"] = cr.Name
+	labels["job-name"] = cr.Name + "-pxc-user-manager"
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pxc-user-manager",
-			Namespace: cr.Namespace,
+			Name:        labels["job-name"],
+			Labels:      labels,
+			Namespace:   cr.Namespace,
+			Annotations: cr.Spec.Users.Annotations,
 		},
 	}
 }
 
-func JobSpec(rootPass, conns, image string, job *batchv1.Job) batchv1.JobSpec {
+func JobSpec(rootPass, conns, image string, job *batchv1.Job, cr *api.PerconaXtraDBCluster) batchv1.JobSpec {
+	resources, err := app.CreateResources(cr.Spec.Users.Resources)
+	if err != nil {
+		log.Info("cannot parse users resources: ", err)
+	}
 	backbackoffLimit := int32(3)
 	return batchv1.JobSpec{
 		BackoffLimit: &backbackoffLimit,
 		Template: corev1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      job.Labels,
+				Annotations: cr.Spec.Users.Annotations,
+			},
 			Spec: corev1.PodSpec{
 				RestartPolicy: corev1.RestartPolicyNever,
 				Containers: []corev1.Container{
 					{
 						Name:            job.Name,
 						Image:           image + "-docker",
+						SecurityContext: cr.Spec.Users.ContainerSecurityContext,
 						ImagePullPolicy: corev1.PullAlways,
 						VolumeMounts: []corev1.VolumeMount{
 							{
@@ -49,7 +71,8 @@ func JobSpec(rootPass, conns, image string, job *batchv1.Job) batchv1.JobSpec {
 								Value: rootPass,
 							},
 						},
-						Command: []string{"user-manager"},
+						Command:   []string{"user-manager"},
+						Resources: resources,
 					},
 				},
 				Volumes: []corev1.Volume{
@@ -62,6 +85,12 @@ func JobSpec(rootPass, conns, image string, job *batchv1.Job) batchv1.JobSpec {
 						},
 					},
 				},
+				Affinity:          cr.Spec.Users.Affinity,
+				Tolerations:       cr.Spec.Users.Tolerations,
+				NodeSelector:      cr.Spec.Users.NodeSelector,
+				SchedulerName:     cr.Spec.Users.SchedulerName,
+				PriorityClassName: cr.Spec.Users.PriorityClassName,
+				SecurityContext:   cr.Spec.Users.PodSecurityContext,
 			},
 		},
 	}

@@ -33,7 +33,7 @@ func Job(cr *api.PerconaXtraDBCluster) *batchv1.Job {
 	}
 }
 
-func JobSpec(rootPass, conns, image string, job *batchv1.Job, cr *api.PerconaXtraDBCluster) batchv1.JobSpec {
+func JobSpec(rootPass, conns, image string, job *batchv1.Job, cr *api.PerconaXtraDBCluster, imagePullSecrets []corev1.LocalObjectReference) batchv1.JobSpec {
 	resources, err := app.CreateResources(cr.Spec.Users.Resources)
 	if err != nil {
 		log.Info("cannot parse users resources: ", err)
@@ -47,7 +47,8 @@ func JobSpec(rootPass, conns, image string, job *batchv1.Job, cr *api.PerconaXtr
 				Annotations: cr.Spec.Users.Annotations,
 			},
 			Spec: corev1.PodSpec{
-				RestartPolicy: corev1.RestartPolicyNever,
+				RestartPolicy:    corev1.RestartPolicyNever,
+				ImagePullSecrets: imagePullSecrets,
 				Containers: []corev1.Container{
 					{
 						Name:            job.Name,

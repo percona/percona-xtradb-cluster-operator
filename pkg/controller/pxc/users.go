@@ -50,7 +50,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	}
 
 	for _, secretName := range cr.Spec.Users.Secrets {
-		err = r.handleUsersSecret(secretName, operator.Spec.Containers[0].Image, secretObj, cr)
+		err = r.handleUsersSecret(secretName, operator, secretObj, cr)
 		if err != nil {
 			log.Error(err, "handle users secret "+secretName)
 		}
@@ -59,7 +59,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName, containerImage string, secretObj corev1.Secret, cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, operatorPod corev1.Pod, secretObj corev1.Secret, cr *api.PerconaXtraDBCluster) error {
+	containerImage := operatorPod.Spec.Containers[0].Image
+	imagePullSecrets := operatorPod.Spec.ImagePullSecrets
 	usersSecretObj := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -98,7 +100,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName, containerI
 	}
 
 	job := users.Job(cr)
-	job.Spec = users.JobSpec(string(secretObj.Data["root"]), cr.Name+"-pxc", containerImage, job, cr)
+	job.Spec = users.JobSpec(string(secretObj.Data["root"]), cr.Name+"-pxc", containerImage, job, cr, imagePullSecrets)
 
 	currentJob := new(batchv1.Job)
 

@@ -19,7 +19,13 @@ main() {
     kubectl_bin apply -f "${conf_dir}/cloud-secret.yml" 
 
     kubectl_bin apply -f "${test_dir}/conf/crd_backup.yml"
-    kubectl_bin apply -f "${test_dir}/conf/backup.yml"
+
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]]; then
+        desc 'Switch to 8.0 backup'
+        kubectl_bin apply -f "${test_dir}/conf/backup.yml"
+    else
+        kubectl_bin apply -f "${test_dir}/conf/backup57.yml"
+    fi
     sleep 10
 
     kubectl_bin apply -f "${test_dir}/conf/restore-backup.yml"

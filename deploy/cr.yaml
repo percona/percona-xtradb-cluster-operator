@@ -8,8 +8,9 @@ metadata:
 #    - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
-#  usersSecrets:
-#  - "secret-for-users"
+  users:
+    secrets:
+    - "secret-for-users"
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
   allowUnsafeConfigurations: false
@@ -82,7 +83,7 @@ spec:
     gracePeriod: 600
   proxysql:
     enabled: true
-    size: 3
+    size: 1
     image: percona/percona-xtradb-cluster-operator:1.3.0-proxysql
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:

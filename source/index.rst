@@ -49,6 +49,7 @@ Configuration
    proxysql-conf
    TLS
    pause
+   recovery
 
 Reference
 =============

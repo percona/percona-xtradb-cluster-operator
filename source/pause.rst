@@ -1,4 +1,4 @@
-.. _operator.pause:
+.. _operator-pause:
 
 `Pause/resume Percona XtraDB Cluster <pause.html#pause>`_
 ===============================================================================

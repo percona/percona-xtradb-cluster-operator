@@ -14,7 +14,7 @@ continuously restarting, and generates the following errors in the log::
 .. note:: To avoid this, shutdown your cluster correctly
    as it is written in :ref:`operator-pause`.
 
-Obviously, these continuous restarts prevent to get ssh access to the container,
+Obviously, these continuous restarts prevent to get console access to the container,
 and so a special approach is needed to make fixes.
 
 The Percona Operator for Percona XtraDB Cluster provides two ways of recovery

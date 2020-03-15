@@ -85,6 +85,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
 
     echo "The $TEST_NAME test was finished!"
 }
+
 void installRpms() {
     sh '''
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
@@ -209,7 +210,7 @@ pipeline {
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
-                            golang:1.12 sh -c '
+                            golang:1.13 sh -c '
                                 go mod init \
                                 && go build ./... \
                                 && rm -rf Gopkg.lock Gopkg.toml vendor \
@@ -219,12 +220,18 @@ pipeline {
                     "
                 '''
 
-                sh """
-                    golicense ./percona-xtradb-cluster-operator \
-                        | grep -v 'license not found' \
-                        | awk '{print \$2}' | sort | uniq > golicense-new || true
-                    diff -u e2e-tests/license/compare/golicense golicense-new
-                """
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
+                    sh """
+                        golicense -plain ./percona-xtradb-cluster-operator \
+                            | grep -v 'license not found' \
+                            | sed -r 's/^[^ ]+[ ]+//' \
+                            | sort \
+                            | uniq \
+                            > golicense-new || true
+
+                        diff -u e2e-tests/license/compare/golicense golicense-new
+                    """
+                }
             }
         }
         stage('Run tests for operator') {
@@ -257,6 +264,7 @@ pipeline {
                         runTest('scaling-proxysql', 'scaling')
                         runTest('upgrade', 'scaling')
                         runTest('upgrade-consistency', 'scaling')
+                        runTest('security-context', 'scaling')
                         ShutdownCluster('scaling')
                     }
                 }
@@ -307,7 +315,8 @@ pipeline {
                             """
                         }
                     }
-                } else {
+                }
+                else {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                 }
             }

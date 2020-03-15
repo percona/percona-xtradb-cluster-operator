@@ -248,11 +248,11 @@ pipeline {
                     steps {
                         CreateCluster('basic')
                         runTest('init-deploy', 'basic')
-                        runTest('storage', 'basic')
                         runTest('limits', 'basic')
                         runTest('monitoring', 'basic')
-                        runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
+                        runTest('one-pod', 'basic')
+                        runTest('auto-tuning', 'basic')
                         runTest('proxysql-sidecar-res-limits', 'basic')
                         ShutdownCluster('basic')
                    }
@@ -271,11 +271,11 @@ pipeline {
                 stage('E2E SelfHealing') {
                     steps {
                         CreateCluster('selfhealing')
+                        runTest('storage', 'selfhealing')
                         runTest('self-healing', 'selfhealing')
                         runTest('self-healing-advanced', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
-                        runTest('one-pod', 'selfhealing')
-                        runTest('auto-tuning', 'selfhealing')
+                        runTest('monitoring-2-0', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }

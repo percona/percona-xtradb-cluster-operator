@@ -250,6 +250,7 @@ pipeline {
                         runTest('init-deploy', 'basic')
                         runTest('limits', 'basic')
                         runTest('monitoring', 'basic')
+                        runTest('monitoring-2-0', 'basic')
                         runTest('affinity', 'basic')
                         runTest('one-pod', 'basic')
                         runTest('auto-tuning', 'basic')
@@ -275,7 +276,6 @@ pipeline {
                         runTest('self-healing', 'selfhealing')
                         runTest('self-healing-advanced', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
-                        runTest('monitoring-2-0', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }

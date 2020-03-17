@@ -43,7 +43,8 @@ func New(hosts []string, rootPass, secretPath string) (Manager, error) {
 	for _, host := range hosts {
 		mysqlDB, err := sql.Open("mysql", "root:"+rootPass+"@tcp("+host+")/?interpolateParams=true")
 		if err != nil {
-			return um, errors.Wrap(err, "create db connection")
+			log.Println(errors.Wrap(err, "create db connection"))
+			continue
 		}
 		um.db = mysqlDB
 		log.Println("using  host: " + host)

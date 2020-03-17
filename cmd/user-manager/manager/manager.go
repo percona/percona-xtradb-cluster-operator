@@ -7,6 +7,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/user-manager/proxy"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -111,6 +112,11 @@ func (u *Manager) ManageUsers() error {
 	err = tx.Commit()
 	if err != nil {
 		return errors.Wrap(err, "commit transaction")
+	}
+
+	err := proxy.SyncUsers()
+	if err != nil {
+		return errors.Wrap(err, "sync users")
 	}
 	return nil
 }

@@ -28,6 +28,8 @@ build_operator() {
             -ldflags '-w -s -X main.GitCommit=${GIT_COMMIT} -X main.GitBranch=${GIT_BRANCH}' \
             -o build/_output/bin/user-manager \
             cmd/user-manager/main.go
+        cd /go/src/${package}/build/_output/bin
+        git clone https://github.com/percona/proxysql-admin-tool
     "
 
     dockerfile=build/Dockerfile

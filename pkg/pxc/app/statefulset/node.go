@@ -175,6 +175,13 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 
+	if cr.CompareVersionWith("1.4.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "vault-keyring-secret",
+			MountPath: "/etc/mysql/vault-keyring-secret",
+		})
+	}
+
 	res, err := app.CreateResources(spec.Resources)
 	if err != nil {
 		return appc, fmt.Errorf("create resources error: %v", err)
@@ -259,6 +266,11 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 		vol.Volumes = append(
 			vol.Volumes,
 			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
+	}
+	if cr.CompareVersionWith("1.4.0") >= 0 {
+		vol.Volumes = append(
+			vol.Volumes,
+			app.GetSecretVolumes("vault-keyring-secret", "vault-keyring-secret", true))
 	}
 	return vol, nil
 }

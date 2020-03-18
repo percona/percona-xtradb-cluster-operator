@@ -87,15 +87,75 @@ start_minio() {
         /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
 }
 
+start_vault() {
+    deploy_helm "$namespace"
+
+    desc 'install Vault'
+    helm del --purge vault-service  || :
+    helm install --name vault-service "$conf_dir/vault-helm"
+
+    set +o xtrace
+    retry=0
+    echo -n pod/vault-service-0
+    until kubectl get pod/vault-service-0 -o 'jsonpath={.status.containerStatuses[0].state}' 2>/dev/null | grep 'running'; do
+        echo -n .
+        sleep 1
+        let retry+=1
+        if [ "$retry" -ge 480 ]; then
+            kubectl_bin describe pod/vault-service-0
+            kubectl_bin logs vault-service-0
+            echo max retry count "$retry" reached. something went wrong with vault
+            exit 1
+        fi
+    done
+    set -o xtrace
+
+    initRes=$(mktemp)
+
+    kubectl exec -it pod/vault-service-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json > "$initRes"
+    unsealKey=$(jq -r ".unseal_keys_b64[]" < "$initRes")
+    token=$(jq -r ".root_token" < "$initRes")
+    ip=$(kubectl get svc vault-service -o 'jsonpath={.spec.clusterIP}')
+    rm "$initRes"
+
+    kubectl exec -it pod/vault-service-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
+
+    kubectl exec -it pod/vault-service-0 -- \
+        sh -c "export VAULT_ADDR=http://$ip:8200 && export VAULT_TOKEN=$token \
+            && vault secrets enable -tls-skip-verify -path=secret kv"
+
+    cat "$conf_dir/vault-secret.yaml" \
+        | sed -e "s/#token/$token/" \
+        | sed -e "s/#vault_url/http:\/\/$ip:8200/" \
+        | kubectl_bin apply -f-
+}
+
 main() {
     create_namespace $namespace
     deploy_operator
     kubectl_bin apply \
         -f $conf_dir/minio-secret.yml \
         -f $conf_dir/cloud-secret.yml
-    start_minio
+    # start_minio
 
     cluster="some-name"
+    # spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+
+    # run_backup         "$cluster" "on-demand-backup-pvc"
+    # run_recovery_check "$cluster" "on-demand-backup-pvc"
+    # check_pvc_md5
+
+    # run_backup         "$cluster" "on-demand-backup-aws-s3"
+    # run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+
+    # run_backup         "$cluster" "on-demand-backup-minio"
+    # run_recovery_check "$cluster" "on-demand-backup-minio"
+
+    # run_backup         "$cluster" "on-demand-backup-gcp-cs"
+    # run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
+
+    start_vault
+
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 
     run_backup         "$cluster" "on-demand-backup-pvc"
@@ -104,12 +164,6 @@ main() {
 
     run_backup         "$cluster" "on-demand-backup-aws-s3"
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
-
-    run_backup         "$cluster" "on-demand-backup-minio"
-    run_recovery_check "$cluster" "on-demand-backup-minio"
-
-    run_backup         "$cluster" "on-demand-backup-gcp-cs"
-    run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
 
     destroy $namespace
 }

@@ -100,7 +100,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, ope
 	}
 
 	job := users.Job(cr)
-	job.Spec = users.JobSpec(string(secretObj.Data["root"]), cr.Name+"-pxc", containerImage, job, cr, imagePullSecrets)
+	job.Spec = users.JobSpec(cr.Name+"-pxc", cr.Name+"-proxysql", containerImage, job, cr, imagePullSecrets)
 
 	currentJob := new(batchv1.Job)
 

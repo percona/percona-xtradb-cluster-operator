@@ -33,7 +33,7 @@ func Job(cr *api.PerconaXtraDBCluster) *batchv1.Job {
 	}
 }
 
-func JobSpec(rootPass, conns, image string, job *batchv1.Job, cr *api.PerconaXtraDBCluster, imagePullSecrets []corev1.LocalObjectReference) batchv1.JobSpec {
+func JobSpec(pxcConn, proxyConn, image string, job *batchv1.Job, cr *api.PerconaXtraDBCluster, imagePullSecrets []corev1.LocalObjectReference) batchv1.JobSpec {
 	resources, err := app.CreateResources(cr.Spec.Users.Resources)
 	if err != nil {
 		log.Info("cannot parse users resources: ", err)
@@ -52,7 +52,7 @@ func JobSpec(rootPass, conns, image string, job *batchv1.Job, cr *api.PerconaXtr
 				Containers: []corev1.Container{
 					{
 						Name:            job.Name,
-						Image:           image + "-docker",
+						Image:           image + "-proxy",
 						SecurityContext: cr.Spec.Users.ContainerSecurityContext,
 						ImagePullPolicy: corev1.PullAlways,
 						VolumeMounts: []corev1.VolumeMount{
@@ -65,11 +65,23 @@ func JobSpec(rootPass, conns, image string, job *batchv1.Job, cr *api.PerconaXtr
 						Env: []corev1.EnvVar{
 							{
 								Name:  "PXC_SERVICE",
-								Value: conns,
+								Value: pxcConn,
 							},
 							{
-								Name:  "MYSQL_ROOT_PASSWORD",
-								Value: rootPass,
+								Name:  "PROXY_SERVICE",
+								Value: pxcConn,
+							},
+							{
+								Name: "MYSQL_ROOT_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: app.SecretKeySelector(cr.Spec.SecretsName, "root"),
+								},
+							},
+							{
+								Name: "PROXY_ADMIN_PASSWORD",
+								ValueFrom: &corev1.EnvVarSource{
+									SecretKeyRef: app.SecretKeySelector(cr.Spec.SecretsName, "proxyadmin"),
+								},
 							},
 						},
 						Command:   []string{"user-manager"},

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-for-users
+type: Opaque
+stringData:
+  secret.yaml: |-
+    users:
+    - username: myuser1
+      password: password111
+      tables:
+      - name: db.table1
+        privileges: SELECT
+      - name: db.table2
+        privileges: DELETE
+      hosts:
+      - "12.34.56.78"
+      - "87.65.43.21"
+    - username: myuser2
+      password: password222222
+      tables:
+      - name: db.table2
+        privileges: SELECT
+      hosts:
+      - "14.24.22.78"

@@ -8,6 +8,7 @@ metadata:
 #    - delete-pxc-pvc
 spec:
   secretsName: my-cluster-secrets
+  vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
   allowUnsafeConfigurations: false

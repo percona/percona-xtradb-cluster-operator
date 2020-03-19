@@ -19,6 +19,7 @@ type PerconaXtraDBClusterSpec struct {
 	Platform              *Platform                            `json:"platform,omitempty"`
 	Pause                 bool                                 `json:"pause,omitempty"`
 	SecretsName           string                               `json:"secretsName,omitempty"`
+	VaultSecretName       string                               `json:"vaultSecretName,omitempty"`
 	SSLSecretName         string                               `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
 	PXC                   *PodSpec                             `json:"pxc,omitempty"`
@@ -47,9 +48,9 @@ type AppState string
 
 const (
 	AppStateUnknown AppState = "unknown"
-	AppStateInit             = "initializing"
-	AppStateReady            = "ready"
-	AppStateError            = "error"
+	AppStateInit    AppState = "initializing"
+	AppStateReady   AppState = "ready"
+	AppStateError   AppState = "error"
 )
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
@@ -135,6 +136,7 @@ type PodSpec struct {
 	AllowUnsafeConfig             bool                          `json:"allowUnsafeConfigurations,omitempty"`
 	Configuration                 string                        `json:"configuration,omitempty"`
 	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
+	VaultSecretName               string                        `json:"vaultSecretName,omitempty"`
 	SSLSecretName                 string                        `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
@@ -320,6 +322,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		changed, err = c.PXC.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return false, fmt.Errorf("PXC.Volume: %v", err)
+		}
+
+		c.PXC.VaultSecretName = c.VaultSecretName
+		if len(c.PXC.VaultSecretName) == 0 {
+			c.PXC.VaultSecretName = cr.Name + "-vault"
 		}
 
 		if len(c.SSLSecretName) > 0 {

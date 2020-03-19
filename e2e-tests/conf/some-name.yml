@@ -6,6 +6,7 @@ metadata:
     - delete-pxc-pods-in-order
 spec:
   secretsName: my-cluster-secrets
+  vaultSecretName: keyring-secret-vault
   pause: false
   pxc:
     size: 3

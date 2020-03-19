@@ -11,14 +11,18 @@ import (
 
 var log = logf.Log.WithName("users-manager")
 
-func Job(cr *api.PerconaXtraDBCluster) *batchv1.Job {
+func Job(cr *api.PerconaXtraDBCluster, secretName string) *batchv1.Job {
 	labels := make(map[string]string)
 	for key, value := range cr.Spec.Users.Labels {
 		labels[key] = value
 	}
-	labels["type"] = "user-manager"
-	labels["cluster"] = cr.Name
-	labels["job-name"] = cr.Name + "-pxc-user-manager"
+
+	labels["app.kubernetes.io/name"] = "percona-xtradb-cluster"
+	labels["app.kubernetes.io/instance"] = cr.Name
+	labels["app.kubernetes.io/component"] = "user-manager"
+	labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
+	labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
+	labels["job-name"] = secretName + "-" + cr.Name + "-pxc-user-manager"
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -33,7 +37,7 @@ func Job(cr *api.PerconaXtraDBCluster) *batchv1.Job {
 	}
 }
 
-func JobSpec(pxcConn, proxyConn, image string, job *batchv1.Job, cr *api.PerconaXtraDBCluster, imagePullSecrets []corev1.LocalObjectReference) batchv1.JobSpec {
+func JobSpec(secretName, image string, job *batchv1.Job, cr *api.PerconaXtraDBCluster, imagePullSecrets []corev1.LocalObjectReference) batchv1.JobSpec {
 	resources, err := app.CreateResources(cr.Spec.Users.Resources)
 	if err != nil {
 		log.Info("cannot parse users resources: ", err)
@@ -65,11 +69,11 @@ func JobSpec(pxcConn, proxyConn, image string, job *batchv1.Job, cr *api.Percona
 						Env: []corev1.EnvVar{
 							{
 								Name:  "PXC_SERVICE",
-								Value: pxcConn,
+								Value: cr.Name + "-pxc",
 							},
 							{
 								Name:  "PROXY_SERVICE",
-								Value: pxcConn,
+								Value: cr.Name + "-proxysql",
 							},
 							{
 								Name: "MYSQL_ROOT_PASSWORD",
@@ -93,7 +97,7 @@ func JobSpec(pxcConn, proxyConn, image string, job *batchv1.Job, cr *api.Percona
 						Name: "userssecret",
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName: "secret-for-users",
+								SecretName: secretName,
 							},
 						},
 					},

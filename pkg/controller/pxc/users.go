@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
-	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -37,19 +36,20 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	} else if err != nil {
 		return errors.Wrapf(err, "get cluster secret '%s'", cr.Spec.SecretsName)
 	}
-	operator := corev1.Pod{}
-	err = r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      os.Getenv("HOSTNAME"),
-		},
-		&operator,
-	)
-	if err != nil {
-		return errors.Wrap(err, "get operator deployment")
-	}
 
 	for _, secretName := range cr.Spec.Users.Secrets {
+		operator := corev1.Pod{}
+		err = r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      os.Getenv("HOSTNAME"),
+			},
+			&operator,
+		)
+		if err != nil {
+			return errors.Wrap(err, "get operator deployment")
+		}
+
 		err = r.handleUsersSecret(secretName, operator, secretObj, cr)
 		if err != nil {
 			log.Error(err, "handle users secret "+secretName)
@@ -94,13 +94,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, ope
 		usersSecretObj.Annotations = make(map[string]string)
 	}
 	usersSecretObj.Annotations["last-applied"] = newHash
+	usersSecretObj.Annotations["status"] = "applying"
 	err = r.client.Update(context.TODO(), &usersSecretObj)
 	if err != nil {
 		return errors.Wrap(err, "update secret last-applied")
 	}
 
-	job := users.Job(cr)
-	job.Spec = users.JobSpec(cr.Name+"-pxc", cr.Name+"-proxysql", containerImage, job, cr, imagePullSecrets)
+	job := users.Job(cr, secretName)
+	job.Spec = users.JobSpec(secretName, containerImage, job, cr, imagePullSecrets)
 
 	currentJob := new(batchv1.Job)
 
@@ -110,14 +111,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, ope
 		if err != nil {
 			return errors.Wrapf(err, "create job '%s'", job.Name)
 		}
-		if len(lastAppliedHash) > 0 {
-			usersSecretObj.Annotations["status"] = "applying"
-			err = r.client.Update(context.TODO(), &usersSecretObj)
-			if err != nil {
-				return errors.Wrap(err, "update secret status")
-			}
-		}
-		time.Sleep(time.Second * 5)
 		return nil
 	} else if err != nil {
 		return errors.Errorf("get user manager job '%s': %v", job.Name, err)
@@ -126,6 +119,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, ope
 	if currentJob.Status.Succeeded+currentJob.Status.Failed > 0 {
 		status := ""
 		if currentJob.Status.Succeeded > 0 {
+			err = r.client.Delete(context.TODO(), currentJob)
+			if err != nil {
+				return errors.Wrap(err, "delete current job")
+			}
 			status = "succeded"
 		}
 		if currentJob.Status.Failed > 0 {
@@ -136,12 +133,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, ope
 		if err != nil {
 			return errors.Wrap(err, "update secret status")
 		}
-		err = r.client.Delete(context.TODO(), currentJob)
-		if err != nil {
-			return errors.Wrap(err, "delete current job")
-		}
-
-		time.Sleep(time.Second * 5)
 	}
 
 	return nil

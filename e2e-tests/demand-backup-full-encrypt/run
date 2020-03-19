@@ -92,11 +92,9 @@ main() {
     deploy_operator
     kubectl_bin apply -f $conf_dir/cloud-secret.yml
 
-    cluster="some-name"
-    spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
-
     start_vault
 
+    cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 
     run_backup         "$cluster" "on-demand-backup-pvc"

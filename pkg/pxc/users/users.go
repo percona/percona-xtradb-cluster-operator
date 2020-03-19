@@ -56,7 +56,7 @@ func JobSpec(secretName, image string, job *batchv1.Job, cr *api.PerconaXtraDBCl
 				Containers: []corev1.Container{
 					{
 						Name:            job.Name,
-						Image:           image + "-proxy",
+						Image:           image,
 						SecurityContext: cr.Spec.Users.ContainerSecurityContext,
 						ImagePullPolicy: corev1.PullAlways,
 						VolumeMounts: []corev1.VolumeMount{

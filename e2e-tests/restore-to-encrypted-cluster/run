@@ -52,6 +52,11 @@ run_recovery_check() {
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
 
+    if [ ! "$(kubectl exec -it pod/$cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" | grep early-plugin-load=keyring_vault.so)" ]; then
+        echo "[ERROR]: data encryption is not turned on in cluster"
+        exit 1
+    fi
+
     sleep 20
     desc 'check data after backup'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
@@ -64,44 +69,26 @@ run_recovery_check() {
     fi
 }
 
-start_minio() {
-    deploy_helm $namespace
-
-    desc 'install Minio'
-    helm del --purge minio-service || :
-    retry 10 60 helm install \
-        --name minio-service \
-        --set accessKey=some-access-key \
-        --set secretKey=some-secret-key \
-        --set service.type=ClusterIP \
-        --set configPath=/tmp/.minio/ \
-        --set persistence.size=2G \
-        --set environment.MINIO_REGION=us-east-1 \
-        --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
-        stable/minio
-    MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
-    wait_pod $MINIO_POD
-
-    kubectl_bin run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
-        /usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-        /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
-}
-
 main() {
     create_namespace $namespace
     deploy_operator
     kubectl_bin apply -f $conf_dir/cloud-secret.yml
 
-    start_vault
-
     cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 
+    if [ "$(kubectl exec -it pod/$cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" | grep early-plugin-load=keyring_vault.so)" ]; then
+        echo "[ERROR]: data encryption is turned on in cluster"
+        exit 1
+    fi
+
     run_backup         "$cluster" "on-demand-backup-pvc"
+    run_backup         "$cluster" "on-demand-backup-aws-s3"
+    
+    start_vault
+
     run_recovery_check "$cluster" "on-demand-backup-pvc"
     check_pvc_md5
-
-    run_backup         "$cluster" "on-demand-backup-aws-s3"
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
 
     destroy $namespace

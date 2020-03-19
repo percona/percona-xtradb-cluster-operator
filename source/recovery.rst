@@ -52,10 +52,9 @@ Object Surgery Crash Recovery method
 
 This method involves the following steps:
 * swap the original PXC image with the debug image, which does not reboot after
-  the crash,
-* find the Pod with the most recent PXC data, temporarily use as the Pod
-  ``0`` (the Pod Operator tries to start first), and allow the cluster to be
-  restarted,
+  the crash, and force all Pods to run it,
+* find the Pod with the most recent PXC data, run recovery on it, start
+  ``mysqld``, and allow the cluster to be restarted,
 * revert all temporary substitutions.
 
 Let's assume that a full crash did occur for the cluster named ``cluster1``,
@@ -76,11 +75,11 @@ which is based on three PXC Pods.
 
          $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"perconalab/percona-xtradb-cluster-operator:master-pxc5.7-debug"}}}'
 
-2.  Restart the Pod ``0``:
+2.  Restart all Pods:
 
    .. code-block:: bash
 
-      $ kubectl delete pod cluster1-pxc-0 --force --grace-period=0 
+      $ $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do kubectl delete pod cluster1-pxc-$i --force --grace-period=0; done
 
 3. Wait until the Pod ``0`` is ready, and execute the following code (it is
    required for the Pod liveness check):
@@ -89,8 +88,8 @@ which is based on three PXC Pods.
 
       $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do until [[ $(kubectl get pod cluster1-pxc-$i -o jsonpath='{.status.phase}') == 'Running' ]]; do sleep 10; done; kubectl exec cluster1-pxc-$i -- touch /var/lib/mysql/sst_in_progress; done
 
-4. Wait for all PXC Pods to start, then find the PXC node with the most recent
-   data - i.e. the one with the highest `sequence number (seqno) <https://www.percona.com/blog/2017/12/14/sequence-numbers-seqno-percona-xtradb-cluster/>`_:
+4. Wait for all PXC Pods to start, then find the PXC instance with the most
+   recent data - i.e. the one with the highest `sequence number (seqno) <https://www.percona.com/blog/2017/12/14/sequence-numbers-seqno-percona-xtradb-cluster/>`_:
 
    .. code-block:: bash
 
@@ -120,16 +119,18 @@ which is based on three PXC Pods.
    Now find the Pod with the largest ``seqno`` (it is ``cluster1-pxc-2`` in the
    above example).
 
-5. Now execute the following commands *in a separate shell* to start this node:
+5. Now execute the following commands *in a separate shell* to start this
+   instance:
 
    .. code-block:: bash
 
+      $ kubectl exec cluster1-pxc-2 -- mysqld --wsrep_recover
       $ kubectl exec cluster1-pxc-2 -- sed -i 's/safe_to_bootstrap: 0/safe_to_bootstrap: 1/g' /var/lib/mysql/grastate.dat
       $ kubectl exec cluster1-pxc-2 -- sed -i 's/wsrep_cluster_address=.*/wsrep_cluster_address=gcomm:\/\//g' /etc/mysql/node.cnf
       $ kubectl exec cluster1-pxc-2 -- mysqld
 
-   The ``mysqld`` process will start and initialize the database once again,
-   and it will be available for the incoming connections.
+   The ``mysqld`` process will initialize the database once again, and it will
+   be available for the incoming connections.
 
 6. Now go back to the original PXC image because the debug image is no longer
    needed:

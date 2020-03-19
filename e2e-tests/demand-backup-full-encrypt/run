@@ -90,12 +90,13 @@ start_minio() {
 main() {
     create_namespace $namespace
     deploy_operator
-    kubectl_bin apply \
-        -f $conf_dir/minio-secret.yml \
-        -f $conf_dir/cloud-secret.yml
-    start_minio
+    kubectl_bin apply -f $conf_dir/cloud-secret.yml
 
     cluster="some-name"
+    spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+
+    start_vault
+
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 
     run_backup         "$cluster" "on-demand-backup-pvc"
@@ -104,12 +105,6 @@ main() {
 
     run_backup         "$cluster" "on-demand-backup-aws-s3"
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
-
-    run_backup         "$cluster" "on-demand-backup-minio"
-    run_recovery_check "$cluster" "on-demand-backup-minio"
-
-    run_backup         "$cluster" "on-demand-backup-gcp-cs"
-    run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
 
     destroy $namespace
 }

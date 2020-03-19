@@ -562,3 +562,46 @@ retry() {
         sleep $delay
     done
 }
+
+start_vault() {
+    deploy_helm "$namespace"
+
+    desc 'install Vault'
+    helm del --purge vault-service  || :
+    helm install --name vault-service "$conf_dir/vault-helm"
+
+    set +o xtrace
+    retry=0
+    echo -n pod/vault-service-0
+    until kubectl get pod/vault-service-0 -o 'jsonpath={.status.containerStatuses[0].state}' 2>/dev/null | grep 'running'; do
+        echo -n .
+        sleep 1
+        let retry+=1
+        if [ "$retry" -ge 480 ]; then
+            kubectl_bin describe pod/vault-service-0
+            kubectl_bin logs vault-service-0
+            echo max retry count "$retry" reached. something went wrong with vault
+            exit 1
+        fi
+    done
+    set -o xtrace
+
+    initRes=$(mktemp)
+
+    kubectl exec -it pod/vault-service-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json > "$initRes"
+    unsealKey=$(jq -r ".unseal_keys_b64[]" < "$initRes")
+    token=$(jq -r ".root_token" < "$initRes")
+    ip=$(kubectl get svc vault-service -o 'jsonpath={.spec.clusterIP}')
+    rm "$initRes"
+
+    kubectl exec -it pod/vault-service-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
+
+    kubectl exec -it pod/vault-service-0 -- \
+        sh -c "export VAULT_ADDR=http://$ip:8200 && export VAULT_TOKEN=$token \
+            && vault secrets enable -tls-skip-verify -path=secret kv"
+
+    cat "$conf_dir/vault-secret.yaml" \
+        | sed -e "s/#token/$token/" \
+        | sed -e "s/#vault_url/http:\/\/$ip:8200/" \
+        | kubectl_bin apply -f-
+}

@@ -11,7 +11,7 @@ import (
 
 var log = logf.Log.WithName("users-manager")
 
-func Job(cr *api.PerconaXtraDBCluster, secretName string) *batchv1.Job {
+func Job(cr *api.PerconaXtraDBCluster, secretName, secretHash string) *batchv1.Job {
 	labels := make(map[string]string)
 	for key, value := range cr.Spec.Users.Labels {
 		labels[key] = value
@@ -23,6 +23,7 @@ func Job(cr *api.PerconaXtraDBCluster, secretName string) *batchv1.Job {
 	labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
 	labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
 	labels["job-name"] = secretName + "-" + cr.Name + "-pxc-user-manager"
+	labels["secret-hash"] = secretHash
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",

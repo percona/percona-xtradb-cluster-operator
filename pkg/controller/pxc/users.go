@@ -23,34 +23,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	if len(cr.Spec.Users.Secrets) == 0 {
 		return nil
 	}
-	secretObj := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      cr.Spec.SecretsName,
-		},
-		&secretObj,
-	)
-	if err != nil && k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Wrapf(err, "get cluster secret '%s'", cr.Spec.SecretsName)
-	}
 
 	for _, secretName := range cr.Spec.Users.Secrets {
-		operator := corev1.Pod{}
-		err = r.client.Get(context.TODO(),
-			types.NamespacedName{
-				Namespace: cr.Namespace,
-				Name:      os.Getenv("HOSTNAME"),
-			},
-			&operator,
-		)
-		if err != nil {
-			return errors.Wrap(err, "get operator deployment")
-		}
-
-		err = r.handleUsersSecret(secretName, operator, secretObj, cr)
+		err := r.handleUsersSecret(secretName, cr)
 		if err != nil {
 			log.Error(err, "handle users secret "+secretName)
 		}
@@ -59,9 +34,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, operatorPod corev1.Pod, secretObj corev1.Secret, cr *api.PerconaXtraDBCluster) error {
-	containerImage := operatorPod.Spec.Containers[0].Image
-	imagePullSecrets := operatorPod.Spec.ImagePullSecrets
+func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr *api.PerconaXtraDBCluster) error {
 	usersSecretObj := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -73,7 +46,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, ope
 	if err != nil && k8serrors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
-		return errors.Wrapf(err, "get users secret '%s'", "secret-for-users")
+		return errors.Wrapf(err, "get users secret '%s'", secretName)
 	}
 
 	newHash := ""
@@ -100,11 +73,23 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, ope
 		return errors.Wrap(err, "update secret last-applied")
 	}
 
-	job := users.Job(cr, secretName)
+	operatorPod := corev1.Pod{}
+	err = r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      os.Getenv("HOSTNAME"),
+		},
+		&operatorPod,
+	)
+	if err != nil {
+		return errors.Wrap(err, "get operator deployment")
+	}
+	containerImage := operatorPod.Spec.Containers[0].Image
+	imagePullSecrets := operatorPod.Spec.ImagePullSecrets
+	job := users.Job(cr, secretName, newHash)
 	job.Spec = users.JobSpec(secretName, containerImage, job, cr, imagePullSecrets)
 
 	currentJob := new(batchv1.Job)
-
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: cr.Namespace}, currentJob)
 	if err != nil && k8serrors.IsNotFound(err) {
 		err = r.client.Create(context.TODO(), job)
@@ -114,6 +99,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, ope
 		return nil
 	} else if err != nil {
 		return errors.Errorf("get user manager job '%s': %v", job.Name, err)
+	}
+
+	if currentJob.Labels["secret-hash"] != newHash {
+		err = r.client.Delete(context.TODO(), currentJob)
+		if err != nil {
+			return errors.Wrap(err, "delete out of date job")
+		}
+		return nil
 	}
 
 	if currentJob.Status.Succeeded+currentJob.Status.Failed > 0 {

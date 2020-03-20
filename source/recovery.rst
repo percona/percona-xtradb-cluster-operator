@@ -67,13 +67,13 @@ which is based on three PXC Pods.
 
    .. code-block:: bash
 
-      $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"perconalab/percona-xtradb-cluster-operator:master-pxc8.0-debug"}}}'
+      $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-debug"}}}'
 
    .. note:: For PXC 5.7 this command should be as follows:
 
       .. code-block:: bash
 
-         $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"perconalab/percona-xtradb-cluster-operator:master-pxc5.7-debug"}}}'
+         $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-debug"}}}'
 
 2.  Restart all Pods:
 
@@ -132,21 +132,20 @@ which is based on three PXC Pods.
    The ``mysqld`` process will initialize the database once again, and it will
    be available for the incoming connections.
 
-6. Now go back to the original PXC image because the debug image is no longer
-   needed:
+6. Go back *to the previous shell* and return the original PXC image because the
+   debug image is no longer needed:
 
    .. code-block:: bash
 
-      $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"perconalab/percona-xtradb-cluster-operator:master-pxc8.0"}}}'
+      $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0"}}}'
 
    .. note:: For PXC 5.7 this command should be as follows:
 
       .. code-block:: bash
 
-         $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"perconalab/percona-xtradb-cluster-operator:master-pxc5.7"}}}'
+         $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7"}}}'
 
-7. Go back *to the previous shell* and restart all Pods besides the
-   ``cluster1-pxc-2`` Pod (the recovery donor).
+7. Restart all Pods besides the ``cluster1-pxc-2`` Pod (the recovery donor).
 
    .. code-block:: bash
 

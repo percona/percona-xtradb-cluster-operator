@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	DataVolumeName = "datadir"
+	DataVolumeName        = "datadir"
+	VaultSecretVolumeName = "vault-keyring-secret"
 )
 
 type Node struct {
@@ -177,7 +178,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 
 	if cr.CompareVersionWith("1.4.0") >= 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "vault-keyring-secret",
+			Name:      VaultSecretVolumeName,
 			MountPath: "/etc/mysql/vault-keyring-secret",
 		})
 	}
@@ -270,7 +271,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 	if cr.CompareVersionWith("1.4.0") >= 0 {
 		vol.Volumes = append(
 			vol.Volumes,
-			app.GetSecretVolumes("vault-keyring-secret", "vault-keyring-secret", true))
+			app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true))
 	}
 	return vol, nil
 }

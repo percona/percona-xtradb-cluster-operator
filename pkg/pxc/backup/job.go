@@ -114,6 +114,14 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) err
 	secretIntVol.Secret.SecretName = cr.Spec.PXC.SSLInternalSecretName
 	secretIntVol.Secret.Optional = &t
 
+	// Volume for vault secret
+	secretVaultVol := corev1.Volume{
+		Name: "vault-keyring-secret",
+	}
+	secretVaultVol.Secret = &corev1.SecretVolumeSource{}
+	secretVaultVol.Secret.SecretName = cr.Spec.PXC.VaultSecretName
+	secretVaultVol.Secret.Optional = &t
+
 	if len(job.Template.Spec.Containers) == 0 {
 		return errors.New("no containers in job spec")
 	}
@@ -127,11 +135,16 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) err
 			Name:      "ssl-internal",
 			MountPath: "/etc/mysql/ssl-internal",
 		},
+		corev1.VolumeMount{
+			Name:      "vault-keyring-secret",
+			MountPath: "/etc/mysql/vault-keyring-secret",
+		},
 	)
 	job.Template.Spec.Volumes = append(
 		job.Template.Spec.Volumes,
 		secretVol,
 		secretIntVol,
+		secretVaultVol,
 	)
 
 	return nil

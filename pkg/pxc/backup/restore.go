@@ -97,6 +97,10 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 							Name:      "ssl-internal",
 							MountPath: "/etc/mysql/ssl-internal",
 						},
+						{
+							Name:      "vault-keyring-secret",
+							MountPath: "/etc/mysql/vault-keyring-secret",
+						},
 					},
 					Resources: resources,
 				},
@@ -112,6 +116,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 				},
 				app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLInternalSecretName, true),
 				app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.PXC.AllowUnsafeConfig),
+				app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
 			},
 			RestartPolicy:     corev1.RestartPolicyAlways,
 			NodeSelector:      cluster.Backup.Storages[bcp.Status.StorageName].NodeSelector,
@@ -142,6 +147,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 		jobPVC,
 		app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.PXC.AllowUnsafeConfig),
+		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
 	}
 
 	job := &batchv1.Job{
@@ -181,6 +187,10 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 								{
 									Name:      "ssl-internal",
 									MountPath: "/etc/mysql/ssl-internal",
+								},
+								{
+									Name:      "vault-keyring-secret",
+									MountPath: "/etc/mysql/vault-keyring-secret",
 								},
 							},
 							Env: []corev1.EnvVar{
@@ -243,6 +253,11 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		},
 	}
 
+	jobPVCs := []corev1.Volume{
+		jobPVC,
+		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
+	}
+
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -272,6 +287,10 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 								{
 									Name:      "datadir",
 									MountPath: "/datadir",
+								},
+								{
+									Name:      "vault-keyring-secret",
+									MountPath: "/etc/mysql/vault-keyring-secret",
 								},
 							},
 							Env: []corev1.EnvVar{
@@ -314,7 +333,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 						},
 					},
 					RestartPolicy:     corev1.RestartPolicyNever,
-					Volumes:           []corev1.Volume{jobPVC},
+					Volumes:           jobPVCs,
 					NodeSelector:      cluster.PXC.NodeSelector,
 					Affinity:          cluster.PXC.Affinity.Advanced,
 					Tolerations:       cluster.PXC.Tolerations,

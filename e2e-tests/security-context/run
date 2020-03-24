@@ -5,7 +5,6 @@ set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
-. ${test_dir}/func
 
 create_namespace $namespace
 deploy_cert_manager

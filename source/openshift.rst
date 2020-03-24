@@ -84,14 +84,7 @@ Install Percona XtraDB Cluster on OpenShift
 
    More details about secrets can be found in `Users <users.html>`_.
 
-5. Install `cert-manager <https://docs.cert-manager.io/en/release-0.8/getting-started/install/openshift.html>`_ if it is not up and running yet then generate and apply certificates as secrets according to `TLS document <TLS.html>`_:
-
-   Pre-generated certificates are awailable in the ``deploy/ssl-secrets.yaml`` secrets file for test purposes, but we strongly recommend avoiding their usage on any production system.
-   .. code:: bash
-
-      $ oc apply -f <secrets file>
-
-6. After the operator is started and user secrets are added, Percona
+5. After the operator is started and user secrets are added, Percona
    XtraDB Cluster can be created at any time with the following command:
 
    .. code:: bash
@@ -111,7 +104,7 @@ Install Percona XtraDB Cluster on OpenShift
       cluster1-proxysql-0                               1/1     Running   0          5m
       percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
 
-7. Check connectivity to newly created cluster
+6. Check connectivity to newly created cluster
 
    .. code:: bash
 

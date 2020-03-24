@@ -22,7 +22,7 @@ src_dir=$(realpath $test_dir/../..)
 if oc projects 2>&1 | egrep -q 'You have access to the following projects|You are not a member of any projects|You have one project on this server'; then
     OPENSHIFT=1
 fi
-HELM_VERSION=$(helm version -c | gsed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
+HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
     HELM_ARGS="--name"
 fi

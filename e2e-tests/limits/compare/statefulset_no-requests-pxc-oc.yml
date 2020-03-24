@@ -144,7 +144,7 @@ spec:
         secret:
           defaultMode: 420
           optional: true
-          secretName: vault-keyring-secret
+          secretName: no-requests-vault
   updateStrategy:
     rollingUpdate:
       partition: 0

@@ -28,6 +28,8 @@ spec:
       name: ssl
     - mountPath: /etc/mysql/ssl-internal
       name: ssl-internal
+    - mountPath: /etc/mysql/vault-keyring-secret
+      name: vault-keyring-secret
     - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
       readOnly: true
   dnsPolicy: ClusterFirst
@@ -67,5 +69,10 @@ spec:
       defaultMode: 420
       optional: false
       secretName: some-name-ssl
+  - name: vault-keyring-secret
+    secret:
+      defaultMode: 420
+      optional: true
+      secretName: sec-context-vault
     secret:
       defaultMode: 420

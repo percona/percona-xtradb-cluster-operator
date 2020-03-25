@@ -167,6 +167,8 @@ spec:
           name: ssl-internal
         - mountPath: /etc/my.cnf.d
           name: auto-config
+        - mountPath: /etc/mysql/vault-keyring-secret
+          name: vault-keyring-secret
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -197,6 +199,11 @@ spec:
           name: auto-monitoring-pxc
           optional: true
         name: auto-config
+      - name: vault-keyring-secret
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: monitoring-vault
   updateStrategy:
     rollingUpdate:
       partition: 0

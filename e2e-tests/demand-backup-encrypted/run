@@ -93,9 +93,10 @@ main() {
     # # run_recovery_check "$cluster" "on-demand-backup-aws-s3"
 
     # for i in $vault1 $vault2 ; do
-    #     kubectl delete --grace-period=0 --force=true namespace $i
-    #     helm delete --purge $i
-    # done
+    for i in $vault1 ; do
+        kubectl delete --grace-period=0 --force=true namespace $i
+        helm delete --purge $i
+    done
 
     destroy $namespace
 }

@@ -23,6 +23,10 @@ src_dir=$(realpath $test_dir/../..)
 if oc projects 2>&1 | egrep -q 'You have access to the following projects|You are not a member of any projects|You have one project on this server'; then
     OPENSHIFT=1
 fi
+HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
+if [ "${HELM_VERSION:0:2}" == "v2" ]; then
+    HELM_ARGS="--name"
+fi
 
 wait_cluster_consistency() {
     cluster_name=$1
@@ -135,10 +139,15 @@ deploy_operator() {
 }
 
 deploy_helm() {
+    if [ "${HELM_VERSION:0:2}" == "v3" ]; then
+        helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+        helm repo update
+        return 0
+    fi
+
     local namespace="$1"
     if [ "$OPENSHIFT" == 1 ]; then
         export TILLER_NAMESPACE=tiller
-        HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/')
         oc new-project tiller || :
         oc project tiller
         oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=$HELM_VERSION | oc apply -f -
@@ -568,7 +577,7 @@ start_vault() {
     name=${1:-vault-service}
     create_namespace "$name"
     deploy_helm "$name"
-    helm delete --purge "$name"
+    helm delete --purge "$name" || :
     
     desc "install Vault $name"
     helm install --name $name --namespace "$name" \
@@ -610,4 +619,28 @@ init_vault() {
         sed -e "s/#token/$token/" |
         sed -e "s/#vault_url/http:\/\/$ip:8200/" |
         kubectl_bin apply -f-
+}
+
+start_minio() {
+    deploy_helm $namespace
+
+    desc 'install Minio'
+    helm del --purge minio-service || :
+    retry 10 60 helm install \
+        $HELM_ARGS \
+        minio-service \
+        --set accessKey=some-access-key \
+        --set secretKey=some-secret-key \
+        --set service.type=ClusterIP \
+        --set configPath=/tmp/.minio/ \
+        --set persistence.size=2G \
+        --set environment.MINIO_REGION=us-east-1 \
+        --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
+        stable/minio
+    MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
+    wait_pod $MINIO_POD
+
+    kubectl_bin run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+        /usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+        /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
 }

@@ -47,6 +47,8 @@ spec:
           name: ssl
         - mountPath: /etc/mysql/ssl-internal
           name: ssl-internal
+        - mountPath: /etc/mysql/vault-keyring-secret
+          name: vault-keyring-secret
       dnsPolicy: ClusterFirst
       restartPolicy: Never
       schedulerName: default-scheduler
@@ -70,3 +72,8 @@ spec:
           defaultMode: 420
           optional: false
           secretName: some-name-ssl
+      - name: vault-keyring-secret
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: sec-context-vault

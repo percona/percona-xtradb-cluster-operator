@@ -582,7 +582,7 @@ start_vault() {
     desc "install Vault $name"
     helm install --name $name --namespace "$name" \
         --set dataStorage.enabled=false \
-        "$conf_dir/vault"
+        "$src_dir/vendor/vault"
 
     set +o xtrace
     retry=0

@@ -14,6 +14,7 @@ IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:K8SPXC-
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
+vault_init=$(mktemp)
 
 test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
@@ -565,13 +566,12 @@ retry() {
 
 start_vault() {
     name=${1:-vault-service}
-
-    deploy_helm "$namespace"
-
-    helm delete --purge "$name" || :
-
-    desc 'install Vault'
-    helm install --name $name --namespace "$namespace" \
+    create_namespace "$name"
+    deploy_helm "$name"
+    helm delete --purge "$name"
+    
+    desc "install Vault $name"
+    helm install --name $name --namespace "$name" \
         --set dataStorage.enabled=false \
         "$conf_dir/vault"
 
@@ -590,22 +590,22 @@ start_vault() {
         fi
     done
     set -o xtrace
+}
 
-    initRes=$(mktemp)
-    kubectl exec -it pod/$name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$initRes"
-    unsealKey=$(jq -r ".unseal_keys_b64[]" <"$initRes")
-    token=$(jq -r ".root_token" <"$initRes")
-    ip=$(kubectl get svc $name -o 'jsonpath={.spec.clusterIP}')
-    # ip="$name-0.$name.$nsp.svc.cluster.local"
-    rm "$initRes"
+init_vault() {
+    name=${1:-vault-service}
+    kubectl exec -it pod/$name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$vault_init"
+    unsealKey=$(jq -r ".unseal_keys_b64[]" <"$vault_init")
+    token=$(jq -r ".root_token" <"$vault_init")
+    ip="$name.$name.svc.cluster.local"
 
     kubectl exec -it pod/$name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
-
-    sleep 10
     kubectl exec -it pod/$name-0 -- \
         sh -c "export VAULT_ADDR=http://$ip:8200 && export VAULT_TOKEN=$token \
                 && vault secrets enable -tls-skip-verify -path=secret kv"
-
+    
+    #swich to test namestpace
+    kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
     cat "$conf_dir/vault-secret.yaml" |
         sed -e "s/#token/$token/" |
         sed -e "s/#vault_url/http:\/\/$ip:8200/" |

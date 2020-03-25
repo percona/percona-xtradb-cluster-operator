@@ -61,7 +61,9 @@ main() {
     deploy_operator
     kubectl_bin apply -f $conf_dir/cloud-secret.yml
 
-    start_vault
+    vault1="vault-service-1"
+    start_vault $vault1
+    init_vault $vault1
 
     cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
@@ -72,12 +74,28 @@ main() {
 
     run_backup         "$cluster" "on-demand-backup-aws-s3"
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    
+    # mountpt=$(kubectl get -f "$conf_dir/vault-secret.yaml" -o json | grep -oP "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
+    # kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$vault1"
+    # key=$(kubectl exec -it pod/$vault1-0 -- sh -c "export VAULT_TOKEN=$token && vault kv list $mountpt/backup/" | awk 'NR > 2 {print $1}' | grep -oP "[\w\d\-]+:\d+")
+    # transition=$(kubectl exec -it pod/$vault1-0 -- sh -c "export VAULT_TOKEN=$token && vault kv get secret/backup/$key" | awk 'NR>3 {print $2}' | grep -oP "[\w\d]{3,}") 
+    # kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
-    # desc "start new vault"
-    # start_vault "new-vault-service"
+    # vault2="vault-service-2"
+    # start_vault $vault2
+    # init_vault $vault2
+    # kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$vault2"
+    # token=$(jq -r ".root_token" <"$vault_init")
+    # kubectl exec -it pod/$vault2-0 -- sh -c "export VAULT_TOKEN=$token && vault kv put $mountpt/backup/$key transition_key=${transition}"
+    # kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
     # run_recovery_check "$cluster" "on-demand-backup-pvc"
-    # run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    # # run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+
+    # for i in $vault1 $vault2 ; do
+    #     kubectl delete --grace-period=0 --force=true namespace $i
+    #     helm delete --purge $i
+    # done
 
     destroy $namespace
 }

@@ -84,10 +84,18 @@ Install Percona XtraDB Cluster on OpenShift
 
    More details about secrets can be found in :ref:`users`.
 
-5. Now certificates should be generated. By default, the Operator generates
-   certificates automatically, and no actions are required at this step. Still,
-   you can generate and apply your own certificates as secrets according
-   to the :ref:`TLS instructions <tls>`.
+5. Now certificates should be generated and applied. This can be done in several
+   ways:
+
+   a. You can install `cert-manager <https://docs.cert-manager.io/en/release-0.8/getting-started/install/kubernetes.html>`_ if it is not up and running yet, and then generate and apply certificates as secrets according to the :ref:`TLS instructions <tls>`.
+
+   b. You can use pre-generated certificates available in the
+      ``deploy/ssl-secrets.yaml`` file for test purposes, but we strongly
+      recommend avoiding their usage on any production system.
+
+   c. The Operator can generate certificates automatically. To allow this
+      feature, set ``allowUnsafeConfigurations`` key to ``true`` in the
+      ``deploy/cr.yaml`` configuration file.
 
 6. After the operator is started and user secrets are added, Percona
    XtraDB Cluster can be created at any time with the following command:

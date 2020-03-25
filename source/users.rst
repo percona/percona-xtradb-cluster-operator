@@ -1,6 +1,6 @@
-.. _users.users:
+.. _users:
 
-`Users <users.html#users>`_
+Users
 ==============================
 
 The Operator requires

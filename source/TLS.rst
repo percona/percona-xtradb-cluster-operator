@@ -1,3 +1,5 @@
+.. _tls:
+
 Transport Layer Security (TLS)
 ******************************
 

@@ -1,3 +1,5 @@
+.. _install-minikube:
+
 Install Percona XtraDB Cluster on Minikube
 ============================================
 

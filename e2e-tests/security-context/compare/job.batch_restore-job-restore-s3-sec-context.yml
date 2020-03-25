@@ -55,6 +55,8 @@ spec:
         volumeMounts:
         - mountPath: /datadir
           name: datadir
+        - mountPath: /etc/mysql/vault-keyring-secret
+          name: vault-keyring-secret
       dnsPolicy: ClusterFirst
       restartPolicy: Never
       schedulerName: default-scheduler
@@ -68,3 +70,8 @@ spec:
       - name: datadir
         persistentVolumeClaim:
           claimName: datadir-sec-context-pxc-0
+      - name: vault-keyring-secret
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: sec-context-vault

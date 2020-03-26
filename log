@@ -1,0 +1,2869 @@
++++ dirname ./e2e-tests/demand-backup-encrypted/run
+++ realpath ./e2e-tests/demand-backup-encrypted
++ test_dir=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted
++ . /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/../functions
+++ exec
+++ BASH_XTRACEFD=5
++++ git rev-parse HEAD
+++ GIT_COMMIT=67e683648f550b6c8611be4cdc549c54d446c6f1
++++ git rev-parse --abbrev-ref HEAD
++++ sed -e 's^/^-^g; s^[.]^-^g;'
++++ tr '[:upper:]' '[:lower:]'
+++ GIT_BRANCH=k8spxc-172-tests
+++ API=pxc.percona.com/v1-4-0
+++ IMAGE=perconalab/percona-xtradb-cluster-operator:k8spxc-172-tests
+++ IMAGE_PXC=perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0
+++ IMAGE_PMM=perconalab/percona-xtradb-cluster-operator:master-pmm
+++ IMAGE_PROXY=perconalab/percona-xtradb-cluster-operator:master-proxysql
+++ IMAGE_BACKUP=perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0-backup
++++ mktemp -d
+++ tmp_dir=/tmp/tmp.L37TfxdZNJ
++++ which gsed
++++ which sed
+++ sed=/usr/bin/sed
++++ which gdate
++++ which date
+++ date=/usr/bin/date
++++ mktemp
+++ vault_init=/tmp/tmp.5y09soiQhZ
++++ basename /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted
+++ test_name=demand-backup-encrypted
+++ namespace=demand-backup-encrypted-9292
++++ realpath /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/../conf
+++ conf_dir=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf
++++ realpath /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/../..
+++ src_dir=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator
+++ oc projects
+++ egrep -q 'You have access to the following projects|You are not a member of any projects|You have one project on this server'
++++ helm version -c
++++ /usr/bin/sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/'
+++ HELM_VERSION=v2.16.1
+++ '[' v2 == v2 ']'
+++ HELM_ARGS=--name
++ main
++ create_namespace demand-backup-encrypted-9292
++ local namespace=demand-backup-encrypted-9292
++ '[' '' == 1 ']'
++ kubectl_bin delete namespace demand-backup-encrypted-9292
+++ mktemp
++ local LAST_OUT=/tmp/tmp.bKfDuzvFDM
+++ mktemp
++ local LAST_ERR=/tmp/tmp.s2Yr5CYgzp
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl delete namespace demand-backup-encrypted-9292
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.bKfDuzvFDM
+--- 0 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.s2Yr5CYgzp
+--- 0 stderr
+Error from server (NotFound): namespaces "demand-backup-encrypted-9292" not found
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl delete namespace demand-backup-encrypted-9292
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 1 stdout'
++ cat - /tmp/tmp.bKfDuzvFDM
+--- 1 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 1 stderr'
++ cat - /tmp/tmp.s2Yr5CYgzp
+--- 1 stderr
+Error from server (NotFound): namespaces "demand-backup-encrypted-9292" not found
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl delete namespace demand-backup-encrypted-9292
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 2 stdout'
++ cat - /tmp/tmp.bKfDuzvFDM
+--- 2 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 2 stderr'
++ cat - /tmp/tmp.s2Yr5CYgzp
+--- 2 stderr
+Error from server (NotFound): namespaces "demand-backup-encrypted-9292" not found
++ [[ 1 != 0 ]]
++ sleep 0
++ cat /tmp/tmp.bKfDuzvFDM
++ cat /tmp/tmp.s2Yr5CYgzp
+Error from server (NotFound): namespaces "demand-backup-encrypted-9292" not found
++ rm /tmp/tmp.bKfDuzvFDM /tmp/tmp.s2Yr5CYgzp
++ return 1
++ :
++ wait_for_delete namespace/demand-backup-encrypted-9292
++ local res=namespace/demand-backup-encrypted-9292
++ set +o xtrace
+namespace/demand-backup-encrypted-9292 - Error from server (NotFound): namespaces "demand-backup-encrypted-9292" not found
++ kubectl_bin create namespace demand-backup-encrypted-9292
+++ mktemp
++ local LAST_OUT=/tmp/tmp.Jd5E3SYXuZ
+++ mktemp
++ local LAST_ERR=/tmp/tmp.RunuFSGx5u
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl create namespace demand-backup-encrypted-9292
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.Jd5E3SYXuZ
+--- 0 stdout
+namespace/demand-backup-encrypted-9292 created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.RunuFSGx5u
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.Jd5E3SYXuZ
+namespace/demand-backup-encrypted-9292 created
++ cat /tmp/tmp.RunuFSGx5u
++ rm /tmp/tmp.Jd5E3SYXuZ /tmp/tmp.RunuFSGx5u
++ return 0
+++ kubectl_bin config current-context
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.WUFsA8JlZw
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.6G0Bj4Fml9
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl config current-context
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.WUFsA8JlZw
+--- 0 stdout
+gke_cloud-dev-112233_europe-west3-b_paval-2231
+++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.6G0Bj4Fml9
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.WUFsA8JlZw
+++ cat /tmp/tmp.6G0Bj4Fml9
+++ rm /tmp/tmp.WUFsA8JlZw /tmp/tmp.6G0Bj4Fml9
+++ return 0
++ kubectl_bin config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=demand-backup-encrypted-9292
+++ mktemp
++ local LAST_OUT=/tmp/tmp.pQwbYNa2yp
+++ mktemp
++ local LAST_ERR=/tmp/tmp.KVjy690mDe
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=demand-backup-encrypted-9292
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.pQwbYNa2yp
+--- 0 stdout
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.KVjy690mDe
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.pQwbYNa2yp
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ cat /tmp/tmp.KVjy690mDe
++ rm /tmp/tmp.pQwbYNa2yp /tmp/tmp.KVjy690mDe
++ return 0
++ deploy_operator
++ desc 'start operator'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+start operator
+-----------------------------------------------------------------------------------
+
++ kubectl_bin apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/crd.yaml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.LFskAJEk9b
+++ mktemp
++ local LAST_ERR=/tmp/tmp.mmDEZvqcGw
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/crd.yaml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.LFskAJEk9b
+--- 0 stdout
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusters.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusterbackups.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusterrestores.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbbackups.pxc.percona.com configured
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.mmDEZvqcGw
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.LFskAJEk9b
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusters.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusterbackups.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbclusterrestores.pxc.percona.com unchanged
+customresourcedefinition.apiextensions.k8s.io/perconaxtradbbackups.pxc.percona.com configured
++ cat /tmp/tmp.mmDEZvqcGw
++ rm /tmp/tmp.LFskAJEk9b /tmp/tmp.mmDEZvqcGw
++ return 0
++ kubectl_bin apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/rbac.yaml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.9hg1cm9Kh5
+++ mktemp
++ local LAST_ERR=/tmp/tmp.2ipmd0F6ej
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/rbac.yaml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.9hg1cm9Kh5
+--- 0 stdout
+role.rbac.authorization.k8s.io/percona-xtradb-cluster-operator created
+serviceaccount/percona-xtradb-cluster-operator created
+rolebinding.rbac.authorization.k8s.io/service-account-percona-xtradb-cluster-operator created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.2ipmd0F6ej
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.9hg1cm9Kh5
+role.rbac.authorization.k8s.io/percona-xtradb-cluster-operator created
+serviceaccount/percona-xtradb-cluster-operator created
+rolebinding.rbac.authorization.k8s.io/service-account-percona-xtradb-cluster-operator created
++ cat /tmp/tmp.2ipmd0F6ej
++ rm /tmp/tmp.9hg1cm9Kh5 /tmp/tmp.2ipmd0F6ej
++ return 0
++ cat /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/deploy/operator.yaml
++ sed -e 's^image: .*^image: perconalab/percona-xtradb-cluster-operator:k8spxc-172-tests^'
++ kubectl_bin apply -f -
+++ mktemp
++ local LAST_OUT=/tmp/tmp.tk7D9yt3fV
+++ mktemp
++ local LAST_ERR=/tmp/tmp.h8OxgExKL8
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f -
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.tk7D9yt3fV
+--- 0 stdout
+deployment.apps/percona-xtradb-cluster-operator created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.h8OxgExKL8
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.tk7D9yt3fV
+deployment.apps/percona-xtradb-cluster-operator created
++ cat /tmp/tmp.h8OxgExKL8
++ rm /tmp/tmp.tk7D9yt3fV /tmp/tmp.h8OxgExKL8
++ return 0
++ sleep 2
+++ get_operator_pod
+++ kubectl_bin get pods --selector=name=percona-xtradb-cluster-operator -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.lpjzfqjcE4
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.6uIys6hwJO
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=percona-xtradb-cluster-operator -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ cat - /tmp/tmp.lpjzfqjcE4
+++ echo '--- 0 stdout'
+--- 0 stdout
+percona-xtradb-cluster-operator-7c5f97cd5b-dh8rq++ [[ hB != hxB ]]
+++ cat - /tmp/tmp.6uIys6hwJO
+++ echo '--- 0 stderr'
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.lpjzfqjcE4
+++ cat /tmp/tmp.6uIys6hwJO
+++ rm /tmp/tmp.lpjzfqjcE4 /tmp/tmp.6uIys6hwJO
+++ return 0
++ wait_pod percona-xtradb-cluster-operator-7c5f97cd5b-dh8rq
++ local pod=percona-xtradb-cluster-operator-7c5f97cd5b-dh8rq
++ set +o xtrace
+percona-xtradb-cluster-operator-7c5f97cd5b-dh8rq.true
++ kubectl_bin apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/cloud-secret.yml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.JC7l0tAQMm
+++ mktemp
++ local LAST_ERR=/tmp/tmp.TZ32Mga84A
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/cloud-secret.yml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.JC7l0tAQMm
+--- 0 stdout
+secret/aws-s3-secret created
+secret/gcp-cs-secret created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.TZ32Mga84A
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.JC7l0tAQMm
+secret/aws-s3-secret created
+secret/gcp-cs-secret created
++ cat /tmp/tmp.TZ32Mga84A
++ rm /tmp/tmp.JC7l0tAQMm /tmp/tmp.TZ32Mga84A
++ return 0
++ vault1=vault-service-1
++ start_vault vault-service-1
++ name=vault-service-1
++ create_namespace vault-service-1
++ local namespace=vault-service-1
++ '[' '' == 1 ']'
++ kubectl_bin delete namespace vault-service-1
+++ mktemp
++ local LAST_OUT=/tmp/tmp.rJoR58cDBR
+++ mktemp
++ local LAST_ERR=/tmp/tmp.z6B3WdR8Vf
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl delete namespace vault-service-1
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.rJoR58cDBR
+--- 0 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.z6B3WdR8Vf
+--- 0 stderr
+Error from server (Conflict): Operation cannot be fulfilled on namespaces "vault-service-1": The system is ensuring all content is removed from this namespace.  Upon completion, this namespace will automatically be purged by the system.
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl delete namespace vault-service-1
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 1 stdout'
++ cat - /tmp/tmp.rJoR58cDBR
+--- 1 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 1 stderr'
++ cat - /tmp/tmp.z6B3WdR8Vf
+--- 1 stderr
+Error from server (Conflict): Operation cannot be fulfilled on namespaces "vault-service-1": The system is ensuring all content is removed from this namespace.  Upon completion, this namespace will automatically be purged by the system.
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl delete namespace vault-service-1
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 2 stdout'
++ cat - /tmp/tmp.rJoR58cDBR
+--- 2 stdout
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.z6B3WdR8Vf
++ echo '--- 2 stderr'
+--- 2 stderr
+Error from server (Conflict): Operation cannot be fulfilled on namespaces "vault-service-1": The system is ensuring all content is removed from this namespace.  Upon completion, this namespace will automatically be purged by the system.
++ [[ 1 != 0 ]]
++ sleep 0
++ cat /tmp/tmp.rJoR58cDBR
++ cat /tmp/tmp.z6B3WdR8Vf
+Error from server (Conflict): Operation cannot be fulfilled on namespaces "vault-service-1": The system is ensuring all content is removed from this namespace.  Upon completion, this namespace will automatically be purged by the system.
++ rm /tmp/tmp.rJoR58cDBR /tmp/tmp.z6B3WdR8Vf
++ return 1
++ :
++ wait_for_delete namespace/vault-service-1
++ local res=namespace/vault-service-1
++ set +o xtrace
+namespace/vault-service-1 - ...........................................Error from server (NotFound): namespaces "vault-service-1" not found
++ kubectl_bin create namespace vault-service-1
+++ mktemp
++ local LAST_OUT=/tmp/tmp.MoPpgHu9PW
+++ mktemp
++ local LAST_ERR=/tmp/tmp.U7RRj9E81y
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl create namespace vault-service-1
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.MoPpgHu9PW
+--- 0 stdout
+namespace/vault-service-1 created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.U7RRj9E81y
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.MoPpgHu9PW
+namespace/vault-service-1 created
++ cat /tmp/tmp.U7RRj9E81y
++ rm /tmp/tmp.MoPpgHu9PW /tmp/tmp.U7RRj9E81y
++ return 0
+++ kubectl_bin config current-context
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.5z2a2MtTBC
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.OlslXpiJOy
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl config current-context
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.5z2a2MtTBC
+--- 0 stdout
+gke_cloud-dev-112233_europe-west3-b_paval-2231
+++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.OlslXpiJOy
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.5z2a2MtTBC
+++ cat /tmp/tmp.OlslXpiJOy
+++ rm /tmp/tmp.5z2a2MtTBC /tmp/tmp.OlslXpiJOy
+++ return 0
++ kubectl_bin config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=vault-service-1
+++ mktemp
++ local LAST_OUT=/tmp/tmp.8XRRCsLNfy
+++ mktemp
++ local LAST_ERR=/tmp/tmp.5KgmggOHbO
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=vault-service-1
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.8XRRCsLNfy
+--- 0 stdout
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.5KgmggOHbO
++ echo '--- 0 stderr'
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.8XRRCsLNfy
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ cat /tmp/tmp.5KgmggOHbO
++ rm /tmp/tmp.8XRRCsLNfy /tmp/tmp.5KgmggOHbO
++ return 0
++ deploy_helm vault-service-1
++ '[' v2 == v3 ']'
++ local namespace=vault-service-1
++ '[' '' == 1 ']'
++ kubectl_bin --namespace kube-system create sa tiller
+++ mktemp
++ local LAST_OUT=/tmp/tmp.eteTciCCZX
+++ mktemp
++ local LAST_ERR=/tmp/tmp.dmJIkk2fg9
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl --namespace kube-system create sa tiller
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.eteTciCCZX
+--- 0 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.dmJIkk2fg9
+--- 0 stderr
+Error from server (AlreadyExists): serviceaccounts "tiller" already exists
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl --namespace kube-system create sa tiller
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 1 stdout'
++ cat - /tmp/tmp.eteTciCCZX
+--- 1 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 1 stderr'
++ cat - /tmp/tmp.dmJIkk2fg9
+--- 1 stderr
+Error from server (AlreadyExists): serviceaccounts "tiller" already exists
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl --namespace kube-system create sa tiller
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 2 stdout'
++ cat - /tmp/tmp.eteTciCCZX
+--- 2 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 2 stderr'
++ cat - /tmp/tmp.dmJIkk2fg9
+--- 2 stderr
+Error from server (AlreadyExists): serviceaccounts "tiller" already exists
++ [[ 1 != 0 ]]
++ sleep 0
++ cat /tmp/tmp.eteTciCCZX
++ cat /tmp/tmp.dmJIkk2fg9
+Error from server (AlreadyExists): serviceaccounts "tiller" already exists
++ rm /tmp/tmp.eteTciCCZX /tmp/tmp.dmJIkk2fg9
++ return 1
++ :
++ kubectl_bin create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+++ mktemp
++ local LAST_OUT=/tmp/tmp.B3anZPw633
+++ mktemp
++ local LAST_ERR=/tmp/tmp.0R7S5bBWM6
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.B3anZPw633
+--- 0 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.0R7S5bBWM6
+--- 0 stderr
+Error from server (AlreadyExists): clusterrolebindings.rbac.authorization.k8s.io "tiller" already exists
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 1 stdout'
++ cat - /tmp/tmp.B3anZPw633
+--- 1 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 1 stderr'
++ cat - /tmp/tmp.0R7S5bBWM6
+--- 1 stderr
+Error from server (AlreadyExists): clusterrolebindings.rbac.authorization.k8s.io "tiller" already exists
++ [[ 1 != 0 ]]
++ sleep 0
++ for i in $(seq 0 2)
++ kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
++ exit_status=1
++ [[ ehB != ehxB ]]
++ echo '--- 2 stdout'
++ cat - /tmp/tmp.B3anZPw633
+--- 2 stdout
++ [[ ehB != ehxB ]]
++ echo '--- 2 stderr'
++ cat - /tmp/tmp.0R7S5bBWM6
+--- 2 stderr
+Error from server (AlreadyExists): clusterrolebindings.rbac.authorization.k8s.io "tiller" already exists
++ [[ 1 != 0 ]]
++ sleep 0
++ cat /tmp/tmp.B3anZPw633
++ cat /tmp/tmp.0R7S5bBWM6
+Error from server (AlreadyExists): clusterrolebindings.rbac.authorization.k8s.io "tiller" already exists
++ rm /tmp/tmp.B3anZPw633 /tmp/tmp.0R7S5bBWM6
++ return 1
++ :
++ helm init --service-account tiller
+$HELM_HOME has been configured at /home/paval/.helm.
+Warning: Tiller is already installed in the cluster.
+(Use --client-only to suppress this message, or --upgrade to upgrade Tiller to the current version.)
+++ kubectl_bin config current-context
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.kP6J0Bnk23
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.jbO8cKGpvb
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl config current-context
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.kP6J0Bnk23
+--- 0 stdout
+gke_cloud-dev-112233_europe-west3-b_paval-2231
+++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.jbO8cKGpvb
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.kP6J0Bnk23
+++ cat /tmp/tmp.jbO8cKGpvb
+++ rm /tmp/tmp.kP6J0Bnk23 /tmp/tmp.jbO8cKGpvb
+++ return 0
++ kubectl_bin config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=kube-system
+++ mktemp
++ local LAST_OUT=/tmp/tmp.w7y7Vf4E65
+++ mktemp
++ local LAST_ERR=/tmp/tmp.ThBOozSRB6
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=kube-system
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.w7y7Vf4E65
+--- 0 stdout
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.ThBOozSRB6
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.w7y7Vf4E65
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ cat /tmp/tmp.ThBOozSRB6
++ rm /tmp/tmp.w7y7Vf4E65 /tmp/tmp.ThBOozSRB6
++ return 0
+++ kubectl_bin get pods --selector=name=tiller -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.QoCDRfkeFD
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.ipAA9AIZQd
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=tiller -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.QoCDRfkeFD
+--- 0 stdout
+tiller-deploy-586965d498-4g9dp++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.ipAA9AIZQd
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.QoCDRfkeFD
+++ cat /tmp/tmp.ipAA9AIZQd
+++ rm /tmp/tmp.QoCDRfkeFD /tmp/tmp.ipAA9AIZQd
+++ return 0
++ tiller_pod=tiller-deploy-586965d498-4g9dp
++ wait_pod tiller-deploy-586965d498-4g9dp
++ local pod=tiller-deploy-586965d498-4g9dp
++ set +o xtrace
+tiller-deploy-586965d498-4g9dptrue
++ '[' '' == 1 ']'
+++ kubectl_bin config current-context
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.5FVrK6QVvl
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.ZZ40DzFzON
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl config current-context
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ cat - /tmp/tmp.5FVrK6QVvl
+++ echo '--- 0 stdout'
+--- 0 stdout
+gke_cloud-dev-112233_europe-west3-b_paval-2231
+++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.ZZ40DzFzON
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.5FVrK6QVvl
+++ cat /tmp/tmp.ZZ40DzFzON
+++ rm /tmp/tmp.5FVrK6QVvl /tmp/tmp.ZZ40DzFzON
+++ return 0
++ kubectl_bin config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=vault-service-1
+++ mktemp
++ local LAST_OUT=/tmp/tmp.O0YZUd654k
+++ mktemp
++ local LAST_ERR=/tmp/tmp.hlGoT45Bsp
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=vault-service-1
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.O0YZUd654k
+--- 0 stdout
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.hlGoT45Bsp
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.O0YZUd654k
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ cat /tmp/tmp.hlGoT45Bsp
++ rm /tmp/tmp.O0YZUd654k /tmp/tmp.hlGoT45Bsp
++ return 0
++ helm delete --purge vault-service-1
+release "vault-service-1" deleted
++ desc 'install Vault vault-service-1'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+install Vault vault-service-1
+-----------------------------------------------------------------------------------
+
++ helm install --name vault-service-1 --namespace vault-service-1 --set dataStorage.enabled=false /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/vendor/vault
+NAME:   vault-service-1
+LAST DEPLOYED: Thu Mar 26 19:08:53 2020
+NAMESPACE: vault-service-1
+STATUS: DEPLOYED
+
+RESOURCES:
+==> v1/ClusterRole
+NAME                                        AGE
+vault-service-1-agent-injector-clusterrole  1s
+
+==> v1/ClusterRoleBinding
+NAME                                    AGE
+vault-service-1-agent-injector-binding  1s
+
+==> v1/ConfigMap
+NAME                    AGE
+vault-service-1-config  1s
+
+==> v1/Deployment
+NAME                            AGE
+vault-service-1-agent-injector  1s
+
+==> v1/Pod(related)
+NAME                                             AGE
+vault-service-1-0                                0s
+vault-service-1-agent-injector-8677d4695c-7t5s7  0s
+
+==> v1/Service
+NAME                                AGE
+vault-service-1                     1s
+vault-service-1-agent-injector-svc  1s
+
+==> v1/ServiceAccount
+NAME                            AGE
+vault-service-1                 1s
+vault-service-1-agent-injector  1s
+
+==> v1/StatefulSet
+NAME             AGE
+vault-service-1  1s
+
+==> v1beta1/ClusterRoleBinding
+NAME                            AGE
+vault-service-1-server-binding  1s
+
+==> v1beta1/MutatingWebhookConfiguration
+NAME                                AGE
+vault-service-1-agent-injector-cfg  1s
+
+
+NOTES:
+
+Thank you for installing HashiCorp Vault!
+
+Now that you have deployed Vault, you should look over the docs on using
+Vault with Kubernetes available here:
+
+https://www.vaultproject.io/docs/
+
+
+Your release is named vault-service-1. To learn more about the release, try:
+
+  $ helm status vault-service-1
+  $ helm get vault-service-1
+
+
++ set +o xtrace
+pod/vault-service-1-0.............map[running:map[startedAt:2020-03-26T17:09:10Z]]
++ init_vault vault-service-1
++ name=vault-service-1
++ kubectl exec -it pod/vault-service-1-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json
+++ jq -r '.unseal_keys_b64[]'
++ unsealKey=+1leEadD5kLeRAtIbZkLpoObhBLIVr1frcekhKtcCJU=
+++ jq -r .root_token
++ token=s.0ZjGX2Ri3b5qi9b5EcLYzTzu
++ ip=vault-service-1.vault-service-1.svc.cluster.local
++ kubectl exec -it pod/vault-service-1-0 -- vault operator unseal -tls-skip-verify +1leEadD5kLeRAtIbZkLpoObhBLIVr1frcekhKtcCJU=
+[0mKey             Value
+---             -----
+Seal Type       shamir
+Initialized     true
+Sealed          false
+Total Shares    1
+Threshold       1
+Version         1.3.2
+Cluster Name    vault-cluster-9027971a
+Cluster ID      23267cc1-749b-c07d-0a21-a5c590741285
+HA Enabled      false[0m
++ kubectl exec -it pod/vault-service-1-0 -- sh -c 'export VAULT_ADDR=http://vault-service-1.vault-service-1.svc.cluster.local:8200 && export VAULT_TOKEN=s.0ZjGX2Ri3b5qi9b5EcLYzTzu && export VAULT_LOG_LEVEL=trace                 && vault secrets enable --version=1 -tls-skip-verify -path=secret kv                 && vault audit enable file file_path=/vault/vault-audit.log'
+[0mSuccess! Enabled the kv secrets engine at: secret/[0m
+[0mSuccess! Enabled the file audit device at: file/[0m
++ sleep 10
+++ kubectl_bin config current-context
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.aDcbQmWm3D
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.ZjURrWeimP
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl config current-context
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.aDcbQmWm3D
+--- 0 stdout
+gke_cloud-dev-112233_europe-west3-b_paval-2231
+++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.ZjURrWeimP
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.aDcbQmWm3D
+++ cat /tmp/tmp.ZjURrWeimP
+++ rm /tmp/tmp.aDcbQmWm3D /tmp/tmp.ZjURrWeimP
+++ return 0
++ kubectl_bin config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=demand-backup-encrypted-9292
+++ mktemp
++ local LAST_OUT=/tmp/tmp.XFqViETNCh
+++ mktemp
++ local LAST_ERR=/tmp/tmp.pgYVyYjgzQ
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl config set-context gke_cloud-dev-112233_europe-west3-b_paval-2231 --namespace=demand-backup-encrypted-9292
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.XFqViETNCh
+--- 0 stdout
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.pgYVyYjgzQ
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.XFqViETNCh
+Context "gke_cloud-dev-112233_europe-west3-b_paval-2231" modified.
++ cat /tmp/tmp.pgYVyYjgzQ
++ rm /tmp/tmp.XFqViETNCh /tmp/tmp.pgYVyYjgzQ
++ return 0
++ cat /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/vault-secret.yaml
++ sed -e s/#token/s.0ZjGX2Ri3b5qi9b5EcLYzTzu/
++ sed -e 's/#vault_url/http:\/\/vault-service-1.vault-service-1.svc.cluster.local:8200/'
++ kubectl_bin apply -f-
+++ mktemp
++ sed -e s/#secret/secret/
++ local LAST_OUT=/tmp/tmp.tW1PDxXnuj
+++ mktemp
++ local LAST_ERR=/tmp/tmp.Wv2K2WFQOT
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f-
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.tW1PDxXnuj
+--- 0 stdout
+secret/keyring-secret-vault created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.Wv2K2WFQOT
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.tW1PDxXnuj
+secret/keyring-secret-vault created
++ cat /tmp/tmp.Wv2K2WFQOT
++ rm /tmp/tmp.tW1PDxXnuj /tmp/tmp.Wv2K2WFQOT
++ return 0
+++ jq -r .root_token
++ token1=s.0ZjGX2Ri3b5qi9b5EcLYzTzu
++ ip1=vault-service-1.vault-service-1.svc.cluster.local
++ cluster=some-name
++ spinup_pxc some-name /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/some-name.yml
++ local cluster=some-name
++ local config=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/some-name.yml
++ local size=3
++ local sleep=10
++ desc 'create first PXC cluster'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+create first PXC cluster
+-----------------------------------------------------------------------------------
+
++ kubectl_bin apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/secrets.yml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.1kSBeVTTpG
+++ mktemp
++ local LAST_ERR=/tmp/tmp.EnfiudMtHv
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/secrets.yml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.1kSBeVTTpG
+--- 0 stdout
+secret/my-cluster-secrets created
+secret/some-name-ssl created
+secret/some-name-ssl-internal created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.EnfiudMtHv
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.1kSBeVTTpG
+secret/my-cluster-secrets created
+secret/some-name-ssl created
+secret/some-name-ssl-internal created
++ cat /tmp/tmp.EnfiudMtHv
++ rm /tmp/tmp.1kSBeVTTpG /tmp/tmp.EnfiudMtHv
++ return 0
++ apply_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/client.yml
++ cat_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/client.yml
++ kubectl_bin apply -f -
++ cat /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/client.yml
++ /usr/bin/sed -e 's#apiVersion: pxc.percona.com/v.*$#apiVersion: pxc.percona.com/v1-4-0#'
++ /usr/bin/sed -e 's#image:.*-pxc$#image: perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0#'
+++ mktemp
++ /usr/bin/sed -e 's#image:.*-backup$#image: perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0-backup#'
++ /usr/bin/sed -e 's#image:.*-pmm$#image: perconalab/percona-xtradb-cluster-operator:master-pmm#'
++ /usr/bin/sed -e 's#image:.*-proxysql$#image: perconalab/percona-xtradb-cluster-operator:master-proxysql#'
++ local LAST_OUT=/tmp/tmp.K23kphtYsf
+++ mktemp
++ local LAST_ERR=/tmp/tmp.sMY2uhWLrl
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f -
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.K23kphtYsf
+--- 0 stdout
+deployment.apps/pxc-client created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.sMY2uhWLrl
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.K23kphtYsf
+deployment.apps/pxc-client created
++ cat /tmp/tmp.sMY2uhWLrl
++ rm /tmp/tmp.K23kphtYsf /tmp/tmp.sMY2uhWLrl
++ return 0
++ apply_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/some-name.yml
++ kubectl_bin apply -f -
++ cat_config /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/some-name.yml
+++ mktemp
++ /usr/bin/sed -e 's#image:.*-pmm$#image: perconalab/percona-xtradb-cluster-operator:master-pmm#'
++ /usr/bin/sed -e 's#image:.*-backup$#image: perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0-backup#'
++ /usr/bin/sed -e 's#image:.*-pxc$#image: perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0#'
++ local LAST_OUT=/tmp/tmp.J7ZrQcwBny
++ /usr/bin/sed -e 's#image:.*-proxysql$#image: perconalab/percona-xtradb-cluster-operator:master-proxysql#'
+++ mktemp
++ /usr/bin/sed -e 's#apiVersion: pxc.percona.com/v.*$#apiVersion: pxc.percona.com/v1-4-0#'
++ local LAST_ERR=/tmp/tmp.gFiT71C82O
++ local exit_status=0
+++ seq 0 2
++ cat /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/conf/some-name.yml
++ for i in $(seq 0 2)
++ kubectl apply -f -
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.J7ZrQcwBny
+--- 0 stdout
+perconaxtradbcluster.pxc.percona.com/some-name created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.gFiT71C82O
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.J7ZrQcwBny
+perconaxtradbcluster.pxc.percona.com/some-name created
++ cat /tmp/tmp.gFiT71C82O
++ rm /tmp/tmp.J7ZrQcwBny /tmp/tmp.gFiT71C82O
++ return 0
++ desc 'check if all 3 Pods started'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+check if all 3 Pods started
+-----------------------------------------------------------------------------------
+
++ wait_for_running some-name-proxysql 1
++ local name=some-name-proxysql
++ let last_pod=0
++ :
+++ seq 0 0
++ for i in $(seq 0 $last_pod)
++ wait_pod some-name-proxysql-0
++ local pod=some-name-proxysql-0
++ set +o xtrace
+some-name-proxysql-0.......................true
++ wait_for_running some-name-pxc 3
++ local name=some-name-pxc
++ let last_pod=2
+++ seq 0 2
++ for i in $(seq 0 $last_pod)
++ wait_pod some-name-pxc-0
++ local pod=some-name-pxc-0
++ set +o xtrace
+some-name-pxc-0...........true
++ for i in $(seq 0 $last_pod)
++ wait_pod some-name-pxc-1
++ local pod=some-name-pxc-1
++ set +o xtrace
+some-name-pxc-1............................................................true
++ for i in $(seq 0 $last_pod)
++ wait_pod some-name-pxc-2
++ local pod=some-name-pxc-2
++ set +o xtrace
+some-name-pxc-2............................................true
++ sleep 10
++ desc 'write data'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+write data
+-----------------------------------------------------------------------------------
+
++ run_mysql 'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' '-h some-name-proxysql -uroot -proot_password'
++ local 'command=CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);'
++ local 'uri=-h some-name-proxysql -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.JwdC64esUI
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.KDhgrlRS1T
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.JwdC64esUI
+--- 0 stdout
+pxc-client-58f45c5b99-fbxd5++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.KDhgrlRS1T
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.JwdC64esUI
+++ cat /tmp/tmp.KDhgrlRS1T
+++ rm /tmp/tmp.JwdC64esUI /tmp/tmp.KDhgrlRS1T
+++ return 0
++ client_pod=pxc-client-58f45c5b99-fbxd5
++ wait_pod pxc-client-58f45c5b99-fbxd5
++ local pod=pxc-client-58f45c5b99-fbxd5
++ set +o xtrace
+pxc-client-58f45c5b99-fbxd5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf '\''CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);\n'\'' | mysql -sN -h some-name-proxysql -uroot -proot_password"'
++ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf 'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);\n' | mysql -sN -h some-name-proxysql -uroot -proot_password"
++ set +o xtrace
++ run_mysql 'INSERT myApp.myApp (id) VALUES (100500)' '-h some-name-proxysql -uroot -proot_password'
++ local 'command=INSERT myApp.myApp (id) VALUES (100500)'
++ local 'uri=-h some-name-proxysql -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.DHcbybBcC1
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.DWaN0HaAER
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ cat - /tmp/tmp.DHcbybBcC1
+++ echo '--- 0 stdout'
+--- 0 stdout
+pxc-client-58f45c5b99-fbxd5++ [[ hB != hxB ]]
+++ cat - /tmp/tmp.DWaN0HaAER
+++ echo '--- 0 stderr'
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.DHcbybBcC1
+++ cat /tmp/tmp.DWaN0HaAER
+++ rm /tmp/tmp.DHcbybBcC1 /tmp/tmp.DWaN0HaAER
+++ return 0
++ client_pod=pxc-client-58f45c5b99-fbxd5
++ wait_pod pxc-client-58f45c5b99-fbxd5
++ local pod=pxc-client-58f45c5b99-fbxd5
++ set +o xtrace
+pxc-client-58f45c5b99-fbxd5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf '\''INSERT myApp.myApp (id) VALUES (100500)\n'\'' | mysql -sN -h some-name-proxysql -uroot -proot_password"'
++ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf 'INSERT myApp.myApp (id) VALUES (100500)\n' | mysql -sN -h some-name-proxysql -uroot -proot_password"
++ set +o xtrace
+++ seq 0 2
++ for i in $(seq 0 $(($size - 1)))
++ compare_mysql_cmd select-1 'SELECT * from myApp.myApp;' '-h some-name-pxc-0.some-name-pxc -uroot -proot_password'
++ local command_id=select-1
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h some-name-pxc-0.some-name-pxc -uroot -proot_password'
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/compare/select-1.sql
++ [[ perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0 =~ 8\.0$ ]]
++ '[' -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/compare/select-1-80.sql ']'
++ run_mysql 'SELECT * from myApp.myApp;' '-h some-name-pxc-0.some-name-pxc -uroot -proot_password'
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h some-name-pxc-0.some-name-pxc -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.oqyYzAJYDD
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.pTfHKBjYW9
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ cat - /tmp/tmp.oqyYzAJYDD
+++ echo '--- 0 stdout'
+--- 0 stdout
+pxc-client-58f45c5b99-fbxd5++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.pTfHKBjYW9
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.oqyYzAJYDD
+++ cat /tmp/tmp.pTfHKBjYW9
+++ rm /tmp/tmp.oqyYzAJYDD /tmp/tmp.pTfHKBjYW9
+++ return 0
++ client_pod=pxc-client-58f45c5b99-fbxd5
++ wait_pod pxc-client-58f45c5b99-fbxd5
++ local pod=pxc-client-58f45c5b99-fbxd5
++ set +o xtrace
+pxc-client-58f45c5b99-fbxd5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf '\''SELECT * from myApp.myApp;\n'\'' | mysql -sN -h some-name-pxc-0.some-name-pxc -uroot -proot_password"'
++ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf 'SELECT * from myApp.myApp;\n' | mysql -sN -h some-name-pxc-0.some-name-pxc -uroot -proot_password"
++ set +o xtrace
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/compare/select-1.sql /tmp/tmp.L37TfxdZNJ/select-1.sql
++ for i in $(seq 0 $(($size - 1)))
++ compare_mysql_cmd select-1 'SELECT * from myApp.myApp;' '-h some-name-pxc-1.some-name-pxc -uroot -proot_password'
++ local command_id=select-1
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h some-name-pxc-1.some-name-pxc -uroot -proot_password'
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/compare/select-1.sql
++ [[ perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0 =~ 8\.0$ ]]
++ '[' -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/compare/select-1-80.sql ']'
++ run_mysql 'SELECT * from myApp.myApp;' '-h some-name-pxc-1.some-name-pxc -uroot -proot_password'
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h some-name-pxc-1.some-name-pxc -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.9DPHr4NlxB
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.rpb1Xy3G5q
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.9DPHr4NlxB
+--- 0 stdout
+pxc-client-58f45c5b99-fbxd5++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.rpb1Xy3G5q
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.9DPHr4NlxB
+++ cat /tmp/tmp.rpb1Xy3G5q
+++ rm /tmp/tmp.9DPHr4NlxB /tmp/tmp.rpb1Xy3G5q
+++ return 0
++ client_pod=pxc-client-58f45c5b99-fbxd5
++ wait_pod pxc-client-58f45c5b99-fbxd5
++ local pod=pxc-client-58f45c5b99-fbxd5
++ set +o xtrace
+pxc-client-58f45c5b99-fbxd5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf '\''SELECT * from myApp.myApp;\n'\'' | mysql -sN -h some-name-pxc-1.some-name-pxc -uroot -proot_password"'
++ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf 'SELECT * from myApp.myApp;\n' | mysql -sN -h some-name-pxc-1.some-name-pxc -uroot -proot_password"
++ set +o xtrace
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/compare/select-1.sql /tmp/tmp.L37TfxdZNJ/select-1.sql
++ for i in $(seq 0 $(($size - 1)))
++ compare_mysql_cmd select-1 'SELECT * from myApp.myApp;' '-h some-name-pxc-2.some-name-pxc -uroot -proot_password'
++ local command_id=select-1
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h some-name-pxc-2.some-name-pxc -uroot -proot_password'
++ local postfix=
++ local expected_result=/home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/compare/select-1.sql
++ [[ perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0 =~ 8\.0$ ]]
++ '[' -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/compare/select-1-80.sql ']'
++ run_mysql 'SELECT * from myApp.myApp;' '-h some-name-pxc-2.some-name-pxc -uroot -proot_password'
++ local 'command=SELECT * from myApp.myApp;'
++ local 'uri=-h some-name-pxc-2.some-name-pxc -uroot -proot_password'
+++ get_client_pod
+++ kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
++++ mktemp
+++ local LAST_OUT=/tmp/tmp.TLOeXjH2bf
++++ mktemp
+++ local LAST_ERR=/tmp/tmp.jpDzRjNakI
+++ local exit_status=0
++++ seq 0 2
+++ for i in $(seq 0 2)
+++ kubectl get pods --selector=name=pxc-client -o 'jsonpath={.items[].metadata.name}'
+++ exit_status=0
+++ [[ hB != hxB ]]
+++ echo '--- 0 stdout'
+++ cat - /tmp/tmp.TLOeXjH2bf
+--- 0 stdout
+pxc-client-58f45c5b99-fbxd5++ [[ hB != hxB ]]
+++ echo '--- 0 stderr'
+++ cat - /tmp/tmp.jpDzRjNakI
+--- 0 stderr
+++ [[ 0 != 0 ]]
+++ cat /tmp/tmp.TLOeXjH2bf
+++ cat /tmp/tmp.jpDzRjNakI
+++ rm /tmp/tmp.TLOeXjH2bf /tmp/tmp.jpDzRjNakI
+++ return 0
++ client_pod=pxc-client-58f45c5b99-fbxd5
++ wait_pod pxc-client-58f45c5b99-fbxd5
++ local pod=pxc-client-58f45c5b99-fbxd5
++ set +o xtrace
+pxc-client-58f45c5b99-fbxd5true
++ [[ ehB != ehxB ]]
++ echo '+ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf '\''SELECT * from myApp.myApp;\n'\'' | mysql -sN -h some-name-pxc-2.some-name-pxc -uroot -proot_password"'
++ kubectl exec -it pxc-client-58f45c5b99-fbxd5 -- bash -c "printf 'SELECT * from myApp.myApp;\n' | mysql -sN -h some-name-pxc-2.some-name-pxc -uroot -proot_password"
++ set +o xtrace
++ diff -u /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/compare/select-1.sql /tmp/tmp.L37TfxdZNJ/select-1.sql
++ run_backup some-name on-demand-backup-pvc
++ local cluster=some-name
++ local backup1=on-demand-backup-pvc
++ desc 'make backup'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+make backup
+-----------------------------------------------------------------------------------
+
++ kubectl_bin apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/conf/on-demand-backup-pvc.yml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.t8E4FDU5hY
+++ mktemp
++ local LAST_ERR=/tmp/tmp.knaO3K0Atz
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/conf/on-demand-backup-pvc.yml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.t8E4FDU5hY
+--- 0 stdout
+perconaxtradbclusterbackup.pxc.percona.com/on-demand-backup-pvc created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.knaO3K0Atz
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.t8E4FDU5hY
+perconaxtradbclusterbackup.pxc.percona.com/on-demand-backup-pvc created
++ cat /tmp/tmp.knaO3K0Atz
++ rm /tmp/tmp.t8E4FDU5hY /tmp/tmp.knaO3K0Atz
++ return 0
++ wait_backup on-demand-backup-pvc
++ local backup=on-demand-backup-pvc
++ set +o xtrace
+on-demand-backup-pvc....................................Succeeded
++ run_recovery_check some-name on-demand-backup-pvc
++ local cluster=some-name
++ local backup1=on-demand-backup-pvc
++ desc 'recover backup'
++ set +o xtrace
+
+
+-----------------------------------------------------------------------------------
+recover backup
+-----------------------------------------------------------------------------------
+
++ kubectl_bin apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/conf/restore-on-demand-backup-pvc.yaml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.xEHv3U9EKc
+++ mktemp
++ local LAST_ERR=/tmp/tmp.goH80cTtra
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl apply -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/conf/restore-on-demand-backup-pvc.yaml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.xEHv3U9EKc
+--- 0 stdout
+perconaxtradbclusterrestore.pxc.percona.com/on-demand-backup-pvc created
++ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.goH80cTtra
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.xEHv3U9EKc
+perconaxtradbclusterrestore.pxc.percona.com/on-demand-backup-pvc created
++ cat /tmp/tmp.goH80cTtra
++ rm /tmp/tmp.xEHv3U9EKc /tmp/tmp.goH80cTtra
++ return 0
++ wait_backup_restore on-demand-backup-pvc
++ local backup_name=on-demand-backup-pvc
++ set +o xtrace
+on-demand-backup-pvc..................................................................................Succeeded
+
++ kubectl_bin logs job/restore-job-on-demand-backup-pvc-some-name
+++ mktemp
++ local LAST_OUT=/tmp/tmp.EEV6pEIvdT
+++ mktemp
++ local LAST_ERR=/tmp/tmp.dr9eSViVgV
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl logs job/restore-job-on-demand-backup-pvc-some-name
++ exit_status=0
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.EEV6pEIvdT
++ echo '--- 0 stdout'
+--- 0 stdout
++++ dirname /usr/bin/recovery-pvc-joiner.sh
+++ realpath /usr/bin
++ pwd=/usr/bin
++ . /usr/bin/vault.sh
+++ set -o errexit
++ SOCAT_OPTS=TCP:restore-src-on-demand-backup-pvc-some-name:3307,retry=30
++ check_ssl
++ CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
++ '[' -f /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt ']'
++ SSL_DIR=/etc/mysql/ssl
++ '[' -f /etc/mysql/ssl/ca.crt ']'
++ CA=/etc/mysql/ssl/ca.crt
++ SSL_INTERNAL_DIR=/etc/mysql/ssl-internal
++ '[' -f /etc/mysql/ssl-internal/ca.crt ']'
++ CA=/etc/mysql/ssl-internal/ca.crt
++ KEY=/etc/mysql/ssl/tls.key
++ CERT=/etc/mysql/ssl/tls.crt
++ '[' -f /etc/mysql/ssl-internal/tls.key -a -f /etc/mysql/ssl-internal/tls.crt ']'
++ KEY=/etc/mysql/ssl-internal/tls.key
++ CERT=/etc/mysql/ssl-internal/tls.crt
++ '[' -f /etc/mysql/ssl-internal/ca.crt -a -f /etc/mysql/ssl-internal/tls.key -a -f /etc/mysql/ssl-internal/tls.crt ']'
++ SOCAT_OPTS='openssl-connect:restore-src-on-demand-backup-pvc-some-name:3307,reuseaddr,cert=/etc/mysql/ssl-internal/tls.crt,key=/etc/mysql/ssl-internal/tls.key,cafile=/etc/mysql/ssl-internal/ca.crt,verify=1,commonname='\'''\'',retry=30'
++ ping -c1 restore-src-on-demand-backup-pvc-some-name
+PING restore-src-on-demand-backup-pvc-some-name.demand-backup-encrypted-9292.svc.cluster.local (10.19.245.53) 56(84) bytes of data.
+
+--- restore-src-on-demand-backup-pvc-some-name.demand-backup-encrypted-9292.svc.cluster.local ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
++ :
++ rm -rf /datadir/#innodb_temp /datadir/auto.cnf /datadir/binlog.000001 /datadir/binlog.000002 /datadir/binlog.000003 /datadir/binlog.000004 /datadir/binlog.index /datadir/galera.cache /datadir/grastate.dat /datadir/ib_buffer_pool /datadir/ib_logfile0 /datadir/ib_logfile1 /datadir/ibdata1 /datadir/innobackup.backup.log /datadir/myApp /datadir/mysql /datadir/mysql.ibd /datadir/performance_schema /datadir/private_key.pem /datadir/public_key.pem /datadir/sst_in_progress /datadir/sys /datadir/undo_001 /datadir/undo_002 /datadir/version_info
+++ mktemp --tmpdir --directory pxc_sst_XXXX
++ tmp=/tmp/pxc_sst_D21e
++ socat -u 'openssl-connect:restore-src-on-demand-backup-pvc-some-name:3307,reuseaddr,cert=/etc/mysql/ssl-internal/tls.crt,key=/etc/mysql/ssl-internal/tls.key,cafile=/etc/mysql/ssl-internal/ca.crt,verify=1,commonname='\'''\'',retry=30' stdio
++ socat -u 'openssl-connect:restore-src-on-demand-backup-pvc-some-name:3307,reuseaddr,cert=/etc/mysql/ssl-internal/tls.crt,key=/etc/mysql/ssl-internal/tls.key,cafile=/etc/mysql/ssl-internal/ca.crt,verify=1,commonname='\'''\'',retry=30' stdio
+++ grep -c processor /proc/cpuinfo
++ xbstream -x -C /tmp/pxc_sst_D21e --parallel=4
+++ vault_get /tmp/pxc_sst_D21e/sst_info
+++ local sst_info=/tmp/pxc_sst_D21e/sst_info
+++ local keyring_vault=/etc/mysql/vault-keyring-secret/keyring_vault.conf
+++ '[' '!' -f /etc/mysql/vault-keyring-secret/keyring_vault.conf ']'
+++ '[' '!' -f /tmp/pxc_sst_D21e/sst_info ']'
++++ parse_ini token /etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ local key=token
++++ local file_path=/etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ awk -F '=[ ]*' '/token[ ]*=/ {print $2}' /etc/mysql/vault-keyring-secret/keyring_vault.conf
+++ export VAULT_TOKEN=s.0ZjGX2Ri3b5qi9b5EcLYzTzu
+++ VAULT_TOKEN=s.0ZjGX2Ri3b5qi9b5EcLYzTzu
++++ parse_ini vault_url /etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ local key=vault_url
++++ local file_path=/etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ awk -F '=[ ]*' '/vault_url[ ]*=/ {print $2}' /etc/mysql/vault-keyring-secret/keyring_vault.conf
+++ export VAULT_ADDR=http://vault-service-1.vault-service-1.svc.cluster.local:8200
+++ VAULT_ADDR=http://vault-service-1.vault-service-1.svc.cluster.local:8200
++++ parse_ini secret_mount_point /etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ local key=secret_mount_point
++++ local file_path=/etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ awk -F '=[ ]*' '/secret_mount_point[ ]*=/ {print $2}' /etc/mysql/vault-keyring-secret/keyring_vault.conf
+++ local vault_root=secret/backup
++++ parse_ini galera-gtid /tmp/pxc_sst_D21e/sst_info
++++ local key=galera-gtid
++++ local file_path=/tmp/pxc_sst_D21e/sst_info
++++ awk -F '=[ ]*' '/galera-gtid[ ]*=/ {print $2}' /tmp/pxc_sst_D21e/sst_info
+++ local gtid=a0b4a187-6f84-11ea-a650-8b001f444377:13
+++ vault kv get secret/backup/a0b4a187-6f84-11ea-a650-8b001f444377:13
+++ grep transition_key
+++ sed -e 's/transition_key[[:space:]]*//g'
++ transition_key=WJ7kjYKRAxnvydmcpb2Cic6EOhIS3ktQ
++ [[ -n WJ7kjYKRAxnvydmcpb2Cic6EOhIS3ktQ ]]
++ encrypt_move_options='--transition-key=$transition_key'
++ encrypt_prepare_options='--transition-key=$transition_key'
++ echo transition-key exists
++ cat /etc/mysql/vault-keyring-secret/keyring_vault.conf
+transition-key exists
+token = s.0ZjGX2Ri3b5qi9b5EcLYzTzu
+vault_url = http://vault-service-1.vault-service-1.svc.cluster.local:8200
++ echo '[mysqld]
+keyring_vault_config=/etc/mysql/vault-keyring-secret/keyring_vault.conf
+early-plugin-load=keyring_vault.so'
++ xtrabackup --use-memory=750000000 --prepare --binlog-info=ON '--transition-key=$transition_key' --rollback-prepared-trx --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=/tmp/pxc_sst_D21e
+xtrabackup: recognized server arguments: --innodb_checksum_algorithm=crc32 --innodb_log_checksums=1 --innodb_data_file_path=ibdata1:12M:autoextend --innodb_log_files_in_group=2 --innodb_log_file_size=50331648 --innodb_page_size=16384 --innodb_undo_directory=./ --innodb_undo_tablespaces=2 --server-id=12 --innodb_log_checksums=ON --innodb_redo_log_encrypt=0 --innodb_undo_log_encrypt=0 
+xtrabackup: recognized client arguments: --use-memory=750000000 --prepare=1 --transition-key=* --rollback-prepared-trx=1 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=/tmp/pxc_sst_D21e 
+xtrabackup version 8.0.9 based on MySQL server 8.0.18 Linux (x86_64) (revision id: c5cbbe4)
+xtrabackup: cd to /tmp/pxc_sst_D21e/
+xtrabackup: This target seems to be not prepared yet.
+Number of pools: 1
+xtrabackup: xtrabackup_logfile detected: size=8388608, start_lsn=(30994114)
+xtrabackup: using the following InnoDB configuration for recovery:
+xtrabackup:   innodb_data_home_dir = .
+xtrabackup:   innodb_data_file_path = ibdata1:12M:autoextend
+xtrabackup:   innodb_log_group_home_dir = .
+xtrabackup:   innodb_log_files_in_group = 1
+xtrabackup:   innodb_log_file_size = 8388608
+200326 17:15:19 Loading xtrabackup_keys.
+WARNING: unknown option --binlog-info=ON
+xtrabackup: using the following InnoDB configuration for recovery:
+xtrabackup:   innodb_data_home_dir = .
+xtrabackup:   innodb_data_file_path = ibdata1:12M:autoextend
+xtrabackup:   innodb_log_group_home_dir = .
+xtrabackup:   innodb_log_files_in_group = 1
+xtrabackup:   innodb_log_file_size = 8388608
+xtrabackup: Starting InnoDB instance for recovery.
+xtrabackup: Using 749731840 bytes for buffer pool (set by --use-memory parameter)
+PUNCH HOLE support available
+Mutexes and rw_locks use GCC atomic builtins
+Uses event mutexes
+GCC builtin __atomic_thread_fence() is used for memory barrier
+Compressed tables use zlib 1.2.7
+Number of pools: 1
+Using CPU crc32 instructions
+Directories to scan '.;.;.'
+Scanning './'
+Completed space ID check of 8 files.
+Initializing buffer pool, total size = 768.000000M, instances = 1, chunk size =128.000000M 
+Completed initialization of buffer pool
+If the mysqld execution user is authorized, page cleaner thread priority can be changed. See the man page of setpriority().
+The log sequence number 30932085 in the system tablespace does not match the log sequence number 30994114 in the ib_logfiles!
+Database was not shutdown normally!
+Starting crash recovery.
+Starting to parse redo log at lsn = 30993957, whereas checkpoint_lsn = 30994114
+Doing recovery: scanned up to log sequence number 30994154
+Log background threads are being started...
+Applying a batch of 1 redo log records ...
+100%
+Apply batch completed!
+Using undo tablespace './undo_001'.
+Using undo tablespace './undo_002'.
+Opened 2 existing undo tablespaces.
+GTID recovery trx_no: 3126
+Creating shared tablespace for temporary tables
+Setting file './ibtmp1' size to 12 MB. Physically writing the file full; Please wait ...
+File './ibtmp1' size is now 12 MB.
+Scanning temp tablespace dir:'./#innodb_temp/'
+Created 128 and tracked 128 new rollback segment(s) in the temporary tablespace. 128 are now active.
+8.0.18 started; log sequence number 30994154
+Allocated tablespace ID 4 for mysql/wsrep_streaming_log, old maximum was 0
+xtrabackup: Last MySQL binlog file position 155, file name binlog.000002
+xtrabackup: Recovered WSREP position: a0b4a187-6f84-11ea-a650-8b001f444377:14
+xtrabackup: starting shutdown with innodb_fast_shutdown = 1
+FTS optimize thread exiting.
+Starting shutdown...
+Log background threads are being closed...
+Shutdown completed; log sequence number 30994154
+Number of pools: 1
+xtrabackup: using the following InnoDB configuration for recovery:
+xtrabackup:   innodb_data_home_dir = .
+xtrabackup:   innodb_data_file_path = ibdata1:12M:autoextend
+xtrabackup:   innodb_log_group_home_dir = .
+xtrabackup:   innodb_log_files_in_group = 2
+xtrabackup:   innodb_log_file_size = 50331648
+PUNCH HOLE support available
+Mutexes and rw_locks use GCC atomic builtins
+Uses event mutexes
+GCC builtin __atomic_thread_fence() is used for memory barrier
+Compressed tables use zlib 1.2.7
+Number of pools: 1
+Using CPU crc32 instructions
+Directories to scan '.;.;.'
+Scanning './'
+Completed space ID check of 8 files.
+Initializing buffer pool, total size = 768.000000M, instances = 1, chunk size =128.000000M 
+Completed initialization of buffer pool
+If the mysqld execution user is authorized, page cleaner thread priority can be changed. See the man page of setpriority().
+Setting log file ./ib_logfile101 size to 48 MB
+Setting log file ./ib_logfile1 size to 48 MB
+Renaming log file ./ib_logfile101 to ./ib_logfile0
+New log files created, LSN=30994444
+Starting to parse redo log at lsn = 30994444, whereas checkpoint_lsn = 30994444
+Log background threads are being started...
+Applying a batch of 0 redo log records ...
+Apply batch completed!
+Using undo tablespace './undo_001'.
+Using undo tablespace './undo_002'.
+Opened 2 existing undo tablespaces.
+GTID recovery trx_no: 3126
+Removed temporary tablespace data file: "ibtmp1"
+Creating shared tablespace for temporary tables
+Setting file './ibtmp1' size to 12 MB. Physically writing the file full; Please wait ...
+File './ibtmp1' size is now 12 MB.
+Scanning temp tablespace dir:'./#innodb_temp/'
+Created 128 and tracked 128 new rollback segment(s) in the temporary tablespace. 128 are now active.
+8.0.18 started; log sequence number 30994444
+xtrabackup: starting shutdown with innodb_fast_shutdown = 1
+FTS optimize thread exiting.
+Starting shutdown...
+Log background threads are being closed...
+Shutdown completed; log sequence number 30994444
+200326 17:15:23 completed OK!
++ xtrabackup --defaults-file=/tmp/my.cnf --defaults-group=mysqld --datadir=/datadir --move-back --binlog-info=ON --force-non-empty-directories '--transition-key=$transition_key' --generate-new-master-key --keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=/tmp/pxc_sst_D21e
+xtrabackup: recognized server arguments: --defaults_group=mysqld --datadir=/datadir 
+xtrabackup: recognized client arguments: --move-back=1 --force-non-empty-directories=1 --transition-key=* --generate-new-master-key=1 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=/tmp/pxc_sst_D21e 
+xtrabackup version 8.0.9 based on MySQL server 8.0.18 Linux (x86_64) (revision id: c5cbbe4)
+200326 17:15:23 Loading xtrabackup_keys.
+200326 17:15:23 Loading xtrabackup_keys.
+200326 17:15:24 Generated new master key with ID 'ef79ede7-6f84-11ea-a117-0ee8603f008f-4'.
+200326 17:15:24 [01] Moving undo_001 to /datadir/undo_001
+200326 17:15:24 [01] Copying undo_001 to /datadir/undo_001
+200326 17:15:24 [01]        ...done
+200326 17:15:24 [01] Removing undo_001
+200326 17:15:24 [01] Moving undo_002 to /datadir/undo_002
+200326 17:15:24 [01] Copying undo_002 to /datadir/undo_002
+200326 17:15:24 [01]        ...done
+200326 17:15:24 [01] Removing undo_002
+200326 17:15:24 [01] Moving ib_logfile0 to /datadir/ib_logfile0
+200326 17:15:24 [01] Copying ib_logfile0 to /datadir/ib_logfile0
+200326 17:15:24 [01]        ...done
+200326 17:15:24 [01] Removing ib_logfile0
+200326 17:15:24 [01] Moving ib_logfile1 to /datadir/ib_logfile1
+200326 17:15:24 [01] Copying ib_logfile1 to /datadir/ib_logfile1
+200326 17:15:24 [01]        ...done
+200326 17:15:24 [01] Removing ib_logfile1
+200326 17:15:24 [01] Moving ibdata1 to /datadir/ibdata1
+200326 17:15:24 [01] Copying ibdata1 to /datadir/ibdata1
+200326 17:15:24 [01]        ...done
+200326 17:15:25 [01] Removing ibdata1
+200326 17:15:25 [01] Moving binlog.000007 to /datadir//binlog.000007
+200326 17:15:25 [01] Copying binlog.000007 to /datadir/binlog.000007
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing binlog.000007
+200326 17:15:25 [01] Moving binlog.index to /datadir//binlog.index
+200326 17:15:25 [01] Copying binlog.index to /datadir/binlog.index
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing binlog.index
+200326 17:15:25 [01] Moving ./ib_buffer_pool to /datadir/ib_buffer_pool
+200326 17:15:25 [01] Copying ./ib_buffer_pool to /datadir/ib_buffer_pool
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./ib_buffer_pool
+200326 17:15:25 [01] Moving ./performance_schema/cond_instances_88.sdi to /datadir/performance_schema/cond_instances_88.sdi
+200326 17:15:25 [01] Copying ./performance_schema/cond_instances_88.sdi to /datadir/performance_schema/cond_instances_88.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/cond_instances_88.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_123.sdi to /datadir/performance_schema/events_statement_123.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_123.sdi to /datadir/performance_schema/events_statement_123.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_123.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_144.sdi to /datadir/performance_schema/events_errors_su_144.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_144.sdi to /datadir/performance_schema/events_errors_su_144.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_144.sdi
+200326 17:15:25 [01] Moving ./performance_schema/prepared_stateme_177.sdi to /datadir/performance_schema/prepared_stateme_177.sdi
+200326 17:15:25 [01] Copying ./performance_schema/prepared_stateme_177.sdi to /datadir/performance_schema/prepared_stateme_177.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/prepared_stateme_177.sdi
+200326 17:15:25 [01] Moving ./performance_schema/host_cache_101.sdi to /datadir/performance_schema/host_cache_101.sdi
+200326 17:15:25 [01] Copying ./performance_schema/host_cache_101.sdi to /datadir/performance_schema/host_cache_101.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/host_cache_101.sdi
+200326 17:15:25 [01] Moving ./performance_schema/keyring_keys_156.sdi to /datadir/performance_schema/keyring_keys_156.sdi
+200326 17:15:25 [01] Copying ./performance_schema/keyring_keys_156.sdi to /datadir/performance_schema/keyring_keys_156.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/keyring_keys_156.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_conn_168.sdi to /datadir/performance_schema/replication_conn_168.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_conn_168.sdi to /datadir/performance_schema/replication_conn_168.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_conn_168.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_cu_115.sdi to /datadir/performance_schema/events_stages_cu_115.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_cu_115.sdi to /datadir/performance_schema/events_stages_cu_115.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_cu_115.sdi
+200326 17:15:25 [01] Moving ./performance_schema/log_status_176.sdi to /datadir/performance_schema/log_status_176.sdi
+200326 17:15:25 [01] Copying ./performance_schema/log_status_176.sdi to /datadir/performance_schema/log_status_176.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/log_status_176.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_122.sdi to /datadir/performance_schema/events_stages_su_122.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_122.sdi to /datadir/performance_schema/events_stages_su_122.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_122.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_172.sdi to /datadir/performance_schema/replication_appl_172.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_172.sdi to /datadir/performance_schema/replication_appl_172.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_172.sdi
+200326 17:15:25 [01] Moving ./performance_schema/file_summary_by__100.sdi to /datadir/performance_schema/file_summary_by__100.sdi
+200326 17:15:25 [01] Copying ./performance_schema/file_summary_by__100.sdi to /datadir/performance_schema/file_summary_by__100.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/file_summary_by__100.sdi
+200326 17:15:25 [01] Moving ./performance_schema/global_variables_186.sdi to /datadir/performance_schema/global_variables_186.sdi
+200326 17:15:25 [01] Copying ./performance_schema/global_variables_186.sdi to /datadir/performance_schema/global_variables_186.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/global_variables_186.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_133.sdi to /datadir/performance_schema/events_statement_133.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_133.sdi to /datadir/performance_schema/events_statement_133.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_133.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_97.sdi to /datadir/performance_schema/events_waits_sum_97.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_97.sdi to /datadir/performance_schema/events_waits_sum_97.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_97.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_139.sdi to /datadir/performance_schema/events_transacti_139.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_139.sdi to /datadir/performance_schema/events_transacti_139.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_139.sdi
+200326 17:15:25 [01] Moving ./performance_schema/table_io_waits_s_111.sdi to /datadir/performance_schema/table_io_waits_s_111.sdi
+200326 17:15:25 [01] Copying ./performance_schema/table_io_waits_s_111.sdi to /datadir/performance_schema/table_io_waits_s_111.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/table_io_waits_s_111.sdi
+200326 17:15:25 [01] Moving ./performance_schema/status_by_host_180.sdi to /datadir/performance_schema/status_by_host_180.sdi
+200326 17:15:25 [01] Copying ./performance_schema/status_by_host_180.sdi to /datadir/performance_schema/status_by_host_180.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/status_by_host_180.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_170.sdi to /datadir/performance_schema/replication_appl_170.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_170.sdi to /datadir/performance_schema/replication_appl_170.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_170.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_93.sdi to /datadir/performance_schema/events_waits_sum_93.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_93.sdi to /datadir/performance_schema/events_waits_sum_93.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_93.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_118.sdi to /datadir/performance_schema/events_stages_su_118.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_118.sdi to /datadir/performance_schema/events_stages_su_118.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_118.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_145.sdi to /datadir/performance_schema/events_errors_su_145.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_145.sdi to /datadir/performance_schema/events_errors_su_145.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_145.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_134.sdi to /datadir/performance_schema/events_statement_134.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_134.sdi to /datadir/performance_schema/events_statement_134.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_134.sdi
+200326 17:15:25 [01] Moving ./performance_schema/performance_time_104.sdi to /datadir/performance_schema/performance_time_104.sdi
+200326 17:15:25 [01] Copying ./performance_schema/performance_time_104.sdi to /datadir/performance_schema/performance_time_104.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/performance_time_104.sdi
+200326 17:15:25 [01] Moving ./performance_schema/socket_instances_151.sdi to /datadir/performance_schema/socket_instances_151.sdi
+200326 17:15:25 [01] Copying ./performance_schema/socket_instances_151.sdi to /datadir/performance_schema/socket_instances_151.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/socket_instances_151.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_128.sdi to /datadir/performance_schema/events_statement_128.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_128.sdi to /datadir/performance_schema/events_statement_128.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_128.sdi
+200326 17:15:25 [01] Moving ./performance_schema/status_by_thread_181.sdi to /datadir/performance_schema/status_by_thread_181.sdi
+200326 17:15:25 [01] Copying ./performance_schema/status_by_thread_181.sdi to /datadir/performance_schema/status_by_thread_181.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/status_by_thread_181.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_130.sdi to /datadir/performance_schema/events_statement_130.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_130.sdi to /datadir/performance_schema/events_statement_130.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_130.sdi
+200326 17:15:25 [01] Moving ./performance_schema/variables_info_188.sdi to /datadir/performance_schema/variables_info_188.sdi
+200326 17:15:25 [01] Copying ./performance_schema/variables_info_188.sdi to /datadir/performance_schema/variables_info_188.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/variables_info_188.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_92.sdi to /datadir/performance_schema/events_waits_sum_92.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_92.sdi to /datadir/performance_schema/events_waits_sum_92.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_92.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_g_157.sdi to /datadir/performance_schema/memory_summary_g_157.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_g_157.sdi to /datadir/performance_schema/memory_summary_g_157.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_g_157.sdi
+200326 17:15:25 [01] Moving ./performance_schema/session_account__155.sdi to /datadir/performance_schema/session_account__155.sdi
+200326 17:15:25 [01] Copying ./performance_schema/session_account__155.sdi to /datadir/performance_schema/session_account__155.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/session_account__155.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_b_159.sdi to /datadir/performance_schema/memory_summary_b_159.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_b_159.sdi to /datadir/performance_schema/memory_summary_b_159.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_b_159.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_174.sdi to /datadir/performance_schema/replication_appl_174.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_174.sdi to /datadir/performance_schema/replication_appl_174.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_174.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_hi_117.sdi to /datadir/performance_schema/events_stages_hi_117.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_hi_117.sdi to /datadir/performance_schema/events_stages_hi_117.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_hi_117.sdi
+200326 17:15:25 [01] Moving ./performance_schema/global_status_183.sdi to /datadir/performance_schema/global_status_183.sdi
+200326 17:15:25 [01] Copying ./performance_schema/global_status_183.sdi to /datadir/performance_schema/global_status_183.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/global_status_183.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_171.sdi to /datadir/performance_schema/replication_appl_171.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_171.sdi to /datadir/performance_schema/replication_appl_171.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_171.sdi
+200326 17:15:25 [01] Moving ./performance_schema/accounts_149.sdi to /datadir/performance_schema/accounts_149.sdi
+200326 17:15:25 [01] Copying ./performance_schema/accounts_149.sdi to /datadir/performance_schema/accounts_149.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/accounts_149.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_cur_89.sdi to /datadir/performance_schema/events_waits_cur_89.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_cur_89.sdi to /datadir/performance_schema/events_waits_cur_89.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_cur_89.sdi
+200326 17:15:25 [01] Moving ./performance_schema/persisted_variab_189.sdi to /datadir/performance_schema/persisted_variab_189.sdi
+200326 17:15:25 [01] Copying ./performance_schema/persisted_variab_189.sdi to /datadir/performance_schema/persisted_variab_189.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/persisted_variab_189.sdi
+200326 17:15:25 [01] Moving ./performance_schema/status_by_user_182.sdi to /datadir/performance_schema/status_by_user_182.sdi
+200326 17:15:25 [01] Copying ./performance_schema/status_by_user_182.sdi to /datadir/performance_schema/status_by_user_182.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/status_by_user_182.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_95.sdi to /datadir/performance_schema/events_waits_sum_95.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_95.sdi to /datadir/performance_schema/events_waits_sum_95.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_95.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_143.sdi to /datadir/performance_schema/events_errors_su_143.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_143.sdi to /datadir/performance_schema/events_errors_su_143.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_143.sdi
+200326 17:15:25 [01] Moving ./performance_schema/table_io_waits_s_112.sdi to /datadir/performance_schema/table_io_waits_s_112.sdi
+200326 17:15:25 [01] Copying ./performance_schema/table_io_waits_s_112.sdi to /datadir/performance_schema/table_io_waits_s_112.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/table_io_waits_s_112.sdi
+200326 17:15:25 [01] Moving ./performance_schema/data_lock_waits_165.sdi to /datadir/performance_schema/data_lock_waits_165.sdi
+200326 17:15:25 [01] Copying ./performance_schema/data_lock_waits_165.sdi to /datadir/performance_schema/data_lock_waits_165.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/data_lock_waits_165.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_120.sdi to /datadir/performance_schema/events_stages_su_120.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_120.sdi to /datadir/performance_schema/events_stages_su_120.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_120.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_137.sdi to /datadir/performance_schema/events_transacti_137.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_137.sdi to /datadir/performance_schema/events_transacti_137.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_137.sdi
+200326 17:15:25 [01] Moving ./performance_schema/objects_summary__103.sdi to /datadir/performance_schema/objects_summary__103.sdi
+200326 17:15:25 [01] Copying ./performance_schema/objects_summary__103.sdi to /datadir/performance_schema/objects_summary__103.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/objects_summary__103.sdi
+200326 17:15:25 [01] Moving ./performance_schema/variables_by_thr_185.sdi to /datadir/performance_schema/variables_by_thr_185.sdi
+200326 17:15:25 [01] Copying ./performance_schema/variables_by_thr_185.sdi to /datadir/performance_schema/variables_by_thr_185.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/variables_by_thr_185.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_his_91.sdi to /datadir/performance_schema/events_waits_his_91.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_his_91.sdi to /datadir/performance_schema/events_waits_his_91.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_his_91.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_b_160.sdi to /datadir/performance_schema/memory_summary_b_160.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_b_160.sdi to /datadir/performance_schema/memory_summary_b_160.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_b_160.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_actors_106.sdi to /datadir/performance_schema/setup_actors_106.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_actors_106.sdi to /datadir/performance_schema/setup_actors_106.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_actors_106.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_grou_173.sdi to /datadir/performance_schema/replication_grou_173.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_grou_173.sdi to /datadir/performance_schema/replication_grou_173.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_grou_173.sdi
+200326 17:15:25 [01] Moving ./performance_schema/rwlock_instances_105.sdi to /datadir/performance_schema/rwlock_instances_105.sdi
+200326 17:15:25 [01] Copying ./performance_schema/rwlock_instances_105.sdi to /datadir/performance_schema/rwlock_instances_105.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/rwlock_instances_105.sdi
+200326 17:15:25 [01] Moving ./performance_schema/socket_summary_b_152.sdi to /datadir/performance_schema/socket_summary_b_152.sdi
+200326 17:15:25 [01] Copying ./performance_schema/socket_summary_b_152.sdi to /datadir/performance_schema/socket_summary_b_152.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/socket_summary_b_152.sdi
+200326 17:15:25 [01] Moving ./performance_schema/session_variable_187.sdi to /datadir/performance_schema/session_variable_187.sdi
+200326 17:15:25 [01] Copying ./performance_schema/session_variable_187.sdi to /datadir/performance_schema/session_variable_187.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/session_variable_187.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_140.sdi to /datadir/performance_schema/events_transacti_140.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_140.sdi to /datadir/performance_schema/events_transacti_140.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_140.sdi
+200326 17:15:25 [01] Moving ./performance_schema/mutex_instances_102.sdi to /datadir/performance_schema/mutex_instances_102.sdi
+200326 17:15:25 [01] Copying ./performance_schema/mutex_instances_102.sdi to /datadir/performance_schema/mutex_instances_102.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/mutex_instances_102.sdi
+200326 17:15:25 [01] Moving ./performance_schema/user_variables_b_178.sdi to /datadir/performance_schema/user_variables_b_178.sdi
+200326 17:15:25 [01] Copying ./performance_schema/user_variables_b_178.sdi to /datadir/performance_schema/user_variables_b_178.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/user_variables_b_178.sdi
+200326 17:15:25 [01] Moving ./performance_schema/file_instances_98.sdi to /datadir/performance_schema/file_instances_98.sdi
+200326 17:15:25 [01] Copying ./performance_schema/file_instances_98.sdi to /datadir/performance_schema/file_instances_98.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/file_instances_98.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_136.sdi to /datadir/performance_schema/events_transacti_136.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_136.sdi to /datadir/performance_schema/events_transacti_136.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_136.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_hi_116.sdi to /datadir/performance_schema/events_stages_hi_116.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_hi_116.sdi to /datadir/performance_schema/events_stages_hi_116.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_hi_116.sdi
+200326 17:15:25 [01] Moving ./performance_schema/session_connect__154.sdi to /datadir/performance_schema/session_connect__154.sdi
+200326 17:15:25 [01] Copying ./performance_schema/session_connect__154.sdi to /datadir/performance_schema/session_connect__154.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/session_connect__154.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_124.sdi to /datadir/performance_schema/events_statement_124.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_124.sdi to /datadir/performance_schema/events_statement_124.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_124.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_objects_109.sdi to /datadir/performance_schema/setup_objects_109.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_objects_109.sdi to /datadir/performance_schema/setup_objects_109.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_objects_109.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_127.sdi to /datadir/performance_schema/events_statement_127.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_127.sdi to /datadir/performance_schema/events_statement_127.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_127.sdi
+200326 17:15:25 [01] Moving ./performance_schema/table_lock_waits_113.sdi to /datadir/performance_schema/table_lock_waits_113.sdi
+200326 17:15:25 [01] Copying ./performance_schema/table_lock_waits_113.sdi to /datadir/performance_schema/table_lock_waits_113.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/table_lock_waits_113.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_132.sdi to /datadir/performance_schema/events_statement_132.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_132.sdi to /datadir/performance_schema/events_statement_132.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_132.sdi
+200326 17:15:25 [01] Moving ./performance_schema/threads_114.sdi to /datadir/performance_schema/threads_114.sdi
+200326 17:15:25 [01] Copying ./performance_schema/threads_114.sdi to /datadir/performance_schema/threads_114.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/threads_114.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_142.sdi to /datadir/performance_schema/events_transacti_142.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_142.sdi to /datadir/performance_schema/events_transacti_142.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_142.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_96.sdi to /datadir/performance_schema/events_waits_sum_96.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_96.sdi to /datadir/performance_schema/events_waits_sum_96.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_96.sdi
+200326 17:15:25 [01] Moving ./performance_schema/file_summary_by__99.sdi to /datadir/performance_schema/file_summary_by__99.sdi
+200326 17:15:25 [01] Copying ./performance_schema/file_summary_by__99.sdi to /datadir/performance_schema/file_summary_by__99.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/file_summary_by__99.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_129.sdi to /datadir/performance_schema/events_statement_129.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_129.sdi to /datadir/performance_schema/events_statement_129.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_129.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_125.sdi to /datadir/performance_schema/events_statement_125.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_125.sdi to /datadir/performance_schema/events_statement_125.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_125.sdi
+200326 17:15:25 [01] Moving ./performance_schema/pxc_cluster_view_191.sdi to /datadir/performance_schema/pxc_cluster_view_191.sdi
+200326 17:15:25 [01] Copying ./performance_schema/pxc_cluster_view_191.sdi to /datadir/performance_schema/pxc_cluster_view_191.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/pxc_cluster_view_191.sdi
+200326 17:15:25 [01] Moving ./performance_schema/data_locks_164.sdi to /datadir/performance_schema/data_locks_164.sdi
+200326 17:15:25 [01] Copying ./performance_schema/data_locks_164.sdi to /datadir/performance_schema/data_locks_164.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/data_locks_164.sdi
+200326 17:15:25 [01] Moving ./performance_schema/table_handles_162.sdi to /datadir/performance_schema/table_handles_162.sdi
+200326 17:15:25 [01] Copying ./performance_schema/table_handles_162.sdi to /datadir/performance_schema/table_handles_162.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/table_handles_162.sdi
+200326 17:15:25 [01] Moving ./performance_schema/hosts_150.sdi to /datadir/performance_schema/hosts_150.sdi
+200326 17:15:25 [01] Copying ./performance_schema/hosts_150.sdi to /datadir/performance_schema/hosts_150.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/hosts_150.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_consumers_107.sdi to /datadir/performance_schema/setup_consumers_107.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_consumers_107.sdi to /datadir/performance_schema/setup_consumers_107.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_consumers_107.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_138.sdi to /datadir/performance_schema/events_transacti_138.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_138.sdi to /datadir/performance_schema/events_transacti_138.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_138.sdi
+200326 17:15:25 [01] Moving ./performance_schema/status_by_accoun_179.sdi to /datadir/performance_schema/status_by_accoun_179.sdi
+200326 17:15:25 [01] Copying ./performance_schema/status_by_accoun_179.sdi to /datadir/performance_schema/status_by_accoun_179.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/status_by_accoun_179.sdi
+200326 17:15:25 [01] Moving ./performance_schema/socket_summary_b_153.sdi to /datadir/performance_schema/socket_summary_b_153.sdi
+200326 17:15:25 [01] Copying ./performance_schema/socket_summary_b_153.sdi to /datadir/performance_schema/socket_summary_b_153.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/socket_summary_b_153.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_126.sdi to /datadir/performance_schema/events_statement_126.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_126.sdi to /datadir/performance_schema/events_statement_126.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_126.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_b_158.sdi to /datadir/performance_schema/memory_summary_b_158.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_b_158.sdi to /datadir/performance_schema/memory_summary_b_158.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_b_158.sdi
+200326 17:15:25 [01] Moving ./performance_schema/users_148.sdi to /datadir/performance_schema/users_148.sdi
+200326 17:15:25 [01] Copying ./performance_schema/users_148.sdi to /datadir/performance_schema/users_148.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/users_148.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_169.sdi to /datadir/performance_schema/replication_appl_169.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_169.sdi to /datadir/performance_schema/replication_appl_169.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_169.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_94.sdi to /datadir/performance_schema/events_waits_sum_94.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_94.sdi to /datadir/performance_schema/events_waits_sum_94.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_94.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_b_161.sdi to /datadir/performance_schema/memory_summary_b_161.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_b_161.sdi to /datadir/performance_schema/memory_summary_b_161.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_b_161.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_119.sdi to /datadir/performance_schema/events_stages_su_119.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_119.sdi to /datadir/performance_schema/events_stages_su_119.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_119.sdi
+200326 17:15:25 [01] Moving ./performance_schema/session_status_184.sdi to /datadir/performance_schema/session_status_184.sdi
+200326 17:15:25 [01] Copying ./performance_schema/session_status_184.sdi to /datadir/performance_schema/session_status_184.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/session_status_184.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_146.sdi to /datadir/performance_schema/events_errors_su_146.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_146.sdi to /datadir/performance_schema/events_errors_su_146.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_146.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_141.sdi to /datadir/performance_schema/events_transacti_141.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_141.sdi to /datadir/performance_schema/events_transacti_141.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_141.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_his_90.sdi to /datadir/performance_schema/events_waits_his_90.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_his_90.sdi to /datadir/performance_schema/events_waits_his_90.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_his_90.sdi
+200326 17:15:25 [01] Moving ./performance_schema/metadata_locks_163.sdi to /datadir/performance_schema/metadata_locks_163.sdi
+200326 17:15:25 [01] Copying ./performance_schema/metadata_locks_163.sdi to /datadir/performance_schema/metadata_locks_163.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/metadata_locks_163.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_135.sdi to /datadir/performance_schema/events_transacti_135.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_135.sdi to /datadir/performance_schema/events_transacti_135.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_135.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_instrument_108.sdi to /datadir/performance_schema/setup_instrument_108.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_instrument_108.sdi to /datadir/performance_schema/setup_instrument_108.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_instrument_108.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_131.sdi to /datadir/performance_schema/events_statement_131.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_131.sdi to /datadir/performance_schema/events_statement_131.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_131.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_147.sdi to /datadir/performance_schema/events_errors_su_147.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_147.sdi to /datadir/performance_schema/events_errors_su_147.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_147.sdi
+200326 17:15:25 [01] Moving ./performance_schema/user_defined_fun_190.sdi to /datadir/performance_schema/user_defined_fun_190.sdi
+200326 17:15:25 [01] Copying ./performance_schema/user_defined_fun_190.sdi to /datadir/performance_schema/user_defined_fun_190.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/user_defined_fun_190.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_grou_167.sdi to /datadir/performance_schema/replication_grou_167.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_grou_167.sdi to /datadir/performance_schema/replication_grou_167.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_grou_167.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_conn_166.sdi to /datadir/performance_schema/replication_conn_166.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_conn_166.sdi to /datadir/performance_schema/replication_conn_166.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_conn_166.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_121.sdi to /datadir/performance_schema/events_stages_su_121.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_121.sdi to /datadir/performance_schema/events_stages_su_121.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_121.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_threads_110.sdi to /datadir/performance_schema/setup_threads_110.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_threads_110.sdi to /datadir/performance_schema/setup_threads_110.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_threads_110.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_175.sdi to /datadir/performance_schema/replication_appl_175.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_175.sdi to /datadir/performance_schema/replication_appl_175.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_175.sdi
+200326 17:15:25 [01] Moving ./mysql/wsrep_cluster_members.ibd to /datadir/mysql/wsrep_cluster_members.ibd
+200326 17:15:25 [01] Copying ./mysql/wsrep_cluster_members.ibd to /datadir/mysql/wsrep_cluster_members.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/wsrep_cluster_members.ibd
+200326 17:15:25 [01] Moving ./mysql/slow_log.CSM to /datadir/mysql/slow_log.CSM
+200326 17:15:25 [01] Copying ./mysql/slow_log.CSM to /datadir/mysql/slow_log.CSM
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/slow_log.CSM
+200326 17:15:25 [01] Moving ./mysql/general_log.CSM to /datadir/mysql/general_log.CSM
+200326 17:15:25 [01] Copying ./mysql/general_log.CSM to /datadir/mysql/general_log.CSM
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/general_log.CSM
+200326 17:15:25 [01] Moving ./mysql/general_log_213.sdi to /datadir/mysql/general_log_213.sdi
+200326 17:15:25 [01] Copying ./mysql/general_log_213.sdi to /datadir/mysql/general_log_213.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/general_log_213.sdi
+200326 17:15:25 [01] Moving ./mysql/slow_log_214.sdi to /datadir/mysql/slow_log_214.sdi
+200326 17:15:25 [01] Copying ./mysql/slow_log_214.sdi to /datadir/mysql/slow_log_214.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/slow_log_214.sdi
+200326 17:15:25 [01] Moving ./mysql/general_log.CSV to /datadir/mysql/general_log.CSV
+200326 17:15:25 [01] Copying ./mysql/general_log.CSV to /datadir/mysql/general_log.CSV
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/general_log.CSV
+200326 17:15:25 [01] Moving ./mysql/slow_log.CSV to /datadir/mysql/slow_log.CSV
+200326 17:15:25 [01] Copying ./mysql/slow_log.CSV to /datadir/mysql/slow_log.CSV
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/slow_log.CSV
+200326 17:15:25 [01] Moving ./mysql/wsrep_streaming_log.ibd to /datadir/mysql/wsrep_streaming_log.ibd
+200326 17:15:25 [01] Copying ./mysql/wsrep_streaming_log.ibd to /datadir/mysql/wsrep_streaming_log.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/wsrep_streaming_log.ibd
+200326 17:15:25 [01] Moving ./mysql/wsrep_cluster.ibd to /datadir/mysql/wsrep_cluster.ibd
+200326 17:15:25 [01] Copying ./mysql/wsrep_cluster.ibd to /datadir/mysql/wsrep_cluster.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/wsrep_cluster.ibd
+200326 17:15:25 [01] Moving ./sst_info to /datadir/sst_info
+200326 17:15:25 [01] Copying ./sst_info to /datadir/sst_info
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./sst_info
+200326 17:15:25 [01] Moving ./xtrabackup_info to /datadir/xtrabackup_info
+200326 17:15:25 [01] Copying ./xtrabackup_info to /datadir/xtrabackup_info
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_info
+200326 17:15:25 [01] Moving ./xtrabackup_binlog_pos_innodb to /datadir/xtrabackup_binlog_pos_innodb
+200326 17:15:25 [01] Copying ./xtrabackup_binlog_pos_innodb to /datadir/xtrabackup_binlog_pos_innodb
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_binlog_pos_innodb
+200326 17:15:25 [01] Moving ./xtrabackup_master_key_id to /datadir/xtrabackup_master_key_id
+200326 17:15:25 [01] Copying ./xtrabackup_master_key_id to /datadir/xtrabackup_master_key_id
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_master_key_id
+200326 17:15:25 [01] Creating directory ./#innodb_temp
+200326 17:15:25 [01] ...done.
+200326 17:15:25 [01] Moving ./xtrabackup_galera_info to /datadir/xtrabackup_galera_info
+200326 17:15:25 [01] Copying ./xtrabackup_galera_info to /datadir/xtrabackup_galera_info
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_galera_info
+200326 17:15:25 [01] Moving ./mysql.ibd to /datadir/mysql.ibd
+200326 17:15:25 [01] Copying ./mysql.ibd to /datadir/mysql.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql.ibd
+200326 17:15:25 [01] Encrypting /datadir/mysql.ibd tablespace header with new master key.
+200326 17:15:25 [01] Moving ./ibtmp1 to /datadir/ibtmp1
+200326 17:15:25 [01] Copying ./ibtmp1 to /datadir/ibtmp1
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./ibtmp1
+200326 17:15:25 [01] Moving ./myApp/myApp.ibd to /datadir/myApp/myApp.ibd
+200326 17:15:25 [01] Copying ./myApp/myApp.ibd to /datadir/myApp/myApp.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./myApp/myApp.ibd
+200326 17:15:25 [01] Encrypting /datadir/myApp/myApp.ibd tablespace header with new master key.
+200326 17:15:25 [01] Moving ./xtrabackup_keys to /datadir/xtrabackup_keys
+200326 17:15:25 [01] Copying ./xtrabackup_keys to /datadir/xtrabackup_keys
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_keys
+200326 17:15:25 [01] Moving ./sys/sys_config.ibd to /datadir/sys/sys_config.ibd
+200326 17:15:25 [01] Copying ./sys/sys_config.ibd to /datadir/sys/sys_config.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./sys/sys_config.ibd
+200326 17:15:25 completed OK!
+2020-03-26T17:15:23.640797Z 0 [ERROR] [MY-011197] [InnoDB] Plugin keyring_vault reported: 'There is no vault_ca specified in keyring_vault's configuration file. Please make sure that Vault's CA certificate is trusted by the machine from which you intend to connect to Vault.'
+2020-03-26T17:15:23.768035Z 0 [ERROR] [MY-011197] [InnoDB] Plugin keyring_vault reported: 'Could not decode base64 key's signature'
+2020-03-26T17:15:23.768042Z 0 [ERROR] [MY-011197] [InnoDB] Plugin keyring_vault reported: 'Could not parse key's signature, skipping the key.'
+2020-03-26T17:15:25.784228Z 0 [Note] [MY-010733] [Server] Shutting down plugin 'keyring_vault'
++ rm -rf /tmp/pxc_sst_D21e
+secret_mount_point = secret+ [[ ehB != ehxB ]]
++ echo '--- 0 stderr'
++ cat - /tmp/tmp.dr9eSViVgV
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.EEV6pEIvdT
++++ dirname /usr/bin/recovery-pvc-joiner.sh
+++ realpath /usr/bin
++ pwd=/usr/bin
++ . /usr/bin/vault.sh
+++ set -o errexit
++ SOCAT_OPTS=TCP:restore-src-on-demand-backup-pvc-some-name:3307,retry=30
++ check_ssl
++ CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
++ '[' -f /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt ']'
++ SSL_DIR=/etc/mysql/ssl
++ '[' -f /etc/mysql/ssl/ca.crt ']'
++ CA=/etc/mysql/ssl/ca.crt
++ SSL_INTERNAL_DIR=/etc/mysql/ssl-internal
++ '[' -f /etc/mysql/ssl-internal/ca.crt ']'
++ CA=/etc/mysql/ssl-internal/ca.crt
++ KEY=/etc/mysql/ssl/tls.key
++ CERT=/etc/mysql/ssl/tls.crt
++ '[' -f /etc/mysql/ssl-internal/tls.key -a -f /etc/mysql/ssl-internal/tls.crt ']'
++ KEY=/etc/mysql/ssl-internal/tls.key
++ CERT=/etc/mysql/ssl-internal/tls.crt
++ '[' -f /etc/mysql/ssl-internal/ca.crt -a -f /etc/mysql/ssl-internal/tls.key -a -f /etc/mysql/ssl-internal/tls.crt ']'
++ SOCAT_OPTS='openssl-connect:restore-src-on-demand-backup-pvc-some-name:3307,reuseaddr,cert=/etc/mysql/ssl-internal/tls.crt,key=/etc/mysql/ssl-internal/tls.key,cafile=/etc/mysql/ssl-internal/ca.crt,verify=1,commonname='\'''\'',retry=30'
++ ping -c1 restore-src-on-demand-backup-pvc-some-name
+PING restore-src-on-demand-backup-pvc-some-name.demand-backup-encrypted-9292.svc.cluster.local (10.19.245.53) 56(84) bytes of data.
+
+--- restore-src-on-demand-backup-pvc-some-name.demand-backup-encrypted-9292.svc.cluster.local ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
++ :
++ rm -rf /datadir/#innodb_temp /datadir/auto.cnf /datadir/binlog.000001 /datadir/binlog.000002 /datadir/binlog.000003 /datadir/binlog.000004 /datadir/binlog.index /datadir/galera.cache /datadir/grastate.dat /datadir/ib_buffer_pool /datadir/ib_logfile0 /datadir/ib_logfile1 /datadir/ibdata1 /datadir/innobackup.backup.log /datadir/myApp /datadir/mysql /datadir/mysql.ibd /datadir/performance_schema /datadir/private_key.pem /datadir/public_key.pem /datadir/sst_in_progress /datadir/sys /datadir/undo_001 /datadir/undo_002 /datadir/version_info
+++ mktemp --tmpdir --directory pxc_sst_XXXX
++ tmp=/tmp/pxc_sst_D21e
++ socat -u 'openssl-connect:restore-src-on-demand-backup-pvc-some-name:3307,reuseaddr,cert=/etc/mysql/ssl-internal/tls.crt,key=/etc/mysql/ssl-internal/tls.key,cafile=/etc/mysql/ssl-internal/ca.crt,verify=1,commonname='\'''\'',retry=30' stdio
++ socat -u 'openssl-connect:restore-src-on-demand-backup-pvc-some-name:3307,reuseaddr,cert=/etc/mysql/ssl-internal/tls.crt,key=/etc/mysql/ssl-internal/tls.key,cafile=/etc/mysql/ssl-internal/ca.crt,verify=1,commonname='\'''\'',retry=30' stdio
+++ grep -c processor /proc/cpuinfo
++ xbstream -x -C /tmp/pxc_sst_D21e --parallel=4
+++ vault_get /tmp/pxc_sst_D21e/sst_info
+++ local sst_info=/tmp/pxc_sst_D21e/sst_info
+++ local keyring_vault=/etc/mysql/vault-keyring-secret/keyring_vault.conf
+++ '[' '!' -f /etc/mysql/vault-keyring-secret/keyring_vault.conf ']'
+++ '[' '!' -f /tmp/pxc_sst_D21e/sst_info ']'
++++ parse_ini token /etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ local key=token
++++ local file_path=/etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ awk -F '=[ ]*' '/token[ ]*=/ {print $2}' /etc/mysql/vault-keyring-secret/keyring_vault.conf
+++ export VAULT_TOKEN=s.0ZjGX2Ri3b5qi9b5EcLYzTzu
+++ VAULT_TOKEN=s.0ZjGX2Ri3b5qi9b5EcLYzTzu
++++ parse_ini vault_url /etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ local key=vault_url
++++ local file_path=/etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ awk -F '=[ ]*' '/vault_url[ ]*=/ {print $2}' /etc/mysql/vault-keyring-secret/keyring_vault.conf
+++ export VAULT_ADDR=http://vault-service-1.vault-service-1.svc.cluster.local:8200
+++ VAULT_ADDR=http://vault-service-1.vault-service-1.svc.cluster.local:8200
++++ parse_ini secret_mount_point /etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ local key=secret_mount_point
++++ local file_path=/etc/mysql/vault-keyring-secret/keyring_vault.conf
++++ awk -F '=[ ]*' '/secret_mount_point[ ]*=/ {print $2}' /etc/mysql/vault-keyring-secret/keyring_vault.conf
+++ local vault_root=secret/backup
++++ parse_ini galera-gtid /tmp/pxc_sst_D21e/sst_info
++++ local key=galera-gtid
++++ local file_path=/tmp/pxc_sst_D21e/sst_info
++++ awk -F '=[ ]*' '/galera-gtid[ ]*=/ {print $2}' /tmp/pxc_sst_D21e/sst_info
+++ local gtid=a0b4a187-6f84-11ea-a650-8b001f444377:13
+++ vault kv get secret/backup/a0b4a187-6f84-11ea-a650-8b001f444377:13
+++ grep transition_key
+++ sed -e 's/transition_key[[:space:]]*//g'
++ transition_key=WJ7kjYKRAxnvydmcpb2Cic6EOhIS3ktQ
++ [[ -n WJ7kjYKRAxnvydmcpb2Cic6EOhIS3ktQ ]]
++ encrypt_move_options='--transition-key=$transition_key'
++ encrypt_prepare_options='--transition-key=$transition_key'
++ echo transition-key exists
++ cat /etc/mysql/vault-keyring-secret/keyring_vault.conf
+transition-key exists
+token = s.0ZjGX2Ri3b5qi9b5EcLYzTzu
+vault_url = http://vault-service-1.vault-service-1.svc.cluster.local:8200
++ echo '[mysqld]
+keyring_vault_config=/etc/mysql/vault-keyring-secret/keyring_vault.conf
+early-plugin-load=keyring_vault.so'
++ xtrabackup --use-memory=750000000 --prepare --binlog-info=ON '--transition-key=$transition_key' --rollback-prepared-trx --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=/tmp/pxc_sst_D21e
+xtrabackup: recognized server arguments: --innodb_checksum_algorithm=crc32 --innodb_log_checksums=1 --innodb_data_file_path=ibdata1:12M:autoextend --innodb_log_files_in_group=2 --innodb_log_file_size=50331648 --innodb_page_size=16384 --innodb_undo_directory=./ --innodb_undo_tablespaces=2 --server-id=12 --innodb_log_checksums=ON --innodb_redo_log_encrypt=0 --innodb_undo_log_encrypt=0 
+xtrabackup: recognized client arguments: --use-memory=750000000 --prepare=1 --transition-key=* --rollback-prepared-trx=1 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=/tmp/pxc_sst_D21e 
+xtrabackup version 8.0.9 based on MySQL server 8.0.18 Linux (x86_64) (revision id: c5cbbe4)
+xtrabackup: cd to /tmp/pxc_sst_D21e/
+xtrabackup: This target seems to be not prepared yet.
+Number of pools: 1
+xtrabackup: xtrabackup_logfile detected: size=8388608, start_lsn=(30994114)
+xtrabackup: using the following InnoDB configuration for recovery:
+xtrabackup:   innodb_data_home_dir = .
+xtrabackup:   innodb_data_file_path = ibdata1:12M:autoextend
+xtrabackup:   innodb_log_group_home_dir = .
+xtrabackup:   innodb_log_files_in_group = 1
+xtrabackup:   innodb_log_file_size = 8388608
+200326 17:15:19 Loading xtrabackup_keys.
+WARNING: unknown option --binlog-info=ON
+xtrabackup: using the following InnoDB configuration for recovery:
+xtrabackup:   innodb_data_home_dir = .
+xtrabackup:   innodb_data_file_path = ibdata1:12M:autoextend
+xtrabackup:   innodb_log_group_home_dir = .
+xtrabackup:   innodb_log_files_in_group = 1
+xtrabackup:   innodb_log_file_size = 8388608
+xtrabackup: Starting InnoDB instance for recovery.
+xtrabackup: Using 749731840 bytes for buffer pool (set by --use-memory parameter)
+PUNCH HOLE support available
+Mutexes and rw_locks use GCC atomic builtins
+Uses event mutexes
+GCC builtin __atomic_thread_fence() is used for memory barrier
+Compressed tables use zlib 1.2.7
+Number of pools: 1
+Using CPU crc32 instructions
+Directories to scan '.;.;.'
+Scanning './'
+Completed space ID check of 8 files.
+Initializing buffer pool, total size = 768.000000M, instances = 1, chunk size =128.000000M 
+Completed initialization of buffer pool
+If the mysqld execution user is authorized, page cleaner thread priority can be changed. See the man page of setpriority().
+The log sequence number 30932085 in the system tablespace does not match the log sequence number 30994114 in the ib_logfiles!
+Database was not shutdown normally!
+Starting crash recovery.
+Starting to parse redo log at lsn = 30993957, whereas checkpoint_lsn = 30994114
+Doing recovery: scanned up to log sequence number 30994154
+Log background threads are being started...
+Applying a batch of 1 redo log records ...
+100%
+Apply batch completed!
+Using undo tablespace './undo_001'.
+Using undo tablespace './undo_002'.
+Opened 2 existing undo tablespaces.
+GTID recovery trx_no: 3126
+Creating shared tablespace for temporary tables
+Setting file './ibtmp1' size to 12 MB. Physically writing the file full; Please wait ...
+File './ibtmp1' size is now 12 MB.
+Scanning temp tablespace dir:'./#innodb_temp/'
+Created 128 and tracked 128 new rollback segment(s) in the temporary tablespace. 128 are now active.
+8.0.18 started; log sequence number 30994154
+Allocated tablespace ID 4 for mysql/wsrep_streaming_log, old maximum was 0
+xtrabackup: Last MySQL binlog file position 155, file name binlog.000002
+xtrabackup: Recovered WSREP position: a0b4a187-6f84-11ea-a650-8b001f444377:14
+xtrabackup: starting shutdown with innodb_fast_shutdown = 1
+FTS optimize thread exiting.
+Starting shutdown...
+Log background threads are being closed...
+Shutdown completed; log sequence number 30994154
+Number of pools: 1
+xtrabackup: using the following InnoDB configuration for recovery:
+xtrabackup:   innodb_data_home_dir = .
+xtrabackup:   innodb_data_file_path = ibdata1:12M:autoextend
+xtrabackup:   innodb_log_group_home_dir = .
+xtrabackup:   innodb_log_files_in_group = 2
+xtrabackup:   innodb_log_file_size = 50331648
+PUNCH HOLE support available
+Mutexes and rw_locks use GCC atomic builtins
+Uses event mutexes
+GCC builtin __atomic_thread_fence() is used for memory barrier
+Compressed tables use zlib 1.2.7
+Number of pools: 1
+Using CPU crc32 instructions
+Directories to scan '.;.;.'
+Scanning './'
+Completed space ID check of 8 files.
+Initializing buffer pool, total size = 768.000000M, instances = 1, chunk size =128.000000M 
+Completed initialization of buffer pool
+If the mysqld execution user is authorized, page cleaner thread priority can be changed. See the man page of setpriority().
+Setting log file ./ib_logfile101 size to 48 MB
+Setting log file ./ib_logfile1 size to 48 MB
+Renaming log file ./ib_logfile101 to ./ib_logfile0
+New log files created, LSN=30994444
+Starting to parse redo log at lsn = 30994444, whereas checkpoint_lsn = 30994444
+Log background threads are being started...
+Applying a batch of 0 redo log records ...
+Apply batch completed!
+Using undo tablespace './undo_001'.
+Using undo tablespace './undo_002'.
+Opened 2 existing undo tablespaces.
+GTID recovery trx_no: 3126
+Removed temporary tablespace data file: "ibtmp1"
+Creating shared tablespace for temporary tables
+Setting file './ibtmp1' size to 12 MB. Physically writing the file full; Please wait ...
+File './ibtmp1' size is now 12 MB.
+Scanning temp tablespace dir:'./#innodb_temp/'
+Created 128 and tracked 128 new rollback segment(s) in the temporary tablespace. 128 are now active.
+8.0.18 started; log sequence number 30994444
+xtrabackup: starting shutdown with innodb_fast_shutdown = 1
+FTS optimize thread exiting.
+Starting shutdown...
+Log background threads are being closed...
+Shutdown completed; log sequence number 30994444
+200326 17:15:23 completed OK!
++ xtrabackup --defaults-file=/tmp/my.cnf --defaults-group=mysqld --datadir=/datadir --move-back --binlog-info=ON --force-non-empty-directories '--transition-key=$transition_key' --generate-new-master-key --keyring-vault-config=/etc/mysql/vault-keyring-secret/keyring_vault.conf --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=/tmp/pxc_sst_D21e
+xtrabackup: recognized server arguments: --defaults_group=mysqld --datadir=/datadir 
+xtrabackup: recognized client arguments: --move-back=1 --force-non-empty-directories=1 --transition-key=* --generate-new-master-key=1 --xtrabackup-plugin-dir=/usr/lib64/xtrabackup/plugin --target-dir=/tmp/pxc_sst_D21e 
+xtrabackup version 8.0.9 based on MySQL server 8.0.18 Linux (x86_64) (revision id: c5cbbe4)
+200326 17:15:23 Loading xtrabackup_keys.
+200326 17:15:23 Loading xtrabackup_keys.
+200326 17:15:24 Generated new master key with ID 'ef79ede7-6f84-11ea-a117-0ee8603f008f-4'.
+200326 17:15:24 [01] Moving undo_001 to /datadir/undo_001
+200326 17:15:24 [01] Copying undo_001 to /datadir/undo_001
+200326 17:15:24 [01]        ...done
+200326 17:15:24 [01] Removing undo_001
+200326 17:15:24 [01] Moving undo_002 to /datadir/undo_002
+200326 17:15:24 [01] Copying undo_002 to /datadir/undo_002
+200326 17:15:24 [01]        ...done
+200326 17:15:24 [01] Removing undo_002
+200326 17:15:24 [01] Moving ib_logfile0 to /datadir/ib_logfile0
+200326 17:15:24 [01] Copying ib_logfile0 to /datadir/ib_logfile0
+200326 17:15:24 [01]        ...done
+200326 17:15:24 [01] Removing ib_logfile0
+200326 17:15:24 [01] Moving ib_logfile1 to /datadir/ib_logfile1
+200326 17:15:24 [01] Copying ib_logfile1 to /datadir/ib_logfile1
+200326 17:15:24 [01]        ...done
+200326 17:15:24 [01] Removing ib_logfile1
+200326 17:15:24 [01] Moving ibdata1 to /datadir/ibdata1
+200326 17:15:24 [01] Copying ibdata1 to /datadir/ibdata1
+200326 17:15:24 [01]        ...done
+200326 17:15:25 [01] Removing ibdata1
+200326 17:15:25 [01] Moving binlog.000007 to /datadir//binlog.000007
+200326 17:15:25 [01] Copying binlog.000007 to /datadir/binlog.000007
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing binlog.000007
+200326 17:15:25 [01] Moving binlog.index to /datadir//binlog.index
+200326 17:15:25 [01] Copying binlog.index to /datadir/binlog.index
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing binlog.index
+200326 17:15:25 [01] Moving ./ib_buffer_pool to /datadir/ib_buffer_pool
+200326 17:15:25 [01] Copying ./ib_buffer_pool to /datadir/ib_buffer_pool
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./ib_buffer_pool
+200326 17:15:25 [01] Moving ./performance_schema/cond_instances_88.sdi to /datadir/performance_schema/cond_instances_88.sdi
+200326 17:15:25 [01] Copying ./performance_schema/cond_instances_88.sdi to /datadir/performance_schema/cond_instances_88.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/cond_instances_88.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_123.sdi to /datadir/performance_schema/events_statement_123.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_123.sdi to /datadir/performance_schema/events_statement_123.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_123.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_144.sdi to /datadir/performance_schema/events_errors_su_144.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_144.sdi to /datadir/performance_schema/events_errors_su_144.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_144.sdi
+200326 17:15:25 [01] Moving ./performance_schema/prepared_stateme_177.sdi to /datadir/performance_schema/prepared_stateme_177.sdi
+200326 17:15:25 [01] Copying ./performance_schema/prepared_stateme_177.sdi to /datadir/performance_schema/prepared_stateme_177.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/prepared_stateme_177.sdi
+200326 17:15:25 [01] Moving ./performance_schema/host_cache_101.sdi to /datadir/performance_schema/host_cache_101.sdi
+200326 17:15:25 [01] Copying ./performance_schema/host_cache_101.sdi to /datadir/performance_schema/host_cache_101.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/host_cache_101.sdi
+200326 17:15:25 [01] Moving ./performance_schema/keyring_keys_156.sdi to /datadir/performance_schema/keyring_keys_156.sdi
+200326 17:15:25 [01] Copying ./performance_schema/keyring_keys_156.sdi to /datadir/performance_schema/keyring_keys_156.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/keyring_keys_156.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_conn_168.sdi to /datadir/performance_schema/replication_conn_168.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_conn_168.sdi to /datadir/performance_schema/replication_conn_168.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_conn_168.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_cu_115.sdi to /datadir/performance_schema/events_stages_cu_115.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_cu_115.sdi to /datadir/performance_schema/events_stages_cu_115.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_cu_115.sdi
+200326 17:15:25 [01] Moving ./performance_schema/log_status_176.sdi to /datadir/performance_schema/log_status_176.sdi
+200326 17:15:25 [01] Copying ./performance_schema/log_status_176.sdi to /datadir/performance_schema/log_status_176.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/log_status_176.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_122.sdi to /datadir/performance_schema/events_stages_su_122.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_122.sdi to /datadir/performance_schema/events_stages_su_122.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_122.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_172.sdi to /datadir/performance_schema/replication_appl_172.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_172.sdi to /datadir/performance_schema/replication_appl_172.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_172.sdi
+200326 17:15:25 [01] Moving ./performance_schema/file_summary_by__100.sdi to /datadir/performance_schema/file_summary_by__100.sdi
+200326 17:15:25 [01] Copying ./performance_schema/file_summary_by__100.sdi to /datadir/performance_schema/file_summary_by__100.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/file_summary_by__100.sdi
+200326 17:15:25 [01] Moving ./performance_schema/global_variables_186.sdi to /datadir/performance_schema/global_variables_186.sdi
+200326 17:15:25 [01] Copying ./performance_schema/global_variables_186.sdi to /datadir/performance_schema/global_variables_186.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/global_variables_186.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_133.sdi to /datadir/performance_schema/events_statement_133.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_133.sdi to /datadir/performance_schema/events_statement_133.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_133.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_97.sdi to /datadir/performance_schema/events_waits_sum_97.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_97.sdi to /datadir/performance_schema/events_waits_sum_97.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_97.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_139.sdi to /datadir/performance_schema/events_transacti_139.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_139.sdi to /datadir/performance_schema/events_transacti_139.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_139.sdi
+200326 17:15:25 [01] Moving ./performance_schema/table_io_waits_s_111.sdi to /datadir/performance_schema/table_io_waits_s_111.sdi
+200326 17:15:25 [01] Copying ./performance_schema/table_io_waits_s_111.sdi to /datadir/performance_schema/table_io_waits_s_111.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/table_io_waits_s_111.sdi
+200326 17:15:25 [01] Moving ./performance_schema/status_by_host_180.sdi to /datadir/performance_schema/status_by_host_180.sdi
+200326 17:15:25 [01] Copying ./performance_schema/status_by_host_180.sdi to /datadir/performance_schema/status_by_host_180.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/status_by_host_180.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_170.sdi to /datadir/performance_schema/replication_appl_170.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_170.sdi to /datadir/performance_schema/replication_appl_170.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_170.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_93.sdi to /datadir/performance_schema/events_waits_sum_93.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_93.sdi to /datadir/performance_schema/events_waits_sum_93.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_93.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_118.sdi to /datadir/performance_schema/events_stages_su_118.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_118.sdi to /datadir/performance_schema/events_stages_su_118.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_118.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_145.sdi to /datadir/performance_schema/events_errors_su_145.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_145.sdi to /datadir/performance_schema/events_errors_su_145.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_145.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_134.sdi to /datadir/performance_schema/events_statement_134.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_134.sdi to /datadir/performance_schema/events_statement_134.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_134.sdi
+200326 17:15:25 [01] Moving ./performance_schema/performance_time_104.sdi to /datadir/performance_schema/performance_time_104.sdi
+200326 17:15:25 [01] Copying ./performance_schema/performance_time_104.sdi to /datadir/performance_schema/performance_time_104.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/performance_time_104.sdi
+200326 17:15:25 [01] Moving ./performance_schema/socket_instances_151.sdi to /datadir/performance_schema/socket_instances_151.sdi
+200326 17:15:25 [01] Copying ./performance_schema/socket_instances_151.sdi to /datadir/performance_schema/socket_instances_151.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/socket_instances_151.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_128.sdi to /datadir/performance_schema/events_statement_128.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_128.sdi to /datadir/performance_schema/events_statement_128.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_128.sdi
+200326 17:15:25 [01] Moving ./performance_schema/status_by_thread_181.sdi to /datadir/performance_schema/status_by_thread_181.sdi
+200326 17:15:25 [01] Copying ./performance_schema/status_by_thread_181.sdi to /datadir/performance_schema/status_by_thread_181.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/status_by_thread_181.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_130.sdi to /datadir/performance_schema/events_statement_130.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_130.sdi to /datadir/performance_schema/events_statement_130.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_130.sdi
+200326 17:15:25 [01] Moving ./performance_schema/variables_info_188.sdi to /datadir/performance_schema/variables_info_188.sdi
+200326 17:15:25 [01] Copying ./performance_schema/variables_info_188.sdi to /datadir/performance_schema/variables_info_188.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/variables_info_188.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_92.sdi to /datadir/performance_schema/events_waits_sum_92.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_92.sdi to /datadir/performance_schema/events_waits_sum_92.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_92.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_g_157.sdi to /datadir/performance_schema/memory_summary_g_157.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_g_157.sdi to /datadir/performance_schema/memory_summary_g_157.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_g_157.sdi
+200326 17:15:25 [01] Moving ./performance_schema/session_account__155.sdi to /datadir/performance_schema/session_account__155.sdi
+200326 17:15:25 [01] Copying ./performance_schema/session_account__155.sdi to /datadir/performance_schema/session_account__155.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/session_account__155.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_b_159.sdi to /datadir/performance_schema/memory_summary_b_159.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_b_159.sdi to /datadir/performance_schema/memory_summary_b_159.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_b_159.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_174.sdi to /datadir/performance_schema/replication_appl_174.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_174.sdi to /datadir/performance_schema/replication_appl_174.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_174.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_hi_117.sdi to /datadir/performance_schema/events_stages_hi_117.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_hi_117.sdi to /datadir/performance_schema/events_stages_hi_117.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_hi_117.sdi
+200326 17:15:25 [01] Moving ./performance_schema/global_status_183.sdi to /datadir/performance_schema/global_status_183.sdi
+200326 17:15:25 [01] Copying ./performance_schema/global_status_183.sdi to /datadir/performance_schema/global_status_183.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/global_status_183.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_171.sdi to /datadir/performance_schema/replication_appl_171.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_171.sdi to /datadir/performance_schema/replication_appl_171.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_171.sdi
+200326 17:15:25 [01] Moving ./performance_schema/accounts_149.sdi to /datadir/performance_schema/accounts_149.sdi
+200326 17:15:25 [01] Copying ./performance_schema/accounts_149.sdi to /datadir/performance_schema/accounts_149.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/accounts_149.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_cur_89.sdi to /datadir/performance_schema/events_waits_cur_89.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_cur_89.sdi to /datadir/performance_schema/events_waits_cur_89.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_cur_89.sdi
+200326 17:15:25 [01] Moving ./performance_schema/persisted_variab_189.sdi to /datadir/performance_schema/persisted_variab_189.sdi
+200326 17:15:25 [01] Copying ./performance_schema/persisted_variab_189.sdi to /datadir/performance_schema/persisted_variab_189.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/persisted_variab_189.sdi
+200326 17:15:25 [01] Moving ./performance_schema/status_by_user_182.sdi to /datadir/performance_schema/status_by_user_182.sdi
+200326 17:15:25 [01] Copying ./performance_schema/status_by_user_182.sdi to /datadir/performance_schema/status_by_user_182.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/status_by_user_182.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_95.sdi to /datadir/performance_schema/events_waits_sum_95.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_95.sdi to /datadir/performance_schema/events_waits_sum_95.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_95.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_143.sdi to /datadir/performance_schema/events_errors_su_143.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_143.sdi to /datadir/performance_schema/events_errors_su_143.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_143.sdi
+200326 17:15:25 [01] Moving ./performance_schema/table_io_waits_s_112.sdi to /datadir/performance_schema/table_io_waits_s_112.sdi
+200326 17:15:25 [01] Copying ./performance_schema/table_io_waits_s_112.sdi to /datadir/performance_schema/table_io_waits_s_112.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/table_io_waits_s_112.sdi
+200326 17:15:25 [01] Moving ./performance_schema/data_lock_waits_165.sdi to /datadir/performance_schema/data_lock_waits_165.sdi
+200326 17:15:25 [01] Copying ./performance_schema/data_lock_waits_165.sdi to /datadir/performance_schema/data_lock_waits_165.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/data_lock_waits_165.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_120.sdi to /datadir/performance_schema/events_stages_su_120.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_120.sdi to /datadir/performance_schema/events_stages_su_120.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_120.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_137.sdi to /datadir/performance_schema/events_transacti_137.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_137.sdi to /datadir/performance_schema/events_transacti_137.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_137.sdi
+200326 17:15:25 [01] Moving ./performance_schema/objects_summary__103.sdi to /datadir/performance_schema/objects_summary__103.sdi
+200326 17:15:25 [01] Copying ./performance_schema/objects_summary__103.sdi to /datadir/performance_schema/objects_summary__103.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/objects_summary__103.sdi
+200326 17:15:25 [01] Moving ./performance_schema/variables_by_thr_185.sdi to /datadir/performance_schema/variables_by_thr_185.sdi
+200326 17:15:25 [01] Copying ./performance_schema/variables_by_thr_185.sdi to /datadir/performance_schema/variables_by_thr_185.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/variables_by_thr_185.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_his_91.sdi to /datadir/performance_schema/events_waits_his_91.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_his_91.sdi to /datadir/performance_schema/events_waits_his_91.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_his_91.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_b_160.sdi to /datadir/performance_schema/memory_summary_b_160.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_b_160.sdi to /datadir/performance_schema/memory_summary_b_160.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_b_160.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_actors_106.sdi to /datadir/performance_schema/setup_actors_106.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_actors_106.sdi to /datadir/performance_schema/setup_actors_106.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_actors_106.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_grou_173.sdi to /datadir/performance_schema/replication_grou_173.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_grou_173.sdi to /datadir/performance_schema/replication_grou_173.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_grou_173.sdi
+200326 17:15:25 [01] Moving ./performance_schema/rwlock_instances_105.sdi to /datadir/performance_schema/rwlock_instances_105.sdi
+200326 17:15:25 [01] Copying ./performance_schema/rwlock_instances_105.sdi to /datadir/performance_schema/rwlock_instances_105.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/rwlock_instances_105.sdi
+200326 17:15:25 [01] Moving ./performance_schema/socket_summary_b_152.sdi to /datadir/performance_schema/socket_summary_b_152.sdi
+200326 17:15:25 [01] Copying ./performance_schema/socket_summary_b_152.sdi to /datadir/performance_schema/socket_summary_b_152.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/socket_summary_b_152.sdi
+200326 17:15:25 [01] Moving ./performance_schema/session_variable_187.sdi to /datadir/performance_schema/session_variable_187.sdi
+200326 17:15:25 [01] Copying ./performance_schema/session_variable_187.sdi to /datadir/performance_schema/session_variable_187.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/session_variable_187.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_140.sdi to /datadir/performance_schema/events_transacti_140.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_140.sdi to /datadir/performance_schema/events_transacti_140.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_140.sdi
+200326 17:15:25 [01] Moving ./performance_schema/mutex_instances_102.sdi to /datadir/performance_schema/mutex_instances_102.sdi
+200326 17:15:25 [01] Copying ./performance_schema/mutex_instances_102.sdi to /datadir/performance_schema/mutex_instances_102.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/mutex_instances_102.sdi
+200326 17:15:25 [01] Moving ./performance_schema/user_variables_b_178.sdi to /datadir/performance_schema/user_variables_b_178.sdi
+200326 17:15:25 [01] Copying ./performance_schema/user_variables_b_178.sdi to /datadir/performance_schema/user_variables_b_178.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/user_variables_b_178.sdi
+200326 17:15:25 [01] Moving ./performance_schema/file_instances_98.sdi to /datadir/performance_schema/file_instances_98.sdi
+200326 17:15:25 [01] Copying ./performance_schema/file_instances_98.sdi to /datadir/performance_schema/file_instances_98.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/file_instances_98.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_136.sdi to /datadir/performance_schema/events_transacti_136.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_136.sdi to /datadir/performance_schema/events_transacti_136.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_136.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_hi_116.sdi to /datadir/performance_schema/events_stages_hi_116.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_hi_116.sdi to /datadir/performance_schema/events_stages_hi_116.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_hi_116.sdi
+200326 17:15:25 [01] Moving ./performance_schema/session_connect__154.sdi to /datadir/performance_schema/session_connect__154.sdi
+200326 17:15:25 [01] Copying ./performance_schema/session_connect__154.sdi to /datadir/performance_schema/session_connect__154.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/session_connect__154.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_124.sdi to /datadir/performance_schema/events_statement_124.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_124.sdi to /datadir/performance_schema/events_statement_124.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_124.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_objects_109.sdi to /datadir/performance_schema/setup_objects_109.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_objects_109.sdi to /datadir/performance_schema/setup_objects_109.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_objects_109.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_127.sdi to /datadir/performance_schema/events_statement_127.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_127.sdi to /datadir/performance_schema/events_statement_127.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_127.sdi
+200326 17:15:25 [01] Moving ./performance_schema/table_lock_waits_113.sdi to /datadir/performance_schema/table_lock_waits_113.sdi
+200326 17:15:25 [01] Copying ./performance_schema/table_lock_waits_113.sdi to /datadir/performance_schema/table_lock_waits_113.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/table_lock_waits_113.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_132.sdi to /datadir/performance_schema/events_statement_132.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_132.sdi to /datadir/performance_schema/events_statement_132.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_132.sdi
+200326 17:15:25 [01] Moving ./performance_schema/threads_114.sdi to /datadir/performance_schema/threads_114.sdi
+200326 17:15:25 [01] Copying ./performance_schema/threads_114.sdi to /datadir/performance_schema/threads_114.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/threads_114.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_142.sdi to /datadir/performance_schema/events_transacti_142.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_142.sdi to /datadir/performance_schema/events_transacti_142.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_142.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_96.sdi to /datadir/performance_schema/events_waits_sum_96.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_96.sdi to /datadir/performance_schema/events_waits_sum_96.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_96.sdi
+200326 17:15:25 [01] Moving ./performance_schema/file_summary_by__99.sdi to /datadir/performance_schema/file_summary_by__99.sdi
+200326 17:15:25 [01] Copying ./performance_schema/file_summary_by__99.sdi to /datadir/performance_schema/file_summary_by__99.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/file_summary_by__99.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_129.sdi to /datadir/performance_schema/events_statement_129.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_129.sdi to /datadir/performance_schema/events_statement_129.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_129.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_125.sdi to /datadir/performance_schema/events_statement_125.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_125.sdi to /datadir/performance_schema/events_statement_125.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_125.sdi
+200326 17:15:25 [01] Moving ./performance_schema/pxc_cluster_view_191.sdi to /datadir/performance_schema/pxc_cluster_view_191.sdi
+200326 17:15:25 [01] Copying ./performance_schema/pxc_cluster_view_191.sdi to /datadir/performance_schema/pxc_cluster_view_191.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/pxc_cluster_view_191.sdi
+200326 17:15:25 [01] Moving ./performance_schema/data_locks_164.sdi to /datadir/performance_schema/data_locks_164.sdi
+200326 17:15:25 [01] Copying ./performance_schema/data_locks_164.sdi to /datadir/performance_schema/data_locks_164.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/data_locks_164.sdi
+200326 17:15:25 [01] Moving ./performance_schema/table_handles_162.sdi to /datadir/performance_schema/table_handles_162.sdi
+200326 17:15:25 [01] Copying ./performance_schema/table_handles_162.sdi to /datadir/performance_schema/table_handles_162.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/table_handles_162.sdi
+200326 17:15:25 [01] Moving ./performance_schema/hosts_150.sdi to /datadir/performance_schema/hosts_150.sdi
+200326 17:15:25 [01] Copying ./performance_schema/hosts_150.sdi to /datadir/performance_schema/hosts_150.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/hosts_150.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_consumers_107.sdi to /datadir/performance_schema/setup_consumers_107.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_consumers_107.sdi to /datadir/performance_schema/setup_consumers_107.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_consumers_107.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_138.sdi to /datadir/performance_schema/events_transacti_138.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_138.sdi to /datadir/performance_schema/events_transacti_138.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_138.sdi
+200326 17:15:25 [01] Moving ./performance_schema/status_by_accoun_179.sdi to /datadir/performance_schema/status_by_accoun_179.sdi
+200326 17:15:25 [01] Copying ./performance_schema/status_by_accoun_179.sdi to /datadir/performance_schema/status_by_accoun_179.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/status_by_accoun_179.sdi
+200326 17:15:25 [01] Moving ./performance_schema/socket_summary_b_153.sdi to /datadir/performance_schema/socket_summary_b_153.sdi
+200326 17:15:25 [01] Copying ./performance_schema/socket_summary_b_153.sdi to /datadir/performance_schema/socket_summary_b_153.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/socket_summary_b_153.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_126.sdi to /datadir/performance_schema/events_statement_126.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_126.sdi to /datadir/performance_schema/events_statement_126.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_126.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_b_158.sdi to /datadir/performance_schema/memory_summary_b_158.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_b_158.sdi to /datadir/performance_schema/memory_summary_b_158.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_b_158.sdi
+200326 17:15:25 [01] Moving ./performance_schema/users_148.sdi to /datadir/performance_schema/users_148.sdi
+200326 17:15:25 [01] Copying ./performance_schema/users_148.sdi to /datadir/performance_schema/users_148.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/users_148.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_169.sdi to /datadir/performance_schema/replication_appl_169.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_169.sdi to /datadir/performance_schema/replication_appl_169.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_169.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_sum_94.sdi to /datadir/performance_schema/events_waits_sum_94.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_sum_94.sdi to /datadir/performance_schema/events_waits_sum_94.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_sum_94.sdi
+200326 17:15:25 [01] Moving ./performance_schema/memory_summary_b_161.sdi to /datadir/performance_schema/memory_summary_b_161.sdi
+200326 17:15:25 [01] Copying ./performance_schema/memory_summary_b_161.sdi to /datadir/performance_schema/memory_summary_b_161.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/memory_summary_b_161.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_119.sdi to /datadir/performance_schema/events_stages_su_119.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_119.sdi to /datadir/performance_schema/events_stages_su_119.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_119.sdi
+200326 17:15:25 [01] Moving ./performance_schema/session_status_184.sdi to /datadir/performance_schema/session_status_184.sdi
+200326 17:15:25 [01] Copying ./performance_schema/session_status_184.sdi to /datadir/performance_schema/session_status_184.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/session_status_184.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_146.sdi to /datadir/performance_schema/events_errors_su_146.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_146.sdi to /datadir/performance_schema/events_errors_su_146.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_146.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_141.sdi to /datadir/performance_schema/events_transacti_141.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_141.sdi to /datadir/performance_schema/events_transacti_141.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_141.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_waits_his_90.sdi to /datadir/performance_schema/events_waits_his_90.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_waits_his_90.sdi to /datadir/performance_schema/events_waits_his_90.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_waits_his_90.sdi
+200326 17:15:25 [01] Moving ./performance_schema/metadata_locks_163.sdi to /datadir/performance_schema/metadata_locks_163.sdi
+200326 17:15:25 [01] Copying ./performance_schema/metadata_locks_163.sdi to /datadir/performance_schema/metadata_locks_163.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/metadata_locks_163.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_transacti_135.sdi to /datadir/performance_schema/events_transacti_135.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_transacti_135.sdi to /datadir/performance_schema/events_transacti_135.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_transacti_135.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_instrument_108.sdi to /datadir/performance_schema/setup_instrument_108.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_instrument_108.sdi to /datadir/performance_schema/setup_instrument_108.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_instrument_108.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_statement_131.sdi to /datadir/performance_schema/events_statement_131.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_statement_131.sdi to /datadir/performance_schema/events_statement_131.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_statement_131.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_errors_su_147.sdi to /datadir/performance_schema/events_errors_su_147.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_errors_su_147.sdi to /datadir/performance_schema/events_errors_su_147.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_errors_su_147.sdi
+200326 17:15:25 [01] Moving ./performance_schema/user_defined_fun_190.sdi to /datadir/performance_schema/user_defined_fun_190.sdi
+200326 17:15:25 [01] Copying ./performance_schema/user_defined_fun_190.sdi to /datadir/performance_schema/user_defined_fun_190.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/user_defined_fun_190.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_grou_167.sdi to /datadir/performance_schema/replication_grou_167.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_grou_167.sdi to /datadir/performance_schema/replication_grou_167.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_grou_167.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_conn_166.sdi to /datadir/performance_schema/replication_conn_166.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_conn_166.sdi to /datadir/performance_schema/replication_conn_166.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_conn_166.sdi
+200326 17:15:25 [01] Moving ./performance_schema/events_stages_su_121.sdi to /datadir/performance_schema/events_stages_su_121.sdi
+200326 17:15:25 [01] Copying ./performance_schema/events_stages_su_121.sdi to /datadir/performance_schema/events_stages_su_121.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/events_stages_su_121.sdi
+200326 17:15:25 [01] Moving ./performance_schema/setup_threads_110.sdi to /datadir/performance_schema/setup_threads_110.sdi
+200326 17:15:25 [01] Copying ./performance_schema/setup_threads_110.sdi to /datadir/performance_schema/setup_threads_110.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/setup_threads_110.sdi
+200326 17:15:25 [01] Moving ./performance_schema/replication_appl_175.sdi to /datadir/performance_schema/replication_appl_175.sdi
+200326 17:15:25 [01] Copying ./performance_schema/replication_appl_175.sdi to /datadir/performance_schema/replication_appl_175.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./performance_schema/replication_appl_175.sdi
+200326 17:15:25 [01] Moving ./mysql/wsrep_cluster_members.ibd to /datadir/mysql/wsrep_cluster_members.ibd
+200326 17:15:25 [01] Copying ./mysql/wsrep_cluster_members.ibd to /datadir/mysql/wsrep_cluster_members.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/wsrep_cluster_members.ibd
+200326 17:15:25 [01] Moving ./mysql/slow_log.CSM to /datadir/mysql/slow_log.CSM
+200326 17:15:25 [01] Copying ./mysql/slow_log.CSM to /datadir/mysql/slow_log.CSM
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/slow_log.CSM
+200326 17:15:25 [01] Moving ./mysql/general_log.CSM to /datadir/mysql/general_log.CSM
+200326 17:15:25 [01] Copying ./mysql/general_log.CSM to /datadir/mysql/general_log.CSM
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/general_log.CSM
+200326 17:15:25 [01] Moving ./mysql/general_log_213.sdi to /datadir/mysql/general_log_213.sdi
+200326 17:15:25 [01] Copying ./mysql/general_log_213.sdi to /datadir/mysql/general_log_213.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/general_log_213.sdi
+200326 17:15:25 [01] Moving ./mysql/slow_log_214.sdi to /datadir/mysql/slow_log_214.sdi
+200326 17:15:25 [01] Copying ./mysql/slow_log_214.sdi to /datadir/mysql/slow_log_214.sdi
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/slow_log_214.sdi
+200326 17:15:25 [01] Moving ./mysql/general_log.CSV to /datadir/mysql/general_log.CSV
+200326 17:15:25 [01] Copying ./mysql/general_log.CSV to /datadir/mysql/general_log.CSV
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/general_log.CSV
+200326 17:15:25 [01] Moving ./mysql/slow_log.CSV to /datadir/mysql/slow_log.CSV
+200326 17:15:25 [01] Copying ./mysql/slow_log.CSV to /datadir/mysql/slow_log.CSV
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/slow_log.CSV
+200326 17:15:25 [01] Moving ./mysql/wsrep_streaming_log.ibd to /datadir/mysql/wsrep_streaming_log.ibd
+200326 17:15:25 [01] Copying ./mysql/wsrep_streaming_log.ibd to /datadir/mysql/wsrep_streaming_log.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/wsrep_streaming_log.ibd
+200326 17:15:25 [01] Moving ./mysql/wsrep_cluster.ibd to /datadir/mysql/wsrep_cluster.ibd
+200326 17:15:25 [01] Copying ./mysql/wsrep_cluster.ibd to /datadir/mysql/wsrep_cluster.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql/wsrep_cluster.ibd
+200326 17:15:25 [01] Moving ./sst_info to /datadir/sst_info
+200326 17:15:25 [01] Copying ./sst_info to /datadir/sst_info
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./sst_info
+200326 17:15:25 [01] Moving ./xtrabackup_info to /datadir/xtrabackup_info
+200326 17:15:25 [01] Copying ./xtrabackup_info to /datadir/xtrabackup_info
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_info
+200326 17:15:25 [01] Moving ./xtrabackup_binlog_pos_innodb to /datadir/xtrabackup_binlog_pos_innodb
+200326 17:15:25 [01] Copying ./xtrabackup_binlog_pos_innodb to /datadir/xtrabackup_binlog_pos_innodb
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_binlog_pos_innodb
+200326 17:15:25 [01] Moving ./xtrabackup_master_key_id to /datadir/xtrabackup_master_key_id
+200326 17:15:25 [01] Copying ./xtrabackup_master_key_id to /datadir/xtrabackup_master_key_id
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_master_key_id
+200326 17:15:25 [01] Creating directory ./#innodb_temp
+200326 17:15:25 [01] ...done.
+200326 17:15:25 [01] Moving ./xtrabackup_galera_info to /datadir/xtrabackup_galera_info
+200326 17:15:25 [01] Copying ./xtrabackup_galera_info to /datadir/xtrabackup_galera_info
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_galera_info
+200326 17:15:25 [01] Moving ./mysql.ibd to /datadir/mysql.ibd
+200326 17:15:25 [01] Copying ./mysql.ibd to /datadir/mysql.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./mysql.ibd
+200326 17:15:25 [01] Encrypting /datadir/mysql.ibd tablespace header with new master key.
+200326 17:15:25 [01] Moving ./ibtmp1 to /datadir/ibtmp1
+200326 17:15:25 [01] Copying ./ibtmp1 to /datadir/ibtmp1
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./ibtmp1
+200326 17:15:25 [01] Moving ./myApp/myApp.ibd to /datadir/myApp/myApp.ibd
+200326 17:15:25 [01] Copying ./myApp/myApp.ibd to /datadir/myApp/myApp.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./myApp/myApp.ibd
+200326 17:15:25 [01] Encrypting /datadir/myApp/myApp.ibd tablespace header with new master key.
+200326 17:15:25 [01] Moving ./xtrabackup_keys to /datadir/xtrabackup_keys
+200326 17:15:25 [01] Copying ./xtrabackup_keys to /datadir/xtrabackup_keys
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./xtrabackup_keys
+200326 17:15:25 [01] Moving ./sys/sys_config.ibd to /datadir/sys/sys_config.ibd
+200326 17:15:25 [01] Copying ./sys/sys_config.ibd to /datadir/sys/sys_config.ibd
+200326 17:15:25 [01]        ...done
+200326 17:15:25 [01] Removing ./sys/sys_config.ibd
+200326 17:15:25 completed OK!
+2020-03-26T17:15:23.640797Z 0 [ERROR] [MY-011197] [InnoDB] Plugin keyring_vault reported: 'There is no vault_ca specified in keyring_vault's configuration file. Please make sure that Vault's CA certificate is trusted by the machine from which you intend to connect to Vault.'
+2020-03-26T17:15:23.768035Z 0 [ERROR] [MY-011197] [InnoDB] Plugin keyring_vault reported: 'Could not decode base64 key's signature'
+2020-03-26T17:15:23.768042Z 0 [ERROR] [MY-011197] [InnoDB] Plugin keyring_vault reported: 'Could not parse key's signature, skipping the key.'
+2020-03-26T17:15:25.784228Z 0 [Note] [MY-010733] [Server] Shutting down plugin 'keyring_vault'
++ rm -rf /tmp/pxc_sst_D21e
+secret_mount_point = secret+ cat /tmp/tmp.dr9eSViVgV
++ rm /tmp/tmp.EEV6pEIvdT /tmp/tmp.dr9eSViVgV
++ return 0
++ kubectl_bin delete -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/conf/restore-on-demand-backup-pvc.yaml
+++ mktemp
++ local LAST_OUT=/tmp/tmp.MYL9DDtSjY
+++ mktemp
++ local LAST_ERR=/tmp/tmp.FzTURfVqTN
++ local exit_status=0
+++ seq 0 2
++ for i in $(seq 0 2)
++ kubectl delete -f /home/paval/go/src/github.com/percona/percona-xtradb-cluster-operator/e2e-tests/demand-backup-encrypted/conf/restore-on-demand-backup-pvc.yaml
++ exit_status=0
++ [[ ehB != ehxB ]]
++ echo '--- 0 stdout'
++ cat - /tmp/tmp.MYL9DDtSjY
+--- 0 stdout
+perconaxtradbclusterrestore.pxc.percona.com "on-demand-backup-pvc" deleted
++ [[ ehB != ehxB ]]
++ cat - /tmp/tmp.FzTURfVqTN
++ echo '--- 0 stderr'
+--- 0 stderr
++ [[ 0 != 0 ]]
++ cat /tmp/tmp.MYL9DDtSjY
+perconaxtradbclusterrestore.pxc.percona.com "on-demand-backup-pvc" deleted
++ cat /tmp/tmp.FzTURfVqTN
++ rm /tmp/tmp.MYL9DDtSjY /tmp/tmp.FzTURfVqTN
++ return 0
++ wait_for_running some-name-proxysql 1
++ local name=some-name-proxysql
++ let last_pod=0
++ :
+++ seq 0 0
++ for i in $(seq 0 $last_pod)
++ wait_pod some-name-proxysql-0
++ local pod=some-name-proxysql-0
++ set +o xtrace
+some-name-proxysql-0............true
++ wait_for_running some-name-pxc 3
++ local name=some-name-pxc
++ let last_pod=2
+++ seq 0 2
++ for i in $(seq 0 $last_pod)
++ wait_pod some-name-pxc-0
++ local pod=some-name-pxc-0
++ set +o xtrace
+some-name-pxc-0.........

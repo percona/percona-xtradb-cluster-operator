@@ -64,10 +64,10 @@ main() {
     vault1="vault-service-1"
     start_vault $vault1
     init_vault $vault1
-
+    token1=$(jq -r ".root_token" <"$tmp_dir/$vault1")
+    ip1="$vault1.$vault1.svc.cluster.local"
     cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
-
     run_backup         "$cluster" "on-demand-backup-pvc"
     run_recovery_check "$cluster" "on-demand-backup-pvc"
     check_pvc_md5
@@ -75,25 +75,32 @@ main() {
     run_backup         "$cluster" "on-demand-backup-aws-s3"
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
     
-    # mountpt=$(kubectl get -f "$conf_dir/vault-secret.yaml" -o json | grep -oP "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
-    # kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$vault1"
-    # key=$(kubectl exec -it pod/$vault1-0 -- sh -c "export VAULT_TOKEN=$token && vault kv list $mountpt/backup/" | awk 'NR > 2 {print $1}' | grep -oP "[\w\d\-]+:\d+")
-    # transition=$(kubectl exec -it pod/$vault1-0 -- sh -c "export VAULT_TOKEN=$token && vault kv get secret/backup/$key" | awk 'NR>3 {print $2}' | grep -oP "[\w\d]{3,}") 
-    # kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
+    mountpt=$(kubectl get -f "$conf_dir/vault-secret.yaml" -o json | grep -oP "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
+    kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$vault1"
+    key=$(kubectl exec -it pod/$vault1-0 -- sh -c "VAULT_TOKEN=$token1 vault kv list $mountpt/backup/" | awk 'NR > 2 {print $1}' | grep -oP "[\w\d\-]+:\d+")
+    kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
-    # vault2="vault-service-2"
-    # start_vault $vault2
-    # init_vault $vault2
-    # kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$vault2"
-    # token=$(jq -r ".root_token" <"$vault_init")
-    # kubectl exec -it pod/$vault2-0 -- sh -c "export VAULT_TOKEN=$token && vault kv put $mountpt/backup/$key transition_key=${transition}"
-    # kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
+    vault2="vault-service-2"
+    start_vault $vault2
+    init_vault $vault2
+    token2=$(jq -r ".root_token" <"$tmp_dir/$vault2")
+    ip2="$vault2.$vault2.svc.cluster.local"
 
-    # run_recovery_check "$cluster" "on-demand-backup-pvc"
-    # # run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    kubectl run -i --tty vault-cp --image=perconalab/vault-cp:latest --restart=Never -- sh -c "
+        echo \"
+old_url = 'http://$ip1:8200'
+old_token = '$token1'
+new_url = 'http://$ip2:8200'
+new_token = '$token2'
+secrets = [ '$mountpt/backup/$key' ]
+\" > /src/config.py
+    python3 /src/vault-cp.py
+    "
 
-    # for i in $vault1 $vault2 ; do
-    for i in $vault1 ; do
+    run_recovery_check "$cluster" "on-demand-backup-pvc"
+    run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+
+    for i in $vault1 $vault2; do
         kubectl delete --grace-period=0 --force=true namespace $i
         helm delete --purge $i
     done

@@ -603,21 +603,24 @@ start_vault() {
 
 init_vault() {
     name=${1:-vault-service}
-    kubectl exec -it pod/$name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$vault_init"
-    unsealKey=$(jq -r ".unseal_keys_b64[]" <"$vault_init")
-    token=$(jq -r ".root_token" <"$vault_init")
+    kubectl exec -it pod/$name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
+    unsealKey=$(jq -r ".unseal_keys_b64[]" <"$tmp_dir/$name")
+    token=$(jq -r ".root_token" <"$tmp_dir/$name")
     ip="$name.$name.svc.cluster.local"
 
     kubectl exec -it pod/$name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
     kubectl exec -it pod/$name-0 -- \
-        sh -c "export VAULT_ADDR=http://$ip:8200 && export VAULT_TOKEN=$token \
-                && vault secrets enable -tls-skip-verify -path=secret kv"
-    
+        sh -c "export VAULT_ADDR=http://$ip:8200 && export VAULT_TOKEN=$token && export VAULT_LOG_LEVEL=trace \
+                && vault secrets enable --version=1 -tls-skip-verify -path=secret kv \
+                && vault audit enable file file_path=/vault/vault-audit.log"
+    sleep 10
+
     #swich to test namestpace
     kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
     cat "$conf_dir/vault-secret.yaml" |
         sed -e "s/#token/$token/" |
         sed -e "s/#vault_url/http:\/\/$ip:8200/" |
+        sed -e "s/#secret/secret/" |
         kubectl_bin apply -f-
 }
 

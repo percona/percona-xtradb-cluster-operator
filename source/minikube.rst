@@ -17,11 +17,13 @@ The following steps are needed to run PXC Operator on Minikube:
    #. a hypervisor, if it is not already installed,
    #. actual Minikube package
 
-   After the installation running ``minikube start`` should download needed
-   virtualized images, then initialize and run the cluster. After Minikube is
-   successfully started, you can optionally run the Kubernetes dashboard, which
-   visually represents the state of your cluster. Executing
-   ``minikube dashboard`` will start the dashboard and open it in your
+   After the installation, run ``minikube start --memory=4096 --cpus=3``
+   (parameters increase the virtual machine limits for the CPU cores and memory,
+   to ensure stable work of the Operator). Being executed, this command will
+   download needed virtualized images, then initialize and run the
+   cluster. After Minikube is successfully started, you can optionally run the
+   Kubernetes dashboard, which visually represents the state of your cluster.
+   Executing ``minikube dashboard`` will start the dashboard and open it in your
    default web browser.
 
 1. Clone the percona-xtradb-cluster-operator repository::

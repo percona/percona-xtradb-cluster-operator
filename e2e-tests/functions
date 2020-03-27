@@ -7,10 +7,10 @@ GIT_COMMIT=$(git rev-parse HEAD)
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
 API="pxc.percona.com/v1-4-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
-IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc5.7"}
+IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/percona-xtradb-cluster-operator:master-pmm"}
 IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:master-proxysql"}
-IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc5.7-backup"}
+IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0-backup"}
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -32,9 +32,9 @@ wait_cluster_consistency() {
     cluster_size=$2
 
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
-    until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" && \
-    "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" && \
-    "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.proxysql.ready}')" == "${cluster_size}" ]]; do
+    until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" \
+             && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" \
+             && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.proxysql.ready}')" == "${cluster_size}"  ]]; do
         echo 'waiting for cluster readyness'
         sleep 20
     done
@@ -128,9 +128,9 @@ deploy_operator() {
     kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
     kubectl_bin apply -f ${src_dir}/deploy/rbac.yaml
 
-    cat ${src_dir}/deploy/operator.yaml |
-        sed -e "s^image: .*^image: ${IMAGE}^" |
-        kubectl_bin apply -f -
+    cat ${src_dir}/deploy/operator.yaml \
+        | sed -e "s^image: .*^image: ${IMAGE}^" \
+        | kubectl_bin apply -f -
 
     sleep 2
 
@@ -214,17 +214,17 @@ compare_kubectl() {
         expected_result=${expected_result//.yml/-80.yml}
     fi
 
-    kubectl_bin get -o yaml ${resource} |
-        egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" |
-        egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem" |
-        egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" |
-        egrep -v "healthCheckNodePort:|nodePort:|nodeName:" |
-        $sed -e '/^status:$/,+100500d' |
-        $sed -e '/NAMESPACE/,+1d' |
-        $sed -e '/name: suffix/,+1d' |
-        $sed -e '/name: S3_BUCKET_PATH/,+1d' |
-        $sed -e '/name: S3_BUCKET_URL/,+1d' \
-            >${new_result}
+    kubectl_bin get -o yaml ${resource} \
+        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
+        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem" \
+        | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
+        | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
+        | $sed -e '/^status:$/,+100500d' \
+        | $sed -e '/NAMESPACE/,+1d' \
+        | $sed -e '/name: suffix/,+1d' \
+        | $sed -e '/name: S3_BUCKET_PATH/,+1d' \
+        | $sed -e '/name: S3_BUCKET_URL/,+1d' \
+        > ${new_result}
     diff -u ${expected_result} ${new_result}
 }
 
@@ -244,9 +244,9 @@ run_mysql() {
 
     set +o xtrace
     kubectl_bin exec $client_pod -- \
-        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 |
-        sed -e 's/mysql: //' |
-        (grep -v 'Using a password on the command line interface can be insecure.' || :)
+        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1  \
+        | sed -e 's/mysql: //' \
+        | (grep -v 'Using a password on the command line interface can be insecure.' || :)
     set -o xtrace
 }
 
@@ -259,9 +259,9 @@ run_mysql_local() {
 
     set +o xtrace
     kubectl_bin exec $pod -- \
-        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 |
-        sed -e 's/mysql: //' |
-        (egrep -v 'Using a password on the command line interface can be insecure.|Defaulting container name|see all of the containers in this pod' || :)
+        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
+        | sed -e 's/mysql: //' \
+        | (egrep -v 'Using a password on the command line interface can be insecure.|Defaulting container name|see all of the containers in this pod' || :)
     set -o xtrace
 }
 
@@ -318,9 +318,9 @@ compare_mysql_user() {
         expected_result=${test_dir}/compare/$user$postfix-80.sql
     fi
 
-    (run_mysql "SHOW GRANTS;" "$uri" || :) |
-        sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
-            >$tmp_dir/$user.sql
+    (run_mysql "SHOW GRANTS;" "$uri" || :) \
+        | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+        > $tmp_dir/$user.sql
     diff -u $expected_result $tmp_dir/$user.sql
 }
 
@@ -361,13 +361,13 @@ deploy_cert_manager() {
 destroy() {
     local namespace="$1"
 
-    kubectl_bin logs $(get_operator_pod) |
-        grep -v '"level":"info"' |
-        grep -v 'the object has been modified' |
-        grep -v 'get backup status: Job.batch' |
-        $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' |
-        sort -u |
-        tee $tmp_dir/operator.log
+    kubectl_bin logs $(get_operator_pod) \
+        | grep -v '"level":"info"' \
+        | grep -v 'the object has been modified' \
+        | grep -v 'get backup status: Job.batch' \
+        | $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
+        | sort -u \
+        | tee $tmp_dir/operator.log
 
     #TODO: maybe will be enabled later
     #diff $test_dir/compare/operator.log $tmp_dir/operator.log
@@ -398,9 +398,9 @@ get_service_endpoint() {
     local service=$1
 
     local hostname=$(
-        kubectl_bin get service/$service -o json |
-            jq '.status.loadBalancer.ingress[].hostname' |
-            sed -e 's/^"//; s/"$//;'
+        kubectl_bin get service/$service -o json \
+            | jq '.status.loadBalancer.ingress[].hostname' \
+            | sed -e 's/^"//; s/"$//;'
     )
     if [ -n "$hostname" -a "$hostname" != "null" ]; then
         echo $hostname
@@ -428,9 +428,9 @@ get_metric_values() {
     local end=$($date -u "+%s")
     local endpoint=$(get_service_endpoint monitoring-service)
 
-    curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7bcontainer_name%3d%22$instance%22%7d%20or%20$metric%7binstance%3d%22$instance%22%7d&start=$start&end=$end&step=60" |
-        jq '.data.result[0].values[][1]' |
-        grep '^"[0-9]'
+    curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7bcontainer_name%3d%22$instance%22%7d%20or%20$metric%7binstance%3d%22$instance%22%7d&start=$start&end=$end&step=60" \
+        | jq '.data.result[0].values[][1]' \
+        | grep '^"[0-9]'
 
 }
 
@@ -441,13 +441,13 @@ get_qan_values() {
     local endpoint=$(get_service_endpoint monitoring-service)
 
     local uuid=$(
-        curl -s -k "https://$endpoint/qan-api/instances?deleted=no" |
-            jq '.[] | select(.Subsystem == "mysql" and .Name == "'$instance'") | .UUID' |
-            sed -e 's/^"//; s/"$//;'
+        curl -s -k "https://$endpoint/qan-api/instances?deleted=no" \
+            | jq '.[] | select(.Subsystem == "mysql" and .Name == "'$instance'") | .UUID' \
+            | sed -e 's/^"//; s/"$//;'
     )
 
-    curl -s -k "https://$endpoint/qan-api/qan/profile/$uuid?begin=$start&end=$end&offset=0" |
-        jq '.Query[].Fingerprint'
+    curl -s -k "https://$endpoint/qan-api/qan/profile/$uuid?begin=$start&end=$end&offset=0" \
+        | jq '.Query[].Fingerprint'
 }
 
 get_qan20_values() {
@@ -488,17 +488,17 @@ EOF
 }
 
 cat_config() {
-    cat "$1" |
-        $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" |
-        $sed -e "s#image:.*-pxc\$#image: $IMAGE_PXC#" |
-        $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" |
-        $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" |
-        $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#"
+    cat "$1" \
+        | $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
+        | $sed -e "s#image:.*-pxc\$#image: $IMAGE_PXC#" \
+        | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
+        | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
+        | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#"
 }
 
 apply_config() {
-    cat_config "$1" |
-        kubectl_bin apply -f -
+    cat_config "$1" \
+        | kubectl_bin apply -f -
 }
 
 spinup_pxc() {

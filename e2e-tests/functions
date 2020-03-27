@@ -335,9 +335,9 @@ compare_mysql_user_local() {
         expected_result=${test_dir}/compare/$user$postfix-80.sql
     fi
 
-    (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" || :) |
-        sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
-            >$tmp_dir/$user.sql
+    (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" || :) \
+        | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+        > $tmp_dir/$user.sql
     diff -u $expected_result $tmp_dir/$user.sql
 }
 
@@ -408,9 +408,9 @@ get_service_endpoint() {
     fi
 
     local ip=$(
-        kubectl_bin get service/$service -o json |
-            jq '.status.loadBalancer.ingress[].ip' |
-            sed -e 's/^"//; s/"$//;'
+        kubectl_bin get service/$service -o json \
+            | jq '.status.loadBalancer.ingress[].ip' \
+            | sed -e 's/^"//; s/"$//;'
     )
     if [ -n "$ip" -a "$ip" != "null" ]; then
         echo $ip
@@ -482,8 +482,8 @@ get_qan20_values() {
 }
 EOF
 
-    curl -s -k -XPOST -d @payload.json "https://${user_pass}@$endpoint/v0/qan/GetReport" |
-        jq '.rows[].fingerprint'
+    curl -s -k -XPOST -d @payload.json "https://${user_pass}@$endpoint/v0/qan/GetReport" \
+        | jq '.rows[].fingerprint'
     rm -f payload.json
 }
 

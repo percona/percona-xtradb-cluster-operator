@@ -533,6 +533,53 @@ spinup_pxc() {
     done
 }
 
+is_table_encrypted() {
+    local cluster=$1
+    local table=$2
+    run_mysql \
+        "SELECT CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=\\\"$table\\\";" \
+        "-h $cluster-proxysql -uroot -proot_password" \
+        | grep "ENCRYPTION='Y'"
+}
+
+function is_keyring_plugin_in_use() {
+    local cluster=$1
+    kubectl exec -it pod/$cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
+        | grep -oP "early-plugin-load=keyring_\w+.so"
+}
+
+function table_must_not_be_encrypted() {
+    local table=$1
+    if [ "$(is_table_encrypted "$cluster" "$table")" ]; then
+        echo "error: table is encrypted"
+        exit 1
+    fi
+}
+
+function table_must_be_encrypted() {
+    local table=$1
+    if [ ! "$(is_table_encrypted "$cluster" "$table")" ]; then
+        echo "error: table is not encrypted"
+        exit 1
+    fi
+}
+
+function keyring_plugin_must_be_in_use() {
+    local cluster=$1
+    if [ ! "$(is_keyring_plugin_in_use "$cluster")" ]; then
+        echo "error: keyring_plugin is not used"
+        exit 1
+    fi
+}
+
+function keyring_plugin_must_not_be_in_use() {
+    local cluster=$1
+    if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
+        echo "error: keyring_plugin is used"
+        exit 1
+    fi
+}
+
 kubectl_bin() {
     local LAST_OUT="$(mktemp)"
     local LAST_ERR="$(mktemp)"

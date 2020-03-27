@@ -56,6 +56,11 @@ run_recovery_check() {
     fi
 }
 
+function jq_filter() {
+    local vault_root=$1
+    jq -r "[ .[] | .=\"'$vault_root/\"+.+\"'\" ] | join(\", \")"
+}
+
 main() {
     create_namespace $namespace
     deploy_operator
@@ -66,18 +71,26 @@ main() {
     init_vault $vault1
     token1=$(jq -r ".root_token" <"$tmp_dir/$vault1")
     ip1="$vault1.$vault1.svc.cluster.local"
+
     cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+    keyring_plugin_must_be_in_use "$cluster"
+    table_must_be_encrypted "myApp"
+
     run_backup         "$cluster" "on-demand-backup-pvc"
     run_recovery_check "$cluster" "on-demand-backup-pvc"
     check_pvc_md5
-
+    table_must_be_encrypted "myApp"
+    keyring_plugin_must_be_in_use "$cluster"
+    
     run_backup         "$cluster" "on-demand-backup-aws-s3"
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    table_must_be_encrypted "myApp"
+    keyring_plugin_must_be_in_use "$cluster"
     
     mountpt=$(kubectl get -f "$conf_dir/vault-secret.yaml" -o json | grep -oP "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
     kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$vault1"
-    key=$(kubectl exec -it pod/$vault1-0 -- sh -c "VAULT_TOKEN=$token1 vault kv list $mountpt/backup/" | awk 'NR > 2 {print $1}' | grep -oP "[\w\d\-]+:\d+")
+    transition_keys=$(kubectl exec -it pod/$vault1-0 -- sh -c "VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" | jq_filter "$mountpt/backup/")
     kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
     vault2="vault-service-2"
@@ -92,13 +105,18 @@ old_url = 'http://$ip1:8200'
 old_token = '$token1'
 new_url = 'http://$ip2:8200'
 new_token = '$token2'
-secrets = [ '$mountpt/backup/$key' ]
+secrets = [ $transition_keys ]
 \" > /src/config.py
     python3 /src/vault-cp.py
     "
 
     run_recovery_check "$cluster" "on-demand-backup-pvc"
+    table_must_be_encrypted "myApp"
+    keyring_plugin_must_be_in_use "$cluster"
+
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    table_must_be_encrypted "myApp"
+    keyring_plugin_must_be_in_use "$cluster"
 
     for i in $vault1 $vault2; do
         kubectl delete --grace-period=0 --force=true namespace $i

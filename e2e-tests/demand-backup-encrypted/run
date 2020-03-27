@@ -75,17 +75,17 @@ main() {
     cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
     keyring_plugin_must_be_in_use "$cluster"
-    table_must_be_encrypted "myApp"
+    table_must_be_encrypted "$cluster" "myApp"
 
     run_backup         "$cluster" "on-demand-backup-pvc"
     run_recovery_check "$cluster" "on-demand-backup-pvc"
     check_pvc_md5
-    table_must_be_encrypted "myApp"
+    table_must_be_encrypted "$cluster" "myApp"
     keyring_plugin_must_be_in_use "$cluster"
     
     run_backup         "$cluster" "on-demand-backup-aws-s3"
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
-    table_must_be_encrypted "myApp"
+    table_must_be_encrypted "$cluster" "myApp"
     keyring_plugin_must_be_in_use "$cluster"
     
     mountpt=$(kubectl get -f "$conf_dir/vault-secret.yaml" -o json | grep -oP "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
@@ -111,11 +111,11 @@ secrets = [ $transition_keys ]
     "
 
     run_recovery_check "$cluster" "on-demand-backup-pvc"
-    table_must_be_encrypted "myApp"
+    table_must_be_encrypted "$cluster" "myApp"
     keyring_plugin_must_be_in_use "$cluster"
 
     run_recovery_check "$cluster" "on-demand-backup-aws-s3"
-    table_must_be_encrypted "myApp"
+    table_must_be_encrypted "$cluster" "myApp"
     keyring_plugin_must_be_in_use "$cluster"
 
     for i in $vault1 $vault2; do

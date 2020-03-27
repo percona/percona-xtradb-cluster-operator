@@ -1,0 +1,38 @@
+.. _K8SPXC-1.4.0:
+
+================================================================================
+*Percona Kubernetes Operator for PXC* 1.4.0
+================================================================================
+
+:Date: March XX, 2020
+
+:Installation: `Installing Percona Kubernetes Operator for PXC <https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html#installation>`_
+
+New Features
+================================================================================
+
+* :jirabug:`K8SPXC-125`: Percona XtraDB Cluster 8.0 is now supported
+
+Improvements
+================================================================================
+
+* :jirabug:`K8SPXC-221`: Operator now updates observedGeneration status message to allow better monitoring of the cluster rollout or backup/restore process
+* :jirabug:`K8SPXC-153`: S3 protocol credentials are now masked in logs during the PXC backup & restore process
+* :jirabug:`K8SPXC-234`: A special script to execute Graceful Shutdown of the cluster is now available. It is `triggered <../pause.html>`_ by the ``spec.pause`` key in the ``deploy/cr.yaml`` file.
+* :jirabug:`K8SPXC-232` and :jirabug:`K8SPXC-233`: Two Crash Recovery methods were developed: the automated but lossy ref:`recovery-bootstrap` and the manual but lossless :ref:`recovery-object-surgery`.
+* :jirabug:`K8SPXC-231`: Test and Document Graceful Stop/Start of PXC 8.0
+* :jirabug:`K8SPXC-213`: A special PXC debug image is now available. It avoids restarting on fail and contains additional tools useful for debugging.
+* :jirabug:`K8SPXC-172`: Full data-at-rest encryption available in PXC 8.0 is now supported by the Operator and turned on by default
+
+Bugs Fixed
+================================================================================
+
+* :jirabug:`K8SPXC-222`: The Operator got caught in reconciliation error in case of the erroneous/absent API version in the ``deploy/cr.yaml`` file
+* :jirabug:`K8SPXC-220`: The inability to update or delete existing CRD was possible because of too large records in etcd, resulting in “request is too large” errors. Only 20 last status changes are now stored in etcd to avoid this problem.
+* :jirabug:`K8SPXC-52`: The Operator produced an unclear error message in case of fail caused by the absent or malformed pxc section in the ``deploy/cr.yaml`` file
+* :jirabug:`K8SPXC-219`: PXC Helm charts were incompatible with the version 3 of the Helm package manager
+* :jirabug:`K8SPXC-40`: The cluster was unable to reach "ready" status in case if ``ProxySQL.Enabled`` field was set to ``false``
+* :jirabug:`K8SPXC-34`: Change of the ``proxysql.servicetype`` filed was not detected by the Operator and thus had no effect
+
+Help us improve our software quality by reporting any bugs you encounter using
+`our bug tracking system <https://jira.percona.com/secure/Dashboard.jspa>`_.

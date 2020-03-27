@@ -520,8 +520,8 @@ spinup_pxc() {
     sleep $sleep
 
     desc 'write data'
-    if [[ "$IMAGE_PXC" =~ 5\.7$ ]]; then
-        encrypt='ENCRYPTION="Y"'
+    if [[ "$IMAGE_PXC" =~ 5\.7$ && "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+        encrypt='ENCRYPTION=\"Y\"'
     fi
     run_mysql \
         "CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \

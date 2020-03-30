@@ -89,9 +89,10 @@ main() {
     keyring_plugin_must_be_in_use "$cluster"
     
     mountpt=$(kubectl get -f "$conf_dir/vault-secret.yaml" -o json | grep -oP "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
-    kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$vault1"
-    transition_keys=$(kubectl exec -it pod/$vault1-0 -- sh -c "VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" | jq_filter "$mountpt/backup/")
-    kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
+    transition_keys=$(kubectl exec --namespace="$vault1" -it pod/$vault1-0 -- sh -c "
+        VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" \
+            | jq_filter "$mountpt/backup/
+    ")
 
     vault2="vault-service-2"
     start_vault $vault2

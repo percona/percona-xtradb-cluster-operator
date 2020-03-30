@@ -670,13 +670,13 @@ init_vault() {
                 && vault audit enable file file_path=/vault/vault-audit.log"
     sleep 10
 
-    #swich to test namestpace
-
     cat "$conf_dir/vault-secret.yaml" \
         | sed -e "s/#token/$token/" \
         | sed -e "s/#vault_url/http:\/\/$ip:8200/" \
         | sed -e "s/#secret/secret/" \
         | kubectl_bin apply --namespace="$namespace" -f-
+
+    kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 }
 
 start_minio() {

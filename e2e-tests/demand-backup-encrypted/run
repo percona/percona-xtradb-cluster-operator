@@ -66,7 +66,7 @@ main() {
     deploy_operator
     kubectl_bin apply -f $conf_dir/cloud-secret.yml
 
-    vault1="vault-service-1"
+    vault1="vault-service-1-${RANDOM}"
     start_vault $vault1
     init_vault $vault1
     token1=$(jq -r ".root_token" <"$tmp_dir/$vault1")
@@ -91,10 +91,9 @@ main() {
     mountpt=$(kubectl get -f "$conf_dir/vault-secret.yaml" -o json | grep -oP "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
     transition_keys=$(kubectl exec --namespace="$vault1" -it pod/$vault1-0 -- sh -c "
         VAULT_TOKEN=$token1 vault kv list -format=json $mountpt/backup/" \
-            | jq_filter "$mountpt/backup/
-    ")
+            | jq_filter "$mountpt/backup/")
 
-    vault2="vault-service-2"
+    vault2="vault-service-2-${RANDOM}"
     start_vault $vault2
     init_vault $vault2
     token2=$(jq -r ".root_token" <"$tmp_dir/$vault2")

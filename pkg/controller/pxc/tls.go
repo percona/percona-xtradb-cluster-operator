@@ -14,7 +14,7 @@ import (
 )
 
 func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster) error {
-	if cr.Spec.PXC.AllowUnsafeConfig {
+	if cr.Spec.AllowUnsafeConfig {
 		return nil
 	}
 	secretObj := corev1.Secret{}

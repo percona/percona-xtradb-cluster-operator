@@ -126,7 +126,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster, secretName string) (string, error) {
-	if cr.Spec.PXC.AllowUnsafeConfig {
+	if cr.Spec.AllowUnsafeConfig {
 		return "", nil
 	}
 	secretObj := corev1.Secret{}

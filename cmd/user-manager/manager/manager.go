@@ -26,10 +26,11 @@ type Data struct {
 }
 
 type User struct {
-	Name   string   `yaml:"username"`
-	Pass   string   `yaml:"password"`
-	Tables []Table  `yaml:"tables"`
-	Hosts  []string `yaml:"hosts"`
+	Drop   bool    `yaml:"grop"`
+	Name   string  `yaml:"username"`
+	Pass   string  `yaml:"password"`
+	Tables []Table `yaml:"tables"`
+	Host   string  `yaml:"host"`
 }
 
 type Table struct {
@@ -82,31 +83,32 @@ func (u *Manager) ManageUsers() error {
 		return errors.Wrap(err, "begin transaction")
 	}
 	for _, user := range u.Users {
-		for _, host := range user.Hosts {
-			log.Println("drop user", user.Name)
-			_, err = tx.Exec("DROP USER IF EXISTS ?@?", user.Name, host)
+		log.Println("drop user", user.Name)
+		_, err = tx.Exec("DROP USER IF EXISTS ?@?", user.Name, user.Host)
+		if err != nil {
+			tx.Rollback()
+			return errors.Wrap(err, "drop user with query")
+		}
+		if user.Drop {
+			continue
+		}
+		_, err = tx.Exec("CREATE USER ?@? IDENTIFIED BY ?", user.Name, user.Host, user.Pass)
+		if err != nil {
+			tx.Rollback()
+			return errors.Wrap(err, "cretae user")
+		}
+		for _, table := range user.Tables {
+			log.Println("grant privileges for user ", user.Name)
+			err = grant(user, table, user.Host, tx)
 			if err != nil {
-				tx.Rollback()
-				return errors.Wrap(err, "drop user with query")
+				return errors.Wrap(err, "grant privileges")
 			}
-			_, err = tx.Exec("CREATE USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)
-			if err != nil {
-				tx.Rollback()
-				return errors.Wrap(err, "cretae user")
-			}
-			for _, table := range user.Tables {
-				log.Println("grant privileges for user ", user.Name)
-				err = grant(user, table, host, tx)
-				if err != nil {
-					return errors.Wrap(err, "grant privileges")
-				}
-			}
-			log.Println("flush privileges for user ", user.Name)
-			_, err = tx.Exec("FLUSH PRIVILEGES")
-			if err != nil {
-				tx.Rollback()
-				return errors.Wrap(err, "flush privileges")
-			}
+		}
+		log.Println("flush privileges for user ", user.Name)
+		_, err = tx.Exec("FLUSH PRIVILEGES")
+		if err != nil {
+			tx.Rollback()
+			return errors.Wrap(err, "flush privileges")
 		}
 	}
 	err = tx.Commit()

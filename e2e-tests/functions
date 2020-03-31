@@ -7,10 +7,10 @@ GIT_COMMIT=$(git rev-parse HEAD)
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
 API="pxc.percona.com/v1-4-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
-IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0"}
+IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc5.7"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/percona-xtradb-cluster-operator:master-pmm"}
 IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:master-proxysql"}
-IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc8.0-backup"}
+IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:K8SPXC-172-pxc5.7-backup"}
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -628,16 +628,100 @@ retry() {
     done
 }
 
+function vault_tls() {
+    local name=${1:-vault-service}
+
+    SERVICE=$name
+    NAMESPACE=$name
+    SECRET_NAME=$name
+    CSR_NAME=vault-csr-${RANDOM}
+
+    openssl genrsa -out ${tmp_dir}/vault.key 2048
+    cat <<EOF >${tmp_dir}/csr.conf
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ${SERVICE}
+DNS.2 = ${SERVICE}.${NAMESPACE}
+DNS.3 = ${SERVICE}.${NAMESPACE}.svc
+DNS.4 = ${SERVICE}.${NAMESPACE}.svc.cluster.local
+IP.1 = 127.0.0.1
+EOF
+
+    openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=${SERVICE}.${NAMESPACE}.svc" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
+
+    cat <<EOF >${tmp_dir}/csr.yaml
+apiVersion: certificates.k8s.io/v1beta1
+kind: CertificateSigningRequest
+metadata:
+  name: ${CSR_NAME}
+spec:
+  groups:
+  - system:authenticated
+  request: $(cat ${tmp_dir}/server.csr | base64 | tr -d '\n')
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth
+EOF
+
+    kubectl create -f ${tmp_dir}/csr.yaml
+    sleep 10
+    kubectl certificate approve ${CSR_NAME}
+    kubectl get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' > ${tmp_dir}/serverCert
+    openssl base64 -in ${tmp_dir}/serverCert -d -A -out ${tmp_dir}/vault.crt
+    kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d > ${tmp_dir}/vault.ca
+    kubectl create secret generic ${SECRET_NAME} \
+        --namespace ${NAMESPACE} \
+        --from-file=vault.key=${tmp_dir}/vault.key \
+        --from-file=vault.crt=${tmp_dir}/vault.crt \
+        --from-file=vault.ca=${tmp_dir}/vault.ca
+}
+
 start_vault() {
     name=${1:-vault-service}
+    protocol=${2:-http}
+
     create_namespace "$name"
     deploy_helm "$name"
     helm delete --purge "$name" || :
-    
+
     desc "install Vault $name"
-    helm install --name $name --namespace "$name" \
-        --set dataStorage.enabled=false \
+
+    if [ $protocol == "https" ]; then
+        vault_tls "$name"
+        helm install --name $name --namespace "$name" \
+            --set dataStorage.enabled=false \
+            --set global.tlsDisable=false \
+            --set server.extraVolumes[0].type=secret \
+            --set server.extraVolumes[0].name=$name \
+            --set server.extraEnvironmentVars.VAULT_CACERT=/vault/userconfig/$name/vault.ca \
+            --set server.standalone.config="
+listener \"tcp\" {
+    address = \"[::]:8200\"
+    cluster_address = \"[::]:8201\"
+    tls_cert_file = \"/vault/userconfig/$name/vault.crt\"
+    tls_key_file  = \"/vault/userconfig/$name/vault.key\"
+    tls_client_ca_file = \"/vault/userconfig/$name/vault.ca\"
+}
+
+storage \"file\" {
+    path = \"/vault/data\"
+}" \
         "$src_dir/vendor/vault"
+    else
+        helm install --name $name --namespace "$name" \
+            --set dataStorage.enabled=false \
+            "$src_dir/vendor/vault"
+    fi
+
 
     set +o xtrace
     retry=0
@@ -654,27 +738,33 @@ start_vault() {
         fi
     done
     set -o xtrace
-}
 
-init_vault() {
-    name=${1:-vault-service}
     kubectl exec -it pod/$name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
     unsealKey=$(jq -r ".unseal_keys_b64[]" <"$tmp_dir/$name")
     token=$(jq -r ".root_token" <"$tmp_dir/$name")
-    ip="$name.$name.svc.cluster.local"
+    sleep 10
 
     kubectl exec -it pod/$name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
     kubectl exec -it pod/$name-0 -- \
-        sh -c "export VAULT_ADDR=http://$ip:8200 && export VAULT_TOKEN=$token && export VAULT_LOG_LEVEL=trace \
+        sh -c "export VAULT_TOKEN=$token && export VAULT_LOG_LEVEL=trace \
                 && vault secrets enable --version=1 -tls-skip-verify -path=secret kv \
                 && vault audit enable file file_path=/vault/vault-audit.log"
     sleep 10
 
     cat "$conf_dir/vault-secret.yaml" \
         | sed -e "s/#token/$token/" \
-        | sed -e "s/#vault_url/http:\/\/$ip:8200/" \
-        | sed -e "s/#secret/secret/" \
-        | kubectl_bin apply --namespace="$namespace" -f-
+        | sed -e "s/#vault_url/$protocol:\/\/$name.$name.svc.cluster.local:8200/" \
+        | sed -e "s/#secret/secret/" > "${tmp_dir}/vault-secret.yaml"
+    if [ $protocol == "https" ]; then
+        sed -e 's/^/    /' ${tmp_dir}/vault.ca > ${tmp_dir}/vault.new.ca
+        sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
+        sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
+        sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
+    else
+        sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
+    fi
+
+    kubectl_bin apply --namespace="$namespace" -f ${tmp_dir}/vault-secret.yaml
 
     kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 }

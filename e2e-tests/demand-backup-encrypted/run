@@ -68,7 +68,6 @@ main() {
 
     vault1="vault-service-1-${RANDOM}"
     start_vault $vault1
-    init_vault $vault1
     token1=$(jq -r ".root_token" <"$tmp_dir/$vault1")
     ip1="$vault1.$vault1.svc.cluster.local"
 
@@ -95,7 +94,6 @@ main() {
 
     vault2="vault-service-2-${RANDOM}"
     start_vault $vault2
-    init_vault $vault2
     token2=$(jq -r ".root_token" <"$tmp_dir/$vault2")
     ip2="$vault2.$vault2.svc.cluster.local"
 

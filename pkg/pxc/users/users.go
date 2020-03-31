@@ -23,7 +23,13 @@ func Job(cr *api.PerconaXtraDBCluster, jobName, secretHash string) *batchv1.Job 
 	labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
 	labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
 	labels["job-name"] = jobName
-	labels["secret-hash"] = secretHash
+
+	annotations := make(map[string]string)
+	for key, value := range cr.Spec.Users.Annotations {
+		annotations[key] = value
+	}
+	annotations["secret-hash"] = secretHash
+
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -32,8 +38,8 @@ func Job(cr *api.PerconaXtraDBCluster, jobName, secretHash string) *batchv1.Job 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        labels["job-name"],
 			Labels:      labels,
+			Annotations: annotations,
 			Namespace:   cr.Namespace,
-			Annotations: cr.Spec.Users.Annotations,
 		},
 	}
 }

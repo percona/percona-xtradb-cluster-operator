@@ -103,7 +103,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr 
 		return errors.Errorf("get user manager job '%s': %v", jobName, err)
 	}
 
-	if currentJob.Labels["secret-hash"] != newHash {
+	if currentJob.Annotations["secret-hash"] != newHash {
 		err = r.client.Delete(context.TODO(), currentJob)
 		if err != nil {
 			return errors.Wrap(err, "delete out of date job")
@@ -141,7 +141,7 @@ func sha256Hash(data []byte) string {
 // So we have to be sure that job name won't be longer than 63 symbols.
 // Yet the job name has to have some meaningful name which won't be conflicting with other jobs' names.
 func genName63(secretName string, cr *api.PerconaXtraDBCluster) string {
-	postfix := "-pxc-users-manager" + secretName
+	postfix := "-pxc-usrs-mngr" + secretName
 
 	postfixMaxLen := 36
 	postfix = trimNameRight(postfix, postfixMaxLen)

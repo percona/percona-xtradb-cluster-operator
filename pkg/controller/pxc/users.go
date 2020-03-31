@@ -73,32 +73,34 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr 
 		return errors.Wrap(err, "update secret last-applied")
 	}
 
-	operatorPod := corev1.Pod{}
-	err = r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      os.Getenv("HOSTNAME"),
-		},
-		&operatorPod,
-	)
-	if err != nil {
-		return errors.Wrap(err, "get operator deployment")
-	}
-	containerImage := operatorPod.Spec.Containers[0].Image
-	imagePullSecrets := operatorPod.Spec.ImagePullSecrets
-	job := users.Job(cr, secretName, newHash)
-	job.Spec = users.JobSpec(secretName, containerImage, job, cr, imagePullSecrets)
-
 	currentJob := new(batchv1.Job)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: cr.Namespace}, currentJob)
+	jobName := genName63(secretName, cr)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jobName, Namespace: cr.Namespace}, currentJob)
 	if err != nil && k8serrors.IsNotFound(err) {
+		operatorPod := corev1.Pod{}
+		err = r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      os.Getenv("HOSTNAME"),
+			},
+			&operatorPod,
+		)
+		if err != nil {
+			return errors.Wrap(err, "get operator deployment")
+		}
+		containerImage := operatorPod.Spec.Containers[0].Image
+		imagePullSecrets := operatorPod.Spec.ImagePullSecrets
+
+		job := users.Job(cr, jobName, newHash)
+		job.Spec = users.JobSpec(secretName, containerImage, job, cr, imagePullSecrets)
+
 		err = r.client.Create(context.TODO(), job)
 		if err != nil {
 			return errors.Wrapf(err, "create job '%s'", job.Name)
 		}
 		return nil
 	} else if err != nil {
-		return errors.Errorf("get user manager job '%s': %v", job.Name, err)
+		return errors.Errorf("get user manager job '%s': %v", jobName, err)
 	}
 
 	if currentJob.Labels["secret-hash"] != newHash {
@@ -133,4 +135,39 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr 
 
 func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
+}
+
+// k8s sets the `job-name` label for the pod created by job.
+// So we have to be sure that job name won't be longer than 63 symbols.
+// Yet the job name has to have some meaningful name which won't be conflicting with other jobs' names.
+func genName63(secretName string, cr *api.PerconaXtraDBCluster) string {
+	postfix := "-pxc-users-manager" + secretName
+
+	postfixMaxLen := 36
+	postfix = trimNameRight(postfix, postfixMaxLen)
+
+	prefix := cr.Name
+	prefixMaxLen := 27
+	if len(prefix) > prefixMaxLen {
+		prefix = prefix[:prefixMaxLen]
+	}
+
+	return prefix + postfix
+}
+
+// trimNameRight if needed cut off symbol by symbol from the name right side
+// until it satisfy requirements to end with an alphanumeric character and have a length no more than ln
+func trimNameRight(name string, ln int) string {
+	if len(name) <= ln {
+		ln = len(name)
+	}
+
+	for ; ln > 0; ln-- {
+		if name[ln-1] >= 'a' && name[ln-1] <= 'z' ||
+			name[ln-1] >= '0' && name[ln-1] <= '9' {
+			break
+		}
+	}
+
+	return name[:ln]
 }

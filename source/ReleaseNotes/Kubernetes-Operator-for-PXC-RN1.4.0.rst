@@ -18,7 +18,6 @@ Improvements
 
 * :jirabug:`K8SPXC-221`: Operator now updates observedGeneration status message to allow better monitoring of the cluster rollout or backup/restore process
 * :jirabug:`K8SPXC-153`: S3 protocol credentials are now masked in logs during the PXC backup & restore process
-* :jirabug:`K8SPXC-234`: A special script to execute Graceful Shutdown of the cluster is now available. It is `triggered <../pause.html>`_ by the ``spec.pause`` key in the ``deploy/cr.yaml`` file.
 * :jirabug:`K8SPXC-232` and :jirabug:`K8SPXC-233`: Two Crash Recovery methods were developed: the automated but lossy ref:`recovery-bootstrap` and the manual but lossless :ref:`recovery-object-surgery`.
 * :jirabug:`K8SPXC-231`: Test and Document Graceful Stop/Start of PXC 8.0
 * :jirabug:`K8SPXC-213`: A special PXC debug image is now available. It avoids restarting on fail and contains additional tools useful for debugging.

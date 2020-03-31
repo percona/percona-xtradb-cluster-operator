@@ -55,4 +55,4 @@ required = [
 
 [[constraint]]
   name = "github.com/jetstack/cert-manager"
-  version = "0.7.0"
+  version = "0.14.1"

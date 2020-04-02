@@ -174,7 +174,7 @@ deploy_helm() {
 
 wait_for_running() {
     local name="$1"
-    let last_pod="$(($2-1))" || :
+    let last_pod="$(($2 - 1))" || :
 
     for i in $(seq 0 $last_pod); do
         wait_pod ${name}-${i}
@@ -240,7 +240,7 @@ run_mysql() {
 
     client_pod=$(get_client_pod)
     wait_pod $client_pod 1>&2
-    [[ ${-/x} != $- ]] && echo "+ kubectl exec -it $client_pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
+    [[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $client_pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
     set +o xtrace
     kubectl_bin exec $client_pod -- \
@@ -255,7 +255,7 @@ run_mysql_local() {
     local uri="$2"
     local pod="$3"
 
-    [[ ${-/x} != $- ]] && echo "+ kubectl exec -it $pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
+    [[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
     set +o xtrace
     kubectl_bin exec $pod -- \
@@ -277,7 +277,7 @@ compare_mysql_cmd() {
     fi
 
     run_mysql "$command" "$uri" \
-        > $tmp_dir/${command_id}.sql
+        >$tmp_dir/${command_id}.sql
     diff -u $expected_result $tmp_dir/${command_id}.sql
 }
 
@@ -291,7 +291,7 @@ get_proxy_primary() {
         ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod")
     done
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] ; then
+    if [[ "$IMAGE_PXC" =~ 8\.0$ ]]; then
         echo $ip | cut -d'.' -f1
     else
         get_pod_name "$ip"
@@ -308,7 +308,7 @@ get_pod_ip() {
     kubectl_bin get pods -o json | jq -r '.items[] | select(.metadata.name == "'$name'") | .status.podIP'
 }
 
-compare_mysql_user(){
+compare_mysql_user() {
     local uri="$1"
     local postfix="$2"
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
@@ -324,7 +324,7 @@ compare_mysql_user(){
     diff -u $expected_result $tmp_dir/$user.sql
 }
 
-compare_mysql_user_local(){
+compare_mysql_user_local() {
     local uri="$1"
     local pod="$2"
     local postfix="$3"
@@ -457,7 +457,7 @@ get_qan20_values() {
     local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
     local endpoint=$(get_service_endpoint monitoring-service)
 
-    cat > payload.json << EOF
+    cat >payload.json <<EOF
 {
    "columns":[
       "load",
@@ -520,16 +520,72 @@ spinup_pxc() {
     sleep $sleep
 
     desc 'write data'
+    if [[ "$IMAGE_PXC" =~ 5\.7$ ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+        encrypt='ENCRYPTION=\"Y\"'
+    fi
     run_mysql \
-        'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+        "CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
         "-h $cluster-proxysql -uroot -proot_password"
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100500)' \
         "-h $cluster-proxysql -uroot -proot_password"
 
-    for i in $(seq 0 $(($size-1))); do
+    for i in $(seq 0 $(($size - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
     done
+
+    if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
+        table_must_be_encrypted "$cluster" "myApp"
+    fi
+}
+
+function is_table_encrypted() {
+    local cluster=$1
+    local table=$2
+    run_mysql \
+        "SELECT CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=\\\"$table\\\";" \
+        "-h $cluster-proxysql -uroot -proot_password" \
+        | grep -oP "ENCRYPTION=('Y'|\"Y\")"
+}
+
+function is_keyring_plugin_in_use() {
+    local cluster=$1
+    kubectl exec -it pod/$cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
+        | grep -oP "early-plugin-load=keyring_\w+.so"
+}
+
+function table_must_not_be_encrypted() {
+    local cluster=$1
+    local table=$2
+    if is_table_encrypted "$cluster" "$table"; then
+        echo "error: table is encrypted"
+        exit 1
+    fi
+}
+
+function table_must_be_encrypted() {
+    local cluster=$1
+    local table=$2
+    if ! is_table_encrypted "$cluster" "$table"; then
+        echo "error: table is not encrypted"
+        exit 1
+    fi
+}
+
+function keyring_plugin_must_be_in_use() {
+    local cluster=$1
+    if ! is_keyring_plugin_in_use "$cluster"; then
+        echo "error: keyring_plugin is not used"
+        exit 1
+    fi
+}
+
+function keyring_plugin_must_not_be_in_use() {
+    local cluster=$1
+    if is_keyring_plugin_in_use "$cluster"; then
+        echo "error: keyring_plugin is used"
+        exit 1
+    fi
 }
 
 kubectl_bin() {
@@ -539,8 +595,8 @@ kubectl_bin() {
     for i in $(seq 0 2); do
         kubectl "$@" 1>"$LAST_OUT" 2>"$LAST_ERR"
         exit_status=$?
-        [[ ${-/x} != $- ]] && echo "--- $i stdout" | cat - "$LAST_OUT" >&$BASH_XTRACEFD
-        [[ ${-/x} != $- ]] && echo "--- $i stderr" | cat - "$LAST_ERR" >&$BASH_XTRACEFD
+        [[ ${-/x/} != $- ]] && echo "--- $i stdout" | cat - "$LAST_OUT" >&$BASH_XTRACEFD
+        [[ ${-/x/} != $- ]] && echo "--- $i stderr" | cat - "$LAST_ERR" >&$BASH_XTRACEFD
         if [[ ${exit_status} != 0 ]]; then
             sleep "$((timeout * i))"
         else
@@ -570,6 +626,197 @@ retry() {
         ((n++))
         sleep $delay
     done
+}
+
+check_pvc_md5() {
+    desc 'check backup file md5sum'
+    apply_config "$test_dir/conf/client.yml"
+    sleep 10
+    bak_client_pod=$(
+        kubectl_bin get pods \
+            --selector=name=backup-client \
+            -o 'jsonpath={.items[].metadata.name}'
+    )
+    wait_pod $bak_client_pod
+    kubectl_bin exec $bak_client_pod -- \
+        bash -c "cd /backup; md5sum -c md5sum.txt"
+    kubectl_bin delete \
+        -f $test_dir/conf/client.yml
+}
+
+run_backup() {
+    local cluster=$1
+    local backup1=$2
+
+    desc 'make backup'
+    kubectl_bin apply \
+        -f $test_dir/conf/$backup1.yml
+    wait_backup $backup1
+}
+
+run_recovery_check() {
+    local cluster=$1
+    local backup1=$2
+
+    desc 'recover backup'
+    kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
+    wait_backup_restore ${backup1}
+    kubectl_bin logs job/restore-job-${backup1}-${cluster}
+    kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
+    wait_for_running "$cluster-proxysql" 1
+    wait_for_running "$cluster-pxc" 3
+
+    sleep 20
+    desc 'check data after backup'
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+
+    if [ "$backup1" != "on-demand-backup-minio" ]; then
+        desc 'copy backup'
+        bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+    fi
+}
+
+function vault_tls() {
+    local name=${1:-vault-service}
+
+    SERVICE=$name
+    NAMESPACE=$name
+    SECRET_NAME=$name
+    CSR_NAME=vault-csr-${RANDOM}
+
+    openssl genrsa -out ${tmp_dir}/vault.key 2048
+    cat <<EOF >${tmp_dir}/csr.conf
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ${SERVICE}
+DNS.2 = ${SERVICE}.${NAMESPACE}
+DNS.3 = ${SERVICE}.${NAMESPACE}.svc
+DNS.4 = ${SERVICE}.${NAMESPACE}.svc.cluster.local
+IP.1 = 127.0.0.1
+EOF
+
+    openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=${SERVICE}.${NAMESPACE}.svc" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
+
+    cat <<EOF >${tmp_dir}/csr.yaml
+apiVersion: certificates.k8s.io/v1beta1
+kind: CertificateSigningRequest
+metadata:
+  name: ${CSR_NAME}
+spec:
+  groups:
+  - system:authenticated
+  request: $(cat ${tmp_dir}/server.csr | base64 | tr -d '\n')
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth
+EOF
+
+    kubectl create -f ${tmp_dir}/csr.yaml
+    sleep 10
+    kubectl certificate approve ${CSR_NAME}
+    kubectl get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' > ${tmp_dir}/serverCert
+    openssl base64 -in ${tmp_dir}/serverCert -d -A -out ${tmp_dir}/vault.crt
+    kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d > ${tmp_dir}/vault.ca
+    kubectl create secret generic ${SECRET_NAME} \
+        --namespace ${NAMESPACE} \
+        --from-file=vault.key=${tmp_dir}/vault.key \
+        --from-file=vault.crt=${tmp_dir}/vault.crt \
+        --from-file=vault.ca=${tmp_dir}/vault.ca
+}
+
+start_vault() {
+    name=${1:-vault-service}
+    protocol=${2:-http}
+
+    create_namespace "$name"
+    deploy_helm "$name"
+    helm delete --purge "$name" || :
+
+    desc "install Vault $name"
+
+    if [ $protocol == "https" ]; then
+        vault_tls "$name"
+        helm install --name $name --namespace "$name" \
+            --set dataStorage.enabled=false \
+            --set global.tlsDisable=false \
+            --set server.extraVolumes[0].type=secret \
+            --set server.extraVolumes[0].name=$name \
+            --set server.extraEnvironmentVars.VAULT_CACERT=/vault/userconfig/$name/vault.ca \
+            --set server.standalone.config="
+listener \"tcp\" {
+    address = \"[::]:8200\"
+    cluster_address = \"[::]:8201\"
+    tls_cert_file = \"/vault/userconfig/$name/vault.crt\"
+    tls_key_file  = \"/vault/userconfig/$name/vault.key\"
+    tls_client_ca_file = \"/vault/userconfig/$name/vault.ca\"
+}
+
+storage \"file\" {
+    path = \"/vault/data\"
+}" \
+        "$src_dir/vendor/vault"
+    else
+        helm install --name $name --namespace "$name" \
+            --set dataStorage.enabled=false \
+            "$src_dir/vendor/vault"
+    fi
+
+
+    set +o xtrace
+    retry=0
+    echo -n pod/$name-0
+    until kubectl get pod/$name-0 -o 'jsonpath={.status.containerStatuses[0].state}' 2>/dev/null | grep 'running'; do
+        echo -n .
+        sleep 1
+        let retry+=1
+        if [ "$retry" -ge 480 ]; then
+            kubectl_bin describe pod/$name-0
+            kubectl_bin logs $name-0
+            echo max retry count "$retry" reached. something went wrong with vault
+            exit 1
+        fi
+    done
+    set -o xtrace
+
+    kubectl exec -it pod/$name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
+    unsealKey=$(jq -r ".unseal_keys_b64[]" <"$tmp_dir/$name")
+    token=$(jq -r ".root_token" <"$tmp_dir/$name")
+    sleep 10
+
+    kubectl exec -it pod/$name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
+    kubectl exec -it pod/$name-0 -- \
+        sh -c "export VAULT_TOKEN=$token && export VAULT_LOG_LEVEL=trace \
+                && vault secrets enable --version=1 -tls-skip-verify -path=secret kv \
+                && vault audit enable file file_path=/vault/vault-audit.log"
+    sleep 10
+
+    cat "$conf_dir/vault-secret.yaml" \
+        | sed -e "s/#token/$token/" \
+        | sed -e "s/#vault_url/$protocol:\/\/$name.$name.svc.cluster.local:8200/" \
+        | sed -e "s/#secret/secret/" > "${tmp_dir}/vault-secret.yaml"
+    if [ $protocol == "https" ]; then
+        sed -e 's/^/    /' ${tmp_dir}/vault.ca > ${tmp_dir}/vault.new.ca
+        sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
+        sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
+        sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
+    else
+        sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
+    fi
+
+    kubectl_bin apply --namespace="$namespace" -f ${tmp_dir}/vault-secret.yaml
+
+    kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 }
 
 start_minio() {

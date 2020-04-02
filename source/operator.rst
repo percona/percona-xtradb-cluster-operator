@@ -8,17 +8,39 @@ The operator is configured via the spec section of the
 file. This file contains the following spec sections to configure three
 main subsystems of the cluster:
 
+.. list-table::
+   :widths: 15 15 10 60
+   :header-rows: 1
 
-.. csv-table:: Custom Resource options
-    :header: "Key", "Value Type", "Description"
-    :widths: 15, 15, 40
-    :delim: ,
+   * - Key
+     - Value type
+     - Default
+     - Description
 
-    "pxc", "subdoc", "Percona XtraDB Cluster general section"
-    "proxysql", "subdoc", "ProxySQL section"
-    "pmm", "subdoc", "Percona Moonitoring and Management section"
-    "backup", "subdoc", "Percona XtraDB Cluster backups section"
+   * - pxc
+     - subdoc
+     -
+     - Percona XtraDB Cluster general section
 
+   * - proxysql
+     - subdoc
+     -
+     - ProxySQL section
+
+   * - pmm
+     - subdoc
+     -
+     - Percona Monitoring and Management section
+
+   * - backup
+     - subdoc
+     -
+     - Percona XtraDB Cluster backups section
+
+   * - allowUnsafeConfigurations
+     - boolean
+     - ``false``
+     - Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates
 
 .. _operator.pxc-section:
 
@@ -41,17 +63,6 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The size of the Percona XtraDB cluster must be >= 3 for                                   |
 |                 | `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_  |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Key**         | pxc.allowUnsafeConfigurations                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | boolean                                                                                   |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``false``                                                                                 |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | Prevents users from configuring a cluster with unsafe parameters such as starting the     |
-|                 | cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates       |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

@@ -133,7 +133,6 @@ type PodSpec struct {
 	Annotations                   map[string]string             `json:"annotations,omitempty"`
 	Labels                        map[string]string             `json:"labels,omitempty"`
 	ImagePullSecrets              []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	AllowUnsafeConfig             bool                          `json:"allowUnsafeConfigurations,omitempty"`
 	Configuration                 string                        `json:"configuration,omitempty"`
 	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
 	VaultSecretName               string                        `json:"vaultSecretName,omitempty"`
@@ -315,7 +314,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 	}
 
 	if c.PXC != nil {
-		c.PXC.AllowUnsafeConfig = c.AllowUnsafeConfig
 		if c.PXC.VolumeSpec == nil {
 			return false, fmt.Errorf("PXC: volumeSpec should be specified")
 		}
@@ -342,12 +340,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		}
 
 		// pxc replicas shouldn't be less than 3 for safe configuration
-		if c.PXC.Size < 3 && !c.PXC.AllowUnsafeConfig {
+		if c.PXC.Size < 3 && !c.AllowUnsafeConfig {
 			c.PXC.Size = 3
 		}
 
 		// number of pxc replicas should be an odd
-		if c.PXC.Size%2 == 0 && !c.PXC.AllowUnsafeConfig {
+		if c.PXC.Size%2 == 0 && !c.AllowUnsafeConfig {
 			c.PXC.Size++
 		}
 
@@ -374,7 +372,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
-		c.ProxySQL.AllowUnsafeConfig = c.AllowUnsafeConfig
 		if c.ProxySQL.VolumeSpec == nil {
 			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")
 		}

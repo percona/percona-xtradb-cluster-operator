@@ -48,6 +48,7 @@ Configuration
    options
    proxysql-conf
    TLS
+   encryption
    pause
    recovery
 

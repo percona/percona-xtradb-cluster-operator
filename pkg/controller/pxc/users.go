@@ -5,15 +5,20 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+const internalPrefix = "internal-"
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) error {
 	if cr.Status.Status != api.AppStateReady {
@@ -91,8 +96,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr 
 		containerImage := operatorPod.Spec.Containers[0].Image
 		imagePullSecrets := operatorPod.Spec.ImagePullSecrets
 
+		err = r.InternalSecret(cr, &usersSecretObj)
+		if err != nil {
+			return errors.Wrap(err, "internal secret")
+		}
+
 		job := users.Job(cr, jobName, newHash)
-		job.Spec = users.JobSpec(secretName, containerImage, job, cr, imagePullSecrets)
+		job.Spec = users.JobSpec(secretName, internalPrefix+cr.Spec.SecretsName, containerImage, job, cr, imagePullSecrets)
 
 		err = r.client.Create(context.TODO(), job)
 		if err != nil {
@@ -119,6 +129,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr 
 				return errors.Wrap(err, "delete current job")
 			}
 			status = "succeded"
+			err = r.UpdateInternalSecret(cr, &usersSecretObj)
+			if err != nil {
+				return errors.Wrap(err, "update internal secret")
+			}
 		}
 		if currentJob.Status.Failed > 0 {
 			status = "failed"
@@ -131,6 +145,118 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr 
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) InternalSecret(cr *api.PerconaXtraDBCluster, userSecret *corev1.Secret) error {
+	secretName := internalPrefix + cr.Spec.SecretsName
+	secretObj := corev1.Secret{}
+	err := r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      secretName,
+		},
+		&secretObj,
+	)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "get internal users secret")
+	} else if k8serrors.IsNotFound(err) {
+		secretObj, err = r.handleUsers(cr, userSecret, false)
+		if err != nil {
+			return errors.Wrap(err, "handle internal secret")
+		}
+
+		err = r.client.Create(context.TODO(), &secretObj)
+		if err != nil {
+			return errors.Wrap(err, "create internal users secret")
+		}
+		return nil
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) UpdateInternalSecret(cr *api.PerconaXtraDBCluster, userSecret *corev1.Secret) error {
+	secretObj, err := r.handleUsers(cr, userSecret, true)
+	if err != nil {
+		return errors.Wrap(err, "update internal secret")
+	}
+	err = r.client.Update(context.TODO(), &secretObj)
+	if err != nil {
+		return errors.Wrap(err, "create internal users secret")
+	}
+	return nil
+
+}
+
+func (r *ReconcilePerconaXtraDBCluster) handleUsers(cr *api.PerconaXtraDBCluster, userSecret *corev1.Secret, update bool) (corev1.Secret, error) {
+	secretName := internalPrefix + cr.Spec.SecretsName
+	interUsers := []users.InternalUser{}
+	secretObj := corev1.Secret{}
+
+	if update {
+		err := r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      secretName,
+			},
+			&secretObj,
+		)
+		if err != nil {
+			return secretObj, errors.Wrap(err, "get internal users secret")
+		}
+		err = yaml.Unmarshal(secretObj.Data["users"], &interUsers)
+		if err != nil {
+			return secretObj, errors.Wrap(err, "unmarshal users secret data")
+		}
+		var newInterUsers []users.InternalUser
+		for _, u := range interUsers {
+			if u.Owner == userSecret.Name {
+				continue
+			}
+			newInterUsers = append(newInterUsers, u)
+		}
+		interUsers = newInterUsers
+	}
+
+	var usersSlice users.Data
+	usersData := userSecret.Data["grants.yaml"]
+	err := yaml.Unmarshal(usersData, &usersSlice)
+	if err != nil {
+		return secretObj, errors.Wrap(err, "unmarshal users secret data")
+	}
+
+	data := make(map[string][]byte)
+	for _, user := range usersSlice.Users {
+		for _, host := range user.Hosts {
+			var interUser users.InternalUser
+			interUser.Name = user.Name + "@" + host
+			interUser.Owner = userSecret.Name
+			if update {
+				interUser.Status = "applyed"
+			} else {
+				interUser.Status = "applying"
+			}
+			interUser.Time = time.Now().Unix()
+
+			interUsers = append(interUsers, interUser)
+		}
+	}
+
+	interUsersData, err := yaml.Marshal(interUsers)
+	if err != nil {
+		return secretObj, errors.Wrap(err, "marshal internal users")
+	}
+	data["users"] = interUsersData
+	secretObj = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: cr.Namespace,
+		},
+		Data: data,
+		Type: corev1.SecretTypeOpaque,
+	}
+
+	return secretObj, nil
 }
 
 func sha256Hash(data []byte) string {

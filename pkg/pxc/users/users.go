@@ -11,6 +11,30 @@ import (
 
 var log = logf.Log.WithName("users-manager")
 
+type Data struct {
+	Users []User `yaml:"users"`
+}
+
+type User struct {
+	Drop   bool     `yaml:"grop"`
+	Name   string   `yaml:"username"`
+	Pass   string   `yaml:"password"`
+	Tables []Table  `yaml:"tables"`
+	Hosts  []string `yaml:"hosts"`
+}
+
+type Table struct {
+	Name       string `yaml:"name"`
+	Privileges string `yaml:"privileges"`
+}
+
+type InternalUser struct {
+	Name   string `yaml:"name"`
+	Owner  string `yaml:"owner"`
+	Time   int64  `yaml:"time"`
+	Status string `yaml:"status"`
+}
+
 func Job(cr *api.PerconaXtraDBCluster, jobName, secretHash string) *batchv1.Job {
 	labels := make(map[string]string)
 	for key, value := range cr.Spec.Users.Labels {
@@ -44,7 +68,7 @@ func Job(cr *api.PerconaXtraDBCluster, jobName, secretHash string) *batchv1.Job 
 	}
 }
 
-func JobSpec(secretName, image string, job *batchv1.Job, cr *api.PerconaXtraDBCluster, imagePullSecrets []corev1.LocalObjectReference) batchv1.JobSpec {
+func JobSpec(secretName, internalSecretName, image string, job *batchv1.Job, cr *api.PerconaXtraDBCluster, imagePullSecrets []corev1.LocalObjectReference) batchv1.JobSpec {
 	resources, err := app.CreateResources(cr.Spec.Users.Resources)
 	if err != nil {
 		log.Info("cannot parse users resources: ", err)
@@ -69,7 +93,12 @@ func JobSpec(secretName, image string, job *batchv1.Job, cr *api.PerconaXtraDBCl
 						VolumeMounts: []corev1.VolumeMount{
 							{
 								MountPath: "/data",
-								Name:      "userssecret",
+								Name:      "users-secret",
+								ReadOnly:  true,
+							},
+							{
+								MountPath: "/internal-data",
+								Name:      "internal-users-secret",
 								ReadOnly:  true,
 							},
 						},
@@ -101,10 +130,18 @@ func JobSpec(secretName, image string, job *batchv1.Job, cr *api.PerconaXtraDBCl
 				},
 				Volumes: []corev1.Volume{
 					{
-						Name: "userssecret",
+						Name: "users-secret",
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
 								SecretName: secretName,
+							},
+						},
+					},
+					{
+						Name: "internal-users-secret",
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: internalSecretName,
 							},
 						},
 					},

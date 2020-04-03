@@ -6,7 +6,7 @@ Data at rest encryption
 ..note:: "Data at rest" means inactive data stored as files, database records, etc.
 
 To implement these features, the Operator uses ``keyring_vault`` plugin,
-which ships with Percona XtraDB Cluster 8.0, and utilizes `HashiCorp Vault <https://www.vaultproject.io/>`_ authentication server. 
+which ships with Percona XtraDB Cluster, and utilizes `HashiCorp Vault <https://www.vaultproject.io/>`_ authentication server. 
 
 .. contents:: :local:
 
@@ -108,4 +108,3 @@ when you create a table or a tablespace. This can be done by adding the
       CREATE TABLESPACE foo ADD DATAFILE 'foo.ibd' ENCRYPTION='Y';
 
 If using Percona XtraDB Cluster 8.0, the encryption is turned on by default.
-

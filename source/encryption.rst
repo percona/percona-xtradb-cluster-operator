@@ -65,11 +65,11 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
 
       s.VgQvaXl8xGFO1RUxAPbPbsfN
 
-   Now login to Vault with this token and enable secrets:
+   Now login to Vault with this token and enable "pxc-secret" secrets path:
 
       $ kubectl exec -it vault-0 -- /bin/sh
       $ vault login s.VgQvaXl8xGFO1RUxAPbPbsfN
-      $ vault secrets enable --version=1 -path=secret kv
+      $ vault secrets enable --version=1 -path=pxc-secret kv
 
    .. note:: You can also enable audit, which is not mandatory, but useful:
 

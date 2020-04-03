@@ -6,16 +6,18 @@ Data at rest encryption
 ..note:: "Data at rest" means inactive data stored as files, database records, etc.
 
 To implement these features, the Operator uses ``keyring_vault`` plugin,
-which ships with Percona XtraDB Cluster, and utilizes `HashiCorp Vault <https://www.vaultproject.io/>`_ authentication server. 
+which ships with Percona XtraDB Cluster, and utilizes `HashiCorp Vault <https://www.vaultproject.io/>`_ authentication server.
 
 .. contents:: :local:
 
 .. _install-vault:
 
-Installing and configuring Vault
--------------------------------
+Installing Vault
+----------------
 
-The following steps will deploy Vault on Kubernetes with the `Helm 3 package manager <https://helm.sh/>`_:
+ user feel free to setup Vault as he wants, steps 1-4 are only illustrative
+
+The following steps will deploy Vault on Kubernetes with the `Helm 3 package manager <https://helm.sh/>`_. Other Vault installation methods should also work, so the instruction placed here is not obligatory and is for illustration purposes.
 
 1. Clone the official HashiCorp Vault Helm chart from GitHub:
 
@@ -24,19 +26,13 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
       $ git clone -b v0.4.0 https://github.com/hashicorp/vault-helm.git
       $ cd vault-helm
 
-2. Checkout to a tagged Vault release version to install it with Helm:
-
-   .. code:: bash
-
-      $ git checkout v0.4.0
-
-3. Now use Helm to do the installation:
+2. Now use Helm to do the installation:
 
    .. code:: bash
 
       $ helm install --name vault-service ./
 
-4. After the installation, Vauld should be first initialized and then unsealed.
+3. After the installation, Vauld should be first initialized and then unsealed.
    Initializing Vault is done with the following commands:
 
    .. code:: bash
@@ -51,8 +47,10 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
 
       $ kubectl exec -it pod/vault-service-0 -- vault operator unseal "$unsealKey"
 
-5. Now it is time to enable secrets within Vault. First, get the Vault root
-   token:
+Configuring Vault
+-----------------
+
+1. First you should enable secrets within Vault. Get the Vault root token:
 
    .. code:: bash
 
@@ -64,7 +62,7 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
 
       s.VgQvaXl8xGFO1RUxAPbPbsfN
 
-   Now login to Vault with this token and enable "pxc-secret" secrets path:
+   Now login to Vault with this token and enable the "pxc-secret" secrets path:
 
       $ kubectl exec -it vault-0 -- /bin/sh
       $ vault login s.VgQvaXl8xGFO1RUxAPbPbsfN
@@ -76,7 +74,7 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
 
          $ vault audit enable file file_path=/vault/vault-audit.log
 
-6. To enable Vault secret within Kubernetes, create and apply the YAML file as
+2. To enable Vault secret within Kubernetes, create and apply the YAML file as
    follows::
 
       apiVersion: v1
@@ -90,12 +88,14 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
           vault_url = vault-service.vault-service.svc.cluster.local
           secret_mount_point = pxc-secret
 
+   .. note:: the ``name`` key in the above file should be equal to the ``spec.vaultSecretName`` key from the ``deploy/cr.yaml`` configuration file.
+
 More details on how to install and configure Vault can be found `in the official documentation <https://learn.hashicorp.com/vault?track=getting-started-k8s#getting-started-k8s>`_.
 
 .. _vault-encryption:
 
 Using the encryption
--------------------------------
+--------------------
 
 If using Percona XtraDB Cluster 5.7, you should turn encryption on explicitly
 when you create a table or a tablespace. This can be done by adding the
@@ -105,5 +105,7 @@ when you create a table or a tablespace. This can be done by adding the
 
       CREATE TABLE t1 (c1 INT, PRIMARY KEY pk(c1)) ENCRYPTION='Y';
       CREATE TABLESPACE foo ADD DATAFILE 'foo.ibd' ENCRYPTION='Y';
+
+.. note:: See more details on encryption in Percona XtraDB Cluster 5.7 `here <https://www.percona.com/doc/percona-xtradb-cluster/5.7/management/data_at_rest_encryption.html>`_.
 
 If using Percona XtraDB Cluster 8.0, the encryption is turned on by default.

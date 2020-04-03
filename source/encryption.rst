@@ -88,7 +88,7 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
         keyring_vault.conf: |-
           token = s.VgQvaXl8xGFO1RUxAPbPbsfN
           vault_url = vault-service.vault-service.svc.cluster.local
-          secret_mount_point = secret
+          secret_mount_point = pxc-secret
 
 More details on how to install and configure Vault can be found `in the official documentation <https://learn.hashicorp.com/vault?track=getting-started-k8s#getting-started-k8s>`_.
 

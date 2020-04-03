@@ -43,7 +43,6 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
 
       $ kubectl exec -it pod/vault-service-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json > /tmp/vault-init
       $ unsealKey=$(jq -r ".unseal_keys_b64[]" < /tmp/vault-init)
-      $ token=$(jq -r ".root_token" < /tmp/vault-init)
 
    To unseal Vault, execute the following command **for each Pod** of Vault
    running: 

@@ -42,6 +42,26 @@ main subsystems of the cluster:
      - ``false``
      - Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes or starting the cluster without TLS/SSL certificates
 
+   * - secretsName
+     - string
+     - ``my-cluster-secrets``
+     - A name for :ref:`users secrets<users>`
+
+   * - vaultSecretName
+     - string
+     - ``keyring-secret-vault``
+     - A secret for the `HashiCorp Vault <https://www.vaultproject.io/>`_ to carry on :ref:`encryption`
+
+   * - sslSecretName
+     - string
+     - ``my-cluster-ssl``
+     - A secret with TLS certificate generated for *external* communications, see :ref:`tls` for details
+
+   * - sslInternalSecretName
+     - string
+     - ``my-cluster-ssl-internal``
+     - A secret with TLS certificate generated for *internal* communications, see :ref:`tls` for details
+
 .. _operator.pxc-section:
 
 `PXC Section <operator.html#operator-pxc-section>`_

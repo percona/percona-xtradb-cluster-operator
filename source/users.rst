@@ -6,7 +6,7 @@ Users
 The Operator requires
 Kubernetes Secrets to be deployed before the PXC Cluster is started. The name of the
 required secrets can be set in ``deploy/cr.yaml`` under the
-``spec.secrets`` section.
+``spec.secretsName`` section.
 
 .. _users.unprivileged-users:
 

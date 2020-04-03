@@ -1,3 +1,5 @@
+.. _encryption:
+
 Data at rest encryption
 ************************
 
@@ -41,16 +43,18 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
       $ unsealKey=$(jq -r ".unseal_keys_b64[]" < /tmp/vault-init)
 
    To unseal Vault, execute the following command **for each Pod** of Vault
-   running: 
+   running:
 
    .. code:: bash
 
       $ kubectl exec -it pod/vault-service-0 -- vault operator unseal "$unsealKey"
 
+.. _configure-vault:
+
 Configuring Vault
 -----------------
 
-1. First you should enable secrets within Vault. Get the Vault root token:
+1. First, you should enable secrets within Vault. Get the Vault root token:
 
    .. code:: bash
 

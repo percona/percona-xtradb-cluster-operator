@@ -21,7 +21,7 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
 
    .. code:: bash
 
-      $ git clone https://github.com/hashicorp/vault-helm.git
+      $ git clone -b v0.4.0 https://github.com/hashicorp/vault-helm.git
       $ cd vault-helm
 
 2. Checkout to a tagged Vault release version to install it with Helm:

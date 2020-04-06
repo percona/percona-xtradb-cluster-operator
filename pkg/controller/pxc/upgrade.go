@@ -14,7 +14,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
 	currentSet := sfs.StatefulSet()
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
 
@@ -95,6 +95,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		ic.LivenessProbe = nil
 		ic.Command = []string{"/unsafe-bootstrap.sh"}
 		newInitContainers = append(newInitContainers, *ic)
+	}
+	if len(initContainers) > 0 {
+		newInitContainers = append(newInitContainers, initContainers...)
 	}
 
 	// sidecars

@@ -13,7 +13,7 @@ import (
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
+func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) (*appsv1.StatefulSet, error) {
 	pod := corev1.PodSpec{
 		SecurityContext:               podSpec.PodSecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,
@@ -27,6 +27,9 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 
 	sfsVolume, err := sfs.Volumes(podSpec, cr)
+	if err != nil {
+		return nil, errors.Wrap(err, "app container")
+	}
 	pod.Volumes = sfsVolume.Volumes
 
 	appC, err := sfs.AppContainer(podSpec, cr.Spec.SecretsName, cr)
@@ -40,6 +43,10 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 			return nil, fmt.Errorf("pmm container error: %v", err)
 		}
 		pod.Containers = append(pod.Containers, pmmC)
+	}
+
+	if len(initContainers) > 0 {
+		pod.InitContainers = append(pod.InitContainers, initContainers...)
 	}
 
 	if podSpec.ForceUnsafeBootstrap {

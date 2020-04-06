@@ -18,7 +18,7 @@ func main() {
 		log.Println(errors.Wrap(err, "create user manager"))
 		os.Exit(1)
 	}
-	err = um.GetUsers()
+	err = um.GetUsersData()
 	if err != nil {
 		log.Println(errors.Wrap(err, "get users"))
 		os.Exit(1)

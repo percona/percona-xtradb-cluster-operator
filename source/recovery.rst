@@ -1,3 +1,5 @@
+.. _recovery:
+
 Crash Recovery
 =================
 
@@ -8,14 +10,11 @@ A full cluster crash is a situation when all database instances where
 shut down in random order. Being rebooted after such situation, Pod is
 continuously restarting, and generates the following errors in the log::
 
-  It may not be safe to bootstrap the cluster from this node. It was not the last one to leave the cluster and may not contain all the updates. 
+  It may not be safe to bootstrap the cluster from this node. It was not the last one to leave the cluster and may not contain all the updates.
   To force cluster bootstrap with this node, edit the grastate.dat file manually and set safe_to_bootstrap to 1
 
 .. note:: To avoid this, shutdown your cluster correctly
    as it is written in :ref:`operator-pause`.
-
-Obviously, these continuous restarts prevent to get console access to the container,
-and so a special approach is needed to make fixes.
 
 The Percona Operator for Percona XtraDB Cluster provides two ways of recovery
 after a full cluster crash.
@@ -39,7 +38,7 @@ file::
        forceUnsafeBootstrap: true
 
 Applying this option forces the cluster to start. However, there may exist data
-inconsistency in the cluster, and several last transactions may be lost. 
+inconsistency in the cluster, and several last transactions may be lost.
 If such data loss is undesirable, experienced users may choose the more advanced
 manual method described in the next chapter.
 
@@ -51,8 +50,8 @@ Object Surgery Crash Recovery method
 .. warning:: This method is intended for advanced users only!
 
 This method involves the following steps:
-* swap the original PXC image with the debug image, which does not reboot after
-  the crash, and force all Pods to run it,
+* swap the original PXC image with the :ref:`debug image<debug-images>`, which
+  does not reboot after the crash, and force all Pods to run it,
 * find the Pod with the most recent PXC data, run recovery on it, start
   ``mysqld``, and allow the cluster to be restarted,
 * revert all temporary substitutions.

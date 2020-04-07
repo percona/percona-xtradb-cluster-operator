@@ -50,6 +50,7 @@ Configuration
    TLS
    pause
    recovery
+   debug
 
 Reference
 =============

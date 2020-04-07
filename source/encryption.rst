@@ -114,7 +114,7 @@ Configuring Vault
          stringData:
            keyring_vault.conf: |-
              token = = s.VgQvaXl8xGFO1RUxAPbPbsfN
-             vault_url = vault-service.vault-service.svc.cluster.local
+             vault_url = https://vault-service.vault-service.svc.cluster.local
              secret_mount_point = pxc-secret
              vault_ca = /etc/mysql/vault-keyring-secret/ca.cert
            ca.cert: |-

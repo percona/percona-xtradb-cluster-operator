@@ -17,7 +17,6 @@ which ships with Percona XtraDB Cluster, and utilizes `HashiCorp Vault <https://
 Installing Vault
 ----------------
 
- user feel free to setup Vault as he wants, steps 1-4 are only illustrative
 
 The following steps will deploy Vault on Kubernetes with the `Helm 3 package manager <https://helm.sh/>`_. Other Vault installation methods should also work, so the instruction placed here is not obligatory and is for illustration purposes.
 

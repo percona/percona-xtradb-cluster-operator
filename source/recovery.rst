@@ -1,3 +1,5 @@
+.. _operator-recovery:
+
 Crash Recovery
 =================
 
@@ -9,7 +11,7 @@ shut down in random order. Being rebooted after such situation, Pod is
 continuously restarting, and generates the following errors in the log::
 
   It may not be safe to bootstrap the cluster from this node. It was not the last one to leave the cluster and may not contain all the updates. 
-  To force cluster bootstrap with this node, edit the grastate.dat file manually and set safe_to_bootstrap to 1
+  To force cluster bootstrap with this node, edit the ``grastate.dat`` file manually and set safe_to_bootstrap to 1
 
 .. note:: To avoid this, shutdown your cluster correctly
    as it is written in :ref:`operator-pause`.

@@ -8,7 +8,7 @@ Data at rest encryption
 ..note:: "Data at rest" means inactive data stored as files, database records, etc.
 
 To implement these features, the Operator uses ``keyring_vault`` plugin,
-which ships with Percona XtraDB Cluster, and utilizes `HashiCorp Vault <https://www.vaultproject.io/>`_ authentication server.
+which ships with Percona XtraDB Cluster, and utilizes `HashiCorp Vault <https://www.vaultproject.io/>`_ storage for encryption keys.
 
 .. contents:: :local:
 

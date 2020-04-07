@@ -26,9 +26,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	currentSet.Spec.Replicas = &podSpec.Size
 
 	switch cr.Spec.UpdateStrategy {
-	case "OnDelete":
+	case "OnDelete", "SmartUpdate":
 		currentSet.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{}
-		currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
+		currentSet.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
 	default:
 		currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
 	}
@@ -88,16 +88,17 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	newContainers = append(newContainers, appC)
 
-	if podSpec.ForceUnsafeBootstrap {
-		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init"
-		ic.ReadinessProbe = nil
-		ic.LivenessProbe = nil
-		ic.Command = []string{"/unsafe-bootstrap.sh"}
-		newInitContainers = append(newInitContainers, *ic)
-	}
 	if len(initContainers) > 0 {
 		newInitContainers = append(newInitContainers, initContainers...)
+	}
+
+	if podSpec.ForceUnsafeBootstrap {
+		ic := appC.DeepCopy()
+		ic.Name = ic.Name + "-init-unsafe"
+		ic.ReadinessProbe = nil
+		ic.LivenessProbe = nil
+		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
+		newInitContainers = append(newInitContainers, *ic)
 	}
 
 	// sidecars

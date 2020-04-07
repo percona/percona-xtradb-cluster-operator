@@ -11,7 +11,7 @@ func EntrypointInitContainer(initImageName string) corev1.Container {
 			},
 		},
 		Image:   initImageName,
-		Name:    "pxc-init-entrypoint",
+		Name:    "pxc-init",
 		Command: []string{"/pxc-init-entrypoint.sh"},
 	}
 

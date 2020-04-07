@@ -51,10 +51,10 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 
 	if podSpec.ForceUnsafeBootstrap {
 		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init"
+		ic.Name = ic.Name + "-init-unsafe"
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil
-		ic.Command = []string{"/unsafe-bootstrap.sh"}
+		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
 		pod.InitContainers = append(pod.InitContainers, *ic)
 	}
 

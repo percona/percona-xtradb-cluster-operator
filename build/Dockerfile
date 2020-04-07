@@ -11,5 +11,6 @@ COPY LICENSE /licenses/
 COPY build/_output/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
 COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
+COPY build/unsafe-bootstrap.sh /unsafe-bootstrap.sh
 
 USER nobody

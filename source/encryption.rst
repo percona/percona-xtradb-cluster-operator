@@ -120,9 +120,9 @@ Configuring Vault
            ca.cert: |-
              ..........
 
-      .. note:: For techincal reasons the ``vault_ca`` key should either exist
-         or not exist in the YAML file; commented option like
-         ``#vault_ca = ...`` is not acceptable.
+   .. note:: For techincal reasons the ``vault_ca`` key should either exist
+      or not exist in the YAML file; commented option like
+      ``#vault_ca = ...`` is not acceptable.
 
 More details on how to install and configure Vault can be found `in the official documentation <https://learn.hashicorp.com/vault?track=getting-started-k8s#getting-started-k8s>`_.
 

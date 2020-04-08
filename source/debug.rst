@@ -22,3 +22,7 @@ for the ``pxc.image`` key in the ``deploy/cr.yaml`` configuration file:
 * ``percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-debug`` for PXC 8.0,
 * ``percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-debug`` for PXC 5.7.
 
+The Pod should be restarted to get the new image.
+
+.. note::  When the Pod is continuously restarting, you may have to delete it
+   to apply image changes.

@@ -273,6 +273,18 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations = make(map[string]string)
 	}
 	if cr.CompareVersionWith("1.1.0") >= 0 {
+		if r.serverVersion.Platform == api.PlatformOpenshift && cr.Spec.ProxySQL.ContainerSecurityContext != nil {
+			if *cr.Spec.ProxySQL.ContainerSecurityContext.Privileged {
+				nodeSet.Spec.Template.Annotations["openshift.io/scc"] = "privileged"
+				nodeSet.Spec.Template.Spec.Containers[0].SecurityContext = nil
+				nodeSet.Annotations = map[string]string{"openshift.io/scc": "privileged"}
+				nodeSet.Spec.Template.Spec.ServiceAccountName = "percona-operations"
+			} else {
+				nodeSet.Spec.Template.Spec.ServiceAccountName = "default"
+				delete(nodeSet.Spec.Template.Annotations, "openshift.io/scc")
+				delete(nodeSet.Annotations, "openshift.io/scc")
+			}
+		}
 		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
 	}
 
@@ -348,6 +360,17 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			nodeSet.Spec.Template.Annotations = make(map[string]string)
 		}
 		if cr.CompareVersionWith("1.1.0") >= 0 {
+			if r.serverVersion.Platform == api.PlatformOpenshift && cr.Spec.ProxySQL.ContainerSecurityContext != nil {
+				if *cr.Spec.ProxySQL.ContainerSecurityContext.Privileged {
+					proxySet.Spec.Template.Annotations["openshift.io/scc"] = "privileged"
+					proxySet.Spec.Template.Spec.Containers[0].SecurityContext = nil
+					proxySet.Annotations = map[string]string{"openshift.io/scc": "privileged"}
+					proxySet.Spec.Template.Spec.ServiceAccountName = "percona-operations"
+				} else {
+					delete(proxySet.Annotations, "openshift.io/scc")
+					delete(proxySet.Spec.Template.Annotations, "openshift.io/scc")
+				}
+			}
 			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = proxyConfigHash
 			proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 			proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash

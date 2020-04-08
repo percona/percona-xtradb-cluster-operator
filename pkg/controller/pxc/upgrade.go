@@ -42,6 +42,15 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Annotations = make(map[string]string)
 	}
 	if cr.CompareVersionWith("1.1.0") >= 0 {
+		if r.serverVersion.Platform == api.PlatformOpenshift && cr.Spec.ProxySQL.ContainerSecurityContext != nil {
+			if *cr.Spec.ProxySQL.ContainerSecurityContext.Privileged {
+				currentSet.Spec.Template.Annotations["openshift.io/scc"] = "privileged"
+				currentSet.Annotations = map[string]string{"openshift.io/scc": "privileged"}
+			} else {
+				delete(currentSet.Spec.Template.Annotations, "openshift.io/scc")
+				delete(currentSet.Annotations, "openshift.io/scc")
+			}
+		}
 		currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
 	}
 
@@ -111,6 +120,11 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	currentSet.Spec.Template.Spec.Containers = newContainers
+	if r.serverVersion.Platform == api.PlatformOpenshift && cr.Spec.ProxySQL.ContainerSecurityContext != nil {
+		if *cr.Spec.ProxySQL.ContainerSecurityContext.Privileged {
+			currentSet.Spec.Template.Spec.Containers[0].SecurityContext = nil
+		}
+	}
 	currentSet.Spec.Template.Spec.InitContainers = newInitContainers
 	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
 	currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes

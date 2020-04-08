@@ -21,7 +21,6 @@ Improvements
 ================================================================================
 
 * :jirabug:`K8SPXC-221`: Operator now updates observedGeneration status message to allow better monitoring of the cluster rollout or backup/restore process
-* :jirabug:`K8SPXC-231`: A :ref:`graceful stop/start of the cluster<operator-pause>` is now implemented, and for situations when it was not done, :ref:`crash recovery methods<operator-recovery>` are available as well.
 * :jirabug:`K8SPXC-213`: A special :ref:`PXC debug image<debug-images>` is now available. It avoids restarting on fail and contains additional tools useful for debugging.
 * :jirabug:`K8SPXC-100`: The Operator now implements the crash tolerance on the one member crash. The implementation is based on starting Pods with ``mysqld --wsrep_recover`` command if there was no graceful shutdown.
 

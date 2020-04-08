@@ -118,11 +118,14 @@ Configuring Vault
              secret_mount_point = pxc-secret
              vault_ca = /etc/mysql/vault-keyring-secret/ca.cert
            ca.cert: |-
-             ..........
 
-   .. note:: For techincal reasons the ``vault_ca`` key should either exist
-      or not exist in the YAML file; commented option like
-      ``#vault_ca = ...`` is not acceptable.
+      .. note:: the ``name`` key in the above file should be equal to the
+         ``spec.vaultSecretName`` key from the ``deploy/cr.yaml`` configuration
+         file.
+         
+      .. note:: For techincal reasons the ``vault_ca`` key should either exist
+         or not exist in the YAML file; commented option like
+         ``#vault_ca = ...`` is not acceptable.
 
 More details on how to install and configure Vault can be found `in the official documentation <https://learn.hashicorp.com/vault?track=getting-started-k8s#getting-started-k8s>`_.
 

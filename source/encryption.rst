@@ -130,19 +130,3 @@ Configuring Vault
 More details on how to install and configure Vault can be found `in the official documentation <https://learn.hashicorp.com/vault?track=getting-started-k8s#getting-started-k8s>`_.
 
 .. _vault-encryption:
-
-Using the encryption
---------------------
-
-If using Percona XtraDB Cluster 5.7, you should turn encryption on explicitly
-when you create a table or a tablespace. This can be done by adding the
-``ENCRYPTION='Y'`` part to your SQL statement, like in the following example:
-
-   .. code:: sql
-
-      CREATE TABLE t1 (c1 INT, PRIMARY KEY pk(c1)) ENCRYPTION='Y';
-      CREATE TABLESPACE foo ADD DATAFILE 'foo.ibd' ENCRYPTION='Y';
-
-.. note:: See more details on encryption in Percona XtraDB Cluster 5.7 `here <https://www.percona.com/doc/percona-xtradb-cluster/5.7/management/data_at_rest_encryption.html>`_.
-
-If using Percona XtraDB Cluster 8.0, the encryption is turned on by default.

@@ -545,13 +545,13 @@ function is_table_encrypted() {
     run_mysql \
         "SELECT CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=\\\"$table\\\";" \
         "-h $cluster-proxysql -uroot -proot_password" \
-        | grep -oP "ENCRYPTION=('Y'|\"Y\")"
+        | egrep -o "ENCRYPTION=('Y'|\"Y\")"
 }
 
 function is_keyring_plugin_in_use() {
     local cluster=$1
     kubectl exec -it pod/$cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
-        | grep -oP "early-plugin-load=keyring_\w+.so"
+        | egrep -o "early-plugin-load=keyring_\w+.so"
 }
 
 function table_must_not_be_encrypted() {

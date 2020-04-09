@@ -18,24 +18,29 @@ admin-hash_passwords	true
 admin-mysql_ifaces	0.0.0.0:6032
 admin-read_only	false
 admin-refresh_interval	2000
+admin-restapi_enabled	false
+admin-restapi_port	6070
 admin-stats_credentials	stats:stats
 admin-stats_mysql_connection_pool	60
 admin-stats_mysql_connections	60
 admin-stats_mysql_query_cache	60
+admin-stats_mysql_query_digest_to_disk	0
 admin-stats_system_cpu	60
 admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.0.6-percona-1.1
+admin-version	2.0.10-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
 mysql-add_ldap_user_comment	
 mysql-auditlog_filename	
 mysql-auditlog_filesize	104857600
+mysql-aurora_max_lag_ms_only_read_from_replicas	2
 mysql-auto_increment_delay_multiplex	5
 mysql-autocommit_false_is_transaction	false
 mysql-autocommit_false_not_reusable	false
+mysql-automatic_detect_sqli	0
 mysql-binlog_reader_connect_retry_msec	3000
 mysql-client_found_rows	true
 mysql-client_multi_statements	true
@@ -48,21 +53,35 @@ mysql-connect_timeout_server_max	100500
 mysql-connection_delay_multiplex_ms	0
 mysql-connection_max_age_ms	0
 mysql-connpoll_reset_queue_length	50
+mysql-default_character_set_results	NULL
 mysql-default_charset	utf8
+mysql-default_collation_connection	
+mysql-default_isolation_level	READ COMMITTED
+mysql-default_max_join_size	18446744073709551615
 mysql-default_max_latency_ms	1000
+mysql-default_net_write_timeout	60
 mysql-default_query_delay	0
 mysql-default_query_timeout	10000
 mysql-default_reconnect	true
 mysql-default_schema	information_schema
+mysql-default_session_track_gtids	OFF
+mysql-default_sql_auto_is_null	OFF
 mysql-default_sql_mode	
+mysql-default_sql_safe_updates	OFF
+mysql-default_sql_select_limit	DEFAULT
 mysql-default_time_zone	SYSTEM
+mysql-default_transaction_read	WRITE
+mysql-default_tx_isolation	READ-COMMITTED
 mysql-enforce_autocommit_on_reads	false
 mysql-eventslog_default_log	0
 mysql-eventslog_filename	
 mysql-eventslog_filesize	104857600
 mysql-eventslog_format	1
+mysql-firewall_whitelist_enabled	0
+mysql-firewall_whitelist_errormsg	Firewall blocked this query
 mysql-forward_autocommit	false
 mysql-free_connections_pct	10
+mysql-handle_unknown_charset	1
 mysql-have_compress	true
 mysql-have_ssl	true
 mysql-hostgroup_manager_verbose	1
@@ -71,8 +90,9 @@ mysql-interfaces	0.0.0.0:3306
 mysql-keep_multiplexing_variables	tx_isolation,version
 mysql-kill_backend_connection_when_disconnect	true
 mysql-ldap_user_variable	
+mysql-log_unhealthy_connections	true
 mysql-long_query_time	1000
-mysql-max_allowed_packet	4194304
+mysql-max_allowed_packet	67108864
 mysql-max_connections	2048
 mysql-max_stmts_cache	10000
 mysql-max_stmts_per_connection	20
@@ -87,7 +107,9 @@ mysql-monitor_galera_healthcheck_interval	1000
 mysql-monitor_galera_healthcheck_max_timeout_count	3
 mysql-monitor_galera_healthcheck_timeout	800
 mysql-monitor_groupreplication_healthcheck_interval	5000
+mysql-monitor_groupreplication_healthcheck_max_timeout_count	3
 mysql-monitor_groupreplication_healthcheck_timeout	800
+mysql-monitor_groupreplication_max_transactions_behind_count	3
 mysql-monitor_history	60000
 mysql-monitor_password	monitor
 mysql-monitor_ping_interval	10000
@@ -119,6 +141,7 @@ mysql-query_digests	true
 mysql-query_digests_lowercase	false
 mysql-query_digests_max_digest_length	2048
 mysql-query_digests_max_query_length	65000
+mysql-query_digests_no_digits	false
 mysql-query_digests_normalize_digest_text	false
 mysql-query_digests_replace_null	false
 mysql-query_digests_track_hostname	false
@@ -142,11 +165,13 @@ mysql-ssl_p2s_key	/etc/proxysql/ssl-internal/tls.key
 mysql-stacksize	1048576
 mysql-stats_time_backend_query	false
 mysql-stats_time_query_processor	false
+mysql-tcp_keepalive_time	0
 mysql-threads	2
 mysql-threshold_query_length	524288
 mysql-threshold_resultset_size	4194304
 mysql-throttle_connections_per_sec_to_hostgroup	1000000
 mysql-throttle_max_bytes_per_second_to_client	0
 mysql-throttle_ratio_server_to_client	0
+mysql-use_tcp_keepalive	0
 mysql-verbose_query_error	false
 mysql-wait_timeout	28800000

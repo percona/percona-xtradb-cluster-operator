@@ -3,12 +3,14 @@ package pxc
 import (
 	"context"
 	"crypto/md5"
+	"database/sql"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
+	_ "github.com/go-sql-driver/mysql"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	appsv1 "k8s.io/api/apps/v1"
@@ -115,7 +117,25 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
 	currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
 
-	return r.client.Update(context.TODO(), currentSet)
+	err = r.client.Update(context.TODO(), currentSet)
+	if err != nil {
+		return fmt.Errorf("update error: %v", err)
+	}
+
+	log.Info("%v", *podSpec)
+	db, err := sql.Open("mysql", "proxyadmin:D2zv4TrSHHKYPxhNPkn@tcp(db-cluster1-proxysql-unready.default:6032)/mysql")
+	if err != nil {
+		log.Error(err, "%v", *podSpec)
+		return err
+	}
+
+	err = db.Ping()
+	if err != nil {
+		log.Error(err, "%v", *podSpec)
+		return err
+	}
+
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster) string {

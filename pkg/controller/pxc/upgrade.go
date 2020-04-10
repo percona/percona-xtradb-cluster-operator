@@ -3,34 +3,37 @@ package pxc
 import (
 	"context"
 	"crypto/md5"
-	"database/sql"
 	"fmt"
+	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	_ "github.com/go-sql-driver/mysql"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	appsv1 "k8s.io/api/apps/v1"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) error {
 	currentSet := sfs.StatefulSet()
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
-
 	if err != nil {
 		return fmt.Errorf("failed to get sate: %v", err)
 	}
+
+	startGeneration := currentSet.Generation
 
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
 
 	switch cr.Spec.UpdateStrategy {
-	case "OnDelete":
-		currentSet.Spec.UpdateStrategy = appsv1.StatefulSetUpdateStrategy{}
-		currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
+	case "OnDelete", "SmartUpdate":
+		currentSet.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
 	default:
 		currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
 	}
@@ -122,20 +125,143 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return fmt.Errorf("update error: %v", err)
 	}
 
-	log.Info("%v", *podSpec)
-	db, err := sql.Open("mysql", "proxyadmin:D2zv4TrSHHKYPxhNPkn@tcp(db-cluster1-proxysql-unready.default:6032)/mysql")
-	if err != nil {
-		log.Error(err, "%v", *podSpec)
-		return err
+	if !cr.Spec.EnableSmartUpdate {
+		return nil
 	}
 
-	err = db.Ping()
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
 	if err != nil {
-		log.Error(err, "%v", *podSpec)
-		return err
+		return fmt.Errorf("failed to get sate: %v", err)
+	}
+
+	if currentSet.Generation == startGeneration {
+		return nil
+	}
+
+	log.Info("statefullSet was changed, run smart update")
+
+	return r.smartUpdate(sfs, cr)
+}
+
+func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {
+	if !isPXC(sfs) {
+		return nil
+	}
+
+	primary, err := r.getPrimaryPod(cr)
+	if err != nil {
+		return fmt.Errorf("get primary pod: %v", err)
+	}
+
+	log.Info(fmt.Sprintf("primary pod is %s", primary))
+
+	list := corev1.PodList{}
+	err = r.client.List(context.TODO(),
+		&client.ListOptions{
+			Namespace:     sfs.StatefulSet().Namespace,
+			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+		},
+		&list,
+	)
+	if err != nil {
+		return fmt.Errorf("get pod list: %v", err)
+	}
+
+	var primaryPod *corev1.Pod = nil
+	for _, pod := range list.Items {
+		if strings.HasPrefix(primary, pod.Name) {
+			primaryPod = &pod
+		} else {
+			log.Info(fmt.Sprintf("delte secondary pod %s", pod.Name))
+			err := r.client.Delete(context.TODO(), &pod)
+			if err != nil {
+				return fmt.Errorf("delete pod: %v", err)
+			}
+
+			err = r.waitPodRestart(&pod)
+			if err != nil {
+				return fmt.Errorf("wait pod: %v", err)
+			}
+		}
+	}
+
+	log.Info(fmt.Sprintf("delte primary pod %s", primaryPod.Name))
+	err = r.client.Delete(context.TODO(), primaryPod)
+	if err != nil {
+		return fmt.Errorf("delete primary pod: %v", err)
+	}
+
+	err = r.waitPodRestart(primaryPod)
+	if err != nil {
+		return fmt.Errorf("wait pod: %v", err)
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
+	secretObj := corev1.Secret{}
+	err := r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      cr.Spec.SecretsName,
+		},
+		&secretObj,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	user := "proxyadmin"
+	pass := string(secretObj.Data[user])
+	host := fmt.Sprintf("%s-proxysql-unready", cr.ObjectMeta.Name)
+
+	db, err := queries.New(user, pass, host, 6032)
+	if err != nil {
+		return "", err
+	}
+	defer db.Close()
+
+	primary, err := db.PrimaryHost()
+	return primary, err
+}
+
+func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod) error {
+	log.Info(fmt.Sprintf("wait pod %s restart", pod.Name))
+	err := r.waitPodPhase(pod, corev1.PodPending)
+	if err != nil {
+		return err
+	}
+
+	err = r.waitPodPhase(pod, corev1.PodRunning)
+	if err != nil {
+		return err
+	}
+
+	log.Info(fmt.Sprintf("pod %s restarted", pod.Name))
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase corev1.PodPhase) error {
+	for {
+		time.Sleep(time.Second * 1)
+
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+
+		if pod.Status.Phase == phase {
+			break
+		}
+	}
+
+	return nil
+}
+
+func isPXC(sfs api.StatefulApp) bool {
+	return sfs.Labels()["app.kubernetes.io/component"] == "pxc"
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster) string {

@@ -13,7 +13,7 @@ spec:
   sslInternalSecretName: my-cluster-ssl-internal
   allowUnsafeConfigurations: false
 #  pause: false
-#  updateStrategy: RollingUpdate
+  updateStrategy: SmartUpdate
   pxc:
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.3.0-pxc

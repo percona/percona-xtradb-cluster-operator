@@ -291,11 +291,7 @@ get_proxy_primary() {
         ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod")
     done
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]]; then
-        echo $ip | cut -d'.' -f1
-    else
-        get_pod_name "$ip"
-    fi
+    echo $ip | cut -d'.' -f1
 }
 
 get_pod_name() {

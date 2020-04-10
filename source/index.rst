@@ -47,6 +47,7 @@ Configuration
    constraints
    options
    proxysql-conf
+   user-management
    TLS
    pause
    recovery

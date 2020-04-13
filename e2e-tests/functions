@@ -803,11 +803,11 @@ storage \"file\" {
         | sed -e "s/#secret/secret/" > "${tmp_dir}/vault-secret.yaml"
     if [ $protocol == "https" ]; then
         sed -e 's/^/    /' ${tmp_dir}/vault.ca > ${tmp_dir}/vault.new.ca
-        sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
-        sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
-        sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
+        $sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
+        $sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
+        $sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
     else
-        sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
+        $sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
     fi
 
     kubectl_bin apply --namespace="$namespace" -f ${tmp_dir}/vault-secret.yaml

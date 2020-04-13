@@ -173,8 +173,9 @@ type PMMSpec struct {
 }
 
 type ResourcesList struct {
-	Memory string `json:"memory,omitempty"`
-	CPU    string `json:"cpu,omitempty"`
+	Memory           string `json:"memory,omitempty"`
+	CPU              string `json:"cpu,omitempty"`
+	EphemeralStorage string `json:"ephemeral-storage,omitempty"`
 }
 
 type BackupStorageSpec struct {

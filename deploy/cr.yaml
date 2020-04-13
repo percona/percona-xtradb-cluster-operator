@@ -42,9 +42,11 @@ spec:
       requests:
         memory: 1G
         cpu: 600m
+#        ephemeral-storage: 1Gi
 #      limits:
 #        memory: 1G
 #        cpu: "1"
+#        ephemeral-storage: 1Gi
 #    nodeSelector:
 #      disktype: ssd
     affinity:

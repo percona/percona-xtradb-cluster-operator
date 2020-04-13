@@ -17,6 +17,7 @@ spec:
       requests:
         memory: 100M
         cpu: 100m
+        ephemeral-storage: 1G
     volumeSpec:
       persistentVolumeClaim:
         resources:

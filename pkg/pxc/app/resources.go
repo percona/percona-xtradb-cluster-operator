@@ -49,6 +49,12 @@ func createResourceList(l *api.ResourcesList) (rlist corev1.ResourceList, err er
 			return nil, fmt.Errorf("malformed memory resources: %v", err)
 		}
 	}
+	if len(l.EphemeralStorage) > 0 {
+		rlist[corev1.ResourceEphemeralStorage], err = resource.ParseQuantity(l.EphemeralStorage)
+		if err != nil {
+			return nil, fmt.Errorf("malformed ephemeral-storage resources: %v", err)
+		}
+	}
 
 	return rlist, nil
 }

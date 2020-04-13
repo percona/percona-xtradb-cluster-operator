@@ -92,6 +92,7 @@ spec:
         resources:
           requests:
             cpu: 100m
+            ephemeral-storage: 1G
             memory: 100M
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File

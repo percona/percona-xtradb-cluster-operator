@@ -72,7 +72,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	cr.Status.PXC = pxcStatus
-	cr.Status.Host = cr.Name + "-" + "pxc"
+	cr.Status.Host = cr.Name + "-" + "pxc." + cr.Namespace
 	if cr.Status.PXC.Message != "" {
 		cr.Status.Messages = append(cr.Status.Messages, "PXC: "+cr.Status.PXC.Message)
 	}
@@ -106,7 +106,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		cr.Status.ProxySQL = proxyStatus
 
 		cr.Status.Host = cr.Name + "-" + "proxysql." + cr.Namespace
-		if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.ServiceType != nil && *cr.Spec.ProxySQL.ServiceType == corev1.ServiceTypeLoadBalancer {
+		if cr.Spec.ProxySQL.ServiceType != nil && *cr.Spec.ProxySQL.ServiceType == corev1.ServiceTypeLoadBalancer {
 			svc := &corev1.Service{}
 			err := r.client.Get(context.TODO(),
 				types.NamespacedName{
@@ -118,6 +118,9 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			}
 			for _, i := range svc.Status.LoadBalancer.Ingress {
 				cr.Status.Host = i.IP
+				if len(i.Hostname) > 0 {
+					cr.Status.Host = i.Hostname
+				}
 			}
 		}
 

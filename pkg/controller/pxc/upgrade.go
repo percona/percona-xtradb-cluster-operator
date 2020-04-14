@@ -31,13 +31,14 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
 
-	switch cr.Spec.UpdateStrategy {
-	case "OnDelete":
+	switch {
+	case cr.Spec.UpdateStrategy == "OnDelete" && !cr.Spec.SmartUpdateEnabled():
 		currentSet.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
-	case "SmartUpdate":
-		currentSet.Spec.UpdateStrategy.Type = appsv1.RollingUpdateStatefulSetStrategyType
-		if isPXC(sfs) {
-			currentSet.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
+	case cr.Spec.UpdateStrategy == "OnDelete" && cr.Spec.SmartUpdateEnabled():
+		currentSet.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
+		if !isPXC(sfs) {
+			// Use 'RollingUpdate' type for non PXC nodes if 'SmartUpdate' is being used
+			currentSet.Spec.UpdateStrategy.Type = appsv1.RollingUpdateStatefulSetStrategyType
 		}
 	default:
 		currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy

@@ -98,7 +98,7 @@ The following example illustrates the whole YAML object:
        - rolename: role1
          tables:
           - name: db.table2
-   	        privileges: SELECT
+            privileges: SELECT
 
 .. note:: As you can see from the example above, users must be listed in **both** the grants subsection and the *username:password* pairs.
 

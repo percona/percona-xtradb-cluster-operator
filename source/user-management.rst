@@ -14,7 +14,7 @@ As these two groups of user accounts serve different purposes, they are consider
 Application Users Management
 ==============================
 
-These users can be either managed manually or in an automated way,  bound to a Kubernetes secret.
+These users can be either managed manually or in an automated way, bound to a Kubernetes secret.
 
 Method 1: Manually Manage Users with MySQL Client
 -------------------------------------------------

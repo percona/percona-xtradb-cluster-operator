@@ -54,7 +54,7 @@ YAML Object Format
 
 The YAML Object is stored as a `Kubernetes Secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_ object, containing two sets of data:
 
-1. Some **username:password** pairs that are compatible with `Kubernetes Selectors <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_,
+1. Some **username:password** pairs that are compatible with `Kubernetes secretKeyRef reference <https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#define-a-container-environment-variable-with-data-from-a-single-secret>`_,
 2. A `stringData <https://kubernetes.io/docs/concepts/configuration/secret/#creating-a-secret-manually>`_ field with a specially composed and formatted text.
 
 The text stored in ``stringData`` field is a *YAML fragment*, which contains two *dictionaries of dictionaries*: 

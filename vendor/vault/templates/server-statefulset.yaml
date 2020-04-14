@@ -7,6 +7,10 @@ kind: StatefulSet
 metadata:
   name: {{ template "vault.fullname" . }}
   namespace: {{ .Release.Namespace }}
+  {{ if eq .Values.global.platform "openshift" }}
+  annotations:
+    "openshift.io/scc": "privileged"
+  {{ end }}
   labels:
     app.kubernetes.io/name: {{ include "vault.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -24,6 +28,10 @@ spec:
       component: server
   template:
     metadata:
+  {{ if eq .Values.global.platform "openshift" }}
+      annotations:
+        "openshift.io/scc": "privileged"
+  {{ end }}
       labels:
         helm.sh/chart: {{ template "vault.chart" . }}
         app.kubernetes.io/name: {{ template "vault.name" . }}

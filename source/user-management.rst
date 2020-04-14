@@ -21,12 +21,12 @@ Method 1: Manually Manage Users with MySQL Client
 
 In order to manually manage users, you can issue ``CREATE USER`` and ``GRANT`` statements as you normally would with any MySQL client connected to the cluster running in the context of the Operator. 
 
-We provide a special Docker image containing a client setup which is intended for running BASH and the MySQL client or executing SQL statements directly with ``kubectl run``. The name of this image is ``percona-client``.  
+Our regular Docker image for Percona Server ``percona:5.7`` already contains a client which can be used for running BASH and the MySQL client or executing SQL statements directly with ``kubectl run``.
 
 An example of how you might use it to run a grant statement is as below:
 
 .. code:: bash
- 
+
     kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- mysql -hcluster1-pxc -uroot -proot_password
     mysql> GRANT ALL PRIVILEGES ON database1.* TO 'user1'@'%';
 
@@ -78,11 +78,6 @@ The following example illustrates the whole YAML object:
      myuser1: password1
      myuser2: password2
      grants.yaml: |-
-       roles:
-       - rolename: role1
-         tables:
-          - name: db.table2
-   	        privileges: SELECT
        users:
        - username: myuser1
          tables:
@@ -99,6 +94,11 @@ The following example illustrates the whole YAML object:
              roles: role1
          hosts:
          - "14.15.16.17"
+       roles:
+       - rolename: role1
+         tables:
+          - name: db.table2
+   	        privileges: SELECT
 
 .. note:: As you can see from the example above, users must be listed in **both** the grants subsection and the *username:password* pairs.
 
@@ -123,7 +123,7 @@ Roles are defined in the *roles dictionary* within the YAML object. Each role ha
 Using Kubernetes Selectors in Your Application
 **********************************************
 
-You can make use of Selectors to reference the content of the secret object within your application's Pods running in the same Kubernetes namespace assuming appropriate `RBAC rules <https://kubernetes.io/docs/reference/access-authn-authz/rbac/>`_ are set.
+You can make use of `Kubernetes secretKeyRef reference <https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#define-a-container-environment-variable-with-data-from-a-single-secret>`_ for the content of the secret object within your application's Pods running in the same Kubernetes namespace assuming appropriate `RBAC rules <https://kubernetes.io/docs/reference/access-authn-authz/rbac/>`_ are set.
 
 Within your application Pod configuration, you may have something like the following.
 
@@ -152,7 +152,7 @@ When the Operator detects that user management must happen it generates a single
 
 * one or more ``DROP USER IF EXISTS`` statements,
 * one or more ``CREATE USER`` statements,
-* one or more `GRANT` statements.
+* one or more ``GRANT`` statements.
 
 Together these are done in a single transaction for all users in the secret, followed by a ``FLUSH ALL PRIVILEGES;``, so there should be no interruption of existing client connections to the server.
 

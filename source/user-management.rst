@@ -212,7 +212,7 @@ The default name of the Secrets object for these users is ``my-cluster-secrets``
 
 The example above matches what is shipped in ``deploy/secrets.yaml`` which contains default passwords. You should NOT use these in production, but they are present to assist in automated testing or simple use in a development environment.
 
-As you can see, because we use the ``data`` type in the Secrets object, all values for each key/value pair must be encoded in base64.  To do this you can simply run ``echo "password" | base64`` in your local shell to get valid values.
+As you can see, because we use the ``data`` type in the Secrets object, all values for each key/value pair must be encoded in base64.  To do this you can simply run ``echo -n "password" | base64`` in your local shell to get valid values.
 
 Password Rotation Policies and Timing
 -------------------------------------

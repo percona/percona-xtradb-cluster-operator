@@ -57,7 +57,7 @@ The YAML Object is stored as a `Kubernetes Secrets <https://kubernetes.io/docs/c
 1. Some **username:password** pairs that are compatible with `Kubernetes secretKeyRef reference <https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#define-a-container-environment-variable-with-data-from-a-single-secret>`_,
 2. A **grants.yaml** field with a specially composed and formatted text.
 
-The text stored in ``stringData`` field is a *YAML fragment*, which contains two *dictionaries of dictionaries*: 
+The text stored in ``grants.yaml`` field is a *YAML fragment*, which contains two *dictionaries of dictionaries*: 
 
 1. **roles dictionary** specifies role grants,
 2. **users dictionary** specifies user grants.

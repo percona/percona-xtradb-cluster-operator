@@ -111,7 +111,7 @@ Valid Privileges for Automation
 
 This methodology allows the privileges field to be free-form. All valid privileges listed `in the official MySQL documentation <https://dev.mysql.com/doc/refman/8.0/en/grant.html>`_ are supported.
 
-The Operator **does not support** the ``AS user``, ``WITH GRANT OPTION``, or ``WITH ADMIN OPTION`` functionality, so this limits some of the use cases for specific privileges such as ``PROXY``.
+The Operator **does not support** the ``AS user``, ``WITH GRANT OPTION``, ``PROXY``, or ``WITH ADMIN OPTION`` functionality, so this limits some of the use cases for specific privileges. Please use the manual approach above if needed.
 
 Managing and Mapping MySQL Roles
 ********************************

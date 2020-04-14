@@ -125,7 +125,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return fmt.Errorf("update error: %v", err)
 	}
 
-	if !cr.Spec.EnableSmartUpdate {
+	if !cr.Spec.SmartUpdateEnabled() {
 		return nil
 	}
 
@@ -167,18 +167,20 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return fmt.Errorf("get pod list: %v", err)
 	}
 
+	var podCopy corev1.Pod
 	var primaryPod *corev1.Pod = nil
 	for _, pod := range list.Items {
-		if strings.HasPrefix(primary, pod.Name) {
-			primaryPod = &pod
+		podCopy = pod
+		if strings.HasPrefix(primary, podCopy.Name) {
+			primaryPod = &podCopy
 		} else {
-			log.Info(fmt.Sprintf("delte secondary pod %s", pod.Name))
-			err := r.client.Delete(context.TODO(), &pod)
+			log.Info(fmt.Sprintf("delte secondary pod %s", podCopy.Name))
+			err := r.client.Delete(context.TODO(), &podCopy)
 			if err != nil {
 				return fmt.Errorf("delete pod: %v", err)
 			}
 
-			err = r.waitPodRestart(&pod)
+			err = r.waitPodRestart(&podCopy)
 			if err != nil {
 				return fmt.Errorf("wait pod: %v", err)
 			}

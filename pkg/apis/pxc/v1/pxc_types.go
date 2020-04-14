@@ -28,7 +28,11 @@ type PerconaXtraDBClusterSpec struct {
 	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
-	EnableSmartUpdate     bool
+	enableSmartUpdate     bool
+}
+
+func (cr PerconaXtraDBClusterSpec) SmartUpdateEnabled() bool {
+	return cr.enableSmartUpdate
 }
 
 const (
@@ -440,10 +444,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		}
 	}
 
-	cr.Spec.EnableSmartUpdate = false
+	cr.Spec.enableSmartUpdate = false
 	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType {
 		cr.Spec.UpdateStrategy = appsv1.OnDeleteStatefulSetStrategyType
-		cr.Spec.EnableSmartUpdate = true
+		cr.Spec.enableSmartUpdate = true
 	}
 
 	cr.setSecurityContext(serverVersion)

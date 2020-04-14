@@ -27,6 +27,9 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 
 	sfsVolume, err := sfs.Volumes(podSpec, cr)
+	if err != nil {
+		return nil, err
+	}
 	pod.Volumes = sfsVolume.Volumes
 
 	appC, err := sfs.AppContainer(podSpec, cr.Spec.SecretsName, cr)

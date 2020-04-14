@@ -173,20 +173,19 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return fmt.Errorf("get pod list: %v", err)
 	}
 
-	var podCopy corev1.Pod
 	var primaryPod *corev1.Pod = nil
 	for _, pod := range list.Items {
-		podCopy = pod
-		if strings.HasPrefix(primary, podCopy.Name) {
-			primaryPod = &podCopy
+		pod := pod
+		if strings.HasPrefix(primary, pod.Name) {
+			primaryPod = &pod
 		} else {
-			log.Info(fmt.Sprintf("delte secondary pod %s", podCopy.Name))
-			err := r.client.Delete(context.TODO(), &podCopy)
+			log.Info(fmt.Sprintf("delte secondary pod %s", pod.Name))
+			err := r.client.Delete(context.TODO(), &pod)
 			if err != nil {
 				return fmt.Errorf("delete pod: %v", err)
 			}
 
-			err = r.waitPodRestart(&podCopy)
+			err = r.waitPodRestart(&pod)
 			if err != nil {
 				return fmt.Errorf("wait pod: %v", err)
 			}
@@ -236,12 +235,12 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod) error {
 	log.Info(fmt.Sprintf("wait pod %s restart", pod.Name))
-	err := r.waitPodPhase(pod, corev1.PodPending)
+	err := r.waitPodPhase(pod, corev1.PodPending, 120)
 	if err != nil {
 		return err
 	}
 
-	err = r.waitPodPhase(pod, corev1.PodRunning)
+	err = r.waitPodPhase(pod, corev1.PodRunning, 120)
 	if err != nil {
 		return err
 	}
@@ -251,8 +250,13 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod) error {
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase corev1.PodPhase) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase corev1.PodPhase, triesLimit int) error {
+	i := 0
 	for {
+		if i >= triesLimit {
+			return fmt.Errorf("reach wait pod phase limit")
+		}
+
 		time.Sleep(time.Second * 1)
 
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
@@ -263,6 +267,8 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase core
 		if pod.Status.Phase == phase {
 			break
 		}
+
+		i++
 	}
 
 	return nil

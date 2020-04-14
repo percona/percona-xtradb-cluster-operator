@@ -154,7 +154,7 @@ When the Operator detects that user management must happen it generates a single
 * one or more ``CREATE USER`` statements,
 * one or more `GRANT` statements.
 
-Together these are done in a single transaction, followed by a ``FLUSH ALL PRIVILEGES;``, so there should be no interruption of existing client connections to the server.
+Together these are done in a single transaction for all users in the secret, followed by a ``FLUSH ALL PRIVILEGES;``, so there should be no interruption of existing client connections to the server.
 
 .. note:: Automatic user management wins any conflict between Method 1 and Method 2.  So if you want to manually manage a user, ensure it isn't listed in the Secrets object.
 

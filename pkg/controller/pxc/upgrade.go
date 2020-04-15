@@ -175,6 +175,12 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return fmt.Errorf("get pod list: %v", err)
 	}
 
+	waitLimit := 120
+	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
+		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)
+
+	}
+
 	var primaryPod *corev1.Pod = nil
 	for _, pod := range list.Items {
 		pod := pod
@@ -187,7 +193,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 				return fmt.Errorf("delete pod: %v", err)
 			}
 
-			err = r.waitPodRestart(&pod)
+			err = r.waitPodRestart(&pod, waitLimit)
 			if err != nil {
 				return fmt.Errorf("wait pod: %v", err)
 			}
@@ -200,7 +206,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return fmt.Errorf("delete primary pod: %v", err)
 	}
 
-	err = r.waitPodRestart(primaryPod)
+	err = r.waitPodRestart(primaryPod, waitLimit)
 	if err != nil {
 		return fmt.Errorf("wait pod: %v", err)
 	}
@@ -222,14 +228,14 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 	return primary, err
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod, waitLimit int) error {
 	log.Info(fmt.Sprintf("wait pod %s start", pod.Name))
-	err := r.waitPodPhase(pod, corev1.PodPending, 120)
+	err := r.waitPodPhase(pod, corev1.PodPending, waitLimit)
 	if err != nil {
 		return err
 	}
 
-	err = r.waitPodPhase(pod, corev1.PodRunning, 120)
+	err = r.waitPodPhase(pod, corev1.PodRunning, waitLimit)
 	if err != nil {
 		return err
 	}
@@ -239,10 +245,10 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod) error {
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase corev1.PodPhase, triesLimit int) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase corev1.PodPhase, waitLimit int) error {
 	i := 0
 	for {
-		if i >= triesLimit {
+		if i >= waitLimit {
 			return fmt.Errorf("reach wait pod %s phase limit", phase)
 		}
 

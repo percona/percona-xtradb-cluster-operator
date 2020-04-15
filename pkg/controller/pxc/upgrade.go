@@ -174,7 +174,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	var primaryPod *corev1.Pod = nil
 	for _, pod := range list.Items {
 		pod := pod
-		if strings.HasPrefix(primary, pod.Name + "." + sfs.StatefulSet().Namespace) {
+		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)) {
 			primaryPod = &pod
 		} else {
 			log.Info(fmt.Sprintf("delete secondary pod %s", pod.Name))
@@ -205,23 +205,10 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
-	secretObj := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      cr.Spec.SecretsName,
-		},
-		&secretObj,
-	)
-	if err != nil {
-		return "", err
-	}
-
 	user := "proxyadmin"
-	pass := string(secretObj.Data[user])
 	host := fmt.Sprintf("%s-proxysql-unready", cr.ObjectMeta.Name)
 
-	db, err := queries.New(user, pass, host, 6032)
+	db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, 6032)
 	if err != nil {
 		return "", err
 	}

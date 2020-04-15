@@ -178,7 +178,6 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	waitLimit := 120
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)
-
 	}
 
 	var primaryPod *corev1.Pod = nil
@@ -218,13 +217,24 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 	user := "proxyadmin"
 	host := fmt.Sprintf("%s-proxysql-unready", cr.ObjectMeta.Name)
 
-	db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, 6032)
-	if err != nil {
-		return "", err
-	}
-	defer db.Close()
+	var dbatabase queries.Database
+	i := 0
+	for {
+		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, 6032)
+		if err != nil && i < int(cr.Spec.ProxySQL.Size) {
+			time.Sleep(time.Second)
+		} else if err != nil && i == int(cr.Spec.ProxySQL.Size) {
+			return "", err
+		} else {
+			dbatabase = db
+			break
+		}
 
-	primary, err := db.PrimaryHost()
+		i++
+	}
+	defer dbatabase.Close()
+
+	primary, err := dbatabase.PrimaryHost()
 	return primary, err
 }
 

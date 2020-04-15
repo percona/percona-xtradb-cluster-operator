@@ -215,7 +215,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 
 func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
 	user := "proxyadmin"
-	host := fmt.Sprintf("%s-proxysql-unready", cr.ObjectMeta.Name)
+	host := fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
 
 	var dbatabase queries.Database
 	i := 0

@@ -40,7 +40,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		} else if isPXC(sfs) && !cr.Spec.ProxySQL.Enabled {
 			// log.Info("ProxySQL is not enabled, set update strategy to RollingUpdate")
 			// currentSet.Spec.UpdateStrategy.Type = appsv1.RollingUpdateStatefulSetStrategyType
-			return fmt.Errorf("ProxySQL shoud be enabled if SmartUpdtae set")
+			return fmt.Errorf("ProxySQL should be enabled if SmartUpdate set")
 		}
 	default:
 		currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy

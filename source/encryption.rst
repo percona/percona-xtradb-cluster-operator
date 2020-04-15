@@ -1,11 +1,11 @@
 .. _encryption:
 
-Data at rest encryption
+Data-at-Rest Encryption
 ************************
 
-`Ful data at rest encryption in Percona XtraDB Cluster <https://www.percona.com/doc/percona-xtradb-cluster/LATEST/management/data_at_rest_encryption.html>`_ is supported by the Operator since version 1.4.0.
+`Full data-at-rest encryption in Percona XtraDB Cluster <https://www.percona.com/doc/percona-xtradb-cluster/LATEST/management/data_at_rest_encryption.html>`_ is supported by the Operator since version 1.4.0.
 
-..note:: "Data at rest" means inactive data stored as files, database records, etc.
+..note:: `Data at rest <https://en.wikipedia.org/wiki/Data_at_rest>`_ means inactive data stored as files, database records, etc.
 
 To implement these features, the Operator uses ``keyring_vault`` plugin,
 which ships with Percona XtraDB Cluster, and utilizes `HashiCorp Vault <https://www.vaultproject.io/>`_ storage for encryption keys.
@@ -130,3 +130,20 @@ Configuring Vault
 More details on how to install and configure Vault can be found `in the official documentation <https://learn.hashicorp.com/vault?track=getting-started-k8s#getting-started-k8s>`_.
 
 .. _vault-encryption:
+
+Using the encryption
+--------------------
+
+If using Percona XtraDB Cluster 5.7, you should turn encryption on explicitly
+when you create a table or a tablespace. This can be done by adding the
+``ENCRYPTION='Y'`` part to your SQL statement, like in the following example:
+
+   .. code:: sql
+
+      CREATE TABLE t1 (c1 INT, PRIMARY KEY pk(c1)) ENCRYPTION='Y';
+      CREATE TABLESPACE foo ADD DATAFILE 'foo.ibd' ENCRYPTION='Y';
+
+.. note:: See more details on encryption in Percona XtraDB Cluster 5.7 `here <https://www.percona.com/doc/percona-xtradb-cluster/5.7/management/data_at_rest_encryption.html>`_.
+
+If using Percona XtraDB Cluster 8.0, the encryption is turned on by default.
+

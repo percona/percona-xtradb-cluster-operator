@@ -179,7 +179,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		if strings.HasPrefix(primary, pod.Name) {
 			primaryPod = &pod
 		} else {
-			log.Info(fmt.Sprintf("delte secondary pod %s", pod.Name))
+			log.Info(fmt.Sprintf("delete secondary pod %s", pod.Name))
 			err := r.client.Delete(context.TODO(), &pod)
 			if err != nil {
 				return fmt.Errorf("delete pod: %v", err)

@@ -176,7 +176,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	var primaryPod *corev1.Pod = nil
 	for _, pod := range list.Items {
 		pod := pod
-		if strings.HasPrefix(primary, pod.Name) {
+		if strings.HasPrefix(primary, pod.Name + "." + sfs.StatefulSet().Namespace) {
 			primaryPod = &pod
 		} else {
 			log.Info(fmt.Sprintf("delete secondary pod %s", pod.Name))

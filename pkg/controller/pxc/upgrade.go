@@ -254,7 +254,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase core
 	i := 0
 	for {
 		if i >= triesLimit {
-			return fmt.Errorf("reach wait pod phase limit")
+			return fmt.Errorf("reach wait pod %s phase limit", phase)
 		}
 
 		time.Sleep(time.Second * 1)

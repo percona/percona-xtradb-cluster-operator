@@ -21,8 +21,9 @@ Improvements
 ================================================================================
 
 * :jirabug:`K8SPXC-221`: Operator now updates observedGeneration status message to allow better monitoring of the cluster rollout or backup/restore process
-* :jirabug:`K8SPXC-213`: A special :ref:`PXC debug image<debug-images>` is now available. It avoids restarting on fail and contains additional tools useful for debugging.
-* :jirabug:`K8SPXC-100`: The Operator now implements the crash tolerance on the one member crash. The implementation is based on starting Pods with ``mysqld --wsrep_recover`` command if there was no graceful shutdown.
+* :jirabug:`K8SPXC-213`: A special :ref:`PXC debug image<debug-images>` is now available. It avoids restarting on fail and contains additional tools useful for debugging
+* :jirabug:`K8SPXC-100`: The Operator now implements the crash tolerance on the one member crash. The implementation is based on starting Pods with ``mysqld --wsrep_recover`` command if there was no graceful shutdown
+* :jirabug:`K8SPXC-262`: The Operator allows setting ephemeral-storage requests and limits on all Pods
 
 Bugs Fixed
 ================================================================================
@@ -34,6 +35,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-219`: PXC Helm charts were incompatible with the version 3 of the Helm package manager
 * :jirabug:`K8SPXC-40`: The cluster was unable to reach "ready" status in case if ``ProxySQL.Enabled`` field was set to ``false``
 * :jirabug:`K8SPXC-34`: Change of the ``proxysql.servicetype`` filed was not detected by the Operator and thus had no effect
+* :jirabug:`K8SPXC-261`: proxysql logs were showing the root password
 
 Help us improve our software quality by reporting any bugs you encounter using
 `our bug tracking system <https://jira.percona.com/secure/Dashboard.jspa>`_.

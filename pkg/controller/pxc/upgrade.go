@@ -223,7 +223,7 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod) error {
-	log.Info(fmt.Sprintf("wait pod %s restart", pod.Name))
+	log.Info(fmt.Sprintf("wait pod %s start", pod.Name))
 	err := r.waitPodPhase(pod, corev1.PodPending, 120)
 	if err != nil {
 		return err
@@ -234,7 +234,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod) error {
 		return err
 	}
 
-	log.Info(fmt.Sprintf("pod %s restarted", pod.Name))
+	log.Info(fmt.Sprintf("pod %s started", pod.Name))
 
 	return nil
 }

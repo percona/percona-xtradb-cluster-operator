@@ -192,7 +192,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		}
 	}
 
-	log.Info(fmt.Sprintf("delte primary pod %s", primaryPod.Name))
+	log.Info(fmt.Sprintf("delete primary pod %s", primaryPod.Name))
 	err = r.client.Delete(context.TODO(), primaryPod)
 	if err != nil {
 		return fmt.Errorf("delete primary pod: %v", err)

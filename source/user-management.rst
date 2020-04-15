@@ -71,8 +71,8 @@ The following example illustrates the whole YAML object:
    metadata:
      name: secrets-for-users
      annotations:
-       status: applied
-       checksum:
+       percona.com/users-status: applied
+       percona.com/users-checksum:
    type: Opaque
    stringData:
      myuser1: password1

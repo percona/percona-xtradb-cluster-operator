@@ -26,8 +26,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return fmt.Errorf("failed to get sate: %v", err)
 	}
 
-	startGeneration := currentSet.Generation
-
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
 
@@ -140,7 +138,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return fmt.Errorf("failed to get sate: %v", err)
 	}
 
-	if currentSet.updatedReplicas != nil && currentSet.updatedReplicas >= currentSet.replicas {
+	if currentSet.Status.UpdatedReplicas >= currentSet.Status.Replicas {
 		return nil
 	}
 

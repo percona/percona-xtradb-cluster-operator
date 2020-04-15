@@ -726,7 +726,13 @@ EOF
     openssl base64 -in ${tmp_dir}/serverCert -d -A -out ${tmp_dir}/vault.crt
     kubectl_bin config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d > ${tmp_dir}/vault.ca
     if [[ "${OPENSHIFT}" == 1 ]]; then
-        kubectl_bin -n default get secrets  | grep default |grep service-account-token | head -n 1 | awk {'print $1'} | xargs -I {} kubectl_bin -n default get secret {} -o jsonpath='{.data.ca\.crt}' | base64 -d > ${tmp_dir}/vault.ca
+        kubectl_bin -n default get secrets \
+            | grep default \
+	    | grep service-account-token \
+	    | head -n 1 \
+	    | awk {'print $1'} \
+	    | xargs -I {} kubectl_bin -n default get secret {} -o jsonpath='{.data.ca\.crt}' \
+	    | base64 -d > ${tmp_dir}/vault.ca
     fi
     kubectl_bin create secret generic ${SECRET_NAME} \
         --namespace ${NAMESPACE} \

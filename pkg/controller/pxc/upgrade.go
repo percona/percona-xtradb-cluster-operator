@@ -140,7 +140,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return fmt.Errorf("failed to get sate: %v", err)
 	}
 
-	if currentSet.Generation == startGeneration {
+	if currentSet.updatedReplicas != nil && currentSet.updatedReplicas >= currentSet.replicas {
 		return nil
 	}
 

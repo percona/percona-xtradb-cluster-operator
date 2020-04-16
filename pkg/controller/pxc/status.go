@@ -106,7 +106,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		cr.Status.ProxySQL = proxyStatus
 
 		cr.Status.Host = cr.Name + "-" + "proxysql." + cr.Namespace
-		if cr.Spec.ProxySQL.ServiceType != nil && *cr.Spec.ProxySQL.ServiceType == corev1.ServiceTypeLoadBalancer {
+		if cr.Spec.ProxySQL.ServiceType == corev1.ServiceTypeLoadBalancer {
 			svc := &corev1.Service{}
 			err := r.client.Get(context.TODO(),
 				types.NamespacedName{

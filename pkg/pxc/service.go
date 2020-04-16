@@ -118,8 +118,8 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
-	if cr.Spec.ProxySQL.ServiceType != nil {
-		svcType = *cr.Spec.ProxySQL.ServiceType
+	if len(cr.Spec.ProxySQL.ServiceType) > 0 {
+		svcType = cr.Spec.ProxySQL.ServiceType
 	}
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{

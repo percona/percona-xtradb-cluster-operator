@@ -655,11 +655,6 @@ func (in *PodSpec) DeepCopyInto(out *PodSpec) {
 		*out = new(int64)
 		**out = **in
 	}
-	if in.ServiceType != nil {
-		in, out := &in.ServiceType, &out.ServiceType
-		*out = new(corev1.ServiceType)
-		**out = **in
-	}
 	if in.ReadinessInitialDelaySeconds != nil {
 		in, out := &in.ReadinessInitialDelaySeconds, &out.ReadinessInitialDelaySeconds
 		*out = new(int32)

@@ -794,7 +794,7 @@ storage \"file\" {
     done
     set -o xtrace
 
-    kubectl_bin exec -it pod/$name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
+    kubectl_bin exec -it $name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
     unsealKey=$(jq -r ".unseal_keys_b64[]" <"$tmp_dir/$name")
     token=$(jq -r ".root_token" <"$tmp_dir/$name")
     sleep 10

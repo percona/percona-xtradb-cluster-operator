@@ -256,12 +256,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod, waitLimi
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase corev1.PodPhase, waitLimit int) error {
-	i := 0
-	for {
-		if i >= waitLimit {
-			return fmt.Errorf("reach wait pod %s phase limit", phase)
-		}
-
+	for i := 0; i < waitLimit; i++ {
 		time.Sleep(time.Second * 1)
 
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
@@ -270,13 +265,11 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase core
 		}
 
 		if pod.Status.Phase == phase {
-			break
+			return nil
 		}
-
-		i++
 	}
 
-	return nil
+	return fmt.Errorf("reach wait pod %s phase limit", phase)
 }
 
 func isPXC(sfs api.StatefulApp) bool {

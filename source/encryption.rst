@@ -160,7 +160,7 @@ More details on how to install and configure Vault can be found `in the official
 Using the encryption
 --------------------
 
-If using Percona XtraDB Cluster 5.7, you should turn encryption on explicitly
+If using *Percona XtraDB Cluster* 5.7, you should turn encryption on explicitly
 when you create a table or a tablespace. This can be done by adding the
 ``ENCRYPTION='Y'`` part to your SQL statement, like in the following example:
 
@@ -171,5 +171,34 @@ when you create a table or a tablespace. This can be done by adding the
 
 .. note:: See more details on encryption in Percona XtraDB Cluster 5.7 `here <https://www.percona.com/doc/percona-xtradb-cluster/5.7/management/data_at_rest_encryption.html>`_.
 
-If using Percona XtraDB Cluster 8.0, the encryption is turned on by default.
+If using *Percona XtraDB Cluster* 8.0, the encryption is turned on by default.
+The following table presents the default values of the `correspondent my.cnf
+configuration options <https://www.percona.com/doc/percona-server/LATEST/security/data-at-rest-encryption.html>`_:
 
++---------------------------------------------------+-------------------------------------------------------+
+| Option                                            | Default value                                         |
++===================================================+=======================================================+
+| ``early-plugin-load``                             | ``keyring_vault.so``                                  |
++---------------------------------------------------+-------------------------------------------------------+
+| ``keyring_vault_config``                          | ``/etc/mysql/vault-keyring-secret/keyring_vault.conf``|
++---------------------------------------------------+-------------------------------------------------------+
+| ``default_table_encryption``                      | ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+
+| ``table_encryption_privilege_check``              | ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+
+| ``innodb_undo_log_encrypt``                       | ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+
+| ``innodb_redo_log_encrypt``                       | ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+
+| ``binlog_encryption``                             | ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+
+| ``binlog_rotate_encryption_master_key_at_startup``| ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+
+| ``innodb_temp_tablespace_encrypt``                | ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+
+| ``innodb_parallel_dblwr_encrypt``                 | ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+
+| ``innodb_encrypt_online_alter_logs``              | ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+
+| ``encrypt_tmp_files``                             | ``ON``                                                |
++---------------------------------------------------+-------------------------------------------------------+

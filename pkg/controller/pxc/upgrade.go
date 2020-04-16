@@ -146,8 +146,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return nil
 	}
 
-	log.Info("statefullSet was changed, run smart update")
-
 	return r.smartUpdate(sfs, cr)
 }
 
@@ -174,6 +172,12 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	if err != nil {
 		return fmt.Errorf("get pod list: %v", err)
 	}
+
+	if err := canRunUpdate(cr, list.Items); err != nil {
+		return fmt.Errorf("failed to run update: %v", err)
+	}
+
+	log.Info("statefullSet was changed, run smart update")
 
 	waitLimit := 120
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
@@ -236,6 +240,20 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 
 	primary, err := dbatabase.PrimaryHost()
 	return primary, err
+}
+
+func canRunUpdate(cr *api.PerconaXtraDBCluster, pods []corev1.Pod) error {
+	if len(pods) < int(cr.Spec.PXC.Size) {
+		return fmt.Errorf("not all the pods started")
+	}
+
+	for _, pod := range pods {
+		if pod.Status.Phase != corev1.PodRunning {
+			return fmt.Errorf("not all the pods in %s state", corev1.PodRunning)
+		}
+	}
+
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod, waitLimit int) error {

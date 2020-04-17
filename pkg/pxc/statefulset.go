@@ -28,7 +28,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 
 	sfsVolume, err := sfs.Volumes(podSpec, cr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get volumes %v", err)
 	}
 	pod.Volumes = sfsVolume.Volumes
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -146,6 +147,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return nil
 	}
 
+	if currentSet.Status.ReadyReplicas < currentSet.Status.Replicas {
+		return fmt.Errorf("failed to run 'SmartUpdate': not all replicar are ready")
+	}
+
 	return r.smartUpdate(sfs, cr)
 }
 
@@ -154,15 +159,8 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	primary, err := r.getPrimaryPod(cr)
-	if err != nil {
-		return fmt.Errorf("get primary pod: %v", err)
-	}
-
-	log.Info(fmt.Sprintf("primary pod is %s", primary))
-
 	list := corev1.PodList{}
-	err = r.client.List(context.TODO(),
+	err := r.client.List(context.TODO(),
 		&client.ListOptions{
 			Namespace:     sfs.StatefulSet().Namespace,
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
@@ -173,18 +171,25 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return fmt.Errorf("get pod list: %v", err)
 	}
 
-	if err := canRunUpdate(cr, list.Items); err != nil {
-		return fmt.Errorf("failed to run update: %v", err)
+	log.Info("statefullSet was changed, run smart update")
+
+	primary, err := r.getPrimaryPod(cr)
+	if err != nil {
+		return fmt.Errorf("get primary pod: %v", err)
 	}
 
-	log.Info("statefullSet was changed, run smart update")
+	log.Info(fmt.Sprintf("primary pod is %s", primary))
 
 	waitLimit := 120
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)
 	}
 
-	var primaryPod *corev1.Pod = nil
+	sort.Slice(list.Items, func(i, j int) bool {
+		return list.Items[i].Name > list.Items[j].Name
+	})
+
+	var primaryPod *corev1.Pod
 	for _, pod := range list.Items {
 		pod := pod
 		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)) {
@@ -238,22 +243,7 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 	}
 	defer dbatabase.Close()
 
-	primary, err := dbatabase.PrimaryHost()
-	return primary, err
-}
-
-func canRunUpdate(cr *api.PerconaXtraDBCluster, pods []corev1.Pod) error {
-	if len(pods) < int(cr.Spec.PXC.Size) {
-		return fmt.Errorf("not all the pods started")
-	}
-
-	for _, pod := range pods {
-		if pod.Status.Phase != corev1.PodRunning {
-			return fmt.Errorf("not all the pods in %s state", corev1.PodRunning)
-		}
-	}
-
-	return nil
+	return dbatabase.PrimaryHost()
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod, waitLimit int) error {

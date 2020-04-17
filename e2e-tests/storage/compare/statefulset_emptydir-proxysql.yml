@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  name: emptydir-pxc
+  name: emptydir-proxysql
   ownerReferences:
   - apiVersion: pxc.percona.com/v1
     controller: true
@@ -10,21 +10,21 @@ metadata:
     name: emptydir
 spec:
   podManagementPolicy: OrderedReady
-  replicas: 3
+  replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app.kubernetes.io/component: pxc
+      app.kubernetes.io/component: proxysql
       app.kubernetes.io/instance: emptydir
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: emptydir-pxc
+  serviceName: emptydir-proxysql-unready
   template:
     metadata:
       annotations:
       labels:
-        app.kubernetes.io/component: pxc
+        app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: emptydir
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
@@ -35,7 +35,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchLabels:
-                app.kubernetes.io/component: pxc
+                app.kubernetes.io/component: proxysql
                 app.kubernetes.io/instance: emptydir
                 app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
                 app.kubernetes.io/name: percona-xtradb-cluster
@@ -44,99 +44,114 @@ spec:
       containers:
       - env:
         - name: PXC_SERVICE
-          value: emptydir-pxc-unready
-        - name: MONITOR_HOST
-          value: '%'
+          value: emptydir-pxc
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
               key: root
               name: my-cluster-secrets
-        - name: XTRABACKUP_PASSWORD
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
-              key: xtrabackup
+              key: proxyadmin
               name: my-cluster-secrets
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
               name: my-cluster-secrets
-        - name: CLUSTERCHECK_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: clustercheck
-              name: my-cluster-secrets
         imagePullPolicy: Always
-        livenessProbe:
-          exec:
-            command:
-            - /usr/bin/clustercheck.sh
-          failureThreshold: 3
-          initialDelaySeconds: 300
-          periodSeconds: 10
-          successThreshold: 1
-          timeoutSeconds: 5
-        name: pxc
+        name: proxysql
         ports:
         - containerPort: 3306
           name: mysql
           protocol: TCP
-        - containerPort: 4444
-          name: sst
+        - containerPort: 6032
+          name: proxyadm
           protocol: TCP
-        - containerPort: 4567
-          name: write-set
-          protocol: TCP
-        - containerPort: 4568
-          name: ist
-          protocol: TCP
-        readinessProbe:
-          exec:
-            command:
-            - /usr/bin/clustercheck.sh
-          failureThreshold: 5
-          initialDelaySeconds: 15
-          periodSeconds: 30
-          successThreshold: 1
-          timeoutSeconds: 15
         resources:
-          requests:
+          limits:
             ephemeral-storage: 1G
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
-        - mountPath: /var/lib/mysql
-          name: datadir
-        - mountPath: /etc/percona-xtradb-cluster.conf.d
-          name: config
-        - mountPath: /tmp
-          name: tmp
-        - mountPath: /etc/mysql/ssl
+        - mountPath: /var/lib/proxysql
+          name: proxydata
+        - mountPath: /etc/proxysql/ssl
           name: ssl
-        - mountPath: /etc/mysql/ssl-internal
+        - mountPath: /etc/proxysql/ssl-internal
           name: ssl-internal
-        - mountPath: /etc/my.cnf.d
-          name: auto-config
-        - mountPath: /etc/mysql/vault-keyring-secret
-          name: vault-keyring-secret
+      - args:
+        - /usr/bin/peer-list
+        - -on-change=/usr/bin/add_pxc_nodes.sh
+        - -service=$(PXC_SERVICE)
+        env:
+        - name: PXC_SERVICE
+          value: emptydir-pxc
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: root
+              name: my-cluster-secrets
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: proxyadmin
+              name: my-cluster-secrets
+        - name: MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        imagePullPolicy: Always
+        name: pxc-monit
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      - args:
+        - /usr/bin/peer-list
+        - -on-change=/usr/bin/add_proxysql_nodes.sh
+        - -service=$(PROXYSQL_SERVICE)
+        env:
+        - name: PROXYSQL_SERVICE
+          value: emptydir-proxysql-unready
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: root
+              name: my-cluster-secrets
+        - name: PROXY_ADMIN_USER
+          value: proxyadmin
+        - name: PROXY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: proxyadmin
+              name: my-cluster-secrets
+        - name: MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: my-cluster-secrets
+        imagePullPolicy: Always
+        name: proxysql-monit
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
         - 1001
-      terminationGracePeriodSeconds: 600
+      terminationGracePeriodSeconds: 30
       volumes:
       - emptyDir: {}
-        name: datadir
-      - emptyDir: {}
-        name: tmp
-      - configMap:
-          defaultMode: 420
-          name: emptydir-pxc
-          optional: true
-        name: config
+        name: proxydata
       - name: ssl-internal
         secret:
           defaultMode: 420
@@ -147,16 +162,6 @@ spec:
           defaultMode: 420
           optional: false
           secretName: some-name-ssl
-      - configMap:
-          defaultMode: 420
-          name: auto-emptydir-pxc
-          optional: true
-        name: auto-config
-      - name: vault-keyring-secret
-        secret:
-          defaultMode: 420
-          optional: true
-          secretName: emptydir-vault
   updateStrategy:
     rollingUpdate:
       partition: 0

@@ -100,7 +100,9 @@ spec:
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 15
-        resources: {}
+        resources:
+          requests:
+            ephemeral-storage: 1G
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:

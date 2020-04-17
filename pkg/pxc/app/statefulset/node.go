@@ -32,13 +32,6 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 			Name:      cr.Name + "-" + app.Name,
 			Namespace: cr.Namespace,
 		},
-		Spec: appsv1.StatefulSetSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					SchedulerName: cr.Spec.PXC.SchedulerName,
-				},
-			},
-		},
 	}
 
 	labels := map[string]string{

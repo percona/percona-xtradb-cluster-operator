@@ -227,8 +227,8 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 	host := fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
 
 	var dbatabase queries.Database
-	i := 0
-	for {
+
+	for i := 0; ; i++ {
 		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, 6032)
 		if err != nil && i < int(cr.Spec.ProxySQL.Size) {
 			time.Sleep(time.Second)
@@ -238,8 +238,6 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 			dbatabase = db
 			break
 		}
-
-		i++
 	}
 	defer dbatabase.Close()
 

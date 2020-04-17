@@ -725,6 +725,15 @@ EOF
     kubectl_bin get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' > ${tmp_dir}/serverCert
     openssl base64 -in ${tmp_dir}/serverCert -d -A -out ${tmp_dir}/vault.crt
     kubectl_bin config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d > ${tmp_dir}/vault.ca
+    if [[ "${OPENSHIFT}" == 1 ]]; then
+        kubectl_bin -n default get secrets \
+            | grep default \
+            | grep service-account-token \
+            | head -n 1 \
+            | awk {'print $1'} \
+            | xargs -I {} kubectl_bin -n default get secret {} -o jsonpath='{.data.ca\.crt}' \
+            | base64 -d > ${tmp_dir}/vault.ca
+    fi
     kubectl_bin create secret generic ${SECRET_NAME} \
         --namespace ${NAMESPACE} \
         --from-file=vault.key=${tmp_dir}/vault.key \
@@ -740,7 +749,7 @@ start_vault() {
 
     if [[ ${OPENSHIFT} == 1 ]]; then
         platform=openshift
-	oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
+        oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
     fi
     create_namespace "$name"
     deploy_helm "$name"
@@ -753,7 +762,7 @@ start_vault() {
         helm install --name $name --namespace "$name" \
             --set dataStorage.enabled=false \
             --set global.tlsDisable=false \
-	    --set global.platform="${platform}" \
+            --set global.platform="${platform}" \
             --set server.extraVolumes[0].type=secret \
             --set server.extraVolumes[0].name=$name \
             --set server.extraEnvironmentVars.VAULT_CACERT=/vault/userconfig/$name/vault.ca \
@@ -773,7 +782,7 @@ storage \"file\" {
     else
         helm install --name $name --namespace "$name" \
             --set dataStorage.enabled=false \
-	    --set global.platform="${platform}" \
+            --set global.platform="${platform}" \
             "$src_dir/vendor/vault"
     fi
 

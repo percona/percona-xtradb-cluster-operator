@@ -36,7 +36,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-40`: The cluster was unable to reach "ready" status in case if ``ProxySQL.Enabled`` field was set to ``false``
 * :jirabug:`K8SPXC-34`: Change of the ``proxysql.servicetype`` filed was not detected by the Operator and thus had no effect
 * :jirabug:`K8SPXC-261`: proxysql logs were showing the root password
-* :jirabug:`K8SPXC-263`: The incorrect endpoint was shown by the the ``kubectl get pxc`` command
+* :jirabug:`K8SPXC-263`: The ``kubectl get pxc`` command was unable to show the correct ProxySQL external endpoint
 
 Help us improve our software quality by reporting any bugs you encounter using
 `our bug tracking system <https://jira.percona.com/secure/Dashboard.jspa>`_.

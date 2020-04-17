@@ -17,7 +17,6 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
-	appsv1 "k8s.io/api/apps/v1"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) error {
@@ -29,24 +28,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
-
-	switch {
-	case cr.Spec.UpdateStrategy == "OnDelete" && !cr.Spec.SmartUpdateEnabled():
-		currentSet.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
-	case cr.Spec.UpdateStrategy == "OnDelete" && cr.Spec.SmartUpdateEnabled():
-		currentSet.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
-		if !isPXC(sfs) {
-			// Use 'RollingUpdate' type for non PXC nodes if 'SmartUpdate' is being used
-			currentSet.Spec.UpdateStrategy.Type = appsv1.RollingUpdateStatefulSetStrategyType
-		} else if isPXC(sfs) && !cr.Spec.ProxySQL.Enabled {
-			// log.Info("ProxySQL is not enabled, set update strategy to RollingUpdate")
-			// currentSet.Spec.UpdateStrategy.Type = appsv1.RollingUpdateStatefulSetStrategyType
-			return fmt.Errorf("ProxySQL should be enabled if SmartUpdate set")
-		}
-	default:
-		currentSet.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
-	}
-
 	currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext
 
 	// embed DB configuration hash
@@ -143,20 +124,20 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return fmt.Errorf("failed to get sate: %v", err)
 	}
 
-	if currentSet.Status.UpdatedReplicas >= currentSet.Status.Replicas {
-		return nil
-	}
-
-	if currentSet.Status.ReadyReplicas < currentSet.Status.Replicas {
-		return fmt.Errorf("failed to run 'SmartUpdate': not all replicar are ready")
-	}
-
 	return r.smartUpdate(sfs, cr)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {
 	if !isPXC(sfs) {
 		return nil
+	}
+
+	if sfs.StatefulSet().Status.UpdatedReplicas >= sfs.StatefulSet().Status.Replicas {
+		return nil
+	}
+
+	if sfs.StatefulSet().Status.ReadyReplicas < sfs.StatefulSet().Status.Replicas {
+		return fmt.Errorf("failed to run 'SmartUpdate': not all replicas are ready")
 	}
 
 	list := corev1.PodList{}

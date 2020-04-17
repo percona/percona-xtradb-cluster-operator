@@ -266,6 +266,7 @@ type StatefulApp interface {
 	App
 	StatefulSet() *appsv1.StatefulSet
 	Service() string
+	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategyType
 }
 
 const clusterNameMaxLen = 22
@@ -446,6 +447,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 
 	cr.Spec.enableSmartUpdate = false
 	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType {
+		if !cr.Spec.ProxySQL.Enabled {
+			return false, fmt.Errorf("ProxySQL should be enabled if SmartUpdate set")
+		}
 		cr.Spec.UpdateStrategy = appsv1.OnDeleteStatefulSetStrategyType
 		cr.Spec.enableSmartUpdate = true
 	}

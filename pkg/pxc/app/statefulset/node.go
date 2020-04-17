@@ -287,3 +287,7 @@ func (c *Node) Labels() map[string]string {
 func (c *Node) Service() string {
 	return c.service
 }
+
+func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategyType {
+	return cr.Spec.UpdateStrategy
+}

@@ -15,6 +15,7 @@ cluster="side-car"
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
 desc 'check if service and statefulset created with expected config'
+compare_kubectl service/$cluster-proxysql
 compare_kubectl statefulset/$cluster-proxysql
 
 destroy $namespace

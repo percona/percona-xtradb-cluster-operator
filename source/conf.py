@@ -109,6 +109,9 @@ rst_prolog = '''
 extlinks = {'bug':
 ('https://bugs.launchpad.net/percona-xtradb-cluster/+bug/%s',
                       '#'),
+'jirabug':
+('https://jira.percona.com/browse/%s',
+                      ''),
 'mysqlbug':
 ('http://bugs.mysql.com/bug.php?id=%s',
                       '#'),

@@ -279,6 +279,11 @@ compare_mysql_cmd() {
 
     run_mysql "$command" "$uri" \
         >$tmp_dir/${command_id}.sql
+    if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
+        sleep 10
+        run_mysql "$command" "$uri" \
+            >$tmp_dir/${command_id}.sql
+    fi
     diff -u $expected_result $tmp_dir/${command_id}.sql
 }
 

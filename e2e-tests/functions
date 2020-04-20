@@ -220,6 +220,7 @@ compare_kubectl() {
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem" \
         | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
         | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
+        | egrep -v "load-balancer-cleanup" \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
         | $sed -e '/name: suffix/,+1d' \

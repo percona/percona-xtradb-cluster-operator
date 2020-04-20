@@ -547,7 +547,7 @@ function is_table_encrypted() {
 
 function is_keyring_plugin_in_use() {
     local cluster=$1
-    kubectl_bin exec -it pod/$cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
+    kubectl_bin exec -it $cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
         | egrep -o "early-plugin-load=keyring_\w+.so"
 }
 
@@ -808,8 +808,8 @@ storage \"file\" {
     token=$(jq -r ".root_token" <"$tmp_dir/$name")
     sleep 10
 
-    kubectl_bin exec -it pod/$name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
-    kubectl_bin exec -it pod/$name-0 -- \
+    kubectl_bin exec -it $name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
+    kubectl_bin exec -it $name-0 -- \
         sh -c "export VAULT_TOKEN=$token && export VAULT_LOG_LEVEL=trace \
                 && vault secrets enable --version=1 -tls-skip-verify -path=secret kv \
                 && vault audit enable file file_path=/vault/vault-audit.log"

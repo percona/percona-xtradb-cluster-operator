@@ -68,7 +68,7 @@ Configuring Vault
 
    .. code:: bash
 
-      $ kubectl exec -it vault-0 -- /bin/sh
+      $ kubectl exec -it vault-service-0 -- /bin/sh
       $ vault login s.VgQvaXl8xGFO1RUxAPbPbsfN
       $ vault secrets enable --version=1 -path=pxc-secret kv
 

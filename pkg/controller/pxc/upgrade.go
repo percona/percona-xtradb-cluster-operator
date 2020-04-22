@@ -132,23 +132,22 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
+	log.Info("statefullSet was changed, run smart update")
+
 	if sfs.StatefulSet().Status.ReadyReplicas < sfs.StatefulSet().Status.Replicas {
-		return fmt.Errorf("failed to run 'SmartUpdate': not all replicas are ready")
+		return fmt.Errorf("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
 	}
 
 	list := corev1.PodList{}
-	err := r.client.List(context.TODO(),
+	if err := r.client.List(context.TODO(),
 		&client.ListOptions{
 			Namespace:     sfs.StatefulSet().Namespace,
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
 		&list,
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("get pod list: %v", err)
 	}
-
-	log.Info("statefullSet was changed, run smart update")
 
 	primary, err := r.getPrimaryPod(cr)
 	if err != nil {
@@ -172,28 +171,33 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)) {
 			primaryPod = &pod
 		} else {
-			log.Info(fmt.Sprintf("delete secondary pod %s", pod.Name))
-			err := r.client.Delete(context.TODO(), &pod)
-			if err != nil {
-				return fmt.Errorf("delete pod: %v", err)
-			}
-
-			err = r.waitPodRestart(&pod, waitLimit)
-			if err != nil {
-				return fmt.Errorf("wait pod: %v", err)
+			log.Info(fmt.Sprintf("apply changes to secondary pod %s", pod.Name))
+			if err := r.applyNWait(sfs.StatefulSet().Status.UpdateRevision, &pod, waitLimit); err != nil {
+				return fmt.Errorf("failed to apply changes: %v", err)
 			}
 		}
 	}
 
-	log.Info(fmt.Sprintf("delete primary pod %s", primaryPod.Name))
-	err = r.client.Delete(context.TODO(), primaryPod)
-	if err != nil {
-		return fmt.Errorf("delete primary pod: %v", err)
+	log.Info(fmt.Sprintf("apply changes to primary pod %s", primaryPod.Name))
+	if err := r.applyNWait(sfs.StatefulSet().Status.UpdateRevision, primaryPod, waitLimit); err != nil {
+		return fmt.Errorf("failed to apply changes: %v", err)
 	}
 
-	err = r.waitPodRestart(primaryPod, waitLimit)
-	if err != nil {
-		return fmt.Errorf("wait pod: %v", err)
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) applyNWait(updateRevision string, pod *corev1.Pod, waitLimit int) error {
+	if pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision {
+		log.Info(fmt.Sprintf("pod %s is already updated", pod.Name))
+		return nil
+	}
+
+	if err := r.client.Delete(context.TODO(), pod); err != nil {
+		return fmt.Errorf("failed to delete pod: %v", err)
+	}
+
+	if err := r.waitPodRestart(updateRevision, pod, waitLimit); err != nil {
+		return fmt.Errorf("failed to wait pod: %v", err)
 	}
 
 	return nil
@@ -221,24 +225,7 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 	return dbatabase.PrimaryHost()
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(pod *corev1.Pod, waitLimit int) error {
-	log.Info(fmt.Sprintf("wait pod %s start", pod.Name))
-	err := r.waitPodPhase(pod, corev1.PodPending, waitLimit)
-	if err != nil {
-		return err
-	}
-
-	err = r.waitPodPhase(pod, corev1.PodRunning, waitLimit)
-	if err != nil {
-		return err
-	}
-
-	log.Info(fmt.Sprintf("pod %s started", pod.Name))
-
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase corev1.PodPhase, waitLimit int) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, pod *corev1.Pod, waitLimit int) error {
 	for i := 0; i < waitLimit; i++ {
 		time.Sleep(time.Second * 1)
 
@@ -247,12 +234,13 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodPhase(pod *corev1.Pod, phase core
 			return err
 		}
 
-		if pod.Status.Phase == phase {
+		if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision {
+			log.Info(fmt.Sprintf("pod %s started", pod.Name))
 			return nil
 		}
 	}
 
-	return fmt.Errorf("reach wait pod %s phase limit", phase)
+	return fmt.Errorf("reach pod wait limit")
 }
 
 func isPXC(sfs api.StatefulApp) bool {

@@ -249,7 +249,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 			return nil
 		}
 
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 1)
 	}
 
 	return fmt.Errorf("reach pod wait limit")

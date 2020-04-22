@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 )
@@ -115,7 +116,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return fmt.Errorf("update error: %v", err)
 	}
 
-	if !cr.Spec.SmartUpdateEnabled() {
+	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType {
 		return nil
 	}
 

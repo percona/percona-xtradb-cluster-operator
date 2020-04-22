@@ -28,11 +28,6 @@ type PerconaXtraDBClusterSpec struct {
 	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
-	enableSmartUpdate     bool
-}
-
-func (cr PerconaXtraDBClusterSpec) SmartUpdateEnabled() bool {
-	return cr.enableSmartUpdate
 }
 
 const (
@@ -70,7 +65,7 @@ type PerconaXtraDBClusterStatus struct {
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`
 	Conditions         []ClusterCondition `json:"conditions,omitempty"`
-	ObservedGeneration int64              `json:"observedGeneration,omitepty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 }
 
 type ConditionStatus string
@@ -445,13 +440,8 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		}
 	}
 
-	cr.Spec.enableSmartUpdate = false
-	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType {
-		if !cr.Spec.ProxySQL.Enabled {
-			return false, fmt.Errorf("ProxySQL should be enabled if SmartUpdate set")
-		}
-		cr.Spec.UpdateStrategy = appsv1.OnDeleteStatefulSetStrategyType
-		cr.Spec.enableSmartUpdate = true
+	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType && !cr.Spec.ProxySQL.Enabled {
+		return false, fmt.Errorf("ProxySQL should be enabled if SmartUpdate set")
 	}
 
 	cr.setSecurityContext(serverVersion)
@@ -494,10 +484,10 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
 const AffinityTopologyKeyOff = "none"
 
 var affinityValidTopologyKeys = map[string]struct{}{
-	AffinityTopologyKeyOff:                     struct{}{},
-	"kubernetes.io/hostname":                   struct{}{},
-	"failure-domain.beta.kubernetes.io/zone":   struct{}{},
-	"failure-domain.beta.kubernetes.io/region": struct{}{},
+	AffinityTopologyKeyOff:                     {},
+	"kubernetes.io/hostname":                   {},
+	"failure-domain.beta.kubernetes.io/zone":   {},
+	"failure-domain.beta.kubernetes.io/region": {},
 }
 
 var defaultAffinityTopologyKey = "kubernetes.io/hostname"

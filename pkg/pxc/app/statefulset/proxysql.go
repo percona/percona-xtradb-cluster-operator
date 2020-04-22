@@ -296,12 +296,11 @@ func (c *Proxy) Service() string {
 
 func (c *Proxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategyType {
 	switch cr.Spec.UpdateStrategy {
-	case "OnDelete":
-		if cr.Spec.SmartUpdateEnabled() {
-			return appsv1.RollingUpdateStatefulSetStrategyType
-		}
+	case appsv1.OnDeleteStatefulSetStrategyType:
 		return appsv1.OnDeleteStatefulSetStrategyType
+	case api.SmartUpdateStatefulSetStrategyType:
+		return appsv1.RollingUpdateStatefulSetStrategyType
 	default:
-		return cr.Spec.UpdateStrategy
+		return appsv1.RollingUpdateStatefulSetStrategyType
 	}
 }

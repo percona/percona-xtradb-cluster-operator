@@ -282,5 +282,12 @@ func (c *Node) Service() string {
 }
 
 func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategyType {
-	return cr.Spec.UpdateStrategy
+	switch cr.Spec.UpdateStrategy {
+	case appsv1.OnDeleteStatefulSetStrategyType:
+		return appsv1.OnDeleteStatefulSetStrategyType
+	case api.SmartUpdateStatefulSetStrategyType:
+		return appsv1.OnDeleteStatefulSetStrategyType
+	default:
+		return appsv1.RollingUpdateStatefulSetStrategyType
+	}
 }

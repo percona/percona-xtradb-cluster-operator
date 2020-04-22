@@ -122,7 +122,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
 	if err != nil {
-		return fmt.Errorf("failed to get sate: %v", err)
+		return fmt.Errorf("failed to get state: %v", err)
 	}
 
 	return r.smartUpdate(sfs, cr)

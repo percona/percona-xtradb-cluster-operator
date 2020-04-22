@@ -62,6 +62,21 @@ func (p *Database) PrimaryHost() (string, error) {
 	return host, nil
 }
 
+func (p *Database) WsrepLocalStateComment() (string, error) {
+	var variable_name string
+	var value string
+
+	err := p.db.QueryRow("SHOW GLOBAL STATUS LIKE 'wsrep_local_state_comment'").Scan(&variable_name, &value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("variable was not found")
+		}
+		return "", err
+	}
+
+	return value, nil
+}
+
 func (p *Database) Close() error {
 	return p.db.Close()
 }

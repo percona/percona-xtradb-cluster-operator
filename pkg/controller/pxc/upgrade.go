@@ -165,39 +165,43 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return list.Items[i].Name > list.Items[j].Name
 	})
 
-	var primaryPod *corev1.Pod
+	var primaryPod corev1.Pod
 	for _, pod := range list.Items {
 		pod := pod
 		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)) {
-			primaryPod = &pod
+			primaryPod = pod
 		} else {
 			log.Info(fmt.Sprintf("apply changes to secondary pod %s", pod.Name))
-			if err := r.applyNWait(sfs.StatefulSet().Status.UpdateRevision, &pod, waitLimit); err != nil {
+			if err := r.applyNWait(cr, sfs.StatefulSet().Status.UpdateRevision, &pod, waitLimit); err != nil {
 				return fmt.Errorf("failed to apply changes: %v", err)
 			}
 		}
 	}
 
 	log.Info(fmt.Sprintf("apply changes to primary pod %s", primaryPod.Name))
-	if err := r.applyNWait(sfs.StatefulSet().Status.UpdateRevision, primaryPod, waitLimit); err != nil {
+	if err := r.applyNWait(cr, sfs.StatefulSet().Status.UpdateRevision, &primaryPod, waitLimit); err != nil {
 		return fmt.Errorf("failed to apply changes: %v", err)
 	}
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) applyNWait(updateRevision string, pod *corev1.Pod, waitLimit int) error {
+func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int) error {
 	if pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision {
 		log.Info(fmt.Sprintf("pod %s is already updated", pod.Name))
 		return nil
-	}
-
-	if err := r.client.Delete(context.TODO(), pod); err != nil {
-		return fmt.Errorf("failed to delete pod: %v", err)
+	} else {
+		if err := r.client.Delete(context.TODO(), pod); err != nil {
+			return fmt.Errorf("failed to delete pod: %v", err)
+		}
 	}
 
 	if err := r.waitPodRestart(updateRevision, pod, waitLimit); err != nil {
 		return fmt.Errorf("failed to wait pod: %v", err)
+	}
+
+	if err := r.waitPXCSynced(cr, pod.Status.PodIP, waitLimit); err != nil {
+		return fmt.Errorf("failed to wait pxc sync: %v", err)
 	}
 
 	return nil
@@ -220,9 +224,36 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 			break
 		}
 	}
+
 	defer dbatabase.Close()
 
 	return dbatabase.PrimaryHost()
+}
+
+func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, podIP string, waitLimit int) error {
+	user := "root"
+
+	dbatabase, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podIP, 3306)
+	if err != nil {
+		return fmt.Errorf("failed to access PXC database: %v", err)
+	}
+
+	defer dbatabase.Close()
+
+	for i := 0; i < waitLimit; i++ {
+		state, err := dbatabase.WsrepLocalStateComment()
+		if err != nil {
+			return fmt.Errorf("failed to get wsrep local state: %v", err)
+		}
+
+		if state == "Synced" {
+			return nil
+		}
+
+		time.Sleep(time.Second * 10)
+	}
+
+	return fmt.Errorf("reach pod wait limit")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, pod *corev1.Pod, waitLimit int) error {
@@ -234,7 +265,14 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, po
 			return err
 		}
 
-		if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision {
+		ready := false
+		for _, container := range pod.Status.ContainerStatuses {
+			if container.Name == "pxc" {
+				ready = container.Ready
+			}
+		}
+
+		if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
 			log.Info(fmt.Sprintf("pod %s started", pod.Name))
 			return nil
 		}

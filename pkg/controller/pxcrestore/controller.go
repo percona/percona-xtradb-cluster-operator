@@ -189,7 +189,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 		err = errors.Wrap(err, "set status")
 		return rr, err
 	}
-	err = r.restore(cr, bcp, cluster.Spec)
+	err = r.restore(cr, bcp, cluster)
 	if err != nil {
 		err = errors.Wrap(err, "run restore")
 		return rr, err

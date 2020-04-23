@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,10 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 var log = logf.Log.WithName("controller_perconaxtradbclusterbackup")
@@ -134,7 +133,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(instance, cluster)
-	job.Spec = bcp.JobSpec(instance.Spec, cluster.Spec, job)
+	job.Spec = bcp.JobSpec(instance.Spec, cluster, job)
 
 	var destination string
 	var s3status *api.BackupStorageS3Spec

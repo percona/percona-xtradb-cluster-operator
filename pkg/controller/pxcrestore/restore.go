@@ -4,19 +4,18 @@ import (
 	"context"
 	"time"
 
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
-func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) error {
-	if cluster.Backup == nil {
+func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBCluster) error {
+	if cluster.Spec.Backup == nil {
 		return errors.New("undefined backup section in a cluster spec")
 	}
 	if len(bcp.Status.Destination) > 6 {
@@ -31,7 +30,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 	return errors.Errorf("unknown destination %s", bcp.Status.Destination)
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBCluster) error {
 	svc := backup.PVCRestoreService(cr, bcp)
 	k8s.SetControllerReference(cr, svc, r.scheme)
 	pod := backup.PVCRestorePod(cr, bcp, pvcName, cluster)
@@ -72,7 +71,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBC
 	return r.createJob(job)
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBCluster) error {
 	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster)
 	if err != nil {
 		return err

@@ -227,6 +227,11 @@ compare_kubectl() {
         | $sed -e '/name: S3_BUCKET_PATH/,+1d' \
         | $sed -e '/name: S3_BUCKET_URL/,+1d' \
         > ${new_result}
+
+    # Trying to get rid extra fields on EKS
+    if [[ "${resource}" == pod* ]]; then
+        $sed -i -E '/annotations:|kubernetes.io\/psp:/d' ${new_result}
+    fi
     diff -u ${expected_result} ${new_result}
 }
 

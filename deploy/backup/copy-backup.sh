@@ -3,10 +3,10 @@
 set -o errexit
 tmp_dir=$(mktemp -d)
 ctrl=""
-AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-AWS_ENDPOINT=${AWS_ENDPOINT:-}
-AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+ACCESS_KEY_ID=${ACCESS_KEY_ID:-}
+SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY:-}
+ENDPOINT=${ENDPOINT:-}
+DEFAULT_REGION=${DEFAULT_REGION:-us-east-1}
 
 check_ctrl() {
     if [ -x "$(command -v kubectl)" ]; then
@@ -45,10 +45,10 @@ get_backup_dest() {
             exit 1
         fi
 
-        local secret=$(       $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.credentialsSecret}" 2>/dev/null)
-        export AWS_ENDPOINT=$($ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.endpointUrl}" 2>/dev/null)
-        export AWS_ACCESS_KEY_ID=$(    $ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}'     2>/dev/null | eval ${BASE64_DECODE_CMD})
-        export AWS_SECRET_ACCESS_KEY=$($ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
+        local secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.credentialsSecret}' 2>/dev/null)
+        export ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.endpointUrl}' 2>/dev/null)
+        export ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
+        export SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
 
         $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else

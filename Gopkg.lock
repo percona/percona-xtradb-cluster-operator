@@ -112,6 +112,14 @@
   version = "v0.17.2"
 
 [[projects]]
+  digest = "1:24f20a61b3d084137d13cf53aba7365862b850fe4f30b733ed0e3c7ade9ca86d"
+  name = "github.com/go-sql-driver/mysql"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "17ef3dd9d98b69acec3e85878995ada9533a9370"
+  version = "v1.5.0"
+
+[[projects]]
   digest = "1:932970e69f16e127aa0653b8263ae588cd127fa53273e19ba44332902c9826f2"
   name = "github.com/gogo/protobuf"
   packages = [
@@ -772,6 +780,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/go-sql-driver/mysql",
     "github.com/hashicorp/go-version",
     "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
     "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/scheme",
@@ -780,6 +789,7 @@
     "github.com/operator-framework/operator-sdk/pkg/ready",
     "github.com/operator-framework/operator-sdk/version",
     "github.com/pkg/errors",
+    "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/batch/v1beta1",

@@ -739,7 +739,7 @@ EOF
             | grep service-account-token \
             | head -n 1 \
             | awk {'print $1'} \
-            | xargs -I {} kubectl_bin -n default get secret {} -o jsonpath='{.data.ca\.crt}' \
+            | xargs -I {} kubectl -n default get secret {} -o jsonpath='{.data.ca\.crt}' \
             | base64 -d > ${tmp_dir}/vault.ca
     fi
     kubectl_bin create secret generic ${SECRET_NAME} \

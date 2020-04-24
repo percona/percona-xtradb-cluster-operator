@@ -4,22 +4,25 @@ metadata:
   name: secret-for-users
 type: Opaque
 stringData:
-  secret.yaml: |-
+  myuser1: password1
+  myuser2: password2
+  grants.yaml: |-
+    roles: 	
+    - rolename: role1
+      tables:
+      - name: db.test
+        privileges: SELECT
     users:
     - username: myuser1
-      password: password111
+      role: role1
       tables:
-      - name: db.table1
-        privileges: SELECT
-      - name: db.table2
+      - name: db.test
         privileges: DELETE
       hosts:
-      - "12.34.56.78"
-      - "87.65.43.21"
+      - "127.0.0.1"
     - username: myuser2
-      password: password222222
       tables:
-      - name: db.table2
-        privileges: SELECT
+      - name: db.test3
+        privileges: DELETE
       hosts:
       - "14.24.22.78"

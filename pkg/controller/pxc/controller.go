@@ -24,6 +24,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
@@ -50,11 +51,15 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get version: %v", err)
 	}
-
+	cli, err := clientcmd.NewClient()
+	if err != nil {
+		return nil, fmt.Errorf("create clientcmd: %v", err)
+	}
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
 		serverVersion: sv,
+		clientcmd:     cli,
 	}, nil
 }
 
@@ -81,8 +86,9 @@ var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}
 type ReconcilePerconaXtraDBCluster struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client    client.Client
+	scheme    *runtime.Scheme
+	clientcmd *clientcmd.Client
 
 	serverVersion *api.ServerVersion
 }

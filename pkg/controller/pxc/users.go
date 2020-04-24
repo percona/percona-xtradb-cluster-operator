@@ -1,8 +1,10 @@
 package pxc
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -11,7 +13,6 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +20,11 @@ import (
 )
 
 const internalPrefix = "internal-"
+
+const (
+	statusFailed    = "failed"
+	statusSucceeded = "succeeded"
+)
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) error {
 	if cr.Status.Status != api.AppStateReady {
@@ -55,33 +61,24 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr 
 	}
 
 	newHash := ""
-	if secretData, ok := usersSecretObj.Data["secret.yaml"]; ok {
-		newHash = sha256Hash(secretData)
-	}
-	lastAppliedHash := ""
-	if hash, ok := usersSecretObj.Annotations["last-applied"]; ok {
-		lastAppliedHash = hash
-		if lastAppliedHash == newHash {
-			if usersSecretObj.Annotations["status"] == "succeded" || usersSecretObj.Annotations["status"] == "failed" {
-				return nil
-			}
+
+	dataChanged := usersDataChanged(&newHash, &usersSecretObj)
+	if !dataChanged {
+		if usersSecretObj.Annotations["status"] == statusSucceeded || usersSecretObj.Annotations["status"] == statusFailed {
+			return nil
 		}
 	}
 
 	if len(usersSecretObj.Annotations) == 0 {
 		usersSecretObj.Annotations = make(map[string]string)
 	}
-	usersSecretObj.Annotations["last-applied"] = newHash
-	usersSecretObj.Annotations["status"] = "applying"
-	err = r.client.Update(context.TODO(), &usersSecretObj)
+
+	internalSecret, err := r.getInternalSecret(cr, &usersSecretObj)
 	if err != nil {
-		return errors.Wrap(err, "update secret last-applied")
+		return errors.Wrap(err, "internal secret")
 	}
 
-	currentJob := new(batchv1.Job)
-	jobName := genName63(secretName, cr)
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: jobName, Namespace: cr.Namespace}, currentJob)
-	if err != nil && k8serrors.IsNotFound(err) {
+	if dataChanged {
 		operatorPod := corev1.Pod{}
 		err = r.client.Get(context.TODO(),
 			types.NamespacedName{
@@ -93,61 +90,99 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr 
 		if err != nil {
 			return errors.Wrap(err, "get operator deployment")
 		}
-		containerImage := operatorPod.Spec.Containers[0].Image
-		imagePullSecrets := operatorPod.Spec.ImagePullSecrets
 
-		err = r.InternalSecret(cr, &usersSecretObj)
+		secretObj := corev1.Secret{}
+		err := r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      cr.Spec.SecretsName,
+			},
+			&secretObj,
+		)
 		if err != nil {
-			return errors.Wrap(err, "internal secret")
+			return errors.Wrap(err, "get cluster secret")
 		}
+		rootPass := string(secretObj.Data["root"])
+		hosts := []string{cr.Name + "-pxc"}
 
-		job := users.Job(cr, jobName, newHash)
-		job.Spec = users.JobSpec(secretName, internalPrefix+cr.Spec.SecretsName, containerImage, job, cr, imagePullSecrets)
-
-		err = r.client.Create(context.TODO(), job)
+		um, err := users.New(hosts, rootPass)
 		if err != nil {
-			return errors.Wrapf(err, "create job '%s'", job.Name)
-		}
-		return nil
-	} else if err != nil {
-		return errors.Errorf("get user manager job '%s': %v", jobName, err)
-	}
-
-	if currentJob.Annotations["secret-hash"] != newHash {
-		err = r.client.Delete(context.TODO(), currentJob)
-		if err != nil {
-			return errors.Wrap(err, "delete out of date job")
-		}
-		return nil
-	}
-
-	if currentJob.Status.Succeeded+currentJob.Status.Failed > 0 {
-		status := ""
-		if currentJob.Status.Succeeded > 0 {
-			err = r.client.Delete(context.TODO(), currentJob)
-			if err != nil {
-				return errors.Wrap(err, "delete current job")
+			usersSecretObj.Annotations["status"] = statusFailed
+			errU := r.client.Update(context.TODO(), &usersSecretObj)
+			if errU != nil {
+				return errors.Wrap(errU, "update secret status")
 			}
-			status = "succeded"
-			err = r.UpdateInternalSecret(cr, &usersSecretObj)
-			if err != nil {
-				return errors.Wrap(err, "update internal secret")
+			return errors.Wrap(err, "new users manager")
+		}
+
+		err = um.GetUsersData(usersSecretObj, internalSecret)
+		if err != nil {
+			usersSecretObj.Annotations["status"] = statusFailed
+			errU := r.client.Update(context.TODO(), &usersSecretObj)
+			if errU != nil {
+				return errors.Wrap(errU, "update secret status")
 			}
+			return errors.Wrap(err, "get users data")
 		}
-		if currentJob.Status.Failed > 0 {
-			status = "failed"
+
+		err = um.ManageUsers()
+		if err != nil {
+			usersSecretObj.Annotations["status"] = statusFailed
+			errU := r.client.Update(context.TODO(), &usersSecretObj)
+			if errU != nil {
+				return errors.Wrap(errU, "update secret status")
+			}
+			return errors.Wrap(err, "manage users")
 		}
-		usersSecretObj.Annotations["status"] = status
+
+		if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Size > 0 {
+			pod := corev1.Pod{}
+			err = r.client.Get(context.TODO(),
+				types.NamespacedName{
+					Namespace: cr.Namespace,
+					Name:      cr.Name + "-proxysql-0",
+				},
+				&pod,
+			)
+			if err != nil {
+				return errors.Wrap(err, "get proxy pod")
+			}
+			var errb, outb bytes.Buffer
+			err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers"}, nil, &outb, &errb, false)
+			if err != nil {
+				return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
+			}
+			if len(errb.Bytes()) > 0 {
+				return errors.New("syncusers: " + errb.String())
+			}
+			log.Info(outb.String())
+		}
+
+		for key, pass := range usersSecretObj.Data {
+			if key == "grants.yaml" {
+				continue
+			}
+			usersSecretObj.Annotations[key] = sha256Hash(pass)
+		}
+		usersSecretObj.Annotations["last-applied"] = newHash
+		usersSecretObj.Annotations["status"] = statusSucceeded
+
+		err = r.updateInternalSecret(cr, &usersSecretObj)
+		if err != nil {
+			return errors.Wrap(err, "update internal secret")
+		}
+
 		err = r.client.Update(context.TODO(), &usersSecretObj)
 		if err != nil {
 			return errors.Wrap(err, "update secret status")
 		}
+		return nil
 	}
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) InternalSecret(cr *api.PerconaXtraDBCluster, userSecret *corev1.Secret) error {
+func (r *ReconcilePerconaXtraDBCluster) getInternalSecret(cr *api.PerconaXtraDBCluster, userSecret *corev1.Secret) (corev1.Secret, error) {
 	secretName := internalPrefix + cr.Spec.SecretsName
 	secretObj := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
@@ -158,24 +193,24 @@ func (r *ReconcilePerconaXtraDBCluster) InternalSecret(cr *api.PerconaXtraDBClus
 		&secretObj,
 	)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "get internal users secret")
+		return secretObj, errors.Wrap(err, "get internal users secret")
 	} else if k8serrors.IsNotFound(err) {
 		secretObj, err = r.handleUsers(cr, userSecret, false)
 		if err != nil {
-			return errors.Wrap(err, "handle internal secret")
+			return secretObj, errors.Wrap(err, "handle internal secret")
 		}
 
 		err = r.client.Create(context.TODO(), &secretObj)
 		if err != nil {
-			return errors.Wrap(err, "create internal users secret")
+			return secretObj, errors.Wrap(err, "create internal users secret")
 		}
-		return nil
+		return secretObj, nil
 	}
 
-	return nil
+	return secretObj, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) UpdateInternalSecret(cr *api.PerconaXtraDBCluster, userSecret *corev1.Secret) error {
+func (r *ReconcilePerconaXtraDBCluster) updateInternalSecret(cr *api.PerconaXtraDBCluster, userSecret *corev1.Secret) error {
 	secretObj, err := r.handleUsers(cr, userSecret, true)
 	if err != nil {
 		return errors.Wrap(err, "update internal secret")
@@ -186,6 +221,37 @@ func (r *ReconcilePerconaXtraDBCluster) UpdateInternalSecret(cr *api.PerconaXtra
 	}
 	return nil
 
+}
+
+func usersDataChanged(newHash *string, usersSecret *corev1.Secret) bool {
+	if secretData, ok := usersSecret.Data["grants.yaml"]; ok {
+		hash := sha256Hash(secretData)
+		*newHash = hash
+		if lastAppliedHash, ok := usersSecret.Annotations["last-applied"]; ok {
+			if lastAppliedHash != hash {
+				return true
+			}
+		}
+	}
+
+	return usersPasswordsChanged(usersSecret)
+}
+
+func usersPasswordsChanged(usersSecret *corev1.Secret) bool {
+	for k, newPass := range usersSecret.Data {
+		if k == "grants.yaml" {
+			continue
+		}
+		oldPassHash := ""
+		if hash, ok := usersSecret.Annotations[k]; ok {
+			oldPassHash = hash
+		}
+		if sha256Hash(newPass) != oldPassHash {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleUsers(cr *api.PerconaXtraDBCluster, userSecret *corev1.Secret, update bool) (corev1.Secret, error) {
@@ -204,7 +270,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsers(cr *api.PerconaXtraDBCluster
 		if err != nil {
 			return secretObj, errors.Wrap(err, "get internal users secret")
 		}
-		err = yaml.Unmarshal(secretObj.Data["users"], &interUsers)
+		err = json.Unmarshal(secretObj.Data["users"], &interUsers)
 		if err != nil {
 			return secretObj, errors.Wrap(err, "unmarshal users secret data")
 		}
@@ -232,7 +298,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsers(cr *api.PerconaXtraDBCluster
 			interUser.Name = user.Name + "@" + host
 			interUser.Owner = userSecret.Name
 			if update {
-				interUser.Status = "applyed"
+				interUser.Status = "applied"
 			} else {
 				interUser.Status = "applying"
 			}
@@ -242,7 +308,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsers(cr *api.PerconaXtraDBCluster
 		}
 	}
 
-	interUsersData, err := yaml.Marshal(interUsers)
+	interUsersData, err := json.Marshal(interUsers)
 	if err != nil {
 		return secretObj, errors.Wrap(err, "marshal internal users")
 	}
@@ -261,39 +327,4 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsers(cr *api.PerconaXtraDBCluster
 
 func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
-}
-
-// k8s sets the `job-name` label for the pod created by job.
-// So we have to be sure that job name won't be longer than 63 symbols.
-// Yet the job name has to have some meaningful name which won't be conflicting with other jobs' names.
-func genName63(secretName string, cr *api.PerconaXtraDBCluster) string {
-	postfix := "-pxc-usrs-mngr" + secretName
-
-	postfixMaxLen := 36
-	postfix = trimNameRight(postfix, postfixMaxLen)
-
-	prefix := cr.Name
-	prefixMaxLen := 27
-	if len(prefix) > prefixMaxLen {
-		prefix = prefix[:prefixMaxLen]
-	}
-
-	return prefix + postfix
-}
-
-// trimNameRight if needed cut off symbol by symbol from the name right side
-// until it satisfy requirements to end with an alphanumeric character and have a length no more than ln
-func trimNameRight(name string, ln int) string {
-	if len(name) <= ln {
-		ln = len(name)
-	}
-
-	for ; ln > 0; ln-- {
-		if name[ln-1] >= 'a' && name[ln-1] <= 'z' ||
-			name[ln-1] >= '0' && name[ln-1] <= '9' {
-			break
-		}
-	}
-
-	return name[:ln]
 }

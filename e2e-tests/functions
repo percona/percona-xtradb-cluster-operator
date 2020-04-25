@@ -733,14 +733,20 @@ EOF
     kubectl_bin get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' > ${tmp_dir}/serverCert
     openssl base64 -in ${tmp_dir}/serverCert -d -A -out ${tmp_dir}/vault.crt
     kubectl_bin config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d > ${tmp_dir}/vault.ca
-    if [[ "${OPENSHIFT}" == 1 ]]; then
-        kubectl_bin -n default get secrets \
-            | grep default \
-            | grep service-account-token \
-            | head -n 1 \
-            | awk {'print $1'} \
-            | xargs -I {} kubectl_bin -n default get secret {} -o jsonpath='{.data.ca\.crt}' \
-            | base64 -d > ${tmp_dir}/vault.ca
+    if [[ ${OPENSHIFT} == 1 ]]; then
+        if [[ "x$(kubectl_bin get namespaces | awk '{print $1}' | grep openshift-kube-controller-manager-operator)" != "x" ]]; then
+            #Detecting openshift 4+
+            kubectl_bin -n openshift-kube-controller-manager-operator get secret csr-signer -o jsonpath='{.data.tls\.crt}' \
+                | base64 -d > ${tmp_dir}/vault.ca
+        else
+            CA_SECRET_NAME=$(kubectl_bin -n default get secrets \
+                                | grep default \
+                                | grep service-account-token \
+                                | head -n 1 \
+                                | awk {'print $1'})
+            kubectl_bin -n default get secret ${CA_SECRET_NAME} -o jsonpath='{.data.ca\.crt}' \
+                | base64 -d > ${tmp_dir}/vault.ca
+        fi
     fi
     kubectl_bin create secret generic ${SECRET_NAME} \
         --namespace ${NAMESPACE} \
@@ -794,6 +800,10 @@ storage \"file\" {
             "$src_dir/vendor/vault"
     fi
 
+    if [[ "${OPENSHIFT}" == 1 ]]; then
+        oc patch clusterrole $name-agent-injector-clusterrole --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
+        oc adm policy add-scc-to-user privileged $name-agent-injector
+    fi
 
     set +o xtrace
     retry=0

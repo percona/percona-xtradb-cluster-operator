@@ -46,10 +46,10 @@ get_backup_dest() {
         fi
 
         local secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.credentialsSecret}' 2>/dev/null)
-        export ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.endpointUrl}' 2>/dev/null)
-        export ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
-        export SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
-
+        ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.endpointUrl}' 2>/dev/null)
+        ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
+        SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
+        export CREDENTIALS="ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY"
         $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else
         # support direct PVC name here
@@ -86,7 +86,7 @@ check_input() {
             usage
         fi
     elif [ "${backup_dest:0:5}" = "s3://" ]; then
-        xbcloud get ${backup_dest} xtrabackup_info 1>/dev/null
+        env -i $CREDENTIALS xbcloud get ${backup_dest} xtrabackup_info 1>/dev/null
     else
         usage
     fi
@@ -147,7 +147,7 @@ copy_files_s3() {
 
     echo ""
     echo "Downloading started"
-    xbcloud get ${backup_path} --parallel=10 1>$dest_dir/xtrabackup.stream 2>$dest_dir/transfer.log
+    env -i $CREDENTIALS xbcloud get ${backup_path} --parallel=10 1>$dest_dir/xtrabackup.stream 2>$dest_dir/transfer.log
     echo "Downloading finished"
 }
 

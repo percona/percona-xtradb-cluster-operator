@@ -41,7 +41,7 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtra
 	}
 }
 
-func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBCluster) *corev1.Pod {
+func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBCluster, initImageName string) *corev1.Pod {
 	if _, ok := cluster.Spec.Backup.Storages[bcp.Spec.StorageName]; !ok {
 		log.Info("storage " + bcp.Spec.StorageName + " doesn't exist")
 		if len(cluster.Spec.Backup.Storages) == 0 {
@@ -127,13 +127,25 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 	}
 
 	if cluster.CompareVersionWith("1.5.0") >= 0 {
-		pod.Spec.Containers[0].Command = []string{"/var/lib/mysql/opts/recovery-pvc-donor.sh"}
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "backup",
+					MountPath: "/backup",
+				},
+			},
+			Image:   initImageName,
+			Name:    "restore-src-init",
+			Command: []string{"bash", "/backup-init-entrypoint.sh"},
+		})
+
+		pod.Spec.Containers[0].Command = []string{"bash", "/backup/recovery-pvc-donor.sh"}
 	}
 
 	return pod
 }
 
-func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBCluster) *batchv1.Job {
+func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBCluster, initImageName string) *batchv1.Job {
 	resources, err := app.CreateResources(cluster.Spec.PXC.Resources)
 	if err != nil {
 		log.Info("cannot parse PXC resources: ", err)
@@ -221,7 +233,19 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 	}
 
 	if cluster.CompareVersionWith("1.5.0") >= 0 {
-		job.Spec.Template.Spec.Containers[0].Command = []string{"/var/lib/mysql/opts/recovery-pvc-joiner.sh"}
+		job.Spec.Template.Spec.InitContainers = append(job.Spec.Template.Spec.InitContainers, corev1.Container{
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "datadir",
+					MountPath: "/backup",
+				},
+			},
+			Image:   initImageName,
+			Name:    "restore-dest-init",
+			Command: []string{"/backup-init-entrypoint.sh"},
+		})
+
+		job.Spec.Template.Spec.Containers[0].Command = []string{"/datadir/recovery-pvc-joiner.sh"}
 	}
 
 	useMem, k8sq, err := xbMemoryUse(cluster.Spec)
@@ -243,7 +267,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 }
 
 // S3RestoreJob returns restore job object for s3
-func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBCluster) (*batchv1.Job, error) {
+func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBCluster, initImageName string) (*batchv1.Job, error) {
 	resources, err := app.CreateResources(cluster.Spec.PXC.Resources)
 	if err != nil {
 		log.Info("cannot parse PXC resources: ", err)
@@ -355,7 +379,19 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 	}
 
 	if cluster.CompareVersionWith("1.5.0") >= 0 {
-		job.Spec.Template.Spec.Containers[0].Command = []string{"/var/lib/mysql/opts/recovery-s3.sh"}
+		job.Spec.Template.Spec.InitContainers = append(job.Spec.Template.Spec.InitContainers, corev1.Container{
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "datadir",
+					MountPath: "/backup",
+				},
+			},
+			Image:   initImageName,
+			Name:    "restore-s3-init",
+			Command: []string{"/backup-init-entrypoint.sh"},
+		})
+
+		job.Spec.Template.Spec.Containers[0].Command = []string{"/datadir/recovery-s3.sh"}
 	}
 
 	useMem, k8sq, err := xbMemoryUse(cluster.Spec)

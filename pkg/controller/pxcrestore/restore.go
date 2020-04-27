@@ -2,6 +2,8 @@ package pxcrestore
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -30,19 +32,39 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 	return errors.Errorf("unknown destination %s", bcp.Status.Destination)
 }
 
+func (r *ReconcilePerconaXtraDBClusterRestore) operatorPod(cr api.PerconaXtraDBCluster) (corev1.Pod, error) {
+	operatorPod := corev1.Pod{}
+	err := r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      os.Getenv("HOSTNAME"),
+		},
+		&operatorPod,
+	)
+	if err != nil {
+		return operatorPod, err
+	}
+
+	return operatorPod, nil
+}
+
 func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBCluster) error {
 	svc := backup.PVCRestoreService(cr, bcp)
 	k8s.SetControllerReference(cr, svc, r.scheme)
-	pod := backup.PVCRestorePod(cr, bcp, pvcName, cluster)
+	operatorPod, err := r.operatorPod(cluster)
+	if err != nil {
+		return fmt.Errorf("failed to get operator pod: %v", err)
+	}
+	pod := backup.PVCRestorePod(cr, bcp, pvcName, cluster, operatorPod.Spec.Containers[0].Image)
 	k8s.SetControllerReference(cr, pod, r.scheme)
 
-	job := backup.PVCRestoreJob(cr, bcp, cluster)
+	job := backup.PVCRestoreJob(cr, bcp, cluster, operatorPod.Spec.Containers[0].Image)
 	k8s.SetControllerReference(cr, job, r.scheme)
 
 	r.client.Delete(context.TODO(), svc)
 	r.client.Delete(context.TODO(), pod)
 
-	err := r.client.Create(context.TODO(), svc)
+	err = r.client.Create(context.TODO(), svc)
 	if err != nil {
 		return errors.Wrap(err, "create service")
 	}
@@ -72,7 +94,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBC
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBCluster) error {
-	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster)
+	operatorPod, err := r.operatorPod(cluster)
+	if err != nil {
+		return fmt.Errorf("failed to get operator pod: %v", err)
+	}
+	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster, operatorPod.Spec.Containers[0].Image)
 	if err != nil {
 		return err
 	}
@@ -101,6 +127,4 @@ func (r *ReconcilePerconaXtraDBClusterRestore) createJob(job *batchv1.Job) error
 			}
 		}
 	}
-
-	return nil
 }

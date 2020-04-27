@@ -36,7 +36,7 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBCluster, job *batchv1.Job) batchv1.JobSpec {
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBCluster, job *batchv1.Job, initImageName string) batchv1.JobSpec {
 	resources, err := app.CreateResources(cluster.Spec.Backup.Storages[spec.StorageName].Resources)
 	if err != nil {
 		log.Info("cannot parse Backup resources: ", err)
@@ -95,7 +95,19 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}
 
 	if cluster.CompareVersionWith("1.5.0") >= 0 {
-		jobSpec.Template.Spec.Containers[0].Command = []string{"bash", "/var/lib/mysql/opts/backup.sh"}
+		jobSpec.Template.Spec.InitContainers = append(jobSpec.Template.Spec.InitContainers, corev1.Container{
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "xtrabackup",
+					MountPath: "/backup",
+				},
+			},
+			Image:   initImageName,
+			Name:    "backup-init",
+			Command: []string{"bash", "/backup-init-entrypoint.sh"},
+		})
+
+		jobSpec.Template.Spec.Containers[0].Command = []string{"bash", "/backup/backup.sh"}
 	}
 
 	return jobSpec
@@ -175,9 +187,10 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 	job.Template.Spec.Volumes = []corev1.Volume{
 		pvc,
 	}
-	appendStorageSecret(job, cr)
 
-	return nil
+	err := appendStorageSecret(job, cr)
+
+	return err
 }
 
 func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s3 api.BackupStorageS3Spec, destination string) error {
@@ -221,12 +234,19 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
 
-	// add SSL volumes
-	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
-	job.Template.Spec.Volumes = []corev1.Volume{}
-	appendStorageSecret(job, cr)
+	shared := app.GetTmpVolume()
 
-	return nil
+	// add SSL volumes
+	job.Template.Spec.Volumes = []corev1.Volume{shared}
+	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+		{
+			Name:      "tmp",
+			MountPath: "/backup",
+		},
+	}
+	err = appendStorageSecret(job, cr)
+
+	return err
 }
 
 func parseS3URL(bucketURL string) (*url.URL, error) {

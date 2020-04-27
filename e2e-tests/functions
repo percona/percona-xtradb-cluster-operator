@@ -324,7 +324,7 @@ compare_mysql_user() {
     fi
 
     (run_mysql "SHOW GRANTS;" "$uri" || :) \
-        | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+        | $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
     diff -u $expected_result $tmp_dir/$user.sql
 }
@@ -341,7 +341,7 @@ compare_mysql_user_local() {
     fi
 
     (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" || :) \
-        | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+        | $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
     diff -u $expected_result $tmp_dir/$user.sql
 }

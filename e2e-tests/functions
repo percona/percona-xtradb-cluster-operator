@@ -19,7 +19,8 @@ test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
-if oc new-app -L -o json | jq -r '.kind' | grep "^List$"; then
+
+if oc status ; then
     OPENSHIFT=1
 fi
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')

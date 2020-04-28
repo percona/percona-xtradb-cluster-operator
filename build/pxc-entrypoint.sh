@@ -96,17 +96,8 @@ function join {
 vault_secret="/etc/mysql/vault-keyring-secret/keyring_vault.conf"
 if [ -f "$vault_secret" ]; then
 	sed -i "/\[mysqld\]/a early-plugin-load=keyring_vault.so" $CFG
+	sed -i "/\[mysqld\]/a default_table_encryption=1" $CFG
 	sed -i "/\[mysqld\]/a keyring_vault_config=$vault_secret" $CFG
-	sed -i "/\[mysqld\]/a default_table_encryption=ON" $CFG
-	sed -i "/\[mysqld\]/a table_encryption_privilege_check=ON" $CFG
-	sed -i "/\[mysqld\]/a innodb_undo_log_encrypt=ON" $CFG
-	sed -i "/\[mysqld\]/a innodb_redo_log_encrypt=ON" $CFG
-	sed -i "/\[mysqld\]/a binlog_encryption=ON" $CFG
-	sed -i "/\[mysqld\]/a binlog_rotate_encryption_master_key_at_startup=ON" $CFG
-	sed -i "/\[mysqld\]/a innodb_temp_tablespace_encrypt=ON" $CFG
-	sed -i "/\[mysqld\]/a innodb_parallel_dblwr_encrypt=ON" $CFG
-	sed -i "/\[mysqld\]/a innodb_encrypt_online_alter_logs=ON" $CFG
-	sed -i "/\[mysqld\]/a encrypt_tmp_files=ON" $CFG
 fi
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup'
@@ -241,7 +232,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			--  or products like mysql-fabric won't work
 			SET @@SESSION.SQL_LOG_BIN=0;
 
-			DELETE FROM mysql.user WHERE user NOT IN ('mysql.sys', 'mysqlxsys', 'root', 'mysql.infoschema', 'mysql.pxc.internal.session', 'mysql.pxc.sst.role', 'mysql.session') OR host NOT IN ('localhost') ;
+			DELETE FROM mysql.user WHERE user NOT IN ('mysql.sys', 'root', 'mysql.infoschema', 'mysql.pxc.internal.session', 'mysql.pxc.sst.role', 'mysql.session') OR host NOT IN ('localhost') ;
 			ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}' ;
 			GRANT ALL ON *.* TO 'root'@'localhost' WITH GRANT OPTION ;
 			${rootCreate}
@@ -249,9 +240,9 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			CREATE USER 'xtrabackup'@'localhost' IDENTIFIED BY '${XTRABACKUP_PASSWORD}';
 			GRANT RELOAD,PROCESS,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'localhost';
 
-			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '${MONITOR_PASSWORD}' WITH MAX_USER_CONNECTIONS 10;
+			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '${MONITOR_PASSWORD}';
 			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';
-			GRANT SELECT ON performance_schema.* TO 'monitor'@'${MONITOR_HOST}';
+			GRANT SELECT, UPDATE, DELETE, DROP ON performance_schema.* TO 'monitor'@'${MONITOR_HOST}';
 
 			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '${CLUSTERCHECK_PASSWORD}';
 			GRANT PROCESS ON *.* TO 'clustercheck'@'localhost';

@@ -3,16 +3,11 @@ package pxcbackup
 import (
 	"context"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"time"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
 	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,6 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 var log = logf.Log.WithName("controller_perconaxtradbclusterbackup")
@@ -82,22 +81,6 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	serverVersion *api.ServerVersion
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) operatorPod(cr *api.PerconaXtraDBCluster) (corev1.Pod, error) {
-	operatorPod := corev1.Pod{}
-	err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      os.Getenv("HOSTNAME"),
-		},
-		&operatorPod,
-	)
-	if err != nil {
-		return operatorPod, err
-	}
-
-	return operatorPod, nil
-}
-
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read
 // and what is in the PerconaXtraDBClusterBackup.Spec
 // Note:
@@ -149,14 +132,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		return reconcile.Result{}, fmt.Errorf("bcpStorage %s doesn't exist", instance.Spec.StorageName)
 	}
 
-	operatorpod, err := r.operatorPod(cluster)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get operator pod: %v", err)
-	}
-
 	bcp := backup.New(cluster)
 	job := bcp.Job(instance, cluster)
-	job.Spec = bcp.JobSpec(instance.Spec, cluster, job, operatorpod.Spec.Containers[0].Image)
+	job.Spec = bcp.JobSpec(instance.Spec, cluster.Spec, job)
 
 	var destination string
 	var s3status *api.BackupStorageS3Spec

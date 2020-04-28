@@ -864,6 +864,7 @@ start_minio() {
         --set secretKey=some-secret-key \
         --set service.type=ClusterIP \
         --set configPath=/tmp/.minio/ \
+        --set securityContext.enabled=false \
         --set persistence.size=2G \
         --set environment.MINIO_REGION=us-east-1 \
         --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \

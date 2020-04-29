@@ -133,6 +133,10 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 
 	log.Info("statefullSet was changed, run smart update")
 
+	if err := r.isBackupRunning(sfs.StatefulSet().Namespace); err != nil {
+		return fmt.Errorf("can't start 'SmartUpdate': %v", err)
+	}
+
 	if sfs.StatefulSet().Status.ReadyReplicas < sfs.StatefulSet().Status.Replicas {
 		return fmt.Errorf("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
 	}
@@ -283,9 +287,32 @@ func isPXC(sfs api.StatefulApp) bool {
 	return sfs.Labels()["app.kubernetes.io/component"] == "pxc"
 }
 
-// func isBackupRunning() (bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(namespace string) error {
+	list := corev1.PodList{}
+	err := r.client.List(context.TODO(),
+		&client.ListOptions{
+			Namespace: namespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"type": "xtrabackup",
+			}),
+		},
+		&list,
+	)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("get backup pod list: %v", err)
+	}
 
-// }
+	for _, pod := range list.Items {
+		if pod.Status.Phase == corev1.PodRunning {
+			return fmt.Errorf("backup pod %s is running", pod.Name)
+		}
+	}
+
+	return nil
+}
 
 func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster) string {
 	configString := cr.Spec.PXC.Configuration

@@ -15,6 +15,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/pkg/errors"
 )
 
 const maxStatusesQuantity = 20
@@ -71,7 +72,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	cr.Status.PXC = pxcStatus
-	cr.Status.Host = cr.Name + "-" + "pxc"
+	cr.Status.Host = cr.Name + "-" + "pxc." + cr.Namespace
 	if cr.Status.PXC.Message != "" {
 		cr.Status.Messages = append(cr.Status.Messages, "PXC: "+cr.Status.PXC.Message)
 	}
@@ -103,7 +104,26 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		}
 
 		cr.Status.ProxySQL = proxyStatus
-		cr.Status.Host = cr.Name + "-" + "proxysql"
+
+		cr.Status.Host = cr.Name + "-" + "proxysql." + cr.Namespace
+		if cr.Spec.ProxySQL.ServiceType == corev1.ServiceTypeLoadBalancer {
+			svc := &corev1.Service{}
+			err := r.client.Get(context.TODO(),
+				types.NamespacedName{
+					Namespace: cr.Namespace,
+					Name:      cr.Name + "-" + "proxysql",
+				}, svc)
+			if err != nil {
+				return errors.Wrap(err, "get proxysql service")
+			}
+			for _, i := range svc.Status.LoadBalancer.Ingress {
+				cr.Status.Host = i.IP
+				if len(i.Hostname) > 0 {
+					cr.Status.Host = i.Hostname
+				}
+			}
+		}
+
 		if cr.Status.ProxySQL.Message != "" {
 			cr.Status.Messages = append(cr.Status.Messages, "ProxySQL: "+cr.Status.ProxySQL.Message)
 		}

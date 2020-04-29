@@ -10,11 +10,17 @@ spec:
     image: -pxc
     volumeSpec:
       emptyDir: {}
+    resources:
+      requests:
+        ephemeral-storage: 1G
   proxysql:
     enabled: true
     size: 1
     image: -proxysql
     volumeSpec:
       emptyDir: {}
+    resources:
+      limits:
+        ephemeral-storage: 1G
   pmm:
     enabled: false

@@ -5,7 +5,7 @@ BASH_XTRACEFD="5"
 
 GIT_COMMIT=$(git rev-parse HEAD)
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-API="pxc.percona.com/v1-4-0"
+API="pxc.percona.com/v1-5-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:paval-pxc8.0"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/percona-xtradb-cluster-operator:master-pmm"}
@@ -19,7 +19,8 @@ test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
-if oc projects 2>&1 | egrep -q 'You have access to the following projects|You are not a member of any projects|You have one project on this server'; then
+
+if oc status ; then
     OPENSHIFT=1
 fi
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
@@ -167,6 +168,7 @@ deploy_helm() {
     if [ "$OPENSHIFT" == 1 ]; then
         oc project "$namespace"
         oc policy add-role-to-user edit "system:serviceaccount:tiller:tiller"
+        oc adm policy add-cluster-role-to-user cluster-admin "system:serviceaccount:tiller:tiller"
     else
         kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
     fi
@@ -219,12 +221,15 @@ compare_kubectl() {
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem" \
         | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
         | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
+        | egrep -v "load-balancer-cleanup" \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
         | $sed -e '/name: suffix/,+1d' \
         | $sed -e '/name: S3_BUCKET_PATH/,+1d' \
         | $sed -e '/name: S3_BUCKET_URL/,+1d' \
+        | $sed -e '/annotations:$/{$!{N;s/annotations:\n    kubernetes.io.*//;ty;P;D;:y;d}}' \
         > ${new_result}
+
     diff -u ${expected_result} ${new_result}
 }
 
@@ -278,6 +283,11 @@ compare_mysql_cmd() {
 
     run_mysql "$command" "$uri" \
         >$tmp_dir/${command_id}.sql
+    if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
+        sleep 10
+        run_mysql "$command" "$uri" \
+            >$tmp_dir/${command_id}.sql
+    fi
     diff -u $expected_result $tmp_dir/${command_id}.sql
 }
 
@@ -291,11 +301,7 @@ get_proxy_primary() {
         ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod")
     done
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]]; then
-        echo $ip | cut -d'.' -f1
-    else
-        get_pod_name "$ip"
-    fi
+    echo $ip | cut -d'.' -f1
 }
 
 get_pod_name() {
@@ -319,7 +325,7 @@ compare_mysql_user() {
     fi
 
     (run_mysql "SHOW GRANTS;" "$uri" || :) \
-        | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+        | $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
     diff -u $expected_result $tmp_dir/$user.sql
 }
@@ -336,7 +342,7 @@ compare_mysql_user_local() {
     fi
 
     (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" || :) \
-        | sed -e "s/'10[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+        | $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
     diff -u $expected_result $tmp_dir/$user.sql
 }
@@ -545,13 +551,13 @@ function is_table_encrypted() {
     run_mysql \
         "SELECT CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=\\\"$table\\\";" \
         "-h $cluster-proxysql -uroot -proot_password" \
-        | grep -oP "ENCRYPTION=('Y'|\"Y\")"
+        | egrep -o "ENCRYPTION=('Y'|\"Y\")"
 }
 
 function is_keyring_plugin_in_use() {
     local cluster=$1
-    kubectl exec -it pod/$cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
-        | grep -oP "early-plugin-load=keyring_\w+.so"
+    kubectl_bin exec -it $cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
+        | egrep -o "early-plugin-load=keyring_\w+.so"
 }
 
 function table_must_not_be_encrypted() {
@@ -722,13 +728,28 @@ spec:
   - server auth
 EOF
 
-    kubectl create -f ${tmp_dir}/csr.yaml
+    kubectl_bin create -f ${tmp_dir}/csr.yaml
     sleep 10
-    kubectl certificate approve ${CSR_NAME}
-    kubectl get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' > ${tmp_dir}/serverCert
+    kubectl_bin certificate approve ${CSR_NAME}
+    kubectl_bin get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' > ${tmp_dir}/serverCert
     openssl base64 -in ${tmp_dir}/serverCert -d -A -out ${tmp_dir}/vault.crt
-    kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d > ${tmp_dir}/vault.ca
-    kubectl create secret generic ${SECRET_NAME} \
+    kubectl_bin config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d > ${tmp_dir}/vault.ca
+    if [[ ${OPENSHIFT} == 1 ]]; then
+        if [[ "x$(kubectl_bin get namespaces | awk '{print $1}' | grep openshift-kube-controller-manager-operator)" != "x" ]]; then
+            #Detecting openshift 4+
+            kubectl_bin -n openshift-kube-controller-manager-operator get secret csr-signer -o jsonpath='{.data.tls\.crt}' \
+                | base64 -d > ${tmp_dir}/vault.ca
+        else
+            CA_SECRET_NAME=$(kubectl_bin -n default get secrets \
+                                | grep default \
+                                | grep service-account-token \
+                                | head -n 1 \
+                                | awk {'print $1'})
+            kubectl_bin -n default get secret ${CA_SECRET_NAME} -o jsonpath='{.data.ca\.crt}' \
+                | base64 -d > ${tmp_dir}/vault.ca
+        fi
+    fi
+    kubectl_bin create secret generic ${SECRET_NAME} \
         --namespace ${NAMESPACE} \
         --from-file=vault.key=${tmp_dir}/vault.key \
         --from-file=vault.crt=${tmp_dir}/vault.crt \
@@ -739,6 +760,12 @@ start_vault() {
     name=${1:-vault-service}
     protocol=${2:-http}
 
+    local platform=kubernetes
+
+    if [[ ${OPENSHIFT} == 1 ]]; then
+        platform=openshift
+        oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
+    fi
     create_namespace "$name"
     deploy_helm "$name"
     helm delete --purge "$name" || :
@@ -750,6 +777,7 @@ start_vault() {
         helm install --name $name --namespace "$name" \
             --set dataStorage.enabled=false \
             --set global.tlsDisable=false \
+            --set global.platform="${platform}" \
             --set server.extraVolumes[0].type=secret \
             --set server.extraVolumes[0].name=$name \
             --set server.extraEnvironmentVars.VAULT_CACERT=/vault/userconfig/$name/vault.ca \
@@ -769,14 +797,19 @@ storage \"file\" {
     else
         helm install --name $name --namespace "$name" \
             --set dataStorage.enabled=false \
+            --set global.platform="${platform}" \
             "$src_dir/vendor/vault"
     fi
 
+    if [[ "${OPENSHIFT}" == 1 ]]; then
+        oc patch clusterrole $name-agent-injector-clusterrole --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
+        oc adm policy add-scc-to-user privileged $name-agent-injector
+    fi
 
     set +o xtrace
     retry=0
     echo -n pod/$name-0
-    until kubectl get pod/$name-0 -o 'jsonpath={.status.containerStatuses[0].state}' 2>/dev/null | grep 'running'; do
+    until kubectl_bin get pod/$name-0 -o 'jsonpath={.status.containerStatuses[0].state}' 2>/dev/null | grep 'running'; do
         echo -n .
         sleep 1
         let retry+=1
@@ -789,13 +822,13 @@ storage \"file\" {
     done
     set -o xtrace
 
-    kubectl exec -it pod/$name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
+    kubectl_bin exec -it $name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
     unsealKey=$(jq -r ".unseal_keys_b64[]" <"$tmp_dir/$name")
     token=$(jq -r ".root_token" <"$tmp_dir/$name")
     sleep 10
 
-    kubectl exec -it pod/$name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
-    kubectl exec -it pod/$name-0 -- \
+    kubectl_bin exec -it $name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
+    kubectl_bin exec -it $name-0 -- \
         sh -c "export VAULT_TOKEN=$token && export VAULT_LOG_LEVEL=trace \
                 && vault secrets enable --version=1 -tls-skip-verify -path=secret kv \
                 && vault audit enable file file_path=/vault/vault-audit.log"
@@ -807,11 +840,11 @@ storage \"file\" {
         | sed -e "s/#secret/secret/" > "${tmp_dir}/vault-secret.yaml"
     if [ $protocol == "https" ]; then
         sed -e 's/^/    /' ${tmp_dir}/vault.ca > ${tmp_dir}/vault.new.ca
-        sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
-        sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
-        sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
+        $sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
+        $sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
+        $sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
     else
-        sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
+        $sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
     fi
 
     kubectl_bin apply --namespace="$namespace" -f ${tmp_dir}/vault-secret.yaml
@@ -831,6 +864,7 @@ start_minio() {
         --set secretKey=some-secret-key \
         --set service.type=ClusterIP \
         --set configPath=/tmp/.minio/ \
+        --set securityContext.enabled=false \
         --set persistence.size=2G \
         --set environment.MINIO_REGION=us-east-1 \
         --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \

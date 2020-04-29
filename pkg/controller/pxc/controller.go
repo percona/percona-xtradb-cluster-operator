@@ -198,16 +198,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 
-		if o.Spec.ProxySQL.ServiceType != nil {
+		if len(o.Spec.ProxySQL.ServiceType) > 0 {
 			//Upgrading service only if something is changed
-			if currentService.Spec.Type != *o.Spec.ProxySQL.ServiceType {
+			if currentService.Spec.Type != o.Spec.ProxySQL.ServiceType {
 				currentService.Spec.Ports = []corev1.ServicePort{
 					{
 						Port: 3306,
 						Name: "mysql",
 					},
 				}
-				currentService.Spec.Type = *o.Spec.ProxySQL.ServiceType
+				currentService.Spec.Type = o.Spec.ProxySQL.ServiceType
 			}
 			//Checking default ServiceType
 		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {

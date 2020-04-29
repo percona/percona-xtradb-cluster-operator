@@ -8,16 +8,15 @@ import (
 	"strings"
 	"time"
 
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) error {
@@ -284,6 +283,10 @@ func isPXC(sfs api.StatefulApp) bool {
 	return sfs.Labels()["app.kubernetes.io/component"] == "pxc"
 }
 
+// func isBackupRunning() (bool, error) {
+
+// }
+
 func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster) string {
 	configString := cr.Spec.PXC.Configuration
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
@@ -295,17 +298,18 @@ func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster,
 	if cr.Spec.AllowUnsafeConfig {
 		return "", nil
 	}
+
 	secretObj := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
+	if err := r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      secretName,
 		},
 		&secretObj,
-	)
-	if err != nil {
+	); err != nil {
 		return "", err
 	}
+
 	secretString := fmt.Sprintln(secretObj.Data)
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
 

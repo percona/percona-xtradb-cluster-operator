@@ -30,7 +30,7 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
 
    .. code:: bash
 
-      $ helm install --name vault-service ./
+      $ helm install vault-service ./
 
 3. After the installation, Vauld should be first initialized and then unsealed.
    Initializing Vault is done with the following commands:
@@ -66,7 +66,9 @@ Configuring Vault
 
    Now login to Vault with this token and enable the "pxc-secret" secrets path:
 
-      $ kubectl exec -it vault-0 -- /bin/sh
+   .. code:: bash
+
+      $ kubectl exec -it vault-service-0 -- /bin/sh
       $ vault login s.VgQvaXl8xGFO1RUxAPbPbsfN
       $ vault secrets enable --version=1 -path=pxc-secret kv
 
@@ -81,7 +83,7 @@ Configuring Vault
 
    2.1. To access the Vault server via HTTP, follow the next YAML file example:
 
-      .. code:: text
+      .. code:: yaml
 
          apiVersion: v1
          kind: Secret
@@ -104,7 +106,7 @@ Configuring Vault
         with your certificate,
       * store the path to this file in the ``vault_ca`` key.
 
-      .. code:: text
+      .. code:: yaml
 
          apiVersion: v1
          kind: Secret

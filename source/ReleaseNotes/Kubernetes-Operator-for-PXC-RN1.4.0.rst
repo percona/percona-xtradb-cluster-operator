@@ -5,7 +5,7 @@
 ================================================================================
 
 :Date: April 29, 2020
-:Installation: `Installing Percona Kubernetes Operator for PXC <https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html#installation>`_
+:Installation: `Installing Percona Kubernetes Operator for Percona XtraDB Cluster <https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html#installation>`_
 
 New Features
 ================================================================================
@@ -14,7 +14,7 @@ New Features
 * :jirabug:`K8SPXC-125`: Percona XtraDB Cluster 8.0 is now supported
 * :jirabug:`K8SPXC-95`: Amazon Elastic Container Service for Kubernetes (EKS)
   was added to the list of the officially supported platforms
-* The OpenShift Container Platform 4.3 is now supported.
+* The OpenShift Container Platform 4.3 is now supported
 
 Improvements
 ================================================================================
@@ -37,4 +37,3 @@ Bugs Fixed
 * :jirabug:`K8SPXC-219`: PXC Helm charts were incompatible with the version 3 of the Helm package manager
 * :jirabug:`K8SPXC-40`: The cluster was unable to reach "ready" status in case if ``ProxySQL.Enabled`` field was set to ``false``
 * :jirabug:`K8SPXC-34`: Change of the ``proxysql.servicetype`` filed was not detected by the Operator and thus had no effect
-

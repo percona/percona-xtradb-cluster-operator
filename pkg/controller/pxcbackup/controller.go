@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,10 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 var log = logf.Log.WithName("controller_perconaxtradbclusterbackup")
@@ -125,6 +124,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 	if cluster.Spec.Backup == nil {
 		return reconcile.Result{}, fmt.Errorf("a backup image should be set in the PXC config")
+	}
+
+	if cluster.Status.Status != api.AppStateReady {
+		return reconcile.Result{}, fmt.Errorf("failed to run backup on cluster with status %s", cluster.Status.Status)
 	}
 
 	bcpStorage, ok := cluster.Spec.Backup.Storages[instance.Spec.StorageName]

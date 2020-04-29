@@ -105,6 +105,30 @@ Percona XtraDB Cluster Operator:
 
          * - Image
            - Digest
+         * - percona/percona-xtradb-cluster-operator:1.4.0
+           - 277d62967e94dc4e7d0569656413967e6a8597842753da05f083543e68c9b719
+         * - percona/percona-xtradb-cluster-operator:1.4.0-proxysql
+           - 1ee8b9c291dac955dd98441187476fe8c3b5a4930e9e4dc39b9534376d0cc4f2
+         * - percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0
+           - 58296417cc97378b906e12855cb1f4f2420f06168d2096acc08a93c8afa793f6
+         * - percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0-backup
+           - 566ea1f6cf9387a06898d5f7af15189ed577d3af771d5954b2e869593b80cb6b
+         * - percona/percona-xtradb-cluster-operator:1.4.0-pxc5.7
+           - 4ff39dab7872a4b45250ca170604f6bce1fcc52510407f6cbd93cd81f5a32d8f
+         * - percona/percona-xtradb-cluster-operator:1.4.0-pxc5.7-backup
+           - ca8e3fd49d3a2ac15c0b9c44f8ea4e0f8240789de274859a91ec9cd8d8e80763
+         * - percona/percona-xtradb-cluster-operator:1.4.0-pmm
+           - 28bbb6693689a15c407c85053755334cd25d864e632ef7fed890bc85726cfb68
+         * - percona/percona-xtradb-cluster-operator:1.3.0
+           - 85cfaf78394e21b722be92015912c39e483f7ae5de1aab114293520a3825eb99
+         * - percona/percona-xtradb-cluster-operator:1.3.0-proxysql
+           - 8e40dec83008894aaa438f31233acb90f29969ad660cce26b700075eeaf9d34b
+         * - percona/percona-xtradb-cluster-operator:1.3.0-pxc
+           - a7d04c0a343fd0b7f08a306bb9f00b6df2f398bb7163990ba787f037c294853e
+         * - percona/percona-xtradb-cluster-operator:1.3.0-backup
+           - f786d92d96c5036df1785647d323081235c06fad56653ca93ae44af85c2d19e8
+         * - percona/percona-xtradb-cluster-operator:1.3.0-pmm
+           - 28bbb6693689a15c407c85053755334cd25d864e632ef7fed890bc85726cfb68
          * - percona/percona-xtradb-cluster-operator:1.2.0
            - 841c07eef30605080bfe80e549f9332ab6b9755fcbc42aacbf86e4ac9ef0e444
          * - percona/percona-xtradb-cluster-operator:1.2.0-pxc

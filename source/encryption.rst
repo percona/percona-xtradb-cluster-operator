@@ -5,7 +5,7 @@ Data-at-Rest Encryption
 
 `Full data-at-rest encryption in Percona XtraDB Cluster <https://www.percona.com/doc/percona-xtradb-cluster/LATEST/management/data_at_rest_encryption.html>`_ is supported by the Operator since version 1.4.0.
 
-..note:: `Data at rest <https://en.wikipedia.org/wiki/Data_at_rest>`_ means inactive data stored as files, database records, etc.
+.. note:: `Data at rest <https://en.wikipedia.org/wiki/Data_at_rest>`_ means inactive data stored as files, database records, etc.
 
 To implement these features, the Operator uses ``keyring_vault`` plugin,
 which ships with Percona XtraDB Cluster, and utilizes `HashiCorp Vault <https://www.vaultproject.io/>`_ storage for encryption keys.

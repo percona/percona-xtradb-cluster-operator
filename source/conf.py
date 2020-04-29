@@ -251,6 +251,9 @@ latex_preamble = '\setcounter{tocdepth}{2}'
 # If false, no module index is generated.
 #latex_domain_indices = True
 
+latex_elements = {
+  'extraclassoptions': 'openany,oneside'
+}
 
 # -- Options for manual page output --------------------------------------------
 

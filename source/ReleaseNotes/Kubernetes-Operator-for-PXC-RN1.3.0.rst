@@ -1,7 +1,7 @@
  	.. rn:: 1.3.0
 
-Percona Kubernetes Operator for Percona XtraDB Cluster 1.3.0
-============================================================
+*Percona Kubernetes Operator for Percona XtraDB Cluster* 1.3.0
+==============================================================
 
 Percona announces the *Percona Kubernetes Operator for Percona XtraDB Cluster*
 1.3.0 release on January 6, 2020. This release is now the current GA release

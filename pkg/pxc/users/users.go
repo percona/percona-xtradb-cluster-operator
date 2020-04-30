@@ -114,7 +114,7 @@ func (u *Manager) GetUsersData(externalSecret, internalSecret corev1.Secret) err
 	return nil
 }
 
-func (u *Manager) ManageUsers() error {
+func (u *Manager) ManageUsers(externalSecretName string) error {
 	defer u.db.Close()
 	tx, err := u.db.Begin()
 	if err != nil {
@@ -153,6 +153,29 @@ func (u *Manager) ManageUsers() error {
 				tx.Rollback()
 				return errors.Wrap(err, "flush privileges")
 			}
+		}
+	}
+
+	oldUsers := []InternalUser{}
+	for _, oldUser := range u.InternalUsers {
+		exist := false
+		for _, newUser := range u.Users {
+			for _, host := range newUser.Hosts {
+				if newUser.Name+"@"+host == oldUser.Name {
+					exist = true
+				}
+
+			}
+		}
+		if !exist && oldUser.Owner == externalSecretName {
+			oldUsers = append(oldUsers, oldUser)
+		}
+	}
+	for _, oldUser := range oldUsers {
+		_, err = tx.Exec("DROP USER IF EXISTS ?", oldUser.Name)
+		if err != nil {
+			tx.Rollback()
+			return errors.Wrap(err, "drop user with query")
 		}
 	}
 

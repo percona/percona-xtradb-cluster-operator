@@ -125,7 +125,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleUsersSecret(secretName string, cr 
 			return errors.Wrap(err, "get users data")
 		}
 
-		err = um.ManageUsers()
+		err = um.ManageUsers(usersSecretObj.Name)
 		if err != nil {
 			usersSecretObj.Annotations["status"] = statusFailed
 			errU := r.client.Update(context.TODO(), &usersSecretObj)

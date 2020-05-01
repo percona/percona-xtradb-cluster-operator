@@ -9,11 +9,11 @@ Prerequisites
 
 All commands from this quickstart can be run either in the **Google Cloud shell** or in **your local shell**.
 
-To use *Google Cloud shell* you need nothing but a modern web browser.
+To use *Google Cloud shell*, you need nothing but a modern web browser.
 
 If you would like to use *your local shell*, install the following:
 
-1. `gcloud <https://cloud.google.com/sdk/docs/quickstarts>`_. This tool is the part of the Google Cloud SDK. To install it, select your operating system on the `official Google Cloud SDK documentation page <https://cloud.google.com/sdk/docs>`_ and then follow the instructions.
+1. `gcloud <https://cloud.google.com/sdk/docs/quickstarts>`_. This tool is part of the Google Cloud SDK. To install it, select your operating system on the `official Google Cloud SDK documentation page <https://cloud.google.com/sdk/docs>`_ and then follow the instructions.
 2. `kubectl <https://cloud.google.com/kubernetes-engine/docs/quickstart#choosing_a_shell>`_. It is the Kubernetes command-line tool you will use to manage and deploy applications. To install the tool, run the following command:
 
    .. code:: bash
@@ -30,7 +30,7 @@ You can configure the settings using the ``gcloud`` tool. You can run it either 
 
    $ gcloud container clusters create my-cluster-1 --project <project name> --zone us-central1-a --cluster-version 1.15 --machine-type n1-standard-4 --num-nodes=3
 
-.. note:: You must edit the following command and other command line statements to replace the ``<project name>`` placeholder with your project name. You may also be required to edit the *zone location*, which is set to ``us-central1`` in the above example. Other parameters specify that we are creating a cluster with 3 nodes, and with machine type of 4 vCPUs and 45 GB memory.
+.. note:: You must edit the following command and other command-line statements to replace the ``<project name>`` placeholder with your project name. You may also be required to edit the *zone location*, which is set to ``us-central1`` in the above example. Other parameters specify that we are creating a cluster with 3 nodes and with machine type of 4 vCPUs and 45 GB memory.
 
 .. |rarr|   unicode:: U+02192 .. RIGHTWARDS ARROW
 
@@ -41,9 +41,7 @@ You may wait a few minutes for the cluster to be generated, and then you will se
 
 Now you should configure the command-line access to your newly created cluster to make ``kubectl`` be able to use it.
 
-Configure kubectl commandIn the Google Cloud console, select your cluster and then click the *Connect* shown on the above image.
-
-You will see the connect statement configures command line access. After you have edited the statement, you may run the command in your local shell:
+In the Google Cloud Console, select your cluster and then click the *Connect* shown on the above image. You will see the connect statement configures command-line access. After you have edited the statement, you may run the command in your local shell:
 
 .. code:: bash
 
@@ -52,7 +50,7 @@ You will see the connect statement configures command line access. After you hav
 Installing the Operator
 =======================
 
-1. You use Cloud Identity and Access Management (Cloud IAM) to control access to the cluster. The following command will give you the ability to create Roles and RoleBindings:
+1. First of all, use your `Cloud Identity and Access Management (Cloud IAM) <https://cloud.google.com/iam>`_ to control access to the cluster. The following command will give you the ability to create Roles and RoleBindings:
 
    .. code:: bash
 
@@ -66,14 +64,14 @@ Installing the Operator
 
 2. Create a namespace and set the context for the namespace. The resource names must be unique within the namespace and provide a way to divide cluster resources between users spread across multiple projects.
 
-   So create the namespace and save it in the namespace context for subsequent commands as follows (replace the ``<namespace name>`` placeholder with a descriptive name):
+   So, create the namespace and save it in the namespace context for subsequent commands as follows (replace the ``<namespace name>`` placeholder with some descriptive name):
 
    .. code:: bash
 
       $ kubectl create namespace <namespace name>
       $ kubectl config set-context $(kubectl config current-context) --namespace=<namespace name>
 
-   At success you will see the message that namespace/<namespace name> was created, and the context (gke_<project name>_<zone location>_<cluster name>) was modified.
+   At success, you will see the message that namespace/<namespace name> was created, and the context (gke_<project name>_<zone location>_<cluster name>) was modified.
 
 3. Use the following ``git clone`` command to download the correct branch of the percona-xtradb-cluster-operator repository:
 
@@ -87,7 +85,7 @@ Installing the Operator
 
       cd percona-xtradb-cluster-operator
 
-4. The ``deploy/bundle.yaml`` file contains RBAC authorizations and custom resource definistions which are extensions of the Kubernetes API. The Custom Resource Definitions for PXC adds the operator resources. So apply this file with the ``kubectl`` command as follows:
+4. Deploy the Operator with the following command:
 
    .. code:: bash
 
@@ -106,19 +104,7 @@ Installing the Operator
       rolebinding.rbac.authorization.k8s.io/service-account-percona-xtradb-cluster-operator created
       deployment.apps/percona-xtradb-cluster-operator created
 
-5. The data section of the deploy/secrets.yaml file contains base64-encoded logins and passwords for the user accounts.
-
-   .. code:: bash
-
-      kubectl apply -f deploy/secrets.yaml
-
-   The return statement confirms the creation.
-
-   .. code:: bash
-
-      secret/my-cluster-secrets created
-
-6. The operator has been started and the user secrets have been added, you can create the Percona XtraDB cluster.
+5. The operator has been started, and you can create the Percona XtraDB cluster:
 
    .. code:: bash
 
@@ -131,10 +117,23 @@ Installing the Operator
 
       perconaxtradbcluster.pxc.percona.com/cluster1 created
 
+6. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the password for the ``root`` user, which you will need to access the cluster.
+
+   Use ``kubectl get secrets`` command to see the list of Secrets objects (by default Secrets object you are interested in has ``my-cluster-secrets`` name). Then ``kubectl get secret my-cluster-secrets -o yaml`` will return the YAML file with generated secrets, including the root password which should look as follows:
+
+   .. code:: yaml
+
+     ...
+     data:
+       ...
+       root: cm9vdF9wYXNzd29yZA==
+
+   Here the actual password is base64-encoded, and ``echo 'cm9vdF9wYXNzd29yZA==' | base64 --decode`` will bring it back to a human-readable form.
+
 Verifying the cluster operator
 ==============================
 
-The cluster may take ten minutes to get the cluster started. You  can verify its creation with the ``kubectl get pods`` command:
+It may take ten minutes to get the cluster started. You  can verify its creation with the ``kubectl get pods`` command:
 
 .. code:: text
 
@@ -147,7 +146,7 @@ The cluster may take ten minutes to get the cluster started. You  can verify its
    cluster1-pxc-1                                     0/1     Running   0          56s
    percona-xtradb-cluster-operator-7455888c9d-wpn9j   1/1     Running   0          4m3s
 
-Also you can see the same information when browsing Pods of your cluster in Google Cloud console via the *Object Browser*:
+Also, you can see the same information when browsing Pods of your cluster in Google Cloud console via the *Object Browser*:
 
 .. image:: ./assets/images/gke-quickstart-object-browser.png
    :align: center
@@ -156,7 +155,7 @@ If all nodes are up and running, you can try to connect to the cluster with the 
 
 .. code:: bash
 
-   kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
+   $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
 
 Executing this command will open a ``bash`` command prompt:
 
@@ -165,13 +164,13 @@ Executing this command will open a ``bash`` command prompt:
    If you don't see a command prompt, try pressing enter.
    $
 
-At the command prompt, you can connect to the MySQL server host.
+Now run ``mysql`` tool in the percona-client command shell using the password obtained from the secret:
 
 .. code:: bash
 
    mysql -h cluster1-proxysql -uroot -proot_password
 
-The return statements connects to the MySQL monitor.
+This command will connect you to the MySQL monitor.
 
 .. code:: text
 
@@ -209,13 +208,7 @@ The return statement displays the current max_connections.
 Troubleshooting
 ===============
 
-The phrases in the ``install/secrets.yaml`` can be decoded with the following:
-
-.. code:: bash
-
-   $ echo -n `phrase` | base64 -D
-
-If ``kubectl get pods`` command had shown some errors, you can examine the problematic Pod whit the ``kubectl describe <pod name>`` command.  For example, this command returns information for the selected pod:
+If ``kubectl get pods`` command had shown some errors, you can examine the problematic Pod with the ``kubectl describe <pod name>`` command.  For example, this command returns information for the selected Pod:
 
 .. code:: bash
 
@@ -225,12 +218,12 @@ Review the detailed information for ``Warning`` statements and then correct the 
 
    *Warning  FailedScheduling  68s (x4 over 2m22s)  default-scheduler  0/1 nodes are available: 1 node(s) didn't match pod affinity/anti-affinity, 1 node(s) didn't satisfy existing pods anti-affinity rules.*
 
-Alternatively you can examine your Pods via the *object browser*. Errors will look as follows:
+Alternatively, you can examine your Pods via the *object browser*. Errors will look as follows:
 
 .. image:: ./assets/images/gke-quickstart-object-browser-error.png
    :align: center
 
-Clicking the problematic Pod will bring you to the details page with the same warining:
+Clicking the problematic Pod will bring you to the details page with the same warning:
 
 .. image:: ./assets/images/gke-quickstart-object-browser-details.png
    :align: center
@@ -248,7 +241,7 @@ You can clean up the cluster with the ``gcloud`` command as follows:
 
 The return statement requests your confirmation of the deletion. Type ``y`` to confirm.
 
-Also you can delete your cluster via the GKE console. Just click the appropriate trashcan icon in the clusters list:
+Also, you can delete your cluster via the GKE console. Just click the appropriate trashcan icon in the clusters list:
 
 .. image:: ./assets/images/gke-quickstart-cluster-connect.png
    :align: center

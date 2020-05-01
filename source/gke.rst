@@ -122,7 +122,7 @@ Installing the Operator
 
    .. code:: bash
 
-      kubectl apply -f deploy/cr.yaml
+      $ kubectl apply -f deploy/cr.yaml
 
    The process could take some time.
    The return statement confirms the creation:
@@ -215,17 +215,25 @@ The phrases in the ``install/secrets.yaml`` can be decoded with the following:
 
    $ echo -n `phrase` | base64 -D
 
-If needed, use the ``kubectl describe`` command for the pod details.  For example, this command returns information for the selected pod:
+If ``kubectl get pods`` command had shown some errors, you can examine the problematic Pod whit the ``kubectl describe <pod name>`` command.  For example, this command returns information for the selected pod:
 
 .. code:: bash
 
-   kubectl describe pod cluster1-pxc-0
+   kubectl describe pod cluster1-proxysql-2
 
 Review the detailed information for ``Warning`` statements and then correct the configuration. An example of a warning is as follows:
 
-.. code:: text
+   *Warning  FailedScheduling  68s (x4 over 2m22s)  default-scheduler  0/1 nodes are available: 1 node(s) didn't match pod affinity/anti-affinity, 1 node(s) didn't satisfy existing pods anti-affinity rules.*
 
-   Warning  FailedScheduling  68s (x4 over 2m22s)  default-scheduler  0/1 nodes are available: 1 node(s) didn't match pod affinity/anti-affinity, 1 node(s) didn't satisfy existing pods anti-affinity rules.
+Alternatively you can examine your Pods via the *object browser*. Errors will look as follows:
+
+.. image:: ./assets/images/gke-quickstart-object-browser-error.png
+   :align: center
+
+Clicking the problematic Pod will bring you to the details page with the same warining:
+
+.. image:: ./assets/images/gke-quickstart-object-browser-details.png
+   :align: center
 
 Removing the GKE cluster
 ========================

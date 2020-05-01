@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	cm "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	cm "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha3"
+	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 	corev1 "k8s.io/api/core/v1"
@@ -81,7 +82,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				"*." + cr.Name + "-proxysql",
 			},
 			IsCA: true,
-			IssuerRef: cm.ObjectReference{
+			IssuerRef: cmmeta.ObjectReference{
 				Name: issuerName,
 				Kind: issuerKind,
 			},
@@ -108,7 +109,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				"*." + cr.Name + "-pxc",
 			},
 			IsCA: true,
-			IssuerRef: cm.ObjectReference{
+			IssuerRef: cmmeta.ObjectReference{
 				Name: issuerName,
 				Kind: issuerKind,
 			},

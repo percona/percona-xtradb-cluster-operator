@@ -227,16 +227,22 @@
   version = "v0.3.6"
 
 [[projects]]
-  digest = "1:68822a09e1e35090bd3fe737de741981f6f78ab46c77a0025cec02503b2c5c18"
+  digest = "1:1b84fd3c64140bd3d8106174f38c5fdaf206c2f7a9c45df530614a16840cb4e8"
   name = "github.com/jetstack/cert-manager"
   packages = [
+    "pkg/apis/acme",
+    "pkg/apis/acme/v1alpha2",
+    "pkg/apis/acme/v1alpha3",
     "pkg/apis/certmanager",
-    "pkg/apis/certmanager/v1alpha1",
+    "pkg/apis/certmanager/v1alpha2",
+    "pkg/apis/certmanager/v1alpha3",
+    "pkg/apis/meta",
+    "pkg/apis/meta/v1",
     "pkg/client/clientset/versioned/scheme",
   ]
   pruneopts = "NT"
-  revision = "c030d921b3b92326733e921fd53270f6be2b81be"
-  version = "v0.14.1"
+  revision = "7fb4ced3ca5ed6391c50ba07cae3d99f21424523"
+  version = "v0.14.3"
 
 [[projects]]
   digest = "1:1d39c063244ad17c4b18e8da1551163b6ffb52bd1640a49a8ec5c3b7bf4dbd5d"
@@ -533,6 +539,16 @@
   revision = "2d6f90ab1293a1fb871cf149423ebb72aa7423aa"
 
 [[projects]]
+  digest = "1:117a407949aaaad9f7fbe3da8d6c2055f2c223ac0cbebd39f47ff71899622a91"
+  name = "k8s.io/apiextensions-apiserver"
+  packages = [
+    "pkg/apis/apiextensions",
+    "pkg/apis/apiextensions/v1beta1",
+  ]
+  pruneopts = "NT"
+  revision = "408db4a50408e2149acbd657bceb2480c13cb0a4"
+
+[[projects]]
   digest = "1:b07bf863262aae765494d60f0d524483f211b29f9bb27d445a79c13af8676bf2"
   name = "k8s.io/apimachinery"
   packages = [
@@ -773,7 +789,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/hashicorp/go-version",
-    "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1",
+    "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha3",
     "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/scheme",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",

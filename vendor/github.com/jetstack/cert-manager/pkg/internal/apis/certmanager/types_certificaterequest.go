@@ -1,0 +1,131 @@
+/*
+Copyright 2019 The Jetstack cert-manager contributors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package certmanager
+
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	cmmeta "github.com/jetstack/cert-manager/pkg/internal/apis/meta"
+)
+
+const (
+	CertificateRequestReasonPending = "Pending"
+	CertificateRequestReasonFailed  = "Failed"
+	CertificateRequestReasonIssued  = "Issued"
+)
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// CertificateRequest is a type to represent a Certificate Signing Request
+type CertificateRequest struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+
+	Spec   CertificateRequestSpec
+	Status CertificateRequestStatus
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// CertificateRequestList is a list of Certificates
+type CertificateRequestList struct {
+	metav1.TypeMeta
+	metav1.ListMeta
+
+	Items []CertificateRequest
+}
+
+// CertificateRequestSpec defines the desired state of CertificateRequest
+type CertificateRequestSpec struct {
+	// Requested certificate default Duration
+	Duration *metav1.Duration
+
+	// IssuerRef is a reference to the issuer for this CertificateRequest.  If
+	// the 'kind' field is not set, or set to 'Issuer', an Issuer resource with
+	// the given name in the same namespace as the CertificateRequest will be
+	// used.  If the 'kind' field is set to 'ClusterIssuer', a ClusterIssuer with
+	// the provided name will be used. The 'name' field in this stanza is
+	// required at all times. The group field refers to the API group of the
+	// issuer which defaults to 'cert-manager.io' if empty.
+	IssuerRef cmmeta.ObjectReference
+
+	// Byte slice containing the PEM encoded CertificateSigningRequest
+	CSRPEM []byte
+
+	// IsCA will mark the resulting certificate as valid for signing. This
+	// implies that the 'signing' usage is set
+	IsCA bool
+
+	// Usages is the set of x509 actions that are enabled for a given key.
+	// Defaults are ('digital signature', 'key encipherment') if empty
+	Usages []KeyUsage
+}
+
+// CertificateStatus defines the observed state of CertificateRequest and
+// resulting signed certificate.
+type CertificateRequestStatus struct {
+	Conditions []CertificateRequestCondition
+
+	// Byte slice containing a PEM encoded signed certificate resulting from the
+	// given certificate signing request.
+	Certificate []byte
+
+	// Byte slice containing the PEM encoded certificate authority of the signed
+	// certificate.
+	CA []byte
+
+	// FailureTime stores the time that this CertificateRequest failed. This is
+	// used to influence garbage collection and back-off.
+	FailureTime *metav1.Time
+}
+
+// CertificateRequestCondition contains condition information for a CertificateRequest.
+type CertificateRequestCondition struct {
+	// Type of the condition, currently ('Ready', 'InvalidRequest').
+	Type CertificateRequestConditionType
+
+	// Status of the condition, one of ('True', 'False', 'Unknown').
+	Status cmmeta.ConditionStatus
+
+	// LastTransitionTime is the timestamp corresponding to the last status
+	// change of this condition.
+	LastTransitionTime *metav1.Time
+
+	// Reason is a brief machine readable explanation for the condition's last
+	// transition.
+	Reason string
+
+	// Message is a human readable description of the details of the last
+	// transition, complementing reason.
+	Message string
+}
+
+// CertificateRequestConditionType represents an Certificate condition value.
+type CertificateRequestConditionType string
+
+const (
+	// CertificateRequestConditionReady indicates that a certificate is ready for use.
+	// This is defined as:
+	// - The target certificate exists in CertificateRequest.Status
+	CertificateRequestConditionReady CertificateRequestConditionType = "Ready"
+
+	// CertificateRequestConditionInvalidRequest indicates that a certificate
+	// signer has refused to sign the request due to at least one of the input
+	// parameters being invalid. Additional information about why the request
+	// was rejected can be found in the `reason` and `message` fields.
+	CertificateRequestConditionInvalidRequest CertificateRequestConditionType = "InvalidRequest"
+)

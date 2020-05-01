@@ -235,7 +235,7 @@
     "pkg/client/clientset/versioned/scheme",
   ]
   pruneopts = "NT"
-  revision = "193c5e22d6d2ad56956b97c7e4899267bd4ac3ac"
+  revision = "c030d921b3b92326733e921fd53270f6be2b81be"
   version = "v0.14.1"
 
 [[projects]]

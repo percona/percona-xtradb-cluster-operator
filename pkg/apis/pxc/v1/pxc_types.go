@@ -454,7 +454,7 @@ func (cr *PerconaXtraDBCluster) setVersion() error {
 		}
 		apiVersion = newCR.APIVersion
 	}
-	crVersion := strings.Replace(strings.TrimLeft(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
+	crVersion := strings.Replace(strings.TrimPrefix(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
 	if len(crVersion) == 0 {
 		crVersion = "v1"
 	}

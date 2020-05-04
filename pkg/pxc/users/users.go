@@ -59,7 +59,7 @@ type InternalUser struct {
 	Status string `json:"status"`
 }
 
-func New(hosts []string, rootPass string) (Manager, error) {
+func NewManager(hosts []string, rootPass string) (Manager, error) {
 	var um Manager
 	var err error
 	for _, host := range hosts {

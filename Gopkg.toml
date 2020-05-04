@@ -56,3 +56,7 @@ required = [
 [[constraint]]
   name = "github.com/jetstack/cert-manager"
   version = "0.14.1"
+
+[[constraint]]
+  name = "github.com/robfig/cron"
+  version = "3.0.1"

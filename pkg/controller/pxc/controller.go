@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/robfig/cron"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,6 +55,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
+		crons:         cron.New(),
 		serverVersion: sv,
 	}, nil
 }
@@ -83,6 +85,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	crons  *cron.Cron
 
 	serverVersion *api.ServerVersion
 }
@@ -229,7 +232,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
 			return reconcile.Result{}, err
 		}
-
 	} else {
 		// check if there is need to delete pvc
 		deletePVC := false
@@ -249,6 +251,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	err = r.reconcileBackups(o)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	err = r.ensureVersion(o, nil)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("faile to ensure version: %v", err)
 	}
 
 	return rr, nil

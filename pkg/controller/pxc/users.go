@@ -222,10 +222,12 @@ func appUsersSecretDataChanged(newHash *string, usersSecret *corev1.Secret) (boo
 	}
 	hash := sha256Hash(secretData)
 	*newHash = hash
-	if lastAppliedHash, ok := usersSecret.Annotations["last-applied"]; ok {
-		if lastAppliedHash != hash {
-			return true, nil
-		}
+	lastAppliedHash := ""
+	if oldHash, ok := usersSecret.Annotations["last-applied"]; ok {
+		lastAppliedHash = oldHash
+	}
+	if lastAppliedHash != hash {
+		return true, nil
 	}
 
 	return false, nil

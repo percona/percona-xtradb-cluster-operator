@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -187,7 +189,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	inits := []corev1.Container{}
-	if cr.CompareVersionWith("1.5.0") >= 0 {
+	if o.CompareVersionWith("1.5.0") >= 0 {
 		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image))
 	}
 
@@ -267,14 +269,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 func (r *ReconcilePerconaXtraDBCluster) operatorPod(cr *api.PerconaXtraDBCluster) (corev1.Pod, error) {
 	operatorPod := corev1.Pod{}
-	err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      os.Getenv("HOSTNAME"),
-		},
-		&operatorPod,
-	)
+
+	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
+		return operatorPod, err
+	}
+
+	ns := strings.TrimSpace(string(nsBytes))
+
+	if err := r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: ns,
+		Name:      os.Getenv("HOSTNAME"),
+	}, &operatorPod); err != nil {
 		return operatorPod, err
 	}
 

@@ -208,17 +208,7 @@ type BackupStorageS3Spec struct {
 }
 
 type UsersSpec struct {
-	Secrets                  []string                   `json:"secrets,omitempty"`
-	NodeSelector             map[string]string          `json:"nodeSelector,omitempty"`
-	Resources                *PodResources              `json:"resources,omitempty"`
-	Affinity                 *corev1.Affinity           `json:"affinity,omitempty"`
-	Tolerations              []corev1.Toleration        `json:"tolerations,omitempty"`
-	Annotations              map[string]string          `json:"annotations,omitempty"`
-	Labels                   map[string]string          `json:"labels,omitempty"`
-	SchedulerName            string                     `json:"schedulerName,omitempty"`
-	PriorityClassName        string                     `json:"priorityClassName,omitempty"`
-	PodSecurityContext       *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
+	Secrets []string `json:"secrets,omitempty"`
 }
 
 type VolumeSpec struct {

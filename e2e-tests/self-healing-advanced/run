@@ -33,9 +33,20 @@ delete_all_pods() {
 
     sleep 60
 
-    kubectl_bin get pods \
-        | grep $cluster-pxc- \
-        | grep CrashLoopBackOff
+    retry=1
+    while [ -z "$EC" ] || [ "$retry" -le 5 -a "$EC" -gt 0 ]; do
+        EC=0
+        kubectl_bin get pods \
+            | grep $cluster-pxc- \
+            | grep CrashLoopBackOff || EC=$?
+
+        ((retry ++))
+        sleep 10
+    done
+
+    if [ "$EC" -gt 0 ]; then
+        exit $EC
+    fi
 
     cat_config "$test_dir/conf/$cluster.yml" \
         | sed -e 's/forceUnsafeBootstrap: false/forceUnsafeBootstrap: true/' \

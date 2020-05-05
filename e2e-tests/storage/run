@@ -14,6 +14,7 @@ check_cr_config() {
 
     # check if statefulset created with expected config
     compare_kubectl statefulset/$cluster-pxc
+    compare_kubectl statefulset/$cluster-proxysql
 
     # delete cluster
     kubectl_bin delete \

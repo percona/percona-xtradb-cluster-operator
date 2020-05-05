@@ -3,10 +3,10 @@
 set -o errexit
 tmp_dir=$(mktemp -d)
 ctrl=""
-AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-AWS_ENDPOINT=${AWS_ENDPOINT:-}
-AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+ACCESS_KEY_ID=${ACCESS_KEY_ID:-}
+SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY:-}
+ENDPOINT=${ENDPOINT:-}
+DEFAULT_REGION=${DEFAULT_REGION:-us-east-1}
 
 check_ctrl() {
     if [ -x "$(command -v kubectl)" ]; then
@@ -45,11 +45,11 @@ get_backup_dest() {
             exit 1
         fi
 
-        local secret=$(       $ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.credentialsSecret}" 2>/dev/null)
-        export AWS_ENDPOINT=$($ctrl get "pxc-backup/$backup" -o "jsonpath={.status.s3.endpointUrl}" 2>/dev/null)
-        export AWS_ACCESS_KEY_ID=$(    $ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}'     2>/dev/null | eval ${BASE64_DECODE_CMD})
-        export AWS_SECRET_ACCESS_KEY=$($ctrl get "secret/$secret"  -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
-
+        local secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.credentialsSecret}' 2>/dev/null)
+        ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.endpointUrl}' 2>/dev/null)
+        ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
+        SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
+        export CREDENTIALS="ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY"
         $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else
         # support direct PVC name here
@@ -86,7 +86,7 @@ check_input() {
             usage
         fi
     elif [ "${backup_dest:0:5}" = "s3://" ]; then
-        xbcloud get ${backup_dest} xtrabackup_info 1>/dev/null
+        env -i $CREDENTIALS xbcloud get ${backup_dest} xtrabackup_info 1>/dev/null
     else
         usage
     fi
@@ -147,7 +147,7 @@ copy_files_s3() {
 
     echo ""
     echo "Downloading started"
-    xbcloud get ${backup_path} --parallel=10 1>$dest_dir/xtrabackup.stream 2>$dest_dir/transfer.log
+    env -i $CREDENTIALS xbcloud get ${backup_path} --parallel=10 1>$dest_dir/xtrabackup.stream 2>$dest_dir/transfer.log
     echo "Downloading finished"
 }
 

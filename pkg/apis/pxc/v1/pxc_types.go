@@ -140,7 +140,7 @@ type PodSpec struct {
 	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
-	ServiceType                   *corev1.ServiceType           `json:"serviceType,omitempty"`
+	ServiceType                   corev1.ServiceType            `json:"serviceType,omitempty"`
 	SchedulerName                 string                        `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
 	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
@@ -173,8 +173,9 @@ type PMMSpec struct {
 }
 
 type ResourcesList struct {
-	Memory string `json:"memory,omitempty"`
-	CPU    string `json:"cpu,omitempty"`
+	Memory           string `json:"memory,omitempty"`
+	CPU              string `json:"cpu,omitempty"`
+	EphemeralStorage string `json:"ephemeral-storage,omitempty"`
 }
 
 type BackupStorageSpec struct {

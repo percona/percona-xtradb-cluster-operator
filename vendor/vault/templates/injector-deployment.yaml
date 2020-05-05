@@ -10,6 +10,10 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     component: webhook
+  {{ if eq .Values.global.platform "openshift" }}
+  annotations:
+    "openshift.io/scc": "privileged"
+  {{ end }}
 spec:
   replicas: 1
   selector:
@@ -23,6 +27,10 @@ spec:
         app.kubernetes.io/name: {{ template "vault.name" . }}-agent-injector
         app.kubernetes.io/instance: {{ .Release.Name }}
         component: webhook
+  {{ if eq .Values.global.platform "openshift" }}
+      annotations:
+        "openshift.io/scc": "privileged"
+  {{ end }}
     spec:
       serviceAccountName: "{{ template "vault.fullname" . }}-agent-injector"
       securityContext:

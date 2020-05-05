@@ -183,7 +183,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	operatorPod, err := r.operatorPod(o)
+	operatorPod, err := r.operatorPod()
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
 	}
@@ -267,7 +267,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) operatorPod(cr *api.PerconaXtraDBCluster) (corev1.Pod, error) {
+func (r *ReconcilePerconaXtraDBCluster) operatorPod() (corev1.Pod, error) {
 	operatorPod := corev1.Pod{}
 
 	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
@@ -294,7 +294,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	operatorPod, err := r.operatorPod(cr)
+	operatorPod, err := r.operatorPod()
 	if err != nil {
 		return errors.Wrap(err, "get operator deployment")
 	}

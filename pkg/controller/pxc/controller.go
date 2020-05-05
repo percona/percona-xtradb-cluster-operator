@@ -186,8 +186,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
 	}
 
-	epInit := statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image)
-	err = r.updatePod(statefulset.NewNode(o), o.Spec.PXC, o, []corev1.Container{epInit})
+	inits := []corev1.Container{}
+	if cr.CompareVersionWith("1.5.0") >= 0 {
+		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image))
+	}
+
+	err = r.updatePod(statefulset.NewNode(o), o.Spec.PXC, o, inits)
 	if err != nil {
 		err = fmt.Errorf("pxc upgrade error: %v", err)
 		return reconcile.Result{}, err
@@ -289,8 +293,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return errors.Wrap(err, "get operator deployment")
 	}
 
-	epInit := statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image)
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, []corev1.Container{epInit})
+	inits := []corev1.Container{}
+	if cr.CompareVersionWith("1.5.0") >= 0 {
+		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image))
+	}
+
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, inits)
 	if err != nil {
 		return err
 	}

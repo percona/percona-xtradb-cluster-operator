@@ -26,6 +26,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return fmt.Errorf("failed to get sate: %v", err)
 	}
 
+	currentSet.Spec.UpdateStrategy = sfs.UpdateStrategy(cr)
+
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
 	currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext

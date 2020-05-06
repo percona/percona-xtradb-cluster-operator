@@ -262,7 +262,7 @@ type StatefulApp interface {
 	App
 	StatefulSet() *appsv1.StatefulSet
 	Service() string
-	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategyType
+	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy
 }
 
 const clusterNameMaxLen = 22

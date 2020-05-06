@@ -41,7 +41,11 @@ spec:
                 app.kubernetes.io/part-of: percona-xtradb-cluster
             topologyKey: kubernetes.io/hostname
       containers:
-      - env:
+      - args:
+        - mysqld
+        command:
+        - /var/lib/mysql/pxc-entrypoint.sh
+        env:
         - name: PXC_SERVICE
           value: some-name-pxc-unready
         - name: MYSQL_ROOT_PASSWORD
@@ -118,6 +122,17 @@ spec:
         - mountPath: /etc/mysql/ssl-internal
           name: ssl-internal
       dnsPolicy: ClusterFirst
+      initContainers:
+      - command:
+        - /pxc-init-entrypoint.sh
+        imagePullPolicy: IfNotPresent
+        name: pxc-init
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: datadir
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:

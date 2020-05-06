@@ -12,8 +12,8 @@ spec:
     containerSecurityContext:
       privileged: true
     podSecurityContext:
-      fsGroup: 1001
       runAsUser: 1001
+      fsGroup: 1001
     size: 3
     image: -pxc
     resources:

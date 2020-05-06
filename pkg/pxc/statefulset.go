@@ -13,7 +13,7 @@ import (
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*appsv1.StatefulSet, error) {
+func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) (*appsv1.StatefulSet, error) {
 	pod := corev1.PodSpec{
 		SecurityContext:               podSpec.PodSecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,
@@ -45,12 +45,16 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.Containers = append(pod.Containers, pmmC)
 	}
 
+	if len(initContainers) > 0 {
+		pod.InitContainers = append(pod.InitContainers, initContainers...)
+	}
+
 	if podSpec.ForceUnsafeBootstrap {
 		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init"
+		ic.Name = ic.Name + "-init-unsafe"
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil
-		ic.Command = []string{"/unsafe-bootstrap.sh"}
+		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
 		pod.InitContainers = append(pod.InitContainers, *ic)
 	}
 

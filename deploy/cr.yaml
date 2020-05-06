@@ -16,7 +16,7 @@ spec:
   updateStrategy: SmartUpdate
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc
+    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300
@@ -153,7 +153,7 @@ spec:
 #        memory: 200M
 #        cpu: 500m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.4.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0-backup
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

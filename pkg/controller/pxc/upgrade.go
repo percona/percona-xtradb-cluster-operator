@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
 	currentSet := sfs.StatefulSet()
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
 	if err != nil {
@@ -83,12 +83,16 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	newContainers = append(newContainers, appC)
 
+	if len(initContainers) > 0 {
+		newInitContainers = append(newInitContainers, initContainers...)
+	}
+
 	if podSpec.ForceUnsafeBootstrap {
 		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init"
+		ic.Name = ic.Name + "-init-unsafe"
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil
-		ic.Command = []string{"/unsafe-bootstrap.sh"}
+		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
 		newInitContainers = append(newInitContainers, *ic)
 	}
 

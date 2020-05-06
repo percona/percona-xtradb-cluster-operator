@@ -176,6 +176,11 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 
+	if cr.CompareVersionWith("1.5.0") >= 0 {
+		appc.Args = []string{"mysqld"}
+		appc.Command = []string{"/var/lib/mysql/pxc-entrypoint.sh"}
+	}
+
 	res, err := app.CreateResources(spec.Resources)
 	if err != nil {
 		return appc, fmt.Errorf("create resources error: %v", err)

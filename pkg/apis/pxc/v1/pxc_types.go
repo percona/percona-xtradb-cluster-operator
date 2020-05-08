@@ -27,11 +27,11 @@ type PerconaXtraDBClusterSpec struct {
 	PMM                   *PMMSpec                             `json:"pmm,omitempty"`
 	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
-	UpdateOptions         UpdateOptions                        `json:"updateOptions,omitempty"`
+	UpgradeOptions        UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 }
 
-type UpdateOptions struct {
+type UpgradeOptions struct {
 	VersionServiceEndpoint string `json:"versionServiceEndpoint,omitempty"`
 	LockedVersion          string `json:"lockedVersion,omitempty"`
 	Schedule               string `json:"schedule,omitempty"`

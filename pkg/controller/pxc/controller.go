@@ -55,7 +55,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
-		crons:         cron.New(),
+		crons:         NewCronn(),
 		serverVersion: sv,
 	}, nil
 }
@@ -85,9 +85,30 @@ type ReconcilePerconaXtraDBCluster struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
-	crons  *cron.Cron
+	crons  Cronn
 
 	serverVersion *api.ServerVersion
+}
+
+type Cronn struct {
+	crons *cron.Cron
+	jobs  map[string]Shedule
+}
+
+type Shedule struct {
+	ID          int
+	CronShedule string
+}
+
+func NewCronn() Cronn {
+	c := Cronn{
+		crons: cron.New(),
+		jobs:  make(map[string]Shedule),
+	}
+
+	c.crons.Start()
+
+	return c
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBCluster object and makes changes based on the state read
@@ -182,8 +203,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	err = r.updatePod(statefulset.NewNode(o), o.Spec.PXC, o)
+	pxcSet := statefulset.NewNode(o)
+	err = r.updatePod(pxcSet, o.Spec.PXC, o)
 	if err != nil {
 		err = fmt.Errorf("pxc upgrade error: %v", err)
 		return reconcile.Result{}, err
@@ -253,9 +274,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	err = r.ensureVersion(o, nil)
+	err = r.ensureVersion(o, VersionServiceMock{}, pxcSet)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("faile to ensure version: %v", err)
+		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}
 
 	return rr, nil

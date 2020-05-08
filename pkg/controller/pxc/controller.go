@@ -162,12 +162,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 
 		o.SetFinalizers(finalizers)
-		r.client.Update(context.TODO(), o)
-
-		// If we're waiting for the pods, technically it's not an error
-		if err == ErrWaitingForDeletingPods {
-			err = nil
-		}
+		err = r.client.Update(context.TODO(), o)
 
 		// object is being deleted, no need in further actions
 		return rr, err
@@ -242,7 +237,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
 			return reconcile.Result{}, err
 		}
-
 	} else {
 		// check if there is need to delete pvc
 		deletePVC := false

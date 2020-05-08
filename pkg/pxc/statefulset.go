@@ -28,7 +28,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 
 	sfsVolume, err := sfs.Volumes(podSpec, cr)
 	if err != nil {
-		return nil, errors.Wrap(err, "app container")
+		return nil, fmt.Errorf("failed to get volumes %v", err)
 	}
 	pod.Volumes = sfsVolume.Volumes
 
@@ -86,13 +86,14 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 			},
 			Spec: pod,
 		},
+		UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+			Type: sfs.UpdateStrategy(cr),
+		},
 	}
 
 	if sfsVolume.PVCs != nil {
 		obj.Spec.VolumeClaimTemplates = sfsVolume.PVCs
 	}
-
-	obj.Spec.UpdateStrategy.Type = cr.Spec.UpdateStrategy
 
 	return obj, nil
 }

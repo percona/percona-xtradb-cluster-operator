@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir="$(dirname $0)"
+. $(dirname $0)/functions
+src_dir="$(realpath $test_dir/..)"
+
+apply_config $src_dir/deploy/cr.yaml

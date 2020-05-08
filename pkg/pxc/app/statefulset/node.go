@@ -32,13 +32,6 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 			Name:      cr.Name + "-" + app.Name,
 			Namespace: cr.Namespace,
 		},
-		Spec: appsv1.StatefulSetSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					SchedulerName: cr.Spec.PXC.SchedulerName,
-				},
-			},
-		},
 	}
 
 	labels := map[string]string{
@@ -291,4 +284,15 @@ func (c *Node) Labels() map[string]string {
 
 func (c *Node) Service() string {
 	return c.service
+}
+
+func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategyType {
+	switch cr.Spec.UpdateStrategy {
+	case appsv1.OnDeleteStatefulSetStrategyType:
+		return appsv1.OnDeleteStatefulSetStrategyType
+	case api.SmartUpdateStatefulSetStrategyType:
+		return appsv1.OnDeleteStatefulSetStrategyType
+	default:
+		return appsv1.RollingUpdateStatefulSetStrategyType
+	}
 }

@@ -20,7 +20,7 @@ namespace="${test_name}-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
 
-if oc status ; then
+if oc get projects ; then
     OPENSHIFT=1
 fi
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
@@ -228,6 +228,7 @@ compare_kubectl() {
         | $sed -e '/name: S3_BUCKET_PATH/,+1d' \
         | $sed -e '/name: S3_BUCKET_URL/,+1d' \
         | $sed -e '/annotations:$/{$!{N;s/annotations:\n    kubernetes.io.*//;ty;P;D;:y;d}}' \
+        | $sed -e '/annotations:$/{$!{N;s/annotations:\n    cni.projectcalico.org.*//;ty;P;D;:y;d}}' \
         > ${new_result}
 
     diff -u ${expected_result} ${new_result}
@@ -284,7 +285,7 @@ compare_mysql_cmd() {
     run_mysql "$command" "$uri" \
         >$tmp_dir/${command_id}.sql
     if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
-        sleep 10
+        sleep 20
         run_mysql "$command" "$uri" \
             >$tmp_dir/${command_id}.sql
     fi
@@ -535,7 +536,7 @@ spinup_pxc() {
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100500)' \
         "-h $cluster-proxysql -uroot -proot_password"
-
+    sleep 10
     for i in $(seq 0 $(($size - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
     done
@@ -869,6 +870,7 @@ start_minio() {
         --set environment.MINIO_REGION=us-east-1 \
         --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
         stable/minio
+    sleep 30
     MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
     wait_pod $MINIO_POD
 

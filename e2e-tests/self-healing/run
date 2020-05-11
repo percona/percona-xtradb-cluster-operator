@@ -17,7 +17,7 @@ pumba_pod() {
 
     # check if all 3 Pods started
     wait_for_running $cluster-pxc 3
-    sleep 10
+    sleep 20
     desc 'check data consistency for chaosed Pod'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-pxc -uroot -proot_password"
 }
@@ -31,7 +31,7 @@ pumba_all_pods() {
 
     # check if all 3 Pods started
     wait_for_running $cluster-pxc 3
-    sleep 10
+    sleep 20
 
     desc 'check data consistency for chaosed Pod'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
@@ -46,7 +46,7 @@ pause_pod() {
     # run chaos for Pod
     kubectl_bin exec -it "$(get_pumba)" -- /pumba -l info pause --duration 1m "re2:$pod" &
     pid=$!
-    sleep 10
+    sleep 20
 
     # write data
     run_mysql \
@@ -58,7 +58,7 @@ pause_pod() {
 
     # check if all 3 Pods started
     wait_for_running $cluster-pxc 3
-    sleep 10
+    sleep 20
 
     desc 'check data consistency for chaosed Pod'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-pxc -uroot -proot_password" "-2nd"
@@ -70,7 +70,7 @@ netem_pod() {
     # run chaos for Pod
     kubectl_bin exec -it "$(get_pumba)" -- /pumba -l info netem --tc-image 'gaiadocker/iproute2' --duration 1m loss --percent 100 --correlation 100 "re2:$pod" &
     pid=$!
-    sleep 10
+    sleep 20
 
     # write data
     run_mysql \
@@ -82,7 +82,7 @@ netem_pod() {
 
     # check if all 3 Pods started
     wait_for_running $cluster-pxc 3
-    sleep 10
+    sleep 20
 
     desc 'check data consistency for chaosed Pod'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-pxc -uroot -proot_password" "-3rd"

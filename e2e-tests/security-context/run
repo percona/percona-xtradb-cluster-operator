@@ -22,7 +22,7 @@ compare_kubectl statefulset/$cluster-proxysql
 desc 'change security context in PXC cluster'
 pfx="-changes"
 apply_config "$test_dir/conf/$cluster$pfx.yml"
-sleep 10
+sleep 30
 
 desc 'check if service and statefulset chenged to expected config'
 compare_kubectl statefulset/$cluster-pxc $pfx

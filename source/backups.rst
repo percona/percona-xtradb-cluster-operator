@@ -1,3 +1,5 @@
+.. _backups:
+
 Providing Backups
 =================
 
@@ -9,7 +11,7 @@ can be done manually at any moment.
 
 Backup images are usually stored on `Amazon S3 or S3-compatible
 storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`__
-(storing backups on private storage is also possible, but they are
+(storing backups on private storage is also possible, but they are 
 described separately).
 
 Making scheduled backups

@@ -3,47 +3,66 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"math/rand"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/robfig/cron"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) ensureVersion(cr *api.PerconaXtraDBCluster, vs VersionService, sfs *statefulset.Node) error {
-	if sfs.StatefulSet().Status.ReadyReplicas < sfs.StatefulSet().Status.Replicas ||
-		sfs.StatefulSet().Status.CurrentRevision != sfs.StatefulSet().Status.UpdateRevision {
-		return nil
-	}
-
+func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService, sfs *statefulset.Node) error {
 	jobName := "ensure-version"
 	shedule, ok := r.crons.jobs[jobName]
 
-	if ok {
-		if shedule.CronShedule == cr.Spec.UpgradeOptions.Schedule {
-			log.Info("same shedule")
-			return nil
-		}
-		log.Info("remove job")
-		r.crons.crons.Remove(cron.EntryID(shedule.ID))
-		delete(r.crons.jobs, jobName)
+	if ok && shedule.CronShedule == cr.Spec.UpgradeOptions.Schedule {
+		return nil
 	}
 
-	var err error
+	log.Info(fmt.Sprintf("remove job %s because of new %s", shedule.CronShedule, cr.Spec.UpgradeOptions.Schedule))
+	r.crons.crons.Remove(cron.EntryID(shedule.ID))
+	delete(r.crons.jobs, jobName)
+
+	log.Info(fmt.Sprintf("add new job: %s", cr.Spec.UpgradeOptions.Schedule))
 	id, err := r.crons.crons.AddFunc(cr.Spec.UpgradeOptions.Schedule, func() {
+		sfsLocal := appsv1.StatefulSet{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: sfs.StatefulSet().Name, Namespace: sfs.StatefulSet().Namespace}, &sfsLocal)
+		if err != nil {
+			log.Error(err, "failed to get stateful set")
+			return
+		}
+
+		if sfsLocal.Status.ReadyReplicas < sfsLocal.Status.Replicas ||
+			sfsLocal.Status.CurrentRevision != sfsLocal.Status.UpdateRevision {
+			log.Info("cluster is not consistent")
+			return
+		}
+
+		localCR := &api.PerconaXtraDBCluster{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCR)
+		if err != nil {
+			log.Error(err, "failed to get CR")
+			return
+		}
+
 		new := vs.CheckNew()
-		if cr.Spec.PXC.Image != new {
-			log.Info("update version")
-			cr.Spec.PXC.Image = new
-			err = r.client.Update(context.Background(), cr)
+		if localCR.Spec.PXC.Image != new {
+			log.Info(fmt.Sprintf("update version to %s", new))
+			localCR.Spec.PXC.Image = new
+			err = r.client.Update(context.Background(), localCR)
+			if err != nil {
+				log.Error(err, "failed to update CR")
+				return
+			}
 		} else {
-			log.Info("same version")
+			log.Info(fmt.Sprintf("same version %s", new))
 		}
 	})
 	if err != nil {
 		return err
 	}
 
-	log.Info(fmt.Sprintf("add job: %s", cr.Spec.UpgradeOptions.Schedule))
 	r.crons.jobs[jobName] = Shedule{
 		ID:          int(id),
 		CronShedule: cr.Spec.UpgradeOptions.Schedule,
@@ -60,5 +79,8 @@ type VersionServiceMock struct {
 }
 
 func (vs VersionServiceMock) CheckNew() string {
-	return "perconalab/percona-xtradb-cluster-operator:master-pxc8.0"
+	if rand.Int()%2 == 0 {
+		return "perconalab/percona-xtradb-cluster-operator:master-pxc8.0"
+	}
+	return "percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0"
 }

@@ -55,7 +55,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
-		crons:         NewCronn(),
+		crons:         NewCronRegistry(),
 		serverVersion: sv,
 	}, nil
 }
@@ -85,12 +85,12 @@ type ReconcilePerconaXtraDBCluster struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
-	crons  Cronn
+	crons  CronRegistry
 
 	serverVersion *api.ServerVersion
 }
 
-type Cronn struct {
+type CronRegistry struct {
 	crons *cron.Cron
 	jobs  map[string]Shedule
 }
@@ -100,8 +100,8 @@ type Shedule struct {
 	CronShedule string
 }
 
-func NewCronn() Cronn {
-	c := Cronn{
+func NewCronRegistry() CronRegistry {
+	c := CronRegistry{
 		crons: cron.New(),
 		jobs:  make(map[string]Shedule),
 	}
@@ -274,7 +274,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	err = r.ensureVersion(o, VersionServiceMock{}, pxcSet)
+	err = r.ensurePXCVersion(o, VersionServiceMock{}, pxcSet, request.NamespacedName)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}

@@ -9,34 +9,18 @@ src_dir="$(realpath ${test_dir}/..)"
 IMAGE=$(echo "$IMAGE" | sed -e 's#percona/#perconalab/#')
 
 build_operator() {
-    package=github.com/percona/percona-xtradb-cluster-operator
-    docker run --rm -v ${src_dir}:/go/src/${package} golang:1.12 sh -c "
-        set -o errexit
-        set -o xtrace
-        export GO_LDFLAGS='-w -s $GO_LDFLAGS'
-        export GIT_COMMIT='$GIT_COMMIT'
-        export GIT_BRANCH='$GIT_BRANCH'
-
-        cd /go/src/${package}
-        mkdir -p build/_output/bin
-        GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
-            -ldflags '-w -s -X main.GitCommit=${GIT_COMMIT} -X main.GitBranch=${GIT_BRANCH}' \
-            -o build/_output/bin/percona-xtradb-cluster-operator \
-            cmd/manager/main.go
-    "
-
-    dockerfile=build/Dockerfile
-    if [ "$RHEL" = "1" ]; then
-        dockerfile=build/Dockerfile.rhel
-    fi
-
+    export GO_LDFLAGS="-w -s $GO_LDFLAGS"
     export IMAGE
     pushd ${src_dir}
         docker build \
+            --build-arg GIT_COMMIT=$GIT_COMMIT \
+            --build-arg GIT_BRANCH=$GIT_BRANCH \
+            --build-arg GO_LDFLAGS="$GO_LDFLAGS" \
             --squash \
             --no-cache \
-            -t "${IMAGE}" -f $dockerfile .
+            -t "${IMAGE}" -f build/Dockerfile .
     popd
+
     if [ "$RHEL" != "1" ]; then
         docker push ${IMAGE}
     fi

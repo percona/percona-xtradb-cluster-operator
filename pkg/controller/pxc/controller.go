@@ -274,7 +274,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	err = r.ensurePXCVersion(o, VersionServiceMock{}, pxcSet, request.NamespacedName)
+	err = r.ensurePXCVersion(o, VersionServiceMock{}, pxcSet)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}

@@ -294,13 +294,19 @@ func (c *Proxy) Service() string {
 	return c.service
 }
 
-func (c *Proxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategyType {
+func (c *Proxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {
 	switch cr.Spec.UpdateStrategy {
 	case appsv1.OnDeleteStatefulSetStrategyType:
-		return appsv1.OnDeleteStatefulSetStrategyType
+		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
 	case api.SmartUpdateStatefulSetStrategyType:
-		return appsv1.RollingUpdateStatefulSetStrategyType
+		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}
 	default:
-		return appsv1.RollingUpdateStatefulSetStrategyType
+		var zero int32 = 0
+		return appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.RollingUpdateStatefulSetStrategyType,
+			RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+				Partition: &zero,
+			},
+		}
 	}
 }

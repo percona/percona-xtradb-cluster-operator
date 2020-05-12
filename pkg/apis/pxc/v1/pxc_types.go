@@ -262,12 +262,13 @@ type StatefulApp interface {
 	App
 	StatefulSet() *appsv1.StatefulSet
 	Service() string
-	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategyType
+	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy
 }
 
 const clusterNameMaxLen = 22
 
 var defaultPXCGracePeriodSec int64 = 600
+var livenessInitialDelaySeconds int32 = 300
 
 // ErrClusterNameOverflow upspring when the cluster name is longer than acceptable
 var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no more than %d characters", clusterNameMaxLen)
@@ -364,6 +365,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 
 		if c.PXC.TerminationGracePeriodSeconds == nil {
 			c.PXC.TerminationGracePeriodSeconds = &defaultPXCGracePeriodSec
+		}
+
+		if c.PXC.LivenessInitialDelaySeconds == nil {
+			c.PXC.LivenessInitialDelaySeconds = &livenessInitialDelaySeconds
 		}
 
 		c.PXC.reconcileAffinityOpts()

@@ -151,11 +151,11 @@ volume for filesystem-type storage:
                 storage: 6Gi
     ...
 
-.. note:: Please take into account that specified 6Gi size may be insufficient
-   for the real-life setups; consider using tens or hundreds of gigabytes. Also,
-   you can edit this option later, and changes will take effect after applying
-   the updated YAML file with ``kubectl``.
-   
+.. note:: Please take into account that 6Gi storage size specified in this
+   example may be insufficient for the real-life setups; consider using tens or
+   hundreds of gigabytes. Also, you can edit this option later, and changes will
+   take effect after applying the updated YAML file with ``kubectl``.
+
 .. _backups-restore:
 
 Restore the cluster from a previously saved backup

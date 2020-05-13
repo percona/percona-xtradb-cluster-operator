@@ -250,3 +250,7 @@ installation of Percona Server:
    xtrabackup --prepare --target-dir=/var/lib/mysql
    chown -R mysql:mysql /var/lib/mysql
    service mysqld start
+
+.. note:: There is also a possibility to store backups on your local filesystem
+   instead of remote storage. See :ref:`local.storage.example.backups` for
+   details on configuring this option.

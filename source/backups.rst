@@ -3,14 +3,17 @@ Providing Backups
 
 Percona XtraDB Cluster Operator allows doing cluster backup in two ways.
 *Scheduled backups* are configured in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
 file to be executed automatically in proper time. *On-demand backups*
 can be done manually at any moment.
 
 Backup images are usually stored on `Amazon S3 or S3-compatible
-storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`__
-(storing backups on private storage is also possible, but they are
-described separately).
+storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`_,
+but storing backups on a private volume is also possible.
+
+.. contents:: :local:
+
+.. _backups.scheduled:
 
 Making scheduled backups
 ------------------------
@@ -21,7 +24,7 @@ the Kubernetes cluster. The secrets file with these keys should be
 created: for example ``deploy/backup-s3.yaml`` file with the following
 contents:
 
-::
+.. code:: yaml
 
    apiVersion: v1
    kind: Secret
@@ -50,7 +53,7 @@ backups (the schedule is specified in crontab format).
 
 Here is an example which uses Amazon S3 storage for backups:
 
-::
+.. code:: yaml
 
    ...
    backup:
@@ -93,6 +96,8 @@ The schedule is specified in crontab format as explained in the
 `Operator
 Options <https://percona.github.io/percona-xtradb-cluster-operator/configure/operator>`__.
 
+.. _backups-manual:
+
 Making on-demand backup
 -----------------------
 
@@ -103,14 +108,14 @@ example of such file is
 
 When the backup config file is ready, actual backup command is executed:
 
-::
+.. code:: bash
 
    kubectl apply -f deploy/backup/backup.yaml
 
 **Note:** *Storing backup settings in a separate file can be replaced by
 passing its content to the ``kubectl apply`` command as follows:*
 
-::
+.. code:: bash
 
    cat <<EOF | kubectl apply -f-
    apiVersion: pxc.percona.com/v1
@@ -122,6 +127,37 @@ passing its content to the ``kubectl apply`` command as follows:*
      storageName: fs-pvc
    EOF
 
+.. _backups-private-volume:
+
+Storing backup on a private volume
+-----------------------------------
+
+Here is an example of the backup section fragment, which configures a private
+volume for filesystem-type storage:
+
+.. code:: yaml
+
+  ...
+  backup:
+    ...
+    storages:
+      fs-pvc:
+        type: filesystem
+        volume:
+          persistentVolumeClaim:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 6Gi
+    ...
+
+.. note:: Please take into account that specified 6Gi size may be insufficient
+   for the real-life setups; consider using tens or hundreds of gigabytes. Also,
+   you can edit this option later, and changes will take effect after applying
+   the updated YAML file with ``kubectl``.
+   
+.. _backups-restore:
+
 Restore the cluster from a previously saved backup
 --------------------------------------------------
 
@@ -132,27 +168,27 @@ Following steps are needed to restore a previously saved backup:
 2. Now find out correct names for the backup and the cluster. Available
    backups can be listed with the following command:
 
-   ::
+   .. code:: bash
 
       kubectl get pxc-backup
 
    And the following command will list available clusters:
 
-   ::
+   .. code:: bash
 
       kubectl get pxc
 
 3. When both correct names are known, the actual restoration process can
    be started as follows:
 
-   ::
+   .. code:: bash
 
       kubectl apply -f deploy/backup/restore.yaml
 
 **Note:** *Storing backup settings in a separate file can be replaced by
 passing its content to the ``kubectl apply`` command as follows:*
 
-      ::
+      .. code:: bash
 
          cat <<EOF | kubectl apply -f-
          apiVersion: "pxc.percona.com/v1"
@@ -164,6 +200,8 @@ passing its content to the ``kubectl apply`` command as follows:*
            backupName: "backup1"
          EOF
 
+.. _backups-delete:
+
 Delete the unneeded backup
 --------------------------
 
@@ -171,15 +209,17 @@ Deleting a previously saved backup requires not more than the backup
 name. This name can be taken from the list of available backups returned
 by the following command:
 
-::
+.. code:: bash
 
    kubectl get pxc-backup
 
 When the name is known, backup can be deleted as follows:
 
-::
+.. code:: bash
 
    kubectl delete pxc-backup/<backup-name>
+
+.. _backups-copy:
 
 Copy backup to a local machine
 ------------------------------
@@ -188,21 +228,21 @@ Make a local copy of a previously saved backup requires not more than
 the backup name. This name can be taken from the list of available
 backups returned by the following command:
 
-::
+.. code:: bash
 
    kubectl get pxc-backup
 
 When the name is known, backup can be downloaded to the local machine as
 follows:
 
-::
+.. code:: bash
 
    ./deploy/backup/copy-backup.sh <backup-name> path/to/dir
 
 For example, this downloaded backup can be restored to the local
 installation of Percona Server:
 
-::
+.. code:: bash
 
    service mysqld stop
    rm -rf /var/lib/mysql/*

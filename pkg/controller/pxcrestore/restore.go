@@ -102,6 +102,4 @@ func (r *ReconcilePerconaXtraDBClusterRestore) createJob(job *batchv1.Job) error
 			}
 		}
 	}
-
-	return nil
 }

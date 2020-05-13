@@ -60,3 +60,7 @@ required = [
 [[constraint]]
   name = "github.com/robfig/cron"
   version = "3.0.1"
+
+[[constraint]]
+  name = "github.com/go-sql-driver/mysql"
+  version = "1.5.0"

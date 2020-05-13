@@ -4,6 +4,9 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -183,12 +186,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 
 		o.SetFinalizers(finalizers)
-		r.client.Update(context.TODO(), o)
-
-		// If we're waiting for the pods, technically it's not an error
-		if err == ErrWaitingForDeletingPods {
-			err = nil
-		}
+		err = r.client.Update(context.TODO(), o)
 
 		// object is being deleted, no need in further actions
 		return rr, err
@@ -203,8 +201,19 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	operatorPod, err := r.operatorPod()
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
+	}
+
+	inits := []corev1.Container{}
+	if o.CompareVersionWith("1.5.0") >= 0 {
+		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image))
+	}
+
 	pxcSet := statefulset.NewNode(o)
-	err = r.updatePod(pxcSet, o.Spec.PXC, o)
+	err = r.updatePod(pxcSet, o.Spec.PXC, o, inits)
 	if err != nil {
 		err = fmt.Errorf("pxc upgrade error: %v", err)
 		return reconcile.Result{}, err
@@ -213,7 +222,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	proxysqlSet := statefulset.NewProxy(o)
 
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
-		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o)
+		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
 		if err != nil {
 			err = fmt.Errorf("ProxySQL upgrade error: %v", err)
 			return reconcile.Result{}, err
@@ -282,6 +291,26 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	return rr, nil
 }
 
+func (r *ReconcilePerconaXtraDBCluster) operatorPod() (corev1.Pod, error) {
+	operatorPod := corev1.Pod{}
+
+	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		return operatorPod, err
+	}
+
+	ns := strings.TrimSpace(string(nsBytes))
+
+	if err := r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: ns,
+		Name:      os.Getenv("HOSTNAME"),
+	}, &operatorPod); err != nil {
+		return operatorPod, err
+	}
+
+	return operatorPod, nil
+}
+
 func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
@@ -289,7 +318,17 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr)
+	operatorPod, err := r.operatorPod()
+	if err != nil {
+		return errors.Wrap(err, "get operator deployment")
+	}
+
+	inits := []corev1.Container{}
+	if cr.CompareVersionWith("1.5.0") >= 0 {
+		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image))
+	}
+
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, inits)
 	if err != nil {
 		return err
 	}
@@ -357,7 +396,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, nil)
 		if err != nil {
 			return fmt.Errorf("create ProxySQL Service: %v", err)
 		}

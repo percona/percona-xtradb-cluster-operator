@@ -3,12 +3,11 @@ package statefulset
 import (
 	"fmt"
 
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
 const (
@@ -293,4 +292,21 @@ func (c *Proxy) Labels() map[string]string {
 
 func (c *Proxy) Service() string {
 	return c.service
+}
+
+func (c *Proxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {
+	switch cr.Spec.UpdateStrategy {
+	case appsv1.OnDeleteStatefulSetStrategyType:
+		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
+	case api.SmartUpdateStatefulSetStrategyType:
+		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}
+	default:
+		var zero int32 = 0
+		return appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.RollingUpdateStatefulSetStrategyType,
+			RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+				Partition: &zero,
+			},
+		}
+	}
 }

@@ -32,13 +32,6 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 			Name:      cr.Name + "-" + app.Name,
 			Namespace: cr.Namespace,
 		},
-		Spec: appsv1.StatefulSetSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					SchedulerName: cr.Spec.PXC.SchedulerName,
-				},
-			},
-		},
 	}
 
 	labels := map[string]string{
@@ -183,6 +176,11 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 
+	if cr.CompareVersionWith("1.5.0") >= 0 {
+		appc.Args = []string{"mysqld"}
+		appc.Command = []string{"/var/lib/mysql/pxc-entrypoint.sh"}
+	}
+
 	res, err := app.CreateResources(spec.Resources)
 	if err != nil {
 		return appc, fmt.Errorf("create resources error: %v", err)
@@ -286,4 +284,21 @@ func (c *Node) Labels() map[string]string {
 
 func (c *Node) Service() string {
 	return c.service
+}
+
+func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy {
+	switch cr.Spec.UpdateStrategy {
+	case appsv1.OnDeleteStatefulSetStrategyType:
+		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
+	case api.SmartUpdateStatefulSetStrategyType:
+		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
+	default:
+		var zero int32 = 0
+		return appsv1.StatefulSetUpdateStrategy{
+			Type: appsv1.RollingUpdateStatefulSetStrategyType,
+			RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+				Partition: &zero,
+			},
+		}
+	}
 }

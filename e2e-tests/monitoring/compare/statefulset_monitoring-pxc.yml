@@ -83,7 +83,11 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/mysql
           name: datadir
-      - env:
+      - args:
+        - mysqld
+        command:
+        - /var/lib/mysql/pxc-entrypoint.sh
+        env:
         - name: PXC_SERVICE
           value: monitoring-pxc-unready
         - name: MONITOR_HOST
@@ -163,6 +167,17 @@ spec:
         - mountPath: /etc/mysql/vault-keyring-secret
           name: vault-keyring-secret
       dnsPolicy: ClusterFirst
+      initContainers:
+      - command:
+        - /pxc-init-entrypoint.sh
+        imagePullPolicy: IfNotPresent
+        name: pxc-init
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: datadir
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:

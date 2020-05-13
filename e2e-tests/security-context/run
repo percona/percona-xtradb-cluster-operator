@@ -28,13 +28,13 @@ desc 'check if service and statefulset chenged to expected config'
 compare_kubectl statefulset/$cluster-pxc $pfx
 compare_kubectl statefulset/$cluster-proxysql $pfx
 
+wait_cluster_consistency "$cluster" 3 1
+
 desc 'run pvc backup'
 backup="on-demand-backup-pvc"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$backup.yml"
 wait_backup $backup
 compare_kubectl job.batch/$cluster-xb-$backup
-
-desc 'run pvc backup'
 compare_kubectl cronjob/each-hour-pvc
 
 desc 'run pvc restore'
@@ -47,6 +47,8 @@ compare_kubectl pod/restore-src-$restore-$cluster
 desc 'run s3 backup'
 kubectl_bin apply -f $conf_dir/minio-secret.yml
 start_minio
+
+wait_cluster_consistency "$cluster" 3 1
 backup="on-demand-backup-s3"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$backup.yml"
 wait_backup $backup

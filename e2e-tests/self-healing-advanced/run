@@ -12,7 +12,7 @@ pumba_all_pods() {
 
     # run chaos for Pod
     for _ in $(seq 1 5); do
-        run_pumba "$action" "re2:$cluster-pxc-[0-9]+_"
+        run_pumba "$action" "re2:$cluster-pxc-[0-9]+_" || :
     done
 
     # check if all 3 Pods started

@@ -61,7 +61,7 @@ spec:
       restartPolicy: Never
       schedulerName: default-scheduler
       securityContext:
-        runAsGroup: 1001
+        fsGroup: 1001
         runAsUser: 1001
         supplementalGroups:
         - 1001

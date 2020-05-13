@@ -38,12 +38,12 @@ file may include ``path`` and ``type`` keys to set the node’s filesystem
 object path and to specify whether it is a file, a directory, or
 something else (e.g. a socket):
 
-::
+.. code:: yaml
 
-    volumeSpec:
-      hostPath:
-        path: /data
-        type: Directory
+   volumeSpec:
+     hostPath:
+       path: /data
+       type: Directory
 
 Please note, that hostPath directory is not created automatically! Is
 should be created manually and should have following correct
@@ -66,30 +66,28 @@ Example: configuring local storage for backups
 As mentioned in :ref:`backups`, backup images are usually stored on
 `Amazon S3 or S3-compatible
 storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`_,
-But storing backups on a private storage is also possible.
+but storing backups on a local filesystem is also possible.
 
 Here is an example of the backup section from the ``deploy/cr.yaml``
-configuration file, which creates a filesystem-type storage of such a type:
+configuration file, which describes such storage and schedules the five last
+backups to be stored on it, with the midnight backup time:
 
-::
-   
-  backup:
-    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0-backup
-    serviceAccountName: percona-xtradb-cluster-operator
-#    imagePullSecrets:
-#      - name: private-registry-credentials
-    storages:
-      fs-pvc:
-        type: filesystem
-        volume:
-          persistentVolumeClaim:
-#            storageClassName: standard
-            accessModes: [ "ReadWriteOnce" ]
-            resources:
-              requests:
-                storage: 6Gi
+.. code:: yaml
 
-.. note:: Please take into account that specified 6Gi size may be insufficient
-   for the real life setup; consider usign tens or hundreds of gigabytes. Also,
-   this option can be edited later, and edits will take effect when the yaml file
-   will be applied with ``kubectl``. 
+   backup:
+     ...
+     storages:
+       fs-local:
+         type: filesystem
+         volume:
+           hostPath:
+             path: /backup
+             type: Directory
+     schedule:
+       - name: "midnight-backup"
+         schedule: "0 0 * * *"
+         keep: 5
+         storageName: fs-local
+
+.. note:: Please make sure that /backup folder exists on the local filesystem
+   to make this example work.

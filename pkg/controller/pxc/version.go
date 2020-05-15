@@ -12,17 +12,27 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const jobName = "ensure-version"
+
+func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(id int) {
+	r.crons.crons.Remove(cron.EntryID(id))
+	delete(r.crons.jobs, jobName)
+}
+
 func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService, sfs *statefulset.Node) error {
-	jobName := "ensure-version"
 	shedule, ok := r.crons.jobs[jobName]
+
+	if cr.Spec.UpgradeOptions.Schedule == "" {
+		r.deleteEnsureVersion(shedule.ID)
+		return nil
+	}
 
 	if ok && shedule.CronShedule == cr.Spec.UpgradeOptions.Schedule {
 		return nil
 	}
 
 	log.Info(fmt.Sprintf("remove job %s because of new %s", shedule.CronShedule, cr.Spec.UpgradeOptions.Schedule))
-	r.crons.crons.Remove(cron.EntryID(shedule.ID))
-	delete(r.crons.jobs, jobName)
+	r.deleteEnsureVersion(shedule.ID)
 
 	log.Info(fmt.Sprintf("add new job: %s", cr.Spec.UpgradeOptions.Schedule))
 	id, err := r.crons.crons.AddFunc(cr.Spec.UpgradeOptions.Schedule, func() {

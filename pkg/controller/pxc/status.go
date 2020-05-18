@@ -127,7 +127,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if cr.Status.ProxySQL.Message != "" {
 			cr.Status.Messages = append(cr.Status.Messages, "ProxySQL: "+cr.Status.ProxySQL.Message)
 		}
-		inProgres, err = r.upgradeInProgress(cr, "proxysql")
+		inProgres, err = r.upgradeInProgress(cr)
 		if err != nil {
 			return fmt.Errorf("check proxysql upgrade progress: %v", err)
 		}
@@ -136,7 +136,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	if !inProgres {
-		inProgres, err = r.upgradeInProgress(cr, app.Name)
+		inProgres, err = r.upgradeInProgress(cr)
 		if err != nil {
 			return fmt.Errorf("check pxc upgrade progress: %v", err)
 		}

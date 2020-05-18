@@ -199,8 +199,10 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int) error {
 	if pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision {
 		log.Info(fmt.Sprintf("pod %s is already updated", pod.Name))
-	} else if err := r.client.Delete(context.TODO(), pod); err != nil {
-		return fmt.Errorf("failed to delete pod: %v", err)
+	} else {
+		if err := r.client.Delete(context.TODO(), pod); err != nil {
+			return fmt.Errorf("failed to delete pod: %v", err)
+		}
 	}
 
 	if err := r.waitPodRestart(updateRevision, pod, waitLimit); err != nil {

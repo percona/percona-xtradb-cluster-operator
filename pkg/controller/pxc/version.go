@@ -22,7 +22,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(id int) {
 func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService, sfs *statefulset.Node) error {
 	shedule, ok := r.crons.jobs[jobName]
 
-	if cr.Spec.UpgradeOptions.Schedule == "" {
+	if ok && cr.Spec.UpgradeOptions.Schedule == "" {
 		r.deleteEnsureVersion(shedule.ID)
 		return nil
 	}
@@ -31,8 +31,10 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return nil
 	}
 
-	log.Info(fmt.Sprintf("remove job %s because of new %s", shedule.CronShedule, cr.Spec.UpgradeOptions.Schedule))
-	r.deleteEnsureVersion(shedule.ID)
+	if ok {
+		log.Info(fmt.Sprintf("remove job %s because of new %s", shedule.CronShedule, cr.Spec.UpgradeOptions.Schedule))
+		r.deleteEnsureVersion(shedule.ID)
+	}
 
 	log.Info(fmt.Sprintf("add new job: %s", cr.Spec.UpgradeOptions.Schedule))
 	id, err := r.crons.crons.AddFunc(cr.Spec.UpgradeOptions.Schedule, func() {

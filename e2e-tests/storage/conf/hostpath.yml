@@ -12,6 +12,12 @@ spec:
       hostPath:
         path: /run/data-dir
         type: Directory
+    containerSecurityContext:
+      privileged: false
+    podSecurityContext:
+      runAsUser: 1001
+      runAsGroup: 1001
+      supplementalGroups: [1001]
   proxysql:
     enabled: true
     size: 1

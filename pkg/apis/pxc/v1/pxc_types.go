@@ -33,7 +33,7 @@ type PerconaXtraDBClusterSpec struct {
 
 type UpgradeOptions struct {
 	VersionServiceEndpoint string `json:"versionServiceEndpoint,omitempty"`
-	LockedVersion          string `json:"lockedVersion,omitempty"`
+	Apply          string `json:"apply,omitempty"`
 	Schedule               string `json:"schedule,omitempty"`
 }
 

@@ -149,7 +149,7 @@ spec:
       terminationGracePeriodSeconds: 30
       volumes:
       - hostPath:
-          path: /tmp/proxy-dir
+          path: /run/proxy-dir
           type: Directory
         name: proxydata
       - name: ssl-internal

@@ -10,7 +10,7 @@ spec:
     image: -pxc
     volumeSpec:
       hostPath:
-        path: /tmp/data-dir
+        path: /run/data-dir
         type: Directory
   proxysql:
     enabled: true
@@ -18,7 +18,7 @@ spec:
     image: -proxysql
     volumeSpec:
       hostPath:
-        path: /tmp/proxy-dir
+        path: /run/proxy-dir
         type: Directory
   pmm:
     enabled: false

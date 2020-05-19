@@ -185,7 +185,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image))
+		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, o.Spec.PXC.ContainerSecurityContext))
 	}
 
 	err = r.updatePod(statefulset.NewNode(o), o.Spec.PXC, o, inits)
@@ -295,7 +295,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image))
+		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, cr.Spec.PXC.ContainerSecurityContext))
 	}
 
 	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, inits)

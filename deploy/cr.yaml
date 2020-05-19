@@ -13,7 +13,7 @@ spec:
   sslInternalSecretName: my-cluster-ssl-internal
   allowUnsafeConfigurations: false
 #  pause: false
-  updateStrategy: RollingUpdate
+  updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com/operator/
     lockedVersion: 5.7.27-31.39

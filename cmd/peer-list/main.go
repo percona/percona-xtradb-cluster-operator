@@ -134,7 +134,12 @@ func main() {
 		newPeers, err = lookup(*svc)
 		if err != nil {
 			log.Printf("%v", err)
-			continue
+
+			if lerr, ok := err.(*net.DNSError); ok && lerr.IsNotFound {
+				// Service not resolved - no endpoints, so reset peers list
+				peers = sets.NewString()
+				continue
+			}
 		}
 		peerList := newPeers.List()
 		sort.Strings(peerList)

@@ -16,7 +16,7 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com/operator/
-    lockedVersion: 5.7.27-31.39
+#    apply: 8.0.18-9.3
     schedule: "* * * * *"
   pxc:
     size: 3

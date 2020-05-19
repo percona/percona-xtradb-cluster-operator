@@ -14,7 +14,7 @@ spec:
       containers:
       - name: cleanup
         image: ubuntu
-        command: ["bash", "-xc", "rm -rf /mnt/tmp/data-dir /mnt/tmp/proxy-dir; install -m 777 -d /mnt/tmp/data-dir /mnt/tmp/proxy-dir && sleep 100500"]
+        command: ["bash", "-xc", "rm -rf /mnt/run/data-dir /mnt/run/proxy-dir; install -m 777 -d /mnt/run/data-dir /mnt/run/proxy-dir && sleep 100500"]
         volumeMounts:
         - name: root
           mountPath: /mnt

@@ -150,6 +150,7 @@ type PodSpec struct {
 	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
 	PodSecurityContext            *corev1.PodSecurityContext    `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext      *corev1.SecurityContext       `json:"containerSecurityContext,omitempty"`
+	ServiceAccountName            string                        `json:"serviceAccountName,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -242,6 +243,7 @@ const (
 	PlatformUndef      Platform = ""
 	PlatformKubernetes          = "kubernetes"
 	PlatformOpenshift           = "openshift"
+	WorkloadSA                  = "percona-xtradb-cluster-operator-workload"
 )
 
 // ServerVersion represents info about k8s / openshift server version
@@ -369,6 +371,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 
 		if c.PXC.LivenessInitialDelaySeconds == nil {
 			c.PXC.LivenessInitialDelaySeconds = &livenessInitialDelaySeconds
+		}
+
+		if len(c.PXC.ServiceAccountName) == 0 {
+			c.PXC.ServiceAccountName = WorkloadSA
 		}
 
 		c.PXC.reconcileAffinityOpts()

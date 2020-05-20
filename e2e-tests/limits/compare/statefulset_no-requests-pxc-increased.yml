@@ -132,6 +132,8 @@ spec:
         fsGroup: 1001
         supplementalGroups:
         - 1001
+      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 600
       volumes:
       - emptyDir: {}

@@ -271,7 +271,8 @@ def ultimateReplace(app, docname, source):
     source[0] = result
 
 ultimate_replacements = {
-    "{{{release}}}" : release
+    "{{{release}}}" : release,
+    "{{{apiversion}}}" : release.replace(".", "-", 2)
 }
 
 def setup(app):

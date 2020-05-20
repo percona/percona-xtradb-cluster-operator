@@ -27,7 +27,7 @@ Semi-automatic update
         -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
 
      kubectl patch pxc cluster1 --type=merge --patch '{
-        "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pxc.percona.com/v1-3-0\"}" }},
+        "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pxc.percona.com/v{{{apiversion}}}\"}" }},
         "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc" },
             "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
             "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-backup" },

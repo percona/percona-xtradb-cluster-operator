@@ -38,6 +38,7 @@ spec:
 #      runAsUser: 1001
 #      runAsGroup: 1001
 #      supplementalGroups: [1001]
+#    serviceAccountName: percona-xtradb-cluster-operator-workload
     resources:
       requests:
         memory: 1G

@@ -15,13 +15,21 @@ semi-automatic or in manual mode.
 Semi-automatic update
 ---------------------
 
+#. Update the Custom Resource Definition file for the Operator, taking it from
+   the official repository on Github:
+
+   .. code:: bash
+
+      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-{{{release}}}/deploy/crd.yaml
+
 #. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
    ``RollingUpdate``.
 
 #. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
    deployment, supplying necessary image names with a newer version tag. This
    is done with the ``kubectl patch deployment`` command. For example, updating
-   to the ``{{{release}}}`` version should look as follows.
+   to the ``{{{release}}}`` version should look as follows, depending on whether
+   you are using Percona XtraDB Cluster 5.7 or 8.0.
 
    A. For Percona XtraDB Cluster 5.7 run the following:
 
@@ -62,13 +70,21 @@ Semi-automatic update
 Manual update
 -------------
 
+#. Update the Custom Resource Definition file for the Operator, taking it from
+   the official repository on Github:
+
+   .. code:: bash
+
+      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-{{{release}}}/deploy/crd.yaml
+
 #. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
    ``OnDelete``.
 
 #. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
    deployment, supplying necessary image names with a newer version tag. This
    is done with the ``kubectl patch deployment`` command. For example, updating
-   to the ``{{{release}}}`` version should look as follows.
+   to the ``{{{release}}}`` version should look as follows, depending on whether
+   you are using Percona XtraDB Cluster 5.7 or 8.0.
 
    A. For Percona XtraDB Cluster 5.7 run the following:
 

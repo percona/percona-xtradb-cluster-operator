@@ -336,14 +336,6 @@
   version = "v0.8.1"
 
 [[projects]]
-  digest = "1:848d23083e5cd9077383e35850ba4c5bcc47bb42b87d5a53a83b758c977b46c8"
-  name = "github.com/robfig/cron"
-  packages = ["."]
-  pruneopts = "NT"
-  revision = "ccba498c397bb90a9c84945bbb0f7af2d72b6309"
-  version = "v3.0.1"
-
-[[projects]]
   digest = "1:9d8420bbf131d1618bde6530af37c3799340d3762cc47210c1d9532a4c3a2779"
   name = "github.com/spf13/pflag"
   packages = ["."]

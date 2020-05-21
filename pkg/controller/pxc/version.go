@@ -7,7 +7,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 	"k8s.io/apimachinery/pkg/types"
 )
 

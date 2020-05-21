@@ -2,7 +2,6 @@ package users
 
 import (
 	"database/sql"
-	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
@@ -51,7 +50,6 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 
 	for _, user := range users {
 		for _, host := range user.Hosts {
-			fmt.Println("update user", user.Name, host, "pass:", user.Pass)
 			_, err = tx.Exec("ALTER USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)
 			if err != nil {
 				tx.Rollback()

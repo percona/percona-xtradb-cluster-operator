@@ -54,6 +54,8 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		if localCr.Spec.PXC.Image != new.PXCImage {
 			log.Info(fmt.Sprintf("update version to %v", new))
 			localCr.Spec.PXC.Image = new.PXCImage
+			localCr.Status.PXC.Image = new.PXCImage
+			localCr.Status.PXC.Version = new.PXCVersion
 			localCr.Spec.Backup.Image = new.BackupImage
 			localCr.Spec.PMM.Image = new.PMMImage
 			localCr.Spec.ProxySQL.Image = new.ProxySqlImage

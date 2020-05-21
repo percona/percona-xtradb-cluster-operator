@@ -33,7 +33,7 @@ type PerconaXtraDBClusterSpec struct {
 
 type UpgradeOptions struct {
 	VersionServiceEndpoint string `json:"versionServiceEndpoint,omitempty"`
-	Apply          string `json:"apply,omitempty"`
+	Apply                  string `json:"apply,omitempty"`
 	Schedule               string `json:"schedule,omitempty"`
 }
 
@@ -106,6 +106,8 @@ type AppStatus struct {
 	Ready   int32    `json:"ready,omitempty"`
 	Status  AppState `json:"status,omitempty"`
 	Message string   `json:"message,omitempty"`
+	Version string   `json:"version"`
+	Image   string   `json:"image"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

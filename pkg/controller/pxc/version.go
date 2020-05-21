@@ -7,9 +7,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/robfig/cron"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -20,7 +18,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(id int) {
 	delete(r.crons.jobs, jobName)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService, sfs *statefulset.Node) error {
+func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType {
 		return nil
 	}
@@ -40,23 +38,15 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 
 	log.Info(fmt.Sprintf("add new job: %s", cr.Spec.UpgradeOptions.Schedule))
 	id, err := r.crons.crons.AddFunc(cr.Spec.UpgradeOptions.Schedule, func() {
-		sfsLocal := appsv1.StatefulSet{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: sfs.StatefulSet().Name, Namespace: sfs.StatefulSet().Namespace}, &sfsLocal)
-		if err != nil {
-			log.Error(err, "failed to get stateful set")
-			return
-		}
-
-		if sfsLocal.Status.ReadyReplicas < sfsLocal.Status.Replicas ||
-			sfsLocal.Status.CurrentRevision != sfsLocal.Status.UpdateRevision {
-			log.Info("cluster is not consistent")
-			return
-		}
-
 		localCR := &api.PerconaXtraDBCluster{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCR)
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCR)
 		if err != nil {
 			log.Error(err, "failed to get CR")
+			return
+		}
+
+		if localCR.Status.Status != v1.AppStateReady {
+			log.Info("cluster is not ready")
 			return
 		}
 

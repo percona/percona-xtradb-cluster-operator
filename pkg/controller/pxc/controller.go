@@ -28,6 +28,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
@@ -54,12 +55,16 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get version: %v", err)
 	}
-
+	cli, err := clientcmd.NewClient()
+	if err != nil {
+		return nil, fmt.Errorf("create clientcmd: %v", err)
+	}
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
 		crons:         NewCronRegistry(),
 		serverVersion: sv,
+		clientcmd:     cli,
 	}, nil
 }
 
@@ -86,9 +91,10 @@ var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}
 type ReconcilePerconaXtraDBCluster struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
-	crons  CronRegistry
+	client    client.Client
+	scheme    *runtime.Scheme
+	crons     CronRegistry
+	clientcmd *clientcmd.Client
 
 	serverVersion *api.ServerVersion
 }
@@ -291,6 +297,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	err = r.sheduleEnsurePXCVersion(o, VersionServiceMock{})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
+	}
+
+	err = r.reconcileUsers(o)
+	if err != nil {
+		return rr, errors.Wrap(err, "reconcileUsers")
 	}
 
 	return rr, nil

@@ -80,14 +80,14 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 }
 
 type VersionService interface {
-	CheckNew() VersionResponce
+	CheckNew() VersionResponse
 }
 
 type VersionServiceMock struct {
 }
 
-func (vs VersionServiceMock) CheckNew() VersionResponce {
-	vr := VersionResponce{
+func (vs VersionServiceMock) CheckNew() VersionResponse {
+	vr := VersionResponse{
 		PXCImage:      "percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0",
 		PXCVersion:    "8.0.18-9.3",
 		BackupImage:   "perconalab/percona-xtradb-cluster-operator:master-pxc8.0",
@@ -102,7 +102,7 @@ func (vs VersionServiceMock) CheckNew() VersionResponce {
 	return vr
 }
 
-type VersionResponce struct {
+type VersionResponse struct {
 	PXCImage      string
 	PXCVersion    string
 	BackupImage   string

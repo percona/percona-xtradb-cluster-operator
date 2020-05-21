@@ -6,6 +6,7 @@ import (
 	"math/rand"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/robfig/cron"
 	appsv1 "k8s.io/api/apps/v1"
@@ -20,17 +21,18 @@ func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(id int) {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService, sfs *statefulset.Node) error {
-	shedule, ok := r.crons.jobs[jobName]
+	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType {
+		return nil
+	}
 
+	shedule, ok := r.crons.jobs[jobName]
 	if ok && cr.Spec.UpgradeOptions.Schedule == "" {
 		r.deleteEnsureVersion(shedule.ID)
 		return nil
 	}
-
 	if ok && shedule.CronShedule == cr.Spec.UpgradeOptions.Schedule {
 		return nil
 	}
-
 	if ok {
 		log.Info(fmt.Sprintf("remove job %s because of new %s", shedule.CronShedule, cr.Spec.UpgradeOptions.Schedule))
 		r.deleteEnsureVersion(shedule.ID)

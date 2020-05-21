@@ -38,23 +38,27 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 
 	log.Info(fmt.Sprintf("add new job: %s", cr.Spec.UpgradeOptions.Schedule))
 	id, err := r.crons.crons.AddFunc(cr.Spec.UpgradeOptions.Schedule, func() {
-		localCR := &api.PerconaXtraDBCluster{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCR)
+		localCr := &api.PerconaXtraDBCluster{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if err != nil {
 			log.Error(err, "failed to get CR")
 			return
 		}
 
-		if localCR.Status.Status != v1.AppStateReady {
+		if localCr.Status.Status != v1.AppStateReady {
 			log.Info("cluster is not ready")
 			return
 		}
 
 		new := vs.CheckNew()
-		if localCR.Spec.PXC.Image != new {
-			log.Info(fmt.Sprintf("update version to %s", new))
-			localCR.Spec.PXC.Image = new
-			err = r.client.Update(context.Background(), localCR)
+		if localCr.Spec.PXC.Image != new.PXCImage {
+			log.Info(fmt.Sprintf("update version to %v", new))
+			localCr.Spec.PXC.Image = new.PXCImage
+			localCr.Spec.Backup.Image = new.BackupImage
+			localCr.Spec.PMM.Image = new.PMMImage
+			localCr.Spec.ProxySQL.Image = new.ProxySqlImage
+
+			err = r.client.Update(context.Background(), localCr)
 			if err != nil {
 				log.Error(err, "failed to update CR")
 				return
@@ -76,15 +80,32 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 }
 
 type VersionService interface {
-	CheckNew() string
+	CheckNew() VersionResponce
 }
 
 type VersionServiceMock struct {
 }
 
-func (vs VersionServiceMock) CheckNew() string {
-	if rand.Int()%2 == 0 {
-		return "perconalab/percona-xtradb-cluster-operator:master-pxc8.0"
+func (vs VersionServiceMock) CheckNew() VersionResponce {
+	vr := VersionResponce{
+		PXCImage:      "percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0",
+		PXCVersion:    "8.0.18-9.3",
+		BackupImage:   "perconalab/percona-xtradb-cluster-operator:master-pxc8.0",
+		PMMImage:      "perconalab/percona-xtradb-cluster-operator:master-pmm",
+		ProxySqlImage: "perconalab/percona-xtradb-cluster-operator:master-proxysql",
 	}
-	return "percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0"
+
+	if rand.Int()%2 == 0 {
+		vr.PXCImage = "perconalab/percona-xtradb-cluster-operator:master-pxc8.0"
+	}
+
+	return vr
+}
+
+type VersionResponce struct {
+	PXCImage      string
+	PXCVersion    string
+	BackupImage   string
+	ProxySqlImage string
+	PMMImage      string
 }

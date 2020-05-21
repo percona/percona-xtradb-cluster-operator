@@ -101,10 +101,17 @@ Options <https://percona.github.io/percona-xtradb-cluster-operator/configure/ope
 Making on-demand backup
 -----------------------
 
-To make on-demand backup, user should use YAML file with correct names
-for the backup and the PXC Cluster, and correct PVC settings. The
-example of such file is
-`deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`__.
+To make an on-demand backup, the user should use a special backup configuration
+YAML file with the following contents:
+
+* **backup name** in the ``name`` key,
+* **PXC Cluster name** in the ``pxcCluster``key,
+* **storage name** in the ``storageName`` key.
+
+.. note:: The atual backup storage configuration is done in the ``backup``
+   section of the ``deploy/cr.yaml`` configuration file.
+
+The example of the backup configuration file is `deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`_.
 
 When the backup config file is ready, actual backup command is executed:
 
@@ -112,28 +119,28 @@ When the backup config file is ready, actual backup command is executed:
 
    kubectl apply -f deploy/backup/backup.yaml
 
-**Note:** *Storing backup settings in a separate file can be replaced by
-passing its content to the ``kubectl apply`` command as follows:*
+.. note:: Storing backup settings in a separate file can be replaced by
+   passing its content to the ``kubectl apply`` command as follows:
 
-.. code:: bash
+   .. code:: bash
 
-   cat <<EOF | kubectl apply -f-
-   apiVersion: pxc.percona.com/v1
-   kind: PerconaXtraDBClusterBackup
-   metadata:
-     name: backup1
-   spec:
-     pxcCluster: cluster1
-     storageName: fs-pvc
-   EOF
+      cat <<EOF | kubectl apply -f-
+      apiVersion: pxc.percona.com/v1
+      kind: PerconaXtraDBClusterBackup
+      metadata:
+        name: backup1
+      spec:
+        pxcCluster: cluster1
+        storageName: fs-pvc
+      EOF
 
 .. _backups-private-volume:
 
 Storing backup on a private volume
 -----------------------------------
 
-Here is an example of the backup section fragment, which configures a private
-volume for filesystem-type storage:
+Here is an example of the ``deploy/cr.yaml`` backup section fragment, which
+configures a private volume for filesystem-type storage:
 
 .. code:: yaml
 
@@ -154,7 +161,8 @@ volume for filesystem-type storage:
 .. note:: Please take into account that 6Gi storage size specified in this
    example may be insufficient for the real-life setups; consider using tens or
    hundreds of gigabytes. Also, you can edit this option later, and changes will
-   take effect after applying the updated YAML file with ``kubectl``.
+   take effect after applying the updated ``deploy/cr.yaml`` file with
+   ``kubectl``.
 
 .. _backups-restore:
 
@@ -185,20 +193,20 @@ Following steps are needed to restore a previously saved backup:
 
       kubectl apply -f deploy/backup/restore.yaml
 
-**Note:** *Storing backup settings in a separate file can be replaced by
-passing its content to the ``kubectl apply`` command as follows:*
+.. note:: Storing backup settings in a separate file can be replaced by passing
+   its content to the ``kubectl apply`` command as follows:
 
-      .. code:: bash
+   .. code:: bash
 
-         cat <<EOF | kubectl apply -f-
-         apiVersion: "pxc.percona.com/v1"
-         kind: "PerconaXtraDBClusterRestore"
-         metadata:
-           name: "restore1"
-         spec:
-           pxcCluster: "cluster1"
-           backupName: "backup1"
-         EOF
+      cat <<EOF | kubectl apply -f-
+      apiVersion: "pxc.percona.com/v1"
+      kind: "PerconaXtraDBClusterRestore"
+      metadata:
+        name: "restore1"
+      spec:
+        pxcCluster: "cluster1"
+        backupName: "backup1"
+      EOF
 
 .. _backups-delete:
 

@@ -18,7 +18,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(id int) {
 	delete(r.crons.jobs, jobName)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
+func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType {
 		return nil
 	}
@@ -50,24 +50,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 			return
 		}
 
-		new := vs.CheckNew()
-		if localCr.Spec.PXC.Image != new.PXCImage {
-			log.Info(fmt.Sprintf("update version to %v", new))
-			localCr.Spec.PXC.Image = new.PXCImage
-			localCr.Status.PXC.Image = new.PXCImage
-			localCr.Status.PXC.Version = new.PXCVersion
-			localCr.Spec.Backup.Image = new.BackupImage
-			localCr.Spec.PMM.Image = new.PMMImage
-			localCr.Spec.ProxySQL.Image = new.ProxySqlImage
-
-			err = r.client.Update(context.Background(), localCr)
-			if err != nil {
-				log.Error(err, "failed to update CR")
-				return
-			}
-		} else {
-			log.Info(fmt.Sprintf("same version %s", new))
-		}
+		r.ensurePXCVersion(localCr, vs)
 	})
 	if err != nil {
 		return err
@@ -79,6 +62,31 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) {
+	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType {
+		return
+	}
+
+	new := vs.CheckNew()
+	if cr.Spec.PXC.Image != new.PXCImage {
+		log.Info(fmt.Sprintf("update version to %v", new))
+		cr.Spec.PXC.Image = new.PXCImage
+		cr.Status.PXC.Image = new.PXCImage
+		cr.Status.PXC.Version = new.PXCVersion
+		cr.Spec.Backup.Image = new.BackupImage
+		cr.Spec.PMM.Image = new.PMMImage
+		cr.Spec.ProxySQL.Image = new.ProxySqlImage
+
+		err := r.client.Update(context.Background(), cr)
+		if err != nil {
+			log.Error(err, "failed to update CR")
+			return
+		}
+	} else {
+		log.Info(fmt.Sprintf("same version %s", new))
+	}
 }
 
 type VersionService interface {

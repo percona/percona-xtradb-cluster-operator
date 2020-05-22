@@ -193,7 +193,7 @@ recover_pvc() {
 		        - |
 		          ping -c1 restore-src-$cluster || :
 		          rm -rf /datadir/*
-		          ncat restore-src-$cluster 3307 | xbstream -x -C /datadir
+		          ncat restore-src-$cluster 3307 | xbstream --decompress -x -C /datadir
 		          xtrabackup --prepare --target-dir=/datadir
 		        volumeMounts:
 		        - name: datadir
@@ -242,7 +242,7 @@ recover_s3() {
 		          mc -C /tmp/mc config host add dest "${ENDPOINT:-https://s3.amazonaws.com}" "$ACCESS_KEY_ID" "$SECRET_ACCESS_KEY"
 		          mc -C /tmp/mc ls dest/$backup_bucket/$backup_key
 		          rm -rf /datadir/*
-		          mc -C /tmp/mc cat dest/$backup_bucket/$backup_key | xbstream -x -C /datadir
+		          mc -C /tmp/mc cat dest/$backup_bucket/$backup_key | xbstream --decompress -x -C /datadir
 		          xtrabackup --prepare --target-dir=/datadir
 		        volumeMounts:
 		        - name: datadir

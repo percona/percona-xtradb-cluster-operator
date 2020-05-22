@@ -119,11 +119,8 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			*restartPXC = true
 			hosts = []string{"localhost"}
 		case "monitor":
-			if cr.Spec.PMM.Enabled {
-				*restartProxy = true
-				*restartPXC = true
-				hosts = []string{"10.%", "%"}
-			}
+			*restartProxy = true
+			hosts = []string{"10.%", "%"}
 		case "clustercheck":
 			*restartProxy = true
 			*restartPXC = true

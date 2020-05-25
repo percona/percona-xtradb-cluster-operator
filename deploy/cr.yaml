@@ -112,6 +112,7 @@ spec:
 #      limits:
 #        memory: 2G
 #        cpu: 600m
+#    serviceAccountName: percona-xtradb-cluster-operator-workload
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:

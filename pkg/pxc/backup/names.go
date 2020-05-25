@@ -24,7 +24,7 @@ func genRandString(ln int) string {
 }
 
 func genScheduleLabel(sched string) string {
-	r := strings.NewReplacer("*", "N", "/", "E", " ", "_")
+	r := strings.NewReplacer("*", "N", "/", "E", " ", "_", ",", ".")
 	return r.Replace(sched)
 }
 

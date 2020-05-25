@@ -17,20 +17,14 @@ type SysUser struct {
 	Hosts []string `yaml:"hosts"`
 }
 
-func NewManager(hosts []string, rootPass string) (Manager, error) {
+func NewManager(host string, rootPass string) (Manager, error) {
 	var um Manager
-	var err error
-	for _, host := range hosts {
-		mysqlDB, err := sql.Open("mysql", "root:"+rootPass+"@tcp("+host+")/?interpolateParams=true")
-		if err != nil {
-			continue
-		}
-		um.db = mysqlDB
-		break
-	}
-	if um.db == nil {
+
+	mysqlDB, err := sql.Open("mysql", "root:"+rootPass+"@tcp("+host+")/?interpolateParams=true")
+	if err != nil {
 		return um, errors.Wrap(err, "cannot connect to any host")
 	}
+	um.db = mysqlDB
 
 	return um, nil
 }
@@ -44,7 +38,10 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 
 	_, err = tx.Exec("FLUSH PRIVILEGES")
 	if err != nil {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return errors.Wrap(err, "transaction rollback")
+		}
 		return errors.Wrap(err, "flush privileges")
 	}
 
@@ -52,7 +49,10 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 		for _, host := range user.Hosts {
 			_, err = tx.Exec("ALTER USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)
 			if err != nil {
-				tx.Rollback()
+				err = tx.Rollback()
+				if err != nil {
+					return errors.Wrap(err, "transaction rollback")
+				}
 				return errors.Wrap(err, "update root path")
 			}
 		}
@@ -60,7 +60,10 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 
 	_, err = tx.Exec("FLUSH PRIVILEGES")
 	if err != nil {
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			return errors.Wrap(err, "transaction rollback")
+		}
 		return errors.Wrap(err, "flush privileges")
 	}
 

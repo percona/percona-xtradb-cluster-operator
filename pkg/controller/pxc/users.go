@@ -23,12 +23,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil
 	}
 
-	err := r.handleSysUsersSecret(cr)
-	if err != nil {
-		log.Error(err, "handle system users secret")
-	}
-
-	return nil
+	return r.handleSysUsersSecret(cr)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleSysUsersSecret(cr *api.PerconaXtraDBCluster) error {
@@ -66,10 +61,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleSysUsersSecret(cr *api.PerconaXtra
 		return nil
 	}
 
-	var restartPXC bool
-	var restartProxy bool
-
-	err = r.manageSysUsers(cr, &sysUsersSecretObj, &internalSysSecretObj, &restartPXC, &restartProxy)
+	restartPXC, restartProxy, err := r.manageSysUsers(cr, &sysUsersSecretObj, &internalSysSecretObj)
 	if err != nil {
 		return errors.Wrap(err, "manage sys users")
 	}
@@ -80,14 +72,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleSysUsersSecret(cr *api.PerconaXtra
 	}
 
 	if restartProxy && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Size > 0 {
-		err = r.restartProxy(cr, newSecretDataHash)
+		err = r.restartProxy(cr)
 		if err != nil {
 			return errors.Wrap(err, "restart proxy")
 		}
 	}
 
 	if restartPXC {
-		err = r.restartPXC(cr, newSecretDataHash, &sysUsersSecretObj)
+		err = r.restartPXC(cr, newSecretDataHash)
 		if err != nil {
 			return errors.Wrap(err, "restart pxc")
 		}
@@ -96,11 +88,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleSysUsersSecret(cr *api.PerconaXtra
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret, restartPXC, restartProxy *bool) error {
-	um, err := users.NewManager([]string{cr.Name + "-pxc"}, string(internalSysSecretObj.Data["root"]))
+func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
+	var restartPXC, restartProxy bool
+	um, err := users.NewManager(cr.Name+"-pxc", string(internalSysSecretObj.Data["root"]))
 	if err != nil {
-		return errors.Wrap(err, "new users manager")
+		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
 	}
+
 	var sysUsers []users.SysUser
 
 	for name, pass := range sysUsersSecretObj.Data {
@@ -112,27 +106,27 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 
 		switch name {
 		case "root":
-			*restartProxy = true
+			restartProxy = true
 			hosts = []string{"localhost", "%"}
 		case "xtrabackup":
-			*restartProxy = true
-			*restartPXC = true
+			restartProxy = true
+			restartPXC = true
 			hosts = []string{"localhost"}
 		case "monitor":
-			*restartProxy = true
+			restartProxy = true
 			hosts = []string{"10.%", "%"}
 		case "clustercheck":
-			*restartProxy = true
-			*restartPXC = true
+			restartProxy = true
+			restartPXC = true
 			hosts = []string{"localhost"}
 		case "proxyadmin":
-			*restartProxy = true
+			restartProxy = true
 			continue
 
 		case "pmmserver":
 			if cr.Spec.PMM.Enabled {
-				*restartProxy = true
-				*restartPXC = true
+				restartProxy = true
+				restartPXC = true
 				continue
 			}
 		}
@@ -147,14 +141,14 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	if len(sysUsers) > 0 {
 		err = um.UpdateUsersPass(sysUsers)
 		if err != nil {
-			return errors.Wrap(err, "update sys users pass")
+			return restartPXC, restartProxy, errors.Wrap(err, "update sys users pass")
 		}
 	}
 
-	return nil
+	return restartPXC, restartProxy, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) restartPXC(cr *api.PerconaXtraDBCluster, newSecretDataHash string, sysUsersSecretObj *corev1.Secret) error {
+func (r *ReconcilePerconaXtraDBCluster) restartPXC(cr *api.PerconaXtraDBCluster, newSecretDataHash string) error {
 	sfsPXC := appsv1.StatefulSet{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -177,7 +171,7 @@ func (r *ReconcilePerconaXtraDBCluster) restartPXC(cr *api.PerconaXtraDBCluster,
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) restartProxy(cr *api.PerconaXtraDBCluster, newSecretDataHash string) error {
+func (r *ReconcilePerconaXtraDBCluster) restartProxy(cr *api.PerconaXtraDBCluster) error {
 	pvcProxy := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: cr.Namespace,
@@ -225,7 +219,9 @@ func (r *ReconcilePerconaXtraDBCluster) getInternalSysUsersSecret(cr *api.Percon
 	)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return internalSysUsersSecretObj, errors.Wrap(err, "get internal sys users secret")
-	} else if k8serrors.IsNotFound(err) {
+	}
+
+	if k8serrors.IsNotFound(err) {
 		err = r.client.Create(context.TODO(), &internalSysUsersSecretObj)
 		if err != nil {
 			return internalSysUsersSecretObj, errors.Wrap(err, "create internal sys users secret")

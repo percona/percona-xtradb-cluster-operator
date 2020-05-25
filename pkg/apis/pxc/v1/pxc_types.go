@@ -420,6 +420,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 			c.ProxySQL.TerminationGracePeriodSeconds = &graceSec
 		}
 
+		if len(c.ProxySQL.ServiceAccountName) == 0 {
+			c.ProxySQL.ServiceAccountName = WorkloadSA
+		}
+
 		c.ProxySQL.reconcileAffinityOpts()
 
 		if c.Pause {

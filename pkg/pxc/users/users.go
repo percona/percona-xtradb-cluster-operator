@@ -38,9 +38,9 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 
 	_, err = tx.Exec("FLUSH PRIVILEGES")
 	if err != nil {
-		err = tx.Rollback()
-		if err != nil {
-			return errors.Wrap(err, "transaction rollback")
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
 		}
 		return errors.Wrap(err, "flush privileges")
 	}
@@ -49,20 +49,20 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 		for _, host := range user.Hosts {
 			_, err = tx.Exec("ALTER USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)
 			if err != nil {
-				err = tx.Rollback()
-				if err != nil {
-					return errors.Wrap(err, "transaction rollback")
+				errT := tx.Rollback()
+				if errT != nil {
+					return errors.Errorf("update password: %v, tx rollback: %v", err, errT)
 				}
-				return errors.Wrap(err, "update root path")
+				return errors.Wrap(err, "update password")
 			}
 		}
 	}
 
 	_, err = tx.Exec("FLUSH PRIVILEGES")
 	if err != nil {
-		err = tx.Rollback()
-		if err != nil {
-			return errors.Wrap(err, "transaction rollback")
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
 		}
 		return errors.Wrap(err, "flush privileges")
 	}

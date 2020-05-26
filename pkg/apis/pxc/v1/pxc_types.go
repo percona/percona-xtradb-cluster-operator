@@ -68,6 +68,8 @@ const (
 type PerconaXtraDBClusterStatus struct {
 	PXC                AppStatus          `json:"pxc,omitempty"`
 	ProxySQL           AppStatus          `json:"proxysql,omitempty"`
+	Backup             AppStatus          `json:"backup,omitempty"`
+	PMM                AppStatus          `json:"pmm,omitempty"`
 	Host               string             `json:"host,omitempty"`
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`

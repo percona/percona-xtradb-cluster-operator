@@ -77,21 +77,32 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	new := vs.CheckNew()
+
 	if cr.Status.PXC.Version != new.PXCVersion {
-		log.Info(fmt.Sprintf("update version to %v", new))
+		log.Info(fmt.Sprintf("update PXC version to %v", new.PXCVersion))
 		cr.Spec.PXC.Image = new.PXCImage
 		cr.Status.PXC.Version = new.PXCVersion
+	}
+	if cr.Status.Backup.Version != new.BackupVersion {
+		log.Info(fmt.Sprintf("update Backup version to %v", new.BackupVersion))
 		cr.Spec.Backup.Image = new.BackupImage
+		cr.Status.Backup.Version = new.BackupVersion
+	}
+	if cr.Status.PMM.Version != new.PMMVersion {
+		log.Info(fmt.Sprintf("update PMM version to %v", new.PMMVersion))
 		cr.Spec.PMM.Image = new.PMMImage
+		cr.Status.PMM.Version = new.PMMVersion
+	}
+	if cr.Status.ProxySQL.Version != new.ProxySqlVersion {
+		log.Info(fmt.Sprintf("update PMM version to %v", new.PMMVersion))
 		cr.Spec.ProxySQL.Image = new.ProxySqlImage
+		cr.Status.ProxySQL.Version = new.ProxySqlVersion
+	}
 
-		err := r.client.Update(context.Background(), cr)
-		if err != nil {
-			log.Error(err, "failed to update CR")
-			return
-		}
-	} else {
-		log.Info(fmt.Sprintf("same version %s", new))
+	err := r.client.Update(context.Background(), cr)
+	if err != nil {
+		log.Error(err, "failed to update CR")
+		return
 	}
 }
 

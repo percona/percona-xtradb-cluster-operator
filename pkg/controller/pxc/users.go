@@ -23,10 +23,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil
 	}
 
-	return r.handleSysUsersSecret(cr)
-}
-
-func (r *ReconcilePerconaXtraDBCluster) handleSysUsersSecret(cr *api.PerconaXtraDBCluster) error {
 	sysUsersSecretObj := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -109,14 +105,15 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			restartProxy = true
 			hosts = []string{"localhost", "%"}
 		case "xtrabackup":
-			restartProxy = true
 			restartPXC = true
 			hosts = []string{"localhost"}
 		case "monitor":
 			restartProxy = true
+			if cr.Spec.PMM.Enabled {
+				restartPXC = true
+			}
 			hosts = []string{"10.%", "%"}
 		case "clustercheck":
-			restartProxy = true
 			restartPXC = true
 			hosts = []string{"localhost"}
 		case "proxyadmin":

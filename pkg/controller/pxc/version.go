@@ -113,9 +113,12 @@ func (vs VersionServiceMock) CheckNew() VersionResponse {
 }
 
 type VersionResponse struct {
-	PXCImage      string
-	PXCVersion    string
-	BackupImage   string
-	ProxySqlImage string
-	PMMImage      string
+	PXCImage        string
+	PXCVersion      string
+	BackupImage     string
+	BackupVersion   string
+	ProxySqlImage   string
+	ProxySqlVersion string
+	PMMImage        string
+	PMMVersion      string
 }

@@ -77,7 +77,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	new := vs.CheckNew()
-	if cr.Spec.PXC.Image != new.PXCImage {
+	if cr.Status.PXC.Version != new.PXCVersion {
 		log.Info(fmt.Sprintf("update version to %v", new))
 		cr.Spec.PXC.Image = new.PXCImage
 		cr.Status.PXC.Version = new.PXCVersion
@@ -113,6 +113,7 @@ func (vs VersionServiceMock) CheckNew() VersionResponse {
 
 	if rand.Int()%2 == 0 {
 		vr.PXCImage = "perconalab/percona-xtradb-cluster-operator:master-pxc8.0"
+		vr.PXCVersion = "8.0.18-9.4"
 	}
 
 	return vr

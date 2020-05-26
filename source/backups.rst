@@ -108,7 +108,7 @@ YAML file with the following contents:
 * **PXC Cluster name** in the ``pxcCluster``key,
 * **storage name** in the ``storageName`` key.
 
-.. note:: The atual backup storage configuration is done in the ``backup``
+.. note:: The actual backup storage configuration is done in the ``backup``
    section of the ``deploy/cr.yaml`` configuration file.
 
 The example of the backup configuration file is `deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`_.

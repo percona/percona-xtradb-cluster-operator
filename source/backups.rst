@@ -113,7 +113,7 @@ YAML file with the following contents:
 
 The example of the backup configuration file is `deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`_.
 
-When the backup config file is ready, actual backup command is executed:
+When the backup destination is configured and applied with `kubectl apply -f deploy/cr.yaml` command, the actual backup command is executed:
 
 .. code:: bash
 

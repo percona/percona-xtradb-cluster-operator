@@ -12,6 +12,8 @@ import (
 )
 
 const jobName = "ensure-version"
+const never = "Never"
+const disabled = "Disabled"
 
 func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(id int) {
 	r.crons.crons.Remove(cron.EntryID(id))
@@ -19,12 +21,17 @@ func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(id int) {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
-	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType {
+	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
+		cr.Spec.UpgradeOptions.Schedule == "" ||
+		cr.Spec.UpgradeOptions.Apply == never ||
+		cr.Spec.UpgradeOptions.Apply == disabled {
 		return nil
 	}
 
 	shedule, ok := r.crons.jobs[jobName]
-	if ok && cr.Spec.UpgradeOptions.Schedule == "" {
+	if ok && (cr.Spec.UpgradeOptions.Schedule == "" ||
+		cr.Spec.UpgradeOptions.Apply == never ||
+		cr.Spec.UpgradeOptions.Apply == disabled) {
 		r.deleteEnsureVersion(shedule.ID)
 		return nil
 	}
@@ -73,7 +80,6 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	if cr.Spec.PXC.Image != new.PXCImage {
 		log.Info(fmt.Sprintf("update version to %v", new))
 		cr.Spec.PXC.Image = new.PXCImage
-		cr.Status.PXC.Image = new.PXCImage
 		cr.Status.PXC.Version = new.PXCVersion
 		cr.Spec.Backup.Image = new.BackupImage
 		cr.Spec.PMM.Image = new.PMMImage

@@ -47,12 +47,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 	cr.Status.Messages = cr.Status.Messages[:0]
 
-	version := cr.Status.PXC.Version
 	pxcStatus, err := r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC, cr.Namespace)
 	if err != nil {
 		return fmt.Errorf("get pxc status: %v", err)
 	}
-	pxcStatus.Version = version
+	pxcStatus.Version = cr.Status.PXC.Version
 	if pxcStatus.Status != cr.Status.PXC.Status {
 		if pxcStatus.Status == api.AppStateReady {
 			clusterCondition = api.ClusterCondition{
@@ -242,7 +241,6 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.App, podSpec *api.PodS
 	status := api.AppStatus{
 		Size:   podSpec.Size,
 		Status: api.AppStateInit,
-		Image:  podSpec.Image,
 	}
 
 	for _, pod := range list.Items {

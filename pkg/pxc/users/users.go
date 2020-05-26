@@ -36,15 +36,6 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 		return errors.Wrap(err, "begin transaction")
 	}
 
-	_, err = tx.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		errT := tx.Rollback()
-		if errT != nil {
-			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
-		}
-		return errors.Wrap(err, "flush privileges")
-	}
-
 	for _, user := range users {
 		for _, host := range user.Hosts {
 			_, err = tx.Exec("ALTER USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)

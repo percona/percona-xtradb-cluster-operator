@@ -72,7 +72,15 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 }
 
 func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) {
-	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType {
+	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
+		cr.Spec.UpgradeOptions.Schedule == "" ||
+		cr.Spec.UpgradeOptions.Apply == never ||
+		cr.Spec.UpgradeOptions.Apply == disabled {
+		return
+	}
+
+	if cr.Status.Status != v1.AppStateReady && cr.Status.PXC.Version != "" {
+		log.Info("cluster is not ready")
 		return
 	}
 

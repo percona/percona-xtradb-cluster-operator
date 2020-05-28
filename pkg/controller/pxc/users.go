@@ -1,6 +1,7 @@
 package pxc
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -68,7 +69,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	}
 
 	if restartProxy && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Size > 0 {
-		err = r.restartProxy(cr)
+		err = r.restartProxy(cr, newSecretDataHash)
 		if err != nil {
 			return errors.Wrap(err, "restart proxy")
 		}
@@ -85,13 +86,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
-	var restartPXC, restartProxy bool
-	um, err := users.NewManager(cr.Name+"-pxc", string(internalSysSecretObj.Data["root"]))
+	var restartPXC, restartProxy, syncUsers, updProxyUsers bool
+	um, err := users.NewManager(cr.Name+"-pxc", "root", string(internalSysSecretObj.Data["root"]))
 	if err != nil {
 		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
 	}
 
 	var sysUsers []users.SysUser
+	var proxyUsers []users.SysUser
 
 	for name, pass := range sysUsersSecretObj.Data {
 		hosts := []string{}
@@ -102,22 +104,28 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 
 		switch name {
 		case "root":
-			restartProxy = true
+			syncUsers = true
 			hosts = []string{"localhost", "%"}
 		case "xtrabackup":
 			restartPXC = true
 			hosts = []string{"localhost"}
 		case "monitor":
 			restartProxy = true
+			updProxyUsers = true
+			proxyUsers = append(proxyUsers, users.SysUser{Name: name, Pass: string(pass)})
+
 			if cr.Spec.PMM.Enabled {
 				restartPXC = true
 			}
-			hosts = []string{"10.%", "%"}
+			hosts = []string{"%"}
 		case "clustercheck":
 			restartPXC = true
 			hosts = []string{"localhost"}
 		case "proxyadmin":
 			restartProxy = true
+			updProxyUsers = true
+			proxyUsers = append(proxyUsers, users.SysUser{Name: name, Pass: string(pass)})
+
 			continue
 
 		case "pmmserver":
@@ -142,7 +150,48 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		}
 	}
 
+	if updProxyUsers && len(proxyUsers) > 0 {
+		err = updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
+		if err != nil {
+			return restartPXC, restartProxy, errors.Wrap(err, "update Proxy users pass")
+		}
+	}
+
+	if syncUsers && !restartProxy {
+		err = r.syncPXCUsersWithProxySQL(cr)
+		if err != nil {
+			return restartPXC, restartProxy, errors.Wrap(err, "sync users")
+		}
+	}
+
 	return restartPXC, restartProxy, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {
+	// sync users if ProxySql enabled
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Size > 0 {
+		pod := corev1.Pod{}
+		err := r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      cr.Name + "-proxysql-0",
+			},
+			&pod,
+		)
+		if err != nil {
+			return errors.Wrap(err, "get proxysql pod")
+		}
+		var errb, outb bytes.Buffer
+		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers"}, nil, &outb, &errb, false)
+		if err != nil {
+			return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
+		}
+		if len(errb.Bytes()) > 0 {
+			return errors.New("syncusers: " + errb.String())
+		}
+	}
+
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) restartPXC(cr *api.PerconaXtraDBCluster, newSecretDataHash string) error {
@@ -168,33 +217,38 @@ func (r *ReconcilePerconaXtraDBCluster) restartPXC(cr *api.PerconaXtraDBCluster,
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) restartProxy(cr *api.PerconaXtraDBCluster) error {
-	pvcProxy := corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: cr.Namespace,
-			Name:      "proxydata-" + cr.Name + "-proxysql-0",
-		},
-	}
-	err := r.client.Delete(context.TODO(), &pvcProxy)
+func updateProxyUsers(proxyUsers []users.SysUser, internalSysSecretObj *corev1.Secret, cr *api.PerconaXtraDBCluster) error {
+	um, err := users.NewManager(cr.Name+"-proxysql-unready:6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]))
 	if err != nil {
-		return errors.Wrap(err, "delete proxy pvc")
+		return errors.Wrap(err, "new users manager")
 	}
 
+	err = um.UpdateProxyUsers(proxyUsers)
+	if err != nil {
+		return errors.Wrap(err, "update proxy users")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) restartProxy(cr *api.PerconaXtraDBCluster, newSecretDataHash string) error {
 	sfsProxy := appsv1.StatefulSet{}
-	err = r.client.Get(context.TODO(),
+	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Name + "-proxysql",
 		},
 		&sfsProxy,
 	)
-	if err != nil {
-		return errors.Wrap(err, "get proxy statefulset")
-	}
 
-	err = r.client.Delete(context.TODO(), &sfsProxy)
+	if len(sfsProxy.Annotations) == 0 {
+		sfsProxy.Annotations = make(map[string]string)
+	}
+	sfsProxy.Spec.Template.Annotations["last-applied-secret"] = newSecretDataHash
+
+	err = r.client.Update(context.TODO(), &sfsProxy)
 	if err != nil {
-		return errors.Wrap(err, "delete proxy statefulset")
+		return errors.Wrap(err, "update proxy sfs last-applied annotation")
 	}
 
 	return nil

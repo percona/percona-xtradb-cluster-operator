@@ -17,10 +17,10 @@ type SysUser struct {
 	Hosts []string `yaml:"hosts"`
 }
 
-func NewManager(host string, rootPass string) (Manager, error) {
+func NewManager(host string, user, pass string) (Manager, error) {
 	var um Manager
 
-	mysqlDB, err := sql.Open("mysql", "root:"+rootPass+"@tcp("+host+")/?interpolateParams=true")
+	mysqlDB, err := sql.Open("mysql", user+":"+pass+"@tcp("+host+")/?interpolateParams=true")
 	if err != nil {
 		return um, errors.Wrap(err, "cannot connect to any host")
 	}
@@ -56,6 +56,78 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
 		}
 		return errors.Wrap(err, "flush privileges")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit transaction")
+	}
+
+	return nil
+}
+
+func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
+	defer u.db.Close()
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	for _, user := range proxyUsers {
+		switch user.Name {
+		case "proxyadmin":
+			_, err = tx.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='admin-admin_credentials'", "proxyadmin:"+user.Pass)
+			if err != nil {
+				errT := tx.Rollback()
+				if errT != nil {
+					return errors.Errorf("update proxy admin password: %v, tx rollback: %v", err, errT)
+				}
+				return errors.Wrap(err, "update proxy admin password")
+			}
+			_, err = tx.Exec("LOAD ADMIN VARIABLES TO RUNTIME")
+			if err != nil {
+				errT := tx.Rollback()
+				if errT != nil {
+					return errors.Errorf("load to runtime: %v, tx rollback: %v", err, errT)
+				}
+				return errors.Wrap(err, "load to runtime")
+			}
+
+			_, err = tx.Exec("SAVE ADMIN VARIABLES TO DISK")
+			if err != nil {
+				errT := tx.Rollback()
+				if errT != nil {
+					return errors.Errorf("save to disk: %v, tx rollback: %v", err, errT)
+				}
+				return errors.Wrap(err, "save to disk")
+			}
+		case "monitor":
+			_, err = tx.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='mysql-monitor_password'", user.Pass)
+			if err != nil {
+				errT := tx.Rollback()
+				if errT != nil {
+					return errors.Errorf("update proxy monitor password: %v, tx rollback: %v", err, errT)
+				}
+				return errors.Wrap(err, "update proxy monitor password")
+			}
+			_, err = tx.Exec("LOAD MYSQL VARIABLES TO RUNTIME")
+			if err != nil {
+				errT := tx.Rollback()
+				if errT != nil {
+					return errors.Errorf("load to runtime: %v, tx rollback: %v", err, errT)
+				}
+				return errors.Wrap(err, "load to runtime")
+			}
+
+			_, err = tx.Exec("SAVE MYSQL VARIABLES TO DISK")
+			if err != nil {
+				errT := tx.Rollback()
+				if errT != nil {
+					return errors.Errorf("save to disk: %v, tx rollback: %v", err, errT)
+				}
+				return errors.Wrap(err, "save to disk")
+			}
+		}
 	}
 
 	err = tx.Commit()

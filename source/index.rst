@@ -15,47 +15,70 @@ Operator extends the Kubernetes API with custom resources.
 
 Requirements
 ============
+
 .. toctree::
    :maxdepth: 1
 
    System-Requirements
    architecture
 
-Installation
-============
+Quickstart guides
+=================
+
+.. toctree::
+   :maxdepth: 1
+
+   minikube
+   gke
+   eks
+
+Advanced Installation Guides
+============================
+
 .. toctree::
    :maxdepth: 1
 
    kubernetes
    openshift
-   minikube
-   scaling
    update
-   monitoring
+   scaling
    custom-registry
    broker
 
 Configuration
 =============
+
 .. toctree::
    :maxdepth: 1
 
    users
-   operator
-   backups
    storage
    constraints
    options
    proxysql-conf
    TLS
    encryption
+
+Management
+==========
+
+.. toctree::
+   :maxdepth: 1
+
+   backups
+   monitoring
    pause
    recovery
    debug
 
-Reference
-=============
 .. toctree::
    :maxdepth: 1
 
+Reference
+=============
+
+.. toctree::
+   :maxdepth: 1
+
+   operator
    Release Notes <ReleaseNotes/index>

@@ -86,7 +86,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
-	var restartPXC, restartProxy, syncUsers, updProxyUsers bool
+	var restartPXC, restartProxy, syncProxySQLUsers bool
 	um, err := users.NewManager(cr.Name+"-pxc", "root", string(internalSysSecretObj.Data["root"]))
 	if err != nil {
 		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
@@ -104,16 +104,14 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 
 		switch name {
 		case "root":
-			syncUsers = true
+			syncProxySQLUsers = true
 			hosts = []string{"localhost", "%"}
 		case "xtrabackup":
 			restartPXC = true
 			hosts = []string{"localhost"}
 		case "monitor":
 			restartProxy = true
-			updProxyUsers = true
 			proxyUsers = append(proxyUsers, users.SysUser{Name: name, Pass: string(pass)})
-
 			if cr.Spec.PMM.Enabled {
 				restartPXC = true
 			}
@@ -123,7 +121,6 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			hosts = []string{"localhost"}
 		case "proxyadmin":
 			restartProxy = true
-			updProxyUsers = true
 			proxyUsers = append(proxyUsers, users.SysUser{Name: name, Pass: string(pass)})
 
 			continue
@@ -150,14 +147,14 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		}
 	}
 
-	if updProxyUsers && len(proxyUsers) > 0 {
+	if len(proxyUsers) > 0 {
 		err = updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
 		if err != nil {
 			return restartPXC, restartProxy, errors.Wrap(err, "update Proxy users pass")
 		}
 	}
 
-	if syncUsers && !restartProxy {
+	if syncProxySQLUsers && !restartProxy {
 		err = r.syncPXCUsersWithProxySQL(cr)
 		if err != nil {
 			return restartPXC, restartProxy, errors.Wrap(err, "sync users")
@@ -169,7 +166,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 
 func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {
 	// sync users if ProxySql enabled
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Size > 0 {
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Size > 0 {
 		pod := corev1.Pod{}
 		err := r.client.Get(context.TODO(),
 			types.NamespacedName{

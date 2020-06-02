@@ -1,5 +1,5 @@
 label: "JIRA"
-url: "https://jira.company.com/browse/$issuePrefix"
+url: "https://jira.percona.com/browse/$issuePrefix"
 message: "$issuePrefix"
 color: "green"
 when: "$issuePrefix"

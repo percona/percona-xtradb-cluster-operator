@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,6 +58,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
+		crons:         NewCronRegistry(),
 		serverVersion: sv,
 	}, nil
 }
@@ -86,8 +88,30 @@ type ReconcilePerconaXtraDBCluster struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	crons  CronRegistry
 
 	serverVersion *api.ServerVersion
+}
+
+type CronRegistry struct {
+	crons *cron.Cron
+	jobs  map[string]Shedule
+}
+
+type Shedule struct {
+	ID          int
+	CronShedule string
+}
+
+func NewCronRegistry() CronRegistry {
+	c := CronRegistry{
+		crons: cron.New(),
+		jobs:  make(map[string]Shedule),
+	}
+
+	c.crons.Start()
+
+	return c
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBCluster object and makes changes based on the state read
@@ -135,6 +159,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			err = fmt.Errorf("update PXC CR: %v", err)
 			return reconcile.Result{}, err
 		}
+	}
+
+	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
+		log.Info("update version before deploy")
+		r.ensurePXCVersion(o, VersionServiceMock{})
 	}
 
 	if o.ObjectMeta.DeletionTimestamp != nil {
@@ -188,7 +217,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, o.Spec.PXC.ContainerSecurityContext))
 	}
 
-	err = r.updatePod(statefulset.NewNode(o), o.Spec.PXC, o, inits)
+	pxcSet := statefulset.NewNode(o)
+	err = r.updatePod(pxcSet, o.Spec.PXC, o, inits)
 	if err != nil {
 		err = fmt.Errorf("pxc upgrade error: %v", err)
 		return reconcile.Result{}, err
@@ -256,6 +286,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	err = r.reconcileBackups(o)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	err = r.sheduleEnsurePXCVersion(o, VersionServiceMock{})
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}
 
 	return rr, nil

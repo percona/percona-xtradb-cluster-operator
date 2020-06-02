@@ -27,7 +27,14 @@ type PerconaXtraDBClusterSpec struct {
 	PMM                   *PMMSpec                             `json:"pmm,omitempty"`
 	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
+	UpgradeOptions        UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+}
+
+type UpgradeOptions struct {
+	VersionServiceEndpoint string `json:"versionServiceEndpoint,omitempty"`
+	Apply                  string `json:"apply,omitempty"`
+	Schedule               string `json:"schedule,omitempty"`
 }
 
 const (
@@ -61,6 +68,8 @@ const (
 type PerconaXtraDBClusterStatus struct {
 	PXC                AppStatus          `json:"pxc,omitempty"`
 	ProxySQL           AppStatus          `json:"proxysql,omitempty"`
+	Backup             AppStatus          `json:"backup,omitempty"`
+	PMM                AppStatus          `json:"pmm,omitempty"`
 	Host               string             `json:"host,omitempty"`
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`
@@ -99,6 +108,7 @@ type AppStatus struct {
 	Ready   int32    `json:"ready,omitempty"`
 	Status  AppState `json:"status,omitempty"`
 	Message string   `json:"message,omitempty"`
+	Version string   `json:"version"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

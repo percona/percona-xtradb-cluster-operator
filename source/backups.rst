@@ -101,15 +101,16 @@ Options <https://percona.github.io/percona-xtradb-cluster-operator/configure/ope
 Making on-demand backup
 -----------------------
 
-To make an on-demand backup, the user should use a special backup configuration
-YAML file with the following contents:
+To make an on-demand backup, the user should first configure the backup storage
+in the ``backup.storages`` subsection of the ``deploy/cr.yaml`` configuration
+file in a same way it was done for scheduled backups. Wneh the
+``deploy/cr.yaml`` file contains correctly configured storage and is applied
+with ``kubectl`` commanad, use *a special backup configuration YAML file* with
+the following contents:
 
 * **backup name** in the ``name`` key,
-* **PXC Cluster name** in the ``pxcCluster``key,
+* **PXC Cluster name** in the ``pxcCluster`` key,
 * **storage name** in the ``storageName`` key.
-
-.. note:: The actual backup storage configuration is done in the ``backup``
-   section of the ``deploy/cr.yaml`` configuration file.
 
 The example of the backup configuration file is `deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`_.
 
@@ -131,7 +132,7 @@ When the backup destination is configured and applied with `kubectl apply -f dep
         name: backup1
       spec:
         pxcCluster: cluster1
-        storageName: fs-pvc
+        storageName: s3-us-west
       EOF
 
 .. _backups-private-volume:

@@ -16,8 +16,8 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com/operator/
-#    apply: 8.0.18-9.3
-    schedule: "* * * * *"
+    apply: Disabled
+    schedule: "0 2 * * *"
   pxc:
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0

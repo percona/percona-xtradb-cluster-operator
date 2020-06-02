@@ -3,6 +3,7 @@ package users
 import (
 	"database/sql"
 
+	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 )
@@ -17,13 +18,21 @@ type SysUser struct {
 	Hosts []string `yaml:"hosts"`
 }
 
-func NewManager(host string, user, pass string) (Manager, error) {
+func NewManager(addr string, user, pass string) (Manager, error) {
 	var um Manager
 
-	mysqlDB, err := sql.Open("mysql", user+":"+pass+"@tcp("+host+")/?interpolateParams=true")
+	config := mysql.NewConfig()
+	config.User = user
+	config.Passwd = pass
+	config.Net = "tcp"
+	config.Addr = addr
+	config.Params = map[string]string{"interpolateParams": "true"}
+
+	mysqlDB, err := sql.Open("mysql", config.FormatDSN())
 	if err != nil {
 		return um, errors.Wrap(err, "cannot connect to any host")
 	}
+
 	um.db = mysqlDB
 
 	return um, nil
@@ -77,6 +86,14 @@ func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
 		switch user.Name {
 		case "proxyadmin":
 			_, err = tx.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='admin-admin_credentials'", "proxyadmin:"+user.Pass)
+			if err != nil {
+				errT := tx.Rollback()
+				if errT != nil {
+					return errors.Errorf("update proxy admin password: %v, tx rollback: %v", err, errT)
+				}
+				return errors.Wrap(err, "update proxy admin password")
+			}
+			_, err = tx.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='admin-cluster_password'", user.Pass)
 			if err != nil {
 				errT := tx.Rollback()
 				if errT != nil {

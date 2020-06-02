@@ -1,0 +1,5 @@
+label: "JIRA"
+url: "https://jira.company.com/browse/$issuePrefix"
+message: "$issuePrefix"
+color: "green"
+when: "$issuePrefix"

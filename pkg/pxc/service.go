@@ -133,6 +133,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/name":     "percona-xtradb-cluster",
 				"app.kubernetes.io/instance": cr.Name,
 			},
+			Annotations: cr.Spec.ProxySQL.ServiceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: svcType,
@@ -147,6 +148,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/instance":  cr.Name,
 				"app.kubernetes.io/component": "proxysql",
 			},
+			LoadBalancerSourceRanges: cr.Spec.ProxySQL.LoadBalancerSourceRanges,
 		},
 	}
 

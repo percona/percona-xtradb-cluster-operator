@@ -68,7 +68,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "update internal sys users secret")
 	}
 
-	if restartProxy && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Size > 0 {
+	if restartProxy && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		err = r.restartProxy(cr, newSecretDataHash)
 		if err != nil {
 			return errors.Wrap(err, "restart proxy")

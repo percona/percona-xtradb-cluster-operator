@@ -299,9 +299,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}
 
-	err = r.reconcileUsers(o)
-	if err != nil {
-		return rr, errors.Wrap(err, "reconcileUsers")
+	if o.CompareVersionWith("1.5.0") >= 0 {
+		err = r.reconcileUsers(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "reconcileUsers")
+		}
 	}
 
 	return rr, nil

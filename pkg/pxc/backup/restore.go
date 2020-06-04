@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -42,7 +43,7 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtra
 	}
 }
 
-func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) *corev1.Pod {
+func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) (*corev1.Pod, error) {
 	if _, ok := cluster.Backup.Storages[bcp.Spec.StorageName]; !ok {
 		log.Info("storage " + bcp.Spec.StorageName + " doesn't exist")
 		if len(cluster.Backup.Storages) == 0 {
@@ -53,7 +54,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 
 	resources, err := app.CreateResources(cluster.Backup.Storages[bcp.Status.StorageName].Resources)
 	if err != nil {
-		log.Info("cannot parse backup resources: ", err)
+		return nil, fmt.Errorf("cannot parse backup resources: %w", err)
 	}
 
 	// Copy from the original labels to the restore labels
@@ -125,13 +126,13 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 			SchedulerName:     cluster.Backup.Storages[bcp.Status.StorageName].SchedulerName,
 			PriorityClassName: cluster.Backup.Storages[bcp.Status.StorageName].PriorityClassName,
 		},
-	}
+	}, nil
 }
 
-func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) *batchv1.Job {
+func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
 	resources, err := app.CreateResources(cluster.PXC.Resources)
 	if err != nil {
-		log.Info("cannot parse PXC resources: ", err)
+		return nil, fmt.Errorf("cannot parse PXC resources: %w", err)
 	}
 
 	jobPVC := corev1.Volume{
@@ -230,14 +231,14 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 		}
 	}
 
-	return job
+	return job, nil
 }
 
 // S3RestoreJob returns restore job object for s3
 func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
 	resources, err := app.CreateResources(cluster.PXC.Resources)
 	if err != nil {
-		log.Info("cannot parse PXC resources: ", err)
+		return nil, fmt.Errorf("cannot parse PXC resources: %w", err)
 	}
 
 	if bcp.Status.S3 == nil {

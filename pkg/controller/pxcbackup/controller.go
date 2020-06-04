@@ -137,7 +137,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(instance, cluster)
-	job.Spec = bcp.JobSpec(instance.Spec, cluster.Spec, job)
+	job.Spec, err = bcp.JobSpec(instance.Spec, cluster.Spec, job)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("can't create job spec: %w", err)
+	}
 
 	var destination string
 	var s3status *api.BackupStorageS3Spec

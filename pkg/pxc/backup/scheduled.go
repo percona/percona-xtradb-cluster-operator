@@ -1,6 +1,8 @@
 package backup
 
 import (
+	"fmt"
+
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -10,7 +12,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
-func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, cr *api.PerconaXtraDBCluster) *batchv1beta1.CronJob {
+func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, cr *api.PerconaXtraDBCluster) (*batchv1beta1.CronJob, error) {
 	// Copy from the original labels to the backup labels
 	labels := make(map[string]string)
 	for key, value := range strg.Labels {
@@ -20,6 +22,10 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 	labels["cluster"] = bcp.cluster
 	labels["schedule"] = genScheduleLabel(spec.Schedule)
 
+	cjts, err := bcp.scheduledJob(spec, strg, labels)
+	if err != nil {
+		return nil, fmt.Errorf("scheduled job: %w", err)
+	}
 	jb := &batchv1beta1.CronJob{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1beta1",
@@ -35,7 +41,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 			Schedule:                   spec.Schedule,
 			SuccessfulJobsHistoryLimit: func(i int32) *int32 { return &i }(1),
 			JobTemplate: batchv1beta1.JobTemplateSpec{
-				Spec: bcp.scheduledJob(spec, strg, labels),
+				Spec: cjts,
 			},
 		},
 	}
@@ -51,13 +57,13 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 		),
 	)
 
-	return jb
+	return jb, nil
 }
 
-func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, labels map[string]string) batchv1.JobSpec {
+func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, labels map[string]string) (batchv1.JobSpec, error) {
 	resources, err := app.CreateResources(strg.Resources)
 	if err != nil {
-		log.Info("cannot parse backup resources: ", err)
+		return batchv1.JobSpec{}, fmt.Errorf("cannot parse backup resources: %w", err)
 	}
 
 	return batchv1.JobSpec{
@@ -115,5 +121,5 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 				PriorityClassName: strg.PriorityClassName,
 			},
 		},
-	}
+	}, nil
 }

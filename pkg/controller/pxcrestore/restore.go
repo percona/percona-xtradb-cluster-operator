@@ -34,16 +34,22 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) error {
 	svc := backup.PVCRestoreService(cr, bcp)
 	k8s.SetControllerReference(cr, svc, r.scheme)
-	pod := backup.PVCRestorePod(cr, bcp, pvcName, cluster)
+	pod, err := backup.PVCRestorePod(cr, bcp, pvcName, cluster)
+	if err != nil {
+		return errors.Wrap(err, "restore pod")
+	}
 	k8s.SetControllerReference(cr, pod, r.scheme)
 
-	job := backup.PVCRestoreJob(cr, bcp, cluster)
+	job, err := backup.PVCRestoreJob(cr, bcp, cluster)
+	if err != nil {
+		return errors.Wrap(err, "restore job")
+	}
 	k8s.SetControllerReference(cr, job, r.scheme)
 
 	r.client.Delete(context.TODO(), svc)
 	r.client.Delete(context.TODO(), pod)
 
-	err := r.client.Create(context.TODO(), svc)
+	err = r.client.Create(context.TODO(), svc)
 	if err != nil {
 		return errors.Wrap(err, "create service")
 	}

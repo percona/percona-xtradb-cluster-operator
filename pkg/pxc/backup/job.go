@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -37,10 +38,10 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 	}
 }
 
-func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClusterSpec, job *batchv1.Job) batchv1.JobSpec {
+func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClusterSpec, job *batchv1.Job) (batchv1.JobSpec, error) {
 	resources, err := app.CreateResources(cluster.Backup.Storages[spec.StorageName].Resources)
 	if err != nil {
-		log.Info("cannot parse Backup resources: ", err)
+		return batchv1.JobSpec{}, fmt.Errorf("cannot parse Backup resources: %w", err)
 	}
 
 	manualSelector := true
@@ -93,7 +94,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 				PriorityClassName: cluster.Backup.Storages[spec.StorageName].PriorityClassName,
 			},
 		},
-	}
+	}, nil
 }
 
 func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) error {

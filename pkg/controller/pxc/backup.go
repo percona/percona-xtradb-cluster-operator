@@ -59,6 +59,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 	// Reconcile backups list
 	bcpList := batchv1beta1.CronJobList{}
 	err := r.client.List(context.TODO(),
+		&bcpList,
 		&client.ListOptions{
 			Namespace: cr.Namespace,
 			LabelSelector: labels.SelectorFromSet(map[string]string{
@@ -66,7 +67,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				"type":    "cron",
 			}),
 		},
-		&bcpList,
 	)
 	if err != nil {
 		return fmt.Errorf("get backups list: %v", err)
@@ -96,6 +96,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraDBCluster, ancestor string, keep int) ([]api.PerconaXtraDBClusterBackup, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
 	err := r.client.List(context.TODO(),
+		&bcpList,
 		&client.ListOptions{
 			Namespace: cr.Namespace,
 			LabelSelector: labels.SelectorFromSet(map[string]string{
@@ -103,7 +104,6 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraD
 				"ancestor": ancestor,
 			}),
 		},
-		&bcpList,
 	)
 	if err != nil {
 		return []api.PerconaXtraDBClusterBackup{}, err

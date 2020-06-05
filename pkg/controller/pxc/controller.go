@@ -576,11 +576,11 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	list := corev1.PodList{}
 
 	err := r.client.List(context.TODO(),
+		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
-		&list,
 	)
 	if err != nil {
 		return fmt.Errorf("get list: %v", err)
@@ -628,11 +628,11 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs 
 func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[string]string) error {
 	list := corev1.PersistentVolumeClaimList{}
 	err := r.client.List(context.TODO(),
+		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
 			LabelSelector: labels.SelectorFromSet(lbls),
 		},
-		&list,
 	)
 	if err != nil {
 		return fmt.Errorf("get list: %v", err)

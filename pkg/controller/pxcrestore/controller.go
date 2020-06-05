@@ -113,10 +113,10 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 	rJobsList := &api.PerconaXtraDBClusterRestoreList{}
 	err = r.client.List(
 		context.TODO(),
+		rJobsList,
 		&client.ListOptions{
 			Namespace: cr.Namespace,
 		},
-		rJobsList,
 	)
 	if err != nil {
 		return rr, errors.Wrap(err, "get restore jobs list")
@@ -241,11 +241,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBC
 	pvcs := corev1.PersistentVolumeClaimList{}
 	err = r.client.List(
 		context.TODO(),
+		&pvcs,
 		&client.ListOptions{
 			Namespace:     c.Namespace,
 			LabelSelector: labels.SelectorFromSet(ls),
 		},
-		&pvcs,
 	)
 	if err != nil {
 		return errors.Wrap(err, "get pvc list")
@@ -304,11 +304,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) waitForPodsShutdown(ls map[string
 
 		err := r.client.List(
 			context.TODO(),
+			&pods,
 			&client.ListOptions{
 				Namespace:     namespace,
 				LabelSelector: labels.SelectorFromSet(ls),
 			},
-			&pods,
 		)
 		if err != nil {
 			return errors.Wrap(err, "get pods list")
@@ -330,11 +330,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) waitForPVCShutdown(ls map[string]
 
 		err := r.client.List(
 			context.TODO(),
+			&pvcs,
 			&client.ListOptions{
 				Namespace:     namespace,
 				LabelSelector: labels.SelectorFromSet(ls),
 			},
-			&pvcs,
 		)
 		if err != nil {
 			return errors.Wrap(err, "get pvc list")

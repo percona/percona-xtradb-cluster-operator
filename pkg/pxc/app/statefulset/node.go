@@ -143,6 +143,12 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 					SecretKeyRef: app.SecretKeySelector(secrets, "clustercheck"),
 				},
 			},
+			{
+				Name: "OPERATOR_ADMIN_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "operatoradmin"),
+				},
+			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}

@@ -87,10 +87,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 
 func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
 	var restartPXC, restartProxy, syncProxySQLUsers bool
-	um, err := users.NewManager(cr.Name+"-pxc", "root", string(internalSysSecretObj.Data["root"]))
-	if err != nil {
-		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
-	}
 
 	var sysUsers []users.SysUser
 	var proxyUsers []users.SysUser
@@ -122,15 +118,16 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		case "proxyadmin":
 			restartProxy = true
 			proxyUsers = append(proxyUsers, users.SysUser{Name: name, Pass: string(pass)})
-
 			continue
-
 		case "pmmserver":
 			if cr.Spec.PMM.Enabled {
 				restartProxy = true
 				restartPXC = true
 				continue
 			}
+		case "operatoradmin":
+			syncProxySQLUsers = true
+			hosts = []string{"%"}
 		}
 		user := users.SysUser{
 			Name:  name,
@@ -138,6 +135,18 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			Hosts: hosts,
 		}
 		sysUsers = append(sysUsers, user)
+	}
+
+	pxcUser := "root"
+	pxcPass := string(internalSysSecretObj.Data["root"])
+	if _, ok := sysUsersSecretObj.Data["operatoradmin"]; ok {
+		pxcUser = "operatoradmin"
+		pxcPass = string(internalSysSecretObj.Data["operatoradmin"])
+	}
+
+	um, err := users.NewManager(cr.Name+"-pxc", pxcUser, pxcPass)
+	if err != nil {
+		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
 	}
 
 	if len(sysUsers) > 0 {
@@ -307,6 +316,59 @@ func (r *ReconcilePerconaXtraDBCluster) getInternalSysUsersSecretObj(cr *api.Per
 	}
 
 	return internalSysUsersSecretObj, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaXtraDBCluster) error {
+	if cr.Status.Status != api.AppStateReady {
+		return nil
+	}
+
+	sysUsersSecretObj := corev1.Secret{}
+	err := r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      cr.Spec.SecretsName,
+		},
+		&sysUsersSecretObj,
+	)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
+	}
+	var exist bool
+	for name := range sysUsersSecretObj.Data {
+		switch name {
+		case "operatoradmin":
+			exist = true
+		}
+	}
+
+	if !exist {
+		um, err := users.NewManager(cr.Name+"-pxc", "root", string(sysUsersSecretObj.Data["root"]))
+		if err != nil {
+			return errors.Wrap(err, "new users manager")
+		}
+
+		pass, err := GeneratePass()
+		if err != nil {
+			return errors.Wrap(err, "generate password")
+		}
+
+		err = um.CreateOperatorAdminUser(string(pass))
+		if err != nil {
+			return errors.Wrap(err, "create operatoradmin user")
+		}
+
+		sysUsersSecretObj.Data["operatoradmin"] = pass
+		err = r.client.Update(context.TODO(), &sysUsersSecretObj)
+		if err != nil {
+			return errors.Wrap(err, "update sys users secret")
+		}
+
+	}
+
+	return nil
 }
 
 func sysUsersSecretDataChanged(newHash string, usersSecret *corev1.Secret) (bool, error) {

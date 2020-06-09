@@ -38,6 +38,39 @@ func NewManager(addr string, user, pass string) (Manager, error) {
 	return um, nil
 }
 
+func (u *Manager) CreateOperatorAdminUser(pass string) error {
+	defer u.db.Close()
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	_, err = tx.Exec("CREATE USER 'operatoradmin'@'%' IDENTIFIED BY ?", pass)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("create operatoradmin user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "create operatoradmin user")
+	}
+
+	_, err = tx.Exec("FLUSH PRIVILEGES")
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "flush privileges")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit transaction")
+	}
+
+	return nil
+}
+
 func (u *Manager) UpdateUsersPass(users []SysUser) error {
 	defer u.db.Close()
 	tx, err := u.db.Begin()

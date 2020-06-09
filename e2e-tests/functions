@@ -800,7 +800,7 @@ storage \"file\" {
 }" \
         "$src_dir/vendor/vault"
     else
-        helm install --name $name --namespace "$name" \
+        helm install $name --namespace "$name" \
             --set dataStorage.enabled=false \
             --set global.platform="${platform}" \
             "$src_dir/vendor/vault"

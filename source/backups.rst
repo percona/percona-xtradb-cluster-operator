@@ -9,7 +9,7 @@ can be done manually at any moment.
 
 Backup images are usually stored on `Amazon S3 or S3-compatible
 storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`_,
-but storing backups on a private volume is also possible.
+but storing backups on Persistent Volumes is also possible.
 
 .. contents:: :local:
 

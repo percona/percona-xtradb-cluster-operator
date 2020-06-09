@@ -105,7 +105,7 @@ To make an on-demand backup, the user should first configure the backup storage
 in the ``backup.storages`` subsection of the ``deploy/cr.yaml`` configuration
 file in a same way it was done for scheduled backups. Wneh the
 ``deploy/cr.yaml`` file contains correctly configured storage and is applied
-with ``kubectl`` commanad, use *a special backup configuration YAML file* with
+with ``kubectl`` command, use *a special backup configuration YAML file* with
 the following contents:
 
 * **backup name** in the ``name`` key,

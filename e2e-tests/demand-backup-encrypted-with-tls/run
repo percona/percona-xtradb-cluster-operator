@@ -71,7 +71,7 @@ secrets = [ $transition_keys ]
 
     for i in $vault1 $vault2; do
         kubectl delete --grace-period=0 --force=true namespace $i
-        helm delete --purge $i
+        helm delete $i
     done
 
     destroy $namespace

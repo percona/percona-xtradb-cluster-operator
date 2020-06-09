@@ -329,7 +329,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &
 		pid="$!"
 
-		mysql=( mysql --protocol=socket -upxcadmin -hlocalhost --socket="${SOCKET}" --password="" )
+		mysql=( mysql --protocol=socket -uoperatoradmin -hlocalhost --socket="${SOCKET}" --password="" )
 		if [ ! -z "$OPERATOR_ADMIN_PASSWORD" ]; then
 			mysql+=( -p"${OPERATOR_ADMIN_PASSWORD}" )
 		fi

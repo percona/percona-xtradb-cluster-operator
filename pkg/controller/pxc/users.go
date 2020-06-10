@@ -200,6 +200,9 @@ func (r *ReconcilePerconaXtraDBCluster) restartPXC(cr *api.PerconaXtraDBCluster,
 		},
 		&sfsPXC,
 	)
+	if err != nil {
+		return errors.Wrap(err, "failed to get stetefulset")
+	}
 
 	if len(sfsPXC.Annotations) == 0 {
 		sfsPXC.Annotations = make(map[string]string)
@@ -237,6 +240,9 @@ func (r *ReconcilePerconaXtraDBCluster) restartProxy(cr *api.PerconaXtraDBCluste
 		},
 		&sfsProxy,
 	)
+	if err != nil {
+		return errors.Wrap(err, "failed to get proxysql statefulset")
+	}
 
 	if len(sfsProxy.Annotations) == 0 {
 		sfsProxy.Annotations = make(map[string]string)

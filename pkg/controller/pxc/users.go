@@ -326,3 +326,11 @@ func sysUsersSecretDataChanged(newHash string, usersSecret *corev1.Secret) (bool
 func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
+
+func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {
+	if cr.Status.Status != api.AppStateReady {
+		return nil
+	}
+
+	return r.syncPXCUsersWithProxySQL(cr)
+}

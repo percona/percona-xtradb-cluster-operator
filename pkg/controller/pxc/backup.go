@@ -81,11 +81,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				}
 
 				for _, todel := range oldjobs {
-					r.client.Delete(context.TODO(), &todel)
+					_ = r.client.Delete(context.TODO(), &todel)
 				}
 			}
 		} else {
-			r.client.Delete(context.TODO(), &item)
+			_ = r.client.Delete(context.TODO(), &item)
 		}
 	}
 

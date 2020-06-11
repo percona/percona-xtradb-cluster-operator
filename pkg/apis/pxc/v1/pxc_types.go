@@ -155,6 +155,8 @@ type PodSpec struct {
 	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
 	ServiceType                   corev1.ServiceType            `json:"serviceType,omitempty"`
+	LoadBalancerSourceRanges      []string                      `json:"loadBalancerSourceRanges,omitempty"`
+	ServiceAnnotations            map[string]string             `json:"serviceAnnotations,omitempty"`
 	SchedulerName                 string                        `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
 	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`

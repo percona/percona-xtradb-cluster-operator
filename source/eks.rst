@@ -28,12 +28,12 @@ To create your cluster, you will need the following data:
 * name of your EKS cluster,
 * AWS region in which you wish to deploy your cluster,
 * the amount of nodes you would like tho have,
-* the ratio of `spot https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances.html`_ and `on-demand <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-on-demand-instances.html>`_ instances to use.
+* `on-demand <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-on-demand-instances.html>`_ instances to use (you can specify `spot https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances.html`_ instances to use as well, if needed).
 
 The most easy and visually clear way is to describe the desired cluster in YAML
 and to pass this configuration to the ``eksctl`` command. 
 
-The following example configures a EKS cluster with one `managed node group <https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html>`_ , including .... **ToDo**:
+The following example configures a EKS cluster with one `managed node group <https://docs.aws.amazon.com/eks/latest/userguide/managed-node-groups.html>`_:
 
 .. code:: yaml
 
@@ -53,7 +53,7 @@ The following example configures a EKS cluster with one `managed node group <htt
            instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
            onDemandBaseCapacity: 0
            onDemandPercentageAboveBaseCapacity: 50
-           spotInstancePools: 2
+#           spotInstancePools: 2
          tags:
            'iit-billing-tag': 'cloud'
          preBootstrapCommands:

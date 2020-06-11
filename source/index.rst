@@ -40,8 +40,6 @@ Advanced Installation Guides
 
    kubernetes
    openshift
-   update
-   scaling
    custom-registry
    broker
 
@@ -66,8 +64,9 @@ Management
    :maxdepth: 1
 
    backups
-   monitoring
    pause
+   update
+   scaling
    recovery
    debug
 

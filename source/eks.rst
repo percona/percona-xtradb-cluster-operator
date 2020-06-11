@@ -18,15 +18,7 @@ The following tools are used in this guide and therefore should be preinstalled:
 3. **kubectl**  to manage and deploy applications on Kubernetes. Install
    it `following the official installation instructions <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.
 
-Create a new IAM role with EKS permissions
-===========================================
-
-The first thing to use is configuring the `AWS-IAM-Authenticator <https://github.com/kubernetes-sigs/aws-iam-authenticator>`_ to allow IAM authentication with your Kubernetes cluster.
-
-Open the IAM console, select Roles on the left and then click the Create Role button at the top of the page.
-From the list of AWS services, select EKS and then Next: Permissions at the bottom of the page.
-Leave the selected policies as-is, and proceed to the Review page. Enter a name for the role (e.g. eksrole) and hit the Create role button at the bottom of the page to create the IAM role. The Role ARN specified on the page is to be used later.
-
+Also, you need to configure AWS CLI with your credentials according to the `official guide <https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html>`_.
 
 Create the EKS cluster
 ======================
@@ -81,21 +73,10 @@ by the following command:
    $ eksctl create cluster -f ~/cluster.yaml
 
 
-**is it needed?**
-
-Now update your ``kubectl`` configuration to allow it communicating with the new cluster. You can do it using the AWS CLI ``update-kubeconfig`` command. Run it with the correct cluster-name and region:
-
-.. code:: bash
-
-   $ aws eks --region eu-west-2 update-kubeconfig --name test-cluster
-
-
 Install the Operator
 =======================
 
-1. IAM? Is it already used by kubectl? What about creating Roles and RoleBindings?
-
-2. Create a namespace and set the context for the namespace. The resource names must be unique within the namespace and provide a way to divide cluster resources between users spread across multiple projects.
+1. Create a namespace and set the context for the namespace. The resource names must be unique within the namespace and provide a way to divide cluster resources between users spread across multiple projects.
 
    So, create the namespace and save it in the namespace context for subsequent commands as follows (replace the ``<namespace name>`` placeholder with some descriptive name):
 
@@ -106,7 +87,7 @@ Install the Operator
 
    At success, you will see the message that namespace/<namespace name> was created, and the context was modified.
 
-3. Use the following ``git clone`` command to download the correct branch of the percona-xtradb-cluster-operator repository:
+2. Use the following ``git clone`` command to download the correct branch of the percona-xtradb-cluster-operator repository:
 
    .. code:: bash
 
@@ -118,7 +99,7 @@ Install the Operator
 
       cd percona-xtradb-cluster-operator
 
-4. Deploy the Operator with the following command:
+3. Deploy the Operator with the following command:
 
    .. code:: bash
 
@@ -137,7 +118,7 @@ Install the Operator
       rolebinding.rbac.authorization.k8s.io/service-account-percona-xtradb-cluster-operator created
       deployment.apps/percona-xtradb-cluster-operator created
 
-5. The operator has been started, and you can create the Percona XtraDB cluster:
+4. The operator has been started, and you can create the Percona XtraDB cluster:
 
    .. code:: bash
 
@@ -150,7 +131,7 @@ Install the Operator
 
       perconaxtradbcluster.pxc.percona.com/cluster1 created
 
-6. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the password for the ``root`` user, which you will need to access the cluster.
+5. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the password for the ``root`` user, which you will need to access the cluster.
 
    Use ``kubectl get secrets`` command to see the list of Secrets objects (by default Secrets object you are interested in has ``my-cluster-secrets`` name). Then ``kubectl get secret my-cluster-secrets -o yaml`` will return the YAML file with generated secrets, including the root password which should look as follows:
 
@@ -161,5 +142,13 @@ Install the Operator
        ...
        root: cm9vdF9wYXNzd29yZA==
 
-   Here the actual password is base64-encoded, and ``echo 'cm9vdF9wYXNzd29yZA==' | base64 --decode`` will bring it back to a human-readable form.
+   Here the actual password is base64-encoded, and ``echo 'cm9vdF9wYXNzd29yZA==' | base64 --decode`` will bring it back to a human-readable form (in this example it will be a ``root_password`` string).
+
+6. Now you can check wether you are able to connect to MySQL from the outside
+   with the help of the ``kubectl port-forward`` command as follows:
+   
+      .. code:: bash
+
+         kubectl port-forward svc/example-proxysql 3306:3306 &
+         mysql -h 127.0.0.1 -P 3306 -uroot -proot_password
 

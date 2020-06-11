@@ -58,7 +58,6 @@ Here is an example which uses Amazon S3 storage for backups:
    ...
    backup:
      enabled: true
-     version: 0.3.0
      ...
      storages:
        s3-us-west:
@@ -103,7 +102,7 @@ Making on-demand backup
 
 To make an on-demand backup, the user should first configure the backup storage
 in the ``backup.storages`` subsection of the ``deploy/cr.yaml`` configuration
-file in a same way it was done for scheduled backups. Wneh the
+file in a same way it was done for scheduled backups. When the
 ``deploy/cr.yaml`` file contains correctly configured storage and is applied
 with ``kubectl`` command, use *a special backup configuration YAML file* with
 the following contents:

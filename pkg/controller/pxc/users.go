@@ -327,10 +327,14 @@ func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) {
 	if cr.Status.Status != api.AppStateReady {
-		return nil
+		return
 	}
-
-	return r.syncPXCUsersWithProxySQL(cr)
+	go func() {
+		err := r.syncPXCUsersWithProxySQL(cr)
+		if err != nil {
+			log.Error(err, "sync pxc users with proxysql")
+		}
+	}()
 }

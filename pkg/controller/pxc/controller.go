@@ -306,10 +306,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	err = r.reconcileSyncPXCUsersWithProxySQL(o)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to sync pxc users with proxysql: %v", err)
-	}
+	r.reconcileSyncPXCUsersWithProxySQL(o)
 
 	return rr, nil
 }

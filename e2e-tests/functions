@@ -159,7 +159,6 @@ deploy_helm() {
     else
         kubectl_bin --namespace kube-system create sa tiller || :
         kubectl_bin create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller || :
-        helm init --service-account tiller
         kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="kube-system"
     fi
 
@@ -774,13 +773,13 @@ start_vault() {
     fi
     create_namespace "$name"
     deploy_helm "$name"
-    helm delete --purge "$name" || :
+    helm delete "$name" || :
 
     desc "install Vault $name"
 
     if [ $protocol == "https" ]; then
         vault_tls "$name"
-        helm install --name $name --namespace "$name" \
+        helm install $name --namespace "$name" \
             --set dataStorage.enabled=false \
             --set global.tlsDisable=false \
             --set global.platform="${platform}" \
@@ -801,7 +800,7 @@ storage \"file\" {
 }" \
         "$src_dir/vendor/vault"
     else
-        helm install --name $name --namespace "$name" \
+        helm install $name --namespace "$name" \
             --set dataStorage.enabled=false \
             --set global.platform="${platform}" \
             "$src_dir/vendor/vault"
@@ -862,7 +861,7 @@ start_minio() {
     deploy_helm $namespace
 
     desc 'install Minio'
-    helm del --purge minio-service || :
+    helm del minio-service || :
     retry 10 60 helm install \
         $HELM_ARGS \
         minio-service \

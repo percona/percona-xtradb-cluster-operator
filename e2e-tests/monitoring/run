@@ -16,7 +16,7 @@ platform=kubernetes
 if [ "$OPENSHIFT" == 1 ]; then
     platform=openshift
 fi
-helm del --purge monitoring || :
+helm del monitoring || :
 helm install $HELM_ARGS monitoring --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-1.17.1.tgz
 
 desc 'create PXC cluster'
@@ -40,5 +40,5 @@ sleep 90
 desc 'check QAN data'
 get_qan_values $cluster-pxc-0
 
-helm delete --purge monitoring
+helm delete monitoring
 destroy $namespace

@@ -1,3 +1,21 @@
+@NonCPS
+def cancelPreviousBuilds() {
+    def jobName = env.JOB_NAME
+    def buildNumber = env.BUILD_NUMBER.toInteger()
+    def currentJob = Jenkins.instance.getItemByFullName(jobName)
+
+    for (def build : currentJob.builds) {
+        if (build.isBuilding() && build.number.toInteger() != buildNumber) {
+            ShutdownCluster('basic')
+            ShutdownCluster('scaling')
+            ShutdownCluster('selfhealing')
+            ShutdownCluster('backups')
+            ShutdownCluster('bigdata')
+            build.doStop()
+        }
+    }
+}
+
 void CreateCluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -10,6 +28,9 @@ void CreateCluster(String CLUSTER_PREFIX) {
         """
    }
 }
+
+
+
 void ShutdownCluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -118,6 +139,7 @@ pipeline {
                 }
             }
             steps {
+                cancelPreviousBuilds()
                 stash includes: 'vendor/**', name: 'vendorFILES'
                 installRpms()
                 script {

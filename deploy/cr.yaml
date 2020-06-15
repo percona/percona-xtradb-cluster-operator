@@ -13,11 +13,11 @@ spec:
   sslInternalSecretName: my-cluster-ssl-internal
   allowUnsafeConfigurations: false
 #  pause: false
-  updateStrategy: SmartUpdate
-  upgradeOptions:
-    versionServiceEndpoint: https://check.percona.com/operator/
-    apply: Disabled
-    schedule: "0 2 * * *"
+#  updateStrategy: SmartUpdate
+#  upgradeOptions:
+#    versionServiceEndpoint: https://check.percona.com/operator/
+#    apply: Disabled
+#    schedule: "0 2 * * *"
   pxc:
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0

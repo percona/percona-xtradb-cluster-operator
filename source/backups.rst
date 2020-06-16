@@ -107,9 +107,9 @@ file in a same way it was done for scheduled backups. When the
 with ``kubectl`` command, use *a special backup configuration YAML file* with
 the following contents:
 
-* **backup name** in the ``name`` key,
-* **PXC Cluster name** in the ``pxcCluster`` key,
-* **storage name** in the ``storageName`` key.
+* **backup name** in the ``metadata.name`` key,
+* **PXC Cluster name** in the ``spec.pxcCluster`` key,
+* **storage name** from ``deploy/cr.yaml`` in the ``spec.storageName`` key.
 
 The example of the backup configuration file is `deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`_.
 

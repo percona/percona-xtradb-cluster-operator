@@ -178,13 +178,11 @@ Following steps are needed to restore a previously saved backup:
 2. Now find out correct names for the **backup** and the **cluster**. Available
    backups can be listed with the following command:
 
-
    .. code:: bash
 
       kubectl get pxc-backup
 
    And the following command will list available clusters:
-
 
    .. code:: bash
 

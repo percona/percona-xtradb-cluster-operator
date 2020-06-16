@@ -51,7 +51,7 @@ subsection contains data needed to access the S3-compatible cloud to
 store backups. \* ``schedule`` subsection allows to actually schedule
 backups (the schedule is specified in crontab format).
 
-Here is an example which uses Amazon S3 storage for backups:
+Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>` which uses Amazon S3 storage for backups:
 
 .. code:: yaml
 

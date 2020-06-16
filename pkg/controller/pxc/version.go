@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -86,31 +87,31 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	if cr.Status.Status != v1.AppStateReady && cr.Status.PXC.Version != "" {
 		return errors.New("cluster is not ready")
 	}
-
-	new, err := vs.CheckNew()
+	version := []string{"8.0.1.1", "8.0.1.2", "8.0.1.3"}[rand.Intn(3)]
+	new, err := vs.Apply(version)
 	if err != nil {
 		return fmt.Errorf("failed to check version: %v", err)
 	}
 
-	if cr.Status.PXC.Version != new.Versions.Matrix.Pxc["8.0.9.9"].Version {
-		log.Info(fmt.Sprintf("update PXC version to %v", new.Versions.Matrix.Pxc["8.0.9.9"].Version))
-		cr.Spec.PXC.Image = new.Versions.Matrix.Pxc["8.0.9.9"].Imagepath
-		cr.Status.PXC.Version = new.Versions.Matrix.Pxc["8.0.9.9"].Version
+	if cr.Status.PXC.Version != new.Versions[0].Matrix.PXC[version].Version {
+		log.Info(fmt.Sprintf("update PXC version to %v", new.Versions[0].Matrix.PXC[version].Version))
+		cr.Spec.PXC.Image = new.Versions[0].Matrix.PXC[version].Imagepath
+		cr.Status.PXC.Version = new.Versions[0].Matrix.PXC[version].Version
 	}
-	if cr.Status.Backup.Version != new.Versions.Matrix.Backup["master"].Version {
-		log.Info(fmt.Sprintf("update Backup version to %v", new.Versions.Matrix.Backup["master"].Version))
-		cr.Spec.Backup.Image = new.Versions.Matrix.Backup["master"].Imagepath
-		cr.Status.Backup.Version = new.Versions.Matrix.Backup["master"].Version
+	if cr.Status.Backup.Version != new.Versions[0].Matrix.Backup["master"].Version {
+		log.Info(fmt.Sprintf("update Backup version to %v", new.Versions[0].Matrix.Backup["master"].Version))
+		cr.Spec.Backup.Image = new.Versions[0].Matrix.Backup["master"].Imagepath
+		cr.Status.Backup.Version = new.Versions[0].Matrix.Backup["master"].Version
 	}
-	if cr.Status.PMM.Version != new.Versions.Matrix.Pmm["master"].Version {
-		log.Info(fmt.Sprintf("update PMM version to %v", new.Versions.Matrix.Pmm["master"].Version))
-		cr.Spec.PMM.Image = new.Versions.Matrix.Pmm["master"].Imagepath
-		cr.Status.PMM.Version = new.Versions.Matrix.Pmm["master"].Version
+	if cr.Status.PMM.Version != new.Versions[0].Matrix.PMM["master"].Version {
+		log.Info(fmt.Sprintf("update PMM version to %v", new.Versions[0].Matrix.PMM["master"].Version))
+		cr.Spec.PMM.Image = new.Versions[0].Matrix.PMM["master"].Imagepath
+		cr.Status.PMM.Version = new.Versions[0].Matrix.PMM["master"].Version
 	}
-	if cr.Status.ProxySQL.Version != new.Versions.Matrix.Proxysql["master"].Version {
-		log.Info(fmt.Sprintf("update PMM version to %v", new.Versions.Matrix.Proxysql["master"].Version))
-		cr.Spec.ProxySQL.Image = new.Versions.Matrix.Proxysql["master"].Imagepath
-		cr.Status.ProxySQL.Version = new.Versions.Matrix.Proxysql["master"].Version
+	if cr.Status.ProxySQL.Version != new.Versions[0].Matrix.ProxySQL["master"].Version {
+		log.Info(fmt.Sprintf("update PMM version to %v", new.Versions[0].Matrix.ProxySQL["master"].Version))
+		cr.Spec.ProxySQL.Image = new.Versions[0].Matrix.ProxySQL["master"].Imagepath
+		cr.Status.ProxySQL.Version = new.Versions[0].Matrix.ProxySQL["master"].Version
 	}
 
 	err = r.client.Update(context.Background(), cr)
@@ -122,7 +123,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 }
 
 type VersionService interface {
-	CheckNew() (VersionResponse, error)
+	Apply(string) (VersionResponse, error)
 }
 
 type VersionServiceMock struct {
@@ -137,9 +138,9 @@ type Version struct {
 }
 
 type VersionMatrix struct {
-	Pxc      map[string]Version `json:"pxc"`
-	Pmm      map[string]Version `json:"pmm"`
-	Proxysql map[string]Version `json:"proxysql"`
+	PXC      map[string]Version `json:"pxc"`
+	PMM      map[string]Version `json:"pmm"`
+	ProxySQL map[string]Version `json:"proxysql"`
 	Backup   map[string]Version `json:"backup"`
 }
 
@@ -150,15 +151,15 @@ type OperatorVersion struct {
 }
 
 type VersionResponse struct {
-	Versions OperatorVersion `json:"versions"`
+	Versions []OperatorVersion `json:"versions"`
 }
 
-func (vs VersionServiceMock) CheckNew() (VersionResponse, error) {
+func (vs VersionServiceMock) Apply(version string) (VersionResponse, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
 
-	req, err := http.NewRequest("GET", "https://0.0.0.0:11000/api/versions/v1/pxc/1.5.0/8.0.9.9", nil)
+	req, err := http.NewRequest("GET", "http://9a46fb98feeb.ngrok.io/api/versions/v1/pxc/1.5.0/"+version, nil)
 	if err != nil {
 		return VersionResponse{}, err
 	}
@@ -170,6 +171,9 @@ func (vs VersionServiceMock) CheckNew() (VersionResponse, error) {
 	}
 
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return VersionResponse{}, fmt.Errorf("received bad status code %s", resp.Status)
+	}
 
 	r := VersionResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&r)

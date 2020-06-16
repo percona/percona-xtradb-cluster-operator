@@ -17,7 +17,7 @@ spec:
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com/operator/
     apply: Latest
-    schedule: "0 2 * * *"
+    schedule: "* * * * *"
   pxc:
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0

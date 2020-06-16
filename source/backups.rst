@@ -186,7 +186,7 @@ Following steps are needed to restore a previously saved backup:
 
       kubectl get pxc
 
-3. When both correct names are known, it is needed to fix ``spec.pxcCluster`` and ``spec. backupName`` fields in ``deploy/backup/restore.yaml`` file and the actual restoration process can
+3. When both correct names are known, it is needed to fix ``spec.pxcCluster`` and ``spec. backupName`` fields in ``deploy/backup/restore.yaml`` file. After that, the actual restoration process can
    be started as follows:
 
    .. code:: bash

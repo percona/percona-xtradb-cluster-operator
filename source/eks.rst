@@ -28,7 +28,10 @@ To create your cluster, you will need the following data:
 * name of your EKS cluster,
 * AWS region in which you wish to deploy your cluster,
 * the amount of nodes you would like tho have,
-* `on-demand <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-on-demand-instances.html>`_ instances to use (you can specify `spot https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances.html`_ instances to use as well, if needed).
+* the amount of `on-demand <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-on-demand-instances.html>`_ and `spot https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances.html`_ instances to use.
+
+.. note:: `spot https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances.html`_ instances 
+   are not recommended for production environment, but may be useful e.g. for testing purposes.
 
 The most easy and visually clear way is to describe the desired cluster in YAML
 and to pass this configuration to the ``eksctl`` command. 
@@ -53,16 +56,16 @@ The following example configures a EKS cluster with one `managed node group <htt
            instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
            onDemandBaseCapacity: 0
            onDemandPercentageAboveBaseCapacity: 50
-#           spotInstancePools: 2
+           spotInstancePools: 2
          tags:
            'iit-billing-tag': 'cloud'
          preBootstrapCommands:
              - "echo 'OPTIONS=\"--default-ulimit nofile=1048576:1048576\"' >> /etc/sysconfig/docker"
              - "systemctl restart docker"
 
-.. note:: Please note, that ``preBootstrapCommands`` section is used in the
+.. note:: ``preBootstrapCommands`` section is used in the
           above example to increase the limits for the amount of opened files:
-          this is important and shouldn't be omited, taking into account the
+          this is important and shouldn't be omitted, taking into account the
           default EKS soft limit of 65536 files.
 
 When the cluster configuration file is ready, you can actually create your cluster

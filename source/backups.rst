@@ -41,17 +41,19 @@ name which will be used further, and ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` are the keys to access S3 storage (and
 obviously they should contain proper values to make this access
 possible). To have effect secrets file should be applied with the
-appropriate command to create the secret object,
-e.g. \ ``kubectl apply -f deploy/backup-s3.yaml`` (for Kubernetes).
+appropriate command to create the secret object, e.g. 
+``kubectl apply -f deploy/backup-s3.yaml`` (for Kubernetes).
 
 Backups schedule is defined in the ``backup`` section of the
 `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
-file. This section contains following subsections: \* ``storages``
-subsection contains data needed to access the S3-compatible cloud to
-store backups. \* ``schedule`` subsection allows to actually schedule
-backups (the schedule is specified in crontab format).
+file. This section contains following subsections:
 
-Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>` which uses Amazon S3 storage for backups:
+* ``storages`` subsection contains data needed to access the S3-compatible cloud
+  to store backups.
+* ``schedule`` subsection allows to actually schedule backups (the schedule is
+  specified in crontab format).
+
+Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ which uses Amazon S3 storage for backups:
 
 .. code:: yaml
 
@@ -76,24 +78,24 @@ Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb
 
 if you use some S3-compatible storage instead of the original
 Amazon S3, the `endpointURL <https://docs.min.io/docs/aws-cli-with-minio.html>`_ is needed in the `s3` subsection which points to the actual cloud used for backups and
-is specific to the cloud provider. For example, using `Google
-Cloud <https://cloud.google.com>`_ involves the following
-`endpointUrl <https://storage.googleapis.com>`_.
+is specific to the cloud provider. For example, using `Google Cloud <https://cloud.google.com>`_ involves the `following <https://storage.googleapis.com>`_ endpointUrl:
+
+.. code:: yaml
+
+   endpointUrl: https://storage.googleapis.com
 
 The options within these three subsections are further explained in the
-`Operator
-Options <https://www.percona.com/doc/kubernetes-operator-for-pxc/operator.html>`__.
+:ref:`operator.custom-resource-options`.
 
-The only option which should be mentioned separately is
+One option which should be mentioned separately is
 ``credentialsSecret`` which is a `Kubernetes
-secret <https://kubernetes.io/docs/concepts/configuration/secret/>`__
+secret <https://kubernetes.io/docs/concepts/configuration/secret/>`_
 for backups. Value of this key should be the same as the name used to
 create the secret object (``my-cluster-name-backup-s3`` in the last
 example).
 
-The schedule is specified in crontab format as explained in the
-`Operator
-Options <https://percona.github.io/percona-xtradb-cluster-operator/configure/operator>`__.
+The schedule is specified in crontab format as explained in
+:ref:`operator.custom-resource-options`.
 
 .. _backups-manual:
 
@@ -173,14 +175,16 @@ Following steps are needed to restore a previously saved backup:
 
 1. First of all make sure that the cluster is running.
 
-2. Now find out correct names for the backup and the cluster. Available
+2. Now find out correct names for the **backup** and the **cluster**. Available
    backups can be listed with the following command:
+
 
    .. code:: bash
 
       kubectl get pxc-backup
 
    And the following command will list available clusters:
+
 
    .. code:: bash
 

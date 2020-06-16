@@ -94,7 +94,7 @@ Install the Operator
 
    .. code:: bash
 
-      git clone -b release-{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
+      git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
 
    After the repository is downloaded, change the directory to run the rest of the commands in this document:
 

@@ -96,8 +96,8 @@ const (
 )
 
 type ClusterCondition struct {
-	Status             ConditionStatus      `json:"status"`
-	Type               ClusterConditionType `json:"type"`
+	Status             ConditionStatus      `json:"status,omitempty"`
+	Type               ClusterConditionType `json:"type,omitempty"`
 	LastTransitionTime metav1.Time          `json:"lastTransitionTime,omitempty"`
 	Reason             string               `json:"reason,omitempty"`
 	Message            string               `json:"message,omitempty"`
@@ -108,7 +108,7 @@ type AppStatus struct {
 	Ready   int32    `json:"ready,omitempty"`
 	Status  AppState `json:"status,omitempty"`
 	Message string   `json:"message,omitempty"`
-	Version string   `json:"version"`
+	Version string   `json:"version omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

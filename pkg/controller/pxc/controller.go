@@ -168,8 +168,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
-		log.Info("update version before deploy")
-		r.ensurePXCVersion(o, VersionServiceMock{})
+		err := r.ensurePXCVersion(o, VersionServiceMock{})
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
+		}
 	}
 
 	if o.ObjectMeta.DeletionTimestamp != nil {

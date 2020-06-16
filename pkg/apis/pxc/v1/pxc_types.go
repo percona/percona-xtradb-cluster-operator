@@ -108,7 +108,7 @@ type AppStatus struct {
 	Ready   int32    `json:"ready,omitempty"`
 	Status  AppState `json:"status,omitempty"`
 	Message string   `json:"message,omitempty"`
-	Version string   `json:"version omitempty"`
+	Version string   `json:"version,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -83,6 +83,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if err != nil {
 			return fmt.Errorf("get proxysql status: %v", err)
 		}
+		proxyStatus.Version = cr.Status.ProxySQL.Version
 
 		if proxyStatus.Status != cr.Status.ProxySQL.Status {
 			if proxyStatus.Status == api.AppStateReady {

@@ -254,8 +254,8 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			${rootCreate}
 			REVOKE SYSTEM_USER ON *.* FROM root ;
 
-			CREATE USER 'operatoradmin'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '${OPERATOR_ADMIN_PASSWORD}' ;
-			GRANT ALL ON *.* TO 'operatoradmin'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
+			CREATE USER 'operator'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '${OPERATOR_ADMIN_PASSWORD}' ;
+			GRANT ALL ON *.* TO 'operator'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 
 			CREATE USER 'xtrabackup'@'localhost' IDENTIFIED BY '${XTRABACKUP_PASSWORD}';
 			GRANT RELOAD,PROCESS,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'localhost';
@@ -329,7 +329,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &
 		pid="$!"
 
-		mysql=( mysql --protocol=socket -uoperatoradmin -hlocalhost --socket="${SOCKET}" --password="" )
+		mysql=( mysql --protocol=socket -uoperator -hlocalhost --socket="${SOCKET}" --password="" )
 		if [ ! -z "$OPERATOR_ADMIN_PASSWORD" ]; then
 			mysql+=( -p"${OPERATOR_ADMIN_PASSWORD}" )
 		fi

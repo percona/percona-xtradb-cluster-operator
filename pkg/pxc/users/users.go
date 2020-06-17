@@ -38,20 +38,29 @@ func NewManager(addr string, user, pass string) (Manager, error) {
 	return um, nil
 }
 
-func (u *Manager) CreateOperatorAdminUser(pass string) error {
+func (u *Manager) CreateOperatorUser(pass string) error {
 	defer u.db.Close()
 	tx, err := u.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")
 	}
 
-	_, err = tx.Exec("CREATE USER 'operatoradmin'@'%' IDENTIFIED BY ?", pass)
+	_, err = tx.Exec("CREATE USER 'operator'@'%' IDENTIFIED BY ?", pass)
 	if err != nil {
 		errT := tx.Rollback()
 		if errT != nil {
-			return errors.Errorf("create operatoradmin user: %v, tx rollback: %v", err, errT)
+			return errors.Errorf("create operator user: %v, tx rollback: %v", err, errT)
 		}
-		return errors.Wrap(err, "create operatoradmin user")
+		return errors.Wrap(err, "create operator user")
+	}
+
+	_, err = tx.Exec("GRANT ALL ON *.* TO 'operator'@'%' WITH GRANT OPTION")
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("grant operator user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "grant operator user")
 	}
 
 	_, err = tx.Exec("FLUSH PRIVILEGES")

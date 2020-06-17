@@ -51,9 +51,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 	if err != nil {
 		return fmt.Errorf("create proxyadmin users password: %v", err)
 	}
-	data["operatoradmin"], err = GeneratePass()
+	data["operator"], err = GeneratePass()
 	if err != nil {
-		return fmt.Errorf("create operatoradmin users password: %v", err)
+		return fmt.Errorf("create operator users password: %v", err)
 	}
 
 	secretObj = corev1.Secret{

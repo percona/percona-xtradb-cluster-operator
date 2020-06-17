@@ -24,8 +24,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil
 	}
 
+	err := r.manageOperatorAdminUser(cr)
+	if err != nil {
+		return errors.Wrap(err, "manage operator admin user")
+	}
+
 	sysUsersSecretObj := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
+	err = r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.SecretsName,
@@ -125,7 +130,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 				restartPXC = true
 				continue
 			}
-		case "operatoradmin":
+		case "operator":
 			syncProxySQLUsers = true
 			hosts = []string{"%"}
 		}
@@ -139,9 +144,9 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 
 	pxcUser := "root"
 	pxcPass := string(internalSysSecretObj.Data["root"])
-	if _, ok := sysUsersSecretObj.Data["operatoradmin"]; ok {
-		pxcUser = "operatoradmin"
-		pxcPass = string(internalSysSecretObj.Data["operatoradmin"])
+	if _, ok := sysUsersSecretObj.Data["operator"]; ok {
+		pxcUser = "operator"
+		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
 	um, err := users.NewManager(cr.Name+"-pxc", pxcUser, pxcPass)
@@ -319,10 +324,6 @@ func (r *ReconcilePerconaXtraDBCluster) getInternalSysUsersSecretObj(cr *api.Per
 }
 
 func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaXtraDBCluster) error {
-	if cr.Status.Status != api.AppStateReady {
-		return nil
-	}
-
 	sysUsersSecretObj := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -339,7 +340,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	var exist bool
 	for name := range sysUsersSecretObj.Data {
 		switch name {
-		case "operatoradmin":
+		case "operator":
 			exist = true
 		}
 	}
@@ -355,12 +356,12 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 			return errors.Wrap(err, "generate password")
 		}
 
-		err = um.CreateOperatorAdminUser(string(pass))
+		err = um.CreateOperatorUser(string(pass))
 		if err != nil {
-			return errors.Wrap(err, "create operatoradmin user")
+			return errors.Wrap(err, "create operator user")
 		}
 
-		sysUsersSecretObj.Data["operatoradmin"] = pass
+		sysUsersSecretObj.Data["operator"] = pass
 		err = r.client.Update(context.TODO(), &sysUsersSecretObj)
 		if err != nil {
 			return errors.Wrap(err, "update sys users secret")

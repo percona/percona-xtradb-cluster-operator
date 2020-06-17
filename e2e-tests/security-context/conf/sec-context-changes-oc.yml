@@ -1,0 +1,94 @@
+apiVersion: pxc.percona.com/v1-2-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: sec-context
+  finalizers:
+    - delete-pxc-pods-in-order
+spec:
+  secretsName: my-cluster-secrets
+  sslSecretName: some-name-ssl
+  sslInternalSecretName: some-name-ssl-internal
+  pxc:
+    annotations:
+      openshift.io/scc: privileged
+    containerSecurityContext:
+      privileged: false
+    podSecurityContext:
+      runAsUser: 1001
+      fsGroup: 1001
+      supplementalGroups: [1001]
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "1G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  proxysql:
+    enabled: true
+    containerSecurityContext:
+      privileged: false
+    podSecurityContext:
+      runAsUser: 1001
+      runAsGroup: 1001
+      supplementalGroups: [1001]
+    size: 1
+    image: -proxysql
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 6Gi
+    affinity:
+      antiAffinityTopologyKey: none
+  backup:
+    image: -backup
+    serviceAccountName: percona-xtradb-cluster-operator-workload
+    storages:
+      pvc:
+        annotations:
+          openshift.io/scc: privileged
+        containerSecurityContext:
+          privileged: true
+        podSecurityContext:
+          fsGroup: 1001
+          supplementalGroups: [1001, 1002, 1003]
+        type: filesystem
+        volume:
+          persistentVolumeClaim:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 1Gi
+      minio:
+        annotations:
+          openshift.io/scc: privileged
+        containerSecurityContext:
+          privileged: true
+        podSecurityContext:
+          fsGroup: 1001
+          supplementalGroups: [1001, 1002, 1003]
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: http://minio-service:9000/
+    schedule:
+      - name: each-hour-pvc
+        schedule: "0 */1 * * *"
+        keep: 30
+        storageName: pvc

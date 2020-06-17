@@ -1,0 +1,55 @@
+apiVersion: pxc.percona.com/v1-2-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: sec-context
+  finalizers:
+    - delete-pxc-pods-in-order
+spec:
+  secretsName: my-cluster-secrets
+  sslSecretName: some-name-ssl
+  sslInternalSecretName: some-name-ssl-internal
+  pxc:
+    annotations:
+      openshift.io/scc: privileged
+    containerSecurityContext:
+      privileged: true
+    podSecurityContext:
+      runAsUser: 1001
+      fsGroup: 1001
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: "1G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  proxysql:
+    enabled: true
+    containerSecurityContext:
+      privileged: true
+    podSecurityContext:
+      fsGroup: 1001
+      runAsUser: 1001
+    size: 1
+    image: -proxysql
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 6Gi
+    affinity:
+      antiAffinityTopologyKey: none
+

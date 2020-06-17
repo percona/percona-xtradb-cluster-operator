@@ -58,9 +58,10 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 				Annotations: cluster.Backup.Storages[spec.StorageName].Annotations,
 			},
 			Spec: corev1.PodSpec{
-				SecurityContext:  cluster.Backup.Storages[spec.StorageName].PodSecurityContext,
-				ImagePullSecrets: bcp.imagePullSecrets,
-				RestartPolicy:    corev1.RestartPolicyNever,
+				SecurityContext:    cluster.Backup.Storages[spec.StorageName].PodSecurityContext,
+				ImagePullSecrets:   bcp.imagePullSecrets,
+				RestartPolicy:      corev1.RestartPolicyNever,
+				ServiceAccountName: cluster.Backup.ServiceAccountName,
 				Containers: []corev1.Container{
 					{
 						Name:            "xtrabackup",

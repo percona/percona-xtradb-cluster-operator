@@ -2,13 +2,13 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   labels:
-    job-name: restore-job-restore-pvc-sec-context
-  name: restore-job-restore-pvc-sec-context
+    job-name: restore-job-restore-s3-sec-context
+  name: restore-job-restore-s3-sec-context
   ownerReferences:
   - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBClusterRestore
-    name: restore-pvc
+    name: restore-s3
 spec:
   backoffLimit: 4
   completions: 1
@@ -17,15 +17,29 @@ spec:
     matchLabels:
   template:
     metadata:
+      annotations:
+        openshift.io/scc: privileged
       labels:
-        job-name: restore-job-restore-pvc-sec-context
+        job-name: restore-job-restore-s3-sec-context
     spec:
       containers:
       - command:
-        - recovery-pvc-joiner.sh
+        - recovery-s3.sh
         env:
-        - name: RESTORE_SRC_SERVICE
-          value: restore-src-restore-pvc-sec-context
+        - name: ENDPOINT
+          value: http://minio-service:9000/
+        - name: DEFAULT_REGION
+          value: us-east-1
+        - name: ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              key: AWS_ACCESS_KEY_ID
+              name: minio-secret
+        - name: SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              key: AWS_SECRET_ACCESS_KEY
+              name: minio-secret
         - name: XB_USE_MEMORY
           value: "750000000"
         imagePullPolicy: Always
@@ -43,10 +57,6 @@ spec:
         volumeMounts:
         - mountPath: /datadir
           name: datadir
-        - mountPath: /etc/mysql/ssl
-          name: ssl
-        - mountPath: /etc/mysql/ssl-internal
-          name: ssl-internal
         - mountPath: /etc/mysql/vault-keyring-secret
           name: vault-keyring-secret
       dnsPolicy: ClusterFirst
@@ -64,16 +74,6 @@ spec:
       - name: datadir
         persistentVolumeClaim:
           claimName: datadir-sec-context-pxc-0
-      - name: ssl-internal
-        secret:
-          defaultMode: 420
-          optional: true
-          secretName: some-name-ssl-internal
-      - name: ssl
-        secret:
-          defaultMode: 420
-          optional: false
-          secretName: some-name-ssl
       - name: vault-keyring-secret
         secret:
           defaultMode: 420

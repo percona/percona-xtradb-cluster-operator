@@ -9,6 +9,8 @@ spec:
   sslSecretName: some-name-ssl
   sslInternalSecretName: some-name-ssl-internal
   pxc:
+    annotations:
+      openshift.io/scc: privileged
     containerSecurityContext:
       privileged: true
     podSecurityContext:

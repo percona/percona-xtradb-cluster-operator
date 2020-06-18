@@ -9,6 +9,8 @@ spec:
   sslSecretName: some-name-ssl
   sslInternalSecretName: some-name-ssl-internal
   pxc:
+    annotations:
+      openshift.io/scc: privileged
     containerSecurityContext:
       privileged: false
     podSecurityContext:
@@ -54,9 +56,11 @@ spec:
       antiAffinityTopologyKey: none
   backup:
     image: -backup
-    serviceAccountName: percona-xtradb-cluster-operator
+    serviceAccountName: percona-xtradb-cluster-operator-workload
     storages:
       pvc:
+        annotations:
+          openshift.io/scc: privileged
         containerSecurityContext:
           privileged: true
         podSecurityContext:
@@ -70,6 +74,8 @@ spec:
               requests:
                 storage: 1Gi
       minio:
+        annotations:
+          openshift.io/scc: privileged
         containerSecurityContext:
           privileged: true
         podSecurityContext:

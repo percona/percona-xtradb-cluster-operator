@@ -18,11 +18,8 @@ fi
 
 desc 'create first PXC cluster'
 cluster="sec-context"
-if [[ "${OPENSHIFT}" == 1 ]]; then
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster-oc.yml"
-else
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
-fi
+spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
 kubectl_bin apply -f "${conf_dir}/cloud-secret.yml"
 
 desc 'check if service and statefulset created with expected config'
@@ -31,11 +28,7 @@ compare_kubectl statefulset/$cluster-proxysql
 
 desc 'change security context in PXC cluster'
 pfx="-changes"
-if [[ "${OPENSHIFT}" == 1 ]]; then
-    apply_config "$test_dir/conf/$cluster$pfx-oc.yml"
-else
-    apply_config "$test_dir/conf/$cluster$pfx.yml"
-fi
+apply_config "$test_dir/conf/$cluster$pfx.yml"
 sleep 30
 
 desc 'check if service and statefulset chenged to expected config'
@@ -74,4 +67,8 @@ kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
 wait_backup_restore $restore
 compare_kubectl job.batch/restore-job-$restore-$cluster
 
+if [[ "${OPENSHIFT}" == 1 ]]; then
+    oc adm policy remove-scc-from-user privileged -z percona-xtradb-cluster-operator
+    oc adm policy remove-scc-from-user privileged -z percona-xtradb-cluster-operator-workload
+fi
 destroy $namespace

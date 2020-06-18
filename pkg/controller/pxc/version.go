@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/robfig/cron/v3"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const jobName = "ensure-version"
@@ -84,8 +87,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	if cr.Status.Status != v1.AppStateReady && cr.Status.PXC.Version != "" {
 		return errors.New("cluster is not ready")
 	}
-	version := []string{"8.0.1.1", "8.0.1.2", "8.0.1.3"}[rand.Intn(3)]
-	new, err := vs.Apply(version)
+	new, err := vs.Apply(cr.Spec.UpgradeOptions.Apply)
 	if err != nil {
 		return fmt.Errorf("failed to check version: %v", err)
 	}
@@ -117,4 +119,49 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateVersion(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) error {
+	if cr.Status.PXC.Status != api.AppStateReady || cr.Status.PXC.Version != "" {
+		return nil
+	}
+
+	list := corev1.PodList{}
+	if err := r.client.List(context.TODO(),
+		&client.ListOptions{
+			Namespace:     sfs.StatefulSet().Namespace,
+			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+		},
+		&list,
+	); err != nil {
+		return fmt.Errorf("get pod list: %v", err)
+	}
+
+	user := "root"
+	for _, pod := range list.Items {
+		dbatabase, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Status.PodIP, 3306)
+		if err != nil {
+			log.Error(err, "failed to create db instance")
+			continue
+		}
+
+		defer dbatabase.Close()
+
+		version, err := dbatabase.Version()
+		if err != nil {
+			log.Error(err, "failed to get pxc version")
+			continue
+		}
+
+		log.Info(fmt.Sprintf("update PXC version to %v", version))
+		cr.Status.PXC.Version = version
+
+		err = r.client.Update(context.Background(), cr)
+		if err != nil {
+			return fmt.Errorf("failed to update CR: %v", err)
+		}
+		break
+	}
+
+	return fmt.Errorf("failed to reach any pod")
 }

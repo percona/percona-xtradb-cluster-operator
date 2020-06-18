@@ -16,7 +16,7 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com/operator/
-    apply: Latest
+    apply: Disabled
     schedule: "* * * * *"
   pxc:
     size: 3

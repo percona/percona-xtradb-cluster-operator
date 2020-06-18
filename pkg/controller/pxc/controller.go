@@ -308,6 +308,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
+	if err := r.updateVersion(o, pxcSet); err != nil {
+		return rr, errors.Wrap(err, "update CR version")
+	}
+
 	return rr, nil
 }
 

@@ -17,6 +17,8 @@ spec:
     matchLabels:
   template:
     metadata:
+      annotations:
+        openshift.io/scc: privileged
       labels:
         job-name: restore-job-restore-s3-sec-context
     spec:

@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -73,6 +74,20 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			{
 				Name:  "POD_NAMESPACE",
 				Value: c.sfs.ObjectMeta.Namespace,
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			FailureThreshold:    3,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
+			PeriodSeconds:       10,
+			InitialDelaySeconds: *spec.LivenessInitialDelaySeconds,
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/healthz",
+					Port:   intstr.FromInt(1024),
+					Scheme: "HTTP",
+				},
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,

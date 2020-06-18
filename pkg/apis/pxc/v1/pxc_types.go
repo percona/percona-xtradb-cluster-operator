@@ -24,6 +24,7 @@ type PerconaXtraDBClusterSpec struct {
 	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
 	PXC                   *PodSpec                             `json:"pxc,omitempty"`
 	ProxySQL              *PodSpec                             `json:"proxysql,omitempty"`
+	HAProxy               *PodSpec                             `json:"haproxy,omitempty"`
 	PMM                   *PMMSpec                             `json:"pmm,omitempty"`
 	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -331,10 +332,36 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *ap
 	if cr.Status.Status != api.AppStateReady {
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	stopCh := make(chan error, 1)
+
 	go func() {
-		err := r.syncPXCUsersWithProxySQL(cr)
-		if err != nil {
-			log.Error(err, "sync pxc users with proxysql")
-		}
+		r.syncUsersChan <- 1
+		defer func() {
+			if len(r.syncUsersChan) > 0 {
+				<-r.syncUsersChan
+				log.Info("done")
+			}
+		}()
+
+		stopCh <- r.syncPXCUsersWithProxySQL(cr)
 	}()
+	for {
+		select {
+		case <-ctx.Done():
+			cancel()
+			if len(r.syncUsersChan) > 0 {
+				<-r.syncUsersChan
+			}
+			return
+		case err := <-stopCh:
+			if err != nil {
+				log.Error(err, "sync pxc users with proxysql")
+			}
+			return
+		}
+	}
 }

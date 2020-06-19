@@ -65,6 +65,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		crons:         NewCronRegistry(),
 		serverVersion: sv,
 		clientcmd:     cli,
+		syncUsersChan: make(chan int, 1),
 	}, nil
 }
 
@@ -91,10 +92,11 @@ var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}
 type ReconcilePerconaXtraDBCluster struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client    client.Client
-	scheme    *runtime.Scheme
-	crons     CronRegistry
-	clientcmd *clientcmd.Client
+	client        client.Client
+	scheme        *runtime.Scheme
+	crons         CronRegistry
+	clientcmd     *clientcmd.Client
+	syncUsersChan chan int
 
 	serverVersion *api.ServerVersion
 }
@@ -305,8 +307,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return rr, errors.Wrap(err, "reconcileUsers")
 		}
 	}
-
-	r.reconcileSyncPXCUsersWithProxySQL(o)
+	if len(r.syncUsersChan) == 0 {
+		go r.reconcileSyncPXCUsersWithProxySQL(o)
+	}
 
 	return rr, nil
 }

@@ -16,11 +16,11 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com/operator/
-    apply: Disabled
+    apply: Latest 
     schedule: "* * * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0
+    image: percona/percona-xtradb-cluster:5.7.26-31.37
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300

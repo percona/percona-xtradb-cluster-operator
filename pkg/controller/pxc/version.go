@@ -47,6 +47,9 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 
 	log.Info(fmt.Sprintf("add new job: %s", cr.Spec.UpgradeOptions.Schedule))
 	id, err := r.crons.crons.AddFunc(cr.Spec.UpgradeOptions.Schedule, func() {
+		r.statusMutex.Lock()
+		defer r.statusMutex.Unlock()
+
 		localCr := &api.PerconaXtraDBCluster{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if err != nil {
@@ -87,7 +90,8 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	if cr.Status.Status != v1.AppStateReady && cr.Status.PXC.Version != "" {
 		return errors.New("cluster is not ready")
 	}
-	new, err := vs.Apply(cr.Spec.UpgradeOptions.Apply)
+
+	new, err := vs.Apply(cr.Spec.UpgradeOptions.Apply, cr.Status.PXC.Version)
 	if err != nil {
 		return fmt.Errorf("failed to check version: %v", err)
 	}
@@ -95,22 +99,18 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	if cr.Status.PXC.Version != new.PXCVersion {
 		log.Info(fmt.Sprintf("update PXC version to %v", new.PXCVersion))
 		cr.Spec.PXC.Image = new.PXCImage
-		cr.Status.PXC.Version = new.PXCVersion
 	}
 	if cr.Status.Backup.Version != new.BackupVersion {
 		log.Info(fmt.Sprintf("update Backup version to %v", new.BackupVersion))
 		cr.Spec.Backup.Image = new.BackupImage
-		cr.Status.Backup.Version = new.BackupVersion
 	}
 	if cr.Status.PMM.Version != new.PMMVersion {
 		log.Info(fmt.Sprintf("update PMM version to %v", new.PMMVersion))
 		cr.Spec.PMM.Image = new.PMMImage
-		cr.Status.PMM.Version = new.PMMVersion
 	}
 	if cr.Status.ProxySQL.Version != new.ProxySqlVersion {
 		log.Info(fmt.Sprintf("update ProxySQL version to %v", new.ProxySqlVersion))
 		cr.Spec.ProxySQL.Image = new.ProxySqlImage
-		cr.Status.ProxySQL.Version = new.ProxySqlVersion
 	}
 
 	err = r.client.Update(context.Background(), cr)
@@ -118,11 +118,30 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return fmt.Errorf("failed to update CR: %v", err)
 	}
 
+	localCr := &api.PerconaXtraDBCluster{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+	if err != nil {
+		log.Error(err, "failed to get CR")
+	}
+
+	localCr.Status.ProxySQL.Version = new.ProxySqlVersion
+	localCr.Status.PMM.Version = new.PMMVersion
+	localCr.Status.Backup.Version = new.BackupVersion
+	localCr.Status.PXC.Version = new.PXCVersion
+	localCr.Status.PXC.Image = new.PXCImage
+
+	err = r.client.Status().Update(context.Background(), localCr)
+	if err != nil {
+		return fmt.Errorf("failed to update CR status: %v", err)
+	}
+
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateVersion(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) error {
-	if cr.Status.PXC.Status != api.AppStateReady || cr.Status.PXC.Version != "" {
+	if cr.Status.PXC.Status != api.AppStateReady ||
+		cr.Status.PXC.Version != "" ||
+		cr.Status.PXC.Image == cr.Spec.PXC.Image {
 		return nil
 	}
 
@@ -155,12 +174,13 @@ func (r *ReconcilePerconaXtraDBCluster) updateVersion(cr *api.PerconaXtraDBClust
 
 		log.Info(fmt.Sprintf("update PXC version to %v", version))
 		cr.Status.PXC.Version = version
-
+		cr.Status.PXC.Image = cr.Spec.PXC.Image
 		err = r.client.Update(context.Background(), cr)
 		if err != nil {
 			return fmt.Errorf("failed to update CR: %v", err)
 		}
-		break
+
+		return nil
 	}
 
 	return fmt.Errorf("failed to reach any pod")

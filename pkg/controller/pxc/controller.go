@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -65,6 +66,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		crons:         NewCronRegistry(),
 		serverVersion: sv,
 		clientcmd:     cli,
+		statusMutex:   new(sync.Mutex),
 	}, nil
 }
 
@@ -97,6 +99,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	clientcmd *clientcmd.Client
 
 	serverVersion *api.ServerVersion
+	statusMutex   *sync.Mutex
 }
 
 type CronRegistry struct {
@@ -133,6 +136,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		RequeueAfter: time.Second * 5,
 	}
 	// Fetch the PerconaXtraDBCluster instance
+	r.statusMutex.Lock()
 	o := &api.PerconaXtraDBCluster{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, o)
 	if err != nil {
@@ -156,6 +160,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if uerr != nil {
 			log.Error(uerr, "Update status")
 		}
+		r.statusMutex.Unlock()
 	}()
 
 	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
@@ -296,6 +301,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	if err := r.updateVersion(o, pxcSet); err != nil {
+		return rr, errors.Wrap(err, "update CR version")
+	}
+
 	err = r.sheduleEnsurePXCVersion(o, VersionServiceMock{})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
@@ -308,8 +317,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	if err := r.updateVersion(o, pxcSet); err != nil {
-		return rr, errors.Wrap(err, "update CR version")
+	localCr := &api.PerconaXtraDBCluster{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: o.Name, Namespace: o.Namespace}, localCr)
+	if err != nil {
+		log.Error(err, "failed to get CR")
 	}
 
 	return rr, nil

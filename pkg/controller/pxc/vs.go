@@ -7,12 +7,12 @@ import (
 	"time"
 )
 
-func (vs VersionServiceMock) Apply(version string) (DepVersion, error) {
+func (vs VersionServiceMock) Apply(version string, current string) (DepVersion, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
 
-	req, err := http.NewRequest("GET", "http://9a46fb98feeb.ngrok.io/api/versions/v1/pxc/1.5.0/"+version, nil)
+	req, err := http.NewRequest("GET", "http://84a77120726d.ngrok.io/api/versions/v1/pxc/1.5.0/"+version+"?databaseVersion="+current, nil)
 	if err != nil {
 		return DepVersion{}, err
 	}
@@ -89,7 +89,7 @@ type DepVersion struct {
 }
 
 type VersionService interface {
-	Apply(string) (DepVersion, error)
+	Apply(string, string) (DepVersion, error)
 }
 
 type VersionServiceMock struct {

@@ -71,7 +71,7 @@ main() {
     desc 'start cluster'
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]]; then
         desc 'kill all PXC pods'
         pumba_all_pods kill
     fi

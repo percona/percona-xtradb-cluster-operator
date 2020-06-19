@@ -216,7 +216,7 @@ compare_kubectl() {
         expected_result=${expected_result//.yml/-oc.yml}
     fi
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
         expected_result=${expected_result//.yml/-80.yml}
     fi
 
@@ -282,7 +282,7 @@ compare_mysql_cmd() {
     local postfix="$4"
     local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
         expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
     fi
 
@@ -325,7 +325,7 @@ compare_mysql_user() {
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
     local expected_result=${test_dir}/compare/$user$postfix.sql
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
         expected_result=${test_dir}/compare/$user$postfix-80.sql
     fi
 
@@ -342,7 +342,7 @@ compare_mysql_user_local() {
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
     local expected_result=$test_dir/compare/$user$postfix.sql
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
         expected_result=${test_dir}/compare/$user$postfix-80.sql
     fi
 
@@ -532,7 +532,7 @@ spinup_pxc() {
     sleep $sleep
 
     desc 'write data'
-    if [[ "$IMAGE_PXC" =~ 5\.7$ ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+    if [[ "$IMAGE_PXC" =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
         encrypt='ENCRYPTION=\"Y\"'
     fi
     run_mysql \

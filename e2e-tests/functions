@@ -146,6 +146,7 @@ deploy_operator() {
 deploy_helm() {
     if [ "${HELM_VERSION:0:2}" == "v3" ]; then
         helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+        helm repo add hashicorp https://helm.releases.hashicorp.com
         helm repo update
         return 0
     fi
@@ -779,7 +780,9 @@ start_vault() {
 
     if [ $protocol == "https" ]; then
         vault_tls "$name"
-        helm install $name --namespace "$name" \
+        helm install $name hashicorp/vault \
+            --version 0.6.0 \
+            --namespace "$name" \
             --set dataStorage.enabled=false \
             --set global.tlsDisable=false \
             --set global.platform="${platform}" \
@@ -797,13 +800,14 @@ listener \"tcp\" {
 
 storage \"file\" {
     path = \"/vault/data\"
-}" \
-        "$src_dir/vendor/vault"
+}"
+        
     else
-        helm install $name --namespace "$name" \
+        helm install $name hashicorp/vault \
+            --version 0.6.0 \
+            --namespace "$name" \
             --set dataStorage.enabled=false \
-            --set global.platform="${platform}" \
-            "$src_dir/vendor/vault"
+            --set global.platform="${platform}"
     fi
 
     if [[ "${OPENSHIFT}" == 1 ]]; then

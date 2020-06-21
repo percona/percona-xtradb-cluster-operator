@@ -70,6 +70,7 @@ const (
 type PerconaXtraDBClusterStatus struct {
 	PXC                AppStatus          `json:"pxc,omitempty"`
 	ProxySQL           AppStatus          `json:"proxysql,omitempty"`
+	HAProxy            AppStatus          `json:"haproxy,omitempty"`
 	Backup             AppStatus          `json:"backup,omitempty"`
 	PMM                AppStatus          `json:"pmm,omitempty"`
 	Host               string             `json:"host,omitempty"`
@@ -90,11 +91,12 @@ const (
 type ClusterConditionType string
 
 const (
-	ClusterReady      ClusterConditionType = "Ready"
-	ClusterInit                            = "Initializing"
-	ClusterPXCReady                        = "PXCReady"
-	ClusterProxyReady                      = "ProxySQLReady"
-	ClusterError                           = "Error"
+	ClusterReady        ClusterConditionType = "Ready"
+	ClusterInit                              = "Initializing"
+	ClusterPXCReady                          = "PXCReady"
+	ClusterProxyReady                        = "ProxySQLReady"
+	ClusterHAProxyReady                      = "HAProxyReady"
+	ClusterError                             = "Error"
 )
 
 type ClusterCondition struct {

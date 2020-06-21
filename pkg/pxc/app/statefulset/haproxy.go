@@ -49,6 +49,10 @@ func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
 }
 
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+	initDelay := int32(10)
+	if spec.LivenessInitialDelaySeconds != nil {
+		initDelay = *spec.LivenessInitialDelaySeconds
+	}
 	appc := corev1.Container{
 		Name:            haproxyName,
 		Image:           spec.Image,
@@ -81,7 +85,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			SuccessThreshold:    1,
 			TimeoutSeconds:      1,
 			PeriodSeconds:       10,
-			InitialDelaySeconds: *spec.LivenessInitialDelaySeconds,
+			InitialDelaySeconds: initDelay,
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/healthz",

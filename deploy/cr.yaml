@@ -90,6 +90,11 @@ spec:
           requests:
             storage: 6Gi
     gracePeriod: 600
+  haproxy:
+    enabled: true
+    size: 3
+    image: haproxytech/kubernetes-ingress
+    serviceAccountName: haproxy
   proxysql:
     enabled: true
     size: 3

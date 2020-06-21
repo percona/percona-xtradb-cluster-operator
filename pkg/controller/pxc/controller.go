@@ -475,12 +475,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("create node set")
 	err = r.client.Create(context.TODO(), nodeSet)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create newStatefulSetNode: %v", err)
 	}
-
+	fmt.Println("done node set")
 	err = r.createService(cr, pxc.NewServicePXCUnready(cr))
 	if err != nil {
 		return errors.Wrap(err, "create PXC ServiceUnready")

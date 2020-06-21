@@ -43,9 +43,13 @@ spec:
       type: string
       description: Ready pxc nodes
       JSONPath: .status.pxc.ready
+    - name: haproxy
+      type: string
+      description: Ready haproxy nodes
+      JSONPath: .status.haproxy.ready
     - name: proxysql
       type: string
-      description: Ready pxc nodes
+      description: Ready proxysql nodes
       JSONPath: .status.proxysql.ready
     - name: Age
       type: date
@@ -288,6 +292,31 @@ roleRef:
   kind: Role
   name: percona-xtradb-cluster-operator
   apiGroup: rbac.authorization.k8s.io
+---
+#HAProxy needed role ============
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: percona-xtradb-cluster-operator-workload
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: haproxy
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: service-account-percona-xtradb-cluster-operator
+subjects:
+- kind: ServiceAccount
+  name: haproxy
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: admin
+  apiGroup: rbac.authorization.k8s.io
+#==================================
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -260,6 +260,56 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	haProxySet := statefulset.NewHAProxy(o)
+
+	if o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled {
+		err = r.updatePod(haProxySet, o.Spec.HAProxy, o, nil)
+		if err != nil {
+			err = fmt.Errorf("HAProxy upgrade error: %v", err)
+			return reconcile.Result{}, err
+		}
+
+		haProxyService := pxc.NewServiceHAProxy(o)
+		currentService := &corev1.Service{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: haProxyService.Name, Namespace: haProxyService.Namespace}, currentService)
+		if err != nil {
+			err = fmt.Errorf("failed to get sate: %v", err)
+			return reconcile.Result{}, err
+		}
+
+		if len(o.Spec.HAProxy.ServiceType) > 0 {
+			//Upgrading service only if something is changed
+			if currentService.Spec.Type != o.Spec.HAProxy.ServiceType {
+				currentService.Spec.Ports = []corev1.ServicePort{
+					{
+						Port: 3306,
+						Name: "mysql",
+					},
+				}
+				currentService.Spec.Type = o.Spec.HAProxy.ServiceType
+			}
+			//Checking default ServiceType
+		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
+			currentService.Spec.Ports = []corev1.ServicePort{
+				{
+					Port: 3306,
+					Name: "mysql",
+				},
+			}
+			currentService.Spec.Type = corev1.ServiceTypeClusterIP
+		}
+		err = r.client.Update(context.TODO(), currentService)
+		if err != nil {
+			err = fmt.Errorf("HAProxy service upgrade error: %v", err)
+			return reconcile.Result{}, err
+		}
+	} else {
+		err = r.deleteStatefulSet(o.Namespace, haProxySet, false)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	proxysqlSet := statefulset.NewProxy(o)
 
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
@@ -449,6 +499,39 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 	} else if !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get PXC stateful set: %v", err)
+	}
+	// HAProxy StatefulSet
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+		sfsHAProxy := statefulset.NewHAProxy(cr)
+		haProxySet, err := pxc.StatefulSet(sfsHAProxy, cr.Spec.HAProxy, cr, nil)
+		if err != nil {
+			return fmt.Errorf("create HAProxy Service: %v", err)
+		}
+		err = setControllerReference(cr, haProxySet, r.scheme)
+		if err != nil {
+			return err
+		}
+		err = r.client.Create(context.TODO(), haProxySet)
+		if err != nil && !k8serrors.IsAlreadyExists(err) {
+			return fmt.Errorf("create newStatefulSetHAProxy: %v", err)
+		}
+
+		//HAProxy Service
+		err = r.createService(cr, pxc.NewServiceHAProxy(cr))
+		if err != nil {
+			return errors.Wrap(err, "create HAProxy Service")
+		}
+
+		// PodDisruptionBudget object for HAProxy
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: haProxySet.Name, Namespace: haProxySet.Namespace}, haProxySet)
+		if err == nil {
+			err := r.reconcilePDB(cr.Spec.ProxySQL.PodDisruptionBudget, sfsHAProxy, cr.Namespace, haProxySet)
+			if err != nil {
+				return fmt.Errorf("PodDisruptionBudget for %s: %v", haProxySet.Name, err)
+			}
+		} else if !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("get HAProxy stateful set: %v", err)
+		}
 	}
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {

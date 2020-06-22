@@ -343,7 +343,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *ap
 		defer func() {
 			if len(r.syncUsersChan) > 0 {
 				<-r.syncUsersChan
-				log.Info("done")
 			}
 		}()
 
@@ -352,7 +351,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *ap
 	for {
 		select {
 		case <-ctx.Done():
-			cancel()
 			if len(r.syncUsersChan) > 0 {
 				<-r.syncUsersChan
 			}

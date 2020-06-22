@@ -323,12 +323,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	localCr := &api.PerconaXtraDBCluster{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: o.Name, Namespace: o.Namespace}, localCr)
-	if err != nil {
-		log.Error(err, "failed to get CR")
-	}
-
 	return rr, nil
 }
 

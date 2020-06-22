@@ -16,11 +16,11 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: http://84a77120726d.ngrok.io/api/versions/v1/pxc
-    apply: Latest 
-    schedule: "* * * * *"
+    apply: Disabled 
+    schedule: "0 2 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:5.7.26-31.37
+    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300

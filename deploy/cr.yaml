@@ -16,7 +16,7 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: http://84a77120726d.ngrok.io/api/versions/v1/pxc
-    apply: Disabled 
+    apply: Disabled
     schedule: "0 2 * * *"
   pxc:
     size: 3

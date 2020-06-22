@@ -11,8 +11,8 @@ func (vs VersionServiceMock) Apply(version string, current string) (DepVersion, 
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
-
-	req, err := http.NewRequest("GET", "http://84a77120726d.ngrok.io/api/versions/v1/pxc/1.5.0/"+version+"?databaseVersion="+current, nil)
+	url := fmt.Sprintf("%s/%s/%s?databaseVersion=%s", vs.URL, vs.OpVersion, version, current)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return DepVersion{}, err
 	}
@@ -93,12 +93,14 @@ type VersionService interface {
 }
 
 type VersionServiceMock struct {
+	URL       string
+	OpVersion string
 }
 
 type Version struct {
 	Version   string `json:"version"`
-	ImagePath string `json:"imagepath"`
-	Imagehash string `json:"imagehash"`
+	ImagePath string `json:"imagePath"`
+	Imagehash string `json:"imageHash"`
 	Status    string `json:"status"`
 	Critilal  bool   `json:"critilal"`
 }

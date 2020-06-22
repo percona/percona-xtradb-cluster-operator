@@ -173,7 +173,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
-		err := r.ensurePXCVersion(o, VersionServiceMock{})
+		err := r.ensurePXCVersion(o, VersionServiceMock{
+			URL:       o.Spec.UpgradeOptions.VersionServiceEndpoint,
+			OpVersion: o.APIVersion,
+		})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 		}
@@ -305,7 +308,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return rr, errors.Wrap(err, "update CR version")
 	}
 
-	err = r.sheduleEnsurePXCVersion(o, VersionServiceMock{})
+	err = r.sheduleEnsurePXCVersion(o, VersionServiceMock{
+		URL:       o.Spec.UpgradeOptions.VersionServiceEndpoint,
+		OpVersion: o.APIVersion,
+	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}

@@ -15,7 +15,7 @@ spec:
 #  pause: false
   updateStrategy: SmartUpdate
   upgradeOptions:
-    versionServiceEndpoint: https://check.percona.com/operator/
+    versionServiceEndpoint: http://84a77120726d.ngrok.io/api/versions/v1/pxc/
     apply: Latest 
     schedule: "* * * * *"
   pxc:

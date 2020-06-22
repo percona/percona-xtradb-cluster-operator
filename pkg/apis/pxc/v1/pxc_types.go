@@ -504,6 +504,10 @@ func (cr *PerconaXtraDBCluster) setVersion() error {
 	return nil
 }
 
+func (cr *PerconaXtraDBCluster) Version() *v.Version {
+	return cr.version
+}
+
 // CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
 func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
 	//using Must because "version" must be right format

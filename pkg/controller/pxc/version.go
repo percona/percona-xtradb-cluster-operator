@@ -147,11 +147,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateVersion(cr *api.PerconaXtraDBClust
 
 	list := corev1.PodList{}
 	if err := r.client.List(context.TODO(),
+		&list,
 		&client.ListOptions{
 			Namespace:     sfs.StatefulSet().Namespace,
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
-		&list,
 	); err != nil {
 		return fmt.Errorf("get pod list: %v", err)
 	}

@@ -175,7 +175,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
 		err := r.ensurePXCVersion(o, VersionServiceMock{
 			URL:       o.Spec.UpgradeOptions.VersionServiceEndpoint,
-			OpVersion: o.APIVersion,
+			OpVersion: o.Version().String(),
 		})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
@@ -310,7 +310,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	err = r.sheduleEnsurePXCVersion(o, VersionServiceMock{
 		URL:       o.Spec.UpgradeOptions.VersionServiceEndpoint,
-		OpVersion: o.APIVersion,
+		OpVersion: o.Version().String(),
 	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)

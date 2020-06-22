@@ -56,6 +56,7 @@ Configuration
    proxysql-conf
    TLS
    encryption
+   monitoring
 
 Management
 ==========

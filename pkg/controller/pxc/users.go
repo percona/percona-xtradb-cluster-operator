@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"time"
+	"sync/atomic"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -329,37 +329,10 @@ func sha256Hash(data []byte) string {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) {
-	if cr.Status.Status != api.AppStateReady {
-		return
-	}
+	defer atomic.SwapInt32(&r.syncUsersCounter, int32(0))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	stopCh := make(chan error, 1)
-
-	go func() {
-		r.syncUsersChan <- 1
-		defer func() {
-			if len(r.syncUsersChan) > 0 {
-				<-r.syncUsersChan
-			}
-		}()
-
-		stopCh <- r.syncPXCUsersWithProxySQL(cr)
-	}()
-	for {
-		select {
-		case <-ctx.Done():
-			if len(r.syncUsersChan) > 0 {
-				<-r.syncUsersChan
-			}
-			return
-		case err := <-stopCh:
-			if err != nil {
-				log.Error(err, "sync pxc users with proxysql")
-			}
-			return
-		}
+	err := r.syncPXCUsersWithProxySQL(cr)
+	if err != nil {
+		log.Error(err, "sync users")
 	}
 }

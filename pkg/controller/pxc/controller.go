@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -65,7 +66,6 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		crons:         NewCronRegistry(),
 		serverVersion: sv,
 		clientcmd:     cli,
-		syncUsersChan: make(chan int, 1),
 	}, nil
 }
 
@@ -92,11 +92,11 @@ var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}
 type ReconcilePerconaXtraDBCluster struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client        client.Client
-	scheme        *runtime.Scheme
-	crons         CronRegistry
-	clientcmd     *clientcmd.Client
-	syncUsersChan chan int
+	client           client.Client
+	scheme           *runtime.Scheme
+	crons            CronRegistry
+	clientcmd        *clientcmd.Client
+	syncUsersCounter int32
 
 	serverVersion *api.ServerVersion
 }
@@ -307,7 +307,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return rr, errors.Wrap(err, "reconcileUsers")
 		}
 	}
-	if len(r.syncUsersChan) == 0 {
+
+	if atomic.LoadInt32(&r.syncUsersCounter) == 0 && o.Status.Status == api.AppStateReady {
+		atomic.AddInt32(&r.syncUsersCounter, int32(1))
 		go r.reconcileSyncPXCUsersWithProxySQL(o)
 	}
 

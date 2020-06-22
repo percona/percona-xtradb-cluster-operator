@@ -229,11 +229,11 @@ func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBC
 func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.App, podSpec *api.PodSpec, namespace string) (api.AppStatus, error) {
 	list := corev1.PodList{}
 	err := r.client.List(context.TODO(),
+		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
 			LabelSelector: labels.SelectorFromSet(app.Labels()),
 		},
-		&list,
 	)
 	if err != nil {
 		return api.AppStatus{}, fmt.Errorf("get list: %v", err)

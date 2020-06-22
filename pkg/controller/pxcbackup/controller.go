@@ -206,10 +206,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXtraDBClusterBackup) (*api.PerconaXtraDBCluster, error) {
 	clusterList := api.PerconaXtraDBClusterList{}
 	err := r.client.List(context.TODO(),
+		&clusterList,
 		&client.ListOptions{
 			Namespace: cr.Namespace,
 		},
-		&clusterList,
 	)
 
 	if err != nil {

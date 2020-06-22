@@ -16,33 +16,24 @@ package leader
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
 	"time"
+
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/rest"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var log = logf.Log.WithName("leader")
 
-// errNoNS indicates that a namespace could not be found for the current
-// environment
-var errNoNS = errors.New("namespace not found for current environment")
-
 // maxBackoffInterval defines the maximum amount of time to wait between
 // attempts to become the leader.
 const maxBackoffInterval = time.Second * 16
-
-const PodNameEnv = "POD_NAME"
 
 // Become ensures that the current pod is the leader within its namespace. If
 // run outside a cluster, it will skip leader election and return nil. It
@@ -54,16 +45,16 @@ const PodNameEnv = "POD_NAME"
 func Become(ctx context.Context, lockName string) error {
 	log.Info("Trying to become the leader.")
 
-	ns, err := myNS()
+	ns, err := k8sutil.GetOperatorNamespace()
 	if err != nil {
-		if err == errNoNS {
+		if err == k8sutil.ErrNoNamespace || err == k8sutil.ErrRunLocal {
 			log.Info("Skipping leader election; not running in a cluster.")
 			return nil
 		}
 		return err
 	}
 
-	config, err := rest.InClusterConfig()
+	config, err := config.GetConfig()
 	if err != nil {
 		return err
 	}
@@ -79,12 +70,7 @@ func Become(ctx context.Context, lockName string) error {
 	}
 
 	// check for existing lock from this pod, in case we got restarted
-	existing := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
-	}
+	existing := &corev1.ConfigMap{}
 	key := crclient.ObjectKey{Namespace: ns, Name: lockName}
 	err = client.Get(ctx, key, existing)
 
@@ -95,22 +81,17 @@ func Become(ctx context.Context, lockName string) error {
 				log.Info("Found existing lock with my name. I was likely restarted.")
 				log.Info("Continuing as the leader.")
 				return nil
-			} else {
-				log.Info("Found existing lock", "LockOwner", existingOwner.Name)
 			}
+			log.Info("Found existing lock", "LockOwner", existingOwner.Name)
 		}
 	case apierrors.IsNotFound(err):
 		log.Info("No pre-existing lock was found.")
 	default:
-		log.Error(err, "unknown error trying to get ConfigMap")
+		log.Error(err, "Unknown error trying to get ConfigMap")
 		return err
 	}
 
 	cm := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            lockName,
 			Namespace:       ns,
@@ -127,7 +108,35 @@ func Become(ctx context.Context, lockName string) error {
 			log.Info("Became the leader.")
 			return nil
 		case apierrors.IsAlreadyExists(err):
-			log.Info("Not the leader. Waiting.")
+			existingOwners := existing.GetOwnerReferences()
+			switch {
+			case len(existingOwners) != 1:
+				log.Info("Leader lock configmap must have exactly one owner reference.", "ConfigMap", existing)
+			case existingOwners[0].Kind != "Pod":
+				log.Info("Leader lock configmap owner reference must be a pod.", "OwnerReference", existingOwners[0])
+			default:
+				leaderPod := &corev1.Pod{}
+				key = crclient.ObjectKey{Namespace: ns, Name: existingOwners[0].Name}
+				err = client.Get(ctx, key, leaderPod)
+				switch {
+				case apierrors.IsNotFound(err):
+					log.Info("Leader pod has been deleted, waiting for garbage collection do remove the lock.")
+				case err != nil:
+					return err
+				case isPodEvicted(*leaderPod) && leaderPod.GetDeletionTimestamp() == nil:
+					log.Info("Operator pod with leader lock has been evicted.", "leader", leaderPod.Name)
+					log.Info("Deleting evicted leader.")
+					// Pod may not delete immediately, continue with backoff
+					err := client.Delete(ctx, leaderPod)
+					if err != nil {
+						log.Error(err, "Leader pod could not be deleted.")
+					}
+
+				default:
+					log.Info("Not the leader. Waiting.")
+				}
+			}
+
 			select {
 			case <-time.After(wait.Jitter(backoff, .2)):
 				if backoff < maxBackoffInterval {
@@ -138,49 +147,18 @@ func Become(ctx context.Context, lockName string) error {
 				return ctx.Err()
 			}
 		default:
-			log.Error(err, "unknown error creating configmap")
+			log.Error(err, "Unknown error creating ConfigMap")
 			return err
 		}
 	}
-}
-
-// myNS returns the name of the namespace in which this code is currently running.
-func myNS() (string, error) {
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if err != nil {
-		if os.IsNotExist(err) {
-			log.V(1).Info("current namespace not found")
-			return "", errNoNS
-		}
-		return "", err
-	}
-	ns := strings.TrimSpace(string(nsBytes))
-	log.V(1).Info("found namespace", "Namespace", ns)
-	return ns, nil
 }
 
 // myOwnerRef returns an OwnerReference that corresponds to the pod in which
 // this code is currently running.
 // It expects the environment variable POD_NAME to be set by the downwards API
 func myOwnerRef(ctx context.Context, client crclient.Client, ns string) (*metav1.OwnerReference, error) {
-	podName := os.Getenv(PodNameEnv)
-	if podName == "" {
-		return nil, fmt.Errorf("required env %s not set, please configure downward API", PodNameEnv)
-	}
-
-	log.V(1).Info("found podname", "Pod.Name", podName)
-
-	myPod := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Pod",
-		},
-	}
-
-	key := crclient.ObjectKey{Namespace: ns, Name: podName}
-	err := client.Get(ctx, key, myPod)
+	myPod, err := k8sutil.GetPod(ctx, client, ns)
 	if err != nil {
-		log.Error(err, "failed to get pod", "Pod.Namespace", ns, "Pod.Name", podName)
 		return nil, err
 	}
 
@@ -191,4 +169,10 @@ func myOwnerRef(ctx context.Context, client crclient.Client, ns string) (*metav1
 		UID:        myPod.ObjectMeta.UID,
 	}
 	return owner, nil
+}
+
+func isPodEvicted(pod corev1.Pod) bool {
+	podFailed := pod.Status.Phase == corev1.PodFailed
+	podEvicted := pod.Status.Reason == "Evicted"
+	return podFailed && podEvicted
 }

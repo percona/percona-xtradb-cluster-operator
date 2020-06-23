@@ -138,7 +138,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateVersion(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) error {
+func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) error {
 	if cr.Status.PXC.Status != api.AppStateReady ||
 		cr.Status.PXC.Version != "" ||
 		cr.Status.PXC.Image == cr.Spec.PXC.Image {

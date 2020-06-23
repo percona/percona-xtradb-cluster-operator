@@ -92,11 +92,11 @@ var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}
 type ReconcilePerconaXtraDBCluster struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client           client.Client
-	scheme           *runtime.Scheme
-	crons            CronRegistry
-	clientcmd        *clientcmd.Client
-	syncUsersCounter int32
+	client         client.Client
+	scheme         *runtime.Scheme
+	crons          CronRegistry
+	clientcmd      *clientcmd.Client
+	syncUsersState int32
 
 	serverVersion *api.ServerVersion
 }
@@ -110,6 +110,11 @@ type Shedule struct {
 	ID          int
 	CronShedule string
 }
+
+const (
+	stateFree   = 0
+	stateLocked = 1
+)
 
 func NewCronRegistry() CronRegistry {
 	c := CronRegistry{
@@ -308,10 +313,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	if atomic.LoadInt32(&r.syncUsersCounter) == 0 && o.Status.Status == api.AppStateReady {
-		atomic.AddInt32(&r.syncUsersCounter, int32(1))
-		go r.reconcileSyncPXCUsersWithProxySQL(o)
-	}
+	r.reconcileSyncPXCUsersWithProxySQL(o)
 
 	return rr, nil
 }
@@ -685,4 +687,20 @@ func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference,
 		UID:        ca.GetUID(),
 		Controller: &trueVar,
 	}, nil
+}
+
+// reconcileSyncPXCUsersWithProxySQL calls the method of synchronizing users and makes sure that only one Goroutine works at a time
+func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) {
+	if cr.Status.Status == api.AppStateReady {
+		return
+	}
+	if atomic.CompareAndSwapInt32(&r.syncUsersState, stateFree, stateLocked) {
+		go func() {
+			err := r.syncPXCUsersWithProxySQL(cr)
+			if err != nil {
+				log.Error(err, "sync users")
+			}
+			atomic.StoreInt32(&r.syncUsersState, stateFree)
+		}()
+	}
 }

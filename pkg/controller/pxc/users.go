@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"sync/atomic"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -326,13 +325,4 @@ func sysUsersSecretDataChanged(newHash string, usersSecret *corev1.Secret) (bool
 
 func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
-}
-
-func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) {
-	defer atomic.SwapInt32(&r.syncUsersCounter, int32(0))
-
-	err := r.syncPXCUsersWithProxySQL(cr)
-	if err != nil {
-		log.Error(err, "sync users")
-	}
 }

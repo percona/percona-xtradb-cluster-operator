@@ -137,6 +137,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 	// Fetch the PerconaXtraDBCluster instance
 	r.statusMutex.Lock()
+	defer r.statusMutex.Unlock()
+
 	o := &api.PerconaXtraDBCluster{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, o)
 	if err != nil {
@@ -160,7 +162,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if uerr != nil {
 			log.Error(uerr, "Update status")
 		}
-		r.statusMutex.Unlock()
 	}()
 
 	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)

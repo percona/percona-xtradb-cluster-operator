@@ -29,30 +29,13 @@ your network does not require another installation in Kubernetes.
 
 3. Now helm can be used to install PMM Server:
 
+   OpenShift command:
    ::
+      $ helm install monitoring percona/pmm-server --set platform=openshift --version 1.17.3 --set "credentials.password=supa|^|pazz"
 
-      $ helm install percona/pmm-server --name monitoring --set platform=openshift --set credentials.username=pmm --set "credentials.password=supa|^|pazz"
-
-   It is important to specify correct options in the installation
-   command:
-
-   -  ``platform`` should be either ``kubernetes`` or ``openshift``
-      depending on which platform are you using.
-   -  ``name`` should correspond to the ``serverHost`` key in the
-      ``pmm`` section of the
-      `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
-      file with a “-service” suffix, so default ``--name monitoring``
-      part of the shown above command corresponds to a
-      ``monitoring-service`` value of the ``serverHost`` key.
-   -  ``credentials.username`` should correspond to the ``serverUser``
-      key in the ``pmm`` section of the
-      `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
-      file.
-   -  ``credentials.password`` should correspond to a value of the
-      ``pmmserver`` secret key specified in ``deploy/secrets.yaml``
-      secrets file. Note that password specified in this example is the
-      default development mode password not intended to be used on
-      production systems.
+   Kubernetes command:
+   ::
+      $ helm install monitoring percona/pmm-server --set platform=kubernetes --version 2.7.0 --set "credentials.password=supa|^|pazz"
 
 Installing the PMM Client
 -------------------------
@@ -65,14 +48,13 @@ The following steps are needed for the PMM client installation:
    file.
 
    -  set ``pmm.enabled=true``
-   -  make sure that ``serverUser`` (the PMM Server user name, ``pmm``
-      by default) is the same as one specified for the
-      ``credentials.username`` parameter on the previous step.
    -  make sure that ``serverHost`` (the PMM service name,
       ``monitoring-service`` by default) is the same as one specified
       for the ``name`` parameter on the previous step, but with
       additional ``-service`` suffix.
-   -  make sure that ``pmmserver`` secret key in the
+   -  make check that ``serverUser`` match the PMM Server user name
+      (``pmm`` by default for PMM 1.x and ``admin`` for PMM 2.x).
+   -  make sure that ``pmmserver`` field in the
       ``deploy/secrets.yaml`` secrets file is the same as one specified
       for the ``credentials.password`` parameter on the previous step
       (if not, fix it and apply with the

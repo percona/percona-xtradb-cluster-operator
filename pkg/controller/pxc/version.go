@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -118,19 +119,20 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return fmt.Errorf("failed to update CR: %v", err)
 	}
 
-	localCr := &api.PerconaXtraDBCluster{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+	time.Sleep(1 * time.Second) // based on experiments operator just need it.
+
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
 	if err != nil {
 		log.Error(err, "failed to get CR")
 	}
 
-	localCr.Status.ProxySQL.Version = new.ProxySqlVersion
-	localCr.Status.PMM.Version = new.PMMVersion
-	localCr.Status.Backup.Version = new.BackupVersion
-	localCr.Status.PXC.Version = new.PXCVersion
-	localCr.Status.PXC.Image = new.PXCImage
+	cr.Status.ProxySQL.Version = new.ProxySqlVersion
+	cr.Status.PMM.Version = new.PMMVersion
+	cr.Status.Backup.Version = new.BackupVersion
+	cr.Status.PXC.Version = new.PXCVersion
+	cr.Status.PXC.Image = new.PXCImage
 
-	err = r.client.Status().Update(context.Background(), localCr)
+	err = r.client.Status().Update(context.Background(), cr)
 	if err != nil {
 		return fmt.Errorf("failed to update CR status: %v", err)
 	}
@@ -172,7 +174,7 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 			continue
 		}
 
-		log.Info(fmt.Sprintf("update PXC version to %v", version))
+		log.Info(fmt.Sprintf("update PXC version to %v (fetched from db)", version))
 		cr.Status.PXC.Version = version
 		cr.Status.PXC.Image = cr.Spec.PXC.Image
 		err = r.client.Update(context.Background(), cr)

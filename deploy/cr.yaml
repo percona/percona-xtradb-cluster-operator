@@ -16,8 +16,8 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: http://84a77120726d.ngrok.io/api/versions/v1/pxc
-    apply: Disabled
-    schedule: "0 2 * * *"
+    apply: Latest
+    schedule: "*/3 * * * *"
   pxc:
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0

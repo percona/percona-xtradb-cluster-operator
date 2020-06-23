@@ -52,6 +52,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		return fmt.Errorf("get pxc status: %v", err)
 	}
 	pxcStatus.Version = cr.Status.PXC.Version
+	pxcStatus.Image = cr.Status.PXC.Image
 	if pxcStatus.Status != cr.Status.PXC.Status {
 		if pxcStatus.Status == api.AppStateReady {
 			clusterCondition = api.ClusterCondition{

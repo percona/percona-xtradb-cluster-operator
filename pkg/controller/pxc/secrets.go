@@ -31,27 +31,27 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 	}
 
 	data := make(map[string][]byte)
-	data["root"], err = GeneratePass()
+	data["root"], err = generatePass()
 	if err != nil {
 		return fmt.Errorf("create root users password: %v", err)
 	}
-	data["xtrabackup"], err = GeneratePass()
+	data["xtrabackup"], err = generatePass()
 	if err != nil {
 		return fmt.Errorf("create xtrabackup users password: %v", err)
 	}
-	data["monitor"], err = GeneratePass()
+	data["monitor"], err = generatePass()
 	if err != nil {
 		return fmt.Errorf("create monitor users password: %v", err)
 	}
-	data["clustercheck"], err = GeneratePass()
+	data["clustercheck"], err = generatePass()
 	if err != nil {
 		return fmt.Errorf("create clustercheck users password: %v", err)
 	}
-	data["proxyadmin"], err = GeneratePass()
+	data["proxyadmin"], err = generatePass()
 	if err != nil {
 		return fmt.Errorf("create proxyadmin users password: %v", err)
 	}
-	data["operator"], err = GeneratePass()
+	data["operator"], err = generatePass()
 	if err != nil {
 		return fmt.Errorf("create operator users password: %v", err)
 	}
@@ -79,8 +79,8 @@ const (
 		"0123456789"
 )
 
-//GeneratePass generate random password
-func GeneratePass() ([]byte, error) {
+//generatePass generate random password
+func generatePass() ([]byte, error) {
 	mrand.Seed(time.Now().UnixNano())
 	ln := mrand.Intn(passwordMaxLen-passwordMinLen) + passwordMinLen
 	b := make([]byte, ln)

@@ -38,8 +38,11 @@ func NewManager(addr string, user, pass string) (Manager, error) {
 	return um, nil
 }
 
+func (u *Manager) Close() error {
+	return u.db.Close()
+}
+
 func (u *Manager) CreateOperatorUser(pass string) error {
-	defer u.db.Close()
 	tx, err := u.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")
@@ -81,7 +84,6 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 }
 
 func (u *Manager) UpdateUsersPass(users []SysUser) error {
-	defer u.db.Close()
 	tx, err := u.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")
@@ -118,7 +120,6 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 }
 
 func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
-	defer u.db.Close()
 	tx, err := u.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")

@@ -153,6 +153,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
 	}
+	defer um.Close()
 
 	if len(sysUsers) > 0 {
 		err = um.UpdateUsersPass(sysUsers)
@@ -233,6 +234,7 @@ func updateProxyUsers(proxyUsers []users.SysUser, internalSysSecretObj *corev1.S
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}
+	defer um.Close()
 
 	err = um.UpdateProxyUsers(proxyUsers)
 	if err != nil {
@@ -337,36 +339,32 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	} else if err != nil {
 		return errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
 	}
-	var exist bool
 	for name := range sysUsersSecretObj.Data {
-		switch name {
-		case "operator":
-			exist = true
+		if name == "operator" {
+			return nil
 		}
 	}
 
-	if !exist {
-		um, err := users.NewManager(cr.Name+"-pxc", "root", string(sysUsersSecretObj.Data["root"]))
-		if err != nil {
-			return errors.Wrap(err, "new users manager")
-		}
+	um, err := users.NewManager(cr.Name+"-pxc", "root", string(sysUsersSecretObj.Data["root"]))
+	if err != nil {
+		return errors.Wrap(err, "new users manager")
+	}
+	defer um.Close()
 
-		pass, err := GeneratePass()
-		if err != nil {
-			return errors.Wrap(err, "generate password")
-		}
+	pass, err := generatePass()
+	if err != nil {
+		return errors.Wrap(err, "generate password")
+	}
 
-		err = um.CreateOperatorUser(string(pass))
-		if err != nil {
-			return errors.Wrap(err, "create operator user")
-		}
+	err = um.CreateOperatorUser(string(pass))
+	if err != nil {
+		return errors.Wrap(err, "create operator user")
+	}
 
-		sysUsersSecretObj.Data["operator"] = pass
-		err = r.client.Update(context.TODO(), &sysUsersSecretObj)
-		if err != nil {
-			return errors.Wrap(err, "update sys users secret")
-		}
-
+	sysUsersSecretObj.Data["operator"] = pass
+	err = r.client.Update(context.TODO(), &sysUsersSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update sys users secret")
 	}
 
 	return nil

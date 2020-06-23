@@ -158,15 +158,15 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 
 	user := "root"
 	for _, pod := range list.Items {
-		dbatabase, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Status.PodIP, 3306)
+		database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Status.PodIP, 3306)
 		if err != nil {
 			log.Error(err, "failed to create db instance")
 			continue
 		}
 
-		defer dbatabase.Close()
+		defer database.Close()
 
-		version, err := dbatabase.Version()
+		version, err := database.Version()
 		if err != nil {
 			log.Error(err, "failed to get pxc version")
 			continue

@@ -313,7 +313,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	r.reconcileSyncPXCUsersWithProxySQL(o)
+	r.resyncPXCUsersWithProxySQL(o)
 
 	return rr, nil
 }
@@ -689,18 +689,16 @@ func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference,
 	}, nil
 }
 
-// reconcileSyncPXCUsersWithProxySQL calls the method of synchronizing users and makes sure that only one Goroutine works at a time
-func (r *ReconcilePerconaXtraDBCluster) reconcileSyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) {
-	if cr.Status.Status == api.AppStateReady {
+// resyncPXCUsersWithProxySQL calls the method of synchronizing users and makes sure that only one Goroutine works at a time
+func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) {
+	if cr.Status.Status != api.AppStateReady || !atomic.CompareAndSwapInt32(&r.syncUsersState, stateFree, stateLocked) {
 		return
 	}
-	if atomic.CompareAndSwapInt32(&r.syncUsersState, stateFree, stateLocked) {
-		go func() {
-			err := r.syncPXCUsersWithProxySQL(cr)
-			if err != nil {
-				log.Error(err, "sync users")
-			}
-			atomic.StoreInt32(&r.syncUsersState, stateFree)
-		}()
-	}
+	go func() {
+		err := r.syncPXCUsersWithProxySQL(cr)
+		if err != nil {
+			log.Error(err, "sync users")
+		}
+		atomic.StoreInt32(&r.syncUsersState, stateFree)
+	}()
 }

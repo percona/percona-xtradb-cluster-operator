@@ -202,8 +202,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	switch {
-	case (cr.Status.PXC.Status == cr.Status.ProxySQL.Status) ||
-		(cr.Status.PXC.Status == cr.Status.HAProxy.Status):
+	case (cr.Status.PXC.Status == cr.Status.ProxySQL.Status && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled) ||
+		(cr.Status.PXC.Status == cr.Status.HAProxy.Status && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled):
 		if cr.Status.PXC.Status == api.AppStateReady {
 			clusterCondition = api.ClusterCondition{
 				Status:             api.ConditionTrue,

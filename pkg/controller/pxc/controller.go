@@ -260,6 +260,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	if (o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled) &&
+		(o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled) {
+		return reconcile.Result{}, errors.New("Can't Enable Both HAProxy and ProxySQL please only select one of them")
+	}
+
 	haProxySet := statefulset.NewHAProxy(o)
 
 	if o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled {
@@ -273,7 +278,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		currentService := &corev1.Service{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: haProxyService.Name, Namespace: haProxyService.Namespace}, currentService)
 		if err != nil {
-			err = fmt.Errorf("failed to get sate: %v", err)
+			err = fmt.Errorf("failed to get HAProxy service: %v", err)
 			return reconcile.Result{}, err
 		}
 
@@ -475,12 +480,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil {
 		return err
 	}
-	fmt.Println("create node set")
+
 	err = r.client.Create(context.TODO(), nodeSet)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create newStatefulSetNode: %v", err)
 	}
-	fmt.Println("done node set")
+
 	err = r.createService(cr, pxc.NewServicePXCUnready(cr))
 	if err != nil {
 		return errors.Wrap(err, "create PXC ServiceUnready")
@@ -500,12 +505,18 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	} else if !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get PXC stateful set: %v", err)
 	}
+
+	if (cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled) &&
+		(cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled) {
+		return errors.New("Can't Enable Both HAProxy and ProxySQL please only select one of them")
+	}
+
 	// HAProxy StatefulSet
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		sfsHAProxy := statefulset.NewHAProxy(cr)
 		haProxySet, err := pxc.StatefulSet(sfsHAProxy, cr.Spec.HAProxy, cr, nil)
 		if err != nil {
-			return fmt.Errorf("create HAProxy Service: %v", err)
+			return fmt.Errorf("create HAProxy StatefulSet: %v", err)
 		}
 		err = setControllerReference(cr, haProxySet, r.scheme)
 		if err != nil {

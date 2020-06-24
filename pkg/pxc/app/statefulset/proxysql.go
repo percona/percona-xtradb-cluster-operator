@@ -83,12 +83,6 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 				Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
 			},
 			{
-				Name: "MYSQL_ROOT_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
-				},
-			},
-			{
 				Name:  "PROXY_ADMIN_USER",
 				Value: "proxyadmin",
 			},
@@ -102,6 +96,12 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				},
+			},
+			{
+				Name: "OPERATOR_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
 				},
 			},
 		},
@@ -140,9 +140,9 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1.C
 					Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
 				},
 				{
-					Name: "MYSQL_ROOT_PASSWORD",
+					Name: "OPERATOR_PASSWORD",
 					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+						SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
 					},
 				},
 				{
@@ -180,9 +180,9 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1.C
 					Value: c.labels["app.kubernetes.io/instance"] + "-proxysql-unready",
 				},
 				{
-					Name: "MYSQL_ROOT_PASSWORD",
+					Name: "OPERATOR_PASSWORD",
 					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+						SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
 					},
 				},
 				{

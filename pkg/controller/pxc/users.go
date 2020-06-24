@@ -20,17 +20,19 @@ import (
 const internalPrefix = "internal-"
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) error {
+	if cr.Status.PXC.Ready > 0 {
+		err := r.manageOperatorAdminUser(cr)
+		if err != nil {
+			return errors.Wrap(err, "manage operator admin user")
+		}
+	}
+
 	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 
-	err := r.manageOperatorAdminUser(cr)
-	if err != nil {
-		return errors.Wrap(err, "manage operator admin user")
-	}
-
 	sysUsersSecretObj := corev1.Secret{}
-	err = r.client.Get(context.TODO(),
+	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.SecretsName,

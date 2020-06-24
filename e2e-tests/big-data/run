@@ -20,7 +20,7 @@ main() {
 
     kubectl_bin apply -f "${test_dir}/conf/crd_backup.yml"
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]]; then
         desc 'Switch to 8.0 backup'
         kubectl_bin apply -f "${test_dir}/conf/backup.yml"
     else

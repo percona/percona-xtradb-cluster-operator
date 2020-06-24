@@ -145,6 +145,7 @@ deploy_operator() {
 
 deploy_helm() {
     helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+    helm repo add hashicorp https://helm.releases.hashicorp.com
     helm repo add percona https://percona-charts.storage.googleapis.com/
     helm repo update
 }
@@ -187,13 +188,13 @@ compare_kubectl() {
         expected_result=${expected_result//.yml/-oc.yml}
     fi
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
         expected_result=${expected_result//.yml/-80.yml}
     fi
 
     kubectl_bin get -o yaml ${resource} \
-        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
-        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem" \
+        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|- name: default-dockercfg-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
+        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem|imagePullSecrets:" \
         | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
         | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
         | egrep -v "load-balancer-cleanup" \
@@ -253,7 +254,7 @@ compare_mysql_cmd() {
     local postfix="$4"
     local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
         expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
     fi
 
@@ -296,7 +297,7 @@ compare_mysql_user() {
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
     local expected_result=${test_dir}/compare/$user$postfix.sql
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
         expected_result=${test_dir}/compare/$user$postfix-80.sql
     fi
 
@@ -313,7 +314,7 @@ compare_mysql_user_local() {
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
     local expected_result=$test_dir/compare/$user$postfix.sql
 
-    if [[ "$IMAGE_PXC" =~ 8\.0$ ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
         expected_result=${test_dir}/compare/$user$postfix-80.sql
     fi
 
@@ -472,7 +473,8 @@ EOF
 cat_config() {
     cat "$1" \
         | $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
-        | $sed -e "s#image:.*-pxc\$#image: $IMAGE_PXC#" \
+        | $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
+        | $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
         | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
         | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
         | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#"
@@ -502,7 +504,7 @@ spinup_pxc() {
     sleep $sleep
 
     desc 'write data'
-    if [[ "$IMAGE_PXC" =~ 5\.7$ ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+    if [[ "$IMAGE_PXC" =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
         encrypt='ENCRYPTION=\"Y\"'
     fi
     run_mysql \
@@ -750,7 +752,9 @@ start_vault() {
 
     if [ $protocol == "https" ]; then
         vault_tls "$name"
-        helm install $name --namespace "$name" \
+        helm install $name hashicorp/vault \
+            --version 0.6.0 \
+            --namespace "$name" \
             --set dataStorage.enabled=false \
             --set global.tlsDisable=false \
             --set global.platform="${platform}" \
@@ -768,13 +772,14 @@ listener \"tcp\" {
 
 storage \"file\" {
     path = \"/vault/data\"
-}" \
-        "$src_dir/vendor/vault"
+}"
+        
     else
-        helm install $name --namespace "$name" \
+        helm install $name hashicorp/vault \
+            --version 0.6.0 \
+            --namespace "$name" \
             --set dataStorage.enabled=false \
-            --set global.platform="${platform}" \
-            "$src_dir/vendor/vault"
+            --set global.platform="${platform}"
     fi
 
     if [[ "${OPENSHIFT}" == 1 ]]; then

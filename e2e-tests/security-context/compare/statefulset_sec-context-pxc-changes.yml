@@ -23,6 +23,7 @@ spec:
   template:
     metadata:
       annotations:
+        openshift.io/scc: privileged
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: sec-context

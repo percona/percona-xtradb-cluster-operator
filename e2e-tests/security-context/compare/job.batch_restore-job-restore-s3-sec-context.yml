@@ -17,6 +17,8 @@ spec:
     matchLabels:
   template:
     metadata:
+      annotations:
+        openshift.io/scc: privileged
       labels:
         job-name: restore-job-restore-s3-sec-context
     spec:
@@ -65,6 +67,8 @@ spec:
         runAsUser: 1001
         supplementalGroups:
         - 1001
+      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 30
       volumes:
       - name: datadir

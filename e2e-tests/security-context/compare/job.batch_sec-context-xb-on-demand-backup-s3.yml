@@ -1,6 +1,8 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
+  annotations:
+    openshift.io/scc: privileged
   labels:
     cluster: sec-context
     job-name: sec-context-xb-on-demand-backup-s3
@@ -23,6 +25,8 @@ spec:
       type: xtrabackup
   template:
     metadata:
+      annotations:
+        openshift.io/scc: privileged
       labels:
         cluster: sec-context
         job-name: sec-context-xb-on-demand-backup-s3
@@ -81,6 +85,8 @@ spec:
         - 1001
         - 1002
         - 1003
+      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 30
       volumes:
       - name: ssl

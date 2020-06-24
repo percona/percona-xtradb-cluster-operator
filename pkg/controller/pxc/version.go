@@ -153,6 +153,10 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 		return nil
 	}
 
+	if cr.Status.ObservedGeneration != cr.ObjectMeta.Generation {
+		return nil
+	}
+
 	if cr.Status.PXC.Version != "" &&
 		cr.Status.PXC.Image == cr.Spec.PXC.Image {
 		return nil

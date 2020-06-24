@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -50,6 +51,11 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 	id, err := r.crons.crons.AddFunc(cr.Spec.UpgradeOptions.Schedule, func() {
 		r.statusMutex.Lock()
 		defer r.statusMutex.Unlock()
+
+		if !atomic.CompareAndSwapInt32(&r.updateSync, updateDone, updateWait) {
+			log.Info("waiting for update")
+			return
+		}
 
 		localCr := &api.PerconaXtraDBCluster{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)

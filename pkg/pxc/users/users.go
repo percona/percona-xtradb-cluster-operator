@@ -99,6 +99,24 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 				}
 				return errors.Wrap(err, "update password")
 			}
+			if user.Name == "monitor" {
+				_, err = tx.Exec("GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD, CREATE USER ON *.* TO 'monitor'@?", host)
+				if err != nil {
+					errT := tx.Rollback()
+					if errT != nil {
+						return errors.Errorf("grant privs: %v, tx rollback: %v", err, errT)
+					}
+					return errors.Wrap(err, "grant on *.*")
+				}
+				_, err = tx.Exec("GRANT SELECT, UPDATE, DELETE, DROP ON performance_schema.* TO 'monitor'@?", host)
+				if err != nil {
+					errT := tx.Rollback()
+					if errT != nil {
+						return errors.Errorf("grant privs: %v, tx rollback: %v", err, errT)
+					}
+					return errors.Wrap(err, "grant on performance_schema.*")
+				}
+			}
 		}
 	}
 
@@ -196,4 +214,23 @@ func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
 	}
 
 	return nil
+}
+
+func (u *Manager) GetMonitorUserHosts() ([]string, error) {
+	hosts := []string{}
+	rows, err := u.db.Query("SELECT Host FROM mysql.user WHERE User='monitor'")
+	if err != nil {
+		return hosts, errors.Wrap(err, "select hosts")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		host := ""
+		err := rows.Scan(&host)
+		if err != nil {
+			return hosts, errors.Wrap(err, "scan host")
+		}
+		hosts = append(hosts, host)
+	}
+
+	return hosts, nil
 }

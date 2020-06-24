@@ -292,6 +292,10 @@ func (r *ReconcilePerconaXtraDBCluster) getInternalSysUsersSecret(cr *api.Percon
 	}
 
 	if k8serrors.IsNotFound(err) {
+		err = r.updateMonitorUser(cr, sysUsersSecretObj)
+		if err != nil {
+			return internalSysUsersSecretObj, errors.Wrap(err, "update monitor users")
+		}
 		err = r.client.Create(context.TODO(), &internalSysUsersSecretObj)
 		if err != nil {
 			return internalSysUsersSecretObj, errors.Wrap(err, "create internal sys users secret")
@@ -371,6 +375,30 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	err = r.client.Update(context.TODO(), &sysUsersSecretObj)
 	if err != nil {
 		return errors.Wrap(err, "update sys users secret")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateMonitorUser(cr *api.PerconaXtraDBCluster, sysSecretObj *corev1.Secret) error {
+	um, err := users.NewManager(cr.Name+"-pxc", "root", string(sysSecretObj.Data["root"]))
+	if err != nil {
+		return errors.Wrap(err, "new users manager")
+	}
+	hosts, err := um.GetMonitorUserHosts()
+	if err != nil {
+		return errors.Wrap(err, "get monitor hosts")
+	}
+	users := []users.SysUser{
+		{
+			Name:  "monitor",
+			Pass:  string(sysSecretObj.Data["monitor"]),
+			Hosts: hosts,
+		},
+	}
+	err = um.UpdateUsersPass(users)
+	if err != nil {
+		return errors.Wrap(err, "update sys users pass")
 	}
 
 	return nil

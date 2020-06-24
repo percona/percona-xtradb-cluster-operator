@@ -102,7 +102,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// sidecars
-	sideC, err := sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)
+	sideC, err := sfs.SidecarContainers(podSpec, cr.Spec.SecretsName, cr)
 	if err != nil {
 		return fmt.Errorf("sidecar container error: %v", err)
 	}

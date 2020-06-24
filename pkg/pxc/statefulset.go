@@ -60,7 +60,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.InitContainers = append(pod.InitContainers, *ic)
 	}
 
-	sideC, err := sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)
+	sideC, err := sfs.SidecarContainers(podSpec, cr.Spec.SecretsName, cr)
 	if err != nil {
 		return nil, errors.Wrap(err, "sidecar container")
 	}

@@ -72,6 +72,11 @@ spec:
             secretKeyRef:
               key: clustercheck
               name: my-cluster-secrets
+        - name: OPERATOR_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: operator
+              name: my-cluster-secrets
         imagePullPolicy: Always
         livenessProbe:
           exec:

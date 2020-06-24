@@ -188,7 +188,7 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 		log.Info(fmt.Sprintf("update PXC version to %v (fetched from db)", version))
 		cr.Status.PXC.Version = version
 		cr.Status.PXC.Image = cr.Spec.PXC.Image
-		err = r.client.Update(context.Background(), cr)
+		err = r.client.Status().Update(context.Background(), cr)
 		if err != nil {
 			return fmt.Errorf("failed to update CR: %v", err)
 		}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -100,7 +101,13 @@ type ReconcilePerconaXtraDBCluster struct {
 
 	serverVersion *api.ServerVersion
 	statusMutex   *sync.Mutex
+	updateSync    int32
 }
+
+const (
+	updateDone = 0
+	updateWait = 1
+)
 
 type CronRegistry struct {
 	crons *cron.Cron
@@ -138,6 +145,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	// Fetch the PerconaXtraDBCluster instance
 	r.statusMutex.Lock()
 	defer r.statusMutex.Unlock()
+	defer atomic.StoreInt32(&r.updateSync, updateDone)
 
 	o := &api.PerconaXtraDBCluster{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, o)

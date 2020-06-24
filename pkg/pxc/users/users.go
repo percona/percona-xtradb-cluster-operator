@@ -100,7 +100,7 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 				return errors.Wrap(err, "update password")
 			}
 			if user.Name == "monitor" {
-				_, err = tx.Exec("GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD, CREATE USER ON *.* TO 'monitor'@?", host)
+				_, err = tx.Exec("GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@?", host)
 				if err != nil {
 					errT := tx.Rollback()
 					if errT != nil {

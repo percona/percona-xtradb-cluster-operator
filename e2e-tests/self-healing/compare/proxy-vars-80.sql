@@ -30,7 +30,7 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.0.10-percona-1.1
+admin-version	2.0.12-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
 mysql-add_ldap_user_comment	
@@ -52,26 +52,36 @@ mysql-connect_timeout_server	10000
 mysql-connect_timeout_server_max	100500
 mysql-connection_delay_multiplex_ms	0
 mysql-connection_max_age_ms	0
+mysql-connection_warming	false
 mysql-connpoll_reset_queue_length	50
-mysql-default_character_set_results	NULL
-mysql-default_charset	utf8
+mysql-default_CHARSET	
+mysql-default_action	
+mysql-default_character_set_client	
+mysql-default_character_set_connection	
+mysql-default_character_set_database	
+mysql-default_character_set_results	
+mysql-default_charset	
 mysql-default_collation_connection	
-mysql-default_isolation_level	READ COMMITTED
-mysql-default_max_join_size	18446744073709551615
+mysql-default_group_concat_max_len	
+mysql-default_isolation_level	
+mysql-default_max_join_size	
 mysql-default_max_latency_ms	1000
-mysql-default_net_write_timeout	60
+mysql-default_names	
+mysql-default_net_write_timeout	
 mysql-default_query_delay	0
 mysql-default_query_timeout	10000
 mysql-default_reconnect	true
 mysql-default_schema	information_schema
 mysql-default_session_track_gtids	OFF
-mysql-default_sql_auto_is_null	OFF
+mysql-default_sql_auto_is_null	
+mysql-default_sql_log_bin	
 mysql-default_sql_mode	
-mysql-default_sql_safe_updates	OFF
-mysql-default_sql_select_limit	DEFAULT
-mysql-default_time_zone	SYSTEM
-mysql-default_transaction_read	WRITE
+mysql-default_sql_safe_updates	
+mysql-default_sql_select_limit	
+mysql-default_time_zone	
+mysql-default_transaction_read	
 mysql-default_tx_isolation	READ-COMMITTED
+mysql-default_wsrep_sync_wait	
 mysql-enforce_autocommit_on_reads	false
 mysql-eventslog_default_log	0
 mysql-eventslog_filename	
@@ -149,7 +159,7 @@ mysql-query_processor_iterations	0
 mysql-query_retries_on_failure	1
 mysql-reset_connection_algorithm	2
 mysql-server_capabilities	571947
-mysql-server_version	8.0.18
+mysql-server_version	8.0.19
 mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true

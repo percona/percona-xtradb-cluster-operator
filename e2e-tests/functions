@@ -144,39 +144,10 @@ deploy_operator() {
 }
 
 deploy_helm() {
-    if [ "${HELM_VERSION:0:2}" == "v3" ]; then
-        helm repo add stable https://kubernetes-charts.storage.googleapis.com/
-        helm repo add hashicorp https://helm.releases.hashicorp.com
-        helm repo update
-        return 0
-    fi
-
-    local namespace="$1"
-    if [ "$OPENSHIFT" == 1 ]; then
-        export TILLER_NAMESPACE=tiller
-        oc new-project tiller || :
-        oc project tiller
-        oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=$HELM_VERSION | oc apply -f -
-    else
-        kubectl_bin --namespace kube-system create sa tiller || :
-        kubectl_bin create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller || :
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="kube-system"
-    fi
-
-    tiller_pod=$(
-        kubectl_bin get pods \
-            --selector=name=tiller \
-            -o 'jsonpath={.items[].metadata.name}'
-    )
-    wait_pod $tiller_pod
-
-    if [ "$OPENSHIFT" == 1 ]; then
-        oc project "$namespace"
-        oc policy add-role-to-user edit "system:serviceaccount:tiller:tiller"
-        oc adm policy add-cluster-role-to-user cluster-admin "system:serviceaccount:tiller:tiller"
-    else
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
-    fi
+    helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+    helm repo add hashicorp https://helm.releases.hashicorp.com
+    helm repo add percona https://percona-charts.storage.googleapis.com/
+    helm repo update
 }
 
 wait_for_running() {

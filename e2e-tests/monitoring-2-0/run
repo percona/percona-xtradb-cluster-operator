@@ -18,7 +18,7 @@ if [ "$OPENSHIFT" == 1 ]; then
     platform=openshift
 fi
 helm del monitoring || :
-helm install $HELM_ARGS monitoring --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-2.0.0.tgz
+helm install monitoring percona/pmm-server --set platform=$platform --version 2.7.0
 
 desc 'create PXC cluster'
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120

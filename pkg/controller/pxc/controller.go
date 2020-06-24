@@ -299,11 +299,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}
 
-	err = r.manageOperatorAdminUser(o)
-	if err != nil {
-		return rr, errors.Wrap(err, "manage operator admin user")
-	}
-
 	if o.CompareVersionWith("1.5.0") >= 0 {
 		err = r.reconcileUsers(o)
 		if err != nil {

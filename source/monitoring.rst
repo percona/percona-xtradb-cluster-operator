@@ -52,7 +52,7 @@ The following steps are needed for the PMM client installation:
       ``monitoring-service`` by default) is the same as one specified
       for the ``name`` parameter on the previous step, but with
       additional ``-service`` suffix.
-   -  make check that ``serverUser`` match the PMM Server user name
+   -  check that ``serverUser`` match the PMM Server user name
       (``pmm`` by default for PMM 1.x and ``admin`` for PMM 2.x).
    -  make sure that ``pmmserver`` field in the
       ``deploy/secrets.yaml`` secrets file is the same as one specified

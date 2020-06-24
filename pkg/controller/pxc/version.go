@@ -143,13 +143,18 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return fmt.Errorf("failed to update CR status: %v", err)
 	}
 
+	time.Sleep(1 * time.Second)
+
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) error {
-	if cr.Status.PXC.Status != api.AppStateReady ||
-		(cr.Status.PXC.Version != "" &&
-			cr.Status.PXC.Image == cr.Spec.PXC.Image) {
+	if cr.Status.PXC.Status != api.AppStateReady {
+		return nil
+	}
+
+	if cr.Status.PXC.Version != "" &&
+		cr.Status.PXC.Image == cr.Spec.PXC.Image {
 		return nil
 	}
 

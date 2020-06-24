@@ -86,6 +86,26 @@ _get_config() {
 	# match "datadir      /some/path with/spaces in/it here" but not "--xyz=abc\n     datadir (xyz)"
 }
 
+# Fetch value from customized configs, needed for non-mysqld options like sst
+_get_cnf_config() {
+	local group=$1
+	local var=${2//_/-}
+	local reval=""
+
+	reval=$(
+		my_print_defaults "${group}" \
+			| awk -F= '{st=index($0,"="); cur=$0; if ($1 ~ /_/) { gsub(/_/,"-",$1);} if (st != 0) { print $1"="substr(cur,st+1) } else { print cur }}' \
+			| grep -- "--$var=" \
+			| cut -d= -f2- \
+			| tail -1
+	)
+
+	if [[ -z $reval ]]; then
+		reval=$3
+	fi
+	echo $reval
+}
+
 function join {
 	local IFS="$1"; shift
 	joined=$(tr "$IFS" '\n' <<< "$*" | sort -u | tr '\n' "$IFS")
@@ -113,6 +133,10 @@ if [ -f "$vault_secret" ]; then
 		sed -i "/\[mysqld\]/a encrypt_tmp_files=ON" $CFG
 	fi
 fi
+
+# add sst.cpat to exclude pxc-entrypoint and unsafe-bootstrap from SST cleanup
+grep -q "^[sst]" "$CFG" || printf '[sst]\n' >> "$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$' "$CFG" 1<> "$CFG"
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup'
 file_env 'CLUSTERCHECK_PASSWORD' 'clustercheck'
@@ -193,7 +217,9 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			exit 1
 		fi
 
-		rm -rf $DATADIR/* && mkdir -p "$DATADIR"
+		mkdir -p "$DATADIR"
+		cpat=$(_get_cnf_config sst cpat)
+		find "$DATADIR" -mindepth 1  -regex "$cpat"  -prune  -o -exec rm -rfv {} 1>/dev/null \+
 
 		echo 'Initializing database'
 		"$@" --initialize-insecure --skip-ssl

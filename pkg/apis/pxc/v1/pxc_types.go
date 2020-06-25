@@ -405,6 +405,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		}
 	}
 
+	if c.HAProxy != nil && c.HAProxy.Enabled &&
+		c.ProxySQL != nil && c.ProxySQL.Enabled {
+		return false, errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
+	}
+
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
 		if c.ProxySQL.VolumeSpec == nil {
 			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")
@@ -473,8 +478,8 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		}
 	}
 
-	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType && !cr.Spec.ProxySQL.Enabled {
-		return false, fmt.Errorf("ProxySQL should be enabled if SmartUpdate set")
+	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType && !cr.Spec.ProxySQL.Enabled && !cr.Spec.HAProxy.Enabled {
+		return false, fmt.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
 	}
 
 	cr.setSecurityContext(serverVersion)

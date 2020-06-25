@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	haproxyName = "haproxy"
+	haproxyName           = "haproxy"
+	haproxyDataVolumeName = "haproxydata"
 )
 
 type HAProxy struct {
@@ -30,6 +31,9 @@ func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-" + haproxyName,
 			Namespace: cr.Namespace,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			PodManagementPolicy: "OrderedReady",
 		},
 	}
 
@@ -57,9 +61,6 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		Name:            haproxyName,
 		Image:           spec.Image,
 		ImagePullPolicy: corev1.PullAlways,
-		Args: []string{
-			"--configmap=<namespace>/<cr.Name>-haproxy",
-		},
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3306,
@@ -70,6 +71,17 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 				Name:          "stat",
 			},
 		},
+		TerminationMessagePath: "/dev/termination-log",
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "haproxy-cfg",
+				MountPath: "/etc/haproxy/pxc",
+			},
+			{
+				Name:      "haproxy-auto",
+				MountPath: "/etc/haproxy-auto/",
+			},
+		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "POD_NAME",
@@ -78,6 +90,16 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			{
 				Name:  "POD_NAMESPACE",
 				Value: c.sfs.ObjectMeta.Namespace,
+			},
+			{
+				Name:  "PXC_SERVICE",
+				Value: c.service,
+			},
+			{
+				Name: "MONITOR_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector("my-cluster-secrets", "monitor"),
+				},
 			},
 		},
 		LivenessProbe: &corev1.Probe{
@@ -107,7 +129,47 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 }
 
 func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1.Container, error) {
-	return nil, nil
+	res, err := app.CreateResources(spec.SidecarResources)
+	if err != nil {
+		return nil, fmt.Errorf("create sidecar resources error: %v", err)
+	}
+	return []corev1.Container{
+		{
+			Name:            "pxc-monit",
+			Image:           spec.Image,
+			ImagePullPolicy: corev1.PullAlways,
+			Args: []string{
+				"/usr/bin/peer-list",
+				"-on-change=/usr/bin/add_pxc_nodes.sh",
+				"-service=$(PXC_SERVICE)",
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "PXC_SERVICE",
+					Value: c.service,
+				},
+				{
+					Name: "MONITOR_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: app.SecretKeySelector("my-cluster-secrets", "monitor"),
+					},
+				},
+			},
+			Resources:              res,
+			TerminationMessagePath: "/dev/termination-log",
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "haproxy-cfg",
+					MountPath: "/etc/haproxy/pxc",
+				},
+			},
+			SecurityContext: &corev1.SecurityContext{
+				Capabilities: &corev1.Capabilities{
+					Add: []corev1.Capability{"SYS_PTRACE"},
+				},
+			},
+		},
+	}, nil
 }
 
 func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
@@ -115,7 +177,17 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.Percon
 }
 
 func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
-	return nil, nil
+	vol := app.Volumes(podSpec, haproxyDataVolumeName)
+	vol.Volumes = append(
+		vol.Volumes,
+		app.GetConfigVolumes("haproxy-auto", "haproxy-auto"),
+		corev1.Volume{
+			Name: "haproxy-cfg",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+	return vol, nil
 }
 
 func (c *HAProxy) StatefulSet() *appsv1.StatefulSet {

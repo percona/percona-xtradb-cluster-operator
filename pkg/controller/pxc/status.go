@@ -86,21 +86,24 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if err != nil {
 			return fmt.Errorf("get haproxy status: %v", err)
 		}
-		if haProxyStatus.Status == api.AppStateReady {
-			clusterCondition = api.ClusterCondition{
-				Status:             api.ConditionTrue,
-				Type:               api.ClusterHAProxyReady,
-				LastTransitionTime: metav1.NewTime(time.Now()),
-			}
-		}
 
-		if haProxyStatus.Status == api.AppStateError {
-			clusterCondition = api.ClusterCondition{
-				Status:             api.ConditionTrue,
-				Message:            "HAProxy:" + haProxyStatus.Message,
-				Reason:             "ErrorHAProxy",
-				Type:               api.ClusterError,
-				LastTransitionTime: metav1.NewTime(time.Now()),
+		if haProxyStatus.Status != cr.Status.HAProxy.Status {
+			if haProxyStatus.Status == api.AppStateReady {
+				clusterCondition = api.ClusterCondition{
+					Status:             api.ConditionTrue,
+					Type:               api.ClusterHAProxyReady,
+					LastTransitionTime: metav1.NewTime(time.Now()),
+				}
+			}
+
+			if haProxyStatus.Status == api.AppStateError {
+				clusterCondition = api.ClusterCondition{
+					Status:             api.ConditionTrue,
+					Message:            "HAProxy:" + haProxyStatus.Message,
+					Reason:             "ErrorHAProxy",
+					Type:               api.ClusterError,
+					LastTransitionTime: metav1.NewTime(time.Now()),
+				}
 			}
 		}
 

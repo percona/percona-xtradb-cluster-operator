@@ -41,9 +41,14 @@ func GetTmpVolume() corev1.Volume {
 func Volumes(podSpec *api.PodSpec, dataVolumeName string) *api.Volume {
 	var volume api.Volume
 
-	if podSpec.VolumeSpec.PersistentVolumeClaim != nil {
+	if podSpec.VolumeSpec != nil && podSpec.VolumeSpec.PersistentVolumeClaim != nil {
 		pvcs := PVCs(dataVolumeName, podSpec.VolumeSpec)
 		volume.PVCs = pvcs
+		return &volume
+	}
+
+	if podSpec.VolumeSpec == nil {
+		volume.Volumes = []corev1.Volume{}
 		return &volume
 	}
 

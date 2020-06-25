@@ -260,11 +260,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	if (o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled) &&
-		(o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled) {
-		return reconcile.Result{}, errors.New("Can't Enable Both HAProxy and ProxySQL please only select one of them")
-	}
-
 	haProxySet := statefulset.NewHAProxy(o)
 
 	if o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled {
@@ -504,11 +499,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 	} else if !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get PXC stateful set: %v", err)
-	}
-
-	if (cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled) &&
-		(cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled) {
-		return errors.New("Can't Enable Both HAProxy and ProxySQL please only select one of them")
 	}
 
 	// HAProxy StatefulSet

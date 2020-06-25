@@ -347,35 +347,16 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	} else if err != nil {
 		return errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
 	}
+
+	for name := range sysUsersSecretObj.Data {
+		if name == "operator" {
+			return nil
+		}
+	}
+
 	pass, err := generatePass()
 	if err != nil {
 		return errors.Wrap(err, "generate password")
-	}
-
-	for name, password := range sysUsersSecretObj.Data {
-		if name == "operator" {
-			pass = password
-
-			internalSysUsersSecretObj := corev1.Secret{}
-			err := r.client.Get(context.TODO(),
-				types.NamespacedName{
-					Namespace: cr.Namespace,
-					Name:      internalPrefix + cr.Spec.SecretsName,
-				},
-				&internalSysUsersSecretObj,
-			)
-			if err != nil && k8serrors.IsNotFound(err) {
-				break
-			} else if err != nil {
-				return errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
-			}
-
-			for interName := range internalSysUsersSecretObj.Data {
-				if interName == "operator" {
-					return nil
-				}
-			}
-		}
 	}
 
 	um, err := users.NewManager(cr.Name+"-pxc", "root", string(sysUsersSecretObj.Data["root"]))

@@ -93,7 +93,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			},
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.service,
+				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
 			},
 			{
 				Name: "MONITOR_PASSWORD",
@@ -146,7 +146,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1
 			Env: []corev1.EnvVar{
 				{
 					Name:  "PXC_SERVICE",
-					Value: c.service,
+					Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
 				},
 				{
 					Name: "MONITOR_PASSWORD",

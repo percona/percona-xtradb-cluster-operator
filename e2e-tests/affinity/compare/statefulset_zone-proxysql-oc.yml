@@ -45,10 +45,10 @@ spec:
       - env:
         - name: PXC_SERVICE
           value: zone-pxc
-        - name: MYSQL_ROOT_PASSWORD
+        - name: OPERATOR_PASSWORD
           valueFrom:
             secretKeyRef:
-              key: root
+              key: operator
               name: my-cluster-secrets
         - name: PROXY_ADMIN_USER
           value: proxyadmin
@@ -94,10 +94,10 @@ spec:
         env:
         - name: PXC_SERVICE
           value: zone-pxc
-        - name: MYSQL_ROOT_PASSWORD
+        - name: OPERATOR_PASSWORD
           valueFrom:
             secretKeyRef:
-              key: root
+              key: operator
               name: my-cluster-secrets
         - name: PROXY_ADMIN_USER
           value: proxyadmin
@@ -123,10 +123,10 @@ spec:
         env:
         - name: PROXYSQL_SERVICE
           value: zone-proxysql-unready
-        - name: MYSQL_ROOT_PASSWORD
+        - name: OPERATOR_PASSWORD
           valueFrom:
             secretKeyRef:
-              key: root
+              key: operator
               name: my-cluster-secrets
         - name: PROXY_ADMIN_USER
           value: proxyadmin

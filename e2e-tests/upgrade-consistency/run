@@ -101,7 +101,7 @@ main() {
     kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "metadata": {"annotations":{ "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"'"$API"'\"}" }}
     }'
-    wait_for_running "$cluster-pxc" "1"
+    wait_for_sts_generation "$cluster-pxc" "5" "1"
 
     compare_kubectl service/$cluster-pxc "-150"
     compare_kubectl service/$cluster-proxysql "-150"

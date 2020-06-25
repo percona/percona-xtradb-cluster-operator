@@ -23,7 +23,9 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		ImagePullSecrets:              podSpec.ImagePullSecrets,
 		TerminationGracePeriodSeconds: podSpec.TerminationGracePeriodSeconds,
 	}
-	pod.ServiceAccountName = podSpec.ServiceAccountName
+	if cr.CompareVersionWith("1.5.0") >= 0 {
+		pod.ServiceAccountName = podSpec.ServiceAccountName
+	}
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 
 	sfsVolume, err := sfs.Volumes(podSpec, cr)

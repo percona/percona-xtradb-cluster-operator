@@ -12,6 +12,7 @@ import (
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -185,22 +186,22 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 			primaryPod = pod
 		} else {
 			log.Info(fmt.Sprintf("apply changes to secondary pod %s", pod.Name))
-			if err := r.applyNWait(cr, sfs.StatefulSet().Status.UpdateRevision, &pod, waitLimit); err != nil {
+			if err := r.applyNWait(cr, sfs.StatefulSet(), &pod, waitLimit); err != nil {
 				return fmt.Errorf("failed to apply changes: %v", err)
 			}
 		}
 	}
 
 	log.Info(fmt.Sprintf("apply changes to primary pod %s", primaryPod.Name))
-	if err := r.applyNWait(cr, sfs.StatefulSet().Status.UpdateRevision, &primaryPod, waitLimit); err != nil {
+	if err := r.applyNWait(cr, sfs.StatefulSet(), &primaryPod, waitLimit); err != nil {
 		return fmt.Errorf("failed to apply changes: %v", err)
 	}
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int) error {
-	if pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision {
+func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster, sfs *appsv1.StatefulSet, pod *corev1.Pod, waitLimit int) error {
+	if pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
 		log.Info(fmt.Sprintf("pod %s is already updated", pod.Name))
 	} else {
 		if err := r.client.Delete(context.TODO(), pod); err != nil {
@@ -208,7 +209,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		}
 	}
 
-	if err := r.waitPodRestart(updateRevision, pod, waitLimit); err != nil {
+	if err := r.waitPodRestart(sfs.Status.UpdateRevision, pod, waitLimit); err != nil {
 		return fmt.Errorf("failed to wait pod: %v", err)
 	}
 
@@ -216,30 +217,80 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return fmt.Errorf("failed to wait pxc sync: %v", err)
 	}
 
+	if err := r.waitUntilOnline(cr, pod, sfs.Name, waitLimit); err != nil {
+		return fmt.Errorf("failed to wait pxc status: %v", err)
+	}
+
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, pod *corev1.Pod, sfsName string, waitLimit int) error {
+	database, err := r.proxyDB(cr)
+	if err != nil {
+		return fmt.Errorf("failed to get proxySQL db: %v", err)
+	}
+
+	defer database.Close()
+
+	fullName := fmt.Sprintf("%s.%s.%s.svc.cluster.local", pod.Name, sfsName, cr.Namespace)
+
+	for i := 0; i < waitLimit; i++ {
+		statuses, err := database.Status(fullName, pod.Status.PodIP)
+		if err != nil && err != queries.ErrNotFound {
+			return fmt.Errorf("failed to get status: %v", err)
+		}
+
+		online := false
+		for _, status := range statuses {
+			if status == "ONLINE" {
+				online = true
+			} else {
+				online = false
+				break
+			}
+		}
+
+		if online {
+			log.Info(fmt.Sprintf("pod %s is online", pod.Name))
+			return nil
+		}
+
+		time.Sleep(time.Second * 1)
+	}
+
+	return fmt.Errorf("reach pod wait limit")
+}
+
+func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
 	user := "proxyadmin"
 	host := fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
 
-	var dbatabase queries.Database
+	var database queries.Database
 
 	for i := 0; ; i++ {
 		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, 6032)
 		if err != nil && i < int(cr.Spec.ProxySQL.Size) {
 			time.Sleep(time.Second)
 		} else if err != nil && i == int(cr.Spec.ProxySQL.Size) {
-			return "", err
+			return database, err
 		} else {
-			dbatabase = db
+			database = db
 			break
 		}
 	}
 
-	defer dbatabase.Close()
+	return database, nil
+}
 
-	return dbatabase.PrimaryHost()
+func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
+	database, err := r.proxyDB(cr)
+	if err != nil {
+		return "", fmt.Errorf("failed to get proxySQL db: %v", err)
+	}
+
+	defer database.Close()
+
+	return database.PrimaryHost()
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, podIP string, waitLimit int) error {
@@ -285,7 +336,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, po
 		}
 
 		if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
-			log.Info(fmt.Sprintf("pod %s started", pod.Name))
+			log.Info(fmt.Sprintf("pod %s is running", pod.Name))
 			return nil
 		}
 	}

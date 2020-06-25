@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-func (vs VersionServiceMock) Apply(version string, current string) (DepVersion, error) {
+func (vs VersionServiceMock) Apply(desiredVersion string, currentVersion string) (DepVersion, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
-	url := fmt.Sprintf("%s/%s/%s?databaseVersion=%s", vs.URL, vs.OpVersion, version, current)
+	url := fmt.Sprintf("%s/api/versions/v1/pxc/%s/%s?databaseVersion=%s", vs.URL, vs.OpVersion, desiredVersion, currentVersion)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return DepVersion{}, err
@@ -89,7 +89,7 @@ type DepVersion struct {
 }
 
 type VersionService interface {
-	Apply(string, string) (DepVersion, error)
+	Apply(desiredVersion string, currentVersion string) (DepVersion, error)
 }
 
 type VersionServiceMock struct {

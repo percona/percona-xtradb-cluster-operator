@@ -348,8 +348,11 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 fi
 
 if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
+	DATADIR=$(_get_config 'datadir' "$@")
+	SST_DIR=$(_get_cnf_config sst tmpdir "${DATADIR}/sst-xb-tmpdir")
+	rm -rvf "${SST_DIR}"
+
 	"$@" --version | tee /tmp/version_info
-	DATADIR="$(_get_config 'datadir' "$@")"
 	if [ -f "$DATADIR/version_info" ] && ! diff /tmp/version_info "$DATADIR/version_info"; then
 		SOCKET="$(_get_config 'socket' "$@")"
 		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &

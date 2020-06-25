@@ -23,6 +23,7 @@ spec:
   template:
     metadata:
       annotations:
+        openshift.io/scc: privileged
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: sec-context
@@ -70,6 +71,11 @@ spec:
           valueFrom:
             secretKeyRef:
               key: clustercheck
+              name: my-cluster-secrets
+        - name: OPERATOR_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: operator
               name: my-cluster-secrets
         imagePullPolicy: Always
         livenessProbe:

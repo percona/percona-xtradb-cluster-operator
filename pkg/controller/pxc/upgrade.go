@@ -41,6 +41,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
 	}
+	if cr.CompareVersionWith("1.5.0") >= 0 {
+		currentSet.Spec.Template.Spec.ServiceAccountName = podSpec.ServiceAccountName
+	}
 
 	err = r.reconcileConfigMap(cr)
 	if err != nil {

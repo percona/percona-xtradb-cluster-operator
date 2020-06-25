@@ -31,7 +31,7 @@
    ```
    service mysqld stop
    rm -rf /var/lib/mysql/*
-   cat xtrabackup.stream | xbstream -x -C /var/lib/mysql
+   cat xtrabackup.stream | xbstream --decompress -x -C /var/lib/mysql
    xtrabackup --prepare --target-dir=/var/lib/mysql
    chown -R mysql:mysql /var/lib/mysql
    service mysqld start

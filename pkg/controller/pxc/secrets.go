@@ -51,6 +51,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 	if err != nil {
 		return fmt.Errorf("create proxyadmin users password: %v", err)
 	}
+	data["operator"], err = generatePass()
+	if err != nil {
+		return fmt.Errorf("create operator users password: %v", err)
+	}
 
 	secretObj = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -75,6 +79,7 @@ const (
 		"0123456789"
 )
 
+//generatePass generate random password
 func generatePass() ([]byte, error) {
 	mrand.Seed(time.Now().UnixNano())
 	ln := mrand.Intn(passwordMaxLen-passwordMinLen) + passwordMinLen

@@ -144,38 +144,10 @@ deploy_operator() {
 }
 
 deploy_helm() {
-    if [ "${HELM_VERSION:0:2}" == "v3" ]; then
-        helm repo add stable https://kubernetes-charts.storage.googleapis.com/
-        helm repo update
-        return 0
-    fi
-
-    local namespace="$1"
-    if [ "$OPENSHIFT" == 1 ]; then
-        export TILLER_NAMESPACE=tiller
-        oc new-project tiller || :
-        oc project tiller
-        oc process -f https://github.com/openshift/origin/raw/master/examples/helm/tiller-template.yaml -p TILLER_NAMESPACE="tiller" -p HELM_VERSION=$HELM_VERSION | oc apply -f -
-    else
-        kubectl_bin --namespace kube-system create sa tiller || :
-        kubectl_bin create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller || :
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="kube-system"
-    fi
-
-    tiller_pod=$(
-        kubectl_bin get pods \
-            --selector=name=tiller \
-            -o 'jsonpath={.items[].metadata.name}'
-    )
-    wait_pod $tiller_pod
-
-    if [ "$OPENSHIFT" == 1 ]; then
-        oc project "$namespace"
-        oc policy add-role-to-user edit "system:serviceaccount:tiller:tiller"
-        oc adm policy add-cluster-role-to-user cluster-admin "system:serviceaccount:tiller:tiller"
-    else
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
-    fi
+    helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+    helm repo add hashicorp https://helm.releases.hashicorp.com
+    helm repo add percona https://percona-charts.storage.googleapis.com/
+    helm repo update
 }
 
 wait_for_running() {
@@ -221,8 +193,8 @@ compare_kubectl() {
     fi
 
     kubectl_bin get -o yaml ${resource} \
-        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
-        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem" \
+        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|- name: default-dockercfg-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
+        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem|imagePullSecrets:" \
         | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
         | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
         | egrep -v "load-balancer-cleanup" \
@@ -780,7 +752,9 @@ start_vault() {
 
     if [ $protocol == "https" ]; then
         vault_tls "$name"
-        helm install $name --namespace "$name" \
+        helm install $name hashicorp/vault \
+            --version 0.6.0 \
+            --namespace "$name" \
             --set dataStorage.enabled=false \
             --set global.tlsDisable=false \
             --set global.platform="${platform}" \
@@ -798,13 +772,14 @@ listener \"tcp\" {
 
 storage \"file\" {
     path = \"/vault/data\"
-}" \
-        "$src_dir/vendor/vault"
+}"
+        
     else
-        helm install $name --namespace "$name" \
+        helm install $name hashicorp/vault \
+            --version 0.6.0 \
+            --namespace "$name" \
             --set dataStorage.enabled=false \
-            --set global.platform="${platform}" \
-            "$src_dir/vendor/vault"
+            --set global.platform="${platform}"
     fi
 
     if [[ "${OPENSHIFT}" == 1 ]]; then

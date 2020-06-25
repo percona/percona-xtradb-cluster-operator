@@ -49,7 +49,7 @@ get_backup_dest() {
         ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.endpointUrl}' 2>/dev/null)
         ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
         SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval ${BASE64_DECODE_CMD})
-        export CREDENTIALS="ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY"
+        export CREDENTIALS="ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY DEFAULT_REGION=$DEFAULT_REGION"
         $ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
     else
         # support direct PVC name here
@@ -179,7 +179,7 @@ main() {
 		You can recover data locally with following commands:
 		    $ service mysqld stop
 		    $ rm -rf /var/lib/mysql/*
-		    $ cat $dest_dir/xtrabackup.stream | xbstream -x -C /var/lib/mysql
+		    $ cat $dest_dir/xtrabackup.stream | xbstream --decompress -x -C /var/lib/mysql
 		    $ xtrabackup --prepare --target-dir=/var/lib/mysql
 		    $ chown -R mysql:mysql /var/lib/mysql
 		    $ service mysqld start

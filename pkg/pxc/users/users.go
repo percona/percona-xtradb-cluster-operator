@@ -38,8 +38,52 @@ func NewManager(addr string, user, pass string) (Manager, error) {
 	return um, nil
 }
 
+func (u *Manager) Close() error {
+	return u.db.Close()
+}
+
+func (u *Manager) CreateOperatorUser(pass string) error {
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	_, err = tx.Exec("CREATE USER 'operator'@'%' IDENTIFIED BY ?", pass)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("create operator user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "create operator user")
+	}
+
+	_, err = tx.Exec("GRANT ALL ON *.* TO 'operator'@'%' WITH GRANT OPTION")
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("grant operator user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "grant operator user")
+	}
+
+	_, err = tx.Exec("FLUSH PRIVILEGES")
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "flush privileges")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit transaction")
+	}
+
+	return nil
+}
+
 func (u *Manager) UpdateUsersPass(users []SysUser) error {
-	defer u.db.Close()
 	tx, err := u.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")
@@ -76,7 +120,6 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 }
 
 func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
-	defer u.db.Close()
 	tx, err := u.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")

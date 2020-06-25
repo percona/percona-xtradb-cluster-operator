@@ -1,6 +1,8 @@
 apiVersion: batch/v1beta1
 kind: CronJob
 metadata:
+  annotations:
+    openshift.io/scc: privileged
   labels:
     cluster: sec-context
     schedule: 0_NE1_N_N_N
@@ -23,6 +25,8 @@ spec:
     spec:
       template:
         metadata:
+          annotations:
+            openshift.io/scc: privileged
           labels:
             cluster: sec-context
             schedule: 0_NE1_N_N_N
@@ -57,8 +61,8 @@ spec:
             - 1001
             - 1002
             - 1003
-          serviceAccount: percona-xtradb-cluster-operator
-          serviceAccountName: percona-xtradb-cluster-operator
+          serviceAccount: percona-xtradb-cluster-operator-workload
+          serviceAccountName: percona-xtradb-cluster-operator-workload
           terminationGracePeriodSeconds: 30
   schedule: 0 */1 * * *
   successfulJobsHistoryLimit: 1

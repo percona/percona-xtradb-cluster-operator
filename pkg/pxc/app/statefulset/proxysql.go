@@ -83,6 +83,12 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 				Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
 			},
 			{
+				Name: "MYSQL_ROOT_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+				},
+			},
+			{
 				Name:  "PROXY_ADMIN_USER",
 				Value: "proxyadmin",
 			},
@@ -102,22 +108,13 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		SecurityContext: spec.ContainerSecurityContext,
 	}
 
-	if cr.CompareVersionWith("1.5.0") < 0 {
-		appc.Env = append(appc.Env, corev1.EnvVar{
-			Name: "MYSQL_ROOT_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "root"),
-			},
-		})
-	}
-
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		appc.Env = append(appc.Env, corev1.EnvVar{
+		appc.Env[1] = corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
 			},
-		})
+		}
 	}
 
 	res, err := app.CreateResources(spec.Resources)
@@ -149,6 +146,12 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			{
 				Name:  "PXC_SERVICE",
 				Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
+			},
+			{
+				Name: "MYSQL_ROOT_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+				},
 			},
 			{
 				Name:  "PROXY_ADMIN_USER",
@@ -185,6 +188,12 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 				Value: c.labels["app.kubernetes.io/instance"] + "-proxysql-unready",
 			},
 			{
+				Name: "MYSQL_ROOT_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+				},
+			},
+			{
 				Name:  "PROXY_ADMIN_USER",
 				Value: "proxyadmin",
 			},
@@ -203,17 +212,6 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		},
 	}
 
-	if cr.CompareVersionWith("1.5.0") < 0 {
-		rootEnv := corev1.EnvVar{
-			Name: "MYSQL_ROOT_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "root"),
-			},
-		}
-		pxcMonit.Env = append(pxcMonit.Env, rootEnv)
-		proxysqlMonit.Env = append(proxysqlMonit.Env, rootEnv)
-	}
-
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		operEnv := corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
@@ -221,8 +219,8 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
 			},
 		}
-		pxcMonit.Env = append(pxcMonit.Env, operEnv)
-		proxysqlMonit.Env = append(proxysqlMonit.Env, operEnv)
+		pxcMonit.Env[1] = operEnv
+		proxysqlMonit.Env[1] = operEnv
 	}
 
 	return []corev1.Container{pxcMonit, proxysqlMonit}, nil

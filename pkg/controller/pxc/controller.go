@@ -193,7 +193,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			OpVersion: o.Version().String(),
 		})
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
+			log.Info(fmt.Sprintf("failed to ensure version: %v; running with default", err))
 		}
 	}
 

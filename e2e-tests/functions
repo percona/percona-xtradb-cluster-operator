@@ -523,6 +523,45 @@ spinup_pxc() {
     fi
 }
 
+spinup_pxc_with_custom_secrets() {
+    local cluster=$1
+    local config=$2
+    local secrets=$3
+    local size="${4:-3}"
+    local sleep="${5:-10}"
+
+    desc 'create first PXC cluster'
+    kubectl_bin apply \
+        -f $secrets
+
+    apply_config "$conf_dir/client.yml"
+    apply_config "$config"
+
+    desc 'check if all 3 Pods started'
+    wait_for_running "$cluster-proxysql" 1
+    wait_for_running "$cluster-pxc" $size 
+    sleep $sleep
+
+    desc 'write data'
+    if [[ "$IMAGE_PXC" =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+        encrypt='ENCRYPTION=\"Y\"'
+    fi
+    run_mysql \
+        "CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
+        "-h $cluster-proxysql -uroot -proot_password"
+    run_mysql \
+        'INSERT myApp.myApp (id) VALUES (100500)' \
+        "-h $cluster-proxysql -uroot -proot_password"
+    sleep 10
+    for i in $(seq 0 $(($size - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+    done
+
+    if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
+        table_must_be_encrypted "$cluster" "myApp"
+    fi
+}
+
 function is_table_encrypted() {
     local cluster=$1
     local table=$2

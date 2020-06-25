@@ -51,7 +51,7 @@ main() {
     create_namespace $namespace
     deploy_operator
 
-    spinup_pxc "${CLUSTER}" "${test_dir}/conf/${CLUSTER}.yml"
+    spinup_pxc_with_custom_secrets "${CLUSTER}" "${test_dir}/conf/${CLUSTER}.yml" "${test_dir}/conf/secrets.yaml"
     compare_generation "1"
 
     kubectl_bin patch deployment "${OPERATOR_NAME}" \

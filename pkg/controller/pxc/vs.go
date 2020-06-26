@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (vs VersionServiceMock) GetExactVersion(desiredVersion string, currentVersion string) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(desiredVersion string, currentVersion string) (DepVersion, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -92,7 +92,7 @@ type VersionService interface {
 	GetExactVersion(desiredVersion string, currentVersion string) (DepVersion, error)
 }
 
-type VersionServiceMock struct {
+type VersionServiceClient struct {
 	URL       string
 	OpVersion string
 }

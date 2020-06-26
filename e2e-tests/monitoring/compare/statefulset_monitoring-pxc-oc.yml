@@ -175,7 +175,7 @@ spec:
       initContainers:
       - command:
         - /pxc-init-entrypoint.sh
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: pxc-init
         resources: {}
         terminationMessagePath: /dev/termination-log

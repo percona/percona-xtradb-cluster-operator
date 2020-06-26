@@ -151,6 +151,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	// Fetch the PerconaXtraDBCluster instance
 	r.statusMutex.Lock()
 	defer r.statusMutex.Unlock()
+	// this is for ensure that reconcile loop will always run
+	// after version service cron job and prevent situation when a few cron
+	// jobs will be run one by one
 	defer atomic.StoreInt32(&r.updateSync, updateDone)
 
 	o := &api.PerconaXtraDBCluster{}

@@ -97,8 +97,8 @@ const (
 )
 
 type ClusterCondition struct {
-	Status             ConditionStatus      `json:"status"`
-	Type               ClusterConditionType `json:"type"`
+	Status             ConditionStatus      `json:"status,omitempty"`
+	Type               ClusterConditionType `json:"type,omitempty"`
 	LastTransitionTime metav1.Time          `json:"lastTransitionTime,omitempty"`
 	Reason             string               `json:"reason,omitempty"`
 	Message            string               `json:"message,omitempty"`
@@ -109,7 +109,8 @@ type AppStatus struct {
 	Ready   int32    `json:"ready,omitempty"`
 	Status  AppState `json:"status,omitempty"`
 	Message string   `json:"message,omitempty"`
-	Version string   `json:"version"`
+	Version string   `json:"version,omitempty"`
+	Image   string   `json:"image,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -502,6 +503,10 @@ func (cr *PerconaXtraDBCluster) setVersion() error {
 	cr.version = version
 
 	return nil
+}
+
+func (cr *PerconaXtraDBCluster) Version() *v.Version {
+	return cr.version
 }
 
 // CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.

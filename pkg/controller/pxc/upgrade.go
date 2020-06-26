@@ -166,6 +166,12 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	if err != nil {
 		return fmt.Errorf("get primary pod: %v", err)
 	}
+	for _, pod := range list.Items {
+		if pod.Status.PodIP == primary {
+			primary = fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)
+			break
+		}
+	}
 
 	log.Info(fmt.Sprintf("primary pod is %s", primary))
 
@@ -223,7 +229,7 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 	user := "proxyadmin"
 	host := fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
 
-	var dbatabase queries.Database
+	var database queries.Database
 
 	for i := 0; ; i++ {
 		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, 6032)
@@ -232,14 +238,14 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 		} else if err != nil && i == int(cr.Spec.ProxySQL.Size) {
 			return "", err
 		} else {
-			dbatabase = db
+			database = db
 			break
 		}
 	}
 
-	defer dbatabase.Close()
+	defer database.Close()
 
-	return dbatabase.PrimaryHost()
+	return database.PrimaryHost()
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, podIP string, waitLimit int) error {

@@ -11,6 +11,7 @@ func EntrypointInitContainer(initImageName string, securityContext *corev1.Secur
 			},
 		},
 		Image:           initImageName,
+		ImagePullPolicy: corev1.PullAlways,
 		Name:            "pxc-init",
 		Command:         []string{"/pxc-init-entrypoint.sh"},
 		SecurityContext: securityContext,

@@ -149,6 +149,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		RequeueAfter: time.Second * 5,
 	}
 	// Fetch the PerconaXtraDBCluster instance
+	// PerconaXtraDBCluster object is also accessed and changed by a version service's corn job (that run concurrently)
 	r.statusMutex.Lock()
 	defer r.statusMutex.Unlock()
 	// this is for ensure that reconcile loop will always run

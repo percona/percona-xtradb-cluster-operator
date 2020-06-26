@@ -55,7 +55,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
-	if cr.CompareVersionWith("1.1.0") >= 0 {
+	if sslHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
@@ -63,7 +63,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
-	if !errors.IsNotFound(err) && cr.CompareVersionWith("1.1.0") >= 0 {
+	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 
@@ -102,7 +102,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// sidecars
-	sideC, err := sfs.SidecarContainers(podSpec, cr.Spec.SecretsName)
+	sideC, err := sfs.SidecarContainers(podSpec, cr.Spec.SecretsName, cr)
 	if err != nil {
 		return fmt.Errorf("sidecar container error: %v", err)
 	}
@@ -329,10 +329,6 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster, secretName string) (string, error) {
-	if cr.Spec.AllowUnsafeConfig {
-		return "", nil
-	}
-
 	secretObj := corev1.Secret{}
 	if err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -340,7 +336,9 @@ func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster,
 			Name:      secretName,
 		},
 		&secretObj,
-	); err != nil {
+	); err != nil && errors.IsNotFound(err) && cr.Spec.AllowUnsafeConfig {
+		return "", nil
+	} else if err != nil {
 		return "", err
 	}
 

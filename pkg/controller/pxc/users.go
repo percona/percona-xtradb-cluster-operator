@@ -20,17 +20,19 @@ import (
 const internalPrefix = "internal-"
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) error {
+	if cr.Status.PXC.Ready > 0 {
+		err := r.manageOperatorAdminUser(cr)
+		if err != nil {
+			return errors.Wrap(err, "manage operator admin user")
+		}
+	}
+
 	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 
-	err := r.manageOperatorAdminUser(cr)
-	if err != nil {
-		return errors.Wrap(err, "manage operator admin user")
-	}
-
 	sysUsersSecretObj := corev1.Secret{}
-	err = r.client.Get(context.TODO(),
+	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.SecretsName,
@@ -131,7 +133,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 				continue
 			}
 		case "operator":
-			syncProxySQLUsers = true
+			restartProxy = true
 			hosts = []string{"%"}
 		}
 		user := users.SysUser{
@@ -345,10 +347,16 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	} else if err != nil {
 		return errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
 	}
+
 	for name := range sysUsersSecretObj.Data {
 		if name == "operator" {
 			return nil
 		}
+	}
+
+	pass, err := generatePass()
+	if err != nil {
+		return errors.Wrap(err, "generate password")
 	}
 
 	um, err := users.NewManager(cr.Name+"-pxc", "root", string(sysUsersSecretObj.Data["root"]))
@@ -356,11 +364,6 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 		return errors.Wrap(err, "new users manager")
 	}
 	defer um.Close()
-
-	pass, err := generatePass()
-	if err != nil {
-		return errors.Wrap(err, "generate password")
-	}
 
 	err = um.CreateOperatorUser(string(pass))
 	if err != nil {

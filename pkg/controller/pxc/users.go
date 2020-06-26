@@ -133,7 +133,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 				continue
 			}
 		case "operator":
-			syncProxySQLUsers = true
+			restartProxy = true
 			hosts = []string{"%"}
 		}
 		user := users.SysUser{

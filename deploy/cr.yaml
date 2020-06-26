@@ -91,9 +91,9 @@ spec:
             storage: 6Gi
     gracePeriod: 600
   haproxy:
-    enabled: true
+    enabled: false
     size: 3
-    image: haproxytech/kubernetes-ingress
+    image: perconalab/percona-xtradb-cluster-operator:haproxy-2.1
     serviceAccountName: haproxy
   proxysql:
     enabled: true

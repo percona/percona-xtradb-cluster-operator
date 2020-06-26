@@ -67,8 +67,8 @@ func (vs VersionServiceClient) GetExactVersion(desiredVersion string, currentVer
 }
 
 func getVersion(versions map[string]Version) (string, error) {
-	if len(versions) == 0 {
-		return "", fmt.Errorf("failed to get version from empty map")
+	if len(versions) != 1 {
+		return "", fmt.Errorf("response has multiple or zero versions")
 	}
 
 	for k := range versions {

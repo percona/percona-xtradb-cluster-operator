@@ -28,6 +28,11 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 
+	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" {
+		enableShareProcessNamespace := true
+		pod.ShareProcessNamespace = &enableShareProcessNamespace
+	}
+
 	sfsVolume, err := sfs.Volumes(podSpec, cr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get volumes %v", err)

@@ -91,9 +91,9 @@ spec:
             storage: 6Gi
     gracePeriod: 600
   haproxy:
-    enabled: true
+    enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.5.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:haproxy-2.1
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -147,7 +147,7 @@ spec:
 #   serviceAnnotations:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   proxysql:
-    enabled: false
+    enabled: true
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.4.0-proxysql
 #    schedulerName: mycustom-scheduler

@@ -104,6 +104,20 @@ func (p *Database) WsrepLocalStateComment() (string, error) {
 	return value, nil
 }
 
+func (p *Database) Version() (string, error) {
+	var version string
+
+	err := p.db.QueryRow("select @@VERSION;").Scan(&version)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("variable was not found")
+		}
+		return "", err
+	}
+
+	return version, nil
+}
+
 func (p *Database) Close() error {
 	return p.db.Close()
 }

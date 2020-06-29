@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -66,6 +67,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		crons:         NewCronRegistry(),
 		serverVersion: sv,
 		clientcmd:     cli,
+		statusMutex:   new(sync.Mutex),
 	}, nil
 }
 
@@ -99,7 +101,14 @@ type ReconcilePerconaXtraDBCluster struct {
 	syncUsersState int32
 
 	serverVersion *api.ServerVersion
+	statusMutex   *sync.Mutex
+	updateSync    int32
 }
+
+const (
+	updateDone = 0
+	updateWait = 1
+)
 
 type CronRegistry struct {
 	crons *cron.Cron
@@ -140,6 +149,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		RequeueAfter: time.Second * 5,
 	}
 	// Fetch the PerconaXtraDBCluster instance
+	// PerconaXtraDBCluster object is also accessed and changed by a version service's corn job (that run concurrently)
+	r.statusMutex.Lock()
+	defer r.statusMutex.Unlock()
+	// we have to be sure the reconcile loop will be run at least once
+	// in-between any version service jobs (hence any two vs jobs shouldn't be run sequentially). 
+	// the version service job sets the state to  `updateWait` and the next job can be run only
+	// after the state was dropped to`updateDone` again
+	defer atomic.StoreInt32(&r.updateSync, updateDone)
+
 	o := &api.PerconaXtraDBCluster{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, o)
 	if err != nil {
@@ -175,8 +193,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
-		log.Info("update version before deploy")
-		r.ensurePXCVersion(o, VersionServiceMock{})
+		err := r.ensurePXCVersion(o, VersionServiceClient{
+			URL:       o.Spec.UpgradeOptions.VersionServiceEndpoint,
+			OpVersion: o.Version().String(),
+		})
+		if err != nil {
+			log.Info(fmt.Sprintf("failed to ensure version: %v; running with default", err))
+		}
 	}
 
 	if o.ObjectMeta.DeletionTimestamp != nil {
@@ -301,7 +324,14 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	err = r.sheduleEnsurePXCVersion(o, VersionServiceMock{})
+	if err := r.fetchVersionFromPXC(o, pxcSet); err != nil {
+		return rr, errors.Wrap(err, "update CR version")
+	}
+
+	err = r.sheduleEnsurePXCVersion(o, VersionServiceClient{
+		URL:       o.Spec.UpgradeOptions.VersionServiceEndpoint,
+		OpVersion: o.Version().String(),
+	})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}
@@ -379,7 +409,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
-	if cr.CompareVersionWith("1.1.0") >= 0 {
+	if sslHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
@@ -387,7 +417,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
-	if !k8serrors.IsNotFound(err) && cr.CompareVersionWith("1.1.0") >= 0 {
+	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 

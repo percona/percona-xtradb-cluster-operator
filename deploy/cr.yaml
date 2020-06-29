@@ -91,12 +91,63 @@ spec:
             storage: 6Gi
     gracePeriod: 600
   haproxy:
-    enabled: false
-    size: 3
-    image: perconalab/percona-xtradb-cluster-operator:haproxy-2.1
-    serviceAccountName: haproxy
-  proxysql:
     enabled: true
+    size: 3
+    image: percona/percona-xtradb-cluster-operator:1.5.0-haproxy
+#    schedulerName: mycustom-scheduler
+#    imagePullSecrets:
+#      - name: private-registry-credentials
+#    annotations:
+#      iam.amazonaws.com/role: role-arn
+#    labels:
+#      rack: rack-22
+#    serviceType: ClusterIP
+#    schedulerName: "default"
+    resources:
+      requests:
+        memory: 1G
+        cpu: 600m
+#      limits:
+#        memory: 1G
+#        cpu: 700m
+#    priorityClassName: high-priority
+#    nodeSelector:
+#      disktype: ssd
+#    sidecarResources:
+#      requests:
+#        memory: 1G
+#        cpu: 500m
+#      limits:
+#        memory: 2G
+#        cpu: 600m
+#    serviceAccountName: percona-xtradb-cluster-operator-workload
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+#      advanced:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#            - matchExpressions:
+#              - key: kubernetes.io/e2e-az-name
+#                operator: In
+#                values:
+#                - e2e-az1
+#                - e2e-az2
+#    tolerations:
+#    - key: "node.alpha.kubernetes.io/unreachable"
+#      operator: "Exists"
+#      effect: "NoExecute"
+#      tolerationSeconds: 6000
+    podDisruptionBudget:
+      maxUnavailable: 1
+#      minAvailable: 0
+    gracePeriod: 30
+#   loadBalancerSourceRanges:
+#     - 10.0.0.0/8
+#   serviceAnnotations:
+#     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+  proxysql:
+    enabled: false
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.4.0-proxysql
 #    schedulerName: mycustom-scheduler

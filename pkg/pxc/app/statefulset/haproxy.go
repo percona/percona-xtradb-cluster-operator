@@ -70,8 +70,11 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 				ContainerPort: 1024,
 				Name:          "stat",
 			},
+			{
+				ContainerPort: 3309,
+				Name:          "proxy-protocol",
+			},
 		},
-		TerminationMessagePath: "/dev/termination-log",
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "haproxy-cfg",
@@ -84,21 +87,13 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		},
 		Env: []corev1.EnvVar{
 			{
-				Name:  "POD_NAME",
-				Value: c.sfs.ObjectMeta.Name,
-			},
-			{
-				Name:  "POD_NAMESPACE",
-				Value: c.sfs.ObjectMeta.Namespace,
-			},
-			{
 				Name:  "PXC_SERVICE",
 				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
 			},
 			{
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector("my-cluster-secrets", "monitor"),
+					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 				},
 			},
 		},
@@ -151,23 +146,18 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1
 				{
 					Name: "MONITOR_PASSWORD",
 					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector("my-cluster-secrets", "monitor"),
+						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 					},
 				},
 			},
-			Resources:              res,
-			TerminationMessagePath: "/dev/termination-log",
+			Resources: res,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "haproxy-cfg",
 					MountPath: "/etc/haproxy/pxc",
 				},
 			},
-			SecurityContext: &corev1.SecurityContext{
-				Capabilities: &corev1.Capabilities{
-					Add: []corev1.Capability{"SYS_PTRACE"},
-				},
-			},
+			SecurityContext: spec.ContainerSecurityContext,
 		},
 	}, nil
 }

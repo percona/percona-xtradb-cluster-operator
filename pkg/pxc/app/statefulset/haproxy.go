@@ -8,7 +8,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -53,10 +52,6 @@ func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
 }
 
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
-	initDelay := int32(10)
-	if spec.LivenessInitialDelaySeconds != nil {
-		initDelay = *spec.LivenessInitialDelaySeconds
-	}
 	appc := corev1.Container{
 		Name:            haproxyName,
 		Image:           spec.Image,
@@ -65,10 +60,6 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			{
 				ContainerPort: 3306,
 				Name:          "mysql",
-			},
-			{
-				ContainerPort: 1024,
-				Name:          "stat",
 			},
 			{
 				ContainerPort: 3309,
@@ -94,20 +85,6 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
-				},
-			},
-		},
-		LivenessProbe: &corev1.Probe{
-			FailureThreshold:    3,
-			SuccessThreshold:    1,
-			TimeoutSeconds:      1,
-			PeriodSeconds:       10,
-			InitialDelaySeconds: initDelay,
-			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/healthz",
-					Port:   intstr.FromInt(1024),
-					Scheme: "HTTP",
 				},
 			},
 		},

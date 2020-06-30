@@ -15,7 +15,7 @@ spec:
       serviceAccountName: percona-xtradb-cluster-operator
       containers:
         - name: percona-xtradb-cluster-operator
-          image: percona/percona-xtradb-cluster-operator:1.4.0
+          image: 119175775298.dkr.ecr.us-east-1.amazonaws.com/percona/percona-server-mongodb-operator:1.4.0
           ports:
           - containerPort: 60000
             name: metrics

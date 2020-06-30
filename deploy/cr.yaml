@@ -13,14 +13,10 @@ spec:
   sslInternalSecretName: my-cluster-ssl-internal
   allowUnsafeConfigurations: false
 #  pause: false
-  updateStrategy: SmartUpdate
-  upgradeOptions:
-    versionServiceEndpoint: https://check.percona.com/operator/
-    apply: Disabled
-    schedule: "0 2 * * *"
+#  updateStrategy: RollingUpdate
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0
+    image: 119175775298.dkr.ecr.us-east-1.amazonaws.com/percona/percona-server-mongodb-operator:1.4.0-pxc8.0
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300
@@ -29,10 +25,6 @@ spec:
 #      [mysqld]
 #      wsrep_debug=ON
 #      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
-#      [sst]
-#      xbstream-opts=--decompress
-#      [xtrabackup]
-#      compress=lz4
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    priorityClassName: high-priority
@@ -46,7 +38,6 @@ spec:
 #      runAsUser: 1001
 #      runAsGroup: 1001
 #      supplementalGroups: [1001]
-#    serviceAccountName: percona-xtradb-cluster-operator-workload
     resources:
       requests:
         memory: 1G
@@ -93,7 +84,7 @@ spec:
   proxysql:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.4.0-proxysql
+    image: 119175775298.dkr.ecr.us-east-1.amazonaws.com/percona/percona-server-mongodb-operator:1.4.0-proxysql
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -120,7 +111,6 @@ spec:
 #      limits:
 #        memory: 2G
 #        cpu: 600m
-#    serviceAccountName: percona-xtradb-cluster-operator-workload
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -153,13 +143,9 @@ spec:
       maxUnavailable: 1
 #      minAvailable: 0
     gracePeriod: 30
-#   loadBalancerSourceRanges:
-#     - 10.0.0.0/8
-#   serviceAnnotations:
-#     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http    
   pmm:
     enabled: false
-    image: percona/percona-xtradb-cluster-operator:1.4.0-pmm
+    image: 119175775298.dkr.ecr.us-east-1.amazonaws.com/percona/percona-server-mongodb-operator:1.4.0-pmm
     serverHost: monitoring-service
     serverUser: pmm
 #    resources:
@@ -167,7 +153,7 @@ spec:
 #        memory: 200M
 #        cpu: 500m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0-backup
+    image: 119175775298.dkr.ecr.us-east-1.amazonaws.com/percona/percona-server-mongodb-operator:1.4.0-pxc8.0-backup
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

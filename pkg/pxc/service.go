@@ -184,12 +184,12 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				{
 					Port:       3306,
 					TargetPort: intstr.FromInt(3306),
-					Name:       "frontend",
+					Name:       "mysql",
 				},
 				{
 					Port:       3307,
 					TargetPort: intstr.FromInt(3307),
-					Name:       "replicas",
+					Name:       "mysql-replicas",
 				},
 			},
 			Selector: map[string]string{

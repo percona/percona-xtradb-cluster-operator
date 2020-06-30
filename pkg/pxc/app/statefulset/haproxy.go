@@ -59,11 +59,11 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3306,
-				Name:          "frontend",
+				Name:          "mysql",
 			},
 			{
 				ContainerPort: 3307,
-				Name:          "replicas",
+				Name:          "mysql-replicas",
 			},
 			{
 				ContainerPort: 3309,

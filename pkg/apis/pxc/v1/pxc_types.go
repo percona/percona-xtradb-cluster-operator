@@ -478,7 +478,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		}
 	}
 
-	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType && !cr.Spec.ProxySQL.Enabled && !cr.Spec.HAProxy.Enabled {
+	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType &&
+		(cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled) &&
+		(cr.Spec.HAProxy == nil || !cr.Spec.HAProxy.Enabled) {
 		return false, fmt.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
 	}
 

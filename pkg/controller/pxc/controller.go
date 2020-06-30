@@ -153,7 +153,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	r.statusMutex.Lock()
 	defer r.statusMutex.Unlock()
 	// we have to be sure the reconcile loop will be run at least once
-	// in-between any version service jobs (hence any two vs jobs shouldn't be run sequentially). 
+	// in-between any version service jobs (hence any two vs jobs shouldn't be run sequentially).
 	// the version service job sets the state to  `updateWait` and the next job can be run only
 	// after the state was dropped to`updateDone` again
 	defer atomic.StoreInt32(&r.updateSync, updateDone)

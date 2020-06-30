@@ -3,6 +3,7 @@ package queries
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -18,6 +19,8 @@ const writerID = 11
 type Database struct {
 	db *sql.DB
 }
+
+var ErrNotFound = errors.New("not found")
 
 func New(client client.Client, namespace, secretName, user, host string, port int) (Database, error) {
 	secretObj := corev1.Secret{}
@@ -49,12 +52,36 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 	}, nil
 }
 
+func (p *Database) Status(host, ip string) ([]string, error) {
+	rows, err := p.db.Query("select status from mysql_servers where hostname like ? or hostname = ?;", host+"%", ip)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	statuses := []string{}
+	for rows.Next() {
+		var status string
+
+		err := rows.Scan(&status)
+		if err != nil {
+			return nil, err
+		}
+
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
+}
+
 func (p *Database) PrimaryHost() (string, error) {
 	var host string
 	err := p.db.QueryRow("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ?", writerID).Scan(&host)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("primary not found")
+			return "", ErrNotFound
 		}
 		return "", err
 	}

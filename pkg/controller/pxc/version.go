@@ -98,26 +98,35 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return errors.New("cluster is not ready")
 	}
 
-	new, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.Apply, cr.Status.PXC.Version)
+	newVersion, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.Apply, cr.Status.PXC.Version, currVersionMeta{
+		Platform:      string(r.serverVersion.Platform),
+		KubeVersion:   string(r.serverVersion.Info.GitVersion),
+		PMMVersion:    cr.Status.PMM.Version,
+		BackupVersion: cr.Status.Backup.Version,
+		CRUID:         string(cr.GetUID()),
+	})
 	if err != nil {
 		return fmt.Errorf("failed to check version: %v", err)
 	}
 
-	if cr.Status.PXC.Version != new.PXCVersion {
-		log.Info(fmt.Sprintf("update PXC version to %v", new.PXCVersion))
-		cr.Spec.PXC.Image = new.PXCImage
+	if cr.Status.PXC.Version != newVersion.PXCVersion {
+		log.Info(fmt.Sprintf("update PXC version from %s to %s", cr.Status.PXC.Version, newVersion.PXCVersion))
+		cr.Spec.PXC.Image = newVersion.PXCImage
 	}
-	if cr.Status.Backup.Version != new.BackupVersion {
-		log.Info(fmt.Sprintf("update Backup version to %v", new.BackupVersion))
-		cr.Spec.Backup.Image = new.BackupImage
+
+	if cr.Status.Backup.Version != newVersion.BackupVersion {
+		log.Info(fmt.Sprintf("update Backup version from %s to %s", cr.Status.Backup.Version, newVersion.BackupVersion))
+		cr.Spec.Backup.Image = newVersion.BackupImage
 	}
-	if cr.Status.PMM.Version != new.PMMVersion {
-		log.Info(fmt.Sprintf("update PMM version to %v", new.PMMVersion))
-		cr.Spec.PMM.Image = new.PMMImage
+
+	if cr.Status.PMM.Version != newVersion.PMMVersion {
+		log.Info(fmt.Sprintf("update PMM version from %s to %s", cr.Status.PMM.Version, newVersion.PMMVersion))
+		cr.Spec.PMM.Image = newVersion.PMMImage
 	}
-	if cr.Status.ProxySQL.Version != new.ProxySqlVersion {
-		log.Info(fmt.Sprintf("update ProxySQL version to %v", new.ProxySqlVersion))
-		cr.Spec.ProxySQL.Image = new.ProxySqlImage
+
+	if cr.Status.ProxySQL.Version != newVersion.ProxySqlVersion {
+		log.Info(fmt.Sprintf("update ProxySQL version from %s to %s", cr.Status.ProxySQL.Version, newVersion.ProxySqlVersion))
+		cr.Spec.ProxySQL.Image = newVersion.ProxySqlImage
 	}
 
 	err = r.client.Update(context.Background(), cr)
@@ -132,11 +141,11 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		log.Error(err, "failed to get CR")
 	}
 
-	cr.Status.ProxySQL.Version = new.ProxySqlVersion
-	cr.Status.PMM.Version = new.PMMVersion
-	cr.Status.Backup.Version = new.BackupVersion
-	cr.Status.PXC.Version = new.PXCVersion
-	cr.Status.PXC.Image = new.PXCImage
+	cr.Status.ProxySQL.Version = newVersion.ProxySqlVersion
+	cr.Status.PMM.Version = newVersion.PMMVersion
+	cr.Status.Backup.Version = newVersion.BackupVersion
+	cr.Status.PXC.Version = newVersion.PXCVersion
+	cr.Status.PXC.Image = newVersion.PXCImage
 
 	err = r.client.Status().Update(context.Background(), cr)
 	if err != nil {

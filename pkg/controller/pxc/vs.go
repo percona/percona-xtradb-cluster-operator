@@ -4,18 +4,42 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
-func (vs VersionServiceClient) GetExactVersion(desiredVersion string, currentVersion string) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(desiredVersion, currentVersion string, versionMeta currVersionMeta) (DepVersion, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
-	url := fmt.Sprintf("%s/api/versions/v1/pxc/%s/%s?databaseVersion=%s", vs.URL, vs.OpVersion, desiredVersion, currentVersion)
-	req, err := http.NewRequest("GET", url, nil)
+
+	requestURL, err := url.Parse(fmt.Sprintf("%s/api/versions/v1/pxc/%s/%s", vs.URL, vs.OpVersion, desiredVersion))
 	if err != nil {
 		return DepVersion{}, err
 	}
+
+	q := requestURL.Query()
+	q.Add("databaseVersion", currentVersion)
+	q.Add("kubeVersion", versionMeta.KubeVersion)
+	q.Add("platform", versionMeta.Platform)
+	q.Add("customResourceUID", versionMeta.CRUID)
+
+	if versionMeta.PMMVersion != "" {
+		q.Add("pmmVersion", versionMeta.PMMVersion)
+	}
+
+	if versionMeta.BackupVersion != "" {
+		q.Add("backupVersion", versionMeta.BackupVersion)
+	}
+
+	requestURL.RawQuery = q.Encode()
+	req, err := http.NewRequest("GET", requestURL.String(), nil)
+	if err != nil {
+		return DepVersion{}, err
+	}
+
+	log.Info("FINAL URL", "URL", requestURL.String)
+
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.Do(req)
@@ -37,18 +61,22 @@ func (vs VersionServiceClient) GetExactVersion(desiredVersion string, currentVer
 	if len(r.Versions) == 0 {
 		return DepVersion{}, fmt.Errorf("empty versions response")
 	}
+
 	pxcVersion, err := getVersion(r.Versions[0].Matrix.PXC)
 	if err != nil {
 		return DepVersion{}, err
 	}
+
 	backupVersion, err := getVersion(r.Versions[0].Matrix.Backup)
 	if err != nil {
 		return DepVersion{}, err
 	}
+
 	pmmVersion, err := getVersion(r.Versions[0].Matrix.PMM)
 	if err != nil {
 		return DepVersion{}, err
 	}
+
 	proxySqlVersion, err := getVersion(r.Versions[0].Matrix.ProxySQL)
 	if err != nil {
 		return DepVersion{}, err
@@ -89,7 +117,7 @@ type DepVersion struct {
 }
 
 type VersionService interface {
-	GetExactVersion(desiredVersion string, currentVersion string) (DepVersion, error)
+	GetExactVersion(desiredVersion, currentVersion string, versionMeta currVersionMeta) (DepVersion, error)
 }
 
 type VersionServiceClient struct {
@@ -120,4 +148,12 @@ type OperatorVersion struct {
 
 type VersionResponse struct {
 	Versions []OperatorVersion `json:"versions"`
+}
+
+type currVersionMeta struct {
+	KubeVersion   string
+	Platform      string
+	PMMVersion    string
+	BackupVersion string
+	CRUID         string
 }

@@ -32,4 +32,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "percona-xtradb-cluster-operator"
+              value: "percona-xtradb-cluster-operator"    

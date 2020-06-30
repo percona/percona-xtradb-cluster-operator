@@ -15,8 +15,8 @@ spec:
 #  pause: false
   updateStrategy: SmartUpdate
   upgradeOptions:
-    versionServiceEndpoint: https://check.percona.com/operator/
-    apply: Disabled
+    versionServiceEndpoint: https://check.percona.com/operator
+    apply: Disabled 
     schedule: "* 2 * * *"
   pxc:
     size: 3

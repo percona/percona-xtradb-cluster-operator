@@ -59,7 +59,11 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3306,
-				Name:          "mysql",
+				Name:          "frontend",
+			},
+			{
+				ContainerPort: 3307,
+				Name:          "replicas",
 			},
 			{
 				ContainerPort: 3309,
@@ -68,12 +72,12 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      "haproxy-cfg",
-				MountPath: "/etc/haproxy/pxc",
+				Name:      cr.Name + "-haproxy",
+				MountPath: "/etc/haproxy-custom/",
 			},
 			{
 				Name:      "haproxy-auto",
-				MountPath: "/etc/haproxy-auto/",
+				MountPath: "/etc/haproxy/pxc",
 			},
 		},
 		Env: []corev1.EnvVar{
@@ -130,7 +134,11 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1
 			Resources: res,
 			VolumeMounts: []corev1.VolumeMount{
 				{
-					Name:      "haproxy-cfg",
+					Name:      c.labels["app.kubernetes.io/instance"] + "-haproxy",
+					MountPath: "/etc/haproxy-custom/",
+				},
+				{
+					Name:      "haproxy-auto",
 					MountPath: "/etc/haproxy/pxc",
 				},
 			},
@@ -147,9 +155,9 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
 	vol.Volumes = append(
 		vol.Volumes,
-		app.GetConfigVolumes("haproxy-auto", "haproxy-auto"),
+		app.GetConfigVolumes(c.labels["app.kubernetes.io/instance"]+"-haproxy", c.labels["app.kubernetes.io/instance"]+"-haproxy"),
 		corev1.Volume{
-			Name: "haproxy-cfg",
+			Name: "haproxy-auto",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},

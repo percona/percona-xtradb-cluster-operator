@@ -3,6 +3,7 @@ package pxc
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
@@ -181,8 +182,14 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Type: svcType,
 			Ports: []corev1.ServicePort{
 				{
-					Port: 3306,
-					Name: "mysql",
+					Port:       3306,
+					TargetPort: intstr.FromInt(3306),
+					Name:       "frontend",
+				},
+				{
+					Port:       3307,
+					TargetPort: intstr.FromInt(3307),
+					Name:       "replicas",
 				},
 			},
 			Selector: map[string]string{

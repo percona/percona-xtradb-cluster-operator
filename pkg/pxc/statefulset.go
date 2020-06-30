@@ -29,8 +29,8 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 
 	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" {
-		enableShareProcessNamespace := true
-		pod.ShareProcessNamespace = &enableShareProcessNamespace
+		t := true
+		pod.ShareProcessNamespace = &t
 	}
 
 	sfsVolume, err := sfs.Volumes(podSpec, cr)

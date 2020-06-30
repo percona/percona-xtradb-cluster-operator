@@ -213,12 +213,12 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return fmt.Errorf("failed to wait pod: %v", err)
 	}
 
-	if err := r.waitPXCSynced(cr, pod.Status.PodIP, waitLimit); err != nil {
-		return fmt.Errorf("failed to wait pxc sync: %v", err)
-	}
-
 	if err := r.waitUntilOnline(cr, pod, waitLimit); err != nil {
 		return fmt.Errorf("failed to wait pxc status: %v", err)
+	}
+
+	if err := r.waitPXCSynced(cr, pod.Status.PodIP, waitLimit); err != nil {
+		return fmt.Errorf("failed to wait pxc sync: %v", err)
 	}
 
 	return nil

@@ -167,6 +167,12 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	if err != nil {
 		return fmt.Errorf("get primary pod: %v", err)
 	}
+	for _, pod := range list.Items {
+		if pod.Status.PodIP == primary {
+			primary = fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)
+			break
+		}
+	}
 
 	log.Info(fmt.Sprintf("primary pod is %s", primary))
 

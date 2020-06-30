@@ -303,6 +303,19 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			err = fmt.Errorf("HAProxy service upgrade error: %v", err)
 			return reconcile.Result{}, err
 		}
+
+		haProxyServiceReplicas := pxc.NewServiceHAProxy(o)
+		currentServiceReplicas := &corev1.Service{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: haProxyServiceReplicas.Name, Namespace: haProxyServiceReplicas.Namespace}, currentServiceReplicas)
+		if err != nil {
+			err = fmt.Errorf("failed to get HAProxyReplicas service: %v", err)
+			return reconcile.Result{}, err
+		}
+		err = r.client.Update(context.TODO(), currentServiceReplicas)
+		if err != nil {
+			err = fmt.Errorf("HAProxyReplicas service upgrade error: %v", err)
+			return reconcile.Result{}, err
+		}
 	} else {
 		err = r.deleteStatefulSet(o.Namespace, haProxySet, false)
 		if err != nil {
@@ -521,6 +534,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		err = r.createService(cr, pxc.NewServiceHAProxy(cr))
 		if err != nil {
 			return errors.Wrap(err, "create HAProxy Service")
+		}
+
+		//HAProxyReplicas Service
+		err = r.createService(cr, pxc.NewServiceHAProxyReplicas(cr))
+		if err != nil {
+			return errors.Wrap(err, "create HAProxyReplicas Service")
 		}
 
 		// PodDisruptionBudget object for HAProxy

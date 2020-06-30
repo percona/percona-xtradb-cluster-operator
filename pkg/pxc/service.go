@@ -186,6 +186,41 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 					TargetPort: intstr.FromInt(3306),
 					Name:       "mysql",
 				},
+			},
+			Selector: map[string]string{
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": "haproxy",
+			},
+			LoadBalancerSourceRanges: cr.Spec.HAProxy.LoadBalancerSourceRanges,
+		},
+	}
+
+	return obj
+}
+
+func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
+	svcType := corev1.ServiceTypeClusterIP
+	obj := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-haproxy-replicas",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":   cr.Name,
+				"app.kubernetes.io/component":  "haproxy",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+			},
+			Annotations: cr.Spec.HAProxy.ServiceAnnotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Type: svcType,
+			Ports: []corev1.ServicePort{
 				{
 					Port:       3307,
 					TargetPort: intstr.FromInt(3307),
@@ -197,7 +232,6 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/instance":  cr.Name,
 				"app.kubernetes.io/component": "haproxy",
 			},
-			LoadBalancerSourceRanges: cr.Spec.HAProxy.LoadBalancerSourceRanges,
 		},
 	}
 

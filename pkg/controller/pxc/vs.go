@@ -38,8 +38,6 @@ func (vs VersionServiceClient) GetExactVersion(desiredVersion, currentVersion st
 		return DepVersion{}, err
 	}
 
-	log.Info("FINAL URL", "URL", requestURL.String)
-
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.Do(req)

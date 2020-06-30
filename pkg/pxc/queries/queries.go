@@ -53,7 +53,7 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 }
 
 func (p *Database) Status(host, ip string) ([]string, error) {
-	rows, err := p.db.Query("select status from mysql_servers where hostname = ? or hostname = ? limit 1;", host, ip)
+	rows, err := p.db.Query("select status from mysql_servers where hostname like ? or hostname = ?;", host+"%", ip)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNotFound

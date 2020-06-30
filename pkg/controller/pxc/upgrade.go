@@ -217,14 +217,14 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return fmt.Errorf("failed to wait pxc sync: %v", err)
 	}
 
-	if err := r.waitUntilOnline(cr, pod, sfs.Name, waitLimit); err != nil {
+	if err := r.waitUntilOnline(cr, pod, waitLimit); err != nil {
 		return fmt.Errorf("failed to wait pxc status: %v", err)
 	}
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, pod *corev1.Pod, sfsName string, waitLimit int) error {
+func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, pod *corev1.Pod, waitLimit int) error {
 	database, err := r.proxyDB(cr)
 	if err != nil {
 		return fmt.Errorf("failed to get proxySQL db: %v", err)
@@ -232,10 +232,8 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 
 	defer database.Close()
 
-	fullName := fmt.Sprintf("%s.%s.%s.svc.cluster.local", pod.Name, sfsName, cr.Namespace)
-
 	for i := 0; i < waitLimit; i++ {
-		statuses, err := database.Status(fullName, pod.Status.PodIP)
+		statuses, err := database.Status(pod.Name, pod.Status.PodIP)
 		if err != nil && err != queries.ErrNotFound {
 			return fmt.Errorf("failed to get status: %v", err)
 		}

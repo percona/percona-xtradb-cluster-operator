@@ -48,7 +48,7 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 		return errors.Wrap(err, "begin transaction")
 	}
 
-	_, err = tx.Exec("CREATE USER 'operator'@'%' IDENTIFIED BY ?", pass)
+	_, err = tx.Exec("CREATE USER IF NOT EXISTS 'operator'@'%' IDENTIFIED BY ?", pass)
 	if err != nil {
 		errT := tx.Rollback()
 		if errT != nil {

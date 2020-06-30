@@ -52,6 +52,7 @@ main() {
     deploy_operator
 
     spinup_pxc "${CLUSTER}" "${test_dir}/conf/${CLUSTER}.yml"
+    kubectl patch secret my-cluster-secrets --type=json -p='[{"op": "remove", "path": "/data/operator"}]'
     compare_generation "1"
 
     kubectl_bin patch deployment "${OPERATOR_NAME}" \

@@ -196,7 +196,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 	return appc, nil
 }
 
-func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1.Container, error) {
+func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	return nil, nil
 }
 

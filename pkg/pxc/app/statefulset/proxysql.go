@@ -108,6 +108,15 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		SecurityContext: spec.ContainerSecurityContext,
 	}
 
+	if cr.CompareVersionWith("1.5.0") >= 0 {
+		appc.Env[1] = corev1.EnvVar{
+			Name: "OPERATOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
+			},
+		}
+	}
+
 	res, err := app.CreateResources(spec.Resources)
 	if err != nil {
 		return appc, fmt.Errorf("create resources error: %v", err)
@@ -117,93 +126,104 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 	return appc, nil
 }
 
-func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1.Container, error) {
+func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	res, err := app.CreateResources(spec.SidecarResources)
 	if err != nil {
 		return nil, fmt.Errorf("create sidecar resources error: %v", err)
 	}
 
-	return []corev1.Container{
-		{
-			Name:            "pxc-monit",
-			Image:           spec.Image,
-			ImagePullPolicy: corev1.PullAlways,
-			Args: []string{
-				"/usr/bin/peer-list",
-				"-on-change=/usr/bin/add_pxc_nodes.sh",
-				"-service=$(PXC_SERVICE)",
+	pxcMonit := corev1.Container{
+		Name:            "pxc-monit",
+		Image:           spec.Image,
+		ImagePullPolicy: corev1.PullAlways,
+		Args: []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"-service=$(PXC_SERVICE)",
+		},
+		Resources: res,
+		Env: []corev1.EnvVar{
+			{
+				Name:  "PXC_SERVICE",
+				Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
 			},
-			Resources: res,
-			Env: []corev1.EnvVar{
-				{
-					Name:  "PXC_SERVICE",
-					Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
+			{
+				Name: "MYSQL_ROOT_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
 				},
-				{
-					Name: "MYSQL_ROOT_PASSWORD",
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
-					},
+			},
+			{
+				Name:  "PROXY_ADMIN_USER",
+				Value: "proxyadmin",
+			},
+			{
+				Name: "PROXY_ADMIN_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
 				},
-				{
-					Name:  "PROXY_ADMIN_USER",
-					Value: "proxyadmin",
-				},
-				{
-					Name: "PROXY_ADMIN_PASSWORD",
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
-					},
-				},
-				{
-					Name: "MONITOR_PASSWORD",
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
-					},
+			},
+			{
+				Name: "MONITOR_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 				},
 			},
 		},
+	}
 
-		{
-			Name:            "proxysql-monit",
-			Image:           spec.Image,
-			ImagePullPolicy: corev1.PullAlways,
-			Args: []string{
-				"/usr/bin/peer-list",
-				"-on-change=/usr/bin/add_proxysql_nodes.sh",
-				"-service=$(PROXYSQL_SERVICE)",
+	proxysqlMonit := corev1.Container{
+		Name:            "proxysql-monit",
+		Image:           spec.Image,
+		ImagePullPolicy: corev1.PullAlways,
+		Args: []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_proxysql_nodes.sh",
+			"-service=$(PROXYSQL_SERVICE)",
+		},
+		Resources: res,
+		Env: []corev1.EnvVar{
+			{
+				Name:  "PROXYSQL_SERVICE",
+				Value: c.labels["app.kubernetes.io/instance"] + "-proxysql-unready",
 			},
-			Resources: res,
-			Env: []corev1.EnvVar{
-				{
-					Name:  "PROXYSQL_SERVICE",
-					Value: c.labels["app.kubernetes.io/instance"] + "-proxysql-unready",
+			{
+				Name: "MYSQL_ROOT_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
 				},
-				{
-					Name: "MYSQL_ROOT_PASSWORD",
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "root"),
-					},
+			},
+			{
+				Name:  "PROXY_ADMIN_USER",
+				Value: "proxyadmin",
+			},
+			{
+				Name: "PROXY_ADMIN_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
 				},
-				{
-					Name:  "PROXY_ADMIN_USER",
-					Value: "proxyadmin",
-				},
-				{
-					Name: "PROXY_ADMIN_PASSWORD",
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
-					},
-				},
-				{
-					Name: "MONITOR_PASSWORD",
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
-					},
+			},
+			{
+				Name: "MONITOR_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 				},
 			},
 		},
-	}, nil
+	}
+
+	if cr.CompareVersionWith("1.5.0") >= 0 {
+		operEnv := corev1.EnvVar{
+			Name: "OPERATOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
+			},
+		}
+		pxcMonit.Env[1] = operEnv
+		proxysqlMonit.Env[1] = operEnv
+	}
+
+	return []corev1.Container{pxcMonit, proxysqlMonit}, nil
 }
 
 func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {

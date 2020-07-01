@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) *corev1.ConfigMap {
+func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName, filename, content string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -17,7 +17,7 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName string) *corev1.ConfigMap
 			Namespace: cr.Namespace,
 		},
 		Data: map[string]string{
-			"init.cnf": cr.Spec.PXC.Configuration,
+			filename: content,
 		},
 	}
 }

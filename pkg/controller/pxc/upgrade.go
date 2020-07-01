@@ -35,7 +35,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function
-	configHash := r.getConfigHash(cr)
+	configHash := r.getConfigHash(cr, currentSet)
 	if currentSet.Spec.Template.Annotations == nil {
 		currentSet.Spec.Template.Annotations = make(map[string]string)
 	}
@@ -118,10 +118,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	currentSet.Spec.Template.Spec.Containers = newContainers
 	currentSet.Spec.Template.Spec.InitContainers = newInitContainers
 	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
-	if currentSet.Labels["app.kubernetes.io/component"] == "haproxy" {
-		t := true
-		currentSet.Spec.Template.Spec.ShareProcessNamespace = &t
-	}
 	if sfsVolume != nil && sfsVolume.Volumes != nil {
 		currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
 	}
@@ -378,8 +374,13 @@ func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBClu
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster) string {
+func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, currentSet *appsv1.StatefulSet) string {
 	configString := cr.Spec.PXC.Configuration
+	if currentSet.Labels["app.kubernetes.io/component"] == "haproxy" {
+		configString = cr.Spec.HAProxy.Configuration
+	} else if currentSet.Labels["app.kubernetes.io/component"] == "proxysql" {
+		configString = cr.Spec.ProxySQL.Configuration
+	}
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
 
 	return hash

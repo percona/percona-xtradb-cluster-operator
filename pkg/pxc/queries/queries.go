@@ -89,6 +89,19 @@ func (p *Database) PrimaryHost() (string, error) {
 	return host, nil
 }
 
+func (p *Database) Hostname() (string, error) {
+	var hostname string
+	err := p.db.QueryRow("SELECT @@hostname hostname").Scan(&hostname)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+
+	return hostname, nil
+}
+
 func (p *Database) WsrepLocalStateComment() (string, error) {
 	var variable_name string
 	var value string

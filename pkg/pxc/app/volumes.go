@@ -29,12 +29,12 @@ func GetSecretVolumes(cvName, cmName string, optional bool) corev1.Volume {
 	return vol1
 }
 
-func GetTmpVolume() corev1.Volume {
+func GetTmpVolume(cvName string) corev1.Volume {
 	return corev1.Volume{
+		Name: cvName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
-		Name: "tmp",
 	}
 }
 

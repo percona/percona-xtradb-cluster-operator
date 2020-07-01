@@ -93,7 +93,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:1.4.0-haproxy2.1
+    image: percona/percona-xtradb-cluster-operator:1.5.0-haproxy
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials

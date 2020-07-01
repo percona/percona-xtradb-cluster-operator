@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -282,8 +283,14 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			if currentService.Spec.Type != o.Spec.HAProxy.ServiceType {
 				currentService.Spec.Ports = []corev1.ServicePort{
 					{
-						Port: 3306,
-						Name: "mysql",
+						Port:       3306,
+						TargetPort: intstr.FromInt(3306),
+						Name:       "mysql",
+					},
+					{
+						Port:       3309,
+						TargetPort: intstr.FromInt(3309),
+						Name:       "proxy-protocol",
 					},
 				}
 				currentService.Spec.Type = o.Spec.HAProxy.ServiceType
@@ -292,8 +299,14 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
 			currentService.Spec.Ports = []corev1.ServicePort{
 				{
-					Port: 3306,
-					Name: "mysql",
+					Port:       3306,
+					TargetPort: intstr.FromInt(3306),
+					Name:       "mysql",
+				},
+				{
+					Port:       3309,
+					TargetPort: intstr.FromInt(3309),
+					Name:       "proxy-protocol",
 				},
 			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP

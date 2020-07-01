@@ -72,7 +72,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      cr.Name + "-haproxy",
+				Name:      "haproxy-custom",
 				MountPath: "/etc/haproxy-custom/",
 			},
 			{
@@ -104,7 +104,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 	return appc, nil
 }
 
-func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1.Container, error) {
+func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	res, err := app.CreateResources(spec.SidecarResources)
 	if err != nil {
 		return nil, fmt.Errorf("create sidecar resources error: %v", err)
@@ -134,7 +134,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string) ([]corev1
 			Resources: res,
 			VolumeMounts: []corev1.VolumeMount{
 				{
-					Name:      c.labels["app.kubernetes.io/instance"] + "-haproxy",
+					Name:      "haproxy-custom",
 					MountPath: "/etc/haproxy-custom/",
 				},
 				{
@@ -155,13 +155,9 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
 	vol.Volumes = append(
 		vol.Volumes,
-		app.GetConfigVolumes(c.labels["app.kubernetes.io/instance"]+"-haproxy", c.labels["app.kubernetes.io/instance"]+"-haproxy"),
-		corev1.Volume{
-			Name: "haproxy-auto",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		})
+		app.GetConfigVolumes("haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy"),
+		app.GetTmpVolume("haproxy-auto"),
+	)
 	return vol, nil
 }
 

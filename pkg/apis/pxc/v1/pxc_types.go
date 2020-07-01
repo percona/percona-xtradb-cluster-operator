@@ -24,6 +24,7 @@ type PerconaXtraDBClusterSpec struct {
 	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
 	PXC                   *PodSpec                             `json:"pxc,omitempty"`
 	ProxySQL              *PodSpec                             `json:"proxysql,omitempty"`
+	HAProxy               *PodSpec                             `json:"haproxy,omitempty"`
 	PMM                   *PMMSpec                             `json:"pmm,omitempty"`
 	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
@@ -69,6 +70,7 @@ const (
 type PerconaXtraDBClusterStatus struct {
 	PXC                AppStatus          `json:"pxc,omitempty"`
 	ProxySQL           AppStatus          `json:"proxysql,omitempty"`
+	HAProxy            AppStatus          `json:"haproxy,omitempty"`
 	Backup             AppStatus          `json:"backup,omitempty"`
 	PMM                AppStatus          `json:"pmm,omitempty"`
 	Host               string             `json:"host,omitempty"`
@@ -89,11 +91,12 @@ const (
 type ClusterConditionType string
 
 const (
-	ClusterReady      ClusterConditionType = "Ready"
-	ClusterInit                            = "Initializing"
-	ClusterPXCReady                        = "PXCReady"
-	ClusterProxyReady                      = "ProxySQLReady"
-	ClusterError                           = "Error"
+	ClusterReady        ClusterConditionType = "Ready"
+	ClusterInit                              = "Initializing"
+	ClusterPXCReady                          = "PXCReady"
+	ClusterProxyReady                        = "ProxySQLReady"
+	ClusterHAProxyReady                      = "HAProxyReady"
+	ClusterError                             = "Error"
 )
 
 type ClusterCondition struct {
@@ -402,6 +405,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		}
 	}
 
+	if c.HAProxy != nil && c.HAProxy.Enabled &&
+		c.ProxySQL != nil && c.ProxySQL.Enabled {
+		return false, errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
+	}
+
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
 		if c.ProxySQL.VolumeSpec == nil {
 			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")
@@ -470,8 +478,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		}
 	}
 
-	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType && !cr.Spec.ProxySQL.Enabled {
-		return false, fmt.Errorf("ProxySQL should be enabled if SmartUpdate set")
+	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType &&
+		(cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled) &&
+		(cr.Spec.HAProxy == nil || !cr.Spec.HAProxy.Enabled) {
+		return false, fmt.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
 	}
 
 	cr.setSecurityContext(serverVersion)

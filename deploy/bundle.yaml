@@ -17,6 +17,9 @@ spec:
     - name: v1
       storage: true
       served: true
+    - name: v1-1-0
+      storage: false
+      served: true
     - name: v1-2-0
       storage: false
       served: true
@@ -45,8 +48,12 @@ spec:
       JSONPath: .status.pxc.ready
     - name: proxysql
       type: string
-      description: Ready pxc nodes
+      description: Ready proxysql nodes
       JSONPath: .status.proxysql.ready
+    - name: haproxy
+      type: string
+      description: Ready haproxy nodes
+      JSONPath: .status.haproxy.ready
     - name: Age
       type: date
       JSONPath: .metadata.creationTimestamp
@@ -277,6 +284,11 @@ kind: ServiceAccount
 metadata:
   name: percona-xtradb-cluster-operator
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: percona-xtradb-cluster-operator-workload
+---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
@@ -288,7 +300,6 @@ roleRef:
   kind: Role
   name: percona-xtradb-cluster-operator
   apiGroup: rbac.authorization.k8s.io
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -318,5 +329,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "percona-xtradb-cluster-operator"

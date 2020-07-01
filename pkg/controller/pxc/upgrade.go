@@ -118,7 +118,13 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	currentSet.Spec.Template.Spec.Containers = newContainers
 	currentSet.Spec.Template.Spec.InitContainers = newInitContainers
 	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
-	currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
+	if currentSet.Labels["app.kubernetes.io/component"] == "haproxy" {
+		t := true
+		currentSet.Spec.Template.Spec.ShareProcessNamespace = &t
+	}
+	if sfsVolume != nil && sfsVolume.Volumes != nil {
+		currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
+	}
 
 	err = r.client.Update(context.TODO(), currentSet)
 	if err != nil {

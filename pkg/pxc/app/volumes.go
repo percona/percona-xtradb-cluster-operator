@@ -29,21 +29,26 @@ func GetSecretVolumes(cvName, cmName string, optional bool) corev1.Volume {
 	return vol1
 }
 
-func GetTmpVolume() corev1.Volume {
+func GetTmpVolume(cvName string) corev1.Volume {
 	return corev1.Volume{
+		Name: cvName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
-		Name: "tmp",
 	}
 }
 
 func Volumes(podSpec *api.PodSpec, dataVolumeName string) *api.Volume {
 	var volume api.Volume
 
-	if podSpec.VolumeSpec.PersistentVolumeClaim != nil {
+	if podSpec.VolumeSpec != nil && podSpec.VolumeSpec.PersistentVolumeClaim != nil {
 		pvcs := PVCs(dataVolumeName, podSpec.VolumeSpec)
 		volume.PVCs = pvcs
+		return &volume
+	}
+
+	if podSpec.VolumeSpec == nil {
+		volume.Volumes = []corev1.Volume{}
 		return &volume
 	}
 

@@ -538,6 +538,19 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if err != nil {
 			return err
 		}
+
+		// TODO: code duplication with updatePod function
+		if haProxySet.Spec.Template.Annotations == nil {
+			haProxySet.Spec.Template.Annotations = make(map[string]string)
+		}
+		haProxyConfigString := cr.Spec.HAProxy.Configuration
+		haProxyConfigHash := fmt.Sprintf("%x", md5.Sum([]byte(haProxyConfigString)))
+		if nodeSet.Spec.Template.Annotations == nil {
+			nodeSet.Spec.Template.Annotations = make(map[string]string)
+		}
+		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = haProxyConfigHash
+		haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+		haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 		err = r.client.Create(context.TODO(), haProxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create newStatefulSetHAProxy: %v", err)
@@ -682,7 +695,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	}
 
 	if cr.Spec.PXC.Configuration != "" {
-		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"], "init.cnf", cr.Spec.PXC.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref")
@@ -695,6 +708,23 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			}
 		} else if err != nil {
 			return errors.Wrap(err, "create ConfigMap")
+		}
+	}
+
+	if cr.Spec.HAProxy.Configuration != "" {
+		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-haproxy", "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set controller ref HAProxy")
+		}
+		err = r.client.Create(context.TODO(), configMap)
+		if err != nil && k8serrors.IsAlreadyExists(err) {
+			err = r.client.Update(context.TODO(), configMap)
+			if err != nil {
+				return errors.Wrap(err, "update ConfigMap HAProxy")
+			}
+		} else if err != nil {
+			return errors.Wrap(err, "create ConfigMap HAProxy")
 		}
 	}
 

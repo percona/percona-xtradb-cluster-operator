@@ -169,7 +169,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return fmt.Errorf("get pod list: %v", err)
 	}
 
-	primary, err := r.getPrimaryPod(cr)
+	primary, err := r.getPrimaryPod(cr, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)
 	if err != nil {
 		return fmt.Errorf("get primary pod: %v", err)
 	}
@@ -209,6 +209,8 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return fmt.Errorf("failed to apply changes: %v", err)
 	}
 
+	log.Info("smart update finished")
+
 	return nil
 }
 
@@ -225,18 +227,23 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return fmt.Errorf("failed to wait pod: %v", err)
 	}
 
-	if err := r.waitUntilOnline(cr, sfs.Name, pod, waitLimit); err != nil {
-		return fmt.Errorf("failed to wait pxc status: %v", err)
-	}
-
 	if err := r.waitPXCSynced(cr, pod.Status.PodIP, waitLimit); err != nil {
 		return fmt.Errorf("failed to wait pxc sync: %v", err)
+	}
+
+	if err := r.waitUntilOnline(cr, sfs.Name, pod, waitLimit); err != nil {
+		return fmt.Errorf("failed to wait pxc status: %v", err)
 	}
 
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int) error {
+	if cr.Spec.HAProxy.Enabled {
+		time.Sleep(5 * time.Second)
+		return nil
+	}
+
 	database, err := r.proxyDB(cr)
 	if err != nil {
 		return fmt.Errorf("failed to get proxySQL db: %v", err)
@@ -276,14 +283,24 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
 	user := "proxyadmin"
 	host := fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
+	port := 6032
+	proxySize := cr.Spec.ProxySQL.Size
+
+	if cr.Spec.HAProxy.Enabled {
+		user = "monitor"
+		host = fmt.Sprintf("%s-haproxy", cr.ObjectMeta.Name)
+		port = 3306
+		proxySize = cr.Spec.HAProxy.Size
+
+	}
 
 	var database queries.Database
 
 	for i := 0; ; i++ {
-		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, 6032)
-		if err != nil && i < int(cr.Spec.ProxySQL.Size) {
+		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, port)
+		if err != nil && i < int(proxySize) {
 			time.Sleep(time.Second)
-		} else if err != nil && i == int(cr.Spec.ProxySQL.Size) {
+		} else if err != nil && i == int(proxySize) {
 			return database, err
 		} else {
 			database = db
@@ -294,7 +311,7 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 	return database, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster, name string, namespace string) (string, error) {
 	database, err := r.proxyDB(cr)
 	if err != nil {
 		return "", fmt.Errorf("failed to get proxySQL db: %v", err)
@@ -302,21 +319,30 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 
 	defer database.Close()
 
+	if cr.Spec.HAProxy.Enabled {
+		host, err := database.Hostname()
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("%s.%s.%s", host, name, namespace), nil
+	}
+
 	return database.PrimaryHost()
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, podIP string, waitLimit int) error {
 	user := "root"
 
-	dbatabase, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podIP, 3306)
+	database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podIP, 3306)
 	if err != nil {
 		return fmt.Errorf("failed to access PXC database: %v", err)
 	}
 
-	defer dbatabase.Close()
+	defer database.Close()
 
 	for i := 0; i < waitLimit; i++ {
-		state, err := dbatabase.WsrepLocalStateComment()
+		state, err := database.WsrepLocalStateComment()
 		if err != nil {
 			return fmt.Errorf("failed to get wsrep local state: %v", err)
 		}

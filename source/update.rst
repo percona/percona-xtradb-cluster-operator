@@ -2,8 +2,8 @@ Update Percona XtraDB Cluster Operator
 ======================================
 
 Starting from the version 1.1.0 the Percona Kubernetes Operator for Percona XtraDB
-Cluster allows upgrades to newer versions. This upgrade can be done either in
-semi-automatic or in manual mode. 
+Cluster allows upgrades to newer versions. The upgrade can be done in three
+ways: automatic, semi-automatic, or manual.
 
 .. note:: The manual update mode is the recomended way for a production cluster.
 
@@ -11,6 +11,56 @@ semi-automatic or in manual mode.
    (for example, update from 1.2.0 to 1.3.0).
    To update to a newer version, which differs from the current version by more
    than one, make several incremental updates sequentially.
+
+Automatic update
+----------------
+
+Starting from the version 1.5.0 the Percona Kubernetes Operator for Percona XtraDB
+Cluster is able to do fully automatic upgrades to newer versions.
+
+When automatic updates are enabled, the will query the specified
+*Version Service* at the specified scheduled time to obtain a set of valid image
+paths for the version needed for upgrade. If the current version is different,
+the Operator updates the CR to reflect the new image paths and carries on 
+sequential Pods deletion in a safe order, allowing StatefulSet to redeploy the
+cluster Pods with the new image.
+
+The update is controlled by options in the ``upgradeOptions`` section of the 
+``deploy/cr.yaml`` configuration file. Make the following edits to configure
+updates:
+
+#. Set ``apply`` option to one of the following values:
+
+   * ``Never`` or ``Disabled`` - automatic upgrades are disabled,
+   * ``Recommended`` - automatic upgrades will choose the most recent version,
+       of software flagged as Recommended,
+   * ``Latest`` - automatic upgrades will choose the most recent version of
+     software available,
+   * *specific version number* - will apply an upgrade if the running version
+     doesn't match the explicit version number with no future upgrades.
+
+#. Make sure the ``versionServiceEndpoint`` key is set to a valid Version
+   Server URL. By default it is ``https://check.percona.com/operator/``,
+   but you can use your own Version Server as well. Version Server supplies
+   the operator with the up-to-date information about versions and their
+   compatibility in JSON format.
+
+   .. note:: Version Server is never checked if automatic updates are disabled.
+
+#. Use ``schedule`` option to specify the update checks time in CRON format.
+
+The following example sets the midnight update checks with the official
+Percona's Version Service:
+
+.. code:: bash
+
+   spec:
+     updateStrategy: SmartUpdate
+     upgradeOptions:
+       apply: 5.7.27-31.39
+       versionServiceEndpoint: https://check.percona.com/operator/
+       schedule: "0 0 * * *"
+   ...
 
 Semi-automatic update
 ---------------------

@@ -1,3 +1,5 @@
+.. _operator-update:
+
 Update Percona XtraDB Cluster Operator
 ======================================
 
@@ -11,6 +13,8 @@ ways: automatic, semi-automatic, or manual.
    (for example, update from 1.2.0 to 1.3.0).
    To update to a newer version, which differs from the current version by more
    than one, make several incremental updates sequentially.
+
+.. _operator-update-smartupdates:
 
 Automatic update
 ----------------

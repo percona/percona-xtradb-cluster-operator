@@ -1,0 +1,30 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: no-proxysql
+spec:
+  secretsName: my-cluster-secrets
+  pxc:
+    size: 3
+    image: -pxc
+    configuration: |
+      [mysqld]
+      wsrep_debug=1
+      max_allowed_packet=789M
+      [sst]
+      wsrep_debug=1
+    resources:
+      requests:
+        memory: 100M
+        cpu: 100m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: none
+  proxysql:
+    enabled: false
+  pmm:
+    enabled: false

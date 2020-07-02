@@ -251,6 +251,7 @@ pipeline {
                         runTest('one-pod', 'basic')
                         runTest('auto-tuning', 'basic')
                         runTest('proxysql-sidecar-res-limits', 'basic')
+                        runTest('users', 'basic')
                         ShutdownCluster('basic')
                    }
                 }

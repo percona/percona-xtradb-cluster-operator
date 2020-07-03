@@ -205,7 +205,7 @@ compare_kubectl() {
         | $sed -e '/name: S3_BUCKET_URL/,+1d' \
         | $sed -e '/annotations:$/{$!{N;s/annotations:\n    kubernetes.io.*//;ty;P;D;:y;d}}' \
         | $sed -e '/annotations:$/{$!{N;s/annotations:\n    cni.projectcalico.org.*//;ty;P;D;:y;d}}' \
-        | $sed -e '/volumeClaimTemplates/{N;/  \- apiVersion.*$/ {N;/  kind.*$/ {N;/    metadata:$/{s/volumeClaimTemplates.*metadata:$/volumeClaimTemplates:\n  \- metadata:/}}}}'
+        | $sed -e '/volumeClaimTemplates:$/{N;/  \- apiVersion.*$/ {N;/  kind.*$/ {N;/    metadata:$/{s/volumeClaimTemplates.*metadata:$/volumeClaimTemplates:\n  \- metadata:/}}}}' \
         > ${new_result}
 
     diff -u ${expected_result} ${new_result}

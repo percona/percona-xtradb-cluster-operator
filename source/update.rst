@@ -136,6 +136,15 @@ Manual update
 
       kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-{{{release}}}/deploy/crd.yaml
 
+      .. |rarr|   unicode:: U+02192 .. RIGHTWARDS ARROW
+      
+   .. note:: Upgrading from the Operator version prior to 1.5.0 needs one
+      additional step:
+
+      .. code:: bash
+      
+         kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-{{{release}}}/deploy/rbac.yaml
+
 #. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
    ``OnDelete``.
 

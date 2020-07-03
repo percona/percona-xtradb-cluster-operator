@@ -35,7 +35,6 @@ updates:
 
 #. Set ``apply`` option to one of the following values:
 
-   * ``Never`` or ``Disabled`` - automatic upgrades are disabled,
    * ``Recommended`` - automatic upgrades will choose the most recent version,
        of software flagged as Recommended,
    * ``Latest`` - automatic upgrades will choose the most recent version of
@@ -43,8 +42,14 @@ updates:
    * *specific version number* - will apply an upgrade if the running version
      doesn't match the explicit version number with no future upgrades.
 
+   .. note:: ``apply`` can be also set to ``Never`` or ``Disabled`` to to turn
+      automatic upgrades off.
+
+#. Make sure that the ``updateStrategy`` key is set to ``SmartUpdate``.
+
 #. Make sure the ``versionServiceEndpoint`` key is set to a valid Version
-   Server URL. By default it is ``https://check.percona.com/operator/``,
+   Server URL (otherwise automatic upgrade will not occur). By default it is
+   ``https://check.percona.com/operator/``,
    but you can use your own Version Server as well. Version Server supplies
    the operator with the up-to-date information about versions and their
    compatibility in JSON format.

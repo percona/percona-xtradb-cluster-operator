@@ -58,6 +58,7 @@ fi
 
 CFG=/etc/mysql/node.cnf
 egrep -q "^[#]?wsrep_sst_donor" "$CFG" || sed '/^\[mysqld\]/a wsrep_sst_donor=\n' ${CFG} 1<> ${CFG}
+egrep -q "^[#]?wsrep_node_incoming_address" "$CFG" || sed '/^\[mysqld\]/a wsrep_node_incoming_address=\n' ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?server_id=.*$|server_id=1${SERVER_ID}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?wsrep_node_address=.*$|wsrep_node_address=${NODE_IP}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?wsrep_cluster_name=.*$|wsrep_cluster_name=${CLUSTER_NAME}|" ${CFG} 1<> ${CFG}

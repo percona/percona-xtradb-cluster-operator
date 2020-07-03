@@ -44,24 +44,32 @@ updates:
    * *specific version number* - will apply an upgrade if the running version
      doesn't match the explicit version number with no future upgrades.
 
-   .. note:: ``apply`` can be also set to ``Never`` or ``Disabled`` to to turn
-      automatic upgrades off.
+   .. note:: ``apply`` can be also set to ``Never`` or ``Disabled`` to disable
+      automatic upgrades.
 
 #. Make sure the ``versionServiceEndpoint`` key is set to a valid Version
-   Server URL (otherwise Smart Updates will not occur). By default it is
-   ``https://check.percona.com/operator/``,
-   but you can use your own Version Server as well. Version Server supplies
-   the operator with the up-to-date information about versions and their
-   compatibility in JSON format.
+   Server URL (otherwise Smart Updates will not occur).
 
-   .. note:: Version Server is never checked if automatic updates are disabled.
+   A. You can use official Percona's Version Service URL (default variant).
+      Set ``versionServiceEndpoint`` to ``https://check.percona.com/operator/``.
+
+   B. Alternatively, you can run Version Service inside your cluster. This
+      can be done with the ``kubectl`` command as follows:
+      
+      .. code:: bash
+      
+         kubectl run version-service --image=perconalab/version-service:poc --env="SERVE_HTTP=true" --port 11000 --expose
+
+   .. note:: Version Service is never checked if automatic updates are disabled.
+      If automatic updates are enabled, but Version Service URL can not be
+      reached, upgrades will not occur.
 
 #. Use ``schedule`` option to specify the update checks time in CRON format.
 
 The following example sets the midnight update checks with the official
 Percona's Version Service:
 
-.. code:: bash
+.. code:: yaml
 
    spec:
      updateStrategy: SmartUpdate

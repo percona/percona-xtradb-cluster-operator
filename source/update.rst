@@ -1,42 +1,44 @@
 .. _operator-update:
 
-Update Percona XtraDB Cluster Operator
+Upgrade Percona XtraDB Cluster
 ======================================
 
-Starting from the version 1.1.0 the Percona Kubernetes Operator for Percona XtraDB
-Cluster allows upgrades to newer versions. The upgrade can be done in three
-ways: automatic, semi-automatic, or manual.
+Starting from the version 1.1.0 the Percona Kubernetes Operator for Percona
+XtraDB Cluster allows upgrades to newer versions. The upgrade can be done in
+three ways: automatic (also called *Smart Update*), semi-automatic, or manual.
 
-.. note:: The manual update mode is the recomended way for a production cluster.
+.. note:: Smart Update mode is the recomended way for a production cluster.
 
-.. note:: Only the incremental update to a nearest minor version is supported
-   (for example, update from 1.2.0 to 1.3.0).
-   To update to a newer version, which differs from the current version by more
-   than one, make several incremental updates sequentially.
+.. contents:: :local:
 
 .. _operator-update-smartupdates:
 
-Automatic update
-----------------
+Automatic upgrade
+-----------------
 
-Starting from the version 1.5.0 the Percona Kubernetes Operator for Percona XtraDB
-Cluster is able to do fully automatic upgrades to newer versions.
+Starting from the version 1.5.0 the Percona Kubernetes Operator for Percona
+XtraDB Cluster is able to do fully automatic upgrades to newer versions withing
+the method named *Smart Updates*.
 
-When automatic updates are enabled, the will query the specified
-*Version Service* at the specified scheduled time to obtain a set of valid image
-paths for the version needed for upgrade. If the current version is different,
+To have this upgrade method enabled, make sure that the ``updateStrategy`` key
+in the ``deploy/cr.yaml`` configuration file is set to ``SmartUpdate``.
+
+When automatic updates are enabled, the Operator will carry on upgrades
+according the following algorithm. It will query a special *Version Service* 
+server at scheduled times to obtain fresh information about version numbers and
+valid image paths needed for upgrade. If the current version should be upgraded,
 the Operator updates the CR to reflect the new image paths and carries on 
 sequential Pods deletion in a safe order, allowing StatefulSet to redeploy the
 cluster Pods with the new image.
 
-The update is controlled by options in the ``upgradeOptions`` section of the 
+The upgrade details are set in the ``upgradeOptions`` section of the 
 ``deploy/cr.yaml`` configuration file. Make the following edits to configure
 updates:
 
 #. Set ``apply`` option to one of the following values:
 
-   * ``Recommended`` - automatic upgrades will choose the most recent version,
-       of software flagged as Recommended,
+   * ``Recommended`` - automatic upgrades will choose the most recent version
+     of software flagged as Recommended,
    * ``Latest`` - automatic upgrades will choose the most recent version of
      software available,
    * *specific version number* - will apply an upgrade if the running version
@@ -45,10 +47,8 @@ updates:
    .. note:: ``apply`` can be also set to ``Never`` or ``Disabled`` to to turn
       automatic upgrades off.
 
-#. Make sure that the ``updateStrategy`` key is set to ``SmartUpdate``.
-
 #. Make sure the ``versionServiceEndpoint`` key is set to a valid Version
-   Server URL (otherwise automatic upgrade will not occur). By default it is
+   Server URL (otherwise Smart Updates will not occur). By default it is
    ``https://check.percona.com/operator/``,
    but you can use your own Version Server as well. Version Server supplies
    the operator with the up-to-date information about versions and their
@@ -71,8 +71,15 @@ Percona's Version Service:
        schedule: "0 0 * * *"
    ...
 
-Semi-automatic update
----------------------
+.. _operator-update-semiauto-updates:
+
+Semi-automatic upgrade
+----------------------
+
+.. note:: Only the incremental update to a nearest minor version of the Operator
+   is supported (for example, update from 1.2.0 to 1.3.0).
+   To update to a newer version, which differs from the current version by more
+   than one, make several incremental updates sequentially.
 
 #. Update the Custom Resource Definition file for the Operator, taking it from
    the official repository on Github:
@@ -80,6 +87,15 @@ Semi-automatic update
    .. code:: bash
 
       kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-{{{release}}}/deploy/crd.yaml
+
+      .. |rarr|   unicode:: U+02192 .. RIGHTWARDS ARROW
+
+   .. note:: Upgrading from the Operator version prior to 1.5.0 needs one
+      additional step:
+
+      .. code:: bash
+
+         kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-{{{release}}}/deploy/rbac.yaml
 
 #. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
    ``RollingUpdate``.
@@ -126,8 +142,15 @@ Semi-automatic update
 
      kubectl rollout status sts cluster1-pxc
 
+.. _operator-update-manual-updates:
+
 Manual update
 -------------
+
+.. note:: Only the incremental update to a nearest minor version of the Operator
+   is supported (for example, update from 1.2.0 to 1.3.0).
+   To update to a newer version, which differs from the current version by more
+   than one, make several incremental updates sequentially.
 
 #. Update the Custom Resource Definition file for the Operator, taking it from
    the official repository on Github:

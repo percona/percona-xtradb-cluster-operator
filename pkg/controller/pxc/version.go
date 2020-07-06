@@ -69,12 +69,10 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 			return
 		}
 
-		if len(localCr.Spec.Platform) == 0 {
-			if len(r.serverVersion.Platform) != 0 {
-				localCr.Spec.Platform = r.serverVersion.Platform
-			} else {
-				localCr.Spec.Platform = v1.PlatformKubernetes
-			}
+		_, err = localCr.CheckNSetDefaults(r.serverVersion)
+		if err != nil {
+			log.Error(err, "failed to set defaults for CR")
+			return
 		}
 
 		err = r.ensurePXCVersion(localCr, vs)
@@ -109,7 +107,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	newVersion, err := vs.GetExactVersion(currentVersionMeta{
 		Apply:         cr.Spec.UpgradeOptions.Apply,
 		Platform:      string(cr.Spec.Platform),
-		KubeVersion:   r.serverVersion.Info.GitVersion,
+		KubeVersion:   string(r.serverVersion.Info.GitVersion),
 		PXCVersion:    cr.Status.PXC.Version,
 		PMMVersion:    cr.Status.PMM.Version,
 		BackupVersion: cr.Status.Backup.Version,

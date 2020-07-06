@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-4-0
+apiVersion: pxc.percona.com/v1-5-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -20,7 +20,7 @@ spec:
     schedule: "* 2 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0
+    image: percona/percona-xtradb-cluster:8.0.19-10.1
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 300
@@ -149,7 +149,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.4.0-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.5.0-proxysql
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -215,7 +215,7 @@ spec:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   pmm:
     enabled: false
-    image: percona/percona-xtradb-cluster-operator:1.4.0-pmm
+    image: percona/percona-xtradb-cluster-operator:1.5.0-pmm
     serverHost: monitoring-service
     serverUser: pmm
 #    resources:
@@ -223,7 +223,7 @@ spec:
 #        memory: 200M
 #        cpu: 500m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0-backup
     serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

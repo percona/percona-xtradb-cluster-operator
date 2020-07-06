@@ -16,7 +16,7 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com/operator
-    apply: Disabled 
+    apply: Disabled
     schedule: "* 2 * * *"
   pxc:
     size: 3
@@ -70,7 +70,7 @@ spec:
 #                values:
 #                - e2e-az1
 #                - e2e-az2
-#    tolerations: 
+#    tolerations:
 #    - key: "node.alpha.kubernetes.io/unreachable"
 #      operator: "Exists"
 #      effect: "NoExecute"
@@ -212,7 +212,7 @@ spec:
 #   loadBalancerSourceRanges:
 #     - 10.0.0.0/8
 #   serviceAnnotations:
-#     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http    
+#     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   pmm:
     enabled: false
     image: percona/percona-xtradb-cluster-operator:1.4.0-pmm

@@ -16,7 +16,7 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform              *Platform                            `json:"platform,omitempty"`
+	Platform              Platform                             `json:"platform,omitempty"`
 	Pause                 bool                                 `json:"pause,omitempty"`
 	SecretsName           string                               `json:"secretsName,omitempty"`
 	VaultSecretName       string                               `json:"vaultSecretName,omitempty"`
@@ -292,12 +292,9 @@ var livenessInitialDelaySeconds int32 = 300
 // ErrClusterNameOverflow upspring when the cluster name is longer than acceptable
 var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no more than %d characters", clusterNameMaxLen)
 
-func (cr *PerconaXtraDBCluster) setSecurityContext(serverVersion *ServerVersion) {
-	if cr.Spec.Platform != nil {
-		serverVersion.Platform = *cr.Spec.Platform
-	}
+func (cr *PerconaXtraDBCluster) setSecurityContext() {
 	var fsgroup *int64
-	if serverVersion.Platform == PlatformKubernetes {
+	if cr.Spec.Platform != PlatformOpenshift {
 		var tp int64 = 1001
 		fsgroup = &tp
 	}
@@ -484,7 +481,15 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		return false, fmt.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
 	}
 
-	cr.setSecurityContext(serverVersion)
+	if len(cr.Spec.Platform) == 0 {
+		if len(serverVersion.Platform) > 0 {
+			cr.Spec.Platform = serverVersion.Platform
+		} else {
+			cr.Spec.Platform = PlatformKubernetes
+		}
+	}
+
+	cr.setSecurityContext()
 
 	return changed, nil
 }

@@ -31,5 +31,6 @@ COPY --from=go_builder /usr/local/bin/percona-xtradb-cluster-operator /usr/local
 COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/unsafe-bootstrap.sh /unsafe-bootstrap.sh
+COPY build/pxc-configure-pxc.sh /pxc-configure-pxc.sh
 
 USER nobody

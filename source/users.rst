@@ -141,7 +141,13 @@ creates the necessary transaction to change passwords. This rotation happens
 almost instantly (the delay can be up to a few seconds), and it's not needed to
 take any action beyond changing the password.
 
+Marking System Users In MySQL
+*****************************
 
+Starting with MySQL 8.0.16, a new feature called Account Categories has been
+implemented, which allows us to mark our system users as such.
+See `the official documentation on this feature <https://dev.mysql.com/doc/refman/8.0/en/account-categories.html>`_
+for more details.
 
 .. _users.development-mode:
 

@@ -886,5 +886,6 @@ patch_secret() {
     local secret=$1
     local key=$2
     local value=$3
+    
     kubectl patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
 }

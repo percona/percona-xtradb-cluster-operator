@@ -52,8 +52,8 @@ while read -ra LINE; do
 done
 
 if [ "${#PEERS[@]}" != 0 ]; then
-    DONOR_ADDRESS="$(printf '%s\n' "${PEERS[@]}" "${HOSTNAME}" | sort -n | uniq | grep -v -- '-0$' | sed '$d' | tr '\n' ',' | sed 's/,$//')"
-    WSREP_CLUSTER_ADDRESS="$(printf '%s\n' "${PEERS_FULL[@]}" | sort -n | tr '\n' ',' | sed 's/,$//')"
+    DONOR_ADDRESS="$(printf '%s\n' "${PEERS[@]}" "${HOSTNAME}" | sort --version-sort | uniq | grep -v -- '-0$' | sed '$d' | tr '\n' ',' | sed 's/,$//')"
+    WSREP_CLUSTER_ADDRESS="$(printf '%s\n' "${PEERS_FULL[@]}" | sort --version-sort | tr '\n' ',' | sed 's/,$//')"
 fi
 
 CFG=/etc/mysql/node.cnf

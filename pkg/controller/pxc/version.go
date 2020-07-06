@@ -99,7 +99,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	newVersion, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.Apply, cr.Status.PXC.Version, currVersionMeta{
-		Platform:      string(r.serverVersion.Platform),
+		Platform:      string(cr.Spec.Platform),
 		KubeVersion:   string(r.serverVersion.Info.GitVersion),
 		PMMVersion:    cr.Status.PMM.Version,
 		BackupVersion: cr.Status.Backup.Version,

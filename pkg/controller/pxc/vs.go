@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -13,7 +14,13 @@ func (vs VersionServiceClient) GetExactVersion(desiredVersion, currentVersion st
 		Timeout: 5 * time.Second,
 	}
 
-	requestURL, err := url.Parse(fmt.Sprintf("%s/api/versions/v1/pxc/%s/%s", vs.URL, vs.OpVersion, desiredVersion))
+	requestURL, err := url.Parse(
+		fmt.Sprintf("%s/api/versions/v1/pxc/%s/%s",
+			strings.TrimRight(vs.URL, "/"),
+			vs.OpVersion,
+			desiredVersion,
+		),
+	)
 	if err != nil {
 		return DepVersion{}, err
 	}

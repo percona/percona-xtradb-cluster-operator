@@ -3,10 +3,16 @@
 Users
 ==============================
 
-The Operator requires
-Kubernetes Secrets to be deployed before the PXC Cluster is started. The name of the
-required secrets can be set in ``deploy/cr.yaml`` under the
-``spec.secretsName`` section.
+MySQL user accounts within the Cluster can be divided into two different groups:
+
+* application-level (unprivileged) users,
+* system-level users (accounts needed to automate the deployment and management
+  of the cluster components, such as PXC and ProxySQL).
+
+As these two groups of user accounts serve different purposes, they are
+considered separately in the following sections.
+
+.. contents:: :local:
 
 .. _users.unprivileged-users:
 
@@ -47,14 +53,17 @@ permissions have been successfully granted.
 `System Users <users.html#system-users>`_
 -------------------------------------------
 
-*Default Secret name:* ``my-cluster-secrets``
+To automate the deployment and management of the cluster components,
+the Operator requires system-level PXC users.
 
-*Secret name field:* ``spec.secretsName``
+Credentials for these users are stored as a `Kubernetes Secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_ object.
+The Operator requires to be deployed before the PXC Cluster is started. The name
+of the required secrets (``my-cluster-secrets`` by default) should be set in
+in the ``spec.secretsName`` option of the ``deploy/cr.yaml`` configuration file.
 
-The Operator requires system-level PXC users to automate the PXC
-deployment.
+The following table shows system users' names and purposes.
 
-**Warning:** *These users should not be used to run an application.*
+.. warning:: These users should not be used to run an application.
 
 .. tabularcolumns:: |p{1.5cm}|p{1.5cm}|p{1.5cm}|p{2.5cm}|L|
 
@@ -81,14 +90,58 @@ deployment.
       - clustercheck
       - clustercheck
       - `User for liveness checks and readiness checks <http://galeracluster.com/library/documentation/monitoring-cluster.html>`__
-    * - PMM Client User
+    * - Monitoring
       - monitor
       - monitor 
-      - `User for PMM agent <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__
+      - User for internal monitoring purposes and `PMM agent <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__
     * - PMM Server Password
       - should be set through the `operator options <operator>`__
       - pmmserver
       - `Password used to access PMM Server <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__
+
+YAML Object Format
+******************
+
+The default name of the Secrets object for these users is
+``my-cluster-secrets`` and can be set in the CR for your cluster in
+``spec.secretName`` to something different. When you create the object yourself,
+it should match the following simple format:
+
+.. code:: yaml
+
+   apiVersion: v1
+   kind: Secret
+   metadata:
+     name: my-cluster-secrets
+   type: Opaque
+   data:
+     root: cm9vdF9wYXNzd29yZA==
+     xtrabackup: YmFja3VwX3Bhc3N3b3Jk
+     monitor: bW9uaXRvcg==
+     clustercheck: Y2x1c3RlcmNoZWNrcGFzc3dvcmQ=
+     proxyadmin: YWRtaW5fcGFzc3dvcmQ=
+     pmmserver: c3VwYXxefHBheno=
+
+The example above matches
+:ref:`what is shipped in deploy/secrets.yaml<users.development-mode>` which
+contains default passwords. You should NOT use these in production, but they are
+present to assist in automated testing or simple use in a development
+environment.
+
+As you can see, because we use the ``data`` type in the Secrets object, all
+values for each key/value pair must be encoded in base64. To do this you can
+simply run ``echo -n "password" | base64`` in your local shell to get valid
+values.
+
+Password Rotation Policies and Timing
+*************************************
+
+When there is a change in user secrets or ``secretName`` option, the Operator
+creates the necessary transaction to change passwords. This rotation happens
+almost instantly (the delay can be up to a few seconds), and it's not needed to
+take any action beyond changing the password.
+
+
 
 .. _users.development-mode:
 
@@ -112,4 +165,4 @@ proxyadmin   ``admin_password``
 pmmserver    ``supa|^|pazz``
 ============ ========================
 
-**Warning:** *Do not use the default PXC user passwords in production!*
+.. warning:: Do not use the default PXC user passwords in production!

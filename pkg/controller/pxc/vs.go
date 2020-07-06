@@ -9,14 +9,17 @@ import (
 	"time"
 )
 
+const productName = "pxc-operator"
+
 func (vs VersionServiceClient) GetExactVersion(versionMeta currentVersionMeta) (DepVersion, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
 
 	requestURL, err := url.Parse(
-		fmt.Sprintf("%s/api/versions/v1/pxc/%s/%s",
+		fmt.Sprintf("%s/v1/%s/%s/%s",
 			strings.TrimRight(vs.URL, "/"),
+			productName,
 			vs.OpVersion,
 			versionMeta.Apply,
 		),

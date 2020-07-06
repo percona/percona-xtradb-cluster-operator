@@ -9,19 +9,16 @@ import (
 	"time"
 )
 
-const productName = "pxc-operator"
-
-func (vs VersionServiceClient) GetExactVersion(versionMeta currentVersionMeta) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
 
 	requestURL, err := url.Parse(
-		fmt.Sprintf("%s/v1/%s/%s/%s",
+		fmt.Sprintf("%s/api/versions/v1/pxc/%s/%s",
 			strings.TrimRight(vs.URL, "/"),
-			productName,
 			vs.OpVersion,
-			versionMeta.Apply,
+			vm.Apply,
 		),
 	)
 	if err != nil {
@@ -29,17 +26,17 @@ func (vs VersionServiceClient) GetExactVersion(versionMeta currentVersionMeta) (
 	}
 
 	q := requestURL.Query()
-	q.Add("databaseVersion", versionMeta.PXCVersion)
-	q.Add("kubeVersion", versionMeta.KubeVersion)
-	q.Add("platform", versionMeta.Platform)
-	q.Add("customResourceUID", versionMeta.CRUID)
+	q.Add("databaseVersion", vm.PXCVersion)
+	q.Add("kubeVersion", vm.KubeVersion)
+	q.Add("platform", vm.Platform)
+	q.Add("customResourceUID", vm.CRUID)
 
-	if versionMeta.PMMVersion != "" {
-		q.Add("pmmVersion", versionMeta.PMMVersion)
+	if vm.PMMVersion != "" {
+		q.Add("pmmVersion", vm.PMMVersion)
 	}
 
-	if versionMeta.BackupVersion != "" {
-		q.Add("backupVersion", versionMeta.BackupVersion)
+	if vm.BackupVersion != "" {
+		q.Add("backupVersion", vm.BackupVersion)
 	}
 
 	requestURL.RawQuery = q.Encode()
@@ -125,7 +122,7 @@ type DepVersion struct {
 }
 
 type VersionService interface {
-	GetExactVersion(versionMeta currentVersionMeta) (DepVersion, error)
+	GetExactVersion(vm versionMeta) (DepVersion, error)
 }
 
 type VersionServiceClient struct {
@@ -158,7 +155,7 @@ type VersionResponse struct {
 	Versions []OperatorVersion `json:"versions"`
 }
 
-type currentVersionMeta struct {
+type versionMeta struct {
 	Apply         string
 	PXCVersion    string
 	KubeVersion   string

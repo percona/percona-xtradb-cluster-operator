@@ -16,20 +16,20 @@ three ways: automatic (also called *Smart Update*), semi-automatic, or manual.
 Automatic upgrade
 -----------------
 
-Starting from the version 1.5.0 the Percona Kubernetes Operator for Percona
-XtraDB Cluster is able to do fully automatic upgrades to newer versions withing
+Starting from version 1.5.0 the Percona Kubernetes Operator for Percona
+XtraDB Cluster is able to do fully automatic upgrades to newer versions within
 the method named *Smart Updates*.
 
 To have this upgrade method enabled, make sure that the ``updateStrategy`` key
 in the ``deploy/cr.yaml`` configuration file is set to ``SmartUpdate``.
 
 When automatic updates are enabled, the Operator will carry on upgrades
-according the following algorithm. It will query a special *Version Service* 
+according to the following algorithm. It will query a special *Version Service* 
 server at scheduled times to obtain fresh information about version numbers and
-valid image paths needed for upgrade. If the current version should be upgraded,
-the Operator updates the CR to reflect the new image paths and carries on 
-sequential Pods deletion in a safe order, allowing StatefulSet to redeploy the
-cluster Pods with the new image.
+valid image paths needed for the upgrade. If the current version should be
+upgraded, the Operator updates the CR to reflect the new image paths and carries
+on sequential Pods deletion in a safe order, allowing StatefulSet to redeploy
+the cluster Pods with the new image.
 
 The upgrade details are set in the ``upgradeOptions`` section of the 
 ``deploy/cr.yaml`` configuration file. Make the following edits to configure
@@ -40,17 +40,17 @@ updates:
    * ``Recommended`` - automatic upgrades will choose the most recent version
      of software flagged as Recommended,
    * ``Latest`` - automatic upgrades will choose the most recent version of
-     software available,
+     the software available,
    * *specific version number* - will apply an upgrade if the running version
      doesn't match the explicit version number with no future upgrades.
 
-   .. note:: ``apply`` can be also set to ``Never`` or ``Disabled`` to disable
+   .. note:: ``apply`` can also be set to ``Never`` or ``Disabled`` to disable
       automatic upgrades.
 
 #. Make sure the ``versionServiceEndpoint`` key is set to a valid Version
    Server URL (otherwise Smart Updates will not occur).
 
-   A. You can use official Percona's Version Service URL (default variant).
+   A. You can use the URL of the official Percona's Version Service (default).
       Set ``versionServiceEndpoint`` to ``https://check.percona.com/operator/``.
 
    B. Alternatively, you can run Version Service inside your cluster. This
@@ -64,7 +64,7 @@ updates:
       If automatic updates are enabled, but Version Service URL can not be
       reached, upgrades will not occur.
 
-#. Use ``schedule`` option to specify the update checks time in CRON format.
+#. Use the ``schedule`` option to specify the update checks time in CRON format.
 
 The following example sets the midnight update checks with the official
 Percona's Version Service:

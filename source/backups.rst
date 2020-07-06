@@ -166,6 +166,35 @@ configures a private volume for filesystem-type storage:
    take effect after applying the updated ``deploy/cr.yaml`` file with
    ``kubectl``.
 
+.. _backups-compression:
+
+Enabling compression for backups
+--------------------------------
+
+Starting from the Percona XtraDB Cluster Operator 1.5.0, it is possible to
+enable `LZ4 compression <https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)>`_.
+
+.. note:: This feature is available only with PXC 8.0 and not PXC 5.7.
+
+To enable compression, use :ref:`pxc-configuration` key in the
+``deploy/cr.yaml`` configuration file to supply Percona XtraDB Cluster nodes
+with two additional ``my.cnf`` options under its ``[sst]`` and ``[xtrabackup]``
+sections as follows:
+
+.. code:: yaml
+
+   pxc:
+     image: percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0
+     configuration: |
+       ...
+       [sst]
+       xbstream-opts=--decompress
+       [xtrabackup]
+       compress=lz4
+       ...
+
+When enabled, compression will be used for both backups and `SST <https://www.percona.com/doc/percona-xtradb-cluster/8.0/manual/state_snapshot_transfer.html>`_.
+
 .. _backups-restore:
 
 Restore the cluster from a previously saved backup

@@ -7,7 +7,7 @@ MySQL user accounts within the Cluster can be divided into two different groups:
 
 * application-level (unprivileged) users,
 * system-level users (accounts needed to automate the deployment and management
-  of the cluster components, such as PXC and ProxySQL).
+  of the cluster components, such as PXC Health checks or ProxySQL integration).
 
 As these two groups of user accounts serve different purposes, they are
 considered separately in the following sections.

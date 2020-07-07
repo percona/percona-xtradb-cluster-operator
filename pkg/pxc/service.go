@@ -119,8 +119,14 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
-	if len(cr.Spec.ProxySQL.ServiceType) > 0 {
+	if cr.Spec.ProxySQL != nil && len(cr.Spec.ProxySQL.ServiceType) > 0 {
 		svcType = cr.Spec.ProxySQL.ServiceType
+	}
+	serviceAnnotations := make(map[string]string)
+	loadBalancerSourceRanges := []string{}
+	if cr.Spec.ProxySQL != nil {
+		serviceAnnotations = cr.Spec.ProxySQL.ServiceAnnotations
+		loadBalancerSourceRanges = cr.Spec.ProxySQL.LoadBalancerSourceRanges
 	}
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -134,7 +140,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/name":     "percona-xtradb-cluster",
 				"app.kubernetes.io/instance": cr.Name,
 			},
-			Annotations: cr.Spec.ProxySQL.ServiceAnnotations,
+			Annotations: serviceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: svcType,
@@ -149,7 +155,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/instance":  cr.Name,
 				"app.kubernetes.io/component": "proxysql",
 			},
-			LoadBalancerSourceRanges: cr.Spec.ProxySQL.LoadBalancerSourceRanges,
+			LoadBalancerSourceRanges: loadBalancerSourceRanges,
 		},
 	}
 
@@ -158,8 +164,14 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
-	if len(cr.Spec.HAProxy.ServiceType) > 0 {
+	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ServiceType) > 0 {
 		svcType = cr.Spec.HAProxy.ServiceType
+	}
+	serviceAnnotations := make(map[string]string)
+	loadBalancerSourceRanges := []string{}
+	if cr.Spec.HAProxy != nil {
+		serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
+		loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
 	}
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -176,7 +188,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			},
-			Annotations: cr.Spec.HAProxy.ServiceAnnotations,
+			Annotations: serviceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: svcType,
@@ -197,7 +209,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/instance":  cr.Name,
 				"app.kubernetes.io/component": "haproxy",
 			},
-			LoadBalancerSourceRanges: cr.Spec.HAProxy.LoadBalancerSourceRanges,
+			LoadBalancerSourceRanges: loadBalancerSourceRanges,
 		},
 	}
 
@@ -221,7 +233,6 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			},
-			Annotations: cr.Spec.HAProxy.ServiceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: svcType,

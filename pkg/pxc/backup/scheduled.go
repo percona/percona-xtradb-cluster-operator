@@ -2,6 +2,8 @@ package backup
 
 import (
 	"fmt"
+	"hash/crc32"
+	"strconv"
 
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -89,7 +91,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 							},
 							{
 								Name:  "suffix",
-								Value: genRandString(5),
+								Value: strconv.FormatUint(uint64(crc32.ChecksumIEEE([]byte(spec.Schedule))), 32)[:5],
 							},
 						},
 						Args: []string{

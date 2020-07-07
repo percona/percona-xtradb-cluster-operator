@@ -171,8 +171,9 @@ configures a private volume for filesystem-type storage:
 Enabling compression for backups
 --------------------------------
 
-Starting from the Percona XtraDB Cluster Operator 1.5.0, it is possible to
-enable `LZ4 compression <https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)>`_.
+There is a possibility to enable 
+`LZ4 compression <https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)>`_
+for backups.
 
 .. note:: This feature is available only with PXC 8.0 and not PXC 5.7.
 

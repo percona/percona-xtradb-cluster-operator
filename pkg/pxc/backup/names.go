@@ -1,27 +1,10 @@
 package backup
 
 import (
-	"math/rand"
 	"strings"
-	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
-const genSymbols = "abcdefghijklmnopqrstuvwxyz1234567890"
-
-func genRandString(ln int) string {
-	b := make([]byte, ln)
-	for i := range b {
-		b[i] = genSymbols[rand.Intn(len(genSymbols))]
-	}
-
-	return string(b)
-}
 
 func genScheduleLabel(sched string) string {
 	r := strings.NewReplacer("*", "N", "/", "E", " ", "_", ",", ".")

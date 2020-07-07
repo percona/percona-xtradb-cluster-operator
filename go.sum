@@ -61,8 +61,8 @@ github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMo
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/OneOfOne/xxhash v1.2.6/go.mod h1:eZbhyaAYD41SGSSsnmcpxVoRiQ/MPUTjUdIIOT9Um7Q=
-github.com/Percona-Lab/percona-version-service/api v0.0.0-20200702140248-ad469044aacf h1:GeAiiL7NlH1q/j3emyXKYeRWCqv0ML7jJ1AZsMv0mmY=
-github.com/Percona-Lab/percona-version-service/api v0.0.0-20200702140248-ad469044aacf/go.mod h1:QDbZ+DHh0CkTHN6LRkMQd1pEl3b30EaNZ9FA97Mb3TA=
+github.com/Percona-Lab/percona-version-service/api v0.0.0-20200707073643-e3dd469db8be h1:TL1Q7CRBmK3vUC9Z6EMdcra6wHmL0fkcMjDgs3ypEyI=
+github.com/Percona-Lab/percona-version-service/api v0.0.0-20200707073643-e3dd469db8be/go.mod h1:QDbZ+DHh0CkTHN6LRkMQd1pEl3b30EaNZ9FA97Mb3TA=
 github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.1 h1:WEQqlqaGbrPkxLJWfBwQmfEAE1Z7ONdDLqrN38tNFfI=

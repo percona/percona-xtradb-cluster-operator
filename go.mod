@@ -3,7 +3,7 @@ module github.com/percona/percona-xtradb-cluster-operator
 go 1.13
 
 require (
-	github.com/Percona-Lab/percona-version-service/api v0.0.0-20200702140248-ad469044aacf
+	github.com/Percona-Lab/percona-version-service/api v0.0.0-20200707073643-e3dd469db8be
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-openapi/errors v0.19.6
 	github.com/go-openapi/runtime v0.19.16

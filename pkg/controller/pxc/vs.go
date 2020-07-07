@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -10,9 +11,9 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient/version_service"
 )
 
-const productName = "pxc"
+const productName = "pxc-operator"
 
-func (vs VersionServiceClient) GetExactVersion(desiredVersion, currentVersion string, versionMeta currVersionMeta) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, error) {
 	requestURL, err := url.Parse(vs.URL)
 	if err != nil {
 		return DepVersion{}, err
@@ -24,12 +25,21 @@ func (vs VersionServiceClient) GetExactVersion(desiredVersion, currentVersion st
 		Schemes:  []string{requestURL.Scheme},
 	})
 
-	params := version_service.NewVersionServiceApplyParamsWithTimeout(10 * time.Second).WithProduct(productName).
-		WithOperatorVersion(vs.OpVersion).WithApply(desiredVersion).WithDatabaseVersion(&currentVersion).
-		WithKubeVersion(&versionMeta.KubeVersion).WithPlatform(&versionMeta.Platform).WithCustomResourceOid(&versionMeta.CRUID).
-		WithPmmVersion(&versionMeta.PMMVersion).WithBackupVersion(&versionMeta.BackupVersion)
+	applyParams := &version_service.VersionServiceApplyParams{
+		Apply:             vm.Apply,
+		BackupVersion:     &vm.BackupVersion,
+		CustomResourceOid: &vm.CRUID,
+		DatabaseVersion:   &vm.PXCVersion,
+		KubeVersion:       &vm.KubeVersion,
+		OperatorVersion:   vs.OpVersion,
+		Platform:          &vm.Platform,
+		PmmVersion:        &vm.PMMVersion,
+		Product:           productName,
+		HTTPClient:        &http.Client{Timeout: 10 * time.Second},
+	}
+	applyParams = applyParams.WithTimeout(10 * time.Second)
 
-	resp, err := srvCl.VersionService.VersionServiceApply(params)
+	resp, err := srvCl.VersionService.VersionServiceApply(applyParams)
 
 	if err != nil {
 		return DepVersion{}, err
@@ -101,7 +111,7 @@ type DepVersion struct {
 }
 
 type VersionService interface {
-	GetExactVersion(vm versionMeta) (DepVersion, error)
+	GetExactVersion(versionMeta versionMeta) (DepVersion, error)
 }
 
 type VersionServiceClient struct {
@@ -109,7 +119,9 @@ type VersionServiceClient struct {
 	OpVersion string
 }
 
-type currVersionMeta struct {
+type versionMeta struct {
+	Apply         string
+	PXCVersion    string
 	KubeVersion   string
 	Platform      string
 	PMMVersion    string

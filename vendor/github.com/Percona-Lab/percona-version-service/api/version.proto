@@ -1,31 +1,34 @@
-syntax="proto3";
+syntax = "proto3";
 
 package version;
-
-import "google/api/annotations.proto";
-import "protoc-gen-openapiv2/options/annotations.proto";
-
-// Defines the import path that should be used to import the generated package,
-// and the package name.
-option go_package = "github.com/Percona-Lab/percona-version-service/proto;version";
 
 // These annotations are used when generating the OpenAPI file.
 option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
   info: {
-    version: "1.0";
-  };
-  external_docs: {
-    url: "https://github.com/Percona-Lab/percona-version-service";
-    description: "gRPC-gateway boilerplate repository";
+    version: "1.0"
   }
-  schemes: [HTTP, HTTPS];
+  external_docs: {
+    url: "https://github.com/Percona-Lab/percona-version-service"
+    description: "This service provides version information and image paths for supporting the use of Percona Kubernetes Operators in a variety of scenarios while enabling specific version deployments and automated upgrades."
+  }
+  schemes: [
+    HTTP,
+    HTTPS
+  ]
 };
+// Defines the import path that should be used to import the generated package,
+// and the package name.
+option go_package = "github.com/Percona-Lab/percona-version-service/version";
 
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+// VersionService provides public API methods for version service usage.
 service VersionService {
+  // Apply provides information about specific product version and its dependencies.
   rpc Apply(ApplyRequest) returns (VersionResponse) {
     option (google.api.http) = {
-      // Route to this method from GET requests to /versions/v1/{product}/{operatorVersion}/{apply} 
-      get: "/api/versions/v1/{product}/{operator_version}/{apply}"
+      get: "/versions/v1/{product}/{operator_version}/{apply}"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       summary: "Specific version"
@@ -44,16 +47,27 @@ message ApplyRequest {
   string pmm_version = 7;
   string backup_version = 8;
   string namespace_oid = 9;
-  string customResource_oid = 10; 
+  string custom_resource_oid = 10;
 }
 
+// Status describes the current version status.
+enum Status {
+  status_invalid = 0;
+  recommended = 1;
+  available = 2;
+  required = 3;
+  disabled = 4;
+}
+
+// Version represents product version information.
 message Version {
   string image_path = 1;
   string image_hash = 2;
-  string status = 3;
+  Status status = 3;
   bool critical = 4;
- }
+}
 
+// VersionMatrix represents set of possible product versions.
 message VersionMatrix {
   map<string, Version> mongod = 1;
   map<string, Version> pxc = 2;
@@ -64,9 +78,10 @@ message VersionMatrix {
   map<string, Version> operator = 7;
 }
 
+// OperatorVersion represents operator version.
 message OperatorVersion {
-  string operator = 1;
-  string database = 2;
+  string product = 1;
+  string operator = 2;
   VersionMatrix matrix = 3;
 }
 

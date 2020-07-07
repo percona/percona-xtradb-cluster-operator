@@ -227,7 +227,7 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Type: svcType,
 			Ports: []corev1.ServicePort{
 				{
-					Port:       3307,
+					Port:       3306,
 					TargetPort: intstr.FromInt(3307),
 					Name:       "mysql-replicas",
 				},

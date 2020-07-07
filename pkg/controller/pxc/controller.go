@@ -262,6 +262,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	haProxySet := statefulset.NewHAProxy(o)
+	haProxyService := pxc.NewServiceHAProxy(o)
 
 	if o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled {
 		err = r.updatePod(haProxySet, o.Spec.HAProxy, o, nil)
@@ -270,7 +271,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 
-		haProxyService := pxc.NewServiceHAProxy(o)
 		currentService := &corev1.Service{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: haProxyService.Name, Namespace: haProxyService.Namespace}, currentService)
 		if err != nil {
@@ -334,9 +334,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+		haProxyReplicasService := pxc.NewServiceHAProxyReplicas(o)
+		err = r.deleteServices([]*corev1.Service{haProxyService, haProxyReplicasService})
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
+	proxysqlService := pxc.NewServiceProxySQL(o)
 
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
@@ -345,7 +351,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 
-		proxysqlService := pxc.NewServiceProxySQL(o)
 		currentService := &corev1.Service{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: proxysqlService.Name, Namespace: proxysqlService.Namespace}, currentService)
 		if err != nil {
@@ -390,6 +395,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 
 		err = r.deleteStatefulSet(o.Namespace, proxysqlSet, deletePVC)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		proxysqlUnreadyService := pxc.NewServiceProxySQLUnready(o)
+		err = r.deleteServices([]*corev1.Service{proxysqlService, proxysqlUnreadyService})
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -807,6 +817,16 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs 
 		}
 	}
 
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs []*corev1.Service) error {
+	for _, s := range svcs {
+		err := r.client.Delete(context.TODO(), s)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("delete service: %v", err)
+		}
+	}
 	return nil
 }
 

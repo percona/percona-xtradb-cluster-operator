@@ -6,8 +6,8 @@ Users
 MySQL user accounts within the Cluster can be divided into two different groups:
 
 * application-level (unprivileged) users,
-* system-level users (accounts needed to automate the deployment and management
-  of the cluster components, such as PXC Health checks or ProxySQL integration).
+* system-level users (accounts needed to automate the cluster deployment and
+  management tasks, such as PXC Health checks or ProxySQL integration).
 
 As these two groups of user accounts serve different purposes, they are
 considered separately in the following sections.
@@ -28,12 +28,6 @@ default. If you need general purpose users, please run commands below:
    mysql> GRANT ALL PRIVILEGES ON database1.* TO 'user1'@'%' IDENTIFIED BY 'password1';
 
 .. note:: MySQL password here should not exceed 32 characters due to the `replication-specific limit introduced in MySQL 5.7.5 <https://dev.mysql.com/doc/relnotes/mysql/5.7/en/news-5-7-5.html>`_.
-
-Sync users on the ProxySQL node:
-
-.. code-block:: bash
-
-   $ kubectl exec -it cluster1-proxysql-0 -- proxysql-admin --config-file=/etc/proxysql-admin.cnf --syncusers
 
 Verify that the user was created successfully. If successful, the
 following command will let you successfully login to MySQL shell via
@@ -77,7 +71,7 @@ The following table shows system users' names and purposes.
     * - Admin
       - root
       - root
-      - Database administrative user, should only be used for maintenance tasks
+      - Database administrative user, can be used by the application if needed
     * - ProxySQLAdmin   
       - proxyadmin
       - proxyadmin
@@ -98,6 +92,10 @@ The following table shows system users' names and purposes.
       - should be set through the `operator options <operator>`__
       - pmmserver
       - `Password used to access PMM Server <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__
+    * - Operator Admin
+      - operator
+      - operator
+      - Database administrative user, should be used only by the Operator
 
 YAML Object Format
 ******************
@@ -121,6 +119,7 @@ it should match the following simple format:
      clustercheck: Y2x1c3RlcmNoZWNrcGFzc3dvcmQ=
      proxyadmin: YWRtaW5fcGFzc3dvcmQ=
      pmmserver: c3VwYXxefHBheno=
+     operator: b3BlcmF0b3JhZG1pbg==
 
 The example above matches
 :ref:`what is shipped in deploy/secrets.yaml<users.development-mode>` which
@@ -169,6 +168,7 @@ clustercheck ``clustercheckpassword``
 proxyuser    ``s3cret``
 proxyadmin   ``admin_password``
 pmmserver    ``supa|^|pazz``
+operator     ``operatoradmin``
 ============ ========================
 
 .. warning:: Do not use the default PXC user passwords in production!

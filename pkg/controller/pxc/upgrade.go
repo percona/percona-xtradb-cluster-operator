@@ -35,7 +35,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function
-	configHash := r.getConfigHash(cr, currentSet)
+	configHash := r.getConfigHash(cr, sfs)
 	if currentSet.Spec.Template.Annotations == nil {
 		currentSet.Spec.Template.Annotations = make(map[string]string)
 	}
@@ -400,11 +400,11 @@ func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBClu
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, currentSet *appsv1.StatefulSet) string {
+func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) string {
 	configString := cr.Spec.PXC.Configuration
-	if currentSet.Labels["app.kubernetes.io/component"] == "haproxy" {
+	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" {
 		configString = cr.Spec.HAProxy.Configuration
-	} else if currentSet.Labels["app.kubernetes.io/component"] == "proxysql" {
+	} else if sfs.Labels()["app.kubernetes.io/component"] == "proxysql" {
 		configString = cr.Spec.ProxySQL.Configuration
 	}
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))

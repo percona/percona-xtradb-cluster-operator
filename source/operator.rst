@@ -837,8 +837,8 @@ configuration options for the HAProxy daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``10.0.0.0/8``                                                                            |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** |                                                                                           |
-|                 |                                                                                           |
+| **Description** | The range of client IP addresses from which the load balancer should be reachable         |
+|                 | (if not set, there is no limitations)                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -850,8 +850,9 @@ configuration options for the HAProxy daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http``                   |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** |                                                                                           |
-|                 |                                                                                           |
+| **Description** | The `Kubernetes annotations                                                               |
+|                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_        |
+|                 | metadata for the load balancer Service                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -863,8 +864,9 @@ configuration options for the HAProxy daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``percona-xtradb-cluster-operator-workload``                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** |                                                                                           |
-|                 |                                                                                           |
+| **Description** | The `Kubernetes Service Account                                                           |
+                    <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>_    |
+|                 | name for the HAProxy Pod                                                                  |
 +-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.proxysql-section:
@@ -1312,8 +1314,8 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``10.0.0.0/8``                                                                            |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** |                                                                                           |
-|                 |                                                                                           |
+| **Description** | The range of client IP addresses from which the load balancer should be reachable         |
+|                 | (if not set, there is no limitations)                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1325,8 +1327,9 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http``                   |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** |                                                                                           |
-|                 |                                                                                           |
+| **Description** | The `Kubernetes annotations                                                               |
+|                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_        |
+|                 | metadata for the load balancer Service                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1338,8 +1341,9 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``percona-xtradb-cluster-operator-workload``                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** |                                                                                           |
-|                 |                                                                                           |
+| **Description** | The `Kubernetes Service Account                                                           |
+                    <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>_    |
+|                 | name for the ProxySQL Pod                                                                 |
 +-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.pmm-section:

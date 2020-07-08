@@ -866,7 +866,7 @@ configuration options for the HAProxy daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes Service Account                                                           |
                     <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>_    |
-|                 | name for the HAProxy Pod                                                                  |
+|                 | for the HAProxy Pod                                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.proxysql-section:
@@ -1343,7 +1343,7 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes Service Account                                                           |
                     <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>_    |
-|                 | name for the ProxySQL Pod                                                                 |
+|                 | for the ProxySQL Pod                                                                      |
 +-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.pmm-section:

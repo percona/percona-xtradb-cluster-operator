@@ -3,11 +3,11 @@
 Upgrade Percona XtraDB Cluster
 ======================================
 
-Starting from the version 1.1.0 the Percona Kubernetes Operator for Percona
+Starting from version 1.1.0, Percona Kubernetes Operator for Percona
 XtraDB Cluster allows upgrades to newer versions. The upgrade can be done in
 three ways: automatic (also called *Smart Update*), semi-automatic, or manual.
 
-.. note:: Smart Update mode is the recomended way for a production cluster.
+.. note:: Smart Update mode is the recommended way for a production cluster.
 
 .. contents:: :local:
 
@@ -16,9 +16,8 @@ three ways: automatic (also called *Smart Update*), semi-automatic, or manual.
 Automatic upgrade
 -----------------
 
-Starting from version 1.5.0 the Percona Kubernetes Operator for Percona
-XtraDB Cluster is able to do fully automatic upgrades to newer versions within
-the method named *Smart Updates*.
+Starting from version 1.5.0, the Operator can do fully automatic upgrades to
+newer versions within the method named *Smart Updates*.
 
 To have this upgrade method enabled, make sure that the ``updateStrategy`` key
 in the ``deploy/cr.yaml`` configuration file is set to ``SmartUpdate``.
@@ -35,7 +34,7 @@ The upgrade details are set in the ``upgradeOptions`` section of the
 ``deploy/cr.yaml`` configuration file. Make the following edits to configure
 updates:
 
-#. Set ``apply`` option to one of the following values:
+#. Set the ``apply`` option to one of the following values:
 
    * ``Recommended`` - automatic upgrades will choose the most recent version
      of software flagged as Recommended,

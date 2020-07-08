@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -18,8 +19,8 @@ import (
 )
 
 const jobName = "ensure-version"
-const never = "Never"
-const disabled = "Disabled"
+const never = "never"
+const disabled = "disabled"
 
 func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(id int) {
 	r.crons.crons.Remove(cron.EntryID(id))
@@ -30,8 +31,8 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 	schedule, ok := r.crons.jobs[jobName]
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
 		cr.Spec.UpgradeOptions.Schedule == "" ||
-		cr.Spec.UpgradeOptions.Apply == never ||
-		cr.Spec.UpgradeOptions.Apply == disabled {
+		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
+		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == disabled {
 		if ok {
 			r.deleteEnsureVersion(schedule.ID)
 		}
@@ -95,8 +96,8 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
 		cr.Spec.UpgradeOptions.Schedule == "" ||
-		cr.Spec.UpgradeOptions.Apply == never ||
-		cr.Spec.UpgradeOptions.Apply == disabled {
+		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
+		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == disabled {
 		return nil
 	}
 

@@ -53,7 +53,6 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 		defer r.statusMutex.Unlock()
 
 		if !atomic.CompareAndSwapInt32(&r.updateSync, updateDone, updateWait) {
-			log.Info("waiting for update")
 			return
 		}
 

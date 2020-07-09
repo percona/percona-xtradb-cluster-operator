@@ -35,25 +35,47 @@ The resulting HAPproxy setup will contain two services:
   This service selects PXC nodes to serve queries following the Round Robin
   load balancing algorithm.
 
-Passing HAProxy configuration options
--------------------------------------
+Passing custom configuration options to HAProxy
+-----------------------------------------------
 
-You can pass options to HAProxy using the ``haproxy.configuration`` key in the
-``deploy/cr.yaml`` file as follows:
+You can pass custom configuration to HAProxy using the ``haproxy.configuration``
+key in the ``deploy/cr.yaml`` file. 
+
+.. note:: If you specify a custom HAProxy configuration in this way, the
+   Operator doesn't provide its own HAProxy configuration file. That's why you
+   should specify either a full set of configuration options or nothing.
+
+Here is an example of HAProxy configuration passed through ``deploy/cr.yaml``:
 
 .. code:: yaml
 
    ...
    haproxy:
-    enabled: true
-    size: 3
-    image: percona/percona-xtradb-cluster-operator:1.5.0-haproxy
-    configuration: |
-      global
-        maxconn 4096
-      defaults
-        option  dontlognull
-        retries 3
-        redispatch
-        maxconn 2000
+       enabled: true
+       size: 3
+       image: percona/percona-xtradb-cluster-operator:1.5.0-haproxy
+       configuration: |
+         global
+           maxconn 2048
+           external-check
+           stats socket /var/run/haproxy.sock mode 600 expose-fd listeners level user
+         defaults
+           log global
+           mode tcp
+           retries 10
+           timeout client 10000
+           timeout connect 100500
+           timeout server 10000
+         frontend galera-in
+           bind *:3309 accept-proxy
+           bind *:3306
+           mode tcp
+           option clitcpka
+           default_backend galera-nodes
+         frontend galera-replica-in
+           bind *:3309 accept-proxy
+           bind *:3307
+           mode tcp
+           option clitcpka
+           default_backend galera-replica-nodes
     ...

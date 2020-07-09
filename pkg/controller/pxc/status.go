@@ -86,6 +86,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if err != nil {
 			return fmt.Errorf("get haproxy status: %v", err)
 		}
+		haProxyStatus.Version = cr.Status.HAProxy.Version
 
 		if haProxyStatus.Status != cr.Status.HAProxy.Status {
 			if haProxyStatus.Status == api.AppStateReady {

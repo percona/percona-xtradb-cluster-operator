@@ -513,7 +513,7 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``3``                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | The number of the HAProxy daemons `to provide load balancing                              |
+| **Description** | The number of the HAProxy Pods `to provide load balancing                              |
 |                 | <https://www.percona.com/doc/percona-xtradb-cluster/8.0/howtos/haproxy.html>`_            |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |

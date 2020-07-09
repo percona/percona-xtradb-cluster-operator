@@ -91,7 +91,7 @@ The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percon
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``https://check.percona.com/operator/``                                                   |
+| **Example**     | ``https://check.percona.com/versions``                                                   |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The Version Service URL used to check versions compatibility for upgrade                  |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1448,4 +1448,3 @@ Percona XtraDB Cluster backups.
 | **Description** | The name of the storage for the backups configured in the ``storages`` or ``fs-pvc``      |
 |                 | subsection                                                                                |
 +-----------------+-------------------------------------------------------------------------------------------+
-

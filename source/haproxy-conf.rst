@@ -35,6 +35,8 @@ The resulting HAPproxy setup will contain two services:
   This service selects PXC nodes to serve queries following the Round Robin
   load balancing algorithm.
 
+.. haproxy-conf-custom::
+
 Passing custom configuration options to HAProxy
 -----------------------------------------------
 

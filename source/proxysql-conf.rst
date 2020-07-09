@@ -52,7 +52,7 @@ which will have the following output::
   cluster1-pxc-node-0                               1/1     Running   0          5m
   cluster1-pxc-node-1                               1/1     Running   0          4m
   cluster1-pxc-node-2                               1/1     Running   0          2m
-  cluster1-pxc-proxysql-0                           1/1     Running   0          5m
+  cluster1-proxysql-0                               1/1     Running   0          5m
   percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
 
 The next command will print you the needed admin password::
@@ -60,9 +60,9 @@ The next command will print you the needed admin password::
   kubectl get secrets $(kubectl get pxc -o jsonpath='{.items[].spec.secretsName}') -o template='{{ .data.proxyadmin | base64decode }}'
 
 When both Pod name and admin password are known, connect to the ProxySQL as
-follows, substituting ``cluster1-pxc-proxysql-0`` with the actual Pod name and
+follows, substituting ``cluster1-proxysql-0`` with the actual Pod name and
 ``admin_password`` with the actual password::
 
-  kubectl exec -it cluster1-pxc-proxysql-0 -- mysql -h127.0.0.1 -P6032 -uproxyadmin -padmin_password
+  kubectl exec -it cluster1-proxysql-0 -- mysql -h127.0.0.1 -P6032 -uproxyadmin -padmin_password
 
 .

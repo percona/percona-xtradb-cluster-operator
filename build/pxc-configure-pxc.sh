@@ -45,14 +45,20 @@ while read -ra LINE; do
     echo "read line $LINE"
     LINE_IP=$(getent hosts "$LINE" | awk '{ print $1 }')
     if [ "$LINE_IP" != "$NODE_IP" ]; then
-        LINE_HOST=$(mysql_root_exec "$LINE_IP" 'select @@hostname')
-        PEERS=("${PEERS[@]}" $LINE_HOST)
-        PEERS_FULL=("${PEERS_FULL[@]}" "$LINE_HOST.$CLUSTER_NAME")
+        LINE_HOST=$(mysql_root_exec "$LINE_IP" 'select @@hostname' || :)
+        if [ -n "$LINE_HOST" ]; then
+            PEERS=("${PEERS[@]}" $LINE_HOST)
+            PEERS_FULL=("${PEERS_FULL[@]}" "$LINE_HOST.$CLUSTER_NAME")
+        else
+            PEERS_FULL=("${PEERS_FULL[@]}" $LINE_IP)
+        fi
     fi
 done
 
 if [ "${#PEERS[@]}" != 0 ]; then
     DONOR_ADDRESS="$(printf '%s\n' "${PEERS[@]}" "${HOSTNAME}" | sort --version-sort | uniq | grep -v -- '-0$' | sed '$d' | tr '\n' ',' | sed 's/,$//')"
+fi
+if [ "${#PEERS_FULL[@]}" != 0 ]; then
     WSREP_CLUSTER_ADDRESS="$(printf '%s\n' "${PEERS_FULL[@]}" | sort --version-sort | tr '\n' ',' | sed 's/,$//')"
 fi
 

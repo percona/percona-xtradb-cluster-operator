@@ -111,7 +111,7 @@ type DepVersion struct {
 }
 
 type VersionService interface {
-	GetExactVersion(versionMeta versionMeta) (DepVersion, error)
+	GetExactVersion(vm versionMeta) (DepVersion, error)
 }
 
 type VersionServiceClient struct {

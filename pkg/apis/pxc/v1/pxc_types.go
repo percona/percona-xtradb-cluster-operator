@@ -3,7 +3,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
 	"strings"
 
 	v "github.com/hashicorp/go-version"
@@ -514,11 +513,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 	}
 
 	cr.setSecurityContext()
-
-	ver,err := version.GetServer()
-	if err == nil {
-		cr.Spec.Platform = &ver.Platform
-	}
+	cr.Spec.Platform = serverVersion.Platform
 
 	return changed, nil
 }

@@ -486,7 +486,7 @@ configuration options for the Percona XtraDB Cluster.
 --------------------------------------------------------------------------------
 
 The ``haproxy`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains
-configuration options for the HAProxy daemon.
+configuration options for the HAProxy service.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
 
@@ -1821,4 +1821,3 @@ Percona XtraDB Cluster backups.
 | **Description** | The name of the storage for the backups configured in the ``storages`` or ``fs-pvc``      |
 |                 | subsection                                                                                |
 +-----------------+-------------------------------------------------------------------------------------------+
-

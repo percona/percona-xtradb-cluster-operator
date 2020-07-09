@@ -99,7 +99,7 @@ func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, erro
 		BackupVersion:   backupVersion,
 		ProxySqlImage:   r.Versions[0].Matrix.ProxySQL[proxySqlVersion].ImagePath,
 		ProxySqlVersion: proxySqlVersion,
-		HAProxyImage:    r.Versions[0].Matrix.HAProxy[proxySqlVersion].ImagePath,
+		HAProxyImage:    r.Versions[0].Matrix.HAProxy[haproxyVersion].ImagePath,
 		HAProxyVersion:  haproxyVersion,
 		PMMImage:        r.Versions[0].Matrix.PMM[pmmVersion].ImagePath,
 		PMMVersion:      pmmVersion,

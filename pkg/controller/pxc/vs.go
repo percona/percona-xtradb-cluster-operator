@@ -87,6 +87,11 @@ func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, erro
 		return DepVersion{}, err
 	}
 
+	haproxyVersion, err := getVersion(r.Versions[0].Matrix.HAProxy)
+	if err != nil {
+		return DepVersion{}, err
+	}
+
 	return DepVersion{
 		PXCImage:        r.Versions[0].Matrix.PXC[pxcVersion].ImagePath,
 		PXCVersion:      pxcVersion,
@@ -94,6 +99,8 @@ func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, erro
 		BackupVersion:   backupVersion,
 		ProxySqlImage:   r.Versions[0].Matrix.ProxySQL[proxySqlVersion].ImagePath,
 		ProxySqlVersion: proxySqlVersion,
+		HAProxyImage:    r.Versions[0].Matrix.HAProxy[proxySqlVersion].ImagePath,
+		HAProxyVersion:  haproxyVersion,
 		PMMImage:        r.Versions[0].Matrix.PMM[pmmVersion].ImagePath,
 		PMMVersion:      pmmVersion,
 	}, nil
@@ -117,6 +124,8 @@ type DepVersion struct {
 	BackupVersion   string `json:"backupVersion,omitempty"`
 	ProxySqlImage   string `json:"proxySqlImage,omitempty"`
 	ProxySqlVersion string `json:"proxySqlVersion,omitempty"`
+	HAProxyImage    string `json:"haproxyImage,omitempty"`
+	HAProxyVersion  string `json:"haproxyVersion,omitempty"`
 	PMMImage        string `json:"pmmImage,omitempty"`
 	PMMVersion      string `json:"pmmVersion,omitempty"`
 }
@@ -142,6 +151,7 @@ type VersionMatrix struct {
 	PXC      map[string]Version `json:"pxc"`
 	PMM      map[string]Version `json:"pmm"`
 	ProxySQL map[string]Version `json:"proxysql"`
+	HAProxy  map[string]Version `json:"haproxy"`
 	Backup   map[string]Version `json:"backup"`
 }
 

@@ -135,10 +135,11 @@ values.
 Password Rotation Policies and Timing
 *************************************
 
-When there is a change in user secrets or ``secretName`` option, the Operator
+When there is a change in user secrets, the Operator
 creates the necessary transaction to change passwords. This rotation happens
 almost instantly (the delay can be up to a few seconds), and it's not needed to
 take any action beyond changing the password.
+Please don't change ``secretName`` option in CR, make changes inside the Secret itself.
 
 Marking System Users In MySQL
 *****************************

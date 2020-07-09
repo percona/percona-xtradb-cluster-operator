@@ -9,7 +9,7 @@ You can control which one to use, if any, enabling or disabling via the
 ``haproxy.enabled`` and ``proxysql.enabled`` options in the ``deploy/cr.yaml``
 configuration file. 
 
-Use the following command to enable HAProxy:
+Use the following command to enable ProxySQL:
 
 .. code:: bash
 
@@ -66,5 +66,4 @@ follows, substituting ``cluster1-pxc-proxysql-0`` with the actual Pod name and
   kubectl exec -it cluster1-pxc-proxysql-0 -- mysql -h127.0.0.1 -P6032 -uproxyadmin -padmin_password
 
 .
-
 

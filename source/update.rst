@@ -74,7 +74,7 @@ Percona's Version Service:
      updateStrategy: SmartUpdate
      upgradeOptions:
        apply: 5.7.27-31.39
-       versionServiceEndpoint: https://check.percona.com/operator/
+       versionServiceEndpoint: https://check.percona.com/versions
        schedule: "0 0 * * *"
    ...
 

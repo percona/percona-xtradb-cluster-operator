@@ -282,7 +282,7 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 	port := 6032
 	proxySize := cr.Spec.ProxySQL.Size
 
-	if cr.Spec.HAProxy.Enabled {
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		user = "monitor"
 		host = fmt.Sprintf("%s-haproxy", cr.ObjectMeta.Name)
 		port = 3306

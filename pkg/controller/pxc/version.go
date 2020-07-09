@@ -132,9 +132,14 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		cr.Spec.PMM.Image = newVersion.PMMImage
 	}
 
-	if cr.Status.ProxySQL.Version != newVersion.ProxySqlVersion {
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Status.ProxySQL.Version != newVersion.ProxySqlVersion {
 		log.Info(fmt.Sprintf("update ProxySQL version from %s to %s", cr.Status.ProxySQL.Version, newVersion.ProxySqlVersion))
 		cr.Spec.ProxySQL.Image = newVersion.ProxySqlImage
+	}
+
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Status.HAProxy.Version != newVersion.HAProxyVersion {
+		log.Info(fmt.Sprintf("update HAProxy version from %s to %s", cr.Status.HAProxy.Version, newVersion.HAProxyVersion))
+		cr.Spec.HAProxy.Image = newVersion.HAProxyImage
 	}
 
 	err = r.client.Update(context.Background(), cr)
@@ -150,6 +155,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	cr.Status.ProxySQL.Version = newVersion.ProxySqlVersion
+	cr.Status.HAProxy.Version = newVersion.HAProxyVersion
 	cr.Status.PMM.Version = newVersion.PMMVersion
 	cr.Status.Backup.Version = newVersion.BackupVersion
 	cr.Status.PXC.Version = newVersion.PXCVersion

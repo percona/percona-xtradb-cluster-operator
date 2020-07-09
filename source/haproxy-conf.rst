@@ -35,4 +35,25 @@ The resulting HAPproxy setup will contain two services:
   This service selects PXC nodes to serve queries following the Round Robin
   load balancing algorithm.
 
+Passing HAProxy configuration options
+-------------------------------------
 
+You can pass options to HAProxy using the ``haproxy.configuration`` key in the
+``deploy/cr.yaml`` file as follows:
+
+.. code:: yaml
+
+   ...
+   haproxy:
+    enabled: true
+    size: 3
+    image: percona/percona-xtradb-cluster-operator:1.5.0-haproxy
+    configuration: |
+      global
+        maxconn 4096
+      defaults
+        option  dontlognull
+        retries 3
+        redispatch
+        maxconn 2000
+    ...

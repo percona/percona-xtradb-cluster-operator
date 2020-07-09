@@ -34,7 +34,11 @@ The resulting HAPproxy setup will contain two services:
 * ``cluster1-haproxy-replicas`` listening on port 3306 (MySQL).
   This service selects PXC nodes to serve queries following the Round Robin
   load balancing algorithm.
-
+When the cluster with HAProxy is upgraded, the following steps
+ take place. First, reader nodes are upgraded one by one: the Operator waits
+ until the upgraded PXC member become synced, and then
+ proceeds to upgrade the next member. When the upgrade is finished for all reader
+ members, then writer PXC member is finally upgraded.
 .. haproxy-conf-custom::
 
 Passing custom configuration options to HAProxy

@@ -315,7 +315,7 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 
 	defer database.Close()
 
-	if cr.Spec.HAProxy.Enabled {
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		host, err := database.Hostname()
 		if err != nil {
 			return "", err

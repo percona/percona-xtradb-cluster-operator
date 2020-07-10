@@ -3,9 +3,9 @@
 Configuring Load Balancing with ProxySQL
 ========================================
 
-Percona XtraDB Cluster Operator provides choice of two cluster components to
-carry on load balancing and proxy service: you can use either `HAProxy<https://haproxy.org>`_ or `ProxySQL <https://proxysql.com/>`_.
-You can control which one to use, if any, enabling or disabling via the
+Percona XtraDB Cluster Operator provides a choice of two cluster components to
+provide load balancing and proxy service: you can use either `HAProxy<https://haproxy.org>`_ or `ProxySQL <https://proxysql.com/>`_.
+You can control which one to use, if any, by enabling or disabling via the
 ``haproxy.enabled`` and ``proxysql.enabled`` options in the ``deploy/cr.yaml``
 configuration file. 
 
@@ -24,7 +24,7 @@ Use the following command to enable ProxySQL:
 The resulting setup will use zero PXC node (``cluster1-pxc-0`` by default)
 as writer.
 
-When the cluster with ProxySQL is upgraded, the following steps
+When a cluster with ProxySQL is upgraded, the following steps
 take place. First, reader members are upgraded one by one: the Operator waits
 until the upgraded member shows up in ProxySQL with online status, and then
 proceeds to upgrade the next member. When the upgrade is finished for all

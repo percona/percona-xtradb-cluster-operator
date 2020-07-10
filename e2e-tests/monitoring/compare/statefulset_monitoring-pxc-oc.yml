@@ -31,11 +31,7 @@ spec:
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
-      - args:
-        - mysqld
-        command:
-        - /var/lib/mysql/pxc-entrypoint.sh
-        env:
+      - env:
         - name: PMM_SERVER
           value: monitoring-service
         - name: CLIENT_PORT_LISTEN
@@ -87,7 +83,11 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/mysql
           name: datadir
-      - env:
+      - args:
+        - mysqld
+        command:
+        - /var/lib/mysql/pxc-entrypoint.sh
+        env:
         - name: PXC_SERVICE
           value: monitoring-pxc-unready
         - name: MONITOR_HOST

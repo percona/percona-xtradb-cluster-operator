@@ -407,6 +407,29 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		return false, errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
 	}
 
+	if c.HAProxy != nil && c.HAProxy.Enabled {
+		// Set maxUnavailable = 1 by default for PodDisruptionBudget-HAProxy.
+		if c.HAProxy.PodDisruptionBudget == nil {
+			defaultMaxUnavailable := intstr.FromInt(1)
+			c.HAProxy.PodDisruptionBudget = &PodDisruptionBudgetSpec{MaxUnavailable: &defaultMaxUnavailable}
+		}
+
+		if c.HAProxy.TerminationGracePeriodSeconds == nil {
+			graceSec := int64(30)
+			c.HAProxy.TerminationGracePeriodSeconds = &graceSec
+		}
+
+		if len(c.HAProxy.ServiceAccountName) == 0 {
+			c.HAProxy.ServiceAccountName = WorkloadSA
+		}
+
+		c.HAProxy.reconcileAffinityOpts()
+
+		if c.Pause {
+			c.HAProxy.Size = 0
+		}
+	}
+
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
 		if c.ProxySQL.VolumeSpec == nil {
 			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")

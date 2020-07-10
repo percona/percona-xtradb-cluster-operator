@@ -8,13 +8,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,7 +63,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
@@ -277,20 +279,22 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 }
 
 func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
-	user := "proxyadmin"
-	host := fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
-	port := 6032
-	proxySize := cr.Spec.ProxySQL.Size
-
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+	var database queries.Database
+	var user, host string
+	var port, proxySize int32
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+		user = "proxyadmin"
+		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
+		port = 6032
+		proxySize = cr.Spec.ProxySQL.Size
+	} else if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		user = "monitor"
 		host = fmt.Sprintf("%s-haproxy", cr.ObjectMeta.Name)
 		port = 3306
 		proxySize = cr.Spec.HAProxy.Size
-
+	} else {
+		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 	}
-
-	var database queries.Database
 
 	for i := 0; ; i++ {
 		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, port)
@@ -358,7 +362,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, po
 		time.Sleep(time.Second * 1)
 
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return err
 		}
 
@@ -385,7 +389,7 @@ func isPXC(sfs api.StatefulApp) bool {
 func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) error {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
 	if err := r.client.List(context.TODO(), &bcpList, &client.ListOptions{Namespace: cr.Namespace}); err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return nil
 		}
 		return fmt.Errorf("failed to get backup object: %v", err)
@@ -420,7 +424,7 @@ func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster,
 			Name:      secretName,
 		},
 		&secretObj,
-	); err != nil && errors.IsNotFound(err) && cr.Spec.AllowUnsafeConfig {
+	); err != nil && k8serrors.IsNotFound(err) && cr.Spec.AllowUnsafeConfig {
 		return "", nil
 	} else if err != nil {
 		return "", err

@@ -237,7 +237,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int) error {
-	if cr.Spec.HAProxy.Enabled {
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		time.Sleep(5 * time.Second)
 		return nil
 	}

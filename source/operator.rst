@@ -72,7 +72,7 @@ main subsystems of the cluster:
    * - updateStrategy
      - string
      - ``SmartUpdate``
-     - A strategy Operator uses for :ref:`upgrades<operator-update>`
+     - A strategy the Operator uses for :ref:`upgrades<operator-update>`
 
 .. _operator.upgradeoptions-section:
 
@@ -91,7 +91,7 @@ The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percon
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``https://check.percona.com/versions``                                                   |
+| **Example**     | ``https://check.percona.com/versions``                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The Version Service URL used to check versions compatibility for upgrade                  |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -105,7 +105,11 @@ The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percon
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``Disabled``                                                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | Specifies how :ref:`updates are processed<operator-update-smartupdates>` by the Operator  |
+| **Description** | Specifies how :ref:`updates are processed<operator-update-smartupdates>` by the Operator. |
+|                 | ``Never`` or ``Disabled`` will completely disable automatic upgrades, otherwise it can be |
+|                 | set to ``Latest`` or ``Recommended`` or to a specific version string of PXC that is       |
+|                 | wished to be version-locked (so that the user can control the version running, but use    |
+|                 | automatic upgrades to move between them).                                                 |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

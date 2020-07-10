@@ -41,16 +41,19 @@ updates:
    * ``Latest`` - automatic upgrades will choose the most recent version of
      the software available,
    * *specific version number* - will apply an upgrade if the running version
-     doesn't match the explicit version number with no future upgrades.
-
-   .. note:: ``apply`` can also be set to ``Never`` or ``Disabled`` to disable
-      automatic upgrades.
+     doesn't match the explicit version number with no future upgrades,
+   * ``Never`` or ``Disabled`` - disable automatic upgrades
+     
+     .. note:: When automatic upgrades are disabled by the ``apply`` option, 
+        Smart Update functionality will continue working for changes triggered
+        by other events, such as updating a ConfigMap, rotating a password, or
+        changing resource values.
 
 #. Make sure the ``versionServiceEndpoint`` key is set to a valid Version
    Server URL (otherwise Smart Updates will not occur).
 
    A. You can use the URL of the official Percona's Version Service (default).
-      Set ``versionServiceEndpoint`` to ``https://check.percona.com/operator/``.
+      Set ``versionServiceEndpoint`` to ``https://check.percona.com/versions``.
 
    B. Alternatively, you can run Version Service inside your cluster. This
       can be done with the ``kubectl`` command as follows:

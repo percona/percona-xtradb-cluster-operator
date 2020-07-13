@@ -60,7 +60,7 @@ updates:
       
       .. code:: bash
       
-         kubectl run version-service --image=perconalab/version-service:poc --env="SERVE_HTTP=true" --port 11000 --expose
+         kubectl run version-service --image=perconalab/version-service --env="SERVE_HTTP=true" --port 11000 --expose
 
    .. note:: Version Service is never checked if automatic updates are disabled.
       If automatic updates are enabled, but Version Service URL can not be

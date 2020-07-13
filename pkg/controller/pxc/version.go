@@ -123,7 +123,6 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	if cr.Spec.Backup.Image != newVersion.BackupImage {
-		log.Info(fmt.Sprintf("update Backup image from '%s' to '%s'", cr.Status.Backup.Image, newVersion.BackupImage))
 		log.Info(fmt.Sprintf("update Backup version from %s to %s", cr.Status.Backup.Version, newVersion.BackupVersion))
 		cr.Spec.Backup.Image = newVersion.BackupImage
 	}
@@ -134,7 +133,6 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Image != newVersion.ProxySqlImage {
-		log.Info(fmt.Sprintf("update ProxySQL image from '%s' to '%s'", cr.Status.ProxySQL.Image, newVersion.ProxySqlImage))
 		log.Info(fmt.Sprintf("update ProxySQL version from %s to %s", cr.Status.ProxySQL.Version, newVersion.ProxySqlVersion))
 		cr.Spec.ProxySQL.Image = newVersion.ProxySqlImage
 	}

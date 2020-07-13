@@ -117,27 +117,29 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return fmt.Errorf("failed to check version: %v", err)
 	}
 
-	if cr.Status.PXC.Version != newVersion.PXCVersion {
+	if cr.Spec.PXC.Image != newVersion.PXCImage {
 		log.Info(fmt.Sprintf("update PXC version from %s to %s", cr.Status.PXC.Version, newVersion.PXCVersion))
 		cr.Spec.PXC.Image = newVersion.PXCImage
 	}
 
-	if cr.Status.Backup.Version != newVersion.BackupVersion {
+	if cr.Spec.Backup.Image != newVersion.BackupImage {
+		log.Info(fmt.Sprintf("update Backup image from '%s' to '%s'", cr.Status.Backup.Image, newVersion.BackupImage))
 		log.Info(fmt.Sprintf("update Backup version from %s to %s", cr.Status.Backup.Version, newVersion.BackupVersion))
 		cr.Spec.Backup.Image = newVersion.BackupImage
 	}
 
-	if cr.Status.PMM.Version != newVersion.PMMVersion {
+	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled && cr.Spec.PMM.Image != newVersion.PMMImage {
 		log.Info(fmt.Sprintf("update PMM version from %s to %s", cr.Status.PMM.Version, newVersion.PMMVersion))
 		cr.Spec.PMM.Image = newVersion.PMMImage
 	}
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Status.ProxySQL.Version != newVersion.ProxySqlVersion {
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Image != newVersion.ProxySqlImage {
+		log.Info(fmt.Sprintf("update ProxySQL image from '%s' to '%s'", cr.Status.ProxySQL.Image, newVersion.ProxySqlImage))
 		log.Info(fmt.Sprintf("update ProxySQL version from %s to %s", cr.Status.ProxySQL.Version, newVersion.ProxySqlVersion))
 		cr.Spec.ProxySQL.Image = newVersion.ProxySqlImage
 	}
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Status.HAProxy.Version != newVersion.HAProxyVersion {
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Status.HAProxy.Image != newVersion.HAProxyImage {
 		log.Info(fmt.Sprintf("update HAProxy version from %s to %s", cr.Status.HAProxy.Version, newVersion.HAProxyVersion))
 		cr.Spec.HAProxy.Image = newVersion.HAProxyImage
 	}
@@ -180,8 +182,15 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 		return nil
 	}
 
-	if cr.Status.PXC.Version != "" &&
-		cr.Status.PXC.Image == cr.Spec.PXC.Image {
+	if cr.Status.PXC.Image == cr.Spec.PXC.Image {
+		return nil
+	}
+
+	upgradeInProgress, err := r.upgradeInProgress(cr, "pxc")
+	if err != nil {
+		return fmt.Errorf("check pxc upgrade progress: %v", err)
+	}
+	if upgradeInProgress {
 		return nil
 	}
 

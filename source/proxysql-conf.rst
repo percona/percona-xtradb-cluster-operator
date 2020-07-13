@@ -21,8 +21,8 @@ Use the following command to enable ProxySQL:
 .. note:: For obvious reasons the Operator will not allow the simultaneous
    enabling of both HAProxy and ProxySQL.
 
-The resulting setup will use zero PXC node (``cluster1-pxc-0`` by default)
-as writer.
+The resulting setup will use the number zero PXC member (``cluster1-pxc-0``
+by default) as writer.
 
 When a cluster with ProxySQL is upgraded, the following steps
 take place. First, reader members are upgraded one by one: the Operator waits
@@ -30,7 +30,7 @@ until the upgraded member shows up in ProxySQL with online status, and then
 proceeds to upgrade the next member. When the upgrade is finished for all
 the readers, then the writer PXC member is finally upgraded.
 
-.. note:: when both ProxySQL and PXC nodes are upgraded, they are upgraded
+.. note:: when both ProxySQL and PXC are upgraded, they are upgraded
    in parallel.
 
 Accessing the ProxySQL Admin Interface

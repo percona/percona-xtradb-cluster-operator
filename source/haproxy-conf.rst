@@ -24,15 +24,15 @@ Use the following command to enable HAProxy:
 The resulting HAPproxy setup will contain two services:
 
 * ``cluster1-haproxy`` service listening on ports 3306 (MySQL) and 3309 (proxy).
-  This service is pointing to the number zero node (``cluster1-pxc-0``) by
-  default when this node is available. If a zero node is not available, nodes
-  are selected in descending order of their numbers (eg. ``cluster1-pxc-2``,
-  then ``cluster1-pxc-1``, etc.). This service can be used for both read and
-  write load, or it can also be used just for write load (single writer mode)
-  in setups with split write and read loads.
+  This service is pointing to the number zero PXC member (``cluster1-pxc-0``) by
+  default when this member is available. If a zero member is not available,
+  members are selected in descending order of their numbers (e.g.
+  ``cluster1-pxc-2``, then ``cluster1-pxc-1``, etc.). This service can be used
+  for both read and write load, or it can also be used just for write load
+  (single writer mode) in setups with split write and read loads.
 
 * ``cluster1-haproxy-replicas`` listening on port 3306 (MySQL).
-  This service selects PXC nodes to serve queries following the Round Robin
+  This service selects PXC members to serve queries following the Round Robin
   load balancing algorithm.
 
 When the cluster with HAProxy is upgraded, the following steps

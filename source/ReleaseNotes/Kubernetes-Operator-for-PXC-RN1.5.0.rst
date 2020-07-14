@@ -37,7 +37,7 @@ Bugs Fixed
 
 * :jirabug:`K8SPXC-327`: SST failure when PXC Pod restarted in the middle of SST
 * :jirabug:`K8SPXC-270`: Restore job wiping data from the original backup's cluster when restoring to another cluster in the same namespace
-* :jirabug:`K8SPXC-352`: Backup cronjob not scheduled (Thanks to user msavchenko for reporting this issue)
+* :jirabug:`K8SPXC-352`: Backup cronjob not scheduled in some Kubernetes environments (Thanks to user msavchenko for reporting this issue)
 * :jirabug:`K8SPXC-275`: Outdated documentation on the Operator updates (Thanks to user martin.atroo for reporting this issue)
 * :jirabug:`K8SPXC-347`: XtraBackup failure after uploading a backup, causing the backup process restart (Thanks to user connde for reporting this issue)
 * :jirabug:`K8SPXC-326`: Changes in TLS Secrets not triggering PXC restart if AllowUnsafeConfig enabled

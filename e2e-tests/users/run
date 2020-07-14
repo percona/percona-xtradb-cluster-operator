@@ -1,0 +1,61 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+create_namespace $namespace
+deploy_cert_manager
+deploy_operator
+
+desc 'create PXC cluster'
+newpassencrypted="dGVzdC1wYXNzd29yZA=="
+newpass="test-password"
+cluster="some-name"
+spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+
+desc 'test root'
+patch_secret "my-cluster-secrets" "root" "$newpassencrypted"
+sleep 15
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uroot -p$newpass"
+
+desc 'test proxyadmin'
+patch_secret "my-cluster-secrets" "proxyadmin" "$newpassencrypted"
+sleep 15
+wait_cluster_consistency "$cluster" 3 1
+compare_mysql_cmd "select-2" "SHOW TABLES;" "-h $cluster-proxysql-unready -P6032 -uproxyadmin -p$newpass"
+
+desc 'test xtrabackup'
+patch_secret "my-cluster-secrets" "xtrabackup" "$newpassencrypted"
+sleep 30
+wait_cluster_consistency "$cluster" 3 1
+compare_mysql_cmd_local "select-3" "SHOW DATABASES;" "-h localhost -uxtrabackup -p$newpass" "$cluster-pxc-0"
+
+desc 'test clustercheck'
+patch_secret "my-cluster-secrets" "clustercheck" "$newpassencrypted"
+sleep 30
+wait_cluster_consistency "$cluster" 3 1
+compare_mysql_cmd_local "select-5" "SHOW DATABASES;" "-h localhost -uclustercheck -p$newpass" "$cluster-pxc-0"
+
+desc 'test monitor'
+patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
+sleep 15
+wait_cluster_consistency "$cluster" 3 1
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -umonitor -p$newpass"
+
+desc 'test operator'
+patch_secret "my-cluster-secrets" "operator" "$newpassencrypted"
+sleep 15
+wait_cluster_consistency "$cluster" 3 1
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p$newpass"
+
+desc 'test new users sync'
+run_mysql \
+        "CREATE USER 'testsync'@'%' IDENTIFIED BY '$newpass';" \
+        "-h $cluster-pxc -uroot -p$newpass"
+sleep 15
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -utestsync -p$newpass"
+
+destroy "${namespace}"

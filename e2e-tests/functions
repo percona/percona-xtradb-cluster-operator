@@ -231,7 +231,7 @@ run_mysql() {
 
     set +o xtrace
     kubectl_bin exec $client_pod -- \
-        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1  \
+        bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1  \
         | sed -e 's/mysql: //' \
         | (grep -v 'Using a password on the command line interface can be insecure.' || :)
     set -o xtrace
@@ -268,6 +268,29 @@ compare_mysql_cmd() {
     if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
         sleep 20
         run_mysql "$command" "$uri" \
+            >$tmp_dir/${command_id}.sql
+    fi
+    diff -u $expected_result $tmp_dir/${command_id}.sql
+}
+
+compare_mysql_cmd_local() {
+    local command_id="$1"
+    local command="$2"
+    local uri="$3"
+    local pod="$4"
+    local postfix="$5"
+    local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
+    
+
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
+        expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
+    fi
+
+    run_mysql_local "$command" "$uri" "$pod"\
+        >$tmp_dir/${command_id}.sql
+    if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
+        sleep 20
+        run_mysql_local "$command" "$uri" "$pod"\
             >$tmp_dir/${command_id}.sql
     fi
     diff -u $expected_result $tmp_dir/${command_id}.sql
@@ -862,4 +885,12 @@ start_minio() {
     kubectl_bin run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
         /usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
         /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
+}
+
+patch_secret() {
+    local secret=$1
+    local key=$2
+    local value=$3
+    
+    kubectl patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
 }

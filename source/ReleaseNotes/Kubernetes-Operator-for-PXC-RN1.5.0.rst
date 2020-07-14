@@ -26,7 +26,7 @@ Improvements
 * :jirabug:`K8SPXC-277`: Install GDB in all PXC images
 * :jirabug:`K8SPXC-276`: Pod-0 should be selected as Writer if possible
 * :jirabug:`K8SPXC-252`: Automatically manage system users for MySQL and ProxySQL on password rotation via Secret
-* :jirabug:`K8SPXC-242`: Improve internal backup implementation for PXC 8.0
+* :jirabug:`K8SPXC-242`: Improve internal backup implementation for better stability with PXC 8.0
 * :jirabug:`CLOUD-556`: Kubernetes 1.17 added to the list of supported platforms
 * :jirabug:`CLOUD-404`: Support of loadBalancerSourceRanges for LoadBalancer Services
 

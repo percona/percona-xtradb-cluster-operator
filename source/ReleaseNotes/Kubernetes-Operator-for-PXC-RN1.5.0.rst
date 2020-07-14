@@ -13,7 +13,7 @@ New Features
 * :jirabug:`K8SPXC-298`: Automatic synchronization users from MySQL into ProxySQL
 * :jirabug:`K8SPXC-294`: HAProxy Support
 * :jirabug:`K8SPXC-284`: Fully automated minor version updates
-* :jirabug:`K8SPXC-257`: Update Reader members before Writer member when upgrading cluster with ProxySQL
+* :jirabug:`K8SPXC-257`: Update Reader members before Writer member when upgrading cluster
 * :jirabug:`K8SPXC-256`: Support multiple PXC minor versions by the Operator
 
 Improvements

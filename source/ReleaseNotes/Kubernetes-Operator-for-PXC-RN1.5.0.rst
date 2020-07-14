@@ -4,7 +4,7 @@
 *Percona Kubernetes Operator for Percona XtraDB Cluster* 1.5.0
 ================================================================================
 
-:Date: July 13, 2020
+:Date: July 21, 2020
 :Installation: `Installing Percona Kubernetes Operator for Percona XtraDB Cluster <https://www.percona.com/doc/kubernetes-operator-for-psmongodb/index.html#installation>`_
 
 New Features

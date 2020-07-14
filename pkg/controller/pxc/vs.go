@@ -39,6 +39,14 @@ func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, erro
 		q.Add("backupVersion", vm.BackupVersion)
 	}
 
+	if vm.ProxySqlVersion != "" {
+		q.Add("proxysqlVersion", vm.ProxySqlVersion)
+	}
+
+	if vm.HAProxyVersion != "" {
+		q.Add("haproxyVersion", vm.HAProxyVersion)
+	}
+
 	requestURL.RawQuery = q.Encode()
 	req, err := http.NewRequest("GET", requestURL.String(), nil)
 	if err != nil {
@@ -166,11 +174,13 @@ type VersionResponse struct {
 }
 
 type versionMeta struct {
-	Apply         string
-	PXCVersion    string
-	KubeVersion   string
-	Platform      string
-	PMMVersion    string
-	BackupVersion string
-	CRUID         string
+	Apply           string
+	PXCVersion      string
+	KubeVersion     string
+	Platform        string
+	ProxySqlVersion string
+	HAProxyVersion  string
+	PMMVersion      string
+	BackupVersion   string
+	CRUID           string
 }

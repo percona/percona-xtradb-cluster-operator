@@ -105,13 +105,15 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	newVersion, err := vs.GetExactVersion(versionMeta{
-		Apply:         cr.Spec.UpgradeOptions.Apply,
-		Platform:      string(cr.Spec.Platform),
-		KubeVersion:   r.serverVersion.Info.GitVersion,
-		PXCVersion:    cr.Status.PXC.Version,
-		PMMVersion:    cr.Status.PMM.Version,
-		BackupVersion: cr.Status.Backup.Version,
-		CRUID:         string(cr.GetUID()),
+		Apply:           cr.Spec.UpgradeOptions.Apply,
+		Platform:        string(cr.Spec.Platform),
+		KubeVersion:     r.serverVersion.Info.GitVersion,
+		PXCVersion:      cr.Status.PXC.Version,
+		PMMVersion:      cr.Status.PMM.Version,
+		HAProxyVersion:  cr.Status.HAProxy.Version,
+		ProxySqlVersion: cr.Status.ProxySQL.Version,
+		BackupVersion:   cr.Status.Backup.Version,
+		CRUID:           string(cr.GetUID()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to check version: %v", err)
@@ -137,7 +139,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		cr.Spec.ProxySQL.Image = newVersion.ProxySqlImage
 	}
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Status.HAProxy.Image != newVersion.HAProxyImage {
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Spec.HAProxy.Image != newVersion.HAProxyImage {
 		log.Info(fmt.Sprintf("update HAProxy version from %s to %s", cr.Status.HAProxy.Version, newVersion.HAProxyVersion))
 		cr.Spec.HAProxy.Image = newVersion.HAProxyImage
 	}

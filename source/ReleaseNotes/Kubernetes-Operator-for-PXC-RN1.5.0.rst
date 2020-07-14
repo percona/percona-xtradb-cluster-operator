@@ -25,7 +25,7 @@ Improvements
 * :jirabug:`K8SPXC-279`: Use SYSTEM_USER privilege for system users on PXC 8.0
 * :jirabug:`K8SPXC-277`: Install GDB in all PXC images
 * :jirabug:`K8SPXC-276`: Pod-0 should be selected as Writer if possible
-* :jirabug:`K8SPXC-252`: Automatically manage system users for MySQL and ProxySQL with rotation
+* :jirabug:`K8SPXC-252`: Automatically manage system users for MySQL and ProxySQL on password rotation (via secret modification)
 * :jirabug:`CLOUD-535`: Standard reporting protocol for debugging and troubleshooting
 * :jirabug:`CLOUD-556`: Kubernetes 1.17 added to the list of supported platforms
 * :jirabug:`CLOUD-404`: Support of loadBalancerSourceRanges for LoadBalancer Services

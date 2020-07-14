@@ -39,8 +39,6 @@ Bugs Fixed
 Backup cronjob is not scheduled
 * :jirabug:`K8SPXC-275`: Outdated documentation on the Operator updates (Thanks to user martin.atroo for reporting this issue)
 * :jirabug:`K8SPXC-347`: XtraBackup fail after uploading a backup, causing the backup process restart (Thanks to user connde for reporting this issue)
-* :jirabug:`K8SPXC-331`: pxc-entrypoint.sh: no such file or directory error when running 5.7
-* :jirabug:`K8SPXC-330`: missing online nodes in reader hostgroup while upgrade in progress
 * :jirabug:`K8SPXC-326`: Pod recreated during PXC Pod downsizing
 * :jirabug:`K8SPXC-242`: Backup script running indefinitely on SST startup error
 * :jirabug:`K8SPXC-230`: Backup fail if just one PXC instance running

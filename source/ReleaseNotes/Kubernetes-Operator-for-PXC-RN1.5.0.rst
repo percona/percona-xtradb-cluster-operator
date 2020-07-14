@@ -10,7 +10,7 @@
 New Features
 ================================================================================
 
-* :jirabug:`K8SPXC-298`: Automatic synchronization of ProxySQL users
+* :jirabug:`K8SPXC-298`: Automatic synchronization users from MySQL into ProxySQL
 * :jirabug:`K8SPXC-294`: HAProxy Support
 * :jirabug:`K8SPXC-284`: Fully automated minor version updates
 * :jirabug:`K8SPXC-257`: Update Reader members before Writer member when upgrading cluster with ProxySQL
@@ -48,4 +48,3 @@ Backup cronjob is not scheduled
 * :jirabug:`CLOUD-474`: Cluster creation not failing if wrong resources are set
 * :jirabug:`CLOUD-531`: Wrong usage of ``strings.TrimLeft`` when processing apiVersion
 * :jirabug:`PXC-2987`: SST incompatible between 5.7 and 8.0
-

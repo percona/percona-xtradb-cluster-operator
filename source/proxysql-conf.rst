@@ -13,10 +13,15 @@ Use the following command to enable ProxySQL:
 
 .. code:: bash
 
-   kubectl patch pxc cluster1 --type=merge --patch '{ \
-    "spec": {"haproxy":{ "enabled": false }, \
-    "proxysql":{ "enabled": true } \
-    }}'
+   kubectl patch pxc cluster1 --type=merge --patch '{
+     "spec": {
+        "proxysql": {
+           "enabled": true,
+           "size": 3,
+           "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
+        "haproxy": { "enabled": false }
+     }}'
+
 
 .. note:: For obvious reasons the Operator will not allow the simultaneous
    enabling of both HAProxy and ProxySQL.

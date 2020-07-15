@@ -193,7 +193,7 @@ updates:
    * *specific version number* - will apply an upgrade if the running PXC
      version doesn't match the explicit version number with no future upgrades
      (version numbers are specified as ``5.7.26-31.37``, ``5.7.27-31.39``,
-     ``5.7.28-31.41``, ``5.7.29-31.43``, etc.),
+     ``5.7.28-31.41.2``, ``5.7.29-31.43``, etc.),
    * ``Never`` or ``Disabled`` - disable automatic upgrades
      
      .. note:: When automatic upgrades are disabled by the ``apply`` option, 
@@ -228,7 +228,7 @@ Percona's Version Service:
    spec:
      updateStrategy: SmartUpdate
      upgradeOptions:
-       apply: 5.7.27-31.39
+       apply: Recommended
        versionServiceEndpoint: https://check.percona.com/versions
        schedule: "0 0 * * *"
    ...

@@ -20,29 +20,20 @@ import (
 const internalPrefix = "internal-"
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) error {
-	if cr.Status.PXC.Ready > 0 {
-		err := r.manageOperatorAdminUser(cr)
-		if err != nil {
-			return errors.Wrap(err, "manage operator admin user")
-		}
+	internalSysSecretObj, sysUsersSecretObj, err := r.getSysUsersSecrets(cr)
+	if err != nil {
+		return errors.Wrap(err, "get internal sys users secret")
 	}
 
 	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 
-	sysUsersSecretObj := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      cr.Spec.SecretsName,
-		},
-		&sysUsersSecretObj,
-	)
-	if err != nil && k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
+	if cr.Status.PXC.Ready > 0 {
+		err := r.manageOperatorAdminUser(cr)
+		if err != nil {
+			return errors.Wrap(err, "manage operator admin user")
+		}
 	}
 
 	newSysData, err := json.Marshal(sysUsersSecretObj.Data)
@@ -231,8 +222,11 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {
+	if cr.Status.Status != api.AppStateReady || cr.Status.ProxySQL.Status == api.AppStateReady {
+		return nil
+	}
 	// sync users if ProxySql enabled
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Size > 0 {
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		pod := corev1.Pod{}
 		err := r.client.Get(context.TODO(),
 			types.NamespacedName{
@@ -324,12 +318,25 @@ func (r *ReconcilePerconaXtraDBCluster) restartProxy(cr *api.PerconaXtraDBCluste
 	return nil
 }
 
-// getInternalSysUsersSecret return secret created by operator for storing system users data
-func (r *ReconcilePerconaXtraDBCluster) getInternalSysUsersSecret(cr *api.PerconaXtraDBCluster, sysUsersSecretObj *corev1.Secret) (corev1.Secret, error) {
-	secretName := internalPrefix + cr.Spec.SecretsName
-	internalSysUsersSecretObj, err := r.getInternalSysUsersSecretObj(cr, sysUsersSecretObj)
+// getSysUsersSecrets return internal and external secrets for storing system users data
+func (r *ReconcilePerconaXtraDBCluster) getSysUsersSecrets(cr *api.PerconaXtraDBCluster) (internalSysUsersSecretObj, sysUsersSecretObj corev1.Secret, err error) {
+	sysUsersSecretObj = corev1.Secret{}
+	err = r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      cr.Spec.SecretsName,
+		},
+		&sysUsersSecretObj,
+	)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return corev1.Secret{}, corev1.Secret{}, nil
+	} else if err != nil {
+		return corev1.Secret{}, corev1.Secret{}, errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
+	}
+	secretName := internalPrefix + cr.Name
+	internalSysUsersSecretObj, err = r.getInternalSysUsersSecretObj(cr, &sysUsersSecretObj)
 	if err != nil {
-		return internalSysUsersSecretObj, errors.Wrap(err, "create internal sys users secret object")
+		return internalSysUsersSecretObj, sysUsersSecretObj, errors.Wrap(err, "create internal sys users secret object")
 	}
 	err = r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -339,17 +346,17 @@ func (r *ReconcilePerconaXtraDBCluster) getInternalSysUsersSecret(cr *api.Percon
 		&internalSysUsersSecretObj,
 	)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return internalSysUsersSecretObj, errors.Wrap(err, "get internal sys users secret")
+		return internalSysUsersSecretObj, sysUsersSecretObj, errors.Wrap(err, "get internal sys users secret")
 	}
 
 	if k8serrors.IsNotFound(err) {
 		err = r.client.Create(context.TODO(), &internalSysUsersSecretObj)
 		if err != nil {
-			return internalSysUsersSecretObj, errors.Wrap(err, "create internal sys users secret")
+			return internalSysUsersSecretObj, sysUsersSecretObj, errors.Wrap(err, "create internal sys users secret")
 		}
 	}
 
-	return internalSysUsersSecretObj, nil
+	return internalSysUsersSecretObj, sysUsersSecretObj, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateInternalSysUsersSecret(cr *api.PerconaXtraDBCluster, sysUsersSecretObj *corev1.Secret) error {
@@ -368,7 +375,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateInternalSysUsersSecret(cr *api.Per
 func (r *ReconcilePerconaXtraDBCluster) getInternalSysUsersSecretObj(cr *api.PerconaXtraDBCluster, sysUsersSecretObj *corev1.Secret) (corev1.Secret, error) {
 	internalSysUsersSecretObj := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      internalPrefix + cr.Spec.SecretsName,
+			Name:      internalPrefix + cr.Name,
 			Namespace: cr.Namespace,
 		},
 		Data: sysUsersSecretObj.Data,

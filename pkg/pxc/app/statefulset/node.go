@@ -179,10 +179,32 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		appc.Args = []string{"mysqld"}
 		appc.Command = []string{"/var/lib/mysql/pxc-entrypoint.sh"}
+		secretName := "internal-" + cr.Name
+		for k, envVar := range appc.Env {
+			switch envVar.Name {
+			case "MYSQL_ROOT_PASSWORD":
+				appc.Env[k].ValueFrom = &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secretName, "root"),
+				}
+			case "XTRABACKUP_PASSWORD":
+				appc.Env[k].ValueFrom = &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secretName, "xtrabackup"),
+				}
+			case "MONITOR_PASSWORD":
+				appc.Env[k].ValueFrom = &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secretName, "monitor"),
+				}
+			case "CLUSTERCHECK_PASSWORD":
+				appc.Env[k].ValueFrom = &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secretName, "clustercheck"),
+				}
+			}
+		}
+
 		appc.Env = append(appc.Env, corev1.EnvVar{
 			Name: "OPERATOR_ADMIN_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
+				SecretKeyRef: app.SecretKeySelector(secretName, "operator"),
 			},
 		})
 	}

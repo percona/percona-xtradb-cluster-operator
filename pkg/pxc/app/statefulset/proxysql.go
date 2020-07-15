@@ -113,10 +113,23 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		})
 	}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
+		secretName := "internal-" + cr.Name
 		appc.Env[1] = corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
+				SecretKeyRef: app.SecretKeySelector(secretName, "operator"),
+			},
+		}
+		appc.Env[3] = corev1.EnvVar{
+			Name: "PROXY_ADMIN_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secretName, "proxyadmin"),
+			},
+		}
+		appc.Env[4] = corev1.EnvVar{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secretName, "monitor"),
 			},
 		}
 	}
@@ -224,6 +237,44 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		}
 		pxcMonit.Env[1] = operEnv
 		proxysqlMonit.Env[1] = operEnv
+		secretName := "internal-" + cr.Name
+		pxcMonit.Env[1] = corev1.EnvVar{
+			Name: "OPERATOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secretName, "operator"),
+			},
+		}
+		pxcMonit.Env[3] = corev1.EnvVar{
+			Name: "PROXY_ADMIN_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secretName, "proxyadmin"),
+			},
+		}
+		pxcMonit.Env[4] = corev1.EnvVar{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secretName, "monitor"),
+			},
+		}
+
+		proxysqlMonit.Env[1] = corev1.EnvVar{
+			Name: "OPERATOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secretName, "operator"),
+			},
+		}
+		proxysqlMonit.Env[3] = corev1.EnvVar{
+			Name: "PROXY_ADMIN_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secretName, "proxyadmin"),
+			},
+		}
+		proxysqlMonit.Env[4] = corev1.EnvVar{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secretName, "monitor"),
+			},
+		}
 	}
 
 	return []corev1.Container{pxcMonit, proxysqlMonit}, nil

@@ -19,6 +19,11 @@ main subsystems of the cluster:
      - Default
      - Description
 
+   * - upgradeOptions
+     - subdoc
+     -
+     - Percona XtraDB Cluster upgrade options section
+
    * - pxc
      - subdoc
      -
@@ -63,6 +68,62 @@ main subsystems of the cluster:
      - string
      - ``my-cluster-ssl-internal``
      - A secret with TLS certificate generated for *internal* communications, see :ref:`tls` for details
+
+   * - updateStrategy
+     - string
+     - ``SmartUpdate``
+     - A strategy the Operator uses for :ref:`upgrades<operator-update>`
+
+.. _operator.upgradeoptions-section:
+
+`Upgrade Options Section <operator.html#operator-upgradeoptions-section>`_
+--------------------------------------------------------------------------------
+
+The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains various configuration options to control Percona XtraDB Cluster upgrades.
+
+.. tabularcolumns:: |p{2cm}|p{13.6cm}|
+
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _upgradeoptions-versionserviceendpoint:                                                |
+|                 |                                                                                           |
+| **Key**         | `upgradeOptions.versionServiceEndpoint                                                    |
+|                 | <operator.html#upgradeoptions-versionserviceendpoint>`_                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``https://check.percona.com/versions``                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The Version Service URL used to check versions compatibility for upgrade                  |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _upgradeoptions-apply:                                                                 |
+|                 |                                                                                           |
+| **Key**         | `upgradeOptions.apply <operator.html#upgradeoptions-apply>`_                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Disabled``                                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Specifies how :ref:`updates are processed<operator-update-smartupdates>` by the Operator. |
+|                 | ``Never`` or ``Disabled`` will completely disable automatic upgrades, otherwise it can be |
+|                 | set to ``Latest`` or ``Recommended`` or to a specific version string of PXC (e.g.         |
+|                 | ``8.0.19-10.1``) that is wished to be version-locked (so that the user can control the    |
+|                 | version running, but use automatic upgrades to move between them).                        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _upgradeoptions-schedule:                                                              |
+|                 |                                                                                           |
+| **Key**         | `upgradeOptions.schedule <operator.html#upgradeoptions-schedule>`_                        |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``0 2 * * *``                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Scheduled time to check for updates, specified in the                                     |
+|                 | `crontab format <https://en.wikipedia.org/wiki/Cron>`_                                    |
++-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.pxc-section:
 

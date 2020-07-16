@@ -221,7 +221,7 @@ pipeline {
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
-                            golang:1.14 sh -c 'go install github.com/go-swagger/go-swagger/cmd/swagger@v0.24.0 \
+                            golang:1.14 sh -c 'go get github.com/go-swagger/go-swagger/cmd/swagger@v0.24.0 \
                             && swagger generate client -f vendor/github.com/Percona-Lab/percona-version-service/api/version.swagger.yaml -c versionserviceclient -m versionserviceclient/models \
                             && go build -v -mod=vendor -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
                     "

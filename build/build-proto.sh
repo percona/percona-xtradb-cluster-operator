@@ -4,7 +4,7 @@ set -o errexit
 set -o xtrace
 
 if ! swagger version &>/dev/null; then
-  go install github.com/go-swagger/go-swagger/cmd/swagger@v0.24.0
+  go get github.com/go-swagger/go-swagger/cmd/swagger@v0.24.0
 fi
 
 rm -rf versionserviceclient

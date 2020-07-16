@@ -13,8 +13,8 @@ import (
 
 const productName = "pxc-operator"
 
-func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, error) {
-	requestURL, err := url.Parse(vs.URL)
+func (vs VersionServiceClient) GetExactVersion(endpoint string,vm versionMeta) (DepVersion, error) {
+	requestURL, err := url.Parse(endpoint)
 	if err != nil {
 		return DepVersion{}, err
 	}
@@ -115,11 +115,10 @@ type DepVersion struct {
 }
 
 type VersionService interface {
-	GetExactVersion(vm versionMeta) (DepVersion, error)
+	GetExactVersion(endpoint string,vm versionMeta) (DepVersion, error)
 }
 
 type VersionServiceClient struct {
-	URL       string
 	OpVersion string
 }
 

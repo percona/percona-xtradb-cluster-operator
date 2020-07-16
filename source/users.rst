@@ -97,8 +97,10 @@ The following table shows system users' names and purposes.
       - operator
       - Database administrative user, should be used only by the Operator
 
-YAML Object Format
-******************
+.. _users.system-users-yaml:
+
+`YAML Object Format <users.html#system-users-yaml>`_
+****************************************************
 
 The default name of the Secrets object for these users is
 ``my-cluster-secrets`` and can be set in the CR for your cluster in
@@ -132,8 +134,10 @@ values for each key/value pair must be encoded in base64. To do this you can
 simply run ``echo -n "password" | base64`` in your local shell to get valid
 values.
 
-Password Rotation Policies and Timing
-*************************************
+.. _users.system-users-rotation:
+
+`Password Rotation Policies and Timing <users.html#system-users-rotation>`_
+***************************************************************************
 
 When there is a change in user secrets, the Operator
 creates the necessary transaction to change passwords. This rotation happens
@@ -143,8 +147,10 @@ take any action beyond changing the password.
 .. note:: Please don't change ``secretName`` option in CR, make changes inside
    the secrets object itself.
 
-Marking System Users In MySQL
-*****************************
+.. _users.system-users-marking:
+
+`Marking System Users In MySQL <users.html#system-users-marking>`_
+******************************************************************
 
 Starting with MySQL 8.0.16, a new feature called Account Categories has been
 implemented, which allows us to mark our system users as such.

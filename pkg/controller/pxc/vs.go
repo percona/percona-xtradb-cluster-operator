@@ -28,12 +28,14 @@ func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, erro
 	applyParams := &version_service.VersionServiceApplyParams{
 		Apply:             vm.Apply,
 		BackupVersion:     &vm.BackupVersion,
-		CustomResourceOid: &vm.CRUID,
+		CustomResourceUID: &vm.CRUID,
 		DatabaseVersion:   &vm.PXCVersion,
 		KubeVersion:       &vm.KubeVersion,
 		OperatorVersion:   vs.OpVersion,
 		Platform:          &vm.Platform,
 		PmmVersion:        &vm.PMMVersion,
+		ProxysqlVersion:   &vm.ProxySQLVersion,
+		HaproxyVersion:    &vm.HAProxyVersion,
 		Product:           productName,
 		HTTPClient:        &http.Client{Timeout: 10 * time.Second},
 	}
@@ -69,7 +71,7 @@ func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, erro
 		return DepVersion{}, err
 	}
 
-	haproxyVersion, err := getVersion(r.Versions[0].Matrix.HAProxy)
+	haproxyVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Haproxy)
 	if err != nil {
 		return DepVersion{}, err
 	}
@@ -83,6 +85,8 @@ func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, erro
 		ProxySqlVersion: proxySqlVersion,
 		PMMImage:        resp.Payload.Versions[0].Matrix.Pmm[pmmVersion].ImagePath,
 		PMMVersion:      pmmVersion,
+		HAProxyImage:    resp.Payload.Versions[0].Matrix.Haproxy[haproxyVersion].ImagePath,
+		HAProxyVersion:  haproxyVersion,
 	}, nil
 }
 
@@ -120,11 +124,13 @@ type VersionServiceClient struct {
 }
 
 type versionMeta struct {
-	Apply         string
-	PXCVersion    string
-	KubeVersion   string
-	Platform      string
-	PMMVersion    string
-	BackupVersion string
-	CRUID         string
+	Apply           string
+	PXCVersion      string
+	KubeVersion     string
+	Platform        string
+	PMMVersion      string
+	BackupVersion   string
+	ProxySQLVersion string
+	HAProxyVersion  string
+	CRUID           string
 }

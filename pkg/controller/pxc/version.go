@@ -111,7 +111,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		PXCVersion:      cr.Status.PXC.Version,
 		PMMVersion:      cr.Status.PMM.Version,
 		HAProxyVersion:  cr.Status.HAProxy.Version,
-		ProxySqlVersion: cr.Status.ProxySQL.Version,
+		ProxySQLVersion: cr.Status.ProxySQL.Version,
 		BackupVersion:   cr.Status.Backup.Version,
 		CRUID:           string(cr.GetUID()),
 	})

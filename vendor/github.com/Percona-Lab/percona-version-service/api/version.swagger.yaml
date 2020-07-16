@@ -57,11 +57,19 @@ paths:
           in: query
           required: false
           type: string
-        - name: namespaceOid
+        - name: proxysqlVersion
           in: query
           required: false
           type: string
-        - name: customResourceOid
+        - name: haproxyVersion
+          in: query
+          required: false
+          type: string
+        - name: namespaceUid
+          in: query
+          required: false
+          type: string
+        - name: customResourceUid
           in: query
           required: false
           type: string

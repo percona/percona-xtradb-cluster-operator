@@ -1,6 +1,6 @@
 # cloud.google.com/go v0.49.0
 cloud.google.com/go/compute/metadata
-# github.com/Percona-Lab/percona-version-service/api v0.0.0-20200707073643-e3dd469db8be
+# github.com/Percona-Lab/percona-version-service/api v0.0.0-20200714141734-e9fed619b55c
 github.com/Percona-Lab/percona-version-service/api
 # github.com/PuerkitoBio/purell v1.1.1
 github.com/PuerkitoBio/purell

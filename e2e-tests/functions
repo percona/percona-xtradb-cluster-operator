@@ -48,7 +48,7 @@ wait_cluster_consistency() {
 
 create_namespace() {
     if [ "${CLEAN_NAMESPACE}" == 1 ]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|^NAME" | awk '{print$1}' | xargs kubectl delete ns
+        kubectl get ns | egrep -v "^kube-|^default|Terminating|^NAME" | awk '{print$1}' | xargs kubectl delete ns || :
     fi
 
     local namespace="$1"

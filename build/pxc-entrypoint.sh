@@ -103,7 +103,26 @@ _get_cnf_config() {
 	if [[ -z $reval ]]; then
 		reval=$3
 	fi
-	echo $reval
+	echo "$reval"
+}
+
+# _get_tmpdir return temporary dir similar to 'initialize_tmpdir' function
+# and $JOINER_SST_DIR selection logic inside 'wsrep_sst_xtrabackup-v2.sh'
+_get_tmpdir() {
+	local defaul_value="$1"
+	local tmpdir_path=""
+
+	tmpdir_path=$(_get_cnf_config sst tmpdir "")
+	if [[ -z "${tmpdir_path}" ]]; then
+		tmpdir_path=$(_get_cnf_config xtrabackup tmpdir "")
+	fi
+	if [[ -z "${tmpdir_path}" ]]; then
+		tmpdir_path=$(_get_cnf_config mysqld tmpdir "")
+	fi
+	if [[ -z "${tmpdir_path}" ]]; then
+		tmpdir_path="$defaul_value"
+	fi
+	echo "$tmpdir_path"
 }
 
 function join {
@@ -134,9 +153,9 @@ if [ -f "$vault_secret" ]; then
 	fi
 fi
 
-# add sst.cpat to exclude pxc-entrypoint and unsafe-bootstrap from SST cleanup
+# add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^[sst]" "$CFG" || printf '[sst]\n' >> "$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$' "$CFG" 1<> "$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh' "$CFG" 1<> "$CFG"
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup'
 file_env 'CLUSTERCHECK_PASSWORD' 'clustercheck'
@@ -208,6 +227,9 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 	# Get config
 	DATADIR="$(_get_config 'datadir' "$@")"
+	TMPDIR=$(_get_tmpdir "$DATADIR/sst-xb-tmpdir")
+
+	rm -rfv "$TMPDIR"
 
 	if [ ! -d "$DATADIR/mysql" ]; then
 		file_env 'MYSQL_ROOT_PASSWORD'
@@ -218,11 +240,15 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 
 		mkdir -p "$DATADIR"
-		cpat=$(_get_cnf_config sst cpat)
+		cpat="$(_get_cnf_config sst cpat)"
 		find "$DATADIR" -mindepth 1  -regex "$cpat"  -prune  -o -exec rm -rfv {} 1>/dev/null \+
 
 		echo 'Initializing database'
-		"$@" --initialize-insecure --skip-ssl
+		# we initialize database into $TMPDIR because "--initialize-insecure" option does not work if directory is not empty
+		# in some cases storage driver creates unremovable artifacts (see K8SPXC-286), so $DATADIR cleanup is not possible
+		"$@" --initialize-insecure --skip-ssl --datadir="$TMPDIR"
+		mv "$TMPDIR"/* "$DATADIR/"
+		rm -rfv "$TMPDIR"
 		echo 'Database initialized'
 
 		SOCKET="$(_get_config 'socket' "$@")"

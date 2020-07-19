@@ -7,6 +7,7 @@ ACCESS_KEY_ID=${ACCESS_KEY_ID:-}
 SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY:-}
 ENDPOINT=${ENDPOINT:-}
 DEFAULT_REGION=${DEFAULT_REGION:-us-east-1}
+xbcloud=$(which xbcloud) # it is needed to have full path to xbcloud on some platforms
 
 check_ctrl() {
     if [ -x "$(command -v kubectl)" ]; then
@@ -16,7 +17,7 @@ check_ctrl() {
     else
         echo "[ERROR] Neither <oc> nor <kubectl> client found"
         exit 1
-    fi 
+    fi
 }
 
 usage() {
@@ -86,7 +87,7 @@ check_input() {
             usage
         fi
     elif [ "${backup_dest:0:5}" = "s3://" ]; then
-        env -i $CREDENTIALS xbcloud get ${backup_dest} xtrabackup_info 1>/dev/null
+        env -i $CREDENTIALS $xbcloud get ${backup_dest} xtrabackup_info 1>/dev/null
     else
         usage
     fi
@@ -147,7 +148,7 @@ copy_files_s3() {
 
     echo ""
     echo "Downloading started"
-    env -i $CREDENTIALS xbcloud get ${backup_path} --parallel=10 1>$dest_dir/xtrabackup.stream 2>$dest_dir/transfer.log
+    env -i $CREDENTIALS $xbcloud get ${backup_path} --parallel=10 1>$dest_dir/xtrabackup.stream 2>$dest_dir/transfer.log
     echo "Downloading finished"
 }
 

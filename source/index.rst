@@ -53,6 +53,7 @@ Configuration
    storage
    constraints
    options
+   haproxy-conf
    proxysql-conf
    TLS
    encryption

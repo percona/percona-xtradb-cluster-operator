@@ -781,6 +781,7 @@ start_vault() {
     if [ $protocol == "https" ]; then
         vault_tls "$name"
         helm install $name hashicorp/vault \
+            --disable-openapi-validation \
             --version 0.6.0 \
             --namespace "$name" \
             --set dataStorage.enabled=false \
@@ -804,6 +805,7 @@ storage \"file\" {
         
     else
         helm install $name hashicorp/vault \
+            --disable-openapi-validation \
             --version 0.6.0 \
             --namespace "$name" \
             --set dataStorage.enabled=false \

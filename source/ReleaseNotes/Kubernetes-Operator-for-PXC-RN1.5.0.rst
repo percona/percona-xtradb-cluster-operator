@@ -30,8 +30,6 @@ Improvements
 * :jirabug:`CLOUD-556`: Kubernetes 1.17 added to the list of supported platforms
 * :jirabug:`CLOUD-404`: Support of loadBalancerSourceRanges for LoadBalancer Services
 
-
-
 Bugs Fixed
 ================================================================================
 

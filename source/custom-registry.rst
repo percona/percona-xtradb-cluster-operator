@@ -115,10 +115,10 @@ Percona XtraDB Cluster Operator:
            - 7cddeedaa90ec9ba529340e34ee5662c9485139b2b197fc0abdbb6c261a14f62
          * - percona/percona-xtradb-cluster-operator:1.5.0-pxc5.7-backup
            - 6191dd4f7b8678d69dea9a87e083becfbba1a633ef725a0513babd55e5ac76f3
-         * - percona/percona-xtradb-cluster:8.0.19-10.1-debug
-           - de50c66ac39186b24048823aac59a1684b72e0199e3e6dccc4b6e4ce27a4a123
          * - percona/percona-xtradb-cluster-operator:1.5.0-pmm
            - 28bbb6693689a15c407c85053755334cd25d864e632ef7fed890bc85726cfb68
+         * - percona/percona-xtradb-cluster:8.0.19-10.1-debug
+           - de50c66ac39186b24048823aac59a1684b72e0199e3e6dccc4b6e4ce27a4a123
          * - percona/percona-xtradb-cluster:8.0.19-10.1
            - 1058ae8eded735ebdf664807aad7187942fc9a1170b3fd0369574cb61206b63a
          * - percona/percona-xtradb-cluster:5.7.30-31.43

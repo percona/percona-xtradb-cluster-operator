@@ -37,9 +37,9 @@ project = u'Percona Kubernetes Operator for PXC'
 copyright = u'Percona LLC and/or its affiliates 2009 - 2020'
 
 # the short X.Y version
-version = '1.4.0'
+version = '1.5.0'
 # the full version including alpha/beta/rc tags.
-release = '1.4.0'
+release = '1.5.0'
 
 
 # List of patterns, relative to source directory, that match files and

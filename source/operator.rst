@@ -938,7 +938,7 @@ configuration options for the HAProxy service.
 | **Example**     | ``percona-xtradb-cluster-operator-workload``                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes Service Account                                                           |
-|                   <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>_    |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>`_   |
 |                 | for the HAProxy Pod                                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
 
@@ -1415,7 +1415,7 @@ configuration options for the ProxySQL daemon.
 | **Example**     | ``percona-xtradb-cluster-operator-workload``                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes Service Account                                                           |
-|                   <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>_    |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>`_   |
 |                 | for the ProxySQL Pod                                                                      |
 +-----------------+-------------------------------------------------------------------------------------------+
 

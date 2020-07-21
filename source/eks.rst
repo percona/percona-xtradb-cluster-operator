@@ -13,7 +13,7 @@ The following tools are used in this guide and therefore should be preinstalled:
    parts of AWS. You can install it following the `official installation instructions for your system <https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html>`_.
 
 2. **eksctl** to simplify cluster creation on EKS. It can be installed
-   along its `installation notes on GitHub <https://github.com/weaveworks/eksctl#installation>`.
+   along its `installation notes on GitHub <https://github.com/weaveworks/eksctl#installation>`_.
 
 3. **kubectl**  to manage and deploy applications on Kubernetes. Install
    it `following the official installation instructions <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_.

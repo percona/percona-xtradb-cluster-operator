@@ -401,7 +401,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			exit 1
 		fi
 
-		mysql_upgrade "${mysql[@]:1}"
+		mysql_upgrade --force "${mysql[@]:1}"
 		if ! kill -s TERM "$pid" || ! wait "$pid"; then
 			echo >&2 'MySQL init process failed.'
 			exit 1

@@ -187,15 +187,19 @@ updates:
 #. Set the ``apply`` option to one of the following values:
 
    * ``Recommended`` - automatic upgrades will choose the most recent version
-     of software flagged as Recommended,
+     of software flagged as Recommended (and if the cluster is created from
+     scratch, the PXC 8.0 version will be selected instead of the PCX 5.7 one
+     regardless of the image path),
    * ``Latest`` - automatic upgrades will choose the most recent version of
-     the software available,
+     the software available (and if the cluster is created from
+     scratch, the PXC 8.0 version will be selected instead of the PCX 5.7 one
+     regardless of the image path),
    * *specific version number* - will apply an upgrade if the running PXC
      version doesn't match the explicit version number with no future upgrades
      (version numbers are specified as ``5.7.26-31.37``, ``5.7.27-31.39``,
      ``5.7.28-31.41.2``, ``5.7.29-31.43``, etc.),
    * ``Never`` or ``Disabled`` - disable automatic upgrades
-     
+
      .. note:: When automatic upgrades are disabled by the ``apply`` option, 
         Smart Update functionality will continue working for changes triggered
         by other events, such as updating a ConfigMap, rotating a password, or

@@ -100,7 +100,7 @@ Percona XtraDB Cluster Operator:
 
 
       .. list-table::
-         :widths: 15 30
+         :widths: 15 50
          :header-rows: 1
 
          * - Image

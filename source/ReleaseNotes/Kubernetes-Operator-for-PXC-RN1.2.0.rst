@@ -49,7 +49,7 @@ All of Percona’s software is open-source and free.
 is an open source, cost-effective and robust clustering solution for businesses.
 It integrates Percona Server for MySQL with the Galera replication library to
 produce a highly-available and scalable MySQL® cluster complete with synchronous
-multi-master replication, zero data loss and automatic node provisioning using
+multi-primary replication, zero data loss and automatic node provisioning using
 Percona XtraBackup.
 
 Help us improve our software quality by reporting any bugs you encounter using

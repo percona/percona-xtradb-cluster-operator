@@ -187,13 +187,15 @@ updates:
 #. Set the ``apply`` option to one of the following values:
 
    * ``Recommended`` - automatic upgrades will choose the most recent version
-     of software flagged as Recommended (and if the cluster is created from
-     scratch, the PXC 8.0 version will be selected instead of the PCX 5.7 one
-     regardless of the image path),
+     of software flagged as Recommended (for clusters created from scratch,
+     the PXC 8.0 version will be selected instead of the PCX 5.7 one regardless
+     of the image path; for already existing clusters, the 8.0 vs. 5.7 branch
+     choice will be preserved),
    * ``Latest`` - automatic upgrades will choose the most recent version of
-     the software available (and if the cluster is created from
-     scratch, the PXC 8.0 version will be selected instead of the PCX 5.7 one
-     regardless of the image path),
+     the software available (for clusters created from scratch,
+     the PXC 8.0 version will be selected instead of the PCX 5.7 one regardless
+     of the image path; for already existing clusters, the 8.0 vs. 5.7 branch
+     choice will be preserved),
    * *specific version number* - will apply an upgrade if the running PXC
      version doesn't match the explicit version number with no future upgrades
      (version numbers are specified as ``5.7.26-31.37``, ``5.7.27-31.39``,

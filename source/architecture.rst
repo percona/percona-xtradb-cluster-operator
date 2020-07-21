@@ -3,7 +3,7 @@ Design overview
 
 *Percona XtraDB Cluster* integrates *Percona Server for MySQL* running
 with the XtraDB storage engine, and *Percona XtraBackup* with the
-*Galera library* to enable synchronous multi-master replication.
+*Galera library* to enable synchronous multi-primary replication.
 
 The design of the operator is highly bound to the Percona XtraDB Cluster
 high availability implementation, which in its turn can be briefly

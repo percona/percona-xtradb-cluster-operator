@@ -21,6 +21,6 @@ The Operator source code is available `in our Github repository <https://github.
 * The list of officially supported platforms now includes `Minikube <https://www.percona.com/doc/kubernetes-operator-for-pxc/minikube.html>`_, which provides an easy way to test the Operator locally on your own machine before deploying it on a cloud.
 * Also, Google Kubernetes Engine 1.14 and OpenShift Platform 4.1 are now supported.
 
-`Percona XtraDB Cluster <http://www.percona.com/doc/percona-xtradb-cluster/>`_ is an open source, cost-effective and robust clustering solution for businesses. It integrates Percona Server for MySQL with the Galera replication library to produce a highly-available and scalable MySQL® cluster complete with synchronous multi-master replication, zero data loss and automatic node provisioning using Percona XtraBackup.
+`Percona XtraDB Cluster <http://www.percona.com/doc/percona-xtradb-cluster/>`_ is an open source, cost-effective and robust clustering solution for businesses. It integrates Percona Server for MySQL with the Galera replication library to produce a highly-available and scalable MySQL® cluster complete with synchronous multi-primary replication, zero data loss and automatic node provisioning using Percona XtraBackup.
 
 Help us improve our software quality by reporting any bugs you encounter using `our bug tracking system <https://jira.percona.com/secure/Dashboard.jspa>`_.

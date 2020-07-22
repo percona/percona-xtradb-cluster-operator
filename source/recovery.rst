@@ -66,13 +66,13 @@ which is based on three PXC Pods.
 
    .. code-block:: bash
 
-      $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-debug"}}}'
+      $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster:8.0.19-10.1-debug"}}}'
 
    .. note:: For PXC 5.7 this command should be as follows:
 
       .. code-block:: bash
 
-         $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-debug"}}}'
+         $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster:5.7.30-31.43-debug"}}}'
 
 2.  Restart all Pods:
 
@@ -136,13 +136,13 @@ which is based on three PXC Pods.
 
    .. code-block:: bash
 
-      $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0"}}}'
+      $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster:8.0.19-10.1"}}}'
 
    .. note:: For PXC 5.7 this command should be as follows:
 
       .. code-block:: bash
 
-         $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7"}}}'
+         $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster:5.7.30-31.43"}}}'
 
 7. Restart all Pods besides the ``cluster1-pxc-2`` Pod (the recovery donor).
 

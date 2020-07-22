@@ -16,11 +16,12 @@ Particularly, using this image is useful if the container entry point fails
 Continuous restarts prevent to get console access to the container,
 and so a special approach is needed to make fixes.
 
-To use the debug image instead of the normal one, set the following image name
-for the ``pxc.image`` key in the ``deploy/cr.yaml`` configuration file:
+To use the *debug* image instead of the normal one, find the needed image name
+:ref:`in the list of certified images<custom-registry-images>` and set it
+for the ``pxc.image`` key in the ``deploy/cr.yaml`` configuration file, e.g.:
 
-* ``percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-debug`` for PXC 8.0,
-* ``percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-debug`` for PXC 5.7.
+* ``percona/percona-xtradb-cluster:8.0.19-10.1-debug`` for PXC 8.0,
+* ``percona/percona-xtradb-cluster:5.7.30-31.43-debug`` for PXC 5.7.
 
 The Pod should be restarted to get the new image.
 

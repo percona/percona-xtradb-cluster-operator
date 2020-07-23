@@ -1,10 +1,12 @@
 .. _recovery:
 
-Crash Recovery
-=================
+`Crash Recovery <recovery.html#recovery>`_
+==========================================
 
-What does the full cluster crash mean?
----------------------------------------
+.. _recovery-explanation:
+
+`What does the full cluster crash mean? <recovery.html#recovery-explanation>`_
+------------------------------------------------------------------------------
 
 A full cluster crash is a situation when all database instances where
 shut down in random order. Being rebooted after such situation, Pod is
@@ -26,8 +28,8 @@ after a full cluster crash.
 
 .. _recovery-bootstrap:
 
-Bootstrap Crash Recovery method
--------------------------------
+`Bootstrap Crash Recovery method <recovery.html#recovery-bootstrap>`_
+---------------------------------------------------------------------
 
 In this case recovery is done automatically. The recovery is triggered by the
 ``pxc.forceUnsafeBootstrap`` option set to ``true`` in the ``deploy/cr.yaml``
@@ -44,8 +46,8 @@ manual method described in the next chapter.
 
 .. _recovery-object-surgery:
 
-Object Surgery Crash Recovery method
-------------------------------------
+`Object Surgery Crash Recovery method <recovery.html#recovery-object-surgery>`_
+-------------------------------------------------------------------------------
 
 .. warning:: This method is intended for advanced users only!
 

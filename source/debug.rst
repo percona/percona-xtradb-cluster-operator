@@ -20,8 +20,8 @@ To use the *debug* image instead of the normal one, find the needed image name
 :ref:`in the list of certified images<custom-registry-images>` and set it
 for the ``pxc.image`` key in the ``deploy/cr.yaml`` configuration file, e.g.:
 
-* ``percona/percona-xtradb-cluster:8.0.19-10.1-debug`` for PXC 8.0,
-* ``percona/percona-xtradb-cluster:5.7.30-31.43-debug`` for PXC 5.7.
+* ``percona/percona-xtradb-cluster:{{{pxc80recommended}}}-debug`` for PXC 8.0,
+* ``percona/percona-xtradb-cluster:{{{pxc57recommended}}}-debug`` for PXC 5.7.
 
 The Pod should be restarted to get the new image.
 

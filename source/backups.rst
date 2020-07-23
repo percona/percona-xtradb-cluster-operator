@@ -185,7 +185,7 @@ sections as follows:
 .. code:: yaml
 
    pxc:
-     image: percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0
+     image: percona/percona-xtradb-cluster:8.0.19-10.1
      configuration: |
        ...
        [sst]

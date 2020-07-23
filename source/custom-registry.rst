@@ -1,3 +1,5 @@
+.. _custom-registry:
+
 Use docker images from a custom registry
 ========================================
 
@@ -92,6 +94,8 @@ in the OpenShift environment.
 9. Now follow the standard `Percona XtraDB Cluster Operator installation
    instruction <./openshift>`__.
 
+.. _custom-registry-images:
+
 Percona certified images
 ------------------------
 
@@ -121,6 +125,8 @@ Percona XtraDB Cluster Operator:
            - de50c66ac39186b24048823aac59a1684b72e0199e3e6dccc4b6e4ce27a4a123
          * - percona/percona-xtradb-cluster:8.0.19-10.1
            - 1058ae8eded735ebdf664807aad7187942fc9a1170b3fd0369574cb61206b63a
+         * - percona/percona-xtradb-cluster:5.7.30-31.43-debug
+           - de784e3442b0ad8ca1fbcf5b031180a76e25d77bc52d9456effc8cf2873c32b4
          * - percona/percona-xtradb-cluster:5.7.30-31.43
            - b03a060e9261b37288a2153c78f86dcfc53367c36e1bcdcae046dd2d0b0721af
          * - percona/percona-xtradb-cluster:5.7.29-31.43

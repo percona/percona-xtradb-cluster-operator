@@ -155,9 +155,10 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-pxc``                                     |
+| **Example**     | ``percona/percona-xtradb-cluster:{{{pxc80recommended}}}``                                            |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | The Docker image of the Percona cluster used                                              |
+| **Description** | The Docker image of the Percona cluster used (actual image names for PXC 8.0 and PXC 5.7  |
+|                 | can be found :ref:`in the list of certified images<custom-registry-images>`)              |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

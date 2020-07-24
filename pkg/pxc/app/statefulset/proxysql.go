@@ -75,12 +75,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 			{
 				Name:      "ssl-internal",
 				MountPath: "/etc/proxysql/ssl-internal",
-			},
-			{
-				Name:      "config",
-				MountPath: "/etc/proxysql/",
-			},
-		},
+			}},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
@@ -111,7 +106,12 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}
-
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "config",
+			MountPath: "/etc/proxysql/",
+		})
+	}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		appc.Env[1] = corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
@@ -304,8 +304,10 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*ap
 		vol.Volumes,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig),
-		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-proxysql"),
 	)
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
+		vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-proxysql"))
+	}
 	return vol, nil
 }
 

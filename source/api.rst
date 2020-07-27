@@ -4,9 +4,18 @@ PXC API Documentation
 .. raw:: html
 
    <style>
+   
+   .toggle {
+        background: none repeat scroll 0 0 #ffebcc;
+        padding: 12px;
+        line-height: 24px;
+        margin-bottom: 24px;
+    }
+   
    .toggle .header {
        display: block;
        clear: both;
+       cursor: pointer;
    }
    
    .toggle .header:after {

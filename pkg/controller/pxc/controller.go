@@ -601,19 +601,22 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			return err
 		}
 
-		// TODO: code duplication with updatePod function
-		if proxySet.Spec.Template.Annotations == nil {
-			proxySet.Spec.Template.Annotations = make(map[string]string)
-		}
+
+		proxySet.Spec.Template.Annotations = make(map[string]string)
 		proxyConfigString := cr.Spec.ProxySQL.Configuration
 		proxyConfigHash := fmt.Sprintf("%x", md5.Sum([]byte(proxyConfigString)))
 		if nodeSet.Spec.Template.Annotations == nil {
 			nodeSet.Spec.Template.Annotations = make(map[string]string)
 		}
+
 		if cr.CompareVersionWith("1.1.0") >= 0 {
 			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = proxyConfigHash
 			proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 			proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+		}
+
+		for k, v := range cr.Spec.ProxySQL.Annotations {
+			proxySet.Spec.Template.Annotations[k] = v
 		}
 
 		err = r.client.Create(context.TODO(), proxySet)

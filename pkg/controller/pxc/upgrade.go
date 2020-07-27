@@ -38,14 +38,17 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function
 	configHash := r.getConfigHash(cr, sfs)
-	if currentSet.Spec.Template.Annotations == nil {
-		currentSet.Spec.Template.Annotations = make(map[string]string)
-	}
+	currentSet.Spec.Template.Annotations = make(map[string]string)
+
 	if cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
 	}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		currentSet.Spec.Template.Spec.ServiceAccountName = podSpec.ServiceAccountName
+	}
+
+	for k, v := range cr.Spec.ProxySQL.Annotations {
+		currentSet.Spec.Template.Annotations[k] = v
 	}
 
 	err = r.reconcileConfigMap(cr)

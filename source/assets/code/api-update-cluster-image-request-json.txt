@@ -1,0 +1,5 @@
+.. code-block:: json
+
+	{
+	"spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:1.4.0-pxc5.7" }
+	}}

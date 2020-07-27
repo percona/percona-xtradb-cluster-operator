@@ -1,0 +1,13 @@
+.. code-block:: json
+
+	{
+	   "apiVersion":"pxc.percona.com/v1",
+	   "kind":"PerconaXtraDBClusterRestore",
+	   "metadata":{
+	      "name":"restore1"
+	   },
+	   "spec":{
+	      "pxcCluster":"cluster1",
+	      "backupName":"backup1"
+	   }
+	}

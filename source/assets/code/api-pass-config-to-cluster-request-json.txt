@@ -1,0 +1,13 @@
+.. code-block:: json
+
+	{
+	   "apiVersion":"v1",
+	   "data":{
+	      "my.cnf":"[mysqld]\nmax_connections=250\n"
+	   },
+	   "kind":"ConfigMap",
+	   "metadata":{
+	      "creationTimestamp":null,
+	      "name":"cluster1-pxc3"
+	   }
+	}

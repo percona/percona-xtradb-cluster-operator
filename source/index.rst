@@ -81,4 +81,5 @@ Reference
    :maxdepth: 1
 
    operator
+   api
    Release Notes <ReleaseNotes/index>

@@ -95,6 +95,32 @@ spec:
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.5.0-haproxy
 #    schedulerName: mycustom-scheduler
+#    configuration: |
+#      global
+#        maxconn 2048
+#        external-check
+#        stats socket /var/run/haproxy.sock mode 600 expose-fd listeners level user
+#
+#      defaults
+#        log global
+#        mode tcp
+#        retries 10
+#        timeout client 28800s
+#        timeout connect 100500
+#        timeout server 28800s
+#
+#      frontend galera-in
+#        bind *:3309 accept-proxy
+#        bind *:3306 accept-proxy
+#        mode tcp
+#        option clitcpka
+#        default_backend galera-nodes
+#
+#      frontend galera-replica-in
+#        bind *:3307
+#        mode tcp
+#        option clitcpka
+#        default_backend galera-replica-nodes
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:

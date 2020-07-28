@@ -207,6 +207,7 @@ compare_kubectl() {
         | $sed -e '/name: suffix/,+1d' \
         | $sed -e '/name: S3_BUCKET_PATH/,+1d' \
         | $sed -e '/name: S3_BUCKET_URL/,+1d' \
+        | $sed -e '/annotations:$/{N;N;s/annotations:\n    kubernetes.io.*\n    \(openshift.io.*\)/annotations:\n    \1/}' \
         | $sed -e '/annotations:$/{$!{N;s/annotations:\n    kubernetes.io.*//;ty;P;D;:y;d}}' \
         | $sed -e '/annotations:$/{$!{N;s/annotations:\n    cni.projectcalico.org.*//;ty;P;D;:y;d}}' \
         | $sed -e '/volumeClaimTemplates:$/{N;/  \- apiVersion.*$/ {N;/  kind.*$/ {N;/    metadata:$/{s/volumeClaimTemplates.*metadata:$/volumeClaimTemplates:\n  \- metadata:/}}}}' \

@@ -27,6 +27,7 @@ PXC API Documentation
    }
    </style>
 
+.. contents:: :local:
 
 Prerequisites
 -------------
@@ -53,32 +54,32 @@ Prerequisites
 Create new PXC cluster
 ----------------------
 
-**Description:**
+.. rubirc:: Description:
 
 .. code-block:: bash
 
    The command to create a new PXC cluster creating all of its resources and it depends on the pxc operator
 
-**Kubectl Command:**
+.. rubirc:: Kubectl Command:
 
 .. code-block:: bash
 
    kubectl --v=9 apply -f percona-xtradb-cluster-operator/deploy/cr.yaml
 
-**URL:**
+.. rubirc:: URL:
 
 .. code-block:: bash
 
    https://$API_SERVER/apis/pxc.percona.com/v1-4-0/namespaces/default/perconaxtradbclusters
 
-**Authentication:**
+.. rubirc:: Authentication:
 
 .. code-block:: bash
 
    Authorization: Bearer $KUBE_TOKEN
 
 
-**cURL Request:**
+.. rubirc:: cURL Request:
 
 .. code-block:: bash
 
@@ -88,7 +89,7 @@ Create new PXC cluster
                -H "Authorization: Bearer $KUBE_TOKEN" \
                -d "@cluster.json"
 
-**Request Body (cluster.json):**
+.. rubirc:: Request Body (cluster.json):
 
 .. container:: toggle
 
@@ -98,7 +99,7 @@ Create new PXC cluster
 
    .. include:: ./assets/code/api-create-cluster-request-json.txt
 
-**Inputs:**
+.. rubirc:: Input:
 
   **Metadata**:
   
@@ -139,7 +140,7 @@ Create new PXC cluster
      3. keep (Int, min-value = 1) : ``number of backups to keep``
      4. storageName (String, min-length: 1) : ``name of storage object to use``
 
-**Response:**
+.. rubirc:: Response:
 
 .. container:: toggle
 
@@ -152,31 +153,31 @@ Create new PXC cluster
 List PXC cluster
 ----------------
 
-**Description:**
+.. rubirc:: Description:
 
 .. code-block:: bash
 
    Lists all pxc clusters that exist in your kubernetes cluster
 
-**Kubectl Command:**
+.. rubirc:: Kubectl Command:
 
 .. code-block:: bash
 
    kubectl --v=9 get pxc
 
-**URL:**
+.. rubirc:: URL:
 
 .. code-block:: bash
 
    https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters?limit=500
 
-**Authentication:**
+.. rubirc:: Authentication:
 
 .. code-block:: bash
 
    Authorization: Bearer $KUBE_TOKEN
 
-**cURL Request:**
+.. rubirc:: cURL Request:
 
 .. code-block:: bash
 
@@ -184,13 +185,13 @@ List PXC cluster
                -H "Accept: application/json;as=Table;v=v1;g=meta.k8s.io,application/json;as=Table;v=v1beta1;g=meta.k8s.io,application/json" \
                -H "Authorization: Bearer $KUBE_TOKEN"
 
-**Request Body:**
+.. rubirc:: Request Body:
 
 .. code-block:: bash
 
    None
 
-**Response:**
+.. rubirc:: Response:
 
 .. container:: toggle
 
@@ -203,31 +204,31 @@ List PXC cluster
 Get status of PXC cluster
 -------------------------
 
-**Description:**
+.. rubirc:: Description:
 
 .. code-block:: bash
 
    Gets all information about specified pxc cluster
 
-**Kubectl Command:**
+.. rubirc:: Kubectl Command:
 
 .. code-block:: bash
 
    kubectl --v=9 get pxc/cluster1 -o json
 
-**URL:**
+.. rubirc:: URL:
 
 .. code-block:: bash
 
    https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1
 
-**Authentication:**
+.. rubirc:: Authentication:
 
 .. code-block:: bash
 
    Authorization: Bearer $KUBE_TOKEN
 
-**cURL Request:**
+.. rubirc:: cURL Request:
 
 .. code-block:: bash
 
@@ -235,11 +236,11 @@ Get status of PXC cluster
                -H "Accept: application/json" \
                -H "Authorization: Bearer $KUBE_TOKEN"
 
-**Request Body:**
+.. rubirc:: Request Body:
 
 .. code-block:: bash
 
-**Response:**
+.. rubirc:: Response:
 
 .. container:: toggle
 
@@ -252,13 +253,13 @@ Get status of PXC cluster
 Scale up/down PXC cluster
 -------------------------
 
-**Description:**
+.. rubirc:: Description:
 
 .. code-block:: bash
 
    Increase or decrease the size of the PXC cluster nodes to fit the current high availability needs
 
-**Kubectl Command:**
+.. rubirc:: Kubectl Command:
 
 .. code-block:: bash
 
@@ -266,19 +267,19 @@ Scale up/down PXC cluster
    "spec": {"pxc":{ "size": "5" }  
    }}'
 
-**URL:**
+.. rubirc:: URL:
 
 .. code-block:: bash
 
    https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1
 
-**Authentication:**
+.. rubirc:: Authentication:
 
 .. code-block:: bash
 
    Authorization: Bearer $KUBE_TOKEN
 
-**cURL Request:**
+.. rubirc:: cURL Request:
 
 .. code-block:: bash
 
@@ -290,7 +291,7 @@ Scale up/down PXC cluster
                      "spec": {"pxc":{ "size": "5" }  
                      }}'
 
-**Request Body:**
+.. rubirc:: Request Body:
 
 .. container:: toggle
 
@@ -300,7 +301,7 @@ Scale up/down PXC cluster
 
    .. include:: ./assets/code/api-scale-cluster-request-json.txt
 
-**Input:**
+.. rubirc:: Input:
 
    **spec**:
 
@@ -308,7 +309,7 @@ Scale up/down PXC cluster
 
    1. size (Int or String, Defaults: 3): ``Specifiy the sie of the pxc cluster to scale up or down to``
 
-**Response:**
+.. rubirc:: Response:
 
 .. container:: toggle
 
@@ -321,13 +322,13 @@ Scale up/down PXC cluster
 Update PXC cluster image
 ------------------------
 
-**Description:**
+.. rubirc:: Description:
 
 .. code-block:: bash
 
    Change the image of pxc containers inside the cluster
 
-**Kubectl Command:**
+.. rubirc:: Kubectl Command:
 
 .. code-block:: bash
 
@@ -335,20 +336,20 @@ Update PXC cluster image
    "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:1.4.0-pxc5.7" }  
    }}'
 
-**URL:**
+.. rubirc:: URL:
 
 .. code-block:: bash
 
    https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1
 
-**Authentication:**
+.. rubirc:: Authentication:
 
 .. code-block:: bash
 
    Authorization: Bearer $KUBE_TOKEN
 
 
-**cURL Request:**
+.. rubirc:: cURL Request:
 
 .. code-block:: bash
 
@@ -360,7 +361,7 @@ Update PXC cluster image
                  "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:1.4.0-pxc5.7" }
                  }}'
 
-**Request Body:**
+.. rubirc:: Request Body:
 
 .. container:: toggle
 
@@ -370,7 +371,7 @@ Update PXC cluster image
 
    .. include:: ./assets/code/api-update-cluster-image-request-json.txt
 
-**Input:**
+.. rubirc:: Input:
 
   **spec**:
   
@@ -378,7 +379,7 @@ Update PXC cluster image
   
   1. image (String, min-length: 1) : ``name of the image to update for pxc``
 
-**Response:**
+.. rubirc:: Response:
 
 .. container:: toggle
 
@@ -391,21 +392,21 @@ Update PXC cluster image
 Pass custom my.cnf during the creation of PXC cluster
 -----------------------------------------------------
 
-**Description:**
+.. rubirc:: Description:
 
 .. code-block:: bash
 
    Create a custom config map containing the contents of the file my.cnf to be passed on to the pxc containers we they are created
 
 
-**Kubectl Command:**
+.. rubirc:: Kubectl Command:
 
 .. code-block:: bash
 
    kubectl --v=9 create configmap cluster1-pxc3 --from-file=my.cnf
 
 
-**my.cnf (Contains mysql configuration):**
+.. rubirc:: my.cnf (Contains mysql configuration):
 
 .. code-block:: text
 
@@ -413,20 +414,20 @@ Pass custom my.cnf during the creation of PXC cluster
    max_connections=250
 
 
-**URL:**
+.. rubirc:: URL:
 
 .. code-block:: bash
 
    https://$API_SERVER/api/v1/namespaces/default/configmaps
 
 
-**Authentication:**
+.. rubirc:: Authentication:
 
 .. code-block:: bash
 
    Authorization: Bearer $KUBE_TOKEN
 
-**cURL Request:**
+.. rubirc:: cURL Request:
 
 .. code-block:: bash
 
@@ -436,7 +437,7 @@ Pass custom my.cnf during the creation of PXC cluster
                -d '{"apiVersion":"v1","data":{"my.cnf":"[mysqld]\nmax_connections=250\n"},"kind":"ConfigMap","metadata":{"creationTimestamp":null,"name":"cluster1-pxc3"}}' \
                -H "Content-Type: application/json"
 
-**Request Body:**
+.. rubirc:: Request Body:
 
 .. container:: toggle
 
@@ -446,13 +447,13 @@ Pass custom my.cnf during the creation of PXC cluster
 
    .. include:: ./assets/code/api-pass-config-to-cluster-request-json.txt
 
-**Input:**
+.. rubirc:: Input:
 
   1. data (Object {filename : contents(String, min-length:0)}): ``contains filenames to create in config map and its contents``
   2. metadata: name(String, min-length: 1) : ``contains name of the configmap``
   3. kind (String): ``type of object to create``
 
-**Response:**
+.. rubirc:: Response:
 
 .. container:: toggle
 
@@ -465,35 +466,35 @@ Pass custom my.cnf during the creation of PXC cluster
 Backup PXC cluster
 ------------------
 
-**Description:**
+.. rubirc:: Description:
 
 .. code-block:: bash
 
    Takes a backup of the pxc cluster containers data to be able to recover from disasters or make a roll-back later
 
 
-**Kubectl Command:**
+.. rubirc:: Kubectl Command:
 
 .. code-block:: bash
 
    kubectl --v=9 apply -f percona-xtradb-cluster-operator/deploy/backup/backup.yaml
 
 
-**URL:**
+.. rubirc:: URL:
 
 .. code-block:: bash
 
    https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusterbackups
 
 
-**Authentication:**
+.. rubirc:: Authentication:
 
 .. code-block:: bash
 
    Authorization: Bearer $KUBE_TOKEN
 
 
-**cURL Request:**
+.. rubirc:: cURL Request:
 
 .. code-block:: bash
 
@@ -502,7 +503,7 @@ Backup PXC cluster
                -H "Content-Type: application/json" \
                -d "@backup.json" -H "Authorization: Bearer $KUBE_TOKEN"
 
-**Request Body (backup.json):**
+.. rubirc:: Request Body (backup.json):
 
 .. container:: toggle
 
@@ -512,7 +513,7 @@ Backup PXC cluster
 
    .. include:: ./assets/code/api-backup-cluster-request-json.txt
 
-**Input:**
+.. rubirc:: Input:
 
 1. **metadata**:
 
@@ -523,7 +524,7 @@ Backup PXC cluster
      1. pxcCluster(String, min-length:1) : ``name of pxc cluster``
      2. storageName(String, min-length:1) : ``name of storage claim to use``
 
-**Response:**
+.. rubirc:: Response:
 
 .. container:: toggle
 
@@ -536,34 +537,34 @@ Backup PXC cluster
 Restore PXC cluster
 -------------------
 
-**Description:**
+.. rubirc:: Description:
 
 .. code-block:: bash
 
    Restores pxc cluster data to an earlier version to recover from a problem or to make a roll-back
 
 
-**Kubectl Command:**
+.. rubirc:: Kubectl Command:
 
 .. code-block:: bash
 
    kubectl --v=9 apply -f percona-xtradb-cluster-operator/deploy/backup/restore.yaml
 
 
-**URL:**
+.. rubirc:: URL:
 
 .. code-block:: bash
 
    https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusterrestores
 
-**Authentication:**
+.. rubirc:: Authentication:
 
 .. code-block:: bash
 
    Authorization: Bearer $KUBE_TOKEN
 
 
-**cURL Request:**
+.. rubirc:: cURL Request:
 
 .. code-block:: bash
 
@@ -573,7 +574,7 @@ Restore PXC cluster
                -d "@restore.json" \
                -H "Authorization: Bearer $KUBE_TOKEN"
 
-**Request Body (restore.json):**
+.. rubirc:: Request Body (restore.json):
 
 .. container:: toggle
 
@@ -583,7 +584,7 @@ Restore PXC cluster
 
    .. include:: ./assets/code/api-restore-cluster-request-json.txt
 
-**Input:**
+.. rubirc:: Input:
 
 1. **metadata**:
 
@@ -594,7 +595,7 @@ Restore PXC cluster
      1. pxcCluster(String, min-length:1) : ``name of pxc cluster``
      2. backupName(String, min-length:1) : ``name of backup to restore from``
 
-**Response:**
+.. rubirc:: Response:
 
 .. container:: toggle
 

@@ -240,6 +240,8 @@ Get status of PXC cluster
 
 .. code-block:: bash
 
+   None
+
 **Response:**
 
 .. container:: toggle

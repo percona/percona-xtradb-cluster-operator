@@ -27,6 +27,10 @@ PXC API Documentation
    }
    </style>
 
+Percona Operator for Percona XtraDB Cluster provides an `aggregation-layer extension for the Kubernetes API <https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/>`_. Please refer to the
+`official Kubernetes API documentation <https://kubernetes.io/docs/reference/>`_ on the API access and usage details.
+The following subsections describe the Percona XtraDB Cluster API provided by the Operator.
+
 .. contents:: :local:
 
 Prerequisites

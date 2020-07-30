@@ -64,8 +64,8 @@ delete_all_pods() {
 }
 
 main() {
-    create_namespace "$namespace"
-    deploy_operator
+    create_infra $namespace
+
     kubectl_bin apply -f "$test_dir/conf/pumba.yml"
 
     desc 'start cluster'

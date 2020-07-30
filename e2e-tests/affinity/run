@@ -30,8 +30,7 @@ check_affinity() {
 }
 
 main() {
-    create_namespace $namespace
-    deploy_operator
+    create_infra $namespace
     kubectl apply -f $conf_dir/secrets.yml
 
     desc 'check hostname anti-affinity'

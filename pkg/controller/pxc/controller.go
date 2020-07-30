@@ -581,7 +581,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		// PodDisruptionBudget object for HAProxy
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: haProxySet.Name, Namespace: haProxySet.Namespace}, haProxySet)
 		if err == nil {
-			err := r.reconcilePDB(cr.Spec.ProxySQL.PodDisruptionBudget, sfsHAProxy, cr.Namespace, haProxySet)
+			err := r.reconcilePDB(cr.Spec.HAProxy.PodDisruptionBudget, sfsHAProxy, cr.Namespace, haProxySet)
 			if err != nil {
 				return fmt.Errorf("PodDisruptionBudget for %s: %v", haProxySet.Name, err)
 			}

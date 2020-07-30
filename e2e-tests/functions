@@ -47,11 +47,13 @@ wait_cluster_consistency() {
 }
 
 create_namespace() {
-    if [ "${CLEAN_NAMESPACE}" == 1 ]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+    local namespace="$1"
+    local skip_clean_namespace="$2"
+
+    if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
+        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
-    local namespace="$1"
     if [ "$OPENSHIFT" == 1 ]; then
         oc delete project "$namespace" && sleep 40 || :
         oc new-project "$namespace"
@@ -66,9 +68,13 @@ create_namespace() {
 }
 
 get_operator_pod() {
+    local ns=''
+    if [ -n "$OPERATOR_NS" ]; then
+        ns="-n $OPERATOR_NS"
+    fi
     kubectl_bin get pods \
         --selector=name=percona-xtradb-cluster-operator \
-        -o 'jsonpath={.items[].metadata.name}'
+        -o 'jsonpath={.items[].metadata.name}' $ns
 }
 
 wait_pod() {
@@ -132,15 +138,33 @@ wait_backup_restore() {
     set -o xtrace
 }
 
+apply_rbac() {
+    local operator_namespace=${OPERATOR_NS:-'pxc-operator'}
+    local rbac=${1:-'rbac'}
+
+    cat ${src_dir}/deploy/${rbac}.yaml \
+        | sed -e "s^namespace: .*^namespace: $operator_namespace^" \
+        | kubectl_bin apply  -f -
+}
+
 deploy_operator() {
     desc 'start operator'
 
     kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
-    kubectl_bin apply -f ${src_dir}/deploy/rbac.yaml
 
-    cat ${src_dir}/deploy/operator.yaml \
-        | sed -e "s^image: .*^image: ${IMAGE}^" \
-        | kubectl_bin apply -f -
+    if [ -n "$OPERATOR_NS" ]; then
+        apply_rbac cwrbac
+        cat ${src_dir}/deploy/operator.yaml \
+            | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | $sed -e '/- name: WATCH_NAMESPACE/{n;N;N;d;}' \
+            | $sed -e '/- name: WATCH_NAMESPACE/a \              value: ""' \
+            | kubectl_bin apply  -f -
+    else
+        apply_rbac rbac
+        cat ${src_dir}/deploy/operator.yaml \
+            | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | kubectl_bin apply  -f -
+    fi
 
     sleep 2
 
@@ -152,6 +176,21 @@ deploy_helm() {
     helm repo add hashicorp https://helm.releases.hashicorp.com
     helm repo add percona https://percona-charts.storage.googleapis.com/
     helm repo update
+}
+
+create_infra() {
+    local ns="$1"
+
+    if [ -n "$OPERATOR_NS" ]; then
+        create_namespace $OPERATOR_NS
+        deploy_operator
+        create_namespace $ns
+        cat ${src_dir}/deploy/service_account.yaml \
+            | kubectl_bin apply  -f -
+    else
+        create_namespace $ns
+        deploy_operator
+    fi
 }
 
 wait_for_running() {
@@ -207,6 +246,7 @@ compare_kubectl() {
         | $sed -e '/name: suffix/,+1d' \
         | $sed -e '/name: S3_BUCKET_PATH/,+1d' \
         | $sed -e '/name: S3_BUCKET_URL/,+1d' \
+        | $sed -e '/annotations:$/{N;N;s/annotations:\n    kubernetes.io.*\n    \(openshift.io.*\)/annotations:\n    \1/}' \
         | $sed -e '/annotations:$/{$!{N;s/annotations:\n    kubernetes.io.*//;ty;P;D;:y;d}}' \
         | $sed -e '/annotations:$/{$!{N;s/annotations:\n    cni.projectcalico.org.*//;ty;P;D;:y;d}}' \
         | $sed -e '/volumeClaimTemplates:$/{N;/  \- apiVersion.*$/ {N;/  kind.*$/ {N;/    metadata:$/{s/volumeClaimTemplates.*metadata:$/volumeClaimTemplates:\n  \- metadata:/}}}}' \
@@ -366,7 +406,7 @@ run_pumba() {
 deploy_cert_manager() {
     kubectl_bin create namespace cert-manager || :
     kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
-    kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v0.14.1/cert-manager.yaml --validate=false || : 2>/dev/null
+    kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml --validate=false || : 2>/dev/null
 }
 
 destroy() {
@@ -387,7 +427,7 @@ destroy() {
     kubectl_bin delete pxc-backup --all
     kubectl_bin delete pxc-restore --all || :
 
-    kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.14.1/cert-manager.yaml 2>/dev/null || :
+    kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :
     if [ "$OPENSHIFT" == 1 ]; then
         oc delete --grace-period=0 --force=true project "$namespace"
     else
@@ -505,7 +545,8 @@ cat_config() {
         | $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
         | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
         | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
-        | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#"
+        | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
+        | $sed -e "s#apply:.*#apply: Never#"
 }
 
 apply_config() {
@@ -772,7 +813,7 @@ start_vault() {
         platform=openshift
         oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
     fi
-    create_namespace "$name"
+    create_namespace "$name" "skip_clean"
     deploy_helm "$name"
     helm delete "$name" || :
 

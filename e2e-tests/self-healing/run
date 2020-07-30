@@ -124,6 +124,7 @@ recreate() {
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password" "-3rd"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password" "-3rd"
 
+    sleep 60
     run_mysql_local \
         'SELECT * FROM global_variables ORDER BY variable_name' \
         "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
@@ -138,8 +139,8 @@ recreate() {
 }
 
 main() {
-    create_namespace $namespace
-    deploy_operator
+    create_infra $namespace
+
     kubectl_bin apply -f "$conf_dir/pumba.yml"
 
     desc 'start cluster'

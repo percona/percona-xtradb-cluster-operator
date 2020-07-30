@@ -7,8 +7,7 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
 main() {
-    create_namespace $namespace
-    deploy_operator
+    create_infra $namespace
     kubectl_bin apply -f $conf_dir/cloud-secret.yml
 
     cluster="some-name"

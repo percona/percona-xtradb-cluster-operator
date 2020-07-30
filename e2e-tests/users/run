@@ -6,9 +6,8 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-create_namespace $namespace
+create_infra $namespace
 deploy_cert_manager
-deploy_operator
 
 desc 'create PXC cluster'
 newpassencrypted="dGVzdC1wYXNzd29yZA=="

@@ -51,7 +51,7 @@ create_namespace() {
     local skip_clean_namespace="$2"
 
     if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
     if [ "$OPENSHIFT" == 1 ]; then
@@ -68,9 +68,13 @@ create_namespace() {
 }
 
 get_operator_pod() {
+    local ns=''
+    if [ -n "$OPERATOR_NS" ]; then
+        ns="-n $OPERATOR_NS"
+    fi
     kubectl_bin get pods \
         --selector=name=percona-xtradb-cluster-operator \
-        -o 'jsonpath={.items[].metadata.name}'
+        -o 'jsonpath={.items[].metadata.name}' $ns
 }
 
 wait_pod() {
@@ -134,15 +138,33 @@ wait_backup_restore() {
     set -o xtrace
 }
 
+apply_rbac() {
+    local operator_namespace=${OPERATOR_NS:-'pxc-operator'}
+    local rbac=${1:-'rbac'}
+
+    cat ${src_dir}/deploy/${rbac}.yaml \
+        | sed -e "s^namespace: .*^namespace: $operator_namespace^" \
+        | kubectl_bin apply  -f -
+}
+
 deploy_operator() {
     desc 'start operator'
 
     kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
-    kubectl_bin apply -f ${src_dir}/deploy/rbac.yaml
 
-    cat ${src_dir}/deploy/operator.yaml \
-        | sed -e "s^image: .*^image: ${IMAGE}^" \
-        | kubectl_bin apply -f -
+    if [ -n "$OPERATOR_NS" ]; then
+        apply_rbac cwrbac
+        cat ${src_dir}/deploy/operator.yaml \
+            | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | $sed -e '/- name: WATCH_NAMESPACE/{n;N;N;d;}' \
+            | $sed -e '/- name: WATCH_NAMESPACE/a \              value: ""' \
+            | kubectl_bin apply  -f -
+    else
+        apply_rbac rbac
+        cat ${src_dir}/deploy/operator.yaml \
+            | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | kubectl_bin apply  -f -
+    fi
 
     sleep 2
 
@@ -154,6 +176,21 @@ deploy_helm() {
     helm repo add hashicorp https://helm.releases.hashicorp.com
     helm repo add percona https://percona-charts.storage.googleapis.com/
     helm repo update
+}
+
+create_infra() {
+    local ns="$1"
+
+    if [ -n "$OPERATOR_NS" ]; then
+        create_namespace $OPERATOR_NS
+        deploy_operator
+        create_namespace $ns
+        cat ${src_dir}/deploy/service_account.yaml \
+            | kubectl_bin apply  -f -
+    else
+        create_namespace $ns
+        deploy_operator
+    fi
 }
 
 wait_for_running() {

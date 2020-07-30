@@ -8,9 +8,8 @@ test_dir=$(realpath $(dirname $0))
 
 
 main() {
-    create_namespace $namespace
+    create_infra $namespace
     deploy_cert_manager
-    deploy_operator
 
     desc 'create first PXC cluster'
     cluster="some-name"

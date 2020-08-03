@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+
+main() {
+  create_namespace $namespace
+  deploy_operator
+
+  desc 'create first PXC cluster with HAProxy'
+  cluster="some-name"
+  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+  destroy $namespace
+}

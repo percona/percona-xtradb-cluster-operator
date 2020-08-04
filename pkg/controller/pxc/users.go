@@ -222,7 +222,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {
-	if cr.Status.Status != api.AppStateReady || cr.Status.ProxySQL.Status == api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady || cr.Status.ProxySQL.Status != api.AppStateReady {
 		return nil
 	}
 	// sync users if ProxySql enabled

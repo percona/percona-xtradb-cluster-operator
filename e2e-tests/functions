@@ -47,11 +47,13 @@ wait_cluster_consistency() {
 }
 
 create_namespace() {
-    if [ "${CLEAN_NAMESPACE}" == 1 ]; then
+    local namespace="$1"
+    local skip_clean_namespace="$2"
+
+    if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
         kubectl get ns | egrep -v "^kube-|^default|Terminating|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
-    local namespace="$1"
     if [ "$OPENSHIFT" == 1 ]; then
         oc delete project "$namespace" && sleep 40 || :
         oc new-project "$namespace"
@@ -773,7 +775,7 @@ start_vault() {
         platform=openshift
         oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
     fi
-    create_namespace "$name"
+    create_namespace "$name" "skip_clean"
     deploy_helm "$name"
     helm delete "$name" || :
 

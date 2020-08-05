@@ -506,7 +506,8 @@ cat_config() {
         | $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
         | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
         | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
-        | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#"
+        | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
+        | $sed -e "s#apply:.*#apply: Never#"
 }
 
 apply_config() {

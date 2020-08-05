@@ -20,8 +20,8 @@ Making scheduled backups
 
 Since backups are stored separately on the Amazon S3, a secret with
 ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` should be present on
-the Kubernetes cluster. The secrets file with these keys should be
-created: for example ``deploy/backup-s3.yaml`` file with the following
+the Kubernetes cluster. The secrets file with these base64-encoded keys should
+be created: for example ``deploy/backup-s3.yaml`` file with the following
 contents:
 
 .. code:: yaml
@@ -34,6 +34,9 @@ contents:
    data:
      AWS_ACCESS_KEY_ID: UkVQTEFDRS1XSVRILUFXUy1BQ0NFU1MtS0VZ
      AWS_SECRET_ACCESS_KEY: UkVQTEFDRS1XSVRILUFXUy1TRUNSRVQtS0VZ
+
+.. note:: The following command can be used to get a base64-encoded string from
+   a plain text one: ``$ echo -n 'plain-text-string' | base64``
 
 The ``name`` value is the `Kubernetes
 secret <https://kubernetes.io/docs/concepts/configuration/secret/>`__

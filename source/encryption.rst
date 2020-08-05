@@ -32,7 +32,7 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
 
       $ helm install vault-service ./
 
-3. After the installation, Vauld should be first initialized and then unsealed.
+3. After the installation, Vault should be first initialized and then unsealed.
    Initializing Vault is done with the following commands:
 
    .. code:: bash

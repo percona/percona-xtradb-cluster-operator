@@ -22,8 +22,8 @@ check_cr_config() {
 }
 
 main() {
-    create_infra $namespace
-
+    create_namespace $namespace
+    deploy_operator
     apply_config "$conf_dir/client.yml"
     kubectl_bin apply \
         -f $conf_dir/secrets.yml \

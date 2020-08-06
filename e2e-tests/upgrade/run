@@ -48,37 +48,30 @@ compare_generation() {
 }
 
 main() {
-    create_infra $namespace
+    create_namespace $namespace
+    deploy_operator
 
     spinup_pxc "${CLUSTER}" "${test_dir}/conf/${CLUSTER}.yml"
     kubectl patch secret my-cluster-secrets --type=json -p='[{"op": "remove", "path": "/data/operator"}]'
     compare_generation "1"
 
-    ns=''
-    if [ -n "$OPERATOR_NS" ]; then
-        ns="-n $OPERATOR_NS"
-    fi
-
     kubectl_bin patch deployment "${OPERATOR_NAME}" \
-        -p'{"spec":{"template":{"spec":{"containers":[{"name":"'"${OPERATOR_NAME}"'","image":"'"${IMAGE_TO_UPDATE}"'"}]}}}}' $ns
-    kubectl_bin rollout status deployment/"${OPERATOR_NAME}" $ns
+        -p'{"spec":{"template":{"spec":{"containers":[{"name":"'"${OPERATOR_NAME}"'","image":"'"${IMAGE_TO_UPDATE}"'"}]}}}}'
+    kubectl_bin rollout status deployment/"${OPERATOR_NAME}"
 
     echo 'Waiting for operator upgrade'
     until [[ $(kubectl_bin get pods --selector=name=${OPERATOR_NAME} \
-                                -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' $ns \
+                                -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' \
                                 | grep -v 'NAME' | wc -l | awk '{print $1}') -eq 1 ]]; do
         sleep 5
     done
 
-    if [ -n "$OPERATOR_NS" ]; then
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
-    fi
     wait_pod "$(kubectl_bin get pods --selector=name=${OPERATOR_NAME} \
                                 -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' \
                                 | grep "${IMAGE_TO_UPDATE}" |  awk '{print $1}')"
-    kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
 
-    if [[ "${IMAGE_TO_UPDATE}" == $(kubectl_bin get pod $ns --selector=name="${OPERATOR_NAME}" -o jsonpath='{.items[*].spec.containers[?(@.name == "'"${OPERATOR_NAME}"'")].image}') \
+
+    if [[ "${IMAGE_TO_UPDATE}" == $(kubectl_bin get pod --selector=name="${OPERATOR_NAME}" -o jsonpath='{.items[*].spec.containers[?(@.name == "'"${OPERATOR_NAME}"'")].image}') \
           && "${IMAGE_PROXY}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
           && "${IMAGE_PXC}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
         : Operator image has been updated correctly

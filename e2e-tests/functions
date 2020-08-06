@@ -48,7 +48,7 @@ wait_cluster_consistency() {
 
 create_namespace() {
     if [ "${CLEAN_NAMESPACE}" == 1 ]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+        kubectl get ns | egrep -v "^kube-|^default|Terminating|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
     local namespace="$1"
@@ -66,13 +66,9 @@ create_namespace() {
 }
 
 get_operator_pod() {
-    local ns=''
-    if [ -n "$OPERATOR_NS" ]; then
-        ns="-n $OPERATOR_NS"
-    fi
     kubectl_bin get pods \
         --selector=name=percona-xtradb-cluster-operator \
-        -o 'jsonpath={.items[].metadata.name}' $ns
+        -o 'jsonpath={.items[].metadata.name}'
 }
 
 wait_pod() {
@@ -136,30 +132,15 @@ wait_backup_restore() {
     set -o xtrace
 }
 
-apply_rbac() {
-    local operator_namespace=${OPERATOR_NS:-'pxc-operator'}
-    cat ${src_dir}/deploy/rbac.yaml \
-        | sed -e "s^namespace: .*^namespace: $operator_namespace^" \
-        | kubectl_bin apply  -f -
-}
-
 deploy_operator() {
     desc 'start operator'
 
     kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
-    apply_rbac
+    kubectl_bin apply -f ${src_dir}/deploy/rbac.yaml
 
-    if [ -n "$OPERATOR_NS" ]; then
-        cat ${src_dir}/deploy/operator.yaml \
-            | sed -e "s^image: .*^image: ${IMAGE}^" \
-            | $sed -e '/- name: WATCH_NAMESPACE/{n;N;N;d;}' \
-            | $sed -e '/- name: WATCH_NAMESPACE/a \              value: ""' \
-            | kubectl_bin apply  -f -
-    else
-        cat ${src_dir}/deploy/operator.yaml \
-            | sed -e "s^image: .*^image: ${IMAGE}^" \
-            | kubectl_bin apply  -f -
-    fi
+    cat ${src_dir}/deploy/operator.yaml \
+        | sed -e "s^image: .*^image: ${IMAGE}^" \
+        | kubectl_bin apply -f -
 
     sleep 2
 
@@ -171,21 +152,6 @@ deploy_helm() {
     helm repo add hashicorp https://helm.releases.hashicorp.com
     helm repo add percona https://percona-charts.storage.googleapis.com/
     helm repo update
-}
-
-create_infra() {
-    local ns="$1"
-
-    if [ -n "$OPERATOR_NS" ]; then
-        create_namespace $OPERATOR_NS
-#        deploy_cert_manager
-        deploy_operator
-        create_namespace $ns
-        apply_rbac
-    else
-        create_namespace $ns
-        deploy_operator
-    fi
 }
 
 wait_for_running() {

@@ -7,37 +7,25 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="no-limits"
 
-ns=''
-if [ -n "$OPERATOR_NS" ]; then
-    ns="-n $OPERATOR_NS"
-fi
 
 pumba_pod() {
     local action=$1
     local pod=$(get_operator_pod)
- 
-    if [ -n "$OPERATOR_NS" ]; then
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
-    fi
+
     # run chaos for Pod
     run_pumba $action "re2:$pod"
     sleep 2
 
     wait_pod $pod
-    kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
 }
 
 pause_pod() {
     local pod=$(get_operator_pod)
 
-    if [ -n "$OPERATOR_NS" ]; then
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
-    fi
     # run chaos for Pod
-    kubectl_bin exec $ns -it "$(get_pumba)" -- /pumba -l info pause --duration 1m "re2:$pod" &
+    kubectl_bin exec -it "$(get_pumba)" -- /pumba -l info pause --duration 1m "re2:$pod" &
     pid=$!
     sleep 10
-    kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
 
     desc 'check if operator works fine: scale down from 4 to 3'
     cat_config "$test_dir/conf/$cluster.yml" \
@@ -47,12 +35,8 @@ pause_pod() {
     # wait for unpause
     wait $pid
 
-    if [ -n "$OPERATOR_NS" ]; then
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
-    fi
     # check if Pod started
     wait_pod $pod
-    kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
 
     # check scale down
     wait_for_delete pod/$cluster-pxc-3
@@ -61,14 +45,10 @@ pause_pod() {
 netem_pod() {
     local pod=$(get_operator_pod)
 
-    if [ -n "$OPERATOR_NS" ]; then
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
-    fi
     # run chaos for Pod
-    kubectl_bin exec $ns -it "$(get_pumba)" -- /pumba -l info netem --tc-image 'gaiadocker/iproute2' --duration 1m loss --percent 100 --correlation 100 "re2:$pod" &
+    kubectl_bin exec -it "$(get_pumba)" -- /pumba -l info netem --tc-image 'gaiadocker/iproute2' --duration 1m loss --percent 100 --correlation 100 "re2:$pod" &
     pid=$!
     sleep 10
-    kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
 
     desc 'check if operator works fine: scale up from 3 to 4'
     cat_config "$test_dir/conf/$cluster.yml" \
@@ -78,12 +58,8 @@ netem_pod() {
     # wait for unpause
     wait $pid
 
-    if [ -n "$OPERATOR_NS" ]; then
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
-    fi
     # check if Pod started
     wait_pod $pod
-    kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
 
     # check scale up
     wait_for_running "$cluster-pxc" 4
@@ -91,8 +67,10 @@ netem_pod() {
 
 
 main() {
-    create_infra $namespace
-    kubectl_bin apply -f "$test_dir/conf/pumba.yml" $ns
+    create_namespace $namespace
+    ## TODO: kubectl apply -f $test_dir/conf/quota.yml
+    deploy_operator
+    kubectl_bin apply -f "$test_dir/conf/pumba.yml"
 
     desc 'create PXC cluster'
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"

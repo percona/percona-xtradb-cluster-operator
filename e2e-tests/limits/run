@@ -43,12 +43,8 @@ no_storage() {
     # apply cr config
     apply_config $test_dir/conf/$cluster.yml
 
-    ns=''
-    if [ -n "$OPERATOR_NS" ]; then
-        ns="-n $OPERATOR_NS"
-    fi
     # check operator logs
-    kubectl_bin logs $(get_operator_pod) $ns \
+    kubectl_bin logs $(get_operator_pod) \
         | grep "volume.resources.storage can't be empty"
     
     # delete cluster
@@ -57,7 +53,8 @@ no_storage() {
 }
 
 main() {
-    create_infra $namespace
+    create_namespace $namespace
+    deploy_operator
     kubectl_bin apply -f $conf_dir/secrets.yml
 
     desc 'check if possible to create cluster without CPU/Memory limits'

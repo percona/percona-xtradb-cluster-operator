@@ -7,8 +7,9 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="monitoring"
 
-create_infra $namespace
+create_namespace $namespace
 deploy_helm $namespace
+deploy_operator
 
 
 desc 'install PMM Server'

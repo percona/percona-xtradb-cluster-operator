@@ -138,8 +138,8 @@ recreate() {
 }
 
 main() {
-    create_infra $namespace
-
+    create_namespace $namespace
+    deploy_operator
     kubectl_bin apply -f "$conf_dir/pumba.yml"
 
     desc 'start cluster'

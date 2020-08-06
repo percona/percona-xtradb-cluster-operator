@@ -12,7 +12,8 @@ function jq_filter() {
 }
 
 main() {
-    create_infra $namespace
+    create_namespace $namespace
+    deploy_operator
     kubectl_bin apply -f $conf_dir/cloud-secret.yml
 
     vault1="vault-service-1-${RANDOM}"

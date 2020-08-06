@@ -10,7 +10,8 @@ cluster="auto-tuning"
 RAM_SIZE=1073741824 # 1Gi
 RDS_MEM_INSTANCE=12582880
 
-create_infra $namespace
+create_namespace $namespace
+deploy_operator
 
 spinup_pxc "$cluster" "${test_dir}/conf/${cluster}1.yml"
 

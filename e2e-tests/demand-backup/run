@@ -7,8 +7,8 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
 main() {
-    create_infra $namespace
-
+    create_namespace $namespace
+    deploy_operator
     kubectl_bin apply \
         -f $conf_dir/minio-secret.yml \
         -f $conf_dir/cloud-secret.yml

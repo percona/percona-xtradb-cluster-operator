@@ -8,10 +8,6 @@ test_dir=$(realpath $(dirname $0))
 
 cluster='some-name'
 
-ns=''
-if [ -n "$OPERATOR_NS" ]; then
-    ns="-n $OPERATOR_NS"
-fi
 wait_for_sts_generation() {
     local name="${1}"
     local desired_generation="${2}"
@@ -24,7 +20,7 @@ wait_for_sts_generation() {
         echo -n .
         let retry+=1
         if [ $retry -ge 140 ]; then
-            kubectl_bin logs $(get_operator_pod) $ns
+            kubectl_bin logs $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -34,7 +30,8 @@ wait_for_sts_generation() {
 }
 
 main() {
-    create_infra $namespace
+    create_namespace $namespace
+    deploy_operator
 
     apply_config "$conf_dir/client.yml"
     kubectl_bin apply -f $conf_dir/secrets.yml

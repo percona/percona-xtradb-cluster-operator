@@ -124,7 +124,7 @@ main() {
     
     kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"https://check.percona.com/versions","apply":"'${version_service_image}'","schedule": "* * * * *"}}}'
     target_image=$(get_vs_image ${version_service_image})
-    sleep 55 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
+    sleep 55
     
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
 
@@ -138,7 +138,8 @@ main() {
     initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0")
     
     kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"https://check.percona.com/versions","apply":"'${version_service_image}'","schedule": "* * * * *"}}}'
-    target_image=$(get_vs_image ${version_service_image})    sleep 55 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
+    target_image=$(get_vs_image ${version_service_image})
+    sleep 55
     
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
 
@@ -152,7 +153,8 @@ main() {
     initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0")
     
     kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"https://check.percona.com/versions","apply":"'${version_service_image}'","schedule": "* * * * *"}}}'
-    target_image=$(get_vs_image ${version_service_image})    sleep 55 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
+    target_image=$(get_vs_image ${version_service_image})
+    sleep 55
     
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
 

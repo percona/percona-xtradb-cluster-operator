@@ -120,22 +120,38 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	if cr.Spec.PXC.Image != newVersion.PXCImage {
-		log.Info(fmt.Sprintf("update PXC version from %s to %s", cr.Status.PXC.Version, newVersion.PXCVersion))
+		from := ""
+		if cr.Status.PXC.Version != "" {
+			from = fmt.Sprintf("from %s", cr.Status.PXC.Version)
+		}
+		log.Info(fmt.Sprintf("update PXC version %s to %s", from, newVersion.PXCVersion))
 		cr.Spec.PXC.Image = newVersion.PXCImage
 	}
 
 	if cr.Spec.Backup.Image != newVersion.BackupImage {
-		log.Info(fmt.Sprintf("update Backup version from %s to %s", cr.Status.Backup.Version, newVersion.BackupVersion))
+		from := ""
+		if cr.Status.Backup.Version != "" {
+			from = fmt.Sprintf("from %s", cr.Status.Backup.Version)
+		}
+		log.Info(fmt.Sprintf("update Backup version %s to %s", from, newVersion.BackupVersion))
 		cr.Spec.Backup.Image = newVersion.BackupImage
 	}
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled && cr.Spec.PMM.Image != newVersion.PMMImage {
-		log.Info(fmt.Sprintf("update PMM version from %s to %s", cr.Status.PMM.Version, newVersion.PMMVersion))
+		from := ""
+		if cr.Status.PMM.Version != "" {
+			from = fmt.Sprintf("from %s", cr.Status.PMM.Version)
+		}
+		log.Info(fmt.Sprintf("update PMM version %s to %s", from, newVersion.PMMVersion))
 		cr.Spec.PMM.Image = newVersion.PMMImage
 	}
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Image != newVersion.ProxySqlImage {
-		log.Info(fmt.Sprintf("update ProxySQL version from %s to %s", cr.Status.ProxySQL.Version, newVersion.ProxySqlVersion))
+		from := ""
+		if cr.Status.ProxySQL.Version != "" {
+			from = fmt.Sprintf("from %s", cr.Status.ProxySQL.Version)
+		}
+		log.Info(fmt.Sprintf("update ProxySQL version %s to %s", from, newVersion.ProxySqlVersion))
 		cr.Spec.ProxySQL.Image = newVersion.ProxySqlImage
 	}
 

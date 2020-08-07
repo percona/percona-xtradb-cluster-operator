@@ -1,8 +1,8 @@
 admin-admin_credentials	proxyadmin:admin_password
-admin-checksum_mysql_query_rules	true
-admin-checksum_mysql_servers	true
-admin-checksum_mysql_users	true
-admin-cluster_check_interval_ms	200
+admin-checksum_mysql_query_rules	false
+admin-checksum_mysql_servers	false
+admin-checksum_mysql_users	false
+admin-cluster_check_interval_ms	300000
 admin-cluster_check_status_frequency	100
 admin-cluster_mysql_query_rules_diffs_before_sync	1
 admin-cluster_mysql_query_rules_save_to_disk	true
@@ -13,7 +13,7 @@ admin-cluster_mysql_users_save_to_disk	true
 admin-cluster_password	admin_password
 admin-cluster_proxysql_servers_diffs_before_sync	1
 admin-cluster_proxysql_servers_save_to_disk	true
-admin-cluster_username	proxyadmin
+admin-cluster_username	
 admin-hash_passwords	true
 admin-mysql_ifaces	0.0.0.0:6032
 admin-read_only	false

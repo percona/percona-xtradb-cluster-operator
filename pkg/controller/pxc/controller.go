@@ -244,14 +244,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	operatorPod, err := r.operatorPod()
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
-	}
-
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, o.Spec.PXC.ContainerSecurityContext))
+		inits = append(inits, statefulset.EntrypointInitContainer(OpImage(r), o.Spec.PXC.ContainerSecurityContext))
 	}
 
 	pxcSet := statefulset.NewNode(o)
@@ -461,14 +456,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	operatorPod, err := r.operatorPod()
-	if err != nil {
-		return errors.Wrap(err, "get operator deployment")
-	}
-
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, cr.Spec.PXC.ContainerSecurityContext))
+		inits = append(inits, statefulset.EntrypointInitContainer(OpImage(r), cr.Spec.PXC.ContainerSecurityContext))
 	}
 
 	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, inits)
@@ -897,4 +887,23 @@ func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.Perco
 		}
 		atomic.StoreInt32(&r.syncUsersState, stateFree)
 	}()
+}
+
+func OpImage(r *ReconcilePerconaXtraDBCluster) string {
+    if os.Getenv("ForceRunModeEnv") == "local"  {
+    	log.Info("Setting operatorPodImage to env OPIMAGE; not running in a cluster.")
+    	podImage := os.Getenv("OPIMAGE")
+    	if len(podImage) == 0 {
+    	    log.Info("env OPIMAGE not specified falling back to default")
+    	    podImage = "percona/percona-xtradb-cluster-operator:1.5.0"
+    	}
+    	return podImage
+    } else {
+        operatorPod, err := r.operatorPod()
+        if err != nil {
+        	return "Error: get operator deployment"
+        }
+        podImage := operatorPod.Spec.Containers[0].Image
+        return podImage
+    }
 }

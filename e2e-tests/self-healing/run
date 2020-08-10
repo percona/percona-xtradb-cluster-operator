@@ -131,8 +131,8 @@ recreate() {
         >$tmp_dir/proxy-vars2.sql
 
     local expected_result=$test_dir/compare/proxy-vars.sql
-    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f $test_dir/compare/proxy-vars-80-2.sql ]; then
-        expected_result=$test_dir/compare/proxy-vars-80-2.sql
+    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f $test_dir/compare/proxy-vars-80.sql ]; then
+        expected_result=$test_dir/compare/proxy-vars-80.sql
     fi
     diff -u $expected_result $tmp_dir/proxy-vars2.sql
 }

@@ -31,6 +31,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	currentSet.Spec.UpdateStrategy = sfs.UpdateStrategy(cr)
 
+	// support annotation adjustements
+	currentSet.Spec.Template.Annotations = podSpec.Annotations
+
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
 	currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext

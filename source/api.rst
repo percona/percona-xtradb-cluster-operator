@@ -236,7 +236,7 @@ Get status of PXC cluster
 
 .. code-block:: bash
 
-   curl -k -v -XGET 'https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1' \
+   curl -k -v -XGET "https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/$NAMESPACE/perconaxtradbclusters/cluster1" \
                -H "Accept: application/json" \
                -H "Authorization: Bearer $KUBE_TOKEN"
 

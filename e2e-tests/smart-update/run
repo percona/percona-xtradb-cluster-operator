@@ -3,8 +3,8 @@
 set -o errexit
 set -o xtrace
 
-IMAGE_PXC=percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0
-IMAGE_TO_UPDATE=perconalab/percona-xtradb-cluster-operator:master-pxc8.0
+IMAGE_PXC=${IMAGE_PXC:-"percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0"}
+IMAGE_TO_UPDATE=${IMAGE_TO_UPDATE:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0"}
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 API="pxc.percona.com/v1-5-0"

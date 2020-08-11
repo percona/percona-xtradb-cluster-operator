@@ -87,7 +87,7 @@ Create new PXC cluster
 
 .. code-block:: bash
 
-   curl -k -v -XPOST 'https://$API_SERVER/apis/pxc.percona.com/v1-4-0/namespaces/default/perconaxtradbclusters' \
+   curl -k -v -XPOST "https://$API_SERVER/apis/pxc.percona.com/v1-4-0/namespaces/$NAMESPACE/perconaxtradbclusters" \
                -H "Content-Type: application/json" \
                -H "Accept: application/json" \
                -H "Authorization: Bearer $KUBE_TOKEN" \

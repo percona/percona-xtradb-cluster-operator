@@ -224,7 +224,7 @@ Get status of PXC cluster
 
 .. code-block:: bash
 
-   https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1
+   https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/$NAMESPACE/perconaxtradbclusters/cluster1
 
 **Authentication:**
 

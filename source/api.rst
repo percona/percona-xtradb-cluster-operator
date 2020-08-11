@@ -53,7 +53,7 @@ Prerequisites
    .. code-block:: bash
 
       # run "kubectl --v=9 get pxc" command find curl command in the output
-      curl -k -XGET  -H "Authorization: Bearer $KUBE_TOKEN" "$APISERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters?limit=500" | python -mjson.tool
+      curl -k -XGET  -H "Authorization: Bearer $KUBE_TOKEN" "$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters?limit=500" | python -mjson.tool
 
 Create new PXC cluster
 ----------------------
@@ -610,4 +610,3 @@ Restore PXC cluster
       JSON:
 
    .. include:: ./assets/code/api-restore-cluster-response-json.txt
-

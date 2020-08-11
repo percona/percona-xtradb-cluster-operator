@@ -185,7 +185,7 @@ List PXC cluster
 
 .. code-block:: bash
 
-   curl -k -v -XGET 'https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters?limit=500' \
+   curl -k -v -XGET "https://$API_SERVER/apis/pxc.percona.com/v1/$NAMESPACE/default/perconaxtradbclusters?limit=500" \
                -H "Accept: application/json;as=Table;v=v1;g=meta.k8s.io,application/json;as=Table;v=v1beta1;g=meta.k8s.io,application/json" \
                -H "Authorization: Bearer $KUBE_TOKEN"
 

@@ -504,7 +504,7 @@ Backup PXC cluster
 
 .. code-block:: bash
 
-   curl -k -v -XPOST 'https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusterbackups' \
+   curl -k -v -XPOST "https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/$NAMESPACE/perconaxtradbclusterbackups" \
                -H "Accept: application/json" \
                -H "Content-Type: application/json" \
                -d "@backup.json" -H "Authorization: Bearer $KUBE_TOKEN"

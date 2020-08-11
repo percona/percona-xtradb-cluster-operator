@@ -574,7 +574,7 @@ Restore PXC cluster
 
 .. code-block:: bash
 
-   curl -k -v -XPOST 'https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusterrestores' \
+   curl -k -v -XPOST "https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/$NAMESPACE/perconaxtradbclusterrestores" \
                -H "Accept: application/json" \
                -H "Content-Type: application/json" \
                -d "@restore.json" \

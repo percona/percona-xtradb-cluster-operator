@@ -490,7 +490,7 @@ Backup PXC cluster
 
 .. code-block:: bash
 
-   https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusterbackups
+   https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/$NAMESPACE/perconaxtradbclusterbackups
 
 
 **Authentication:**

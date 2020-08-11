@@ -561,7 +561,7 @@ Restore PXC cluster
 
 .. code-block:: bash
 
-   https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusterrestores
+   https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/$NAMESPACE/perconaxtradbclusterrestores
 
 **Authentication:**
 

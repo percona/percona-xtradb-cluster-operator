@@ -46,7 +46,7 @@ Prerequisites
 
       # create service account and get token
       kubectl apply -f deploy/crd.yaml -f deploy/rbac.yaml
-      KUBE_TOKEN=$(kubectl get secret $(kubectl get serviceaccount percona-xtradb-cluster-operator -o jsonpath='{.secrets[0].name}') -o jsonpath='{.data.token}' | base64 --decode )
+      KUBE_TOKEN=$(kubectl get secret $(kubectl get serviceaccount percona-xtradb-cluster-operator -o jsonpath='{.secrets[0].name}' -n $NAMESPACE) -o jsonpath='{.data.token}' -n $NAMESPACE | base64 --decode )
 
 2. get a list of PXC clusters
 

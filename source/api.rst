@@ -74,7 +74,7 @@ Create new PXC cluster
 
 .. code-block:: bash
 
-   https://$API_SERVER/apis/pxc.percona.com/v1-4-0/namespaces/default/perconaxtradbclusters
+   https://$API_SERVER/apis/pxc.percona.com/v1-4-0/$NAMESPACE/default/perconaxtradbclusters
 
 **Authentication:**
 

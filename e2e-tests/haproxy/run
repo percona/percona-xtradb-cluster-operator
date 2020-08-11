@@ -13,6 +13,8 @@ main() {
 
   desc 'create first PXC cluster with HAProxy'
   cluster="some-name"
-  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 true
   destroy $namespace
 }
+
+main

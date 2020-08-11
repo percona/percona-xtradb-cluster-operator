@@ -101,7 +101,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	clientcmd      *clientcmd.Client
 	syncUsersState int32
 
-	serverVersion *api.ServerVersion
+	serverVersion *version.ServerVersion
 	statusMutex   *sync.Mutex
 	updateSync    int32
 }

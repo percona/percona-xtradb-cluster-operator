@@ -5,18 +5,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/percona/percona-xtradb-cluster-operator/version"
+
 	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	k8sversion "k8s.io/apimachinery/pkg/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform              Platform                             `json:"platform,omitempty"`
+	Platform              version.Platform                     `json:"platform,omitempty"`
 	Pause                 bool                                 `json:"pause,omitempty"`
 	SecretsName           string                               `json:"secretsName,omitempty"`
 	VaultSecretName       string                               `json:"vaultSecretName,omitempty"`
@@ -254,20 +255,7 @@ type Volume struct {
 	Volumes []corev1.Volume
 }
 
-type Platform string
-
-const (
-	PlatformUndef      Platform = ""
-	PlatformKubernetes          = "kubernetes"
-	PlatformOpenshift           = "openshift"
-	WorkloadSA                  = "default"
-)
-
-// ServerVersion represents info about k8s / openshift server version
-type ServerVersion struct {
-	Platform Platform
-	Info     k8sversion.Info
-}
+const WorkloadSA                  = "default"
 
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
@@ -294,7 +282,7 @@ var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no
 
 func (cr *PerconaXtraDBCluster) setSecurityContext() {
 	var fsgroup *int64
-	if cr.Spec.Platform != PlatformOpenshift {
+	if cr.Spec.Platform != version.PlatformOpenshift {
 		var tp int64 = 1001
 		fsgroup = &tp
 	}
@@ -321,7 +309,7 @@ func (cr *PerconaXtraDBCluster) setSecurityContext() {
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
-func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) (changed bool, err error) {
+func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion) (changed bool, err error) {
 	err = cr.setVersion()
 	if err != nil {
 		return false, errors.Wrap(err, "set version")
@@ -508,7 +496,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		if len(serverVersion.Platform) > 0 {
 			cr.Spec.Platform = serverVersion.Platform
 		} else {
-			cr.Spec.Platform = PlatformKubernetes
+			cr.Spec.Platform = version.PlatformKubernetes
 		}
 	}
 
@@ -529,6 +517,12 @@ func (cr *PerconaXtraDBCluster) setVersion() error {
 			return errors.Wrap(err, "unmarshal cr")
 		}
 		apiVersion = newCR.APIVersion
+	} else {
+		data, err := json.Marshal(cr)
+		if err != nil {
+			return errors.Wrap(err, "marshal cr")
+		}
+		cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"] = string(data)
 	}
 	crVersion := strings.Replace(strings.TrimPrefix(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
 	if len(crVersion) == 0 {

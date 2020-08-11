@@ -437,7 +437,7 @@ Pass custom my.cnf during the creation of PXC cluster
 
 .. code-block:: bash
 
-   curl -k -v -XPOST 'https://$API_SERVER/api/v1/namespaces/default/configmaps' \
+   curl -k -v -XPOST "https://$API_SERVER/api/v1/namespaces/$NAMESPACE/configmaps" \
                -H "Accept: application/json" \
                -H "Authorization: Bearer $KUBE_TOKEN" \
                -d '{"apiVersion":"v1","data":{"my.cnf":"[mysqld]\nmax_connections=250\n"},"kind":"ConfigMap","metadata":{"creationTimestamp":null,"name":"cluster1-pxc3"}}' \

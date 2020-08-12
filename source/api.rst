@@ -66,7 +66,7 @@ Prerequisites
 
    .. code-block:: bash
 
-      # run "kubectl --v=9 get pxc" command find curl command in the output
+      kubectl --v=9 get pxc
       curl -k -XGET  -H "Authorization: Bearer $KUBE_TOKEN" "$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters?limit=500" | python -mjson.tool
 
 Create new PXC cluster

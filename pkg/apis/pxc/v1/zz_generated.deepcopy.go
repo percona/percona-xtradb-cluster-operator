@@ -5,7 +5,6 @@
 package v1
 
 import (
-	goversion "github.com/hashicorp/go-version"
 	corev1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
@@ -272,11 +271,6 @@ func (in *PerconaXtraDBCluster) DeepCopyInto(out *PerconaXtraDBCluster) {
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	in.Spec.DeepCopyInto(&out.Spec)
 	in.Status.DeepCopyInto(&out.Status)
-	if in.version != nil {
-		in, out := &in.version, &out.version
-		*out = new(goversion.Version)
-		*in = *out
-	}
 	return
 }
 

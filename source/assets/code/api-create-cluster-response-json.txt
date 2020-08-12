@@ -1,7 +1,7 @@
 .. code-block:: json
 
 	{
-	   "apiVersion":"pxc.percona.com/v1-4-0",
+	   "apiVersion":"pxc.percona.com/v1-5-0",
 	   "kind":"PerconaXtraDBCluster",
 	   "metadata":{
 	      "creationTimestamp":"2020-05-27T22:23:58Z",
@@ -11,7 +11,7 @@
 	      "generation":1,
 	      "managedFields":[
 		 {
-		    "apiVersion":"pxc.percona.com/v1-4-0",
+		    "apiVersion":"pxc.percona.com/v1-5-0",
 		    "fieldsType":"FieldsV1",
 		    "fieldsV1":{
 		       "f:metadata":{
@@ -265,13 +265,13 @@
 	      "name":"cluster1",
 	      "namespace":"default",
 	      "resourceVersion":"8694",
-	      "selfLink":"/apis/pxc.percona.com/v1-4-0/namespaces/default/perconaxtradbclusters/cluster1",
+	      "selfLink":"/apis/pxc.percona.com/v1-5-0/namespaces/default/perconaxtradbclusters/cluster1",
 	      "uid":"e9115e2a-49df-4ebf-9dab-fa5a550208d3"
 	   },
 	   "spec":{
 	      "allowUnsafeConfigurations":false,
 	      "backup":{
-		 "image":"percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0-backup",
+		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0-backup",
 		 "schedule":[
 		    {
 		       "keep":3,
@@ -315,7 +315,7 @@
 	      },
 	      "pmm":{
 		 "enabled":false,
-		 "image":"percona/percona-xtradb-cluster-operator:1.4.0-pmm",
+		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-pmm",
 		 "serverHost":"monitoring-service",
 		 "serverUser":"pmm"
 	      },
@@ -325,7 +325,7 @@
 		 },
 		 "enabled":true,
 		 "gracePeriod":30,
-		 "image":"percona/percona-xtradb-cluster-operator:1.4.0-proxysql",
+		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-proxysql",
 		 "podDisruptionBudget":{
 		    "maxUnavailable":1
 		 },
@@ -348,7 +348,7 @@
 		    "antiAffinityTopologyKey":"none"
 		 },
 		 "gracePeriod":600,
-		 "image":"percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0",
+		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0",
 		 "podDisruptionBudget":{
 		    "maxUnavailable":1
 		 },

@@ -1,7 +1,7 @@
 .. code-block:: json
 
 	{
-	   "apiVersion":"pxc.percona.com/v1-4-0",
+	   "apiVersion":"pxc.percona.com/v1-5-0",
 	   "kind":"PerconaXtraDBCluster",
 	   "metadata":{
 	      "name":"cluster1",
@@ -17,7 +17,7 @@
 	      "allowUnsafeConfigurations":true,
 	      "pxc":{
 		 "size":3,
-		 "image":"percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0",
+		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0",
 		 "resources":{
 		    "requests":null
 		 },
@@ -41,7 +41,7 @@
 	      "proxysql":{
 		 "enabled":true,
 		 "size":3,
-		 "image":"percona/percona-xtradb-cluster-operator:1.4.0-proxysql",
+		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-proxysql",
 		 "resources":{
 		    "requests":null
 		 },
@@ -64,12 +64,12 @@
 	      },
 	      "pmm":{
 		 "enabled":false,
-		 "image":"percona/percona-xtradb-cluster-operator:1.4.0-pmm",
+		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-pmm",
 		 "serverHost":"monitoring-service",
 		 "serverUser":"pmm"
 	      },
 	      "backup":{
-		 "image":"percona/percona-xtradb-cluster-operator:1.4.0-pxc8.0-backup",
+		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0-backup",
 		 "serviceAccountName":"percona-xtradb-cluster-operator",
 		 "storages":{
 		    "s3-us-west":{

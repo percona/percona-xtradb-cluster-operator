@@ -79,7 +79,7 @@
 		          {
 		             "manager":"kubectl",
 		             "operation":"Update",
-		             "apiVersion":"pxc.percona.com/v1-4-0",
+		             "apiVersion":"pxc.percona.com/v1-5-0",
 		             "time":"2020-05-27T22:23:58Z",
 		             "fieldsType":"FieldsV1",
 		             "fieldsV1":{

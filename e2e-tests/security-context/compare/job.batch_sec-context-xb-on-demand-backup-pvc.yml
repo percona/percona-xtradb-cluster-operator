@@ -9,7 +9,6 @@ metadata:
     type: xtrabackup
   name: sec-context-xb-on-demand-backup-pvc
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBClusterBackup
     name: on-demand-backup-pvc

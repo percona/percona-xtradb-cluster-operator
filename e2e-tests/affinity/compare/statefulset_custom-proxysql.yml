@@ -4,7 +4,6 @@ metadata:
   generation: 1
   name: custom-proxysql
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: custom

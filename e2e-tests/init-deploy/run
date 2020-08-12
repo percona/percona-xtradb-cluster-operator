@@ -76,6 +76,9 @@ compare_kubectl configmap/$cluster3-pxc
 desc 'check if storageClass changed'
 compare_kubectl statefulset/$cluster3-pxc
 compare_kubectl statefulset/$cluster3-proxysql
+compare_kubectl issuer/$cluster3-pxc-ca
+compare_kubectl certificate/$cluster3-ssl
+compare_kubectl certificate/$cluster3-ssl-internal
 
 desc 'write data, read from all'
 run_mysql \

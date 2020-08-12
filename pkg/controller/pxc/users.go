@@ -151,7 +151,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc", pxcUser, pxcPass)
+	um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, pxcUser, pxcPass)
 	if err != nil {
 		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
 	}
@@ -235,7 +235,7 @@ func (r *ReconcilePerconaXtraDBCluster) restartPXC(cr *api.PerconaXtraDBCluster,
 }
 
 func updateProxyUsers(proxyUsers []users.SysUser, internalSysSecretObj *corev1.Secret, cr *api.PerconaXtraDBCluster) error {
-	um, err := users.NewManager(cr.Name+"-proxysql-unready:6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]))
+	um, err := users.NewManager(cr.Name+"-proxysql-unready."+cr.Namespace+":6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]))
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}
@@ -359,7 +359,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 		return errors.Wrap(err, "generate password")
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc", "root", string(sysUsersSecretObj.Data["root"]))
+	um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, "root", string(sysUsersSecretObj.Data["root"]))
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}

@@ -14,6 +14,10 @@ main() {
   desc 'create first PXC cluster with HAProxy'
   cluster="some-name"
   spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 true
+  for i in $(seq 0 2); do
+    local haproxy_pod_ip=$(kubectl_bin describe pod $cluster-haproxy-$i | grep IP | head -n1 | awk '{print $2}') 
+    run_mysql "SHOW VARIABLES LIKE 'server_id'" "-h $haproxy_pod_ip -uroot -proot_password"
+  done
   destroy $namespace
 }
 

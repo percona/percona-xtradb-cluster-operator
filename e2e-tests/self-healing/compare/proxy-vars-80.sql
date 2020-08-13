@@ -30,7 +30,7 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.0.12-percona-1.1
+admin-version	2.0.13-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
 mysql-add_ldap_user_comment	
@@ -54,34 +54,15 @@ mysql-connection_delay_multiplex_ms	0
 mysql-connection_max_age_ms	0
 mysql-connection_warming	false
 mysql-connpoll_reset_queue_length	50
-mysql-default_CHARSET	
-mysql-default_action	
-mysql-default_character_set_client	
-mysql-default_character_set_connection	
-mysql-default_character_set_database	
-mysql-default_character_set_results	
-mysql-default_charset	
-mysql-default_collation_connection	
-mysql-default_group_concat_max_len	
-mysql-default_isolation_level	
-mysql-default_max_join_size	
+mysql-default_charset	utf8
+mysql-default_collation_connection	utf8_general_ci
 mysql-default_max_latency_ms	1000
-mysql-default_names	
-mysql-default_net_write_timeout	
 mysql-default_query_delay	0
 mysql-default_query_timeout	10000
 mysql-default_reconnect	true
 mysql-default_schema	information_schema
 mysql-default_session_track_gtids	OFF
-mysql-default_sql_auto_is_null	
-mysql-default_sql_log_bin	
-mysql-default_sql_mode	
-mysql-default_sql_safe_updates	
-mysql-default_sql_select_limit	
-mysql-default_time_zone	
-mysql-default_transaction_read	
 mysql-default_tx_isolation	READ-COMMITTED
-mysql-default_wsrep_sync_wait	
 mysql-enforce_autocommit_on_reads	false
 mysql-eventslog_default_log	0
 mysql-eventslog_filename	

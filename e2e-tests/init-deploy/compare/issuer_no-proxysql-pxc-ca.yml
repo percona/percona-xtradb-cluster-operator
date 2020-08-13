@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1alpha3
+kind: Issuer
+metadata:
+  generation: 1
+  name: no-proxysql-pxc-ca
+  ownerReferences:
+  - apiVersion: pxc.percona.com/v1
+    controller: true
+    kind: PerconaXtraDBCluster
+    name: no-proxysql
+spec:
+  selfSigned: {}

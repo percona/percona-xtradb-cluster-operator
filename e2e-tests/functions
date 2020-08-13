@@ -47,11 +47,13 @@ wait_cluster_consistency() {
 }
 
 create_namespace() {
-    if [ "${CLEAN_NAMESPACE}" == 1 ]; then
+    local namespace="$1"
+    local skip_clean_namespace="$2"
+
+    if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
         kubectl get ns | egrep -v "^kube-|^default|Terminating|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
-    local namespace="$1"
     if [ "$OPENSHIFT" == 1 ]; then
         oc delete project "$namespace" && sleep 40 || :
         oc new-project "$namespace"
@@ -367,7 +369,7 @@ run_pumba() {
 deploy_cert_manager() {
     kubectl_bin create namespace cert-manager || :
     kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
-    kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v0.14.1/cert-manager.yaml --validate=false || : 2>/dev/null
+    kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml --validate=false || : 2>/dev/null
 }
 
 destroy() {
@@ -388,7 +390,7 @@ destroy() {
     kubectl_bin delete pxc-backup --all
     kubectl_bin delete pxc-restore --all || :
 
-    kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.14.1/cert-manager.yaml 2>/dev/null || :
+    kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :
     if [ "$OPENSHIFT" == 1 ]; then
         oc delete --grace-period=0 --force=true project "$namespace"
     else
@@ -774,7 +776,7 @@ start_vault() {
         platform=openshift
         oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
     fi
-    create_namespace "$name"
+    create_namespace "$name" "skip_clean"
     deploy_helm "$name"
     helm delete "$name" || :
 

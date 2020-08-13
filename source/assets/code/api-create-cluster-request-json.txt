@@ -17,7 +17,7 @@
 	      "allowUnsafeConfigurations":true,
 	      "pxc":{
 		 "size":3,
-		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0",
+		 "image":"percona/percona-xtradb-cluster:8.0.19-10.1",
 		 "resources":{
 		    "requests":null
 		 },
@@ -113,4 +113,3 @@
 	      }
 	   }
 	}
-

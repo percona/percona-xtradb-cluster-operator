@@ -28,7 +28,7 @@ spec:
     podDisruptionBudget:
       maxUnavailable: 1
   haproxy:
-    enabled: true
+    enabled: false
     size: 3
     image: -haproxy
     affinity:
@@ -41,7 +41,7 @@ spec:
     podDisruptionBudget:
       maxUnavailable: 1
   proxysql:
-    enabled: false
+    enabled: true
     size: 1
     image: -proxysql
     resources:

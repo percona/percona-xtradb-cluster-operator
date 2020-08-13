@@ -519,7 +519,7 @@
 		    "antiAffinityTopologyKey":"none"
 		 },
 		 "gracePeriod":600,
-		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-pxc5.7",
+		 "image":"percona/percona-xtradb-cluster:5.7.30-31.43",
 		 "podDisruptionBudget":{
 		    "maxUnavailable":1
 		 },
@@ -583,4 +583,3 @@
 	      "state":"initializing"
 	   }
 	}
-

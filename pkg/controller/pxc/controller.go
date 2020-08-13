@@ -719,6 +719,23 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
+		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-proxysql", "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set controller ref ProxySQL")
+		}
+		err = r.client.Create(context.TODO(), configMap)
+		if err != nil && k8serrors.IsAlreadyExists(err) {
+			err = r.client.Update(context.TODO(), configMap)
+			if err != nil {
+				return errors.Wrap(err, "update ConfigMap HAProxy")
+			}
+		} else if err != nil {
+			return errors.Wrap(err, "create ConfigMap HAProxy")
+		}
+	}
+
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Configuration != "" {
 		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-haproxy", "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)

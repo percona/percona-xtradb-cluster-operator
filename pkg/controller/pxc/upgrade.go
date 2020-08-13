@@ -225,7 +225,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return fmt.Errorf("failed to wait pod: %v", err)
 	}
 
-	if err := r.waitPXCSynced(cr, pod.Status.PodIP, waitLimit); err != nil {
+	if err := r.waitPXCSynced(cr, pod.Name, waitLimit); err != nil {
 		return fmt.Errorf("failed to wait pxc sync: %v", err)
 	}
 
@@ -284,12 +284,12 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 	var port, proxySize int32
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		user = "proxyadmin"
-		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
+		host = fmt.Sprintf("%s-proxysql-", cr.ObjectMeta.Name)
 		port = 6032
 		proxySize = cr.Spec.ProxySQL.Size
 	} else if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		user = "monitor"
-		host = fmt.Sprintf("%s-haproxy", cr.ObjectMeta.Name)
+		host = fmt.Sprintf("%s-haproxy-", cr.ObjectMeta.Name)
 		port = 3306
 		proxySize = cr.Spec.HAProxy.Size
 	} else {
@@ -297,7 +297,7 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 	}
 
 	for i := 0; ; i++ {
-		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, port)
+		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, fmt.Sprintf("%s%s", host), port)
 		if err != nil && i < int(proxySize) {
 			time.Sleep(time.Second)
 		} else if err != nil && i == int(proxySize) {
@@ -331,10 +331,10 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 	return database.PrimaryHost()
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, podIP string, waitLimit int) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, podName string, waitLimit int) error {
 	user := "root"
 
-	database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podIP, 3306)
+	database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podName, 3306)
 	if err != nil {
 		return fmt.Errorf("failed to access PXC database: %v", err)
 	}

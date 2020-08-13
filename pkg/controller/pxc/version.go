@@ -227,7 +227,10 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 
 	user := "root"
 	for _, pod := range list.Items {
-		database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Status.PodIP, 3306)
+
+        log.Info(fmt.Sprintf("trying to get version for pod: %s", pod.Name))
+
+		database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Name, 3306)
 		if err != nil {
 			log.Error(err, "failed to create db instance")
 			continue

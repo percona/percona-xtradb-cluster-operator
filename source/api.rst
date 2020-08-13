@@ -353,7 +353,7 @@ Update PXC cluster image
 .. code-block:: bash
 
    kubectl --v=9 patch pxc cluster1 --type=merge --patch '{  
-   "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster-operator:1.5.0-pxc5.7" }  
+   "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster:5.7.30-31.43" }  
    }}'
 
 **URL:**

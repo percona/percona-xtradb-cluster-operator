@@ -348,7 +348,7 @@
 		    "antiAffinityTopologyKey":"none"
 		 },
 		 "gracePeriod":600,
-		 "image":"percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0",
+		 "image":"percona/percona-xtradb-cluster:8.0.19-10.1",
 		 "podDisruptionBudget":{
 		    "maxUnavailable":1
 		 },
@@ -372,4 +372,3 @@
 	      "vaultSecretName":"keyring-secret-vault"
 	   }
 	}
-

@@ -13,10 +13,10 @@ CFG=/etc/mysql/node.cnf
 wantHelp=
 for arg; do
 	case "$arg" in
-		-'?'|--help|--print-defaults|-V|--version)
-			wantHelp=1
-			break
-			;;
+	-'?' | --help | --print-defaults | -V | --version)
+		wantHelp=1
+		break
+		;;
 	esac
 done
 
@@ -37,7 +37,7 @@ file_env() {
 	if [ "${!var:-}" ]; then
 		val="${!var}"
 	elif [ "${!fileVar:-}" ]; then
-		val="$(< "${!fileVar}")"
+		val="$(<"${!fileVar}")"
 	fi
 	export "$var"="$val"
 	unset "$fileVar"
@@ -50,20 +50,32 @@ file_env() {
 # function here, so that initializer scripts (*.sh) can use the same logic,
 # potentially recursively, or override the logic used in subsequent calls)
 process_init_file() {
-	local f="$1"; shift
-	local mysql=( "$@" )
+	local f="$1"
+	shift
+	local mysql=("$@")
 
 	case "$f" in
-		*.sh)     echo "$0: running $f"; . "$f" ;;
-		*.sql)    echo "$0: running $f"; "${mysql[@]}" < "$f"; echo ;;
-		*.sql.gz) echo "$0: running $f"; gunzip -c "$f" | "${mysql[@]}"; echo ;;
-		*)        echo "$0: ignoring $f" ;;
+	*.sh)
+		echo "$0: running $f"
+		. "$f"
+		;;
+	*.sql)
+		echo "$0: running $f"
+		"${mysql[@]}" <"$f"
+		echo
+		;;
+	*.sql.gz)
+		echo "$0: running $f"
+		gunzip -c "$f" | "${mysql[@]}"
+		echo
+		;;
+	*) echo "$0: ignoring $f" ;;
 	esac
 	echo
 }
 
 _check_config() {
-	toRun=( "$@" --verbose --help --wsrep-provider='none' )
+	toRun=("$@" --verbose --help --wsrep-provider='none')
 	if ! errors="$("${toRun[@]}" 2>&1 >/dev/null)"; then
 		cat >&2 <<-EOM
 
@@ -80,9 +92,10 @@ _check_config() {
 # We use mysqld --verbose --help instead of my_print_defaults because the
 # latter only show values present in config files, and not server defaults
 _get_config() {
-	local conf="$1"; shift
-	"$@" --verbose --help --wsrep-provider='none' --log-bin-index="$(mktemp -u)" 2>/dev/null \
-		| awk '$1 == "'"$conf"'" && /^[^ \t]/ { sub(/^[^ \t]+[ \t]+/, ""); print; exit }'
+	local conf="$1"
+	shift
+	"$@" --verbose --help --wsrep-provider='none' --log-bin-index="$(mktemp -u)" 2>/dev/null |
+		awk '$1 == "'"$conf"'" && /^[^ \t]/ { sub(/^[^ \t]+[ \t]+/, ""); print; exit }'
 	# match "datadir      /some/path with/spaces in/it here" but not "--xyz=abc\n     datadir (xyz)"
 }
 
@@ -93,11 +106,11 @@ _get_cnf_config() {
 	local reval=""
 
 	reval=$(
-		my_print_defaults "${group}" \
-			| awk -F= '{st=index($0,"="); cur=$0; if ($1 ~ /_/) { gsub(/_/,"-",$1);} if (st != 0) { print $1"="substr(cur,st+1) } else { print cur }}' \
-			| grep -- "--$var=" \
-			| cut -d= -f2- \
-			| tail -1
+		my_print_defaults "${group}" |
+			awk -F= '{st=index($0,"="); cur=$0; if ($1 ~ /_/) { gsub(/_/,"-",$1);} if (st != 0) { print $1"="substr(cur,st+1) } else { print cur }}' |
+			grep -- "--$var=" |
+			cut -d= -f2- |
+			tail -1
 	)
 
 	if [[ -z $reval ]]; then
@@ -125,9 +138,10 @@ _get_tmpdir() {
 	echo "$tmpdir_path"
 }
 
-function join {
-	local IFS="$1"; shift
-	joined=$(tr "$IFS" '\n' <<< "$*" | sort -u | tr '\n' "$IFS")
+function join() {
+	local IFS="$1"
+	shift
+	joined=$(tr "$IFS" '\n' <<<"$*" | sort -u | tr '\n' "$IFS")
 	echo "${joined%?}"
 }
 
@@ -154,8 +168,8 @@ if [ -f "$vault_secret" ]; then
 fi
 
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
-grep -q "^[sst]" "$CFG" || printf '[sst]\n' >> "$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh' "$CFG" 1<> "$CFG"
+grep -q "^[sst]" "$CFG" || printf '[sst]\n' >>"$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh' "$CFG" 1<>"$CFG"
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup'
 file_env 'CLUSTERCHECK_PASSWORD' 'clustercheck'
@@ -180,7 +194,7 @@ elif [ -n "$DISCOVERY_SERVICE" ]; then
 	i=$(curl "$DISCOVERY_SERVICE/v2/keys/pxc-cluster/queue/$CLUSTER_NAME" | jq -r '.node.nodes[].value')
 
 	# this remove my ip from the list
-	i1="${i[@]//$NODE_IP}"
+	i1="${i[@]//$NODE_IP/}"
 
 	# Register the current IP in the discovery service
 	# key set to expire in 30 sec. There is a cronjob that should update them regularly
@@ -190,30 +204,30 @@ elif [ -n "$DISCOVERY_SERVICE" ]; then
 
 	i=$(curl "$DISCOVERY_SERVICE/v2/keys/pxc-cluster/$CLUSTER_NAME/?quorum=true" | jq -r '.node.nodes[]?.key' | awk -F'/' '{print $(NF)}')
 	# this remove my ip from the list
-	i2="${i[@]//$NODE_IP}"
-	CLUSTER_JOIN=$(join , $i1 $i2 )
+	i2="${i[@]//$NODE_IP/}"
+	CLUSTER_JOIN=$(join , $i1 $i2)
 
-	sed -r "s|^[#]?wsrep_node_address=.*$|wsrep_node_address=${NODE_IP}|" "${CFG}" 1<> "${CFG}"
-	sed -r "s|^[#]?wsrep_cluster_name=.*$|wsrep_cluster_name=${CLUSTER_NAME}|" "${CFG}" 1<> "${CFG}"
-	sed -r "s|^[#]?wsrep_cluster_address=.*$|wsrep_cluster_address=gcomm://${CLUSTER_JOIN}|" "${CFG}" 1<> "${CFG}"
-	sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NODE_NAME}:${NODE_PORT}|" "${CFG}" 1<> "${CFG}"
-	sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:${XTRABACKUP_PASSWORD}'|" "${CFG}" 1<> "${CFG}"
+	sed -r "s|^[#]?wsrep_node_address=.*$|wsrep_node_address=${NODE_IP}|" "${CFG}" 1<>"${CFG}"
+	sed -r "s|^[#]?wsrep_cluster_name=.*$|wsrep_cluster_name=${CLUSTER_NAME}|" "${CFG}" 1<>"${CFG}"
+	sed -r "s|^[#]?wsrep_cluster_address=.*$|wsrep_cluster_address=gcomm://${CLUSTER_JOIN}|" "${CFG}" 1<>"${CFG}"
+	sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NODE_NAME}:${NODE_PORT}|" "${CFG}" 1<>"${CFG}"
+	sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:${XTRABACKUP_PASSWORD}'|" "${CFG}" 1<>"${CFG}"
 
 	/usr/bin/clustercheckcron clustercheck "${CLUSTERCHECK_PASSWORD}" 1 /var/lib/mysql/clustercheck.log 1 &
 
 else
 	: checking incoming cluster parameters
 	NODE_IP=$(hostname -I | awk ' { print $1 } ')
-	sed -r "s|^[#]?wsrep_node_address=.*$|wsrep_node_address=${NODE_IP}|" "${CFG}" 1<> "${CFG}"
-	sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NODE_NAME}:${NODE_PORT}|" "${CFG}" 1<> "${CFG}"
-	sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:${XTRABACKUP_PASSWORD}'|" "${CFG}" 1<> "${CFG}"
+	sed -r "s|^[#]?wsrep_node_address=.*$|wsrep_node_address=${NODE_IP}|" "${CFG}" 1<>"${CFG}"
+	sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NODE_NAME}:${NODE_PORT}|" "${CFG}" 1<>"${CFG}"
+	sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:${XTRABACKUP_PASSWORD}'|" "${CFG}" 1<>"${CFG}"
 
 	if [[ -n "${CLUSTER_JOIN}" ]]; then
-		sed -r "s|^[#]?wsrep_cluster_address=.*$|wsrep_cluster_address=gcomm://${CLUSTER_JOIN}|" "${CFG}" 1<> "${CFG}"
+		sed -r "s|^[#]?wsrep_cluster_address=.*$|wsrep_cluster_address=gcomm://${CLUSTER_JOIN}|" "${CFG}" 1<>"${CFG}"
 	fi
 
 	if [[ -n "${CLUSTER_NAME}" ]]; then
-		sed -r "s|^[#]?wsrep_cluster_name=.*$|wsrep_cluster_name=${CLUSTER_NAME}|" "${CFG}" 1<> "${CFG}"
+		sed -r "s|^[#]?wsrep_cluster_name=.*$|wsrep_cluster_name=${CLUSTER_NAME}|" "${CFG}" 1<>"${CFG}"
 	fi
 
 fi
@@ -241,7 +255,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		mkdir -p "$DATADIR"
 		cpat="$(_get_cnf_config sst cpat)"
-		find "$DATADIR" -mindepth 1  -regex "$cpat"  -prune  -o -exec rm -rfv {} 1>/dev/null \+
+		find "$DATADIR" -mindepth 1 -regex "$cpat" -prune -o -exec rm -rfv {} \+ 1>/dev/null
 
 		echo 'Initializing database'
 		# we initialize database into $TMPDIR because "--initialize-insecure" option does not work if directory is not empty
@@ -255,11 +269,11 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		"$@" --skip-networking --socket="${SOCKET}" &
 		pid="$!"
 
-		mysql=( mysql --protocol=socket -uroot -hlocalhost --socket="${SOCKET}" --password="" )
+		mysql=(mysql --protocol=socket -uroot -hlocalhost --socket="${SOCKET}" --password="")
 		wsrep_local_state_select="SELECT variable_value FROM performance_schema.global_status WHERE variable_name='wsrep_local_state_comment'"
 
 		for i in {120..0}; do
-			wsrep_local_state=$(echo "$wsrep_local_state_select" | "${mysql[@]}" -s 2> /dev/null) || true
+			wsrep_local_state=$(echo "$wsrep_local_state_select" | "${mysql[@]}" -s 2>/dev/null) || true
 			if [ "$wsrep_local_state" = 'Synced' ]; then
 				break
 			fi
@@ -324,13 +338,13 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		EOSQL
 
 		if [ ! -z "$MYSQL_ROOT_PASSWORD" ]; then
-			mysql+=( -p"${MYSQL_ROOT_PASSWORD}" )
+			mysql+=(-p"${MYSQL_ROOT_PASSWORD}")
 		fi
 
 		file_env 'MYSQL_DATABASE'
 		if [ "$MYSQL_DATABASE" ]; then
 			echo "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` ;" | "${mysql[@]}"
-			mysql+=( "$MYSQL_DATABASE" )
+			mysql+=("$MYSQL_DATABASE")
 		fi
 
 		file_env 'MYSQL_USER'
@@ -346,7 +360,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 
 		echo
-		ls /docker-entrypoint-initdb.d/ > /dev/null
+		ls /docker-entrypoint-initdb.d/ >/dev/null
 		for f in /docker-entrypoint-initdb.d/*; do
 			process_init_file "$f" "${mysql[@]}"
 		done
@@ -384,13 +398,13 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &
 		pid="$!"
 
-		mysql=( mysql --protocol=socket -uoperator -hlocalhost --socket="${SOCKET}" --password="" )
+		mysql=(mysql --protocol=socket -uoperator -hlocalhost --socket="${SOCKET}" --password="")
 		if [ ! -z "$OPERATOR_ADMIN_PASSWORD" ]; then
-			mysql+=( -p"${OPERATOR_ADMIN_PASSWORD}" )
+			mysql+=(-p"${OPERATOR_ADMIN_PASSWORD}")
 		fi
 
 		for i in {120..0}; do
-			if echo 'SELECT 1' | "${mysql[@]}" &> /dev/null; then
+			if echo 'SELECT 1' | "${mysql[@]}" &>/dev/null; then
 				break
 			fi
 			echo 'MySQL init process in progress...'
@@ -407,7 +421,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			exit 1
 		fi
 	fi
-	"$@" --version > "$DATADIR/version_info"
+	"$@" --version >"$DATADIR/version_info"
 	grep -v wsrep_sst_auth "$CFG"
 fi
 
@@ -436,9 +450,9 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		if grep ' Recovered position:' "$wsrep_verbose_logfile"; then
 			start_pos="$(
-				grep ' Recovered position:' "$wsrep_verbose_logfile" \
-					| sed 's/.*\ Recovered\ position://' \
-					| sed 's/^[ \t]*//'
+				grep ' Recovered position:' "$wsrep_verbose_logfile" |
+					sed 's/.*\ Recovered\ position://' |
+					sed 's/^[ \t]*//'
 			)"
 			wsrep_start_position_opt="--wsrep_start_position=$start_pos"
 		else

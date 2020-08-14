@@ -117,7 +117,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 				},
 				app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLInternalSecretName, true),
 				app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.AllowUnsafeConfig),
-				app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
+				app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName+"-new", true),
 			},
 			RestartPolicy:     corev1.RestartPolicyAlways,
 			NodeSelector:      cluster.Backup.Storages[bcp.Status.StorageName].NodeSelector,
@@ -148,7 +148,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 		jobPVC,
 		app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.AllowUnsafeConfig),
-		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
+		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName+"-new", true),
 	}
 
 	job := &batchv1.Job{
@@ -257,7 +257,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 
 	jobPVCs := []corev1.Volume{
 		jobPVC,
-		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
+		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName+"-new", true),
 	}
 
 	job := &batchv1.Job{

@@ -7,8 +7,8 @@ test_dir="$(dirname $0)"
 src_dir="$(realpath $test_dir/..)"
 
 if [[ $BUILD != "0" ]]; then
-    echo "building, set BUILD=0 to suppress this"
-    $test_dir/build
+	echo "building, set BUILD=0 to suppress this"
+	$test_dir/build
 fi
 
 create_namespace run-$GIT_BRANCH-$RANDOM
@@ -17,5 +17,6 @@ deploy_operator
 desc 'create PXC cluster'
 apply_config $src_dir/deploy/cr.yaml
 apply_config $src_dir/deploy/secrets.yaml
+apply_config $src_dir/deploy/test-vault.yaml
 
 wait_for_running cluster1-pxc 3

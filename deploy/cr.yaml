@@ -6,6 +6,8 @@ metadata:
     - delete-pxc-pods-in-order
 #    - delete-proxysql-pvc
 #    - delete-pxc-pvc
+  annotations:
+    issue-vault-token: "yes"
 spec:
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault

@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
@@ -169,6 +169,35 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// wait untill token issued to run PXC in data encrypted mode.
+	if _, ok := o.Annotations["issue-vault-token"]; ok {
+		secretObj := corev1.Secret{}
+		err := r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Namespace: o.Namespace,
+				Name:      o.Spec.VaultSecretName,
+			},
+			&secretObj,
+		)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		err = r.IssueVaultToken(secretObj)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		delete(o.Annotations, "issue-vault-token")
+
+		err = r.client.Update(context.Background(), o)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	}
 
 	changed, err := o.CheckNSetDefaults(r.serverVersion)

@@ -56,7 +56,7 @@ Configuring Vault
    PXC can use any regular token which allows all operations inside the secrets
    mount point. In the following example we are using the *root token* to be
    sure the permissions requirement is met, but actually there is no need in
-   root permissions.
+   root permissions. We don't recommend using the root token on the production system.
 
    .. code:: bash
 

@@ -52,7 +52,11 @@ The following steps will deploy Vault on Kubernetes with the `Helm 3 package man
 Configuring Vault
 -----------------
 
-1. First, you should enable secrets within Vault. Get the Vault root token:
+1. First, you should enable secrets within Vault. For this you will need a `Vault token <https://www.vaultproject.io/docs/concepts/tokens>`_.
+   PXC can use any regular token which allows all operations inside the secrets
+   mount point. In the following example we are using the *root token* to be
+   sure the permissions requirement is met, but actually there is no need in
+   root permissions.
 
    .. code:: bash
 

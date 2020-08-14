@@ -303,7 +303,7 @@ Scale up/down PXC cluster
 
 .. code-block:: bash
 
-   curl -k -v -XPATCH 'https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1' \
+   curl -k -v -XPATCH "https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1" \
                -H "Authorization: Bearer $KUBE_TOKEN" \
                -H "Content-Type: application/merge-patch+json" 
                -H "Accept: application/json" \
@@ -373,7 +373,7 @@ Update PXC cluster image
 
 .. code-block:: bash
 
-   curl -k -v -XPATCH 'https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1' \
+   curl -k -v -XPATCH "https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1" \
                -H "Authorization: Bearer $KUBE_TOKEN" \
                -H "Accept: application/json" \
                -H "Content-Type: application/merge-patch+json" 

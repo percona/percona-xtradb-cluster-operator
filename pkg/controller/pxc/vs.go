@@ -9,14 +9,14 @@ import (
 	"time"
 )
 
-func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(endpoint string, vm VersionMeta) (DepVersion, error) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
 
 	requestURL, err := url.Parse(
 		fmt.Sprintf("%s/v1/pxc-operator/%s/%s",
-			strings.TrimRight(vs.URL, "/"),
+			strings.TrimRight(endpoint, "/"),
 			vs.OpVersion,
 			vm.Apply,
 		),
@@ -54,7 +54,6 @@ func (vs VersionServiceClient) GetExactVersion(vm versionMeta) (DepVersion, erro
 	}
 
 	req.Header.Set("Accept", "application/json")
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return DepVersion{}, err
@@ -139,11 +138,10 @@ type DepVersion struct {
 }
 
 type VersionService interface {
-	GetExactVersion(vm versionMeta) (DepVersion, error)
+	GetExactVersion(endpoint string, vm VersionMeta) (DepVersion, error)
 }
 
 type VersionServiceClient struct {
-	URL       string
 	OpVersion string
 }
 
@@ -173,7 +171,7 @@ type VersionResponse struct {
 	Versions []OperatorVersion `json:"versions"`
 }
 
-type versionMeta struct {
+type VersionMeta struct {
 	Apply           string
 	PXCVersion      string
 	KubeVersion     string

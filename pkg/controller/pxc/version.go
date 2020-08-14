@@ -104,7 +104,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return errors.New("cluster is not ready")
 	}
 
-	newVersion, err := vs.GetExactVersion(versionMeta{
+	newVersion, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.VersionServiceEndpoint, VersionMeta{
 		Apply:           cr.Spec.UpgradeOptions.Apply,
 		Platform:        string(cr.Spec.Platform),
 		KubeVersion:     r.serverVersion.Info.GitVersion,
@@ -120,27 +120,47 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	}
 
 	if cr.Spec.PXC.Image != newVersion.PXCImage {
-		log.Info(fmt.Sprintf("update PXC version from %s to %s", cr.Status.PXC.Version, newVersion.PXCVersion))
+		if cr.Status.PXC.Version == "" {
+			log.Info(fmt.Sprintf("set PXC version to %s", newVersion.PXCVersion))
+		} else {
+			log.Info(fmt.Sprintf("update PXC version from %s to %s", cr.Status.PXC.Version, newVersion.PXCVersion))
+		}
 		cr.Spec.PXC.Image = newVersion.PXCImage
 	}
 
 	if cr.Spec.Backup.Image != newVersion.BackupImage {
-		log.Info(fmt.Sprintf("update Backup version from %s to %s", cr.Status.Backup.Version, newVersion.BackupVersion))
+		if cr.Status.Backup.Version == "" {
+			log.Info(fmt.Sprintf("set Backup version to %s", newVersion.BackupVersion))
+		} else {
+			log.Info(fmt.Sprintf("update Backup version from %s to %s", cr.Status.Backup.Version, newVersion.BackupVersion))
+		}
 		cr.Spec.Backup.Image = newVersion.BackupImage
 	}
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled && cr.Spec.PMM.Image != newVersion.PMMImage {
-		log.Info(fmt.Sprintf("update PMM version from %s to %s", cr.Status.PMM.Version, newVersion.PMMVersion))
+		if cr.Status.PMM.Version == "" {
+			log.Info(fmt.Sprintf("set PMM version to %s", newVersion.PMMVersion))
+		} else {
+			log.Info(fmt.Sprintf("update PMM version from %s to %s", cr.Status.PMM.Version, newVersion.PMMVersion))
+		}
 		cr.Spec.PMM.Image = newVersion.PMMImage
 	}
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Image != newVersion.ProxySqlImage {
-		log.Info(fmt.Sprintf("update ProxySQL version from %s to %s", cr.Status.ProxySQL.Version, newVersion.ProxySqlVersion))
+		if cr.Status.ProxySQL.Version == "" {
+			log.Info(fmt.Sprintf("set ProxySQL version to %s", newVersion.ProxySqlVersion))
+		} else {
+			log.Info(fmt.Sprintf("update ProxySQL version from %s to %s", cr.Status.ProxySQL.Version, newVersion.ProxySqlVersion))
+		}
 		cr.Spec.ProxySQL.Image = newVersion.ProxySqlImage
 	}
 
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Spec.HAProxy.Image != newVersion.HAProxyImage {
-		log.Info(fmt.Sprintf("update HAProxy version from %s to %s", cr.Status.HAProxy.Version, newVersion.HAProxyVersion))
+		if cr.Status.HAProxy.Version == "" {
+			log.Info(fmt.Sprintf("set HAProxy version to %s", newVersion.HAProxyVersion))
+		} else {
+			log.Info(fmt.Sprintf("update HAProxy version from %s to %s", cr.Status.HAProxy.Version, newVersion.HAProxyVersion))
+		}
 		cr.Spec.HAProxy.Image = newVersion.HAProxyImage
 	}
 

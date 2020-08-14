@@ -195,7 +195,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
 		err := r.ensurePXCVersion(o, VersionServiceClient{
-			URL:       o.Spec.UpgradeOptions.VersionServiceEndpoint,
 			OpVersion: o.Version().String(),
 		})
 		if err != nil {
@@ -415,7 +414,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	err = r.sheduleEnsurePXCVersion(o, VersionServiceClient{
-		URL:       o.Spec.UpgradeOptions.VersionServiceEndpoint,
 		OpVersion: o.Version().String(),
 	})
 	if err != nil {
@@ -581,7 +579,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		// PodDisruptionBudget object for HAProxy
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: haProxySet.Name, Namespace: haProxySet.Namespace}, haProxySet)
 		if err == nil {
-			err := r.reconcilePDB(cr.Spec.ProxySQL.PodDisruptionBudget, sfsHAProxy, cr.Namespace, haProxySet)
+			err := r.reconcilePDB(cr.Spec.HAProxy.PodDisruptionBudget, sfsHAProxy, cr.Namespace, haProxySet)
 			if err != nil {
 				return fmt.Errorf("PodDisruptionBudget for %s: %v", haProxySet.Name, err)
 			}
@@ -718,6 +716,23 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			}
 		} else if err != nil {
 			return errors.Wrap(err, "create ConfigMap")
+		}
+	}
+
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
+		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-proxysql", "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set controller ref ProxySQL")
+		}
+		err = r.client.Create(context.TODO(), configMap)
+		if err != nil && k8serrors.IsAlreadyExists(err) {
+			err = r.client.Update(context.TODO(), configMap)
+			if err != nil {
+				return errors.Wrap(err, "update ConfigMap HAProxy")
+			}
+		} else if err != nil {
+			return errors.Wrap(err, "create ConfigMap HAProxy")
 		}
 	}
 

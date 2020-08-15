@@ -153,11 +153,9 @@ deploy_operator() {
     kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
 
     if [ -n "$OPERATOR_NS" ]; then
-        apply_rbac cwrbac
-        cat ${src_dir}/deploy/operator.yaml \
+        apply_rbac cw-rbac
+        cat ${src_dir}/deploy/cw-operator.yaml \
             | sed -e "s^image: .*^image: ${IMAGE}^" \
-            | $sed -e '/- name: WATCH_NAMESPACE/{n;N;N;d;}' \
-            | $sed -e '/- name: WATCH_NAMESPACE/a \              value: ""' \
             | kubectl_bin apply  -f -
     else
         apply_rbac rbac
@@ -185,8 +183,6 @@ create_infra() {
         create_namespace $OPERATOR_NS
         deploy_operator
         create_namespace $ns
-        cat ${src_dir}/deploy/service_account.yaml \
-            | kubectl_bin apply  -f -
     else
         create_namespace $ns
         deploy_operator

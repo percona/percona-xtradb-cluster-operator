@@ -97,13 +97,8 @@ kind: ServiceAccount
 metadata:
   name: percona-xtradb-cluster-operator
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: percona-xtradb-cluster-operator-workload
----
 kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: service-account-percona-xtradb-cluster-operator
 subjects:

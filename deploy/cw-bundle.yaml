@@ -32,6 +32,9 @@ spec:
     - name: v1-5-0
       storage: false
       served: true
+    - name: v1-6-0
+      storage: false
+      served: true
     - name: v1alpha1
       storage: false
       served: true
@@ -285,15 +288,10 @@ kind: ServiceAccount
 metadata:
   name: percona-xtradb-cluster-operator
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: percona-xtradb-cluster-operator-workload
----
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: percona-xtradb-cluster-operator
+  name: service-account-percona-xtradb-cluster-operator
 subjects:
 - kind: ServiceAccount
   name: percona-xtradb-cluster-operator
@@ -320,7 +318,7 @@ spec:
       serviceAccountName: percona-xtradb-cluster-operator
       containers:
         - name: percona-xtradb-cluster-operator
-          image: perconalab/percona-xtradb-cluster-operator:PR-522-0da065fd
+          image: percona/percona-xtradb-cluster-operator:1.5.0
           ports:
           - containerPort: 60000
             name: metrics

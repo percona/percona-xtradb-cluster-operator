@@ -32,6 +32,9 @@ spec:
     - name: v1-5-0
       storage: false
       served: true
+    - name: v1-6-0
+      storage: false
+      served: true
     - name: v1alpha1
       storage: false
       served: true
@@ -266,6 +269,7 @@ rules:
   - delete
 - apiGroups:
   - certmanager.k8s.io
+  - cert-manager.io
   resources:
   - issuers
   - certificates
@@ -284,13 +288,8 @@ kind: ServiceAccount
 metadata:
   name: percona-xtradb-cluster-operator
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: percona-xtradb-cluster-operator-workload
----
 kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: service-account-percona-xtradb-cluster-operator
 subjects:

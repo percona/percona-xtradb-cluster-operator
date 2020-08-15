@@ -20,6 +20,6 @@ func New(cr *api.PerconaXtraDBCluster) *Backup {
 		namespace:          cr.Namespace,
 		image:              cr.Spec.Backup.Image,
 		imagePullSecrets:   cr.Spec.Backup.ImagePullSecrets,
-		serviceAccountName: cr.Spec.Backup.ServiceAccountName,
+		serviceAccountName: cr.Spec.PXC.ServiceAccountName,
 	}
 }

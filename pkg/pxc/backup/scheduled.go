@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/operator"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
@@ -28,6 +29,12 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 	if err != nil {
 		return nil, fmt.Errorf("scheduled job: %w", err)
 	}
+
+	operatorNamespace, err := operator.OperatorNamespace()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get operator namespace: %w", err)
+	}
+
 	jb := &batchv1beta1.CronJob{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1beta1",
@@ -35,7 +42,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        spec.Name,
-			Namespace:   bcp.namespace,
+			Namespace:   operatorNamespace,
 			Labels:      labels,
 			Annotations: strg.Annotations,
 		},
@@ -102,6 +109,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 									kind: PerconaXtraDBClusterBackup
 									metadata:
 									  name: "cron-${pxcCluster:0:16}-$(date -u "+%Y%m%d%H%M%S")-${suffix}"
+									  namespace: "` + bcp.namespace + `"
 									  labels:
 									    ancestor: "` + spec.Name + `"
 									    cluster: "${pxcCluster}"

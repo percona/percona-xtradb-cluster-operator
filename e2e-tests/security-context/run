@@ -9,7 +9,6 @@ test_dir=$(realpath $(dirname $0))
 create_infra $namespace
 deploy_cert_manager
 
-kubectl_bin apply -f "$test_dir/conf/service-account.yml"
 if [[ "${OPENSHIFT}" == 1 ]]; then
     oc adm policy add-scc-to-user privileged -z percona-xtradb-cluster-operator
     oc adm policy add-scc-to-user privileged -z percona-xtradb-cluster-operator-workload

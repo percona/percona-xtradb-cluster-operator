@@ -19,6 +19,7 @@ spec:
       supplementalGroups: [1001]
     size: 3
     image: -pxc
+    serviceAccountName: percona-xtradb-cluster-operator-workload
     resources:
       requests:
         memory: 0.1G

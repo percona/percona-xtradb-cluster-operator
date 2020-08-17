@@ -11,11 +11,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/operator"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
-func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, cr *api.PerconaXtraDBCluster) (*batchv1beta1.CronJob, error) {
+func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, operatorPod corev1.Pod) (*batchv1beta1.CronJob, error) {
 	// Copy from the original labels to the backup labels
 	labels := make(map[string]string)
 	for key, value := range strg.Labels {
@@ -25,16 +24,10 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 	labels["cluster"] = bcp.cluster
 	labels["schedule"] = genScheduleLabel(spec.Schedule)
 
-	cjts, err := bcp.scheduledJob(spec, strg, labels)
+	cjts, err := bcp.scheduledJob(spec, strg, labels, operatorPod.Spec.ServiceAccountName)
 	if err != nil {
 		return nil, fmt.Errorf("scheduled job: %w", err)
 	}
-
-	operatorNamespace, err := operator.OperatorNamespace()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get operator namespace: %w", err)
-	}
-
 	jb := &batchv1beta1.CronJob{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1beta1",
@@ -42,7 +35,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        spec.Name,
-			Namespace:   operatorNamespace,
+			Namespace:   operatorPod.ObjectMeta.Namespace,
 			Labels:      labels,
 			Annotations: strg.Annotations,
 		},
@@ -69,7 +62,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 	return jb, nil
 }
 
-func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, labels map[string]string) (batchv1.JobSpec, error) {
+func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, labels map[string]string, serviceAccountName string) (batchv1.JobSpec, error) {
 	resources, err := app.CreateResources(strg.Resources)
 	if err != nil {
 		return batchv1.JobSpec{}, fmt.Errorf("cannot parse backup resources: %w", err)
@@ -82,7 +75,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 				Labels:      labels,
 			},
 			Spec: corev1.PodSpec{
-				ServiceAccountName: bcp.serviceAccountName,
+				ServiceAccountName: serviceAccountName,
 				SecurityContext:    strg.PodSecurityContext,
 				Containers: []corev1.Container{
 					{
@@ -108,8 +101,8 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 									apiVersion: pxc.percona.com/v1
 									kind: PerconaXtraDBClusterBackup
 									metadata:
-									  name: "cron-${pxcCluster:0:16}-$(date -u "+%Y%m%d%H%M%S")-${suffix}"
 									  namespace: "` + bcp.namespace + `"
+									  name: "cron-${pxcCluster:0:16}-$(date -u "+%Y%m%d%H%M%S")-${suffix}"
 									  labels:
 									    ancestor: "` + spec.Name + `"
 									    cluster: "${pxcCluster}"

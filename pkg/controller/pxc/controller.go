@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -32,7 +33,6 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/operator"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -435,10 +435,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 func (r *ReconcilePerconaXtraDBCluster) operatorPod() (corev1.Pod, error) {
 	operatorPod := corev1.Pod{}
 
-	ns, err := operator.OperatorNamespace()
+	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		return operatorPod, err
 	}
+
+	ns := strings.TrimSpace(string(nsBytes))
 
 	if err := r.client.Get(context.TODO(), types.NamespacedName{
 		Namespace: ns,

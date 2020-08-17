@@ -43,12 +43,8 @@ no_storage() {
     # apply cr config
     apply_config $test_dir/conf/$cluster.yml
 
-    ns=''
-    if [ -n "$OPERATOR_NS" ]; then
-        ns="-n $OPERATOR_NS"
-    fi
     # check operator logs
-    kubectl_bin logs $(get_operator_pod) $ns \
+    kubectl_bin logs $(get_operator_pod) ${OPERATOR_NS:+-n $OPERATOR_NS} \
         | grep "volume.resources.storage can't be empty"
     
     # delete cluster

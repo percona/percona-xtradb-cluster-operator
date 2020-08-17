@@ -33,7 +33,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				return errors.Wrap(err, "get operator deployment")
 			}
 
-			bcpjob, err := bcpObj.Scheduled(&bcp, strg, cr, operatorPod)
+			bcpjob, err := bcpObj.Scheduled(&bcp, strg, operatorPod)
 			if err != nil {
 				return fmt.Errorf("unable to schedule backup: %w", err)
 			}

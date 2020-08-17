@@ -68,13 +68,9 @@ create_namespace() {
 }
 
 get_operator_pod() {
-    local ns=''
-    if [ -n "$OPERATOR_NS" ]; then
-        ns="-n $OPERATOR_NS"
-    fi
     kubectl_bin get pods \
         --selector=name=percona-xtradb-cluster-operator \
-        -o 'jsonpath={.items[].metadata.name}' $ns
+        -o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
 }
 
 wait_pod() {

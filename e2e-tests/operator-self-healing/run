@@ -7,11 +7,6 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="no-limits"
 
-ns=''
-if [ -n "$OPERATOR_NS" ]; then
-    ns="-n $OPERATOR_NS"
-fi
-
 pumba_pod() {
     local action=$1
     local pod=$(get_operator_pod)
@@ -34,7 +29,7 @@ pause_pod() {
         kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
     fi
     # run chaos for Pod
-    kubectl_bin exec $ns -it "$(get_pumba)" -- /pumba -l info pause --duration 1m "re2:$pod" &
+    kubectl_bin exec ${OPERATOR_NS:+-n $OPERATOR_NS} -it "$(get_pumba)" -- /pumba -l info pause --duration 1m "re2:$pod" &
     pid=$!
     sleep 10
     kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
@@ -65,7 +60,7 @@ netem_pod() {
         kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
     fi
     # run chaos for Pod
-    kubectl_bin exec $ns -it "$(get_pumba)" -- /pumba -l info netem --tc-image 'gaiadocker/iproute2' --duration 1m loss --percent 100 --correlation 100 "re2:$pod" &
+    kubectl_bin exec ${OPERATOR_NS:+-n $OPERATOR_NS} -it "$(get_pumba)" -- /pumba -l info netem --tc-image 'gaiadocker/iproute2' --duration 1m loss --percent 100 --correlation 100 "re2:$pod" &
     pid=$!
     sleep 10
     kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
@@ -92,7 +87,7 @@ netem_pod() {
 
 main() {
     create_infra $namespace
-    kubectl_bin apply -f "$test_dir/conf/pumba.yml" $ns
+    kubectl_bin apply -f "$test_dir/conf/pumba.yml" ${OPERATOR_NS:+-n $OPERATOR_NS}
 
     desc 'create PXC cluster'
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"

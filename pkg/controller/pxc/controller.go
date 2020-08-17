@@ -170,7 +170,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-
 	changed, err := o.CheckNSetDefaults(r.serverVersion)
 	if err != nil {
 		err = fmt.Errorf("wrong PXC options: %v", err)

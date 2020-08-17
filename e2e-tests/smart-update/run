@@ -71,6 +71,10 @@ main() {
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_TO_UPDATE}
 
     wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.proxysql.size}')
+    for i in $(seq 0 $((${pxc_size} - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+    done
+
     kubectl_bin delete -f $test_dir/conf/$cluster.yml
     kubectl_bin delete pvc --all
 
@@ -84,6 +88,10 @@ main() {
     
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_TO_UPDATE}
     wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.haproxy.size}') "haproxy"
+    for i in $(seq 0 $((${pxc_size} - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+    done
+
     kubectl_bin delete -f "$test_dir/conf/$cluster-haproxy.yml"
     kubectl_bin delete pvc --all
 
@@ -98,6 +106,10 @@ main() {
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_TO_UPDATE}
 
     wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.proxysql.size}')
+    for i in $(seq 0 $((${pxc_size} - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    done
+
     kubectl_bin delete -f $test_dir/conf/$cluster-version-service-reachable.yml
     kubectl_bin delete pvc --all
 
@@ -112,6 +124,9 @@ main() {
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_TO_UPDATE}
 
     wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.proxysql.size}')
+    for i in $(seq 0 $((${pxc_size} - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    done
 
     kubectl_bin delete -f $test_dir/conf/$cluster-version-service-unreachable.yml
     kubectl_bin delete pvc --all
@@ -129,6 +144,10 @@ main() {
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
 
     wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.proxysql.size}')
+    for i in $(seq 0 $((${pxc_size} - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    done
+
     kubectl_bin delete -f $test_dir/conf/$cluster-version-service-unreachable.yml
     kubectl_bin delete pvc --all
 
@@ -144,6 +163,10 @@ main() {
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
 
     wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.proxysql.size}')
+    for i in $(seq 0 $((${pxc_size} - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    done
+
     kubectl_bin delete -f $test_dir/conf/$cluster-version-service-unreachable.yml
     kubectl_bin delete pvc --all
 
@@ -159,6 +182,10 @@ main() {
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
 
     wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.proxysql.size}')
+    for i in $(seq 0 $((${pxc_size} - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    done
+
     kubectl_bin delete -f $test_dir/conf/$cluster-version-service-unreachable.yml
     kubectl_bin delete pvc --all
 

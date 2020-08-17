@@ -79,8 +79,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		if err != nil {
 			return fmt.Errorf("pmm container error: %v", err)
 		}
-		if pmmC.Image != "" {
-			newContainers = append(newContainers, pmmC)
+		if pmmC != nil {
+			newContainers = append(newContainers, *pmmC)
 		}
 	}
 

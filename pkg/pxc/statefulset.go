@@ -52,8 +52,8 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		if err != nil {
 			return nil, fmt.Errorf("pmm container error: %v", err)
 		}
-		if pmmC.Image != "" {
-			pod.Containers = append(pod.Containers, pmmC)
+		if pmmC != nil {
+			pod.Containers = append(pod.Containers, *pmmC)
 		}
 	}
 

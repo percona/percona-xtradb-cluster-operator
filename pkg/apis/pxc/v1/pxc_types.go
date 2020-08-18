@@ -260,7 +260,7 @@ const (
 	PlatformUndef      Platform = ""
 	PlatformKubernetes          = "kubernetes"
 	PlatformOpenshift           = "openshift"
-	WorkloadSA                  = "percona-xtradb-cluster-operator-workload"
+	WorkloadSA                  = "default"
 )
 
 // ServerVersion represents info about k8s / openshift server version

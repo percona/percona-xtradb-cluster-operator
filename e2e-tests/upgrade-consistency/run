@@ -20,7 +20,7 @@ wait_for_sts_generation() {
         echo -n .
         let retry+=1
         if [ $retry -ge 140 ]; then
-            kubectl_bin logs $(get_operator_pod)
+            kubectl_bin logs $(get_operator_pod) ${OPERATOR_NS:+-n $OPERATOR_NS}
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -30,8 +30,7 @@ wait_for_sts_generation() {
 }
 
 main() {
-    create_namespace $namespace
-    deploy_operator
+    create_infra $namespace
 
     apply_config "$conf_dir/client.yml"
     kubectl_bin apply -f $conf_dir/secrets.yml

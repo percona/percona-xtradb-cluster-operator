@@ -6,9 +6,7 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-create_namespace $namespace
-deploy_operator
-
+create_infra $namespace
 desc 'create first PXC cluster'
 cluster="some-name"
 spinup_pxc "$cluster" "$conf_dir/$cluster.yml"

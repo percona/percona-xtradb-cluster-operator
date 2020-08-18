@@ -6,8 +6,7 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-create_namespace $namespace
-deploy_operator
+create_infra $namespace
 
 cluster="scaling-proxysql"
 spinup_pxc "$cluster" "$test_dir/conf/${cluster}.yml"

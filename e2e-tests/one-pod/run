@@ -83,8 +83,7 @@ run_recovery_check() {
 }
 
 main() {
-    create_namespace $namespace
-    deploy_operator
+    create_infra $namespace
     kubectl_bin apply \
         -f $conf_dir/cloud-secret.yml
 

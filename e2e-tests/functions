@@ -51,7 +51,7 @@ create_namespace() {
     local skip_clean_namespace="$2"
 
     if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
     if [ "$OPENSHIFT" == 1 ]; then
@@ -70,7 +70,7 @@ create_namespace() {
 get_operator_pod() {
     kubectl_bin get pods \
         --selector=name=percona-xtradb-cluster-operator \
-        -o 'jsonpath={.items[].metadata.name}'
+        -o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
 }
 
 wait_pod() {
@@ -134,15 +134,31 @@ wait_backup_restore() {
     set -o xtrace
 }
 
+apply_rbac() {
+    local operator_namespace=${OPERATOR_NS:-'pxc-operator'}
+    local rbac=${1:-'rbac'}
+
+    cat ${src_dir}/deploy/${rbac}.yaml \
+        | sed -e "s^namespace: .*^namespace: $operator_namespace^" \
+        | kubectl_bin apply  -f -
+}
+
 deploy_operator() {
     desc 'start operator'
 
     kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
-    kubectl_bin apply -f ${src_dir}/deploy/rbac.yaml
 
-    cat ${src_dir}/deploy/operator.yaml \
-        | sed -e "s^image: .*^image: ${IMAGE}^" \
-        | kubectl_bin apply -f -
+    if [ -n "$OPERATOR_NS" ]; then
+        apply_rbac cw-rbac
+        cat ${src_dir}/deploy/cw-operator.yaml \
+            | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | kubectl_bin apply  -f -
+    else
+        apply_rbac rbac
+        cat ${src_dir}/deploy/operator.yaml \
+            | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | kubectl_bin apply  -f -
+    fi
 
     sleep 2
 
@@ -154,6 +170,19 @@ deploy_helm() {
     helm repo add hashicorp https://helm.releases.hashicorp.com
     helm repo add percona https://percona-charts.storage.googleapis.com/
     helm repo update
+}
+
+create_infra() {
+    local ns="$1"
+
+    if [ -n "$OPERATOR_NS" ]; then
+        create_namespace $OPERATOR_NS
+        deploy_operator
+        create_namespace $ns
+    else
+        create_namespace $ns
+        deploy_operator
+    fi
 }
 
 wait_for_running() {
@@ -199,11 +228,12 @@ compare_kubectl() {
     fi
 
     kubectl_bin get -o yaml ${resource} \
-        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|- name: default-dockercfg-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
+        | egrep -v "namespace: \w.*|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|- name: default-dockercfg-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem|imagePullSecrets:" \
         | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
         | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
         | egrep -v "load-balancer-cleanup" \
+        | $sed -e 's/namespace:.*  //' \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
         | $sed -e '/name: suffix/,+1d' \

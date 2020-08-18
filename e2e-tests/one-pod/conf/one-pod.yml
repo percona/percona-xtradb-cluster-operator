@@ -31,7 +31,6 @@ spec:
     enabled: false
   backup:
     image: -backup
-    serviceAccountName: percona-xtradb-cluster-operator
     storages:
       pvc:
         type: filesystem

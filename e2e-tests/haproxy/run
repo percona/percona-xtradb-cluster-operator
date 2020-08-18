@@ -17,8 +17,7 @@ check_haproxy_writer() {
 }
 
 main() {
-  create_namespace $namespace
-  deploy_operator
+  create_infra $namespace
 
   desc 'create first PXC cluster with HAProxy'
   cluster="some-name"

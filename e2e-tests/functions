@@ -10,6 +10,7 @@ IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/percona-xtradb-cluster-operator:master-pmm"}
 IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:master-proxysql"}
+IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:master-haproxy"}
 IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup"}
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
@@ -539,12 +540,25 @@ cat_config() {
         | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
         | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
         | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
+        | $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
         | $sed -e "s#apply:.*#apply: Never#"
 }
 
 apply_config() {
     cat_config "$1" \
         | kubectl_bin apply -f -
+}
+
+get_proxy() {
+    if [[ "$(kubectl get pxc monitoring -o 'jsonpath={.spec.haproxy.enabled}')" = "true" ]]; then
+        echo $cluster-haproxy
+        return
+    fi
+    if [[ "$(kubectl get pxc monitoring -o 'jsonpath={.spec.proxysql.enabled}')" = "true" ]]; then
+        echo $cluster-proxysql
+        return
+    fi
+    echo $cluster-pxc
 }
 
 spinup_pxc() {
@@ -561,7 +575,8 @@ spinup_pxc() {
     apply_config "$config"
 
     desc 'check if all 3 Pods started'
-    wait_for_running "$cluster-proxysql" 1
+    local proxy=$(get_proxy "$cluster")
+    wait_for_running "$proxy" 1
     wait_for_running "$cluster-pxc" "$size"
     sleep $sleep
 
@@ -571,10 +586,10 @@ spinup_pxc() {
     fi
     run_mysql \
         "CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-        "-h $cluster-proxysql -uroot -proot_password"
+        "-h $proxy -uroot -proot_password"
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100500)' \
-        "-h $cluster-proxysql -uroot -proot_password"
+        "-h $proxy -uroot -proot_password"
     sleep 10
     for i in $(seq 0 $(($size - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"

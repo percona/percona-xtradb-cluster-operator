@@ -89,7 +89,7 @@ spec:
       schedulerName: default-scheduler
       securityContext: {}
       serviceAccount: default
-      serviceAccountName: percona-xtradb-cluster-operator-workload
+      serviceAccountName: default
       shareProcessNamespace: true
       terminationGracePeriodSeconds: 30
       volumes:

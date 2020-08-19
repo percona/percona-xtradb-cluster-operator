@@ -234,6 +234,7 @@ compare_kubectl() {
         | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
         | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
         | egrep -v "load-balancer-cleanup" \
+        | egrep -v "apiVersion: pxc.percona.com" \
         | $sed -e 's/namespace:.*  //' \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \

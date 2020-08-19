@@ -88,7 +88,7 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
-      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccount: default
       serviceAccountName: percona-xtradb-cluster-operator-workload
       shareProcessNamespace: true
       terminationGracePeriodSeconds: 30

@@ -67,7 +67,7 @@ spec:
     serverUser: pmm
   backup:
     image: -backup
-    serviceAccountName: percona-xtradb-cluster-operator
+    serviceAccountName: default
     storages:
       pvc:
         type: filesystem

@@ -12,7 +12,7 @@ spec:
     annotations:
       openshift.io/scc: privileged
     containerSecurityContext:
-      privileged: false
+      privileged: true
     podSecurityContext:
       runAsUser: 1001
       fsGroup: 1001
@@ -37,7 +37,7 @@ spec:
   proxysql:
     enabled: true
     containerSecurityContext:
-      privileged: false
+      privileged: true
     podSecurityContext:
       runAsUser: 1001
       runAsGroup: 1001

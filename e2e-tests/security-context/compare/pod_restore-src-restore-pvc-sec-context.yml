@@ -45,8 +45,8 @@ spec:
     - 1001
     - 1002
     - 1003
-  serviceAccount: default
-  serviceAccountName: default
+  serviceAccount: percona-xtradb-cluster-operator-workload
+  serviceAccountName: percona-xtradb-cluster-operator-workload
   terminationGracePeriodSeconds: 30
   tolerations:
   - effect: NoExecute

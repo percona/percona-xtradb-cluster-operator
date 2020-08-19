@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+
 	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -16,20 +18,26 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform              Platform                             `json:"platform,omitempty"`
-	Pause                 bool                                 `json:"pause,omitempty"`
-	SecretsName           string                               `json:"secretsName,omitempty"`
-	VaultSecretName       string                               `json:"vaultSecretName,omitempty"`
-	SSLSecretName         string                               `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
-	PXC                   *PodSpec                             `json:"pxc,omitempty"`
-	ProxySQL              *PodSpec                             `json:"proxysql,omitempty"`
-	HAProxy               *PodSpec                             `json:"haproxy,omitempty"`
-	PMM                   *PMMSpec                             `json:"pmm,omitempty"`
-	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
-	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
-	UpgradeOptions        UpgradeOptions                       `json:"upgradeOptions,omitempty"`
-	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+	Platform          Platform                             `json:"platform,omitempty"`
+	Pause             bool                                 `json:"pause,omitempty"`
+	SecretsName       string                               `json:"secretsName,omitempty"`
+	VaultSecretName   string                               `json:"vaultSecretName,omitempty"`
+	TLS               TLSSpec                              `json:"tls,omitempty"`
+	PXC               *PodSpec                             `json:"pxc,omitempty"`
+	ProxySQL          *PodSpec                             `json:"proxysql,omitempty"`
+	HAProxy           *PodSpec                             `json:"haproxy,omitempty"`
+	PMM               *PMMSpec                             `json:"pmm,omitempty"`
+	Backup            *PXCScheduledBackup                  `json:"backup,omitempty"`
+	UpdateStrategy    appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
+	UpgradeOptions    UpgradeOptions                       `json:"upgradeOptions,omitempty"`
+	AllowUnsafeConfig bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+}
+
+type TLSSpec struct {
+	SecretName         string                  `json:"secretName,omitempty"`
+	InternalSecretName string                  `json:"internalSecretName,omitempty"`
+	SANs               []string                `json:"SANs,omitempty"`
+	IssuerConf         *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
 }
 
 type UpgradeOptions struct {
@@ -350,14 +358,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 			c.PXC.VaultSecretName = cr.Name + "-vault"
 		}
 
-		if len(c.SSLSecretName) > 0 {
-			c.PXC.SSLSecretName = c.SSLSecretName
+		if len(c.TLS.SecretName) > 0 {
+			c.PXC.SSLSecretName = c.TLS.SecretName
 		} else {
 			c.PXC.SSLSecretName = cr.Name + "-ssl"
 		}
 
-		if len(c.SSLInternalSecretName) > 0 {
-			c.PXC.SSLInternalSecretName = c.SSLInternalSecretName
+		if len(c.TLS.InternalSecretName) > 0 {
+			c.PXC.SSLInternalSecretName = c.TLS.InternalSecretName
 		} else {
 			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}
@@ -439,14 +447,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 			return false, fmt.Errorf("ProxySQL.Volume: %v", err)
 		}
 
-		if len(c.SSLSecretName) > 0 {
-			c.ProxySQL.SSLSecretName = c.SSLSecretName
+		if len(c.TLS.SecretName) > 0 {
+			c.ProxySQL.SSLSecretName = c.TLS.SecretName
 		} else {
 			c.ProxySQL.SSLSecretName = cr.Name + "-ssl"
 		}
 
-		if len(c.SSLInternalSecretName) > 0 {
-			c.ProxySQL.SSLInternalSecretName = c.SSLInternalSecretName
+		if len(c.TLS.InternalSecretName) > 0 {
+			c.ProxySQL.SSLInternalSecretName = c.TLS.InternalSecretName
 		} else {
 			c.ProxySQL.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}

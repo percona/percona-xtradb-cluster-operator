@@ -9,8 +9,16 @@ metadata:
 spec:
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
-  sslSecretName: my-cluster-ssl
-  sslInternalSecretName: my-cluster-ssl-internal
+  tls:
+    secretName: my-cluster-ssl
+    internalSecretName: my-cluster-ssl-internal
+#    SANs:
+#      - test.com
+#      - google.com
+#    issuerConf:
+#      name: "1"
+#      kind: "1"
+#      group: "1"
   allowUnsafeConfigurations: false
 #  pause: false
   updateStrategy: SmartUpdate

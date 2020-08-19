@@ -45,27 +45,24 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 }
 
 func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXtraDBCluster) error {
-	issuerKind := "Issuer"
-	issuerName := cr.Name + "-pxc-ca"
 	owner, err := OwnerRef(cr, r.scheme)
 	if err != nil {
 		return err
 	}
 	ownerReferences := []metav1.OwnerReference{owner}
-	err = r.client.Create(context.TODO(), &cm.Issuer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            issuerName,
-			Namespace:       cr.Namespace,
-			OwnerReferences: ownerReferences,
-		},
-		Spec: cm.IssuerSpec{
-			IssuerConfig: cm.IssuerConfig{
-				SelfSigned: &cm.SelfSignedIssuer{},
-			},
-		},
-	})
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("create issuer: %v", err)
+
+	issuerKind := "Issuer"
+	issuerName := cr.Name + "-pxc-ca"
+	issuerGroup := "pxc.percona.com"
+
+	if cr.Spec.TLS.IssuerConf != nil {
+		issuerKind = cr.Spec.TLS.IssuerConf.Kind
+		issuerName = cr.Spec.TLS.IssuerConf.Name
+		issuerGroup = cr.Spec.TLS.IssuerConf.Group
+	} else {
+		if err := r.createIssuer(ownerReferences, cr.Namespace, issuerName); err != nil {
+			return err
+		}
 	}
 
 	err = r.client.Create(context.TODO(), &cm.Certificate{
@@ -77,15 +74,16 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLSecretName,
 			CommonName: cr.Name + "-proxysql",
-			DNSNames: []string{
-				cr.Name + "-pxc",
-				"*." + cr.Name + "-pxc",
-				"*." + cr.Name + "-proxysql",
-			},
+			DNSNames: append(
+				cr.Spec.TLS.SANs,
+				cr.Name+"-pxc",
+				"*."+cr.Name+"-pxc",
+				"*."+cr.Name+"-proxysql"),
 			IsCA: true,
 			IssuerRef: cmmeta.ObjectReference{
 				Name: issuerName,
 				Kind: issuerKind,
+				Group: issuerGroup,
 			},
 		},
 	})
@@ -106,13 +104,15 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLInternalSecretName,
 			CommonName: cr.Name + "-pxc",
-			DNSNames: []string{
-				"*." + cr.Name + "-pxc",
-			},
+			DNSNames: append(
+				cr.Spec.TLS.SANs,
+				"*."+cr.Name+"-pxc",
+			),
 			IsCA: true,
 			IssuerRef: cmmeta.ObjectReference{
 				Name: issuerName,
 				Kind: issuerKind,
+				Group: issuerGroup,
 			},
 		},
 	})
@@ -120,6 +120,25 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		return fmt.Errorf("create internal certificate: %v", err)
 	}
 
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) createIssuer(ownRef []metav1.OwnerReference, namespace, issuer string) error {
+	err := r.client.Create(context.TODO(), &cm.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            issuer,
+			Namespace:       namespace,
+			OwnerReferences: ownRef,
+		},
+		Spec: cm.IssuerSpec{
+			IssuerConfig: cm.IssuerConfig{
+				SelfSigned: &cm.SelfSignedIssuer{},
+			},
+		},
+	})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("create issuer: %v", err)
+	}
 	return nil
 }
 
@@ -131,6 +150,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		"*." + cr.Name + "-pxc",
 		"*." + cr.Name + "-proxysql",
 	}
+	proxyHosts = append(proxyHosts, cr.Spec.TLS.SANs...)
 	caCert, tlsCert, key, err := pxctls.Issue(proxyHosts)
 	if err != nil {
 		return fmt.Errorf("create proxy certificate: %v", err)
@@ -160,6 +180,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		"*." + cr.Name + "-pxc",
 		cr.Name + "-pxc",
 	}
+	pxcHosts = append(pxcHosts, cr.Spec.TLS.SANs...)
 	caCert, tlsCert, key, err = pxctls.Issue(pxcHosts)
 	if err != nil {
 		return fmt.Errorf("create pxc certificate: %v", err)

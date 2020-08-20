@@ -176,7 +176,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 
-	if cr.CompareVersionWith("1.5.0") >= 0 {
+	if cr.CompareVersionWith("1.6.0") >= 0 {
 		appc.Args = []string{"mysqld"}
 		appc.Command = []string{"/var/lib/mysql/pxc-entrypoint.sh"}
 		secretName := "internal-" + cr.Name
@@ -340,5 +340,17 @@ func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUp
 				Partition: &zero,
 			},
 		}
+	}
+}
+
+func (c *Node) SetSfsSpecTemplateAnnotations(annotations map[string]string) {
+	if len(annotations) == 0 {
+		return
+	}
+	if c.sfs.Spec.Template.Annotations == nil {
+		c.sfs.Spec.Template.Annotations = make(map[string]string)
+	}
+	for k, v := range annotations {
+		c.sfs.Spec.Template.Annotations[k] = v
 	}
 }

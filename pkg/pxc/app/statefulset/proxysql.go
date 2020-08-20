@@ -228,7 +228,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		},
 	}
 
-	if cr.CompareVersionWith("1.5.0") >= 0 {
+	if cr.CompareVersionWith("1.6.0") >= 0 {
 		operEnv := corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
@@ -387,5 +387,17 @@ func (c *Proxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetU
 				Partition: &zero,
 			},
 		}
+	}
+}
+
+func (c *Proxy) SetSfsSpecTemplateAnnotations(annotations map[string]string) {
+	if len(annotations) == 0 {
+		return
+	}
+	if c.sfs.Spec.Template.Annotations == nil {
+		c.sfs.Spec.Template.Annotations = make(map[string]string)
+	}
+	for k, v := range annotations {
+		c.sfs.Spec.Template.Annotations[k] = v
 	}
 }

@@ -9,16 +9,16 @@ metadata:
 spec:
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
-  tls:
-    secretName: my-cluster-ssl
-    internalSecretName: my-cluster-ssl-internal
+  sslSecretName: my-cluster-ssl
+  sslInternalSecretName: my-cluster-ssl-internal
+#  tls:
 #    SANs:
 #      - test.com
 #      - google.com
 #    issuerConf:
-#      name: "1"
-#      kind: "1"
-#      group: "1"
+#      name: "Issuer"
+#      kind: "cluster1-pxc-ca"
+#      group: "pxc.percona.com"
   allowUnsafeConfigurations: false
 #  pause: false
   updateStrategy: SmartUpdate

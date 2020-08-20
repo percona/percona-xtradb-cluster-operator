@@ -55,7 +55,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	issuerName := cr.Name + "-pxc-ca"
 	issuerGroup := "pxc.percona.com"
 
-	if cr.Spec.TLS.IssuerConf != nil {
+	if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
 		issuerKind = cr.Spec.TLS.IssuerConf.Kind
 		issuerName = cr.Spec.TLS.IssuerConf.Name
 		issuerGroup = cr.Spec.TLS.IssuerConf.Group
@@ -65,7 +65,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		}
 	}
 
-	err = r.client.Create(context.TODO(), &cm.Certificate{
+	kubeCert := &cm.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            cr.Name + "-ssl",
 			Namespace:       cr.Namespace,
@@ -74,19 +74,25 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLSecretName,
 			CommonName: cr.Name + "-proxysql",
-			DNSNames: append(
-				cr.Spec.TLS.SANs,
-				cr.Name+"-pxc",
-				"*."+cr.Name+"-pxc",
-				"*."+cr.Name+"-proxysql"),
+			DNSNames: []string{
+				cr.Name + "-pxc",
+				"*." + cr.Name + "-pxc",
+				"*." + cr.Name + "-proxysql",
+			},
 			IsCA: true,
 			IssuerRef: cmmeta.ObjectReference{
-				Name: issuerName,
-				Kind: issuerKind,
+				Name:  issuerName,
+				Kind:  issuerKind,
 				Group: issuerGroup,
 			},
 		},
-	})
+	}
+
+	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
+		kubeCert.Spec.DNSNames = append(kubeCert.Spec.DNSNames, cr.Spec.TLS.SANs...)
+	}
+
+	err = r.client.Create(context.TODO(), kubeCert)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("create certificate: %v", err)
 	}
@@ -95,7 +101,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		return nil
 	}
 
-	err = r.client.Create(context.TODO(), &cm.Certificate{
+	kubeCert = &cm.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            cr.Name + "-ssl-internal",
 			Namespace:       cr.Namespace,
@@ -104,18 +110,21 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLInternalSecretName,
 			CommonName: cr.Name + "-pxc",
-			DNSNames: append(
-				cr.Spec.TLS.SANs,
-				"*."+cr.Name+"-pxc",
-			),
+			DNSNames: []string{
+				"*." + cr.Name + "-pxc",
+			},
 			IsCA: true,
 			IssuerRef: cmmeta.ObjectReference{
-				Name: issuerName,
-				Kind: issuerKind,
+				Name:  issuerName,
+				Kind:  issuerKind,
 				Group: issuerGroup,
 			},
 		},
-	})
+	}
+	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
+		kubeCert.Spec.DNSNames = append(kubeCert.Spec.DNSNames, cr.Spec.TLS.SANs...)
+	}
+	err = r.client.Create(context.TODO(), kubeCert)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("create internal certificate: %v", err)
 	}

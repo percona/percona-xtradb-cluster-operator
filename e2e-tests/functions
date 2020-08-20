@@ -948,3 +948,10 @@ patch_secret() {
     
     kubectl patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
 }
+
+getSecretData() {
+    local secretName=$1
+    local dataKey=$2
+    local  data=`kubectl get secrets/${secretName} --template={{.data.${dataKey}}} | base64 -D`
+    echo "$data"
+}

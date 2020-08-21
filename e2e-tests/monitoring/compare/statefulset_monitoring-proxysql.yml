@@ -47,14 +47,14 @@ spec:
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-monitoring
         - name: DB_USER
           value: monitor
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-monitoring
         - name: DB_CLUSTER
           value: pxc
         - name: DB_HOST
@@ -91,19 +91,19 @@ spec:
           valueFrom:
             secretKeyRef:
               key: operator
-              name: my-cluster-secrets
+              name: internal-monitoring
         - name: PROXY_ADMIN_USER
           value: proxyadmin
         - name: PROXY_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
               key: proxyadmin
-              name: my-cluster-secrets
+              name: internal-monitoring
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-monitoring
         imagePullPolicy: Always
         name: proxysql
         ports:
@@ -137,19 +137,19 @@ spec:
           valueFrom:
             secretKeyRef:
               key: operator
-              name: my-cluster-secrets
+              name: internal-monitoring
         - name: PROXY_ADMIN_USER
           value: proxyadmin
         - name: PROXY_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
               key: proxyadmin
-              name: my-cluster-secrets
+              name: internal-monitoring
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-monitoring
         imagePullPolicy: Always
         name: pxc-monit
         resources: {}
@@ -166,19 +166,19 @@ spec:
           valueFrom:
             secretKeyRef:
               key: operator
-              name: my-cluster-secrets
+              name: internal-monitoring
         - name: PROXY_ADMIN_USER
           value: proxyadmin
         - name: PROXY_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
               key: proxyadmin
-              name: my-cluster-secrets
+              name: internal-monitoring
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-monitoring
         imagePullPolicy: Always
         name: proxysql-monit
         resources: {}

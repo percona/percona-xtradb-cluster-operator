@@ -49,6 +49,9 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 }
 
 func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		secrets := "internal-" + cr.Name
+	}
 	appc := corev1.Container{
 		Name:            proxyName,
 		Image:           spec.Image,
@@ -106,30 +109,19 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}
+
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "config",
 			MountPath: "/etc/proxysql/",
 		})
 	}
+
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		secretName := "internal-" + cr.Name
 		appc.Env[1] = corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secretName, "operator"),
-			},
-		}
-		appc.Env[3] = corev1.EnvVar{
-			Name: "PROXY_ADMIN_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secretName, "proxyadmin"),
-			},
-		}
-		appc.Env[4] = corev1.EnvVar{
-			Name: "MONITOR_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secretName, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
 			},
 		}
 	}
@@ -282,6 +274,9 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 
 func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
 	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0)
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		secrets = "internal-" + cr.Name
+	}
 
 	pmmEnvs := []corev1.EnvVar{
 		{

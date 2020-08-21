@@ -236,6 +236,7 @@ func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Perc
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
 	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0)
+
 	pmmEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_TYPE",

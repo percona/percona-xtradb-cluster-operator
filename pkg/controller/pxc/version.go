@@ -104,14 +104,14 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return errors.New("cluster is not ready")
 	}
 
-	newVersion, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.VersionServiceEndpoint, VersionMeta{
+	newVersion, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.VersionServiceEndpoint, versionMeta{
 		Apply:           cr.Spec.UpgradeOptions.Apply,
 		Platform:        string(cr.Spec.Platform),
 		KubeVersion:     r.serverVersion.Info.GitVersion,
 		PXCVersion:      cr.Status.PXC.Version,
 		PMMVersion:      cr.Status.PMM.Version,
 		HAProxyVersion:  cr.Status.HAProxy.Version,
-		ProxySqlVersion: cr.Status.ProxySQL.Version,
+		ProxySQLVersion: cr.Status.ProxySQL.Version,
 		BackupVersion:   cr.Status.Backup.Version,
 		CRUID:           string(cr.GetUID()),
 	})

@@ -513,6 +513,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 	}
 
 	cr.setSecurityContext()
+	cr.Spec.Platform = serverVersion.Platform
 
 	return changed, nil
 }

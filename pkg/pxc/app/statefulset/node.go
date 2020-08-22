@@ -275,7 +275,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 	if cr.CompareVersionWith("1.4.0") >= 0 {
 		vol.Volumes = append(
 			vol.Volumes,
-			app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName+"-new", true))
+			app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true))
 	}
 	return vol, nil
 }

@@ -121,7 +121,7 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) err
 		Name: "vault-keyring-secret",
 	}
 	secretVaultVol.Secret = &corev1.SecretVolumeSource{}
-	secretVaultVol.Secret.SecretName = cr.Spec.PXC.VaultSecretName + "-new"
+	secretVaultVol.Secret.SecretName = cr.Spec.PXC.VaultSecretName
 	secretVaultVol.Secret.Optional = &t
 
 	if len(job.Template.Spec.Containers) == 0 {

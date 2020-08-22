@@ -173,31 +173,31 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	// wait untill token issued to run PXC in data encrypted mode.
 	if _, ok := o.Annotations["issue-vault-token"]; ok {
-		secretObj := corev1.Secret{}
+		log.Info("waiting for issuing secret for vault")
+		newSecretObj := corev1.Secret{}
 		err := r.client.Get(context.TODO(),
 			types.NamespacedName{
 				Namespace: o.Namespace,
 				Name:      o.Spec.VaultSecretName,
 			},
-			&secretObj,
+			&newSecretObj,
 		)
 		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		err = r.IssueVaultToken(secretObj)
-		if err != nil {
-			return reconcile.Result{}, err
+			if k8serrors.IsNotFound(err) {
+				return rr, nil
+			}
+			return rr, err
 		}
 
 		delete(o.Annotations, "issue-vault-token")
 
 		err = r.client.Update(context.Background(), o)
 		if err != nil {
-			return reconcile.Result{}, err
+			return rr, err
 		}
 
-		return reconcile.Result{}, nil
+		log.Info("secret was issued")
+		return rr, nil
 	}
 
 	changed, err := o.CheckNSetDefaults(r.serverVersion)

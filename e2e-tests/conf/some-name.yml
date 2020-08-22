@@ -8,7 +8,7 @@ metadata:
     issue-vault-token: "yes"
 spec:
   secretsName: my-cluster-secrets
-  vaultSecretName: some-name-vault
+  vaultSecretName: admin-vault-secret
   pause: false
   pxc:
     size: 3

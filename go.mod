@@ -5,7 +5,6 @@ go 1.13
 require (
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/hashicorp/go-version v1.1.0
-	github.com/hashicorp/vault/api v1.0.4
 	github.com/jetstack/cert-manager v0.15.1
 	github.com/operator-framework/operator-sdk v0.17.1
 	github.com/pkg/errors v0.9.1

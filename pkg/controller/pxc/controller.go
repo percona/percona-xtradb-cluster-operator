@@ -172,32 +172,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	// wait untill token issued to run PXC in data encrypted mode.
-	if _, ok := o.Annotations["issue-vault-token"]; ok {
-		log.Info("waiting for issuing secret for vault")
-		newSecretObj := corev1.Secret{}
-		err := r.client.Get(context.TODO(),
-			types.NamespacedName{
-				Namespace: o.Namespace,
-				Name:      o.Spec.VaultSecretName,
-			},
-			&newSecretObj,
-		)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return rr, nil
-			}
-			return rr, err
-		}
-
-		delete(o.Annotations, "issue-vault-token")
-
-		err = r.client.Update(context.Background(), o)
-		if err != nil {
-			return rr, err
-		}
-
-		log.Info("secret was issued")
-		return rr, nil
+	if ok, err := r.shouldWaitForTokenIssue(o); ok || err != nil {
+		return rr, err
 	}
 
 	changed, err := o.CheckNSetDefaults(r.serverVersion)
@@ -459,6 +435,38 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	r.resyncPXCUsersWithProxySQL(o)
 
 	return rr, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) shouldWaitForTokenIssue(o *api.PerconaXtraDBCluster) (bool, error) {
+	if _, ok := o.Annotations["issue-vault-token"]; ok {
+		log.Info("waiting for issuing secret for vault")
+
+		newSecretObj := corev1.Secret{}
+		err := r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Namespace: o.Namespace,
+				Name:      o.Spec.VaultSecretName,
+			},
+			&newSecretObj,
+		)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return true, nil
+			}
+			return true, err
+		}
+
+		delete(o.Annotations, "issue-vault-token")
+
+		err = r.client.Update(context.Background(), o)
+		if err != nil {
+			return true, err
+		}
+
+		log.Info("secret was issued")
+	}
+
+	return false, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) operatorPod() (corev1.Pod, error) {

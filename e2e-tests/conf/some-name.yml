@@ -4,8 +4,8 @@ metadata:
   name: some-name
   finalizers:
     - delete-pxc-pods-in-order
-  # annotations:
-  #   issue-vault-token: "yes"
+  annotations:
+    issue-vault-token: "yes"
 spec:
   secretsName: my-cluster-secrets
   vaultSecretName: admin-vault-secret

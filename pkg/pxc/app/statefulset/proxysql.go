@@ -140,6 +140,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	if err != nil {
 		return nil, fmt.Errorf("create sidecar resources error: %v", err)
 	}
+
 	pxcMonit := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,
@@ -220,7 +221,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		},
 	}
 
-	if cr.CompareVersionWith("1.6.0") >= 0 {
+	if cr.CompareVersionWith("1.5.0") >= 0 {
 		operEnv := corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
@@ -229,44 +230,6 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		}
 		pxcMonit.Env[1] = operEnv
 		proxysqlMonit.Env[1] = operEnv
-		secretName := "internal-" + cr.Name
-		pxcMonit.Env[1] = corev1.EnvVar{
-			Name: "OPERATOR_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secretName, "operator"),
-			},
-		}
-		pxcMonit.Env[3] = corev1.EnvVar{
-			Name: "PROXY_ADMIN_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secretName, "proxyadmin"),
-			},
-		}
-		pxcMonit.Env[4] = corev1.EnvVar{
-			Name: "MONITOR_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secretName, "monitor"),
-			},
-		}
-
-		proxysqlMonit.Env[1] = corev1.EnvVar{
-			Name: "OPERATOR_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secretName, "operator"),
-			},
-		}
-		proxysqlMonit.Env[3] = corev1.EnvVar{
-			Name: "PROXY_ADMIN_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secretName, "proxyadmin"),
-			},
-		}
-		proxysqlMonit.Env[4] = corev1.EnvVar{
-			Name: "MONITOR_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secretName, "monitor"),
-			},
-		}
 	}
 
 	return []corev1.Container{pxcMonit, proxysqlMonit}, nil

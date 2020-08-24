@@ -172,8 +172,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	// wait untill token issued to run PXC in data encrypted mode.
-	if ok, err := r.shouldWaitForTokenIssue(o); ok || err != nil {
-		return rr, err
+	if ok := o.ShouldWaitForTokenIssue(); ok {
+		log.Info("wait for token issuing")
+		return rr, nil
 	}
 
 	changed, err := o.CheckNSetDefaults(r.serverVersion)
@@ -437,38 +438,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) shouldWaitForTokenIssue(o *api.PerconaXtraDBCluster) (bool, error) {
-	if _, ok := o.Annotations["issue-vault-token"]; ok {
-		log.Info("waiting for issuing secret for vault")
-
-		newSecretObj := corev1.Secret{}
-		err := r.client.Get(context.TODO(),
-			types.NamespacedName{
-				Namespace: o.Namespace,
-				Name:      o.Spec.VaultSecretName,
-			},
-			&newSecretObj,
-		)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return true, nil
-			}
-			return true, err
-		}
-
-		delete(o.Annotations, "issue-vault-token")
-
-		err = r.client.Update(context.Background(), o)
-		if err != nil {
-			return true, err
-		}
-
-		log.Info("secret was issued")
-	}
-
-	return false, nil
-}
-
 func (r *ReconcilePerconaXtraDBCluster) operatorPod() (corev1.Pod, error) {
 	operatorPod := corev1.Pod{}
 
@@ -526,7 +495,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.PXC.SSLSecretName+` and `+cr.Spec.PXC.SSLInternalSecretName+` manually or setup cert-manager correctly`, err)
 	}
 
-	sslHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLSecretName)
+	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName)
 	if err != nil {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
@@ -534,12 +503,20 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
-	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
+	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+	}
+
+	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName)
+	if err != nil {
+		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
+	}
+	if vaultConfigHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
+		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = sslHash
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)

@@ -50,7 +50,7 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 
 func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
 	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secrets := "internal-" + cr.Name
+		secrets = "internal-" + cr.Name
 	}
 	appc := corev1.Container{
 		Name:            proxyName,

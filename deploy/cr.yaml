@@ -7,6 +7,7 @@ metadata:
 #    - delete-proxysql-pvc
 #    - delete-pxc-pvc
 spec:
+  crVersion: 1.6.0
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl

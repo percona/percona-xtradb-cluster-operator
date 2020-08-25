@@ -54,7 +54,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// change TLS secret configuration
-	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName)
+	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
@@ -62,7 +62,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
-	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName)
+	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
@@ -70,7 +70,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 
-	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName)
+	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
@@ -424,7 +424,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 	return hash
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBCluster, secretName string) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBCluster, secretName string, allowNonExistingSecret bool) (string, error) {
 	secretObj := corev1.Secret{}
 	if err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -432,7 +432,7 @@ func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBClust
 			Name:      secretName,
 		},
 		&secretObj,
-	); err != nil && k8serrors.IsNotFound(err) {
+	); err != nil && k8serrors.IsNotFound(err) && allowNonExistingSecret {
 		return "", nil
 	} else if err != nil {
 		return "", err

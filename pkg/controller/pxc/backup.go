@@ -5,8 +5,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,7 +28,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				return fmt.Errorf("storage %s doesn't exist", bcp.StorageName)
 			}
 
-			bcpjob, err := bcpObj.Scheduled(&bcp, strg, cr)
+			operatorPod, err := r.operatorPod()
+			if err != nil {
+				return errors.Wrap(err, "get operator deployment")
+			}
+
+			bcpjob, err := bcpObj.Scheduled(&bcp, strg, operatorPod)
 			if err != nil {
 				return fmt.Errorf("unable to schedule backup: %w", err)
 			}
@@ -39,7 +45,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			// Check if this Job already exists
 			currentBcpJob := new(batchv1beta1.CronJob)
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: bcpjob.Name, Namespace: bcpjob.Namespace}, currentBcpJob)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil && k8serrors.IsNotFound(err) {
 				// reqLogger.Info("Creating a new backup job", "Namespace", bcpjob.Namespace, "Name", bcpjob.Name)
 				err = r.client.Create(context.TODO(), bcpjob)
 				if err != nil {

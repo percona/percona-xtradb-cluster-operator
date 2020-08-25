@@ -4,7 +4,6 @@ metadata:
   generation: 1
   name: no-requests-no-limits-proxysql
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: no-requests-no-limits
@@ -134,8 +133,8 @@ spec:
       securityContext:
         supplementalGroups:
         - 1001
-      serviceAccount: percona-xtradb-cluster-operator-workload
-      serviceAccountName: percona-xtradb-cluster-operator-workload
+      serviceAccount: default
+      serviceAccountName: default
       terminationGracePeriodSeconds: 30
       volumes:
       - name: ssl-internal

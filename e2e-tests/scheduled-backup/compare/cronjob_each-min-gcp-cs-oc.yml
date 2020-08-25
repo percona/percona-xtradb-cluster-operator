@@ -10,7 +10,6 @@ metadata:
     type: cron
   name: each-min-gcp-cs
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: scheduled-backup

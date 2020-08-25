@@ -5,7 +5,6 @@ metadata:
     job-name: restore-job-restore-pvc-sec-context
   name: restore-job-restore-pvc-sec-context
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBClusterRestore
     name: restore-pvc

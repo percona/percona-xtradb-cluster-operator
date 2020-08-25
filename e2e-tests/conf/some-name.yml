@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1
+apiVersion: pxc.percona.com/v1-6-0
 kind: PerconaXtraDBCluster
 metadata:
   name: some-name
@@ -52,7 +52,6 @@ spec:
     serverUser: pmm
   backup:
     image: -backup
-    serviceAccountName: percona-xtradb-cluster-operator
     storages:
       pvc:
         type: filesystem

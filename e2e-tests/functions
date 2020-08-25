@@ -10,6 +10,7 @@ IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/percona-xtradb-cluster-operator:master-pmm"}
 IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:master-proxysql"}
+IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:master-haproxy"}
 IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup"}
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
@@ -51,7 +52,7 @@ create_namespace() {
     local skip_clean_namespace="$2"
 
     if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
     if [ "$OPENSHIFT" == 1 ]; then
@@ -70,7 +71,7 @@ create_namespace() {
 get_operator_pod() {
     kubectl_bin get pods \
         --selector=name=percona-xtradb-cluster-operator \
-        -o 'jsonpath={.items[].metadata.name}'
+        -o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
 }
 
 wait_pod() {
@@ -134,15 +135,31 @@ wait_backup_restore() {
     set -o xtrace
 }
 
+apply_rbac() {
+    local operator_namespace=${OPERATOR_NS:-'pxc-operator'}
+    local rbac=${1:-'rbac'}
+
+    cat ${src_dir}/deploy/${rbac}.yaml \
+        | sed -e "s^namespace: .*^namespace: $operator_namespace^" \
+        | kubectl_bin apply  -f -
+}
+
 deploy_operator() {
     desc 'start operator'
 
     kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
-    kubectl_bin apply -f ${src_dir}/deploy/rbac.yaml
 
-    cat ${src_dir}/deploy/operator.yaml \
-        | sed -e "s^image: .*^image: ${IMAGE}^" \
-        | kubectl_bin apply -f -
+    if [ -n "$OPERATOR_NS" ]; then
+        apply_rbac cw-rbac
+        cat ${src_dir}/deploy/cw-operator.yaml \
+            | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | kubectl_bin apply  -f -
+    else
+        apply_rbac rbac
+        cat ${src_dir}/deploy/operator.yaml \
+            | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | kubectl_bin apply  -f -
+    fi
 
     sleep 2
 
@@ -154,6 +171,19 @@ deploy_helm() {
     helm repo add hashicorp https://helm.releases.hashicorp.com
     helm repo add percona https://percona-charts.storage.googleapis.com/
     helm repo update
+}
+
+create_infra() {
+    local ns="$1"
+
+    if [ -n "$OPERATOR_NS" ]; then
+        create_namespace $OPERATOR_NS
+        deploy_operator
+        create_namespace $ns
+    else
+        create_namespace $ns
+        deploy_operator
+    fi
 }
 
 wait_for_running() {
@@ -199,11 +229,13 @@ compare_kubectl() {
     fi
 
     kubectl_bin get -o yaml ${resource} \
-        | egrep -v "namespace:|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|- name: default-dockercfg-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
+        | egrep -v "namespace: \w.*|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|- name: default-dockercfg-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem|imagePullSecrets:" \
         | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
         | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
         | egrep -v "load-balancer-cleanup" \
+        | egrep -v "apiVersion: pxc.percona.com" \
+        | $sed -e 's/namespace:.*  //' \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \
         | $sed -e '/name: suffix/,+1d' \
@@ -509,12 +541,25 @@ cat_config() {
         | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
         | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
         | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
+        | $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
         | $sed -e "s#apply:.*#apply: Never#"
 }
 
 apply_config() {
     cat_config "$1" \
         | kubectl_bin apply -f -
+}
+
+get_proxy() {
+    if [[ "$(kubectl get pxc monitoring -o 'jsonpath={.spec.haproxy.enabled}')" = "true" ]]; then
+        echo $cluster-haproxy
+        return
+    fi
+    if [[ "$(kubectl get pxc monitoring -o 'jsonpath={.spec.proxysql.enabled}')" = "true" ]]; then
+        echo $cluster-proxysql
+        return
+    fi
+    echo $cluster-pxc
 }
 
 spinup_pxc() {
@@ -531,7 +576,8 @@ spinup_pxc() {
     apply_config "$config"
 
     desc 'check if all 3 Pods started'
-    wait_for_running "$cluster-proxysql" 1
+    local proxy=$(get_proxy "$cluster")
+    wait_for_running "$proxy" 1
     wait_for_running "$cluster-pxc" "$size"
     sleep $sleep
 
@@ -541,10 +587,10 @@ spinup_pxc() {
     fi
     run_mysql \
         "CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-        "-h $cluster-proxysql -uroot -proot_password"
+        "-h $proxy -uroot -proot_password"
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100500)' \
-        "-h $cluster-proxysql -uroot -proot_password"
+        "-h $proxy -uroot -proot_password"
     sleep 10
     for i in $(seq 0 $(($size - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"

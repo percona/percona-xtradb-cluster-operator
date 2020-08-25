@@ -101,7 +101,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	clientcmd      *clientcmd.Client
 	syncUsersState int32
 
-	serverVersion *api.ServerVersion
+	serverVersion *version.ServerVersion
 	statusMutex   *sync.Mutex
 	updateSync    int32
 }
@@ -176,7 +176,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		log.Info("wait for token issuing")
 		return rr, nil
 	}
-
+  
 	changed, err := o.CheckNSetDefaults(r.serverVersion)
 	if err != nil {
 		err = fmt.Errorf("wrong PXC options: %v", err)
@@ -730,6 +730,23 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			}
 		} else if err != nil {
 			return errors.Wrap(err, "create ConfigMap")
+		}
+	}
+
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
+		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-proxysql", "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set controller ref ProxySQL")
+		}
+		err = r.client.Create(context.TODO(), configMap)
+		if err != nil && k8serrors.IsAlreadyExists(err) {
+			err = r.client.Update(context.TODO(), configMap)
+			if err != nil {
+				return errors.Wrap(err, "update ConfigMap HAProxy")
+			}
+		} else if err != nil {
+			return errors.Wrap(err, "create ConfigMap HAProxy")
 		}
 	}
 

@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1
+apiVersion: pxc.percona.com/v1-6-0
 kind: PerconaXtraDBCluster
 metadata:
   name: scheduled-backup
@@ -27,7 +27,6 @@ spec:
     enabled: false
   backup:
     image: -backup
-    serviceAccountName: percona-xtradb-cluster-operator
     storages:
       pvc:
         nodeSelector:

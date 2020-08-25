@@ -7,9 +7,7 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="scaling"
 
-create_namespace $namespace
-deploy_operator
-
+create_infra $namespace
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
 desc 'scale up from 3 to 5'

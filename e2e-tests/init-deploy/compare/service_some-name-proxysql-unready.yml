@@ -8,7 +8,6 @@ metadata:
     app.kubernetes.io/name: percona-xtradb-cluster
   name: some-name-proxysql-unready
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: some-name

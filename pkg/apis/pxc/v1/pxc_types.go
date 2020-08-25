@@ -5,18 +5,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/percona/percona-xtradb-cluster-operator/version"
+
 	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	k8sversion "k8s.io/apimachinery/pkg/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform              Platform                             `json:"platform,omitempty"`
+	Platform              version.Platform                     `json:"platform,omitempty"`
+	CRVersion             string                               `json:"crVersion,omitempty"`
 	Pause                 bool                                 `json:"pause,omitempty"`
 	SecretsName           string                               `json:"secretsName,omitempty"`
 	VaultSecretName       string                               `json:"vaultSecretName,omitempty"`
@@ -124,9 +126,8 @@ type PerconaXtraDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    PerconaXtraDBClusterSpec   `json:"spec,omitempty"`
-	Status  PerconaXtraDBClusterStatus `json:"status,omitempty"`
-	version *v.Version
+	Spec   PerconaXtraDBClusterSpec   `json:"spec,omitempty"`
+	Status PerconaXtraDBClusterStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -254,20 +255,7 @@ type Volume struct {
 	Volumes []corev1.Volume
 }
 
-type Platform string
-
-const (
-	PlatformUndef      Platform = ""
-	PlatformKubernetes          = "kubernetes"
-	PlatformOpenshift           = "openshift"
-	WorkloadSA                  = "default"
-)
-
-// ServerVersion represents info about k8s / openshift server version
-type ServerVersion struct {
-	Platform Platform
-	Info     k8sversion.Info
-}
+const WorkloadSA = "default"
 
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
@@ -294,7 +282,7 @@ var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no
 
 func (cr *PerconaXtraDBCluster) setSecurityContext() {
 	var fsgroup *int64
-	if cr.Spec.Platform != PlatformOpenshift {
+	if cr.Spec.Platform != version.PlatformOpenshift {
 		var tp int64 = 1001
 		fsgroup = &tp
 	}
@@ -321,8 +309,8 @@ func (cr *PerconaXtraDBCluster) setSecurityContext() {
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
-func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) (changed bool, err error) {
-	err = cr.setVersion()
+func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion) (changed bool, err error) {
+	CRVerChanged, err := cr.setVersion()
 	if err != nil {
 		return false, errors.Wrap(err, "set version")
 	}
@@ -508,54 +496,51 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *ServerVersion) 
 		if len(serverVersion.Platform) > 0 {
 			cr.Spec.Platform = serverVersion.Platform
 		} else {
-			cr.Spec.Platform = PlatformKubernetes
+			cr.Spec.Platform = version.PlatformKubernetes
 		}
 	}
 
 	cr.setSecurityContext()
 	cr.Spec.Platform = serverVersion.Platform
 
-	return changed, nil
+	return CRVerChanged || changed, nil
 }
 
 // setVersion sets the API version of a PXC resource.
-// The new (semver-matching) version is determined either by the CR's API version or an API version specified via the CR's annotations.
-// If the CR's API version is an empty string, it returns "v1"
-func (cr *PerconaXtraDBCluster) setVersion() error {
-	apiVersion := cr.APIVersion
+// The new (semver-matching) version is determined either by the CR's API version or an API version specified via the CR's fields.
+// If the CR's API version is an empty string and last-applied-configuration from k8s is empty, it returns current operator version.
+func (cr *PerconaXtraDBCluster) setVersion() (bool, error) {
+	if len(cr.Spec.CRVersion) > 0 {
+		return false, nil
+	}
+	apiVersion := version.Version
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
 		err := json.Unmarshal([]byte(lastCR), &newCR)
 		if err != nil {
-			return errors.Wrap(err, "unmarshal cr")
+			return false, errors.Wrap(err, "unmarshal cr")
 		}
-		apiVersion = newCR.APIVersion
+		if len(newCR.APIVersion) > 0 {
+			apiVersion = strings.Replace(strings.TrimPrefix(newCR.APIVersion, "pxc.percona.com/v"), "-", ".", -1)
+		}
 	}
-	crVersion := strings.Replace(strings.TrimPrefix(apiVersion, "pxc.percona.com/v"), "-", ".", -1)
-	if len(crVersion) == 0 {
-		crVersion = "v1"
-	}
-	version, err := v.NewVersion(crVersion)
-	if err != nil {
-		return errors.Wrap(err, "new version")
-	}
-	cr.version = version
 
-	return nil
+	cr.Spec.CRVersion = apiVersion
+	return true, nil
 }
 
 func (cr *PerconaXtraDBCluster) Version() *v.Version {
-	return cr.version
+	return v.Must(v.NewVersion(cr.Spec.CRVersion))
 }
 
 // CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
 func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
-	if cr.version == nil {
-		_ = cr.setVersion()
+	if len(cr.Spec.CRVersion) == 0 {
+		cr.setVersion()
 	}
 
 	//using Must because "version" must be right format
-	return cr.version.Compare(v.Must(v.NewVersion(version)))
+	return cr.Version().Compare(v.Must(v.NewVersion(version)))
 }
 
 const AffinityTopologyKeyOff = "none"

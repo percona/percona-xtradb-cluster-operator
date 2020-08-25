@@ -5,7 +5,6 @@ metadata:
     job-name: restore-job-restore-s3-sec-context
   name: restore-job-restore-s3-sec-context
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBClusterRestore
     name: restore-s3

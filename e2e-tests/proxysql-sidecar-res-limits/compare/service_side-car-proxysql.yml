@@ -6,7 +6,6 @@ metadata:
     app.kubernetes.io/name: percona-xtradb-cluster
   name: side-car-proxysql
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: side-car

@@ -101,7 +101,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	clientcmd      *clientcmd.Client
 	syncUsersState int32
 
-	serverVersion *api.ServerVersion
+	serverVersion *version.ServerVersion
 	statusMutex   *sync.Mutex
 	updateSync    int32
 }
@@ -170,7 +170,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-
 	changed, err := o.CheckNSetDefaults(r.serverVersion)
 	if err != nil {
 		err = fmt.Errorf("wrong PXC options: %v", err)

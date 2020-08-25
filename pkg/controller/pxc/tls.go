@@ -6,7 +6,7 @@ import (
 
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 
-	cm "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha3"
+	cm "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha2"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 	corev1 "k8s.io/api/core/v1"
@@ -16,7 +16,7 @@ import (
 )
 
 func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluster) error {
-	if cr.Spec.AllowUnsafeConfig {
+	if cr.Spec.AllowUnsafeConfig && cr.Spec.TLS == nil && cr.Spec.TLS.IssuerConf == nil {
 		return nil
 	}
 	secretObj := corev1.Secret{}
@@ -35,7 +35,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 
 	err = r.createSSLByCertManager(cr)
 	if err != nil {
-		log.Info("using cert-manger: " + err.Error())
+		if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
+			return fmt.Errorf("create ssl with cert manager %w", err)
+		}
 		err = r.createSSLManualy(cr)
 		if err != nil {
 			return fmt.Errorf("create ssl internally: %v", err)
@@ -51,10 +53,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	}
 	ownerReferences := []metav1.OwnerReference{owner}
 
-	issuerKind := "Issuer"
 	issuerName := cr.Name + "-pxc-ca"
-	issuerGroup := "pxc.percona.com"
-
+	issuerKind := "Issuer"
+	issuerGroup := ""
 	if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
 		issuerKind = cr.Spec.TLS.IssuerConf.Kind
 		issuerName = cr.Spec.TLS.IssuerConf.Name
@@ -159,7 +160,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		"*." + cr.Name + "-pxc",
 		"*." + cr.Name + "-proxysql",
 	}
-	proxyHosts = append(proxyHosts, cr.Spec.TLS.SANs...)
+	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
+		proxyHosts = append(proxyHosts, cr.Spec.TLS.SANs...)
+	}
 	caCert, tlsCert, key, err := pxctls.Issue(proxyHosts)
 	if err != nil {
 		return fmt.Errorf("create proxy certificate: %v", err)
@@ -189,7 +192,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		"*." + cr.Name + "-pxc",
 		cr.Name + "-pxc",
 	}
-	pxcHosts = append(pxcHosts, cr.Spec.TLS.SANs...)
+	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
+		pxcHosts = append(pxcHosts, cr.Spec.TLS.SANs...)
+	}
 	caCert, tlsCert, key, err = pxctls.Issue(pxcHosts)
 	if err != nil {
 		return fmt.Errorf("create pxc certificate: %v", err)

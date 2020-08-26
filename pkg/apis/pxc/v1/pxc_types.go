@@ -307,7 +307,7 @@ func (cr *PerconaXtraDBCluster) setSecurityContext() {
 }
 
 func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
-	_, ok := cr.Annotations["issue-vault-token"]
+	_, ok := cr.Annotations["percona.com/issue-vault-token"]
 	return ok
 }
 

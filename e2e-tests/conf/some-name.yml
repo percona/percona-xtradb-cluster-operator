@@ -5,7 +5,7 @@ metadata:
   finalizers:
     - delete-pxc-pods-in-order
   # annotations:
-  #   issue-vault-token: "yes"
+  #   percona.com/issue-vault-token: "true"
 spec:
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault

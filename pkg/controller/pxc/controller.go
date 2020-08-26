@@ -515,7 +515,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
-	if vaultConfigHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
+	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = sslHash
 	}
 

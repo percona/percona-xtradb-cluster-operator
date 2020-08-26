@@ -15,8 +15,8 @@ The following platforms are supported:
 
 * OpenShift 3.11
 * OpenShift 4.2
-* Google Kubernetes Engine (GKE) 1.13
-* GKE 1.15
+* Google Kubernetes Engine (GKE) 1.15
+* GKE 1.17
 * Amazon Elastic Kubernetes Service (EKS) 1.15
 * Minikube 1.16
 

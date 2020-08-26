@@ -66,7 +66,7 @@ Prerequisites
 
    .. code-block:: bash
 
-      kubectl --v=9 get pxc
+      kubectl get pxc
       curl -k -XGET  -H "Authorization: Bearer $KUBE_TOKEN" "https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters?limit=500" | python -mjson.tool
 
 Create new PXC cluster
@@ -82,7 +82,7 @@ Create new PXC cluster
 
 .. code-block:: bash
 
-   kubectl --v=9 apply -f percona-xtradb-cluster-operator/deploy/cr.yaml
+   kubectl apply -f percona-xtradb-cluster-operator/deploy/cr.yaml
 
 **URL:**
 
@@ -181,7 +181,7 @@ List PXC cluster
 
 .. code-block:: bash
 
-   kubectl --v=9 get pxc
+   kubectl get pxc
 
 **URL:**
 
@@ -232,7 +232,7 @@ Get status of PXC cluster
 
 .. code-block:: bash
 
-   kubectl --v=9 get pxc/cluster1 -o json
+   kubectl get pxc/cluster1 -o json
 
 **URL:**
 
@@ -283,7 +283,7 @@ Scale up/down PXC cluster
 
 .. code-block:: bash
 
-   kubectl --v=9 patch pxc cluster1 --type=merge --patch '{
+   kubectl patch pxc cluster1 --type=merge --patch '{
    "spec": {"pxc":{ "size": "5" }  
    }}'
 
@@ -352,7 +352,7 @@ Update PXC cluster image
 
 .. code-block:: bash
 
-   kubectl --v=9 patch pxc cluster1 --type=merge --patch '{  
+   kubectl patch pxc cluster1 --type=merge --patch '{  
    "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster:5.7.30-31.43" }  
    }}'
 
@@ -423,7 +423,7 @@ Pass custom my.cnf during the creation of PXC cluster
 
 .. code-block:: bash
 
-   kubectl --v=9 create configmap cluster1-pxc3 --from-file=my.cnf
+   kubectl create configmap cluster1-pxc3 --from-file=my.cnf
 
 
 **my.cnf (Contains mysql configuration):**
@@ -497,7 +497,7 @@ Backup PXC cluster
 
 .. code-block:: bash
 
-   kubectl --v=9 apply -f percona-xtradb-cluster-operator/deploy/backup/backup.yaml
+   kubectl apply -f percona-xtradb-cluster-operator/deploy/backup/backup.yaml
 
 
 **URL:**
@@ -568,7 +568,7 @@ Restore PXC cluster
 
 .. code-block:: bash
 
-   kubectl --v=9 apply -f percona-xtradb-cluster-operator/deploy/backup/restore.yaml
+   kubectl apply -f percona-xtradb-cluster-operator/deploy/backup/restore.yaml
 
 
 **URL:**

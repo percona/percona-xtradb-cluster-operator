@@ -172,11 +172,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	// wait untill token issued to run PXC in data encrypted mode.
-	if ok := o.ShouldWaitForTokenIssue(); ok {
+	if o.ShouldWaitForTokenIssue() {
 		log.Info("wait for token issuing")
 		return rr, nil
 	}
-  
+
 	changed, err := o.CheckNSetDefaults(r.serverVersion)
 	if err != nil {
 		err = fmt.Errorf("wrong PXC options: %v", err)

@@ -285,11 +285,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 						TargetPort: intstr.FromInt(3306),
 						Name:       "mysql",
 					},
-					{
-						Port:       3309,
-						TargetPort: intstr.FromInt(3309),
-						Name:       "proxy-protocol",
-					},
+				}
+				if o.CompareVersionWith("1.6.0") >= 0 {
+					currentService.Spec.Ports = append(
+						currentService.Spec.Ports,
+						corev1.ServicePort{
+							Port:       33062,
+							TargetPort: intstr.FromInt(33062),
+							Name:       "mysql-admin",
+						},
+					)
 				}
 				if o.CompareVersionWith("1.6.0") >= 0 {
 					currentService.Spec.Ports = append(
@@ -311,11 +316,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 					TargetPort: intstr.FromInt(3306),
 					Name:       "mysql",
 				},
-				{
-					Port:       3309,
-					TargetPort: intstr.FromInt(3309),
-					Name:       "proxy-protocol",
-				},
+			}
+			if o.CompareVersionWith("1.6.0") >= 0 {
+				currentService.Spec.Ports = append(
+					currentService.Spec.Ports,
+					corev1.ServicePort{
+						Port:       33062,
+						TargetPort: intstr.FromInt(33062),
+						Name:       "mysql-admin",
+					},
+				)
 			}
 			if o.CompareVersionWith("1.6.0") >= 0 {
 				currentService.Spec.Ports = append(

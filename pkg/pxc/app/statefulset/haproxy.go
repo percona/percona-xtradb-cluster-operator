@@ -66,8 +66,8 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 				Name:          "mysql-replicas",
 			},
 			{
-				ContainerPort: 3309,
-				Name:          "proxy-protocol",
+				ContainerPort: 33062,
+				Name:          "mysql-admin",
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{

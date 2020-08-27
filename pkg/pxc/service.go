@@ -233,11 +233,6 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 					TargetPort: intstr.FromInt(3306),
 					Name:       "mysql",
 				},
-				{
-					Port:       3309,
-					TargetPort: intstr.FromInt(3309),
-					Name:       "proxy-protocol",
-				},
 			},
 			Selector: map[string]string{
 				"app.kubernetes.io/name":      "percona-xtradb-cluster",

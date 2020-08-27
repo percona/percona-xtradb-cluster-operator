@@ -334,7 +334,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if err != nil {
 			return false, fmt.Errorf("PXC.Volume: %v", err)
 		}
-
+		if len(c.PXC.ImagePullPolicy) == 0 {
+			c.PXC.ImagePullPolicy = corev1.PullAlways
+		}
 		c.PXC.VaultSecretName = c.VaultSecretName
 		if len(c.PXC.VaultSecretName) == 0 {
 			c.PXC.VaultSecretName = cr.Name + "-vault"
@@ -392,12 +394,21 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
+	if c.PMM != nil && c.PMM.Enabled {
+		if len(c.PMM.ImagePullPolicy) == 0 {
+			c.PMM.ImagePullPolicy = corev1.PullAlways
+		}
+	}
+
 	if c.HAProxy != nil && c.HAProxy.Enabled &&
 		c.ProxySQL != nil && c.ProxySQL.Enabled {
 		return false, errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
 	}
 
 	if c.HAProxy != nil && c.HAProxy.Enabled {
+		if len(c.HAProxy.ImagePullPolicy) == 0 {
+			c.HAProxy.ImagePullPolicy = corev1.PullAlways
+		}
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-HAProxy.
 		if c.HAProxy.PodDisruptionBudget == nil {
 			defaultMaxUnavailable := intstr.FromInt(1)
@@ -421,6 +432,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+		if len(c.ProxySQL.ImagePullPolicy) == 0 {
+			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
+		}
 		if c.ProxySQL.VolumeSpec == nil {
 			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")
 		}

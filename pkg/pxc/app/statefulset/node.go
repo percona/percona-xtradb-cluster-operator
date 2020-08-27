@@ -58,15 +58,11 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 	if spec.LivenessInitialDelaySeconds != nil {
 		livenessDelay = *spec.LivenessInitialDelaySeconds
 	}
-	imagePullPolicy := spec.ImagePullPolicy
-	if len(spec.ImagePullPolicy) == 0 {
-		imagePullPolicy = corev1.PullAlways
-	}
 
 	appc := corev1.Container{
 		Name:            app.Name,
 		Image:           spec.Image,
-		ImagePullPolicy: imagePullPolicy,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		ReadinessProbe: app.Probe(&corev1.Probe{
 			InitialDelaySeconds: redinessDelay,
 			TimeoutSeconds:      15,

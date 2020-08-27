@@ -38,15 +38,11 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Con
 	if spec.ServerUser != "" {
 		pmmEnvs = append(pmmEnvs, pmmEnvServerUser(spec.ServerUser, secrets)...)
 	}
-	imagePullPolicy := spec.ImagePullPolicy
-	if len(spec.ImagePullPolicy) == 0 {
-		imagePullPolicy = corev1.PullAlways
-	}
 
 	container := corev1.Container{
 		Name:            "pmm-client",
 		Image:           spec.Image,
-		ImagePullPolicy: imagePullPolicy,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Env:             pmmEnvs,
 		SecurityContext: spec.ContainerSecurityContext,
 	}

@@ -9,6 +9,7 @@ spec:
   pxc:
     size: 3
     image: -pxc
+    imagePullPolicy: IfNotPresent
     resources:
       requests:
         memory: 500M
@@ -24,6 +25,7 @@ spec:
     enabled: true
     size: 1
     image: -proxysql
+    imagePullPolicy: IfNotPresent
     resources:
       requests:
         memory: 500M
@@ -36,7 +38,8 @@ spec:
     affinity:
       antiAffinityTopologyKey: none
   pmm:
-    enabled: false
+    enabled: true
     image: perconalab/pmm-client:1.17.1
+    imagePullPolicy: IfNotPresent
     serverHost: monitoring-service
     serverUser: pmm

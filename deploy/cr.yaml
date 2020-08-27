@@ -6,6 +6,8 @@ metadata:
     - delete-pxc-pods-in-order
 #    - delete-proxysql-pvc
 #    - delete-pxc-pvc
+#  annotations:
+#    percona.com/issue-vault-token: "true"
 spec:
   crVersion: 1.6.0
   secretsName: my-cluster-secrets

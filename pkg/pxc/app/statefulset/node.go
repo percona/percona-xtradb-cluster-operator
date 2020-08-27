@@ -58,11 +58,15 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 	if spec.LivenessInitialDelaySeconds != nil {
 		livenessDelay = *spec.LivenessInitialDelaySeconds
 	}
+	imagePullPolicy := spec.ImagePullPolicy
+	if len(spec.ImagePullPolicy) == 0 {
+		imagePullPolicy = corev1.PullAlways
+	}
 
 	appc := corev1.Container{
 		Name:            app.Name,
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: imagePullPolicy,
 		ReadinessProbe: app.Probe(&corev1.Probe{
 			InitialDelaySeconds: redinessDelay,
 			TimeoutSeconds:      15,
@@ -202,7 +206,6 @@ func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Perc
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
 	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0)
-
 	pmmEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_TYPE",

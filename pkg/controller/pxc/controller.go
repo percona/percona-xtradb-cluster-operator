@@ -291,6 +291,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 						Name:       "proxy-protocol",
 					},
 				}
+				if o.CompareVersionWith("1.6.0") >= 0 {
+					currentService.Spec.Ports = append(
+						currentService.Spec.Ports,
+						corev1.ServicePort{
+							Port:       33062,
+							TargetPort: intstr.FromInt(33062),
+							Name:       "mysql-admin",
+						},
+					)
+				}
 				currentService.Spec.Type = o.Spec.HAProxy.ServiceType
 			}
 			//Checking default ServiceType
@@ -306,6 +316,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 					TargetPort: intstr.FromInt(3309),
 					Name:       "proxy-protocol",
 				},
+			}
+			if o.CompareVersionWith("1.6.0") >= 0 {
+				currentService.Spec.Ports = append(
+					currentService.Spec.Ports,
+					corev1.ServicePort{
+						Port:       33062,
+						TargetPort: intstr.FromInt(33062),
+						Name:       "mysql-admin",
+					},
+				)
 			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
@@ -365,6 +385,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 						Name: "mysql",
 					},
 				}
+				if o.CompareVersionWith("1.6.0") >= 0 {
+					currentService.Spec.Ports = append(
+						currentService.Spec.Ports,
+						corev1.ServicePort{
+							Port: 33062,
+							Name: "mysql-admin",
+						},
+					)
+				}
 				currentService.Spec.Type = o.Spec.ProxySQL.ServiceType
 			}
 			//Checking default ServiceType
@@ -374,6 +403,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 					Port: 3306,
 					Name: "mysql",
 				},
+			}
+			if o.CompareVersionWith("1.6.0") >= 0 {
+				currentService.Spec.Ports = append(
+					currentService.Spec.Ports,
+					corev1.ServicePort{
+						Port: 33062,
+						Name: "mysql-admin",
+					},
+				)
 			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}

@@ -95,6 +95,16 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		SecurityContext: spec.ContainerSecurityContext,
 	}
 
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		appc.Ports = append(
+			appc.Ports,
+			corev1.ContainerPort{
+				ContainerPort: 33062,
+				Name:          "mysql-admin",
+			},
+		)
+	}
+
 	res, err := app.CreateResources(spec.Resources)
 	if err != nil {
 		return appc, fmt.Errorf("create resources error: %v", err)

@@ -114,6 +114,15 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		},
 	}
 
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33062,
+				Name: "mysql-admin"},
+		)
+	}
+
 	return obj
 }
 
@@ -157,6 +166,14 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 			LoadBalancerSourceRanges: loadBalancerSourceRanges,
 		},
+	}
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33062,
+				Name: "mysql-admin"},
+		)
 	}
 
 	return obj
@@ -211,6 +228,17 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 			LoadBalancerSourceRanges: loadBalancerSourceRanges,
 		},
+	}
+
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port:       33062,
+				TargetPort: intstr.FromInt(33062),
+				Name:       "mysql-admin",
+			},
+		)
 	}
 
 	return obj

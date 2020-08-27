@@ -76,7 +76,7 @@ spec:
           timeoutSeconds: 5
         name: pxc
         ports:
-        - containerPort: 3306
+        - containerPort: 33062
           name: mysql
           protocol: TCP
         - containerPort: 4444

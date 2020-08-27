@@ -187,6 +187,16 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		appc.Ports = append(
+			appc.Ports,
+			corev1.ContainerPort{
+				ContainerPort: 33062,
+				Name:          "mysql-admin",
+			},
+		)
+	}
+
 	res, err := app.CreateResources(spec.Resources)
 	if err != nil {
 		return appc, fmt.Errorf("create resources error: %v", err)
@@ -223,7 +233,13 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 			Value: "--query-source=perfschema",
 		},
 	}
+
 	ct.Env = append(ct.Env, pmmEnvs...)
+
+	port := "3306"
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		port = "33062"
+	}
 
 	if cr.CompareVersionWith("1.2.0") >= 0 {
 		clusterEnvs := []corev1.EnvVar{
@@ -237,7 +253,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 			},
 			{
 				Name:  "DB_PORT",
-				Value: "3306",
+				Value: port,
 			},
 		}
 		ct.Env = append(ct.Env, clusterEnvs...)

@@ -286,7 +286,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 						Name:       "mysql",
 					},
 					{
-						Port:       3306,
+						Port:       3309,
 						TargetPort: intstr.FromInt(3309),
 						Name:       "proxy-protocol",
 					},

@@ -66,8 +66,8 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 				Name:          "mysql-replicas",
 			},
 			{
-				ContainerPort: 33062,
-				Name:          "mysql-admin",
+				ContainerPort: 3309,
+				Name:          "proxy-protocol",
 			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
@@ -103,6 +103,13 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 				Name:          "mysql-admin",
 			},
 		)
+	}
+
+	if cr.ConfigHasKey("mysqld", "proxy_protocol_networks") {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "IS_PROXY_PROTOCOL",
+			Value: "yes",
+		})
 	}
 
 	res, err := app.CreateResources(spec.Resources)

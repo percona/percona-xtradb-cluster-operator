@@ -56,6 +56,32 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "get internal sys users secret")
 	}
 
+	//var restartPXC, restartProxy bool
+	if _, ok := internalSysSecretObj.Annotations["grant-for-user"]; !ok {
+		if rootPass, ok := internalSysSecretObj.Data["root"]; ok {
+			um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, "root", string(rootPass))
+			if err != nil {
+				return errors.Wrap(err, "new users manager for grant")
+			}
+			defer um.Close()
+
+			err = um.UpdateUserGrant("monitor")
+			if err != nil {
+				return errors.Wrap(err, "update monitor grant")
+			}
+
+			if internalSysSecretObj.Annotations == nil {
+				internalSysSecretObj.Annotations = make(map[string]string)
+			}
+
+			internalSysSecretObj.Annotations["grant-for-user"] = "done"
+			err = r.client.Update(context.TODO(), &internalSysSecretObj)
+			if err != nil {
+				return errors.Wrap(err, "update internal sys users secret")
+			}
+		}
+	}
+
 	dataChanged, err := sysUsersSecretDataChanged(newSecretDataHash, &internalSysSecretObj)
 	if err != nil {
 		return errors.Wrap(err, "check sys users data changes")

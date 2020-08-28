@@ -197,3 +197,47 @@ func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
 
 	return nil
 }
+
+func (u *Manager) UpdateUserGrant(user string) error {
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	switch user {
+	case "monitor":
+		_, err = tx.Exec("GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%'")
+		if err != nil {
+			errT := tx.Rollback()
+			if errT != nil {
+				return errors.Errorf("grant service_connection to user %s: %v, tx rollback: %v", user, err, errT)
+			}
+			return errors.Wrapf(err, "grant service_connection to user %s", user)
+		}
+
+		_, err = tx.Exec("ALTER USER 'monitor'@'%' WITH MAX_USER_CONNECTIONS 100")
+		if err != nil {
+			errT := tx.Rollback()
+			if errT != nil {
+				return errors.Errorf("set max connections to user %s: %v, tx rollback: %v", user, err, errT)
+			}
+			return errors.Wrapf(err, "set max connections to user %s", user)
+		}
+	}
+
+	_, err = tx.Exec("FLUSH PRIVILEGES")
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "flush privileges")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit transaction")
+	}
+
+	return nil
+}

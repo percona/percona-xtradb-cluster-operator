@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-ini/ini"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 
 	v "github.com/hashicorp/go-version"
@@ -541,6 +542,18 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
 
 	//using Must because "version" must be right format
 	return cr.Version().Compare(v.Must(v.NewVersion(version)))
+}
+
+func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) bool {
+	file, err := ini.Load([]byte(cr.Spec.PXC.Configuration))
+	if err != nil {
+		return false
+	}
+	s, err := file.GetSection(section)
+	if err != nil {
+		return false
+	}
+	return s.HasKey(key)
 }
 
 const AffinityTopologyKeyOff = "none"

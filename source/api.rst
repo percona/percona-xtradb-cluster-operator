@@ -62,12 +62,29 @@ Prerequisites
       KUBE_TOKEN=$(kubectl get secret $(kubectl get serviceaccount percona-xtradb-cluster-operator -o jsonpath='{.secrets[0].name}' -n default) -o jsonpath='{.data.token}' -n default | base64 --decode )
       
 
-3. Get a list of PXC clusters
+3. Check if there are correct values in API_SERVER and KUBE_TOKEN variables
+
+   **cURL Request:**
 
    .. code-block:: bash
 
-      kubectl get pxc
       curl -k -XGET  -H "Authorization: Bearer $KUBE_TOKEN" "https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters?limit=500" | python -mjson.tool
+      
+   **Request Body:**
+
+   .. code-block:: bash
+
+      None
+
+   **Response:**
+
+   .. container:: toggle
+
+      .. container:: header
+
+         JSON:
+
+      .. include:: ./assets/code/api-prerequisites-response-json.txt
 
 Create new PXC cluster
 ----------------------
@@ -88,7 +105,7 @@ Create new PXC cluster
 
 .. code-block:: bash
 
-   https://$API_SERVER/apis/pxc.percona.com/v{{{apiversion}}}/default/default/perconaxtradbclusters
+   https://$API_SERVER/apis/pxc.percona.com/v{{{apiversion}}}/namespaces/default/perconaxtradbclusters
 
 **Authentication:**
 
@@ -199,7 +216,7 @@ List PXC cluster
 
 .. code-block:: bash
 
-   curl -k -v -XGET "https://$API_SERVER/apis/pxc.percona.com/v1/default/default/perconaxtradbclusters?limit=500" \
+   curl -k -v -XGET "https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters?limit=500" \
                -H "Accept: application/json;as=Table;v=v1;g=meta.k8s.io,application/json;as=Table;v=v1beta1;g=meta.k8s.io,application/json" \
                -H "Authorization: Bearer $KUBE_TOKEN"
 

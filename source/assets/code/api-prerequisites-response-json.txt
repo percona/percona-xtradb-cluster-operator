@@ -1,0 +1,516 @@
+.. code-block:: json
+
+	{
+	    "apiVersion": "pxc.percona.com/v1",
+	    "items": [
+		{
+		    "apiVersion": "pxc.percona.com/v1",
+		    "kind": "PerconaXtraDBCluster",
+		    "metadata": {
+		        "annotations": {
+		            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"pxc.percona.com/v1-5-0\",\"kind\":\"PerconaXtraDBCluster\",\"metadata\":{\"annotations\":{},\"finalizers\":[\"delete-pxc-pods-in-order\"],\"name\":\"cluster1\",\"namespace\":\"default\"},\"spec\":{\"allowUnsafeConfigurations\":false,\"backup\":{\"image\":\"percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0-backup\",\"schedule\":[{\"keep\":3,\"name\":\"sat-night-backup\",\"schedule\":\"0 0 * * 6\",\"storageName\":\"s3-us-west\"},{\"keep\":5,\"name\":\"daily-backup\",\"schedule\":\"0 0 * * *\",\"storageName\":\"fs-pvc\"}],\"serviceAccountName\":\"percona-xtradb-cluster-operator\",\"storages\":{\"fs-pvc\":{\"type\":\"filesystem\",\"volume\":{\"persistentVolumeClaim\":{\"accessModes\":[\"ReadWriteOnce\"],\"resources\":{\"requests\":{\"storage\":\"6Gi\"}}}}},\"s3-us-west\":{\"s3\":{\"bucket\":\"S3-BACKUP-BUCKET-NAME-HERE\",\"credentialsSecret\":\"my-cluster-name-backup-s3\",\"region\":\"us-west-2\"},\"type\":\"s3\"}}},\"haproxy\":{\"affinity\":{\"antiAffinityTopologyKey\":\"kubernetes.io/hostname\"},\"enabled\":true,\"gracePeriod\":30,\"image\":\"percona/percona-xtradb-cluster-operator:1.5.0-haproxy\",\"podDisruptionBudget\":{\"maxUnavailable\":1},\"resources\":{\"requests\":{\"cpu\":\"600m\",\"memory\":\"1G\"}},\"size\":3},\"pmm\":{\"enabled\":false,\"image\":\"percona/percona-xtradb-cluster-operator:1.5.0-pmm\",\"serverHost\":\"monitoring-service\",\"serverUser\":\"pmm\"},\"proxysql\":{\"affinity\":{\"antiAffinityTopologyKey\":\"kubernetes.io/hostname\"},\"enabled\":false,\"gracePeriod\":30,\"image\":\"percona/percona-xtradb-cluster-operator:1.5.0-proxysql\",\"podDisruptionBudget\":{\"maxUnavailable\":1},\"resources\":{\"requests\":{\"cpu\":\"600m\",\"memory\":\"1G\"}},\"size\":3,\"volumeSpec\":{\"persistentVolumeClaim\":{\"resources\":{\"requests\":{\"storage\":\"2Gi\"}}}}},\"pxc\":{\"affinity\":{\"antiAffinityTopologyKey\":\"kubernetes.io/hostname\"},\"gracePeriod\":600,\"image\":\"percona/percona-xtradb-cluster:8.0.19-10.1\",\"podDisruptionBudget\":{\"maxUnavailable\":1},\"resources\":{\"requests\":{\"cpu\":\"600m\",\"memory\":\"1G\"}},\"size\":3,\"volumeSpec\":{\"persistentVolumeClaim\":{\"resources\":{\"requests\":{\"storage\":\"6Gi\"}}}}},\"secretsName\":\"my-cluster-secrets\",\"sslInternalSecretName\":\"my-cluster-ssl-internal\",\"sslSecretName\":\"my-cluster-ssl\",\"updateStrategy\":\"SmartUpdate\",\"upgradeOptions\":{\"apply\":\"recommended\",\"schedule\":\"0 4 * * *\",\"versionServiceEndpoint\":\"https://check.percona.com/versions\"},\"vaultSecretName\":\"keyring-secret-vault\"}}\n"
+		        },
+		        "creationTimestamp": "2020-08-27T22:21:18Z",
+		        "finalizers": [
+		            "delete-pxc-pods-in-order"
+		        ],
+		        "generation": 3,
+		        "managedFields": [
+		            {
+		                "apiVersion": "pxc.percona.com/v1-5-0",
+		                "fieldsType": "FieldsV1",
+		                "fieldsV1": {
+		                    "f:metadata": {
+		                        "f:annotations": {
+		                            ".": {},
+		                            "f:kubectl.kubernetes.io/last-applied-configuration": {}
+		                        },
+		                        "f:finalizers": {}
+		                    },
+		                    "f:spec": {
+		                        ".": {},
+		                        "f:backup": {
+		                            ".": {},
+		                            "f:image": {},
+		                            "f:schedule": {},
+		                            "f:serviceAccountName": {},
+		                            "f:storages": {
+		                                ".": {},
+		                                "f:fs-pvc": {
+		                                    ".": {},
+		                                    "f:type": {},
+		                                    "f:volume": {
+		                                        ".": {},
+		                                        "f:persistentVolumeClaim": {
+		                                            ".": {},
+		                                            "f:accessModes": {},
+		                                            "f:resources": {
+		                                                ".": {},
+		                                                "f:requests": {
+		                                                    ".": {},
+		                                                    "f:storage": {}
+		                                                }
+		                                            }
+		                                        }
+		                                    }
+		                                },
+		                                "f:s3-us-west": {
+		                                    ".": {},
+		                                    "f:s3": {
+		                                        ".": {},
+		                                        "f:bucket": {},
+		                                        "f:credentialsSecret": {},
+		                                        "f:region": {}
+		                                    },
+		                                    "f:type": {}
+		                                }
+		                            }
+		                        },
+		                        "f:haproxy": {
+		                            ".": {},
+		                            "f:affinity": {
+		                                ".": {},
+		                                "f:antiAffinityTopologyKey": {}
+		                            },
+		                            "f:enabled": {},
+		                            "f:gracePeriod": {},
+		                            "f:image": {},
+		                            "f:podDisruptionBudget": {
+		                                ".": {},
+		                                "f:maxUnavailable": {}
+		                            },
+		                            "f:resources": {
+		                                ".": {},
+		                                "f:requests": {
+		                                    ".": {},
+		                                    "f:cpu": {},
+		                                    "f:memory": {}
+		                                }
+		                            },
+		                            "f:size": {}
+		                        },
+		                        "f:pmm": {
+		                            ".": {},
+		                            "f:image": {},
+		                            "f:serverHost": {},
+		                            "f:serverUser": {}
+		                        },
+		                        "f:proxysql": {
+		                            ".": {},
+		                            "f:affinity": {
+		                                ".": {},
+		                                "f:antiAffinityTopologyKey": {}
+		                            },
+		                            "f:gracePeriod": {},
+		                            "f:image": {},
+		                            "f:podDisruptionBudget": {
+		                                ".": {},
+		                                "f:maxUnavailable": {}
+		                            },
+		                            "f:resources": {
+		                                ".": {},
+		                                "f:requests": {
+		                                    ".": {},
+		                                    "f:cpu": {},
+		                                    "f:memory": {}
+		                                }
+		                            },
+		                            "f:size": {},
+		                            "f:volumeSpec": {
+		                                ".": {},
+		                                "f:persistentVolumeClaim": {
+		                                    ".": {},
+		                                    "f:resources": {
+		                                        ".": {},
+		                                        "f:requests": {
+		                                            ".": {},
+		                                            "f:storage": {}
+		                                        }
+		                                    }
+		                                }
+		                            }
+		                        },
+		                        "f:pxc": {
+		                            ".": {},
+		                            "f:affinity": {
+		                                ".": {},
+		                                "f:antiAffinityTopologyKey": {}
+		                            },
+		                            "f:gracePeriod": {},
+		                            "f:image": {},
+		                            "f:podDisruptionBudget": {
+		                                ".": {},
+		                                "f:maxUnavailable": {}
+		                            },
+		                            "f:resources": {
+		                                ".": {},
+		                                "f:requests": {
+		                                    ".": {},
+		                                    "f:cpu": {},
+		                                    "f:memory": {}
+		                                }
+		                            },
+		                            "f:size": {},
+		                            "f:volumeSpec": {
+		                                ".": {},
+		                                "f:persistentVolumeClaim": {
+		                                    ".": {},
+		                                    "f:resources": {
+		                                        ".": {},
+		                                        "f:requests": {
+		                                            ".": {},
+		                                            "f:storage": {}
+		                                        }
+		                                    }
+		                                }
+		                            }
+		                        },
+		                        "f:secretsName": {},
+		                        "f:sslInternalSecretName": {},
+		                        "f:sslSecretName": {},
+		                        "f:updateStrategy": {},
+		                        "f:upgradeOptions": {
+		                            ".": {},
+		                            "f:apply": {},
+		                            "f:schedule": {},
+		                            "f:versionServiceEndpoint": {}
+		                        },
+		                        "f:vaultSecretName": {}
+		                    }
+		                },
+		                "manager": "kubectl",
+		                "operation": "Update",
+		                "time": "2020-08-28T08:23:27Z"
+		            },
+		            {
+		                "apiVersion": "pxc.percona.com/v1",
+		                "fieldsType": "FieldsV1",
+		                "fieldsV1": {
+		                    "f:spec": {
+		                        "f:backup": {
+		                            "f:storages": {
+		                                "f:fs-pvc": {
+		                                    "f:podSecurityContext": {
+		                                        ".": {},
+		                                        "f:fsGroup": {},
+		                                        "f:supplementalGroups": {}
+		                                    },
+		                                    "f:s3": {
+		                                        ".": {},
+		                                        "f:bucket": {},
+		                                        "f:credentialsSecret": {}
+		                                    }
+		                                },
+		                                "f:s3-us-west": {
+		                                    "f:podSecurityContext": {
+		                                        ".": {},
+		                                        "f:fsGroup": {},
+		                                        "f:supplementalGroups": {}
+		                                    }
+		                                }
+		                            }
+		                        },
+		                        "f:haproxy": {
+		                            "f:serviceAccountName": {}
+		                        },
+		                        "f:platform": {},
+		                        "f:pmm": {
+		                            "f:resources": {}
+		                        },
+		                        "f:proxysql": {
+		                            "f:podSecurityContext": {
+		                                ".": {},
+		                                "f:fsGroup": {},
+		                                "f:supplementalGroups": {}
+		                            }
+		                        },
+		                        "f:pxc": {
+		                            "f:livenessDelaySec": {},
+		                            "f:podSecurityContext": {
+		                                ".": {},
+		                                "f:fsGroup": {},
+		                                "f:supplementalGroups": {}
+		                            },
+		                            "f:serviceAccountName": {},
+		                            "f:sslInternalSecretName": {},
+		                            "f:sslSecretName": {},
+		                            "f:vaultSecretName": {},
+		                            "f:volumeSpec": {
+		                                "f:persistentVolumeClaim": {
+		                                    "f:accessModes": {}
+		                                }
+		                            }
+		                        }
+		                    },
+		                    "f:status": {
+		                        ".": {},
+		                        "f:backup": {
+		                            ".": {},
+		                            "f:version": {}
+		                        },
+		                        "f:conditions": {},
+		                        "f:haproxy": {
+		                            ".": {},
+		                            "f:ready": {},
+		                            "f:size": {},
+		                            "f:status": {},
+		                            "f:version": {}
+		                        },
+		                        "f:host": {},
+		                        "f:observedGeneration": {},
+		                        "f:pmm": {
+		                            ".": {},
+		                            "f:version": {}
+		                        },
+		                        "f:proxysql": {},
+		                        "f:pxc": {
+		                            ".": {},
+		                            "f:image": {},
+		                            "f:ready": {},
+		                            "f:size": {},
+		                            "f:status": {},
+		                            "f:version": {}
+		                        },
+		                        "f:state": {}
+		                    }
+		                },
+		                "manager": "percona-xtradb-cluster-operator",
+		                "operation": "Update",
+		                "time": "2020-08-28T08:23:29Z"
+		            }
+		        ],
+		        "name": "cluster1",
+		        "namespace": "default",
+		        "resourceVersion": "7273",
+		        "selfLink": "/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters/cluster1",
+		        "uid": "2dfc800c-8f76-4207-bbc7-e8e51ed8952f"
+		    },
+		    "spec": {
+		        "allowUnsafeConfigurations": false,
+		        "backup": {
+		            "image": "percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0-backup",
+		            "schedule": [
+		                {
+		                    "keep": 3,
+		                    "name": "sat-night-backup",
+		                    "schedule": "0 0 * * 6",
+		                    "storageName": "s3-us-west"
+		                },
+		                {
+		                    "keep": 5,
+		                    "name": "daily-backup",
+		                    "schedule": "0 0 * * *",
+		                    "storageName": "fs-pvc"
+		                }
+		            ],
+		            "serviceAccountName": "percona-xtradb-cluster-operator",
+		            "storages": {
+		                "fs-pvc": {
+		                    "podSecurityContext": {
+		                        "fsGroup": 1001,
+		                        "supplementalGroups": [
+		                            1001
+		                        ]
+		                    },
+		                    "s3": {
+		                        "bucket": "",
+		                        "credentialsSecret": ""
+		                    },
+		                    "type": "filesystem",
+		                    "volume": {
+		                        "persistentVolumeClaim": {
+		                            "accessModes": [
+		                                "ReadWriteOnce"
+		                            ],
+		                            "resources": {
+		                                "requests": {
+		                                    "storage": "6Gi"
+		                                }
+		                            }
+		                        }
+		                    }
+		                },
+		                "s3-us-west": {
+		                    "podSecurityContext": {
+		                        "fsGroup": 1001,
+		                        "supplementalGroups": [
+		                            1001
+		                        ]
+		                    },
+		                    "s3": {
+		                        "bucket": "S3-BACKUP-BUCKET-NAME-HERE",
+		                        "credentialsSecret": "my-cluster-name-backup-s3",
+		                        "region": "us-west-2"
+		                    },
+		                    "type": "s3"
+		                }
+		            }
+		        },
+		        "haproxy": {
+		            "affinity": {
+		                "antiAffinityTopologyKey": "kubernetes.io/hostname"
+		            },
+		            "enabled": true,
+		            "gracePeriod": 30,
+		            "image": "percona/percona-xtradb-cluster-operator:1.5.0-haproxy",
+		            "podDisruptionBudget": {
+		                "maxUnavailable": 1
+		            },
+		            "resources": {
+		                "requests": {
+		                    "cpu": "600m",
+		                    "memory": "1G"
+		                }
+		            },
+		            "serviceAccountName": "percona-xtradb-cluster-operator-workload",
+		            "size": 3
+		        },
+		        "platform": "kubernetes",
+		        "pmm": {
+		            "enabled": false,
+		            "image": "percona/percona-xtradb-cluster-operator:1.5.0-pmm",
+		            "resources": {},
+		            "serverHost": "monitoring-service",
+		            "serverUser": "pmm"
+		        },
+		        "proxysql": {
+		            "affinity": {
+		                "antiAffinityTopologyKey": "kubernetes.io/hostname"
+		            },
+		            "enabled": false,
+		            "gracePeriod": 30,
+		            "image": "percona/percona-xtradb-cluster-operator:1.5.0-proxysql",
+		            "podDisruptionBudget": {
+		                "maxUnavailable": 1
+		            },
+		            "podSecurityContext": {
+		                "fsGroup": 1001,
+		                "supplementalGroups": [
+		                    1001
+		                ]
+		            },
+		            "resources": {
+		                "requests": {
+		                    "cpu": "600m",
+		                    "memory": "1G"
+		                }
+		            },
+		            "size": 3,
+		            "volumeSpec": {
+		                "persistentVolumeClaim": {
+		                    "resources": {
+		                        "requests": {
+		                            "storage": "2Gi"
+		                        }
+		                    }
+		                }
+		            }
+		        },
+		        "pxc": {
+		            "affinity": {
+		                "antiAffinityTopologyKey": "kubernetes.io/hostname"
+		            },
+		            "gracePeriod": 600,
+		            "image": "percona/percona-xtradb-cluster:8.0.19-10.1",
+		            "livenessDelaySec": 300,
+		            "podDisruptionBudget": {
+		                "maxUnavailable": 1
+		            },
+		            "podSecurityContext": {
+		                "fsGroup": 1001,
+		                "supplementalGroups": [
+		                    1001
+		                ]
+		            },
+		            "resources": {
+		                "requests": {
+		                    "cpu": "600m",
+		                    "memory": "1G"
+		                }
+		            },
+		            "serviceAccountName": "percona-xtradb-cluster-operator-workload",
+		            "size": 3,
+		            "sslInternalSecretName": "my-cluster-ssl-internal",
+		            "sslSecretName": "my-cluster-ssl",
+		            "vaultSecretName": "keyring-secret-vault",
+		            "volumeSpec": {
+		                "persistentVolumeClaim": {
+		                    "accessModes": [
+		                        "ReadWriteOnce"
+		                    ],
+		                    "resources": {
+		                        "requests": {
+		                            "storage": "6Gi"
+		                        }
+		                    }
+		                }
+		            }
+		        },
+		        "secretsName": "my-cluster-secrets",
+		        "sslInternalSecretName": "my-cluster-ssl-internal",
+		        "sslSecretName": "my-cluster-ssl",
+		        "updateStrategy": "SmartUpdate",
+		        "upgradeOptions": {
+		            "apply": "recommended",
+		            "schedule": "0 4 * * *",
+		            "versionServiceEndpoint": "https://check.percona.com/versions"
+		        },
+		        "vaultSecretName": "keyring-secret-vault"
+		    },
+		    "status": {
+		        "backup": {
+		            "version": "8.0.13"
+		        },
+		        "conditions": [
+		            {
+		                "lastTransitionTime": "2020-08-27T22:21:22Z",
+		                "status": "True",
+		                "type": "Initializing"
+		            },
+		            {
+		                "lastTransitionTime": "2020-08-27T22:23:29Z",
+		                "status": "True",
+		                "type": "Ready"
+		            },
+		            {
+		                "lastTransitionTime": "2020-08-28T08:20:56Z",
+		                "status": "True",
+		                "type": "Initializing"
+		            },
+		            {
+		                "lastTransitionTime": "2020-08-28T08:22:07Z",
+		                "status": "True",
+		                "type": "Ready"
+		            }
+		        ],
+		        "haproxy": {
+		            "ready": 3,
+		            "size": 3,
+		            "status": "ready",
+		            "version": "2.1.7"
+		        },
+		        "host": "cluster1-haproxy.default",
+		        "observedGeneration": 3,
+		        "pmm": {
+		            "version": "2.0.0"
+		        },
+		        "proxysql": {},
+		        "pxc": {
+		            "image": "percona/percona-xtradb-cluster:8.0.19-10.1",
+		            "ready": 3,
+		            "size": 3,
+		            "status": "ready",
+		            "version": "8.0.19-10.1"
+		        },
+		        "state": "initializing"
+		    }
+		}
+	    ],
+	    "kind": "PerconaXtraDBClusterList",
+	    "metadata": {
+		"continue": "",
+		"resourceVersion": "7388",
+		"selfLink": "/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters"
+	    }
+	}
+

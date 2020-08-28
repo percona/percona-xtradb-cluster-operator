@@ -60,31 +60,6 @@ Prerequisites
       # create service account and get token
       kubectl apply -f deploy/crd.yaml -f deploy/rbac.yaml -n default
       KUBE_TOKEN=$(kubectl get secret $(kubectl get serviceaccount percona-xtradb-cluster-operator -o jsonpath='{.secrets[0].name}' -n default) -o jsonpath='{.data.token}' -n default | base64 --decode )
-      
-
-3. Check if there are correct values in API_SERVER and KUBE_TOKEN variables
-
-   **cURL Request:**
-
-   .. code-block:: bash
-
-      curl -k -XGET  -H "Authorization: Bearer $KUBE_TOKEN" "https://$API_SERVER/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusters?limit=500" | python -mjson.tool
-      
-   **Request Body:**
-
-   .. code-block:: bash
-
-      None
-
-   **Response:**
-
-   .. container:: toggle
-
-      .. container:: header
-
-         JSON:
-
-      .. include:: ./assets/code/api-prerequisites-response-json.txt
 
 Create new PXC cluster
 ----------------------

@@ -544,6 +544,14 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
 	return cr.Version().Compare(v.Must(v.NewVersion(version)))
 }
 
+// ComparePXCVersionWith compares given version to current version. Returns -2, -1, 0, or 1 if currnet version not set, given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) ComparePXCVersionWith(version string) int {
+	if len(cr.Status.PXC.Version) == 0 {
+		return -2
+	}
+	return v.Must(v.NewVersion(cr.Status.PXC.Version)).Compare(v.Must(v.NewVersion(version)))
+}
+
 func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) bool {
 	file, err := ini.Load([]byte(cr.Spec.PXC.Configuration))
 	if err != nil {

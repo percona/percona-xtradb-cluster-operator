@@ -56,29 +56,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "get internal sys users secret")
 	}
 
-	//var restartPXC, restartProxy bool
 	if _, ok := internalSysSecretObj.Annotations["grant-for-user"]; !ok {
-		if rootPass, ok := internalSysSecretObj.Data["root"]; ok {
-			um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, "root", string(rootPass))
-			if err != nil {
-				return errors.Wrap(err, "new users manager for grant")
-			}
-			defer um.Close()
-
-			err = um.UpdateUserGrant("monitor")
-			if err != nil {
-				return errors.Wrap(err, "update monitor grant")
-			}
-
-			if internalSysSecretObj.Annotations == nil {
-				internalSysSecretObj.Annotations = make(map[string]string)
-			}
-
-			internalSysSecretObj.Annotations["grant-for-user"] = "done"
-			err = r.client.Update(context.TODO(), &internalSysSecretObj)
-			if err != nil {
-				return errors.Wrap(err, "update internal sys users secret")
-			}
+		err := r.manageMonitorUser(cr, &internalSysSecretObj)
+		if err != nil {
+			return errors.Wrap(err, "new users manager for grant")
 		}
 	}
 
@@ -118,6 +99,37 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	return nil
 }
 
+func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+	rootPass, ok := internalSysSecretObj.Data["root"]
+	if !ok {
+		return errors.New("no root user in internal secret")
+	}
+	if cr.ComparePXCVersionWith("8.0") < 0 {
+		return nil
+	}
+	um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, "root", string(rootPass))
+	if err != nil {
+		return errors.Wrap(err, "new users manager for grant")
+	}
+	defer um.Close()
+
+	err = um.UpdateUserGrant("monitor")
+	if err != nil {
+		return errors.Wrap(err, "update monitor grant")
+	}
+
+	if internalSysSecretObj.Annotations == nil {
+		internalSysSecretObj.Annotations = make(map[string]string)
+	}
+
+	internalSysSecretObj.Annotations["grant-for-user"] = "done"
+	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update internal sys users secret")
+	}
+
+	return nil
+}
 func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
 	var restartPXC, restartProxy, syncProxySQLUsers bool
 

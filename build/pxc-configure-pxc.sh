@@ -82,7 +82,6 @@ sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NOD
 sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:$XTRABACKUP_PASSWORD'|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?admin-address=.*$|admin-address=${NODE_IP}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?extra_max_connections=.*$|extra_max_connections=100|" ${CFG} 1<> ${CFG}
-
 sed -r "s|^[#]?extra_port=.*$|extra_port=33062|" ${CFG} 1<> ${CFG}
 
 CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt

@@ -63,6 +63,14 @@ if [ "${#PEERS_FULL[@]}" != 0 ]; then
 fi
 
 CFG=/etc/mysql/node.cnf
+MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')
+if [ "$MYSQL_VERSION" == '8.0' ]; then
+    egrep -q "^[#]?admin-address" "$CFG" || sed '/^\[mysqld\]/a admin-address=\n' ${CFG} 1<> ${CFG}
+else
+    egrep -q "^[#]?extra_max_connections" "$CFG" || sed '/^\[mysqld\]/a extra_max_connections=\n' ${CFG} 1<> ${CFG}
+    egrep -q "^[#]?extra_port" "$CFG" || sed '/^\[mysqld\]/a extra_port=\n' ${CFG} 1<> ${CFG}
+fi
+
 egrep -q "^[#]?wsrep_sst_donor" "$CFG" || sed '/^\[mysqld\]/a wsrep_sst_donor=\n' ${CFG} 1<> ${CFG}
 egrep -q "^[#]?wsrep_node_incoming_address" "$CFG" || sed '/^\[mysqld\]/a wsrep_node_incoming_address=\n' ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?server_id=.*$|server_id=1${SERVER_ID}|" ${CFG} 1<> ${CFG}

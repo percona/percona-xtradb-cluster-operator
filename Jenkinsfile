@@ -117,9 +117,6 @@ pipeline {
         VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
         CLUSTER_NAME = sh(script: "echo jenkins-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
         AUTHOR_NAME  = sh(script: "echo ${CHANGE_AUTHOR_EMAIL} | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
-        IMAGE_PXC = 'perconalab/percona-xtradb-cluster-operator:master-core-pxc8.0'
-        IMAGE_PROXY = 'perconalab/percona-xtradb-cluster-operator:master-test-proxysql'
-        IMAGE_HAPROXY = 'perconalab/percona-xtradb-cluster-operator:test-haproxy'
     }
     agent {
         label 'docker'

@@ -38,6 +38,15 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		},
 	}
 
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33062,
+				Name: "mysql-admin"},
+		)
+	}
+
 	return obj
 }
 
@@ -72,6 +81,15 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/component": appName,
 			},
 		},
+	}
+
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33062,
+				Name: "mysql-admin"},
+		)
 	}
 
 	return obj

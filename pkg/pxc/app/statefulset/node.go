@@ -236,11 +236,6 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 
 	ct.Env = append(ct.Env, pmmEnvs...)
 
-	port := "3306"
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		port = "33062"
-	}
-
 	if cr.CompareVersionWith("1.2.0") >= 0 {
 		clusterEnvs := []corev1.EnvVar{
 			{
@@ -253,7 +248,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 			},
 			{
 				Name:  "DB_PORT",
-				Value: port,
+				Value: "3306",
 			},
 		}
 		ct.Env = append(ct.Env, clusterEnvs...)

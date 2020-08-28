@@ -76,7 +76,7 @@ spec:
           timeoutSeconds: 5
         name: pxc
         ports:
-        - containerPort: 33062
+        - containerPort: 3306
           name: mysql
           protocol: TCP
         - containerPort: 4444
@@ -87,6 +87,9 @@ spec:
           protocol: TCP
         - containerPort: 4568
           name: ist
+          protocol: TCP
+        - containerPort: 33062
+          name: mysql-admin
           protocol: TCP
         readinessProbe:
           exec:

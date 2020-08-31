@@ -102,7 +102,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 
 func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
 	annotationName := "grant-for-1.6.0-monitor-user"
-	if _, ok := internalSysSecretObj.Annotations[annotationName]; ok {
+	if internalSysSecretObj.Annotations[annotationName] == "done" {
 		return nil
 	}
 

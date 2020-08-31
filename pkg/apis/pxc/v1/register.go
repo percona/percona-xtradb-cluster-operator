@@ -6,11 +6,16 @@
 package v1
 
 import (
+	"strings"
+
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/scheme"
 )
 
 var (
+	mainSchemeGroupVersion = schema.GroupVersion{Group: "pxc.percona.com", Version: strings.Replace("v"+version.Version, ".", "-", -1)}
+	MainSchemeBuilder      = scheme.Builder{GroupVersion: mainSchemeGroupVersion}
 	// SchemeGroupVersion is group version used to register these objects
 	SchemeGroupVersion = schema.GroupVersion{Group: "pxc.percona.com", Version: "v1"}
 
@@ -20,7 +25,7 @@ var (
 
 func init() {
 	SchemeBuilder.Register(
-		&PerconaXtraDBCluster{}, &PerconaXtraDBClusterList{},
 		&PerconaXtraDBClusterBackup{}, &PerconaXtraDBClusterBackupList{},
 	)
+	MainSchemeBuilder.Register(&PerconaXtraDBCluster{}, &PerconaXtraDBClusterList{})
 }

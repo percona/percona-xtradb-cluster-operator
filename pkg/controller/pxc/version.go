@@ -104,14 +104,14 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return errors.New("cluster is not ready")
 	}
 
-	newVersion, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.VersionServiceEndpoint, VersionMeta{
+	newVersion, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.VersionServiceEndpoint, versionMeta{
 		Apply:           cr.Spec.UpgradeOptions.Apply,
 		Platform:        string(cr.Spec.Platform),
 		KubeVersion:     r.serverVersion.Info.GitVersion,
 		PXCVersion:      cr.Status.PXC.Version,
 		PMMVersion:      cr.Status.PMM.Version,
 		HAProxyVersion:  cr.Status.HAProxy.Version,
-		ProxySqlVersion: cr.Status.ProxySQL.Version,
+		ProxySQLVersion: cr.Status.ProxySQL.Version,
 		BackupVersion:   cr.Status.Backup.Version,
 		CRUID:           string(cr.GetUID()),
 	})
@@ -226,8 +226,13 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 	}
 
 	user := "root"
+	port := int32(3306)
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		port = int32(33062)
+	}
+
 	for _, pod := range list.Items {
-		database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Status.PodIP, 3306)
+		database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Status.PodIP, port)
 		if err != nil {
 			log.Error(err, "failed to create db instance")
 			continue

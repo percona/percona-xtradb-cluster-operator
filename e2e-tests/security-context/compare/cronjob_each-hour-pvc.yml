@@ -9,7 +9,6 @@ metadata:
     type: cron
   name: each-hour-pvc
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: sec-context

@@ -77,7 +77,7 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	client client.Client
 	scheme *runtime.Scheme
 
-	serverVersion *api.ServerVersion
+	serverVersion *version.ServerVersion
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read

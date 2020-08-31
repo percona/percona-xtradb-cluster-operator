@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-5-0
+apiVersion: pxc.percona.com/v1-6-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -6,7 +6,10 @@ metadata:
     - delete-pxc-pods-in-order
 #    - delete-proxysql-pvc
 #    - delete-pxc-pvc
+#  annotations:
+#    percona.com/issue-vault-token: "true"
 spec:
+  crVersion: 1.6.0
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl

@@ -1,9 +1,11 @@
-apiVersion: pxc.percona.com/v1
+apiVersion: pxc.percona.com/v1-6-0
 kind: PerconaXtraDBCluster
 metadata:
   name: some-name
   finalizers:
     - delete-pxc-pods-in-order
+  # annotations:
+  #   percona.com/issue-vault-token: "true"
 spec:
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault

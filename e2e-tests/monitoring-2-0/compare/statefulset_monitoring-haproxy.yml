@@ -4,7 +4,6 @@ metadata:
   generation: 1
   name: monitoring-haproxy
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: monitoring
@@ -50,6 +49,9 @@ spec:
           protocol: TCP
         - containerPort: 3309
           name: proxy-protocol
+          protocol: TCP
+        - containerPort: 33062
+          name: mysql-admin
           protocol: TCP
         resources:
           requests:

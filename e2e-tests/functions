@@ -229,11 +229,12 @@ compare_kubectl() {
     fi
 
     kubectl_bin get -o yaml ${resource} \
-        | egrep -v "namespace: \w.*|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: default-token-.*|- name: default-dockercfg-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
+        | egrep -v "namespace: \w.*|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: (.*-workload|default)-token-.*|- name: (default|.*-workload)-dockercfg-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
         | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem|imagePullSecrets:" \
         | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
         | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
         | egrep -v "load-balancer-cleanup" \
+        | egrep -v "apiVersion: pxc.percona.com" \
         | $sed -e 's/namespace:.*  //' \
         | $sed -e '/^status:$/,+100500d' \
         | $sed -e '/NAMESPACE/,+1d' \

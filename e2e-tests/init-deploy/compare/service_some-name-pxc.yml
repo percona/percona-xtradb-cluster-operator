@@ -6,7 +6,6 @@ metadata:
     app.kubernetes.io/name: percona-xtradb-cluster
   name: some-name-pxc
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: some-name
@@ -16,6 +15,10 @@ spec:
     port: 3306
     protocol: TCP
     targetPort: 3306
+  - name: mysql-admin
+    port: 33062
+    protocol: TCP
+    targetPort: 33062
   selector:
     app.kubernetes.io/component: pxc
     app.kubernetes.io/instance: some-name

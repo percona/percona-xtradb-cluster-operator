@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
@@ -101,7 +101,7 @@ type ReconcilePerconaXtraDBCluster struct {
 	clientcmd      *clientcmd.Client
 	syncUsersState int32
 
-	serverVersion *api.ServerVersion
+	serverVersion *version.ServerVersion
 	statusMutex   *sync.Mutex
 	updateSync    int32
 }
@@ -169,6 +169,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// wait untill token issued to run PXC in data encrypted mode.
+	if o.ShouldWaitForTokenIssue() {
+		log.Info("wait for token issuing")
+		return rr, nil
 	}
 
 	changed, err := o.CheckNSetDefaults(r.serverVersion)
@@ -292,6 +298,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 						Name:       "proxy-protocol",
 					},
 				}
+				if o.CompareVersionWith("1.6.0") >= 0 {
+					currentService.Spec.Ports = append(
+						currentService.Spec.Ports,
+						corev1.ServicePort{
+							Port:       33062,
+							TargetPort: intstr.FromInt(33062),
+							Name:       "mysql-admin",
+						},
+					)
+				}
 				currentService.Spec.Type = o.Spec.HAProxy.ServiceType
 			}
 			//Checking default ServiceType
@@ -307,6 +323,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 					TargetPort: intstr.FromInt(3309),
 					Name:       "proxy-protocol",
 				},
+			}
+			if o.CompareVersionWith("1.6.0") >= 0 {
+				currentService.Spec.Ports = append(
+					currentService.Spec.Ports,
+					corev1.ServicePort{
+						Port:       33062,
+						TargetPort: intstr.FromInt(33062),
+						Name:       "mysql-admin",
+					},
+				)
 			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
@@ -366,6 +392,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 						Name: "mysql",
 					},
 				}
+				if o.CompareVersionWith("1.6.0") >= 0 {
+					currentService.Spec.Ports = append(
+						currentService.Spec.Ports,
+						corev1.ServicePort{
+							Port: 33062,
+							Name: "mysql-admin",
+						},
+					)
+				}
 				currentService.Spec.Type = o.Spec.ProxySQL.ServiceType
 			}
 			//Checking default ServiceType
@@ -375,6 +410,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 					Port: 3306,
 					Name: "mysql",
 				},
+			}
+			if o.CompareVersionWith("1.6.0") >= 0 {
+				currentService.Spec.Ports = append(
+					currentService.Spec.Ports,
+					corev1.ServicePort{
+						Port: 33062,
+						Name: "mysql-admin",
+					},
+				)
 			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
@@ -489,7 +533,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.PXC.SSLSecretName+` and `+cr.Spec.PXC.SSLInternalSecretName+` manually or setup cert-manager correctly`, err)
 	}
 
-	sslHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLSecretName)
+	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
@@ -497,12 +541,20 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
-	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
+	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+	}
+
+	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
+	if err != nil {
+		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
+	}
+	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
+		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = sslHash
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)

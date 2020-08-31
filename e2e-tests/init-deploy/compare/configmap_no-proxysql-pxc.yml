@@ -10,7 +10,6 @@ kind: ConfigMap
 metadata:
   name: no-proxysql-pxc
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: no-proxysql

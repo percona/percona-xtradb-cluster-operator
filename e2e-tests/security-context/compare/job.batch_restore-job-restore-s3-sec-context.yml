@@ -5,7 +5,6 @@ metadata:
     job-name: restore-job-restore-s3-sec-context
   name: restore-job-restore-s3-sec-context
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBClusterRestore
     name: restore-s3
@@ -51,7 +50,7 @@ spec:
           requests:
             memory: 1G
         securityContext:
-          privileged: false
+          privileged: true
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:

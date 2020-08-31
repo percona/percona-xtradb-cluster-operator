@@ -1,119 +1,96 @@
 package pxc
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
+
+	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient"
+	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient/models"
+	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient/version_service"
 )
 
-func (vs VersionServiceClient) GetExactVersion(endpoint string, vm VersionMeta) (DepVersion, error) {
-	client := http.Client{
-		Timeout: 5 * time.Second,
-	}
+const productName = "pxc-operator"
 
-	requestURL, err := url.Parse(
-		fmt.Sprintf("%s/v1/pxc-operator/%s/%s",
-			strings.TrimRight(endpoint, "/"),
-			vs.OpVersion,
-			vm.Apply,
-		),
-	)
+func (vs VersionServiceClient) GetExactVersion(endpoint string,vm versionMeta) (DepVersion, error) {
+	requestURL, err := url.Parse(endpoint)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
-	q := requestURL.Query()
-	q.Add("databaseVersion", vm.PXCVersion)
-	q.Add("kubeVersion", vm.KubeVersion)
-	q.Add("platform", vm.Platform)
-	q.Add("customResourceUID", vm.CRUID)
+	srvCl := versionserviceclient.NewHTTPClientWithConfig(nil, &versionserviceclient.TransportConfig{
+		Host:     requestURL.Host,
+		BasePath: requestURL.Path,
+		Schemes:  []string{requestURL.Scheme},
+	})
 
-	if vm.PMMVersion != "" {
-		q.Add("pmmVersion", vm.PMMVersion)
+	applyParams := &version_service.VersionServiceApplyParams{
+		Apply:             vm.Apply,
+		BackupVersion:     &vm.BackupVersion,
+		CustomResourceUID: &vm.CRUID,
+		DatabaseVersion:   &vm.PXCVersion,
+		KubeVersion:       &vm.KubeVersion,
+		OperatorVersion:   vs.OpVersion,
+		Platform:          &vm.Platform,
+		PmmVersion:        &vm.PMMVersion,
+		ProxysqlVersion:   &vm.ProxySQLVersion,
+		HaproxyVersion:    &vm.HAProxyVersion,
+		Product:           productName,
+		HTTPClient:        &http.Client{Timeout: 10 * time.Second},
 	}
+	applyParams = applyParams.WithTimeout(10 * time.Second)
 
-	if vm.BackupVersion != "" {
-		q.Add("backupVersion", vm.BackupVersion)
-	}
+	resp, err := srvCl.VersionService.VersionServiceApply(applyParams)
 
-	if vm.ProxySqlVersion != "" {
-		q.Add("proxysqlVersion", vm.ProxySqlVersion)
-	}
-
-	if vm.HAProxyVersion != "" {
-		q.Add("haproxyVersion", vm.HAProxyVersion)
-	}
-
-	requestURL.RawQuery = q.Encode()
-	req, err := http.NewRequest("GET", requestURL.String(), nil)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
-	req.Header.Set("Accept", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		return DepVersion{}, err
-	}
-
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return DepVersion{}, fmt.Errorf("received bad status code %s", resp.Status)
-	}
-
-	r := VersionResponse{}
-	err = json.NewDecoder(resp.Body).Decode(&r)
-	if err != nil {
-		return DepVersion{}, fmt.Errorf("failed to unmarshal response: %v", err)
-	}
-
-	if len(r.Versions) == 0 {
+	if len(resp.Payload.Versions) == 0 {
 		return DepVersion{}, fmt.Errorf("empty versions response")
 	}
 
-	pxcVersion, err := getVersion(r.Versions[0].Matrix.PXC)
+	pxcVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Pxc)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
-	backupVersion, err := getVersion(r.Versions[0].Matrix.Backup)
+	backupVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Backup)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
-	pmmVersion, err := getVersion(r.Versions[0].Matrix.PMM)
+	pmmVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Pmm)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
-	proxySqlVersion, err := getVersion(r.Versions[0].Matrix.ProxySQL)
+	proxySqlVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Proxysql)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
-	haproxyVersion, err := getVersion(r.Versions[0].Matrix.HAProxy)
+	haproxyVersion, err := getVersion(resp.Payload.Versions[0].Matrix.Haproxy)
 	if err != nil {
 		return DepVersion{}, err
 	}
 
 	return DepVersion{
-		PXCImage:        r.Versions[0].Matrix.PXC[pxcVersion].ImagePath,
+		PXCImage:        resp.Payload.Versions[0].Matrix.Pxc[pxcVersion].ImagePath,
 		PXCVersion:      pxcVersion,
-		BackupImage:     r.Versions[0].Matrix.Backup[backupVersion].ImagePath,
+		BackupImage:     resp.Payload.Versions[0].Matrix.Backup[backupVersion].ImagePath,
 		BackupVersion:   backupVersion,
-		ProxySqlImage:   r.Versions[0].Matrix.ProxySQL[proxySqlVersion].ImagePath,
+		ProxySqlImage:   resp.Payload.Versions[0].Matrix.Proxysql[proxySqlVersion].ImagePath,
 		ProxySqlVersion: proxySqlVersion,
-		HAProxyImage:    r.Versions[0].Matrix.HAProxy[haproxyVersion].ImagePath,
-		HAProxyVersion:  haproxyVersion,
-		PMMImage:        r.Versions[0].Matrix.PMM[pmmVersion].ImagePath,
+		PMMImage:        resp.Payload.Versions[0].Matrix.Pmm[pmmVersion].ImagePath,
 		PMMVersion:      pmmVersion,
+		HAProxyImage:    resp.Payload.Versions[0].Matrix.Haproxy[haproxyVersion].ImagePath,
+		HAProxyVersion:  haproxyVersion,
 	}, nil
 }
 
-func getVersion(versions map[string]Version) (string, error) {
+func getVersion(versions map[string]models.VersionVersion) (string, error) {
 	if len(versions) != 1 {
 		return "", fmt.Errorf("response has multiple or zero versions")
 	}
@@ -138,47 +115,21 @@ type DepVersion struct {
 }
 
 type VersionService interface {
-	GetExactVersion(endpoint string, vm VersionMeta) (DepVersion, error)
+	GetExactVersion(endpoint string,vm versionMeta) (DepVersion, error)
 }
 
 type VersionServiceClient struct {
 	OpVersion string
 }
 
-type Version struct {
-	Version   string `json:"version"`
-	ImagePath string `json:"imagePath"`
-	Imagehash string `json:"imageHash"`
-	Status    string `json:"status"`
-	Critilal  bool   `json:"critilal"`
-}
-
-type VersionMatrix struct {
-	PXC      map[string]Version `json:"pxc"`
-	PMM      map[string]Version `json:"pmm"`
-	ProxySQL map[string]Version `json:"proxysql"`
-	HAProxy  map[string]Version `json:"haproxy"`
-	Backup   map[string]Version `json:"backup"`
-}
-
-type OperatorVersion struct {
-	Operator string        `json:"operator"`
-	Database string        `json:"database"`
-	Matrix   VersionMatrix `json:"matrix"`
-}
-
-type VersionResponse struct {
-	Versions []OperatorVersion `json:"versions"`
-}
-
-type VersionMeta struct {
+type versionMeta struct {
 	Apply           string
 	PXCVersion      string
 	KubeVersion     string
 	Platform        string
-	ProxySqlVersion string
-	HAProxyVersion  string
 	PMMVersion      string
 	BackupVersion   string
+	ProxySQLVersion string
+	HAProxyVersion  string
 	CRUID           string
 }

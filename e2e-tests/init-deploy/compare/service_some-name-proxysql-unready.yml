@@ -8,7 +8,6 @@ metadata:
     app.kubernetes.io/name: percona-xtradb-cluster
   name: some-name-proxysql-unready
   ownerReferences:
-  - apiVersion: pxc.percona.com/v1
     controller: true
     kind: PerconaXtraDBCluster
     name: some-name
@@ -22,6 +21,10 @@ spec:
     port: 6032
     protocol: TCP
     targetPort: 6032
+  - name: mysql-admin
+    port: 33062
+    protocol: TCP
+    targetPort: 33062
   selector:
     app.kubernetes.io/component: proxysql
     app.kubernetes.io/instance: some-name

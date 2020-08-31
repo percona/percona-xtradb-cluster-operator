@@ -18,9 +18,9 @@ import (
 
 const internalPrefix = "internal-"
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) (map[string]string, map[string]string, error) {
+func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) (pxcAnnotations, proxysqlAnnotations map[string]string, err error) {
 	sysUsersSecretObj := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
+	err = r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.SecretsName,
@@ -110,8 +110,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "update internal sys users secret")
 	}
-	pxcAnnotations := make(map[string]string)
-	proxysqlAnnotations := make(map[string]string)
+	pxcAnnotations = make(map[string]string)
+	proxysqlAnnotations = make(map[string]string)
 
 	if restartProxy {
 		proxysqlAnnotations["last-applied-secret"] = newSecretDataHash
@@ -294,26 +294,27 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 		return nil
 	}
 	// sync users if ProxySql enabled
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		pod := corev1.Pod{}
-		err := r.client.Get(context.TODO(),
-			types.NamespacedName{
-				Namespace: cr.Namespace,
-				Name:      cr.Name + "-proxysql-0",
-			},
-			&pod,
-		)
-		if err != nil {
-			return errors.Wrap(err, "get proxysql pod")
-		}
-		var errb, outb bytes.Buffer
-		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers"}, nil, &outb, &errb, false)
-		if err != nil {
-			return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
-		}
-		if len(errb.Bytes()) > 0 {
-			return errors.New("syncusers: " + errb.String())
-		}
+	if cr.Spec.ProxySQL != nil && !cr.Spec.ProxySQL.Enabled {
+		return nil
+	}
+	pod := corev1.Pod{}
+	err := r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      cr.Name + "-proxysql-0",
+		},
+		&pod,
+	)
+	if err != nil {
+		return errors.Wrap(err, "get proxysql pod")
+	}
+	var errb, outb bytes.Buffer
+	err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers"}, nil, &outb, &errb, false)
+	if err != nil {
+		return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
+	}
+	if len(errb.Bytes()) > 0 {
+		return errors.New("syncusers: " + errb.String())
 	}
 
 	return nil

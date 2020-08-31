@@ -198,7 +198,7 @@ func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
 	return nil
 }
 
-// Update160MonitorUserGrant grant SERVICE_CONNECTION_ADMIN to monitor user ig version of pxc 8 or more and set his MAX_USER_CONNECTIONS to 100
+// Update160MonitorUserGrant grant SERVICE_CONNECTION_ADMIN to monitor user if version of pxc 8 or more and set his MAX_USER_CONNECTIONS to 100
 func (u *Manager) Update160MonitorUserGrant() error {
 	tx, err := u.db.Begin()
 	if err != nil {

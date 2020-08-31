@@ -551,7 +551,9 @@ func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) (bool, error) 
 		return false, errors.Wrap(err, "load configuration")
 	}
 	s, err := file.GetSection(section)
-	if err != nil {
+	if err != nil && strings.Contains(err.Error(), "does not exist") {
+		return false, nil
+	} else if err != nil {
 		return false, errors.Wrap(err, "get section")
 	}
 

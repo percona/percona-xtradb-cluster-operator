@@ -307,6 +307,11 @@ func (cr *PerconaXtraDBCluster) setSecurityContext() {
 	}
 }
 
+func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
+	_, ok := cr.Annotations["percona.com/issue-vault-token"]
+	return ok
+}
+
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster

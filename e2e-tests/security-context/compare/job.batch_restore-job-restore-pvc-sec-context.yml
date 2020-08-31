@@ -38,7 +38,7 @@ spec:
           requests:
             memory: 1G
         securityContext:
-          privileged: false
+          privileged: true
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:

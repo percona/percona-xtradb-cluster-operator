@@ -120,7 +120,7 @@ spec:
             cpu: 100m
             memory: 100M
         securityContext:
-          privileged: true
+          privileged: false
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -146,7 +146,7 @@ spec:
         name: pxc-init
         resources: {}
         securityContext:
-          privileged: true
+          privileged: false
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -157,8 +157,8 @@ spec:
       securityContext:
         fsGroup: 1001
         runAsUser: 1001
-      serviceAccount: default
-      serviceAccountName: default
+      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 600
       volumes:
       - emptyDir: {}

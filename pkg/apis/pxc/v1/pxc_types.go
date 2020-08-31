@@ -544,16 +544,18 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
 	return cr.Version().Compare(v.Must(v.NewVersion(version)))
 }
 
-func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) bool {
+// ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section
+func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) (bool, error) {
 	file, err := ini.LoadSources(ini.LoadOptions{AllowBooleanKeys: true}, []byte(cr.Spec.PXC.Configuration))
 	if err != nil {
-		return false
+		return false, err
 	}
 	s, err := file.GetSection(section)
 	if err != nil {
-		return false
+		return false, err
 	}
-	return s.HasKey(key)
+
+	return s.HasKey(key), nil
 }
 
 const AffinityTopologyKeyOff = "none"

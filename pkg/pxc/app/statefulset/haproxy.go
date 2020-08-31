@@ -5,6 +5,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,7 +106,11 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		)
 	}
 
-	if cr.ConfigHasKey("mysqld", "proxy_protocol_networks") {
+	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	if err != nil {
+		return appc, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	}
+	if hasKey {
 		appc.Env = append(appc.Env, corev1.EnvVar{
 			Name:  "IS_PROXY_PROTOCOL",
 			Value: "yes",
@@ -161,12 +166,17 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		SecurityContext: spec.ContainerSecurityContext,
 	}
 
-	if cr.ConfigHasKey("mysqld", "proxy_protocol_networks") {
+	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	if err != nil {
+		return nil, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	}
+	if hasKey {
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  "IS_PROXY_PROTOCOL",
 			Value: "yes",
 		})
 	}
+
 	return []corev1.Container{container}, nil
 }
 

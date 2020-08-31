@@ -548,11 +548,11 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
 func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) (bool, error) {
 	file, err := ini.LoadSources(ini.LoadOptions{AllowBooleanKeys: true}, []byte(cr.Spec.PXC.Configuration))
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "load configuration")
 	}
 	s, err := file.GetSection(section)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "get section")
 	}
 
 	return s.HasKey(key), nil

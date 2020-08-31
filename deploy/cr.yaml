@@ -16,12 +16,13 @@ spec:
   sslInternalSecretName: my-cluster-ssl-internal
 #  tls:
 #    SANs:
-#      - test.com
-#      - google.com
+#      - pxc-1.example.com
+#      - pxc-2.example.com
+#      - pxc-3.example.com
 #    issuerConf:
-#      kind: "Issuer"
-#      name: "cluster1-pxc-ca"
-#      group: "pxc.percona.com"
+#      name: example-com-ca
+#      kind: ClusterIssuer
+#      group: pxc.percona.com
   allowUnsafeConfigurations: false
 #  pause: false
   updateStrategy: SmartUpdate

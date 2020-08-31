@@ -198,43 +198,40 @@ func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
 	return nil
 }
 
-// Update160MonitorUserGrant grant SERVICE_CONNECTION_ADMIN to monitor user if version of pxc 8 or more and set his MAX_USER_CONNECTIONS to 100
-func (u *Manager) Update160MonitorUserGrant() error {
+// Update160MonitorUserGrant grants SERVICE_CONNECTION_ADMIN rights to the monitor user
+// if pxc version is 8 or more and sets the MAX_USER_CONNECTIONS parameter to 100 (empirically determined)
+func (u *Manager) Update160MonitorUserGrant() (err error) {
 	tx, err := u.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")
 	}
 
+	defer func() {
+		if err != nil {
+			errT := tx.Rollback()
+			if errT != nil {
+				err = errors.Wrapf(err, "rollback error: %v, transaction failed with", errT)
+			}
+			return
+		}
+
+		err = tx.Commit()
+		err = errors.Wrap(err, "commit transaction")
+	}()
+
 	_, err = tx.Exec("/*!80015 GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%' */")
 	if err != nil {
-		errT := tx.Rollback()
-		if errT != nil {
-			return errors.Errorf("grant service_connection to user monitor: %v, tx rollback: %v", err, errT)
-		}
 		return errors.Wrapf(err, "grant service_connection to user monitor")
 	}
 
 	_, err = tx.Exec("ALTER USER 'monitor'@'%' WITH MAX_USER_CONNECTIONS 100")
 	if err != nil {
-		errT := tx.Rollback()
-		if errT != nil {
-			return errors.Errorf("set max connections to user monitor: %v, tx rollback: %v", err, errT)
-		}
 		return errors.Wrapf(err, "set max connections to user monitor")
 	}
 
 	_, err = tx.Exec("FLUSH PRIVILEGES")
 	if err != nil {
-		errT := tx.Rollback()
-		if errT != nil {
-			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
-		}
 		return errors.Wrap(err, "flush privileges")
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return errors.Wrap(err, "commit transaction")
 	}
 
 	return nil

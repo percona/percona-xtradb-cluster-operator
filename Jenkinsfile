@@ -264,6 +264,9 @@ pipeline {
                         runTest('auto-tuning', 'basic')
                         runTest('proxysql-sidecar-res-limits', 'basic')
                         runTest('users', 'basic')
+                        runTest('tls-issue-self','basic')
+                        runTest('tls-issue-cert-manager','basic')
+                        runTest('tls-issue-cert-manager-ref','basic')
                         ShutdownCluster('basic')
                    }
                 }
@@ -304,15 +307,6 @@ pipeline {
                         CreateCluster('bigdata')
                         runTest('big-data', 'bigdata')
                         ShutdownCluster('bigdata')
-                    }
-                }
-                stage('TLS'){
-                    steps {
-                        CreateCluster('tls')
-                        runTest('tls-issue-self','tls')
-                        runTest('tls-issue-cert-manager','tls')
-                        runTest('tls-issue-cert-manager-ref','tls')
-                        ShutdownCluster('tls')
                     }
                 }
             }

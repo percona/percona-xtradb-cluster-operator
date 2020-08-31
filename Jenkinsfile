@@ -312,6 +312,7 @@ pipeline {
                         runTest('tls-issue-self','tls')
                         runTest('tls-issue-cert-manager','tls')
                         runTest('tls-issue-cert-manager-ref','tls')
+                        ShutdownCluster('tls')
                     }
                 }
             }

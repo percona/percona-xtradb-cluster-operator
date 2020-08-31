@@ -306,6 +306,14 @@ pipeline {
                         ShutdownCluster('bigdata')
                     }
                 }
+                stage('TLS'){
+                    steps {
+                        CreateCluster('tls')
+                        runTest('tls-issue-self','tls')
+                        runTest('tls-issue-cert-manager','tls')
+                        runTest('tls-issue-cert-manager-ref','tls')
+                    }
+                }
             }
         }
     }

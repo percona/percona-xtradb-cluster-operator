@@ -19,8 +19,8 @@ spec:
 #      - test.com
 #      - google.com
 #    issuerConf:
-#      name: "Issuer"
-#      kind: "cluster1-pxc-ca"
+#      kind: "Issuer"
+#      name: "cluster1-pxc-ca"
 #      group: "pxc.percona.com"
   allowUnsafeConfigurations: false
 #  pause: false

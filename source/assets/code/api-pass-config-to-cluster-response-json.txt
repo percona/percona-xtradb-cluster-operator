@@ -1,0 +1,36 @@
+.. code-block:: json
+
+	{
+	   "kind":"ConfigMap",
+	   "apiVersion":"v1",
+	   "metadata":{
+	      "name":"cluster1-pxc3",
+	      "namespace":"default",
+	      "selfLink":"/api/v1/namespaces/default/configmaps/cluster1-pxc3",
+	      "uid":"d92c7196-f399-4e20-abc7-b5de62c0691b",
+	      "resourceVersion":"85258",
+	      "creationTimestamp":"2020-05-28T14:19:41Z",
+	      "managedFields":[
+		 {
+		    "manager":"kubectl",
+		    "operation":"Update",
+		    "apiVersion":"v1",
+		    "time":"2020-05-28T14:19:41Z",
+		    "fieldsType":"FieldsV1",
+		    "fieldsV1":{
+		       "f:data":{
+		          ".":{
+
+		          },
+		          "f:my.cnf":{
+
+		          }
+		       }
+		    }
+		 }
+	      ]
+	   },
+	   "data":{
+	      "my.cnf":""
+	   }
+	}

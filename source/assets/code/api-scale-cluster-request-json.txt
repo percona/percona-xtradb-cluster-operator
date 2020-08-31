@@ -1,0 +1,5 @@
+.. code-block:: json
+
+	{
+	"spec": {"pxc":{ "size": "5" }
+	}}

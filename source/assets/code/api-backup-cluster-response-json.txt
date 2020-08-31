@@ -1,0 +1,41 @@
+.. code-block:: json
+
+	{
+	   "apiVersion":"pxc.percona.com/v1",
+	   "kind":"PerconaXtraDBClusterBackup",
+	   "metadata":{
+	      "creationTimestamp":"2020-05-27T23:56:33Z",
+	      "generation":1,
+	      "managedFields":[
+		 {
+		    "apiVersion":"pxc.percona.com/v1",
+		    "fieldsType":"FieldsV1",
+		    "fieldsV1":{
+		       "f:spec":{
+		          ".":{
+
+		          },
+		          "f:pxcCluster":{
+
+		          },
+		          "f:storageName":{
+
+		          }
+		       }
+		    },
+		    "manager":"kubectl",
+		    "operation":"Update",
+		    "time":"2020-05-27T23:56:33Z"
+		 }
+	      ],
+	      "name":"backup1",
+	      "namespace":"default",
+	      "resourceVersion":"26024",
+	      "selfLink":"/apis/pxc.percona.com/v1/namespaces/default/perconaxtradbclusterbackups/backup1",
+	      "uid":"95a354b1-e25b-40c3-8be4-388acca055fe"
+	   },
+	   "spec":{
+	      "pxcCluster":"cluster1",
+	      "storageName":"fs-pvc"
+	   }
+	}

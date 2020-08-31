@@ -58,9 +58,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "get internal sys users secret")
 	}
 
-	err = r.manageMonitorUser(cr, &internalSysSecretObj)
-	if err != nil {
-		return errors.Wrap(err, "new users manager for grant")
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		err = r.manageMonitorUser(cr, &internalSysSecretObj)
+		if err != nil {
+			return errors.Wrap(err, "manage monitor user")
+		}
 	}
 
 	dataChanged, err := sysUsersSecretDataChanged(newSecretDataHash, &internalSysSecretObj)

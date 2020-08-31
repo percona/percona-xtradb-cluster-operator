@@ -126,42 +126,48 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 	if err != nil {
 		return nil, fmt.Errorf("create sidecar resources error: %v", err)
 	}
-	return []corev1.Container{
-		{
-			Name:            "pxc-monit",
-			Image:           spec.Image,
-			ImagePullPolicy: corev1.PullAlways,
-			Args: []string{
-				"/usr/bin/peer-list",
-				"-on-change=/usr/bin/add_pxc_nodes.sh",
-				"-service=$(PXC_SERVICE)",
-			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "PXC_SERVICE",
-					Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
-				},
-				{
-					Name: "MONITOR_PASSWORD",
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
-					},
-				},
-			},
-			Resources: res,
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "haproxy-custom",
-					MountPath: "/etc/haproxy-custom/",
-				},
-				{
-					Name:      "haproxy-auto",
-					MountPath: "/etc/haproxy/pxc",
-				},
-			},
-			SecurityContext: spec.ContainerSecurityContext,
+	container := corev1.Container{
+		Name:            "pxc-monit",
+		Image:           spec.Image,
+		ImagePullPolicy: corev1.PullAlways,
+		Args: []string{
+			"/usr/bin/peer-list",
+			"-on-change=/usr/bin/add_pxc_nodes.sh",
+			"-service=$(PXC_SERVICE)",
 		},
-	}, nil
+		Env: []corev1.EnvVar{
+			{
+				Name:  "PXC_SERVICE",
+				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
+			},
+			{
+				Name: "MONITOR_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				},
+			},
+		},
+		Resources: res,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "haproxy-custom",
+				MountPath: "/etc/haproxy-custom/",
+			},
+			{
+				Name:      "haproxy-auto",
+				MountPath: "/etc/haproxy/pxc",
+			},
+		},
+		SecurityContext: spec.ContainerSecurityContext,
+	}
+
+	if cr.ConfigHasKey("mysqld", "proxy_protocol_networks") {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  "IS_PROXY_PROTOCOL",
+			Value: "yes",
+		})
+	}
+	return []corev1.Container{container}, nil
 }
 
 func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {

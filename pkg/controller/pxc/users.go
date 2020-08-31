@@ -18,6 +18,8 @@ import (
 )
 
 const internalPrefix = "internal-"
+const monitorUser160Grant = "grant-1.6.0"
+const monitorUser160MaxConn = "max-connect-1.6.0"
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) error {
 	if cr.Status.PXC.Ready > 0 {
@@ -56,11 +58,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "get internal sys users secret")
 	}
 
-	if _, ok := internalSysSecretObj.Annotations["grant-for-user"]; !ok {
-		err := r.manageMonitorUser(cr, &internalSysSecretObj)
-		if err != nil {
-			return errors.Wrap(err, "new users manager for grant")
-		}
+	err = r.manageMonitorUser(cr, &internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "new users manager for grant")
 	}
 
 	dataChanged, err := sysUsersSecretDataChanged(newSecretDataHash, &internalSysSecretObj)
@@ -100,36 +100,65 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+	err := r.updateMonitorUser(monitorUser160Grant, cr, internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update monitor grant")
+	}
+	err = r.updateMonitorUser(monitorUser160MaxConn, cr, internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update monitor max connections")
+	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateMonitorUser(option string, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+	var annotationName string
+	switch option {
+	case monitorUser160Grant:
+		annotationName = "grant-for-1.6.0-monitor-user"
+	case monitorUser160MaxConn:
+		annotationName = "max-connect-1.6.0-monitor-user"
+	}
+
+	if _, ok := internalSysSecretObj.Annotations[annotationName]; ok {
+		return nil
+	}
+
 	rootPass, ok := internalSysSecretObj.Data["root"]
 	if !ok {
 		return errors.New("no root user in internal secret")
 	}
-	if cr.ComparePXCVersionWith("8.0") < 0 {
-		return nil
-	}
-	um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, "root", string(rootPass))
+	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", "root", string(rootPass))
 	if err != nil {
 		return errors.Wrap(err, "new users manager for grant")
 	}
 	defer um.Close()
 
-	err = um.UpdateUserGrant("monitor")
-	if err != nil {
-		return errors.Wrap(err, "update monitor grant")
+	switch option {
+	case monitorUser160Grant:
+		err = um.Update160MonitorUserGrant()
+		if err != nil {
+			return errors.Wrap(err, "update monitor grant")
+		}
+	case monitorUser160MaxConn:
+		err = um.Update160MonitorUserMaxConnections()
+		if err != nil {
+			return errors.Wrap(err, "update monitor grant")
+		}
 	}
 
 	if internalSysSecretObj.Annotations == nil {
 		internalSysSecretObj.Annotations = make(map[string]string)
 	}
 
-	internalSysSecretObj.Annotations["grant-for-user"] = "done"
+	internalSysSecretObj.Annotations[annotationName] = "done"
 	err = r.client.Update(context.TODO(), internalSysSecretObj)
 	if err != nil {
-		return errors.Wrap(err, "update internal sys users secret")
+		return errors.Wrapf(err, "update internal sys users secret annotation for %s", option)
 	}
-
 	return nil
 }
+
 func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
 	var restartPXC, restartProxy, syncProxySQLUsers bool
 
@@ -189,7 +218,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, pxcUser, pxcPass)
+	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", pxcUser, pxcPass)
 	if err != nil {
 		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
 	}
@@ -397,7 +426,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 		return errors.Wrap(err, "generate password")
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, "root", string(sysUsersSecretObj.Data["root"]))
+	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", "root", string(sysUsersSecretObj.Data["root"]))
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}

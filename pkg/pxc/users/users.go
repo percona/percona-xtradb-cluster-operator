@@ -198,6 +198,7 @@ func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
 	return nil
 }
 
+// Update160MonitorUserGrant grant SERVICE_CONNECTION_ADMIN to monitor user ig version of pxc 8 or more and set his MAX_USER_CONNECTIONS to 100
 func (u *Manager) Update160MonitorUserGrant() error {
 	tx, err := u.db.Begin()
 	if err != nil {
@@ -211,29 +212,6 @@ func (u *Manager) Update160MonitorUserGrant() error {
 			return errors.Errorf("grant service_connection to user monitor: %v, tx rollback: %v", err, errT)
 		}
 		return errors.Wrapf(err, "grant service_connection to user monitor")
-	}
-
-	_, err = tx.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		errT := tx.Rollback()
-		if errT != nil {
-			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
-		}
-		return errors.Wrap(err, "flush privileges")
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return errors.Wrap(err, "commit transaction")
-	}
-
-	return nil
-}
-
-func (u *Manager) Update160MonitorUserMaxConnections() error {
-	tx, err := u.db.Begin()
-	if err != nil {
-		return errors.Wrap(err, "begin transaction")
 	}
 
 	_, err = tx.Exec("ALTER USER 'monitor'@'%' WITH MAX_USER_CONNECTIONS 100")

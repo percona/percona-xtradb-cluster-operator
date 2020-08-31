@@ -18,8 +18,6 @@ import (
 )
 
 const internalPrefix = "internal-"
-const monitorUser160Grant = "grant-1.6.0"
-const monitorUser160MaxConn = "max-connect-1.6.0"
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) error {
 	if cr.Status.PXC.Ready > 0 {
@@ -59,6 +57,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	}
 
 	if cr.CompareVersionWith("1.6.0") >= 0 {
+		// monitor user need more grants for work in version more then 1.6.0
 		err = r.manageMonitorUser(cr, &internalSysSecretObj)
 		if err != nil {
 			return errors.Wrap(err, "manage monitor user")
@@ -102,26 +101,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
-	err := r.updateMonitorUser(monitorUser160Grant, cr, internalSysSecretObj)
-	if err != nil {
-		return errors.Wrap(err, "update monitor grant")
-	}
-	err = r.updateMonitorUser(monitorUser160MaxConn, cr, internalSysSecretObj)
-	if err != nil {
-		return errors.Wrap(err, "update monitor max connections")
-	}
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) updateMonitorUser(option string, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
-	var annotationName string
-	switch option {
-	case monitorUser160Grant:
-		annotationName = "grant-for-1.6.0-monitor-user"
-	case monitorUser160MaxConn:
-		annotationName = "max-connect-1.6.0-monitor-user"
-	}
-
+	annotationName := "grant-for-1.6.0-monitor-user"
 	if _, ok := internalSysSecretObj.Annotations[annotationName]; ok {
 		return nil
 	}
@@ -130,23 +110,16 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUser(option string, cr *api
 	if !ok {
 		return errors.New("no root user in internal secret")
 	}
+
 	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", "root", string(rootPass))
 	if err != nil {
 		return errors.Wrap(err, "new users manager for grant")
 	}
 	defer um.Close()
 
-	switch option {
-	case monitorUser160Grant:
-		err = um.Update160MonitorUserGrant()
-		if err != nil {
-			return errors.Wrap(err, "update monitor grant")
-		}
-	case monitorUser160MaxConn:
-		err = um.Update160MonitorUserMaxConnections()
-		if err != nil {
-			return errors.Wrap(err, "update monitor grant")
-		}
+	err = um.Update160MonitorUserGrant()
+	if err != nil {
+		return errors.Wrap(err, "update monitor grant")
 	}
 
 	if internalSysSecretObj.Annotations == nil {
@@ -156,8 +129,9 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUser(option string, cr *api
 	internalSysSecretObj.Annotations[annotationName] = "done"
 	err = r.client.Update(context.TODO(), internalSysSecretObj)
 	if err != nil {
-		return errors.Wrapf(err, "update internal sys users secret annotation for %s", option)
+		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
+
 	return nil
 }
 
@@ -220,7 +194,11 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", pxcUser, pxcPass)
+	addr := cr.Name + "-pxc." + cr.Namespace
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+	um, err := users.NewManager(addr, pxcUser, pxcPass)
 	if err != nil {
 		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
 	}
@@ -427,8 +405,11 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	if err != nil {
 		return errors.Wrap(err, "generate password")
 	}
-
-	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", "root", string(sysUsersSecretObj.Data["root"]))
+	addr := cr.Name + "-pxc." + cr.Namespace
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+	um, err := users.NewManager(addr, "root", string(sysUsersSecretObj.Data["root"]))
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}

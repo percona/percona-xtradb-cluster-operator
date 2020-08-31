@@ -63,6 +63,14 @@ if [ "${#PEERS_FULL[@]}" != 0 ]; then
 fi
 
 CFG=/etc/mysql/node.cnf
+MYSQL_VERSION=$(mysqld -V | awk '{print $3}' | awk -F'.' '{print $1"."$2}')
+if [ "$MYSQL_VERSION" == '8.0' ]; then
+    egrep -q "^[#]?admin-address" "$CFG" || sed '/^\[mysqld\]/a admin-address=\n' ${CFG} 1<> ${CFG}
+else
+    egrep -q "^[#]?extra_max_connections" "$CFG" || sed '/^\[mysqld\]/a extra_max_connections=\n' ${CFG} 1<> ${CFG}
+    egrep -q "^[#]?extra_port" "$CFG" || sed '/^\[mysqld\]/a extra_port=\n' ${CFG} 1<> ${CFG}
+fi
+
 egrep -q "^[#]?wsrep_sst_donor" "$CFG" || sed '/^\[mysqld\]/a wsrep_sst_donor=\n' ${CFG} 1<> ${CFG}
 egrep -q "^[#]?wsrep_node_incoming_address" "$CFG" || sed '/^\[mysqld\]/a wsrep_node_incoming_address=\n' ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?server_id=.*$|server_id=1${SERVER_ID}|" ${CFG} 1<> ${CFG}
@@ -72,6 +80,9 @@ sed -r "s|^[#]?wsrep_sst_donor=.*$|wsrep_sst_donor=${DONOR_ADDRESS}|" ${CFG} 1<>
 sed -r "s|^[#]?wsrep_cluster_address=.*$|wsrep_cluster_address=gcomm://${WSREP_CLUSTER_ADDRESS}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NODE_NAME}:${NODE_PORT}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:$XTRABACKUP_PASSWORD'|" ${CFG} 1<> ${CFG}
+sed -r "s|^[#]?admin-address=.*$|admin-address=${NODE_IP}|" ${CFG} 1<> ${CFG}
+sed -r "s|^[#]?extra_max_connections=.*$|extra_max_connections=100|" ${CFG} 1<> ${CFG}
+sed -r "s|^[#]?extra_port=.*$|extra_port=33062|" ${CFG} 1<> ${CFG}
 
 CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 if [ -f /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt ]; then

@@ -112,7 +112,7 @@ main() {
     kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.6.0"}
     }'
-    wait_for_sts_generation "$cluster-pxc" "5" "1"
+    wait_for_sts_generation "$cluster-pxc" "6" "1"
 
     compare_kubectl service/$cluster-pxc "-160"
     compare_kubectl service/$cluster-proxysql "-160"

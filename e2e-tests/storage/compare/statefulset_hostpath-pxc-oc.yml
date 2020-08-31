@@ -97,6 +97,9 @@ spec:
         - containerPort: 4568
           name: ist
           protocol: TCP
+        - containerPort: 33062
+          name: mysql-admin
+          protocol: TCP
         readinessProbe:
           exec:
             command:

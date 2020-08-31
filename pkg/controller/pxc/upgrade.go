@@ -291,16 +291,22 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 	var database queries.Database
 	var user, host string
 	var port, proxySize int32
+
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		user = "proxyadmin"
 		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
-		port = 6032
 		proxySize = cr.Spec.ProxySQL.Size
+		port = 6032
 	} else if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		user = "monitor"
 		host = fmt.Sprintf("%s-haproxy.%s", cr.ObjectMeta.Name, cr.Namespace)
-		port = 3306
 		proxySize = cr.Spec.HAProxy.Size
+
+		if cr.CompareVersionWith("1.6.0") >= 0 {
+			port = 33062
+		} else {
+			port = 3306
+		}
 	} else {
 		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 	}
@@ -343,7 +349,12 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, podIP string, waitLimit int) error {
 	user := "root"
 
-	database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podIP, 3306)
+	port := int32(3306)
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		port = int32(33062)
+	}
+
+	database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podIP, port)
 	if err != nil {
 		return fmt.Errorf("failed to access PXC database: %v", err)
 	}

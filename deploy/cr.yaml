@@ -140,6 +140,7 @@ spec:
 #    labels:
 #      rack: rack-22
 #    serviceType: ClusterIP
+#    externalTrafficPolicy: Cluster
 #    schedulerName: "default"
     resources:
       requests:
@@ -244,6 +245,7 @@ spec:
 #    labels:
 #      rack: rack-22
 #    serviceType: ClusterIP
+#    externalTrafficPolicy: Cluster
 #    schedulerName: "default"
     resources:
       requests:

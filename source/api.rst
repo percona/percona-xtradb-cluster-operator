@@ -55,7 +55,7 @@ Prerequisites
 
       # set correct API address
       KUBE_CLUSTER=$(kubectl config view --minify -o jsonpath='{.clusters[0].name}')
-      API_SERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$KUBE_CLUSTER\")].cluster.server}" | tr -d 'https://')
+      API_SERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$KUBE_CLUSTER\")].cluster.server}" | sed -e 's#https://##')
 
       # create service account and get token
       kubectl apply -f deploy/crd.yaml -f deploy/rbac.yaml -n default

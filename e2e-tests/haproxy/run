@@ -21,7 +21,7 @@ main() {
 
   desc 'create first PXC cluster with HAProxy'
   cluster="some-name"
-  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 true
+  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10
 
   desc 'checking all haproxy pods point to the same writer'
   check_haproxy_writer

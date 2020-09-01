@@ -8,8 +8,9 @@ import (
 
 // PerconaXtraDBClusterRestoreSpec defines the desired state of PerconaXtraDBClusterRestore
 type PerconaXtraDBClusterRestoreSpec struct {
-	PXCCluster string `json:"pxcCluster"`
-	BackupName string `json:"backupName"`
+	PXCCluster   string           `json:"pxcCluster"`
+	BackupName   string           `json:"backupName"`
+	BackupSource *PXCBackupStatus `json:"backupSource"`
 }
 
 // PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore

@@ -37,14 +37,14 @@ main() {
   desc 'enable proxy-sql'
   apply_config "$test_dir/conf/$cluster-proxysql.yml"
   sleep 50
-  compare_kubectl statefulset/some-name-proxysql
-  compare_kubectl service/some-name-proxysql
+  compare_kubectl statefulset/$cluster-proxysql
+  compare_kubectl service/$cluster-proxysql
 
   desc 're-enable haproxy'
   apply_config "$test_dir/conf/$cluster.yml"
   sleep 50
   compare_kubectl statefulset/$cluster-haproxy
-  compare_kubectl service/some-name-haproxy
+  compare_kubectl service/$cluster-haproxy
 
   desc 'clean up'
   destroy $namespace

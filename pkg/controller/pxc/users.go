@@ -106,12 +106,14 @@ func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBC
 		return nil
 	}
 
-	rootPass, ok := internalSysSecretObj.Data["root"]
-	if !ok {
-		return errors.New("no root user in internal secret")
+	pxcUser := "root"
+	pxcPass := string(internalSysSecretObj.Data["root"])
+	if _, ok := internalSysSecretObj.Data["operator"]; ok {
+		pxcUser = "operator"
+		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", "root", string(rootPass))
+	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", pxcUser, pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "new users manager for grant")
 	}

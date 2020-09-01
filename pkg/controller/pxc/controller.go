@@ -329,6 +329,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
+
+		if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
+			if len(o.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
+				currentService.Spec.ExternalTrafficPolicy = o.Spec.HAProxy.ExternalTrafficPolicy
+			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.HAProxy.ExternalTrafficPolicy {
+				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
+		}
+
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
 			err = fmt.Errorf("HAProxy service upgrade error: %v", err)

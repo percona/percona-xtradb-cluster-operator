@@ -320,15 +320,3 @@ func (c *Node) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetUp
 		}
 	}
 }
-
-func (c *Node) SetSfsSpecTemplateAnnotations(annotations map[string]string) {
-	if len(annotations) == 0 {
-		return
-	}
-	if c.sfs.Spec.Template.Annotations == nil {
-		c.sfs.Spec.Template.Annotations = make(map[string]string)
-	}
-	for k, v := range annotations {
-		c.sfs.Spec.Template.Annotations[k] = v
-	}
-}

@@ -161,48 +161,84 @@ func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBC
 }
 
 func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
-	var restartPXC, restartProxy, syncProxySQLUsers bool
-
-	var sysUsers []users.SysUser
-	var proxyUsers []users.SysUser
+	type action struct {
+		need             bool
+		needIfPMMEnabled bool
+	}
 
 	type user struct {
-		name  string
-		hosts []string
+		name              string
+		hosts             []string
+		proxyUser         bool
+		restartPXC        action
+		restartProxy      action
+		syncProxySQLUsers action
 	}
 	requiredUsers := []user{
 		{
 			name:  "root",
 			hosts: []string{"localhost", "%"},
+			syncProxySQLUsers: action{
+				need: true,
+			},
 		},
 		{
 			name:  "xtrabackup",
 			hosts: []string{"localhost"},
+			restartPXC: action{
+				need: true,
+			},
 		},
 		{
-			name:  "monitor",
-			hosts: []string{"%"},
+			name:      "monitor",
+			hosts:     []string{"%"},
+			proxyUser: true,
+			restartProxy: action{
+				need: true,
+			},
+			restartPXC: action{
+				needIfPMMEnabled: true,
+			},
 		},
 		{
 			name:  "clustercheck",
 			hosts: []string{"localhost"},
+			restartPXC: action{
+				need: true,
+			},
 		},
 		{
 			name:  "operator",
 			hosts: []string{"%"},
+			restartProxy: action{
+				need: true,
+			},
 		},
 	}
 	if cr.Spec.PMM.Enabled {
 		requiredUsers = append(requiredUsers, user{
 			name: "pmmserver",
+			restartPXC: action{
+				needIfPMMEnabled: true,
+			},
+			restartProxy: action{
+				needIfPMMEnabled: true,
+			},
 		})
 	}
 	if cr.Spec.ProxySQL.Enabled {
 		requiredUsers = append(requiredUsers, user{
-			name: "proxyadmin",
+			name:      "proxyadmin",
+			proxyUser: true,
+			restartProxy: action{
+				need: true,
+			},
 		})
 	}
 
+	var restartPXC, restartProxy, syncProxySQLUsers bool
+	var sysUsers []users.SysUser
+	var proxyUsers []users.SysUser
 	for _, user := range requiredUsers {
 		if len(sysUsersSecretObj.Data[user.name]) == 0 {
 			return false, false, errors.New("undefined or not exist user " + user.name)
@@ -214,31 +250,28 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 
 		pass := string(sysUsersSecretObj.Data[user.name])
 
-		switch user.name {
-		case "root":
+		if user.proxyUser {
+			proxyUsers = append(proxyUsers, users.SysUser{Name: user.name, Pass: pass})
+		}
+		if user.restartPXC.need {
+			restartPXC = true
+		}
+		if user.restartProxy.need {
+			restartProxy = true
+		}
+		if user.syncProxySQLUsers.need {
 			syncProxySQLUsers = true
-		case "xtrabackup":
-			restartPXC = true
-		case "monitor":
-			restartProxy = true
-			proxyUsers = append(proxyUsers, users.SysUser{Name: user.name, Pass: pass})
-			if cr.Spec.PMM.Enabled {
+		}
+		if cr.Spec.PMM.Enabled {
+			if user.restartPXC.needIfPMMEnabled {
 				restartPXC = true
 			}
-		case "clustercheck":
-			restartPXC = true
-		case "proxyadmin":
-			restartProxy = true
-			proxyUsers = append(proxyUsers, users.SysUser{Name: user.name, Pass: pass})
-			continue
-		case "pmmserver":
-			if cr.Spec.PMM.Enabled {
+			if user.restartProxy.needIfPMMEnabled {
 				restartProxy = true
-				restartPXC = true
-				continue
 			}
-		case "operator":
-			restartProxy = true
+		}
+		if len(user.hosts) == 0 {
+			continue
 		}
 		user := users.SysUser{
 			Name:  user.name,

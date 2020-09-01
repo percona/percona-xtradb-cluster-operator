@@ -24,7 +24,7 @@ import (
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
 	currentSet := sfs.StatefulSet()
-	annotations := currentSet.Spec.Template.Annotations
+	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
 	if err != nil {
 		return fmt.Errorf("failed to get sate: %v", err)
@@ -39,13 +39,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function
 	configHash := r.getConfigHash(cr, sfs)
-	if currentSet.Spec.Template.Annotations == nil {
-		currentSet.Spec.Template.Annotations = make(map[string]string)
-	}
 
-	for k, v := range annotations {
-		currentSet.Spec.Template.Annotations[k] = v
-	}
+	pxc.MergeTmplateAnnotations(currentSet, newAnnotations)
 
 	if cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash

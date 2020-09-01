@@ -341,15 +341,3 @@ func (c *Proxy) UpdateStrategy(cr *api.PerconaXtraDBCluster) appsv1.StatefulSetU
 		}
 	}
 }
-
-func (c *Proxy) SetSfsSpecTemplateAnnotations(annotations map[string]string) {
-	if len(annotations) == 0 {
-		return
-	}
-	if c.sfs.Spec.Template.Annotations == nil {
-		c.sfs.Spec.Template.Annotations = make(map[string]string)
-	}
-	for k, v := range annotations {
-		c.sfs.Spec.Template.Annotations[k] = v
-	}
-}

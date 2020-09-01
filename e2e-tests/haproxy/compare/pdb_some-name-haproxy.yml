@@ -9,7 +9,7 @@ metadata:
     kind: StatefulSet
     name: some-name-haproxy
 spec:
-  maxUnavailable: 1
+  maxUnavailable: 2
   selector:
     matchLabels:
       app.kubernetes.io/component: haproxy

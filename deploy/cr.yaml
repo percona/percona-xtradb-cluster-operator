@@ -14,6 +14,15 @@ spec:
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
+#  tls:
+#    SANs:
+#      - pxc-1.example.com
+#      - pxc-2.example.com
+#      - pxc-3.example.com
+#    issuerConf:
+#      name: special-selfsigned-issuer
+#      kind: ClusterIssuer
+#      group: cert-manager.io
   allowUnsafeConfigurations: false
 #  pause: false
   updateStrategy: SmartUpdate

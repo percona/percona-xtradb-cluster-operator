@@ -32,7 +32,7 @@ function join {
 function mysql_root_exec() {
   local server="$1"
   local query="$2"
-  MYSQL_PWD="${OPERATOR_ADMIN_PASSWORD:-operator}" timeout 600 mysql -h "${server}" -uoperator -s -NB -e "${query}"
+  MYSQL_PWD="${OPERATOR_ADMIN_PASSWORD:-operator}" timeout 600 mysql -h "${server}" -P 33062 -uoperator -s -NB -e "${query}"
 }
 
 NODE_IP=$(hostname -I | awk ' { print $1 } ')

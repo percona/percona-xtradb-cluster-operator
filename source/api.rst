@@ -8,6 +8,7 @@ PXC API Documentation
    .toggle {
         background: none repeat scroll 0 0 #ffebcc;
         padding: 12px;
+        max-width: 850px;
         line-height: 24px;
         margin-bottom: 24px;
     }

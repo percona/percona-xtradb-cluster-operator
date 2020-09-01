@@ -39,7 +39,7 @@ spec:
       effect: "NoExecute"
       tolerationSeconds: 6000
     podDisruptionBudget:
-      maxUnavailable: 1
+      maxUnavailable: 2
   proxysql:
     enabled: false
     size: 1

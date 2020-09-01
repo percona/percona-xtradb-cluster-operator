@@ -45,7 +45,7 @@ main() {
   sleep 50
   compare_kubectl statefulset/$cluster-haproxy
   compare_kubectl service/$cluster-haproxy
-
+    compare_kubectl pdb/$cluster-haproxy
   desc 'clean up'
   destroy $namespace
 }

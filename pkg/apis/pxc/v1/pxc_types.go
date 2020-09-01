@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 
 	v "github.com/hashicorp/go-version"
@@ -24,6 +26,7 @@ type PerconaXtraDBClusterSpec struct {
 	VaultSecretName       string                               `json:"vaultSecretName,omitempty"`
 	SSLSecretName         string                               `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
+	TLS                   *TLSSpec                             `json:"tls,omitempty"`
 	PXC                   *PodSpec                             `json:"pxc,omitempty"`
 	ProxySQL              *PodSpec                             `json:"proxysql,omitempty"`
 	HAProxy               *PodSpec                             `json:"haproxy,omitempty"`
@@ -32,6 +35,11 @@ type PerconaXtraDBClusterSpec struct {
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	UpgradeOptions        UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+}
+
+type TLSSpec struct {
+	SANs       []string                `json:"SANs,omitempty"`
+	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
 }
 
 type UpgradeOptions struct {

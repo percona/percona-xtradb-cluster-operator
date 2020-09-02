@@ -336,6 +336,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
+
+		if currentService.Spec.Type == corev1.ServiceTypeLoadBalancer || currentService.Spec.Type == corev1.ServiceTypeNodePort {
+			if len(o.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
+				currentService.Spec.ExternalTrafficPolicy = o.Spec.HAProxy.ExternalTrafficPolicy
+			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.HAProxy.ExternalTrafficPolicy {
+				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
+		}
+
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
 			err = fmt.Errorf("HAProxy service upgrade error: %v", err)
@@ -422,6 +431,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
+
+		if currentService.Spec.Type == corev1.ServiceTypeLoadBalancer || currentService.Spec.Type == corev1.ServiceTypeNodePort {
+			if len(o.Spec.ProxySQL.ExternalTrafficPolicy) > 0 {
+				currentService.Spec.ExternalTrafficPolicy = o.Spec.ProxySQL.ExternalTrafficPolicy
+			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.ProxySQL.ExternalTrafficPolicy {
+				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
+		}
+
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
 			err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
@@ -453,6 +471,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	if o.CompareVersionWith("1.5.0") >= 0 {
+		err = r.reconcileUsers(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "reconcileUsers")
+		}
+	}
+
+	r.resyncPXCUsersWithProxySQL(o)
+
 	if err := r.fetchVersionFromPXC(o, pxcSet); err != nil {
 		return rr, errors.Wrap(err, "update CR version")
 	}
@@ -463,15 +490,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}
-
-	if o.CompareVersionWith("1.5.0") >= 0 {
-		err = r.reconcileUsers(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "reconcileUsers")
-		}
-	}
-
-	r.resyncPXCUsersWithProxySQL(o)
 
 	return rr, nil
 }

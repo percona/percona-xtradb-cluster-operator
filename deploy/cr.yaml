@@ -20,9 +20,9 @@ spec:
 #      - pxc-2.example.com
 #      - pxc-3.example.com
 #    issuerConf:
-#      name: example-com-ca
+#      name: special-selfsigned-issuer
 #      kind: ClusterIssuer
-#      group: pxc.percona.com
+#      group: cert-manager.io
   allowUnsafeConfigurations: false
 #  pause: false
   updateStrategy: SmartUpdate
@@ -140,6 +140,7 @@ spec:
 #    labels:
 #      rack: rack-22
 #    serviceType: ClusterIP
+#    externalTrafficPolicy: Cluster
 #    schedulerName: "default"
     resources:
       requests:
@@ -244,6 +245,7 @@ spec:
 #    labels:
 #      rack: rack-22
 #    serviceType: ClusterIP
+#    externalTrafficPolicy: Cluster
 #    schedulerName: "default"
     resources:
       requests:

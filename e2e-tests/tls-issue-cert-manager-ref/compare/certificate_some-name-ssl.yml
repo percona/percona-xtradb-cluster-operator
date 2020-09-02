@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1alpha3
+kind: Certificate
+metadata:
+  generation: 1
+  name: some-name-ssl
+  ownerReferences:
+    controller: true
+    kind: PerconaXtraDBCluster
+    name: some-name
+spec:
+  commonName: some-name-proxysql
+  dnsNames:
+  - some-name-pxc
+  - '*.some-name-pxc'
+  - '*.some-name-proxysql'
+  - test.com
+  isCA: true
+  issuerRef:
+    kind: ClusterIssuer
+    name: special-selfsigned-issuer
+  secretName: some-name-ssl

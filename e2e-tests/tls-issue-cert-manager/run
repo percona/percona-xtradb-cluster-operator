@@ -6,52 +6,6 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-spinup_pxc_without_tls() {
-  local cluster=$1
-  local config=$2
-  local size="${3:-3}"
-  local sleep="${4:-10}"
-
-  desc 'create first PXC cluster'
-  kubectl_bin apply \
-    -f $test_dir/conf/secrets.yml
-
-  apply_config "$conf_dir/client.yml"
-  apply_config "$config"
-
-  desc 'check if all 3 Pods started'
-  local proxy=$(get_proxy "$cluster")
-  wait_for_running "$proxy" 1
-  wait_for_running "$cluster-pxc" "$size"
-  sleep $sleep
-
-  desc 'write data'
-  if [[ "$IMAGE_PXC" =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
-    encrypt='ENCRYPTION=\"Y\"'
-  fi
-  run_mysql \
-    "CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-    "-h $proxy -uroot -proot_password"
-  run_mysql \
-    'INSERT myApp.myApp (id) VALUES (100500)' \
-    "-h $proxy -uroot -proot_password"
-  sleep 10
-  for i in $(seq 0 $(($size - 1))); do
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
-  done
-
-  if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
-    table_must_be_encrypted "$cluster" "myApp"
-  fi
-}
-
-getSecretData() {
-  local secretName=$1
-  local dataKey=$2
-  local data=$(kubectl get secrets/${secretName} -o json | jq '.data["'${dataKey}'"]')
-  echo "$data"
-}
-
 checkTLSFiles() {
   for var in '$@'; do
     if [ -z "$var" ]; then
@@ -62,11 +16,11 @@ checkTLSFiles() {
 }
 
 checkTLSSecrets() {
-  crt={$(getSecretData some-name-ssl 'ca.crt'):-''}
-  tlsCert={$(getSecretData some-name-ssl 'tls.crt'):-''}
-  tlsKey={$(getSecretData some-name-ssl 'tls.key'):-''}
+  crt={$(getTLSSecret some-name-ssl 'ca.crt'):-''}
+  tlsCert={$(getTLSSecret some-name-ssl 'tls.crt'):-''}
+  tlsKey={$(getTLSSecret some-name-ssl 'tls.key'):-''}
 
-  checkTLSFiles $crt $tlsCert $tlsKey
+  checkTLSFiles "$crt" "$tlsCert" "$tlsKey"
 }
 
 main() {
@@ -76,22 +30,19 @@ main() {
   desc 'deploy cert manager'
   deploy_cert_manager
 
-  sleep 10
+  sleep 30
 
   desc 'create pxc cluster'
-  spinup_pxc_without_tls "$cluster" "$conf_dir/$cluster.yml"
+  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 'secrets_without_tls.yml'
 
   desc 'check if certificates issued with certmanager'
   checkTLSSecrets
 
   desc 'check if default issuer created'
-  kubectl_bin describe issuer some-name-pxc-ca
+  compare_kubectl issuer/$cluster-pxc-ca
 
-  issuerName=$(kubectl_bin get certificate some-name-ssl -o json | jq '.spec.issuerRef.name')
-  if [ "$issuerName" != '"some-name-pxc-ca"' ]; then
-    echo 'invalid issuer'
-    exit 1
-  fi
+  desc 'check if certificate issued'
+  compare_kubectl certificate/$cluster-ssl
 
   destroy $namespace
 }

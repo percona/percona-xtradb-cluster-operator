@@ -8,9 +8,6 @@ spec:
   tls:
    SANs:
      - test.com
-   issuerConf:
-     kind: ClusterIssuer
-     name: special-selfsigned-issuer
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault
   pause: false

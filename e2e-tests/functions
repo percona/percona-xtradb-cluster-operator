@@ -567,10 +567,11 @@ spinup_pxc() {
     local config=$2
     local size="${3:-3}"
     local sleep="${4:-10}"
+    local secretsFile="${5:-'secrets.yml'}"
 
     desc 'create first PXC cluster'
     kubectl_bin apply \
-        -f $conf_dir/secrets.yml
+        -f $conf_dir/$secretsFile
 
     apply_config "$conf_dir/client.yml"
     apply_config "$config"
@@ -944,5 +945,12 @@ patch_secret() {
     local key=$2
     local value=$3
     
-    kubectl patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
+    kubectl_bin patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
+}
+
+getTLSSecret() {
+    local secretName=$1
+    local dataKey=$2
+    local data=$(kubectl get secrets/${secretName} -o json | jq '.data["'${dataKey}'"]')
+    echo "$data"
 }

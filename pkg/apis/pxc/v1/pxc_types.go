@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-ini/ini"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
-
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 
 	v "github.com/hashicorp/go-version"
@@ -555,6 +555,22 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
 
 	//using Must because "version" must be right format
 	return cr.Version().Compare(v.Must(v.NewVersion(version)))
+}
+
+// ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section
+func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) (bool, error) {
+	file, err := ini.LoadSources(ini.LoadOptions{AllowBooleanKeys: true}, []byte(cr.Spec.PXC.Configuration))
+	if err != nil {
+		return false, errors.Wrap(err, "load configuration")
+	}
+	s, err := file.GetSection(section)
+	if err != nil && strings.Contains(err.Error(), "does not exist") {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Wrap(err, "get section")
+	}
+
+	return s.HasKey(key), nil
 }
 
 const AffinityTopologyKeyOff = "none"

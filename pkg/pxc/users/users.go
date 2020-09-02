@@ -197,3 +197,42 @@ func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
 
 	return nil
 }
+
+// Update160MonitorUserGrant grants SERVICE_CONNECTION_ADMIN rights to the monitor user
+// if pxc version is 8 or more and sets the MAX_USER_CONNECTIONS parameter to 100 (empirically determined)
+func (u *Manager) Update160MonitorUserGrant() (err error) {
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	defer func() {
+		if err != nil {
+			errT := tx.Rollback()
+			if errT != nil {
+				err = errors.Wrapf(err, "rollback error: %v, transaction failed with", errT)
+			}
+			return
+		}
+
+		err = tx.Commit()
+		err = errors.Wrap(err, "commit transaction")
+	}()
+
+	_, err = tx.Exec("/*!80015 GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%' */")
+	if err != nil {
+		return errors.Wrapf(err, "grant service_connection to user monitor")
+	}
+
+	_, err = tx.Exec("ALTER USER 'monitor'@'%' WITH MAX_USER_CONNECTIONS 100")
+	if err != nil {
+		return errors.Wrapf(err, "set max connections to user monitor")
+	}
+
+	_, err = tx.Exec("FLUSH PRIVILEGES")
+	if err != nil {
+		return errors.Wrap(err, "flush privileges")
+	}
+
+	return nil
+}

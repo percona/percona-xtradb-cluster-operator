@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20200714141734-e9fed619b55c
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/go-ini/ini v1.25.4
 	github.com/go-openapi/errors v0.19.6
 	github.com/go-openapi/runtime v0.19.16
 	github.com/go-openapi/strfmt v0.19.5

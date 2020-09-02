@@ -59,6 +59,7 @@ spec:
 #      runAsGroup: 1001
 #      supplementalGroups: [1001]
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
+#    imagePullPolicy: Always
     resources:
       requests:
         memory: 1G
@@ -106,6 +107,7 @@ spec:
     enabled: true
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.5.0-haproxy
+#    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |
 #      global
@@ -189,6 +191,7 @@ spec:
     enabled: false
     size: 3
     image: percona/percona-xtradb-cluster-operator:1.5.0-proxysql
+#    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
 #

@@ -52,7 +52,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 	appc := corev1.Container{
 		Name:            proxyName,
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3306,
@@ -135,11 +135,10 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	if err != nil {
 		return nil, fmt.Errorf("create sidecar resources error: %v", err)
 	}
-
 	pxcMonit := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
 			"/usr/bin/peer-list",
 			"-on-change=/usr/bin/add_pxc_nodes.sh",
@@ -179,7 +178,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	proxysqlMonit := corev1.Container{
 		Name:            "proxysql-monit",
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
 			"/usr/bin/peer-list",
 			"-on-change=/usr/bin/add_proxysql_nodes.sh",

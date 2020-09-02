@@ -54,7 +54,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// change TLS secret configuration
-	sslHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLSecretName)
+	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
@@ -62,12 +62,20 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
-	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
+	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+	}
+
+	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
+	if err != nil {
+		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
+	}
+	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
+		currentSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
 	}
 
 	var newContainers []corev1.Container
@@ -283,16 +291,22 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 	var database queries.Database
 	var user, host string
 	var port, proxySize int32
+
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		user = "proxyadmin"
 		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
-		port = 6032
 		proxySize = cr.Spec.ProxySQL.Size
+		port = 6032
 	} else if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		user = "monitor"
 		host = fmt.Sprintf("%s-haproxy.%s", cr.ObjectMeta.Name, cr.Namespace)
-		port = 3306
 		proxySize = cr.Spec.HAProxy.Size
+
+		if cr.CompareVersionWith("1.6.0") >= 0 {
+			port = 33062
+		} else {
+			port = 3306
+		}
 	} else {
 		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 	}
@@ -335,7 +349,12 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, podIP string, waitLimit int) error {
 	user := "root"
 
-	database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podIP, 3306)
+	port := int32(3306)
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		port = int32(33062)
+	}
+
+	database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podIP, port)
 	if err != nil {
 		return fmt.Errorf("failed to access PXC database: %v", err)
 	}
@@ -417,7 +436,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 	return hash
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster, secretName string) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBCluster, secretName string, allowNonExistingSecret bool) (string, error) {
 	secretObj := corev1.Secret{}
 	if err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -425,7 +444,7 @@ func (r *ReconcilePerconaXtraDBCluster) getTLSHash(cr *api.PerconaXtraDBCluster,
 			Name:      secretName,
 		},
 		&secretObj,
-	); err != nil && k8serrors.IsNotFound(err) && cr.Spec.AllowUnsafeConfig {
+	); err != nil && k8serrors.IsNotFound(err) && allowNonExistingSecret {
 		return "", nil
 	} else if err != nil {
 		return "", err

@@ -15,6 +15,10 @@ spec:
     port: 3306
     protocol: TCP
     targetPort: 3306
+  - name: mysql-admin
+    port: 33062
+    protocol: TCP
+    targetPort: 33062
   selector:
     app.kubernetes.io/component: pxc
     app.kubernetes.io/instance: no-proxysql

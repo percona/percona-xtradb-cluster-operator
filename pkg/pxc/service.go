@@ -38,6 +38,15 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		},
 	}
 
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33062,
+				Name: "mysql-admin"},
+		)
+	}
+
 	return obj
 }
 
@@ -72,6 +81,15 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/component": appName,
 			},
 		},
+	}
+
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33062,
+				Name: "mysql-admin"},
+		)
 	}
 
 	return obj
@@ -112,6 +130,15 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/component": "proxysql",
 			},
 		},
+	}
+
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33062,
+				Name: "mysql-admin"},
+		)
 	}
 
 	return obj
@@ -157,6 +184,24 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			},
 			LoadBalancerSourceRanges: loadBalancerSourceRanges,
 		},
+	}
+
+	if svcType == corev1.ServiceTypeLoadBalancer || svcType == corev1.ServiceTypeNodePort {
+		svcTrafficPolicyType := corev1.ServiceExternalTrafficPolicyTypeCluster
+		if cr.Spec.ProxySQL != nil && len(cr.Spec.ProxySQL.ExternalTrafficPolicy) > 0 {
+			svcTrafficPolicyType = cr.Spec.ProxySQL.ExternalTrafficPolicy
+		}
+
+		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
+	}
+
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33062,
+				Name: "mysql-admin"},
+		)
 	}
 
 	return obj
@@ -213,6 +258,26 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		},
 	}
 
+	if svcType == corev1.ServiceTypeLoadBalancer || svcType == corev1.ServiceTypeNodePort {
+		svcTrafficPolicyType := corev1.ServiceExternalTrafficPolicyTypeCluster
+		if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
+			svcTrafficPolicyType = cr.Spec.HAProxy.ExternalTrafficPolicy
+		}
+
+		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
+	}
+
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port:       33062,
+				TargetPort: intstr.FromInt(33062),
+				Name:       "mysql-admin",
+			},
+		)
+	}
+
 	return obj
 }
 
@@ -249,6 +314,15 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/component": "haproxy",
 			},
 		},
+	}
+
+	if svcType == corev1.ServiceTypeLoadBalancer || svcType == corev1.ServiceTypeNodePort {
+		svcTrafficPolicyType := corev1.ServiceExternalTrafficPolicyTypeCluster
+		if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
+			svcTrafficPolicyType = cr.Spec.HAProxy.ExternalTrafficPolicy
+		}
+
+		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
 	}
 
 	return obj

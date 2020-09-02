@@ -56,6 +56,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "get internal sys users secret")
 	}
 
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		// monitor user need more grants for work in version more then 1.6.0
+		err = r.manageMonitorUser(cr, &internalSysSecretObj)
+		if err != nil {
+			return errors.Wrap(err, "manage monitor user")
+		}
+	}
+
 	dataChanged, err := sysUsersSecretDataChanged(newSecretDataHash, &internalSysSecretObj)
 	if err != nil {
 		return errors.Wrap(err, "check sys users data changes")
@@ -87,6 +95,43 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		if err != nil {
 			return errors.Wrap(err, "restart pxc")
 		}
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+	annotationName := "grant-for-1.6.0-monitor-user"
+	if internalSysSecretObj.Annotations[annotationName] == "done" {
+		return nil
+	}
+
+	pxcUser := "root"
+	pxcPass := string(internalSysSecretObj.Data["root"])
+	if _, ok := internalSysSecretObj.Data["operator"]; ok {
+		pxcUser = "operator"
+		pxcPass = string(internalSysSecretObj.Data["operator"])
+	}
+
+	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", pxcUser, pxcPass)
+	if err != nil {
+		return errors.Wrap(err, "new users manager for grant")
+	}
+	defer um.Close()
+
+	err = um.Update160MonitorUserGrant()
+	if err != nil {
+		return errors.Wrap(err, "update monitor grant")
+	}
+
+	if internalSysSecretObj.Annotations == nil {
+		internalSysSecretObj.Annotations = make(map[string]string)
+	}
+
+	internalSysSecretObj.Annotations[annotationName] = "done"
+	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
 
 	return nil
@@ -151,7 +196,11 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, pxcUser, pxcPass)
+	addr := cr.Name + "-pxc." + cr.Namespace
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+	um, err := users.NewManager(addr, pxcUser, pxcPass)
 	if err != nil {
 		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
 	}
@@ -358,8 +407,11 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	if err != nil {
 		return errors.Wrap(err, "generate password")
 	}
-
-	um, err := users.NewManager(cr.Name+"-pxc."+cr.Namespace, "root", string(sysUsersSecretObj.Data["root"]))
+	addr := cr.Name + "-pxc." + cr.Namespace
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+	um, err := users.NewManager(addr, "root", string(sysUsersSecretObj.Data["root"]))
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}

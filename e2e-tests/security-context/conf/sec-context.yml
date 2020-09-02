@@ -12,12 +12,13 @@ spec:
     annotations:
       openshift.io/scc: privileged
     containerSecurityContext:
-      privileged: true
+      privileged: false
     podSecurityContext:
       runAsUser: 1001
       fsGroup: 1001
     size: 3
     image: -pxc
+    serviceAccountName: percona-xtradb-cluster-operator-workload
     resources:
       requests:
         memory: 0.1G
@@ -35,12 +36,13 @@ spec:
   proxysql:
     enabled: true
     containerSecurityContext:
-      privileged: true
+      privileged: false
     podSecurityContext:
-      fsGroup: 1001
       runAsUser: 1001
+      fsGroup: 1001
     size: 1
     image: -proxysql
+    serviceAccountName: percona-xtradb-cluster-operator-workload
     resources:
       requests:
         memory: 0.1G

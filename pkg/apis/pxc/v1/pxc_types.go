@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-ini/ini"
+	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 
 	v "github.com/hashicorp/go-version"
@@ -24,6 +26,7 @@ type PerconaXtraDBClusterSpec struct {
 	VaultSecretName       string                               `json:"vaultSecretName,omitempty"`
 	SSLSecretName         string                               `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
+	TLS                   *TLSSpec                             `json:"tls,omitempty"`
 	PXC                   *PodSpec                             `json:"pxc,omitempty"`
 	ProxySQL              *PodSpec                             `json:"proxysql,omitempty"`
 	HAProxy               *PodSpec                             `json:"haproxy,omitempty"`
@@ -32,6 +35,11 @@ type PerconaXtraDBClusterSpec struct {
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	UpgradeOptions        UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+}
+
+type TLSSpec struct {
+	SANs       []string                `json:"SANs,omitempty"`
+	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
 }
 
 type UpgradeOptions struct {
@@ -140,36 +148,37 @@ type PerconaXtraDBClusterList struct {
 }
 
 type PodSpec struct {
-	Enabled                       bool                          `json:"enabled,omitempty"`
-	Size                          int32                         `json:"size,omitempty"`
-	Image                         string                        `json:"image,omitempty"`
-	Resources                     *PodResources                 `json:"resources,omitempty"`
-	SidecarResources              *PodResources                 `json:"sidecarResources,omitempty"`
-	VolumeSpec                    *VolumeSpec                   `json:"volumeSpec,omitempty"`
-	Affinity                      *PodAffinity                  `json:"affinity,omitempty"`
-	NodeSelector                  map[string]string             `json:"nodeSelector,omitempty"`
-	Tolerations                   []corev1.Toleration           `json:"tolerations,omitempty"`
-	PriorityClassName             string                        `json:"priorityClassName,omitempty"`
-	Annotations                   map[string]string             `json:"annotations,omitempty"`
-	Labels                        map[string]string             `json:"labels,omitempty"`
-	ImagePullSecrets              []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	Configuration                 string                        `json:"configuration,omitempty"`
-	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
-	VaultSecretName               string                        `json:"vaultSecretName,omitempty"`
-	SSLSecretName                 string                        `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
-	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
-	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
-	ServiceType                   corev1.ServiceType            `json:"serviceType,omitempty"`
-	LoadBalancerSourceRanges      []string                      `json:"loadBalancerSourceRanges,omitempty"`
-	ServiceAnnotations            map[string]string             `json:"serviceAnnotations,omitempty"`
-	SchedulerName                 string                        `json:"schedulerName,omitempty"`
-	ReadinessInitialDelaySeconds  *int32                        `json:"readinessDelaySec,omitempty"`
-	LivenessInitialDelaySeconds   *int32                        `json:"livenessDelaySec,omitempty"`
-	PodSecurityContext            *corev1.PodSecurityContext    `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext      *corev1.SecurityContext       `json:"containerSecurityContext,omitempty"`
-	ServiceAccountName            string                        `json:"serviceAccountName,omitempty"`
-	ImagePullPolicy               corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
+	Enabled                       bool                                    `json:"enabled,omitempty"`
+	Size                          int32                                   `json:"size,omitempty"`
+	Image                         string                                  `json:"image,omitempty"`
+	Resources                     *PodResources                           `json:"resources,omitempty"`
+	SidecarResources              *PodResources                           `json:"sidecarResources,omitempty"`
+	VolumeSpec                    *VolumeSpec                             `json:"volumeSpec,omitempty"`
+	Affinity                      *PodAffinity                            `json:"affinity,omitempty"`
+	NodeSelector                  map[string]string                       `json:"nodeSelector,omitempty"`
+	Tolerations                   []corev1.Toleration                     `json:"tolerations,omitempty"`
+	PriorityClassName             string                                  `json:"priorityClassName,omitempty"`
+	Annotations                   map[string]string                       `json:"annotations,omitempty"`
+	Labels                        map[string]string                       `json:"labels,omitempty"`
+	ImagePullSecrets              []corev1.LocalObjectReference           `json:"imagePullSecrets,omitempty"`
+	Configuration                 string                                  `json:"configuration,omitempty"`
+	PodDisruptionBudget           *PodDisruptionBudgetSpec                `json:"podDisruptionBudget,omitempty"`
+	VaultSecretName               string                                  `json:"vaultSecretName,omitempty"`
+	SSLSecretName                 string                                  `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName         string                                  `json:"sslInternalSecretName,omitempty"`
+	TerminationGracePeriodSeconds *int64                                  `json:"gracePeriod,omitempty"`
+	ForceUnsafeBootstrap          bool                                    `json:"forceUnsafeBootstrap,omitempty"`
+	ServiceType                   corev1.ServiceType                      `json:"serviceType,omitempty"`
+	ExternalTrafficPolicy         corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
+	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
+	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
+	LivenessInitialDelaySeconds   *int32                                  `json:"livenessDelaySec,omitempty"`
+	PodSecurityContext            *corev1.PodSecurityContext              `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
+	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
+  ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -306,6 +315,11 @@ func (cr *PerconaXtraDBCluster) setSecurityContext() {
 			}
 		}
 	}
+}
+
+func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
+	_, ok := cr.Annotations["percona.com/issue-vault-token"]
+	return ok
 }
 
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
@@ -557,6 +571,22 @@ func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
 
 	//using Must because "version" must be right format
 	return cr.Version().Compare(v.Must(v.NewVersion(version)))
+}
+
+// ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section
+func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) (bool, error) {
+	file, err := ini.LoadSources(ini.LoadOptions{AllowBooleanKeys: true}, []byte(cr.Spec.PXC.Configuration))
+	if err != nil {
+		return false, errors.Wrap(err, "load configuration")
+	}
+	s, err := file.GetSection(section)
+	if err != nil && strings.Contains(err.Error(), "does not exist") {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Wrap(err, "get section")
+	}
+
+	return s.HasKey(key), nil
 }
 
 const AffinityTopologyKeyOff = "none"

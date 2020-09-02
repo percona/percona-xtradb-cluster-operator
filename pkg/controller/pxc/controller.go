@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
@@ -170,6 +170,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+
+	// wait untill token issued to run PXC in data encrypted mode.
+	if o.ShouldWaitForTokenIssue() {
+		log.Info("wait for token issuing")
+		return rr, nil
+	}
+
 	changed, err := o.CheckNSetDefaults(r.serverVersion)
 	if err != nil {
 		err = fmt.Errorf("wrong PXC options: %v", err)
@@ -291,6 +298,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 						Name:       "proxy-protocol",
 					},
 				}
+				if o.CompareVersionWith("1.6.0") >= 0 {
+					currentService.Spec.Ports = append(
+						currentService.Spec.Ports,
+						corev1.ServicePort{
+							Port:       33062,
+							TargetPort: intstr.FromInt(33062),
+							Name:       "mysql-admin",
+						},
+					)
+				}
 				currentService.Spec.Type = o.Spec.HAProxy.ServiceType
 			}
 			//Checking default ServiceType
@@ -307,8 +324,27 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 					Name:       "proxy-protocol",
 				},
 			}
+			if o.CompareVersionWith("1.6.0") >= 0 {
+				currentService.Spec.Ports = append(
+					currentService.Spec.Ports,
+					corev1.ServicePort{
+						Port:       33062,
+						TargetPort: intstr.FromInt(33062),
+						Name:       "mysql-admin",
+					},
+				)
+			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
+
+		if currentService.Spec.Type == corev1.ServiceTypeLoadBalancer || currentService.Spec.Type == corev1.ServiceTypeNodePort {
+			if len(o.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
+				currentService.Spec.ExternalTrafficPolicy = o.Spec.HAProxy.ExternalTrafficPolicy
+			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.HAProxy.ExternalTrafficPolicy {
+				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
+		}
+
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
 			err = fmt.Errorf("HAProxy service upgrade error: %v", err)
@@ -365,6 +401,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 						Name: "mysql",
 					},
 				}
+				if o.CompareVersionWith("1.6.0") >= 0 {
+					currentService.Spec.Ports = append(
+						currentService.Spec.Ports,
+						corev1.ServicePort{
+							Port: 33062,
+							Name: "mysql-admin",
+						},
+					)
+				}
 				currentService.Spec.Type = o.Spec.ProxySQL.ServiceType
 			}
 			//Checking default ServiceType
@@ -375,8 +420,26 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 					Name: "mysql",
 				},
 			}
+			if o.CompareVersionWith("1.6.0") >= 0 {
+				currentService.Spec.Ports = append(
+					currentService.Spec.Ports,
+					corev1.ServicePort{
+						Port: 33062,
+						Name: "mysql-admin",
+					},
+				)
+			}
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
+
+		if currentService.Spec.Type == corev1.ServiceTypeLoadBalancer || currentService.Spec.Type == corev1.ServiceTypeNodePort {
+			if len(o.Spec.ProxySQL.ExternalTrafficPolicy) > 0 {
+				currentService.Spec.ExternalTrafficPolicy = o.Spec.ProxySQL.ExternalTrafficPolicy
+			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.ProxySQL.ExternalTrafficPolicy {
+				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
+		}
+
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
 			err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
@@ -408,6 +471,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	if o.CompareVersionWith("1.5.0") >= 0 {
+		err = r.reconcileUsers(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "reconcileUsers")
+		}
+	}
+
+	r.resyncPXCUsersWithProxySQL(o)
+
 	if err := r.fetchVersionFromPXC(o, pxcSet); err != nil {
 		return rr, errors.Wrap(err, "update CR version")
 	}
@@ -418,15 +490,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
 	}
-
-	if o.CompareVersionWith("1.5.0") >= 0 {
-		err = r.reconcileUsers(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "reconcileUsers")
-		}
-	}
-
-	r.resyncPXCUsersWithProxySQL(o)
 
 	return rr, nil
 }
@@ -488,7 +551,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.PXC.SSLSecretName+` and `+cr.Spec.PXC.SSLInternalSecretName+` manually or setup cert-manager correctly`, err)
 	}
 
-	sslHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLSecretName)
+	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
@@ -496,12 +559,20 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
-	sslInternalHash, err := r.getTLSHash(cr, cr.Spec.PXC.SSLInternalSecretName)
+	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return fmt.Errorf("get secret hash error: %v", err)
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+	}
+
+	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
+	if err != nil {
+		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
+	}
+	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
+		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = sslHash
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)

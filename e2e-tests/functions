@@ -567,7 +567,7 @@ spinup_pxc() {
     local config=$2
     local size="${3:-3}"
     local sleep="${4:-10}"
-    local secretsFile="${5:-'secrets.yml'}"
+    local secretsFile="${5:-secrets.yml}"
 
     desc 'create first PXC cluster'
     kubectl_bin apply \

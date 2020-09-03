@@ -2,8 +2,11 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
+    app.kubernetes.io/component: haproxy
     app.kubernetes.io/instance: some-name
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
     app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
   name: some-name-haproxy
   ownerReferences:
     controller: true
@@ -15,6 +18,10 @@ spec:
     port: 3306
     protocol: TCP
     targetPort: 3306
+  - name: proxy-protocol
+    port: 3309
+    protocol: TCP
+    targetPort: 3309
   selector:
     app.kubernetes.io/component: haproxy
     app.kubernetes.io/instance: some-name

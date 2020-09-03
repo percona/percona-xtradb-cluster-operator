@@ -2,11 +2,11 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  name: some-name-haproxy
+  name: haproxy-haproxy
   ownerReferences:
     controller: true
     kind: PerconaXtraDBCluster
-    name: some-name
+    name: haproxy
 spec:
   podManagementPolicy: OrderedReady
   replicas: 3
@@ -14,17 +14,17 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: haproxy
-      app.kubernetes.io/instance: some-name
+      app.kubernetes.io/instance: haproxy
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: some-name-haproxy
+  serviceName: haproxy-haproxy
   template:
     metadata:
       annotations:
       labels:
         app.kubernetes.io/component: haproxy
-        app.kubernetes.io/instance: some-name
+        app.kubernetes.io/instance: haproxy
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -35,7 +35,7 @@ spec:
           - labelSelector:
               matchLabels:
                 app.kubernetes.io/component: haproxy
-                app.kubernetes.io/instance: some-name
+                app.kubernetes.io/instance: haproxy
                 app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
                 app.kubernetes.io/name: percona-xtradb-cluster
                 app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -43,7 +43,7 @@ spec:
       containers:
       - env:
         - name: PXC_SERVICE
-          value: some-name-pxc
+          value: haproxy-pxc
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -75,7 +75,7 @@ spec:
         - -service=$(PXC_SERVICE)
         env:
         - name: PXC_SERVICE
-          value: some-name-pxc
+          value: haproxy-pxc
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -107,7 +107,7 @@ spec:
       volumes:
       - configMap:
           defaultMode: 420
-          name: some-name-haproxy
+          name: haproxy-haproxy
           optional: true
         name: haproxy-custom
       - emptyDir: {}

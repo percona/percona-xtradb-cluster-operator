@@ -20,7 +20,7 @@ main() {
   create_infra $namespace
 
   desc 'create first PXC cluster with HAProxy'
-  cluster="some-name"
+  cluster="haproxy"
   spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10
 
   desc 'checking all haproxy pods point to the same writer'

@@ -2,11 +2,11 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  name: some-name-proxysql
+  name: haproxy-proxysql
   ownerReferences:
     controller: true
     kind: PerconaXtraDBCluster
-    name: some-name
+    name: haproxy
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -14,17 +14,17 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: proxysql
-      app.kubernetes.io/instance: some-name
+      app.kubernetes.io/instance: haproxy
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: some-name-proxysql-unready
+  serviceName: haproxy-proxysql-unready
   template:
     metadata:
       annotations:
       labels:
         app.kubernetes.io/component: proxysql
-        app.kubernetes.io/instance: some-name
+        app.kubernetes.io/instance: haproxy
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -35,7 +35,7 @@ spec:
           - labelSelector:
               matchLabels:
                 app.kubernetes.io/component: proxysql
-                app.kubernetes.io/instance: some-name
+                app.kubernetes.io/instance: haproxy
                 app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
                 app.kubernetes.io/name: percona-xtradb-cluster
                 app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -43,7 +43,7 @@ spec:
       containers:
       - env:
         - name: PXC_SERVICE
-          value: some-name-pxc
+          value: haproxy-pxc
         - name: OPERATOR_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -92,7 +92,7 @@ spec:
         - -service=$(PXC_SERVICE)
         env:
         - name: PXC_SERVICE
-          value: some-name-pxc
+          value: haproxy-pxc
         - name: OPERATOR_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -121,7 +121,7 @@ spec:
         - -service=$(PROXYSQL_SERVICE)
         env:
         - name: PROXYSQL_SERVICE
-          value: some-name-proxysql-unready
+          value: haproxy-proxysql-unready
         - name: OPERATOR_PASSWORD
           valueFrom:
             secretKeyRef:
@@ -159,12 +159,12 @@ spec:
         secret:
           defaultMode: 420
           optional: true
-          secretName: some-name-ssl-internal
+          secretName: haproxy-ssl-internal
       - name: ssl
         secret:
           defaultMode: 420
           optional: false
-          secretName: some-name-ssl
+          secretName: haproxy-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

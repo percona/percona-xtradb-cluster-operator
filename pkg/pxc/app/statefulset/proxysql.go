@@ -148,7 +148,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
-				Value: c.labels["app.kubernetes.io/instance"] + "-pxc",
+				Value: c.labels["app.kubernetes.io/instance"] + "-pxc-unready",
 			},
 			{
 				Name: "MYSQL_ROOT_PASSWORD",

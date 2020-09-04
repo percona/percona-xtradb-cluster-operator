@@ -161,84 +161,66 @@ func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBC
 }
 
 func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
-	type action struct {
-		need             bool
-		needIfPMMEnabled bool
-	}
+	type action int
+
+	const (
+		rPXC action = 1 << iota
+		rPXCifPMM
+		rProxy
+		rProxyifPMM
+		syncProxyUsers
+	)
 
 	type user struct {
-		name              string
-		hosts             []string
-		proxyUser         bool
-		restartPXC        action
-		restartProxy      action
-		syncProxySQLUsers action
+		name      string
+		hosts     []string
+		proxyUser bool
+		action    action
 	}
 	requiredUsers := []user{
 		{
-			name:  "root",
-			hosts: []string{"localhost", "%"},
-			syncProxySQLUsers: action{
-				need: true,
-			},
+			name:   "root",
+			hosts:  []string{"localhost", "%"},
+			action: syncProxyUsers,
 		},
 		{
-			name:  "xtrabackup",
-			hosts: []string{"localhost"},
-			restartPXC: action{
-				need: true,
-			},
+			name:   "xtrabackup",
+			hosts:  []string{"localhost"},
+			action: rPXC,
 		},
 		{
 			name:      "monitor",
 			hosts:     []string{"%"},
 			proxyUser: true,
-			restartProxy: action{
-				need: true,
-			},
-			restartPXC: action{
-				needIfPMMEnabled: true,
-			},
+			action:    rProxy | rPXCifPMM,
 		},
 		{
-			name:  "clustercheck",
-			hosts: []string{"localhost"},
-			restartPXC: action{
-				need: true,
-			},
+			name:   "clustercheck",
+			hosts:  []string{"localhost"},
+			action: rPXC,
 		},
 		{
-			name:  "operator",
-			hosts: []string{"%"},
-			restartProxy: action{
-				need: true,
-			},
+			name:   "operator",
+			hosts:  []string{"%"},
+			action: rProxy,
 		},
 	}
 	if cr.Spec.PMM.Enabled {
 		requiredUsers = append(requiredUsers, user{
-			name: "pmmserver",
-			restartPXC: action{
-				needIfPMMEnabled: true,
-			},
-			restartProxy: action{
-				needIfPMMEnabled: true,
-			},
+			name:   "pmmserver",
+			action: rProxyifPMM | rPXCifPMM,
 		})
 	}
 	if cr.Spec.ProxySQL.Enabled {
 		requiredUsers = append(requiredUsers, user{
 			name:      "proxyadmin",
 			proxyUser: true,
-			restartProxy: action{
-				need: true,
-			},
+			action:    rProxy,
 		})
 	}
 
-	var restartPXC, restartProxy, syncProxySQLUsers bool
-	var sysUsers []users.SysUser
-	var proxyUsers []users.SysUser
+	var sysUsers, proxyUsers []users.SysUser
+	var todo action
 	for _, user := range requiredUsers {
 		if len(sysUsersSecretObj.Data[user.name]) == 0 {
 			return false, false, errors.New("undefined or not exist user " + user.name)
@@ -248,38 +230,30 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			continue
 		}
 
+		todo |= user.action
+
 		pass := string(sysUsersSecretObj.Data[user.name])
 
 		if user.proxyUser {
 			proxyUsers = append(proxyUsers, users.SysUser{Name: user.name, Pass: pass})
 		}
-		if user.restartPXC.need {
-			restartPXC = true
+
+		if len(user.hosts) != 0 {
+			sysUsers = append(sysUsers, users.SysUser{
+				Name:  user.name,
+				Pass:  pass,
+				Hosts: user.hosts,
+			})
 		}
-		if user.restartProxy.need {
-			restartProxy = true
-		}
-		if user.syncProxySQLUsers.need {
-			syncProxySQLUsers = true
-		}
-		if cr.Spec.PMM.Enabled {
-			if user.restartPXC.needIfPMMEnabled {
-				restartPXC = true
-			}
-			if user.restartProxy.needIfPMMEnabled {
-				restartProxy = true
-			}
-		}
-		if len(user.hosts) == 0 {
-			continue
-		}
-		user := users.SysUser{
-			Name:  user.name,
-			Pass:  pass,
-			Hosts: user.hosts,
-		}
-		sysUsers = append(sysUsers, user)
 	}
+
+	// clear 'isPMM flags if PMM isn't enabled
+	if !cr.Spec.PMM.Enabled {
+		todo &^= rPXCifPMM | rProxyifPMM
+	}
+
+	restartPXC := todo&(rPXC|rPXCifPMM) != 0
+	restartProxy := todo&(rProxy|rProxyifPMM) != 0
 
 	pxcUser := "root"
 	pxcPass := string(internalSysSecretObj.Data["root"])
@@ -294,28 +268,24 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	}
 	um, err := users.NewManager(addr, pxcUser, pxcPass)
 	if err != nil {
-		return restartPXC, restartProxy, errors.Wrap(err, "new users manager")
+		return false, false, errors.Wrap(err, "new users manager")
 	}
 	defer um.Close()
 
-	if len(sysUsers) > 0 {
-		err = um.UpdateUsersPass(sysUsers)
-		if err != nil {
-			return restartPXC, restartProxy, errors.Wrap(err, "update sys users pass")
-		}
+	err = um.UpdateUsersPass(sysUsers)
+	if err != nil {
+		return false, false, errors.Wrap(err, "update sys users pass")
 	}
 
-	if len(proxyUsers) > 0 {
-		err = updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
-		if err != nil {
-			return restartPXC, restartProxy, errors.Wrap(err, "update Proxy users pass")
-		}
+	err = updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
+	if err != nil {
+		return false, false, errors.Wrap(err, "update Proxy users pass")
 	}
 
-	if syncProxySQLUsers && !restartProxy {
+	if todo&syncProxyUsers != 0 && !restartProxy {
 		err = r.syncPXCUsersWithProxySQL(cr)
 		if err != nil {
-			return restartPXC, restartProxy, errors.Wrap(err, "sync users")
+			return false, false, errors.Wrap(err, "sync users")
 		}
 	}
 
@@ -354,6 +324,10 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 }
 
 func updateProxyUsers(proxyUsers []users.SysUser, internalSysSecretObj *corev1.Secret, cr *api.PerconaXtraDBCluster) error {
+	if len(proxyUsers) == 0 {
+		return nil
+	}
+
 	um, err := users.NewManager(cr.Name+"-proxysql-unready."+cr.Namespace+":6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]))
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
@@ -421,13 +395,8 @@ func sysUsersSecretDataChanged(newHash string, usersSecret *corev1.Secret) (bool
 	if err != nil {
 		return true, err
 	}
-	oldHash := sha256Hash(secretData)
 
-	if oldHash != newHash {
-		return true, nil
-	}
-
-	return false, nil
+	return sha256Hash(secretData) != newHash, nil
 }
 
 func sha256Hash(data []byte) string {

@@ -146,23 +146,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 	if err != nil {
 		return rr, err
 	}
-
-	bcp := &api.PerconaXtraDBClusterBackup{}
-	if cr.Spec.BackupSource != nil {
-		bcp.Name = cr.Name
-		bcp.Namespace = cr.Namespace
-		bcp.Status = *cr.Spec.BackupSource
-		bcp.Status.State = api.BackupSucceeded
-	} else {
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
-		if err != nil {
-			err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
-			return rr, err
-		}
-	}
-	if bcp.Status.State != api.BackupSucceeded {
-		err = errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
-		return rr, err
+	bcp, err := r.getBackup(cr)
+	if err != nil {
+		return rr, errors.Wrap(err, "get backup")
 	}
 
 	cluster := api.PerconaXtraDBCluster{}
@@ -219,7 +205,30 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
-	return nil, nil
+	bcp := &api.PerconaXtraDBClusterBackup{}
+
+	if cr.Spec.BackupSource != nil {
+		bcp.Name = cr.Name
+		bcp.ClusterName = cr.ClusterName
+		bcp.Namespace = cr.Namespace
+		bcp.Spec.PXCCluster = cr.Spec.PXCCluster
+		bcp.Status = *cr.Spec.BackupSource
+		bcp.Status.State = api.BackupSucceeded
+		bcp.Spec.StorageName = cr.Spec.BackupSource.StorageName
+		return bcp, nil
+	}
+
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
+	if err != nil {
+		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
+		return bcp, err
+	}
+	if bcp.Status.State != api.BackupSucceeded {
+		err = errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
+		return bcp, err
+	}
+
+	return bcp, nil
 }
 
 const backupRestoredMsg = `You can view xtrabackup log:

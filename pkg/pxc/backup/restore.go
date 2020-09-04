@@ -18,7 +18,7 @@ import (
 
 var log = logf.Log.WithName("backup/restore")
 
-func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup) *corev1.Service {
+func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -43,23 +43,23 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtra
 	}
 }
 
-func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) (*corev1.Pod, error) {
-	if _, ok := cluster.Backup.Storages[bcp.Spec.StorageName]; !ok {
-		log.Info("storage " + bcp.Spec.StorageName + " doesn't exist")
+func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName string, cluster api.PerconaXtraDBClusterSpec) (*corev1.Pod, error) {
+	if _, ok := cluster.Backup.Storages[bcpStorageName]; !ok {
+		log.Info("storage " + bcpStorageName + " doesn't exist")
 		if len(cluster.Backup.Storages) == 0 {
 			cluster.Backup.Storages = map[string]*api.BackupStorageSpec{}
 		}
-		cluster.Backup.Storages[bcp.Spec.StorageName] = &api.BackupStorageSpec{}
+		cluster.Backup.Storages[bcpStorageName] = &api.BackupStorageSpec{}
 	}
 
-	resources, err := app.CreateResources(cluster.Backup.Storages[bcp.Status.StorageName].Resources)
+	resources, err := app.CreateResources(cluster.Backup.Storages[bcpStorageName].Resources)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse backup resources: %w", err)
 	}
 
 	// Copy from the original labels to the restore labels
 	labels := make(map[string]string)
-	for key, value := range cluster.Backup.Storages[bcp.Status.StorageName].Labels {
+	for key, value := range cluster.Backup.Storages[bcpStorageName].Labels {
 		labels[key] = value
 	}
 	labels["name"] = "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster
@@ -72,19 +72,19 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
 			Namespace:   cr.Namespace,
-			Annotations: cluster.Backup.Storages[bcp.Status.StorageName].Annotations,
+			Annotations: cluster.Backup.Storages[bcpStorageName].Annotations,
 			Labels:      labels,
 		},
 		Spec: corev1.PodSpec{
 			ImagePullSecrets: cluster.Backup.ImagePullSecrets,
-			SecurityContext:  cluster.Backup.Storages[bcp.Status.StorageName].PodSecurityContext,
+			SecurityContext:  cluster.Backup.Storages[bcpStorageName].PodSecurityContext,
 			Containers: []corev1.Container{
 				{
 					Name:            "ncat",
 					Image:           cluster.Backup.Image,
 					ImagePullPolicy: corev1.PullAlways,
 					Command:         []string{"recovery-pvc-donor.sh"},
-					SecurityContext: cluster.Backup.Storages[bcp.Status.StorageName].ContainerSecurityContext,
+					SecurityContext: cluster.Backup.Storages[bcpStorageName].ContainerSecurityContext,
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "backup",
@@ -120,17 +120,17 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCl
 				app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
 			},
 			RestartPolicy:      corev1.RestartPolicyAlways,
-			NodeSelector:       cluster.Backup.Storages[bcp.Status.StorageName].NodeSelector,
-			Affinity:           cluster.Backup.Storages[bcp.Status.StorageName].Affinity,
-			Tolerations:        cluster.Backup.Storages[bcp.Status.StorageName].Tolerations,
-			SchedulerName:      cluster.Backup.Storages[bcp.Status.StorageName].SchedulerName,
-			PriorityClassName:  cluster.Backup.Storages[bcp.Status.StorageName].PriorityClassName,
+			NodeSelector:       cluster.Backup.Storages[bcpStorageName].NodeSelector,
+			Affinity:           cluster.Backup.Storages[bcpStorageName].Affinity,
+			Tolerations:        cluster.Backup.Storages[bcpStorageName].Tolerations,
+			SchedulerName:      cluster.Backup.Storages[bcpStorageName].SchedulerName,
+			PriorityClassName:  cluster.Backup.Storages[bcpStorageName].PriorityClassName,
 			ServiceAccountName: cluster.PXC.ServiceAccountName,
 		},
 	}, nil
 }
 
-func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
+func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
 	resources, err := app.CreateResources(cluster.PXC.Resources)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse PXC resources: %w", err)

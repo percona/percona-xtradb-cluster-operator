@@ -34,5 +34,7 @@ COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/unsafe-bootstrap.sh /unsafe-bootstrap.sh
 COPY build/pxc-configure-pxc.sh /pxc-configure-pxc.sh
+COPY build/liveness-check.sh /liveness-check.sh
+COPY build/readiness-check.sh /readiness-check.sh
 
 USER nobody

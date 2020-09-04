@@ -68,12 +68,12 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			TimeoutSeconds:      15,
 			PeriodSeconds:       30,
 			FailureThreshold:    5,
-		}, "/usr/bin/clustercheck.sh"),
+		}, "/var/lib/mysql/readiness-check.sh"),
 		LivenessProbe: app.Probe(&corev1.Probe{
 			InitialDelaySeconds: livenessDelay,
 			TimeoutSeconds:      5,
 			PeriodSeconds:       10,
-		}, "/usr/bin/clustercheck.sh"),
+		}, "/var/lib/mysql/liveness-check.sh"),
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3306,

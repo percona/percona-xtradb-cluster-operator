@@ -61,6 +61,9 @@ spec:
         - containerPort: 3309
           name: proxy-protocol
           protocol: TCP
+        - containerPort: 33062
+          name: mysql-admin
+          protocol: TCP
         resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File

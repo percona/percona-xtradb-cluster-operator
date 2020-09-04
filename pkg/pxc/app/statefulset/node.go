@@ -195,6 +195,8 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Name:          "mysql-admin",
 			},
 		)
+		appc.ReadinessProbe.Exec.Command = []string{"/var/lib/mysql/readiness-check.sh"}
+		appc.LivenessProbe.Exec.Command = []string{"/var/lib/mysql/liveness-check.sh"}
 	}
 
 	res, err := app.CreateResources(spec.Resources)

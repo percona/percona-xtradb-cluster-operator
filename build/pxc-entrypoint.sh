@@ -155,7 +155,7 @@ fi
 
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^[sst]" "$CFG" || printf '[sst]\n' >> "$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh' "$CFG" 1<> "$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh' "$CFG" 1<> "$CFG"
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup'
 file_env 'CLUSTERCHECK_PASSWORD' 'clustercheck'
@@ -382,7 +382,8 @@ fi
 if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	DATADIR=$(_get_config 'datadir' "$@")
 	SST_DIR=$(_get_cnf_config sst tmpdir "${DATADIR}/sst-xb-tmpdir")
-	rm -rvf "${SST_DIR}"
+	SST_P_FILE=$(_get_cnf_config sst progress "${DATADIR}/sst_in_progress")
+	rm -rvf "${SST_DIR}" "${SST_P_FILE}"
 
 	"$@" --version | tee /tmp/version_info
 	if [ -f "$DATADIR/version_info" ] && ! diff /tmp/version_info "$DATADIR/version_info"; then
@@ -421,6 +422,8 @@ wsrep_start_position_opt=""
 if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	DATADIR="$(_get_config 'datadir' "$@")"
 	grastate_loc="${DATADIR}/grastate.dat"
+	wsrep_verbose_logfile="$DATADIR/wsrep_recovery_verbose.log"
+	rm -f "$wsrep_verbose_logfile"
 
 	if [ -s "$grastate_loc" -a -d "$DATADIR/mysql" ]; then
 		uuid=$(grep 'uuid:' "$grastate_loc" | cut -d: -f2 | tr -d ' ' || :)
@@ -437,9 +440,10 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	fi
 
 	if [ -z "$wsrep_start_position_opt" -a -d "$DATADIR/mysql" ]; then
-		wsrep_verbose_logfile=$(mktemp $DATADIR/wsrep_recovery_verbose.XXXXXX)
 		"$@" --wsrep_recover --log-error-verbosity=3 --log_error="$wsrep_verbose_logfile"
 
+		echo >&2 "WSREP: Print recovery logs: "
+		cat "$wsrep_verbose_logfile" | tee -a "$DATADIR/wsrep_recovery_verbose_history.log"
 		if grep ' Recovered position:' "$wsrep_verbose_logfile"; then
 			start_pos="$(
 				grep ' Recovered position:' "$wsrep_verbose_logfile" \
@@ -453,7 +457,6 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 				echo "WSREP: Position recovery skipped"
 			else
 				echo >&2 "WSREP: Failed to recover position: "
-				cat "$wsrep_verbose_logfile"
 				exit 1
 			fi
 		fi

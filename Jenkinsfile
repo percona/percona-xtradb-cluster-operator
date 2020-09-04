@@ -255,6 +255,7 @@ pipeline {
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
+                        runTest('haproxy', 'basic')
                         runTest('init-deploy', 'basic')
                         runTest('limits', 'basic')
                         runTest('monitoring', 'basic')

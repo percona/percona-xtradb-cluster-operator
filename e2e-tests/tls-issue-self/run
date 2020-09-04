@@ -6,23 +6,6 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-checkTLSFiles() {
-  for var in '$@'; do
-    if [ -z "$var" ]; then
-      echo 'cant find required tls file'
-      exit 1
-    fi
-  done
-}
-
-checkTLSSecrets() {
-  crt={$(getTLSSecret some-name-ssl 'ca.crt'):-''}
-  tlsCert={$(getTLSSecret some-name-ssl 'tls.crt'):-''}
-  tlsKey={$(getTLSSecret some-name-ssl 'tls.key'):-''}
-
-  checkTLSFiles "$crt" "$tlsCert" "$tlsKey"
-}
-
 main() {
   create_infra $namespace
   kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :
@@ -33,7 +16,7 @@ main() {
   spinup_pxc "$cluster" "$conf_dir/$cluster.yml" 3 10 'secrets_without_tls.yml'
 
   desc 'check if certificate issued manually'
-  checkTLSSecrets
+  tlsSecretsShouldExist
 
   local ownerName=$(kubectl_bin get secrets/$cluster-ssl -o json | jq '.metadata.ownerReferences[0].name')
   if [ $ownerName != '"'$cluster'"' ]; then

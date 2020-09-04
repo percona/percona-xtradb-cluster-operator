@@ -954,3 +954,20 @@ getTLSSecret() {
     local data=$(kubectl get secrets/${secretName} -o json | jq '.data["'${dataKey}'"]')
     echo "$data"
 }
+
+failIfFileEmpty() {
+  for var in '$@'; do
+    if [ -z "$var" ]; then
+      echo 'cant find required tls file'
+      exit 1
+    fi
+  done
+}
+
+tlsSecretsShouldExist() {
+  crt={$(getTLSSecret some-name-ssl 'ca.crt'):-''}
+  tlsCert={$(getTLSSecret some-name-ssl 'tls.crt'):-''}
+  tlsKey={$(getTLSSecret some-name-ssl 'tls.key'):-''}
+
+  failIfFileEmpty "$crt" "$tlsCert" "$tlsKey"
+}

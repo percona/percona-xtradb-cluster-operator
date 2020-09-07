@@ -87,7 +87,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		// monitor user need more grants for work in version more then 1.6.0
 		err = r.manageMonitorUser(cr, &internalSysSecretObj)
 		if err != nil {
-			return errors.Wrap(err, "manage monitor user")
+			return nil, nil, errors.Wrap(err, "manage monitor user")
 		}
 	}
 
@@ -110,13 +110,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "update internal sys users secret")
 	}
-	pxcAnnotations = make(map[string]string)
-	proxysqlAnnotations = make(map[string]string)
 
 	if restartProxy {
+		proxysqlAnnotations = make(map[string]string)
 		proxysqlAnnotations["last-applied-secret"] = newSecretDataHash
 	}
 	if restartPXC {
+		pxcAnnotations = make(map[string]string)
 		pxcAnnotations["last-applied-secret"] = newSecretDataHash
 	}
 

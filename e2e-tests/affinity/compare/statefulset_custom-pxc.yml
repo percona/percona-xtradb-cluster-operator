@@ -106,7 +106,7 @@ spec:
         livenessProbe:
           exec:
             command:
-            - /usr/bin/clustercheck.sh
+            - /var/lib/mysql/liveness-check.sh
           failureThreshold: 3
           initialDelaySeconds: 300
           periodSeconds: 10
@@ -132,7 +132,7 @@ spec:
         readinessProbe:
           exec:
             command:
-            - /usr/bin/clustercheck.sh
+            - /var/lib/mysql/readiness-check.sh
           failureThreshold: 5
           initialDelaySeconds: 15
           periodSeconds: 30

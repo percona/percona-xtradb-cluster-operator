@@ -38,7 +38,7 @@ main() {
     sleep 1
     kubectl_bin delete pod/"$cluster-pxc-2"
 
-    wait_for_running "$cluster-pxc" 3
+    wait_for_running "$cluster-pxc" 3 800
     destroy $namespace
 }
 

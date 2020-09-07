@@ -264,6 +264,7 @@ run_mysql() {
 
     client_pod=$(get_client_pod)
     wait_pod $client_pod 1>&2
+    sleep 15
     [[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $client_pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
     set +o xtrace

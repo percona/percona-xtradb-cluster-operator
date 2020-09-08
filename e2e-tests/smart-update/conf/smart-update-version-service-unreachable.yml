@@ -1,11 +1,15 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
-  name: some-name
+  name: smart-update
   finalizers:
     - delete-pxc-pods-in-order
 spec:
   updateStrategy: SmartUpdate
+  upgradeOptions:
+    versionServiceEndpoint: https://127.0.0.1/versions
+    apply: recommended
+    schedule: "0 4 * * *"
   secretsName: my-cluster-secrets
   pause: false
   pxc:
@@ -26,7 +30,7 @@ spec:
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
-    enabled: false
+    enabled: true
     size: 1
     image: -proxysql
     resources:
@@ -43,19 +47,6 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
-  haproxy:
-    enabled: true
-    size: 3
-    image: -haproxy
-    resources:
-      requests:
-        memory: 1G
-        cpu: 600m
-    affinity:
-      antiAffinityTopologyKey: "kubernetes.io/hostname"
-    podDisruptionBudget:
-      maxUnavailable: 1
-    gracePeriod: 30
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1

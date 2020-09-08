@@ -1,11 +1,15 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
-  name: some-name
+  name: smart-update
   finalizers:
     - delete-pxc-pods-in-order
 spec:
   updateStrategy: SmartUpdate
+  upgradeOptions:
+    versionServiceEndpoint: https://check.percona.com/versions
+    apply: never
+    schedule: "0 4 * * *"
   secretsName: my-cluster-secrets
   pause: false
   pxc:

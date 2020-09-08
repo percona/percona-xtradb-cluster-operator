@@ -11,7 +11,7 @@ run_recovery_from_source() {
 
     stext=$(kubectl_bin get pxc-backup on-demand-backup-aws-s3 -o json | jq -c '.status')
     jq --argjson s "$stext" '.spec.backupSource=$s' $test_dir/conf/restore-from-source-backup-aws-s3.json \
-    | kubectl_bin apply -f -
+        | kubectl_bin apply -f -
     sleep 30
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3

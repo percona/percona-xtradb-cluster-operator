@@ -48,7 +48,7 @@ spec:
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-haproxy
         imagePullPolicy: Always
         name: haproxy
         ports:
@@ -83,7 +83,7 @@ spec:
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-haproxy
         imagePullPolicy: Always
         name: pxc-monit
         resources: {}

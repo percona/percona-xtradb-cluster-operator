@@ -60,7 +60,7 @@ func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
 	}
 
 	if cr.Spec.BackupName == "" && cr.Spec.BackupSource == nil {
-		return errors.New("backupName or BackupSource can't be empty")
+		return errors.New("backupName and BackupSource can't be empty simultaneously")
 	}
 
 	return nil

@@ -1,0 +1,9 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: on-demand-backup-pvc-bsource
+spec:
+  pxcCluster: some-name
+  backupSource:
+    destination: pvc/some-name-xb-on-demand-backup-pvc-bsource
+    storageName: pvc

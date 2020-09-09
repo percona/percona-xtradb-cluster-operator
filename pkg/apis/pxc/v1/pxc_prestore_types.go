@@ -8,8 +8,9 @@ import (
 
 // PerconaXtraDBClusterRestoreSpec defines the desired state of PerconaXtraDBClusterRestore
 type PerconaXtraDBClusterRestoreSpec struct {
-	PXCCluster string `json:"pxcCluster"`
-	BackupName string `json:"backupName"`
+	PXCCluster   string           `json:"pxcCluster"`
+	BackupName   string           `json:"backupName"`
+	BackupSource *PXCBackupStatus `json:"backupSource"`
 }
 
 // PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore
@@ -58,8 +59,8 @@ func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
 		return errors.New("pxcCluster can't be empty")
 	}
 
-	if cr.Spec.BackupName == "" {
-		return errors.New("backupName can't be empty")
+	if cr.Spec.BackupName == "" && cr.Spec.BackupSource == nil {
+		return errors.New("backupName and BackupSource can't be empty simultaneously")
 	}
 
 	return nil

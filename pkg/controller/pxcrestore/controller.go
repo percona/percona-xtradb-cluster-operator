@@ -146,17 +146,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 	if err != nil {
 		return rr, err
 	}
-
-	bcp := &api.PerconaXtraDBClusterBackup{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
+	bcp, err := r.getBackup(cr)
 	if err != nil {
-		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
-		return rr, err
-	}
-
-	if bcp.Status.State != api.BackupSucceeded {
-		err = errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
-		return rr, err
+		return rr, errors.Wrap(err, "get backup")
 	}
 
 	cluster := api.PerconaXtraDBCluster{}
@@ -210,6 +202,41 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 	lgr.Info(returnMsg)
 
 	return rr, err
+}
+
+func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
+	if cr.Spec.BackupSource != nil {
+		return &api.PerconaXtraDBClusterBackup{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        cr.Name,
+				Namespace:   cr.Namespace,
+				ClusterName: cr.ClusterName,
+			},
+			Spec: api.PXCBackupSpec{
+				PXCCluster:  cr.Spec.PXCCluster,
+				StorageName: cr.Spec.BackupSource.StorageName,
+			},
+			Status: api.PXCBackupStatus{
+				State:       api.BackupSucceeded,
+				Destination: cr.Spec.BackupSource.Destination,
+				StorageName: cr.Spec.BackupSource.StorageName,
+				S3:          cr.Spec.BackupSource.S3,
+			},
+		}, nil
+	}
+
+	bcp := &api.PerconaXtraDBClusterBackup{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
+	if err != nil {
+		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
+		return bcp, err
+	}
+	if bcp.Status.State != api.BackupSucceeded {
+		err = errors.Errorf("backup %s didn't finished yet, current state: %s", bcp.Name, bcp.Status.State)
+		return bcp, err
+	}
+
+	return bcp, nil
 }
 
 const backupRestoredMsg = `You can view xtrabackup log:

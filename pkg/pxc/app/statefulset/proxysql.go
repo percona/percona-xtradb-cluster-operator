@@ -106,12 +106,14 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}
+
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "config",
 			MountPath: "/etc/proxysql/",
 		})
 	}
+
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		appc.Env[1] = corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
@@ -135,6 +137,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	if err != nil {
 		return nil, fmt.Errorf("create sidecar resources error: %v", err)
 	}
+
 	pxcMonit := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,

@@ -24,6 +24,7 @@ import (
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
 	currentSet := sfs.StatefulSet()
+	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
 	if err != nil {
 		return fmt.Errorf("failed to get sate: %v", err)
@@ -38,9 +39,13 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function
 	configHash := r.getConfigHash(cr, sfs)
+
 	if currentSet.Spec.Template.Annotations == nil {
 		currentSet.Spec.Template.Annotations = make(map[string]string)
 	}
+
+	pxc.MergeTmplateAnnotations(currentSet, newAnnotations)
+
 	if cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
 	}
@@ -81,9 +86,14 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	var newContainers []corev1.Container
 	var newInitContainers []corev1.Container
 
+	secrets := cr.Spec.SecretsName
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		secrets = "internal-" + cr.Name
+	}
+
 	// pmm container
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, cr)
+		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secrets, cr)
 		if err != nil {
 			return fmt.Errorf("pmm container error: %v", err)
 		}
@@ -93,7 +103,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// application container
-	appC, err := sfs.AppContainer(podSpec, cr.Spec.SecretsName, cr)
+	appC, err := sfs.AppContainer(podSpec, secrets, cr)
 	if err != nil {
 		return fmt.Errorf("app container error: %v", err)
 	}
@@ -114,7 +124,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// sidecars
-	sideC, err := sfs.SidecarContainers(podSpec, cr.Spec.SecretsName, cr)
+	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)
 	if err != nil {
 		return fmt.Errorf("sidecar container error: %v", err)
 	}
@@ -310,9 +320,12 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 	} else {
 		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 	}
-
+	secrets := cr.Spec.SecretsName
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		secrets = "internal-" + cr.Name
+	}
 	for i := 0; ; i++ {
-		db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, host, port)
+		db, err := queries.New(r.client, cr.Namespace, secrets, user, host, port)
 		if err != nil && i < int(proxySize) {
 			time.Sleep(time.Second)
 		} else if err != nil && i == int(proxySize) {
@@ -348,13 +361,14 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, podIP string, waitLimit int) error {
 	user := "root"
-
+	secrets := cr.Spec.SecretsName
 	port := int32(3306)
 	if cr.CompareVersionWith("1.6.0") >= 0 {
+		secrets = "internal-" + cr.Name
 		port = int32(33062)
 	}
 
-	database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, podIP, port)
+	database, err := queries.New(r.client, cr.Namespace, secrets, user, podIP, port)
 	if err != nil {
 		return fmt.Errorf("failed to access PXC database: %v", err)
 	}

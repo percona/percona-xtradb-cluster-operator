@@ -54,27 +54,27 @@ spec:
           valueFrom:
             secretKeyRef:
               key: root
-              name: my-cluster-secrets
+              name: internal-zone
         - name: XTRABACKUP_PASSWORD
           valueFrom:
             secretKeyRef:
               key: xtrabackup
-              name: my-cluster-secrets
+              name: internal-zone
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-zone
         - name: CLUSTERCHECK_PASSWORD
           valueFrom:
             secretKeyRef:
               key: clustercheck
-              name: my-cluster-secrets
+              name: internal-zone
         - name: OPERATOR_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
               key: operator
-              name: my-cluster-secrets
+              name: internal-zone
         imagePullPolicy: Always
         livenessProbe:
           exec:

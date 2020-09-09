@@ -84,6 +84,10 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 }
 
 func (u *Manager) UpdateUsersPass(users []SysUser) error {
+	if len(users) == 0 {
+		return nil
+	}
+
 	tx, err := u.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")

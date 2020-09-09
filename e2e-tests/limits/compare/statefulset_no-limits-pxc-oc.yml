@@ -43,27 +43,27 @@ spec:
           valueFrom:
             secretKeyRef:
               key: root
-              name: my-cluster-secrets
+              name: internal-no-limits
         - name: XTRABACKUP_PASSWORD
           valueFrom:
             secretKeyRef:
               key: xtrabackup
-              name: my-cluster-secrets
+              name: internal-no-limits
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-no-limits
         - name: CLUSTERCHECK_PASSWORD
           valueFrom:
             secretKeyRef:
               key: clustercheck
-              name: my-cluster-secrets
+              name: internal-no-limits
         - name: OPERATOR_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
               key: operator
-              name: my-cluster-secrets
+              name: internal-no-limits
         imagePullPolicy: Always
         livenessProbe:
           exec:

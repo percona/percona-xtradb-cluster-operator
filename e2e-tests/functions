@@ -953,6 +953,6 @@ patch_secret() {
 getSecretData() {
     local secretName=$1
     local dataKey=$2
-    local  data=`kubectl_bin get secrets/${secretName} --template={{.data.${dataKey}}} | base64 --decode`
-    echo "$data"
+    kubectl_bin get secrets/${secretName} --template={{.data.${dataKey}}} \
+        | base64 --decode
 }

@@ -55,7 +55,7 @@ wait_cluster_consistency "$cluster" 3 1
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p$newpass"
 
 desc 'change secret name'
-kubectl_bin patch pxc $cluster --type merge --patch "$(cat $test_dir/conf/some-name.yml)"
+kubectl_bin patch pxc $cluster --type merge --patch '{"spec": {"secretsName":"my-cluster-secrets-2"}}'
 sleep 30
 wait_cluster_consistency "$cluster" 3 1
 newpass="test-password2"

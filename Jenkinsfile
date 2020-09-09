@@ -279,13 +279,10 @@ pipeline {
                         runTest('auto-tuning', 'basic')
                         runTest('proxysql-sidecar-res-limits', 'basic')
                         runTest('users', 'basic')
-<<<<<<< HEAD
                         runTest('tls-issue-self','basic')
                         runTest('tls-issue-cert-manager','basic')
                         runTest('tls-issue-cert-manager-ref','basic')
                         runTest('smart-update', 'basic')
-=======
->>>>>>> c5aa5c72... K8SPXC-367 Move test to a separate cluster
                         ShutdownCluster('basic')
                    }
                 }

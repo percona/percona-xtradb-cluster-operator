@@ -30,7 +30,7 @@ spec:
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
-    enabled: true
+    enabled: false
     size: 1
     image: -proxysql
     resources:
@@ -47,6 +47,19 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
+  haproxy:
+    enabled: true
+    size: 1
+    image: -haproxy
+    resources:
+      requests:
+        memory: 1G
+        cpu: 600m
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+    podDisruptionBudget:
+      maxUnavailable: 1
+    gracePeriod: 30
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1

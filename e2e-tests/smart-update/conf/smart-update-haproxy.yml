@@ -45,7 +45,7 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   haproxy:
     enabled: true
-    size: 3
+    size: 1
     image: -haproxy
     resources:
       requests:

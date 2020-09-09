@@ -40,6 +40,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// TODO: code duplication with deploy function
 	configHash := r.getConfigHash(cr, sfs)
 
+	if currentSet.Spec.Template.Annotations == nil {
+		currentSet.Spec.Template.Annotations = make(map[string]string)
+	}
+
 	pxc.MergeTmplateAnnotations(currentSet, newAnnotations)
 
 	if cr.CompareVersionWith("1.1.0") >= 0 {

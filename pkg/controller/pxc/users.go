@@ -200,13 +200,13 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			action: rProxy,
 		},
 	}
-	if cr.Spec.PMM.Enabled {
+	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		requiredUsers = append(requiredUsers, user{
 			name:   "pmmserver",
 			action: rProxyifPMM | rPXCifPMM,
 		})
 	}
-	if cr.Spec.ProxySQL.Enabled {
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		requiredUsers = append(requiredUsers, user{
 			name:      "proxyadmin",
 			proxyUser: true,
@@ -243,7 +243,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	}
 
 	// clear 'isPMM flags if PMM isn't enabled
-	if !cr.Spec.PMM.Enabled {
+	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
 		todo &^= rPXCifPMM | rProxyifPMM
 	}
 
@@ -292,7 +292,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 		return nil
 	}
 	// sync users if ProxySql enabled
-	if cr.Spec.ProxySQL != nil && !cr.Spec.ProxySQL.Enabled {
+	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled {
 		return nil
 	}
 	pod := corev1.Pod{}

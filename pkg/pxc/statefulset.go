@@ -143,11 +143,11 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 }
 
 func MergeTmplateAnnotations(sfs *appsv1.StatefulSet, annotations map[string]string) {
-	if sfs.Spec.Template.Annotations == nil {
-		sfs.Spec.Template.Annotations = make(map[string]string)
-	}
 	if len(annotations) == 0 {
 		return
+	}
+	if sfs.Spec.Template.Annotations == nil {
+		sfs.Spec.Template.Annotations = make(map[string]string)
 	}
 	for k, v := range annotations {
 		sfs.Spec.Template.Annotations[k] = v

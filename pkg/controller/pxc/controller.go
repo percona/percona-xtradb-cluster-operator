@@ -190,6 +190,20 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}()
 
+	err = r.reconcileUsersSecret(o)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("reconcile users secret: %v", err)
+	}
+	var pxcAnnotations, proxysqlAnnotations map[string]string
+	if o.CompareVersionWith("1.5.0") >= 0 {
+		pxcAnnotations, proxysqlAnnotations, err = r.reconcileUsers(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "reconcileUsers")
+		}
+	}
+
+	r.resyncPXCUsersWithProxySQL(o)
+
 	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
 	if changed {
 		err = r.client.Update(context.TODO(), o)
@@ -239,11 +253,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return rr, err
 	}
 
-	err = r.reconcileUsersSecret(o)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("reconcile users secret: %v", err)
-	}
-
 	err = r.deploy(o)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -260,6 +269,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	pxcSet := statefulset.NewNode(o)
+	pxc.MergeTmplateAnnotations(pxcSet.StatefulSet(), pxcAnnotations)
 	err = r.updatePod(pxcSet, o.Spec.PXC, o, inits)
 	if err != nil {
 		err = fmt.Errorf("pxc upgrade error: %v", err)
@@ -376,6 +386,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
+	pxc.MergeTmplateAnnotations(proxysqlSet.StatefulSet(), proxysqlAnnotations)
 	proxysqlService := pxc.NewServiceProxySQL(o)
 
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
@@ -470,15 +481,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	if o.CompareVersionWith("1.5.0") >= 0 {
-		err = r.reconcileUsers(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "reconcileUsers")
-		}
-	}
-
-	r.resyncPXCUsersWithProxySQL(o)
 
 	if err := r.fetchVersionFromPXC(o, pxcSet); err != nil {
 		return rr, errors.Wrap(err, "update CR version")

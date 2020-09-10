@@ -32,15 +32,15 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) error {
-	svc := backup.PVCRestoreService(cr, bcp)
+	svc := backup.PVCRestoreService(cr)
 	k8s.SetControllerReference(cr, svc, r.scheme)
-	pod, err := backup.PVCRestorePod(cr, bcp, pvcName, cluster)
+	pod, err := backup.PVCRestorePod(cr, bcp.Status.StorageName, pvcName, cluster)
 	if err != nil {
 		return errors.Wrap(err, "restore pod")
 	}
 	k8s.SetControllerReference(cr, pod, r.scheme)
 
-	job, err := backup.PVCRestoreJob(cr, bcp, cluster)
+	job, err := backup.PVCRestoreJob(cr, cluster)
 	if err != nil {
 		return errors.Wrap(err, "restore job")
 	}

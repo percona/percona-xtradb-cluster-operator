@@ -26,6 +26,10 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		pod.ServiceAccountName = podSpec.ServiceAccountName
 	}
+	secrets := cr.Spec.SecretsName
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		secrets = "internal-" + cr.Name
+	}
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 
 	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" {
@@ -42,13 +46,13 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.Volumes = sfsVolume.Volumes
 	}
 
-	appC, err := sfs.AppContainer(podSpec, cr.Spec.SecretsName, cr)
+	appC, err := sfs.AppContainer(podSpec, secrets, cr)
 	if err != nil {
 		return nil, errors.Wrap(err, "app container")
 	}
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, cr.Spec.SecretsName, cr)
+		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secrets, cr)
 		if err != nil {
 			return nil, fmt.Errorf("pmm container error: %v", err)
 		}
@@ -70,7 +74,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.InitContainers = append(pod.InitContainers, *ic)
 	}
 
-	sideC, err := sfs.SidecarContainers(podSpec, cr.Spec.SecretsName, cr)
+	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)
 	if err != nil {
 		return nil, errors.Wrap(err, "sidecar container")
 	}
@@ -136,4 +140,16 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 	}
 
 	return nil
+}
+
+func MergeTmplateAnnotations(sfs *appsv1.StatefulSet, annotations map[string]string) {
+	if len(annotations) == 0 {
+		return
+	}
+	if sfs.Spec.Template.Annotations == nil {
+		sfs.Spec.Template.Annotations = make(map[string]string)
+	}
+	for k, v := range annotations {
+		sfs.Spec.Template.Annotations[k] = v
+	}
 }

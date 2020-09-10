@@ -42,7 +42,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool) corev1.Con
 	container := corev1.Container{
 		Name:            "pmm-client",
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Env:             pmmEnvs,
 		SecurityContext: spec.ContainerSecurityContext,
 	}

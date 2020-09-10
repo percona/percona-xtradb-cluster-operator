@@ -76,6 +76,7 @@ get_operator_pod() {
 
 wait_pod() {
     local pod=$1
+    local max_retry="${2:-480}"
 
     set +o xtrace
     retry=0
@@ -85,7 +86,7 @@ wait_pod() {
         sleep 1
         echo -n .
         let retry+=1
-        if [ $retry -ge 480 ]; then
+        if [[ $retry -ge $max_retry ]]; then
             kubectl_bin describe pod/$pod
             kubectl_bin logs $pod
             kubectl_bin logs $(get_operator_pod)
@@ -189,9 +190,10 @@ create_infra() {
 wait_for_running() {
     local name="$1"
     let last_pod="$(($2 - 1))" || :
+    local max_retry="${3:-480}"
 
     for i in $(seq 0 $last_pod); do
-        wait_pod ${name}-${i}
+        wait_pod ${name}-${i} ${max_retry}
     done
 }
 
@@ -262,6 +264,7 @@ run_mysql() {
 
     client_pod=$(get_client_pod)
     wait_pod $client_pod 1>&2
+
     [[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $client_pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
     set +o xtrace
@@ -729,7 +732,7 @@ run_recovery_check() {
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
 
-    sleep 20
+    sleep 35
     desc 'check data after backup'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
@@ -946,6 +949,13 @@ patch_secret() {
     local value=$3
     
     kubectl_bin patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
+}
+
+getSecretData() {
+    local secretName=$1
+    local dataKey=$2
+    kubectl_bin get secrets/${secretName} --template={{.data.${dataKey}}} \
+        | base64 --decode
 }
 
 checkTLSSecret() {

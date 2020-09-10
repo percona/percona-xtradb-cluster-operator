@@ -52,7 +52,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 	appc := corev1.Container{
 		Name:            proxyName,
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3306,
@@ -106,12 +106,14 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}
+
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "config",
 			MountPath: "/etc/proxysql/",
 		})
 	}
+
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		appc.Env[1] = corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
@@ -139,7 +141,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	pxcMonit := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
 			"/usr/bin/peer-list",
 			"-on-change=/usr/bin/add_pxc_nodes.sh",
@@ -179,7 +181,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	proxysqlMonit := corev1.Container{
 		Name:            "proxysql-monit",
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
 			"/usr/bin/peer-list",
 			"-on-change=/usr/bin/add_proxysql_nodes.sh",

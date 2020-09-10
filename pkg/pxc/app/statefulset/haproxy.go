@@ -56,7 +56,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 	appc := corev1.Container{
 		Name:            haproxyName,
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3306,
@@ -131,10 +131,11 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 	if err != nil {
 		return nil, fmt.Errorf("create sidecar resources error: %v", err)
 	}
+
 	container := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: spec.ImagePullPolicy,
 		Args: []string{
 			"/usr/bin/peer-list",
 			"-on-change=/usr/bin/add_pxc_nodes.sh",

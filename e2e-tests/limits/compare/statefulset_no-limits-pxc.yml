@@ -30,6 +30,65 @@ spec:
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
+      - env:
+        - name: PMM_SERVER
+          value: monitoring-service
+        - name: PMM_USER
+          value: pmm
+        - name: PMM_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: pmmserver
+              name: internal-no-limits
+        - name: CLIENT_PORT_LISTEN
+          value: "7777"
+        - name: CLIENT_PORT_MIN
+          value: "30100"
+        - name: CLIENT_PORT_MAX
+          value: "30105"
+        - name: DB_TYPE
+          value: mysql
+        - name: DB_USER
+          value: monitor
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: internal-no-limits
+        - name: DB_ARGS
+          value: --query-source=perfschema
+        - name: DB_CLUSTER
+          value: pxc
+        - name: DB_HOST
+          value: localhost
+        - name: DB_PORT
+          value: "3306"
+        imagePullPolicy: IfNotPresent
+        name: pmm-client
+        ports:
+        - containerPort: 7777
+          protocol: TCP
+        - containerPort: 30100
+          protocol: TCP
+        - containerPort: 30101
+          protocol: TCP
+        - containerPort: 30102
+          protocol: TCP
+        - containerPort: 30103
+          protocol: TCP
+        - containerPort: 30104
+          protocol: TCP
+        - containerPort: 30105
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 300m
+            memory: 500M
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: datadir
       - args:
         - mysqld
         command:
@@ -43,32 +102,32 @@ spec:
           valueFrom:
             secretKeyRef:
               key: root
-              name: my-cluster-secrets
+              name: internal-no-limits
         - name: XTRABACKUP_PASSWORD
           valueFrom:
             secretKeyRef:
               key: xtrabackup
-              name: my-cluster-secrets
+              name: internal-no-limits
         - name: MONITOR_PASSWORD
           valueFrom:
             secretKeyRef:
               key: monitor
-              name: my-cluster-secrets
+              name: internal-no-limits
         - name: CLUSTERCHECK_PASSWORD
           valueFrom:
             secretKeyRef:
               key: clustercheck
-              name: my-cluster-secrets
+              name: internal-no-limits
         - name: OPERATOR_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
               key: operator
-              name: my-cluster-secrets
-        imagePullPolicy: Always
+              name: internal-no-limits
+        imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
             command:
-            - /usr/bin/clustercheck.sh
+            - /var/lib/mysql/liveness-check.sh
           failureThreshold: 3
           initialDelaySeconds: 300
           periodSeconds: 10
@@ -94,7 +153,7 @@ spec:
         readinessProbe:
           exec:
             command:
-            - /usr/bin/clustercheck.sh
+            - /var/lib/mysql/readiness-check.sh
           failureThreshold: 5
           initialDelaySeconds: 15
           periodSeconds: 30

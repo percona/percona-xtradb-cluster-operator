@@ -1,0 +1,53 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+check_haproxy_writer() {
+  for i in $(seq 0 2); do
+    local haproxy_pod_ip=$(kubectl_bin get pods $cluster-haproxy-$i -o jsonpath='{.status.podIP}') 
+    run_mysql "SHOW VARIABLES LIKE 'server_id'" "-h $haproxy_pod_ip -uroot -proot_password" > "/$tmp_dir/server_id_$i.sql"
+  done
+  for i in $(seq 0 1); do
+    diff -u "/$tmp_dir/server_id_$i.sql" "/$tmp_dir/server_id_$(($i+1)).sql"
+  done
+}
+
+main() {
+  create_infra $namespace
+
+  desc 'create first PXC cluster with HAProxy'
+  cluster="haproxy"
+  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10
+
+  desc 'checking all haproxy pods point to the same writer'
+  check_haproxy_writer
+
+  desc 'delete active writer and checking all haproxy pods still point to the same writer'
+  kubectl_bin delete pod $cluster-pxc-0
+  check_haproxy_writer
+
+  desc 'check advanced options are enabled in haproxy statefulset'
+  compare_kubectl pdb/$cluster-haproxy
+  compare_kubectl statefulset/$cluster-haproxy
+
+  desc 'enable proxy-sql'
+  apply_config "$test_dir/conf/$cluster-proxysql.yml"
+  sleep 50
+  compare_kubectl statefulset/$cluster-proxysql
+  compare_kubectl service/$cluster-proxysql
+
+  desc 're-enable haproxy'
+  apply_config "$test_dir/conf/$cluster.yml"
+  sleep 50
+  compare_kubectl statefulset/$cluster-haproxy
+  compare_kubectl service/$cluster-haproxy
+    compare_kubectl pdb/$cluster-haproxy
+  desc 'clean up'
+  destroy $namespace
+}
+
+main

@@ -567,13 +567,13 @@ spinup_pxc() {
     local config=$2
     local size="${3:-3}"
     local sleep="${4:-10}"
-    local secretsFile="${5:-secrets.yml}"
+    local secretsFile="${5:-$conf_dir/secrets.yml}"
+    local pxcClientFile="${6:-$conf_dir/client.yml}"
 
     desc 'create first PXC cluster'
-    kubectl_bin apply \
-        -f $conf_dir/$secretsFile
+    kubectl_bin apply -f $secretsFile
 
-    apply_config "$conf_dir/client.yml"
+    apply_config "$pxcClientFile"
     apply_config "$config"
 
     desc 'check if all 3 Pods started'
@@ -948,26 +948,18 @@ patch_secret() {
     kubectl_bin patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
 }
 
-getTLSSecret() {
+checkTLSSecret() {
     local secretName=$1
     local dataKey=$2
-    local data=$(kubectl get secrets/${secretName} -o json | jq '.data["'${dataKey}'"]')
-    echo "$data"
-}
-
-failIfFileEmpty() {
-  for var in '$@'; do
-    if [ -z "$var" ]; then
-      echo 'cant find required tls file'
+    local secretData=$(kubectl_bin get secrets/${secretName} -o json | jq '.data["'${dataKey}'"]')
+    if [ -z "$secretData" ]; then
       exit 1
     fi
-  done
 }
 
 tlsSecretsShouldExist() {
-  crt={$(getTLSSecret some-name-ssl 'ca.crt'):-''}
-  tlsCert={$(getTLSSecret some-name-ssl 'tls.crt'):-''}
-  tlsKey={$(getTLSSecret some-name-ssl 'tls.key'):-''}
-
-  failIfFileEmpty "$crt" "$tlsCert" "$tlsKey"
+  local secretName=$1
+  checkTLSSecret "$secretName" 'ca.crt'
+  checkTLSSecret "$secretName" 'tls.crt'
+  checkTLSSecret "$secretName" 'tls.key'
 }

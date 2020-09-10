@@ -1,16 +1,13 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
-  name: some-name
+  name: some-name-tls-issue
   finalizers:
     - delete-pxc-pods-in-order
 spec:
   tls:
    SANs:
      - test.com
-   issuerConf:
-     kind: ClusterIssuer
-     name: special-selfsigned-issuer
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault
   pause: false

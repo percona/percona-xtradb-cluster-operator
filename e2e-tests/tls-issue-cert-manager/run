@@ -8,7 +8,7 @@ test_dir=$(realpath $(dirname $0))
 
 main() {
   create_infra $namespace
-  cluster="some-name"
+  cluster="some-name-tls-issue"
 
   desc 'deploy cert manager'
   deploy_cert_manager
@@ -16,10 +16,10 @@ main() {
   sleep 30
 
   desc 'create pxc cluster'
-  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 'secrets_without_tls.yml'
+  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml" "$test_dir/conf/client.yml"
 
   desc 'check if certificates issued with certmanager'
-  tlsSecretsShouldExist
+  tlsSecretsShouldExist "$cluster-ssl"
 
   desc 'check if default issuer created'
   compare_kubectl issuer/$cluster-pxc-ca

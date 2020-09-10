@@ -13,10 +13,10 @@ main() {
 
   desc 'create PXC cluster without cert manager'
   cluster="some-name"
-  spinup_pxc "$cluster" "$conf_dir/$cluster.yml" 3 10 'secrets_without_tls.yml'
+  spinup_pxc "$cluster" "$conf_dir/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml"
 
   desc 'check if certificate issued manually'
-  tlsSecretsShouldExist
+  tlsSecretsShouldExist "$cluster-ssl"
 
   local ownerName=$(kubectl_bin get secrets/$cluster-ssl -o json | jq '.metadata.ownerReferences[0].name')
   if [ $ownerName != '"'$cluster'"' ]; then

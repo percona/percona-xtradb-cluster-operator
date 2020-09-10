@@ -2,10 +2,10 @@ apiVersion: cert-manager.io/v1alpha3
 kind: Issuer
 metadata:
   generation: 1
-  name: some-name-pxc-ca
+  name: some-name-tls-issue-pxc-ca
   ownerReferences:
     controller: true
     kind: PerconaXtraDBCluster
-    name: some-name
+    name: some-name-tls-issue
 spec:
   selfSigned: {}

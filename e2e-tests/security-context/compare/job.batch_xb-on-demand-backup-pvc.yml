@@ -5,9 +5,9 @@ metadata:
     openshift.io/scc: privileged
   labels:
     cluster: sec-context
-    job-name: sec-context-xb-on-demand-backup-pvc
+    job-name: xb-on-demand-backup-pvc
     type: xtrabackup
-  name: sec-context-xb-on-demand-backup-pvc
+  name: xb-on-demand-backup-pvc
   ownerReferences:
     controller: true
     kind: PerconaXtraDBClusterBackup
@@ -20,7 +20,7 @@ spec:
   selector:
     matchLabels:
       cluster: sec-context
-      job-name: sec-context-xb-on-demand-backup-pvc
+      job-name: xb-on-demand-backup-pvc
       type: xtrabackup
   template:
     metadata:
@@ -28,7 +28,7 @@ spec:
         openshift.io/scc: privileged
       labels:
         cluster: sec-context
-        job-name: sec-context-xb-on-demand-backup-pvc
+        job-name: xb-on-demand-backup-pvc
         type: xtrabackup
     spec:
       containers:
@@ -76,7 +76,7 @@ spec:
       volumes:
       - name: xtrabackup
         persistentVolumeClaim:
-          claimName: sec-context-xb-on-demand-backup-pvc
+          claimName: xb-on-demand-backup-pvc
       - name: ssl
         secret:
           defaultMode: 420

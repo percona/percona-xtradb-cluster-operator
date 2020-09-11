@@ -49,7 +49,7 @@ spec:
             - "\n\t\t\t\t\t\t\tcat <<-EOF | kubectl apply -f -\n\t\t\t\t\t\t\t\t\tapiVersion:
               pxc.percona.com/v1\n\t\t\t\t\t\t\t\t\tkind: PerconaXtraDBClusterBackup\n\t\t\t\t\t\t\t\t\tmetadata:\n\t\t\t\t\t\t\t\t\t
               \ name: \"cron-${pxcCluster:0:16}-$(date
-              -u \"+%Y%m%d%H%M%S\")-${suffix}\"\n\t\t\t\t\t\t\t\t\t  labels:\n\t\t\t\t\t\t\t\t\t
+              -u \"+%Y%m%d%H%M%S\")-minio-${suffix}\"\n\t\t\t\t\t\t\t\t\t  labels:\n\t\t\t\t\t\t\t\t\t
               \   ancestor: \"each-min-minio\"\n\t\t\t\t\t\t\t\t\t    cluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t
               \   type: \"cron\"\n\t\t\t\t\t\t\t\t\tspec:\n\t\t\t\t\t\t\t\t\t  pxcCluster:
               \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  storageName: \"minio\"\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"

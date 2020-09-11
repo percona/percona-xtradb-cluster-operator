@@ -265,6 +265,9 @@ pipeline {
                         runTest('auto-tuning', 'basic')
                         runTest('proxysql-sidecar-res-limits', 'basic')
                         runTest('users', 'basic')
+                        runTest('tls-issue-self','basic')
+                        runTest('tls-issue-cert-manager','basic')
+                        runTest('tls-issue-cert-manager-ref','basic')
                         ShutdownCluster('basic')
                    }
                 }

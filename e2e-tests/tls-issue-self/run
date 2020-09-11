@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+main() {
+  create_infra $namespace
+  kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :
+  sleep 10
+
+  desc 'create PXC cluster without cert manager'
+  cluster="some-name"
+  spinup_pxc "$cluster" "$conf_dir/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml"
+
+  desc 'check if certificate issued manually'
+  tlsSecretsShouldExist "$cluster-ssl"
+
+  local ownerName=$(kubectl_bin get secrets/$cluster-ssl -o json | jq '.metadata.ownerReferences[0].name')
+  if [ $ownerName != '"'$cluster'"' ]; then
+    desc 'invalid owner of secret'
+    exit 1
+  fi
+  destroy $namespace
+}
+
+main

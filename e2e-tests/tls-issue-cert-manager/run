@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+main() {
+  create_infra $namespace
+  cluster="some-name-tls-issue"
+
+  desc 'deploy cert manager'
+  deploy_cert_manager
+
+  sleep 30
+
+  desc 'create pxc cluster'
+  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml" "$test_dir/conf/client.yml"
+
+  desc 'check if certificates issued with certmanager'
+  tlsSecretsShouldExist "$cluster-ssl"
+
+  desc 'check if default issuer created'
+  compare_kubectl issuer/$cluster-pxc-ca
+
+  desc 'check if certificate issued'
+  compare_kubectl certificate/$cluster-ssl
+
+  destroy $namespace
+}
+
+main

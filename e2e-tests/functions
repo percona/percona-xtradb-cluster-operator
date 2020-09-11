@@ -570,12 +570,13 @@ spinup_pxc() {
     local config=$2
     local size="${3:-3}"
     local sleep="${4:-10}"
+    local secretsFile="${5:-$conf_dir/secrets.yml}"
+    local pxcClientFile="${6:-$conf_dir/client.yml}"
 
     desc 'create first PXC cluster'
-    kubectl_bin apply \
-        -f $conf_dir/secrets.yml
+    kubectl_bin apply -f $secretsFile
 
-    apply_config "$conf_dir/client.yml"
+    apply_config "$pxcClientFile"
     apply_config "$config"
 
     desc 'check if all 3 Pods started'
@@ -955,4 +956,20 @@ getSecretData() {
     local dataKey=$2
     kubectl_bin get secrets/${secretName} --template={{.data.${dataKey}}} \
         | base64 --decode
+}
+
+checkTLSSecret() {
+    local secretName=$1
+    local dataKey=$2
+    local secretData=$(kubectl_bin get secrets/${secretName} -o json | jq '.data["'${dataKey}'"]')
+    if [ -z "$secretData" ]; then
+      exit 1
+    fi
+}
+
+tlsSecretsShouldExist() {
+  local secretName=$1
+  checkTLSSecret "$secretName" 'ca.crt'
+  checkTLSSecret "$secretName" 'tls.crt'
+  checkTLSSecret "$secretName" 'tls.key'
 }

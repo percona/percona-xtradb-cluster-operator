@@ -1,0 +1,7 @@
+apiVersion: cert-manager.io/v1alpha3
+kind: ClusterIssuer
+metadata:
+  name: special-selfsigned-issuer
+  namespace: cert-manager
+spec:
+  selfSigned: {}

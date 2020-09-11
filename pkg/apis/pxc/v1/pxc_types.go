@@ -178,7 +178,7 @@ type PodSpec struct {
 	PodSecurityContext            *corev1.PodSecurityContext              `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
-  ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
+	ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

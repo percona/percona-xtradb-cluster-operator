@@ -18,6 +18,11 @@ import (
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCluster) error {
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
+	operatorPod, err := r.operatorPod()
+	if err != nil {
+		return errors.Wrap(err, "get operator deployment")
+	}
+
 	if cr.Spec.Backup != nil {
 		bcpObj := backup.New(cr)
 
@@ -26,11 +31,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			strg, ok := cr.Spec.Backup.Storages[bcp.StorageName]
 			if !ok {
 				return fmt.Errorf("storage %s doesn't exist", bcp.StorageName)
-			}
-
-			operatorPod, err := r.operatorPod()
-			if err != nil {
-				return errors.Wrap(err, "get operator deployment")
 			}
 
 			bcpjob, err := bcpObj.Scheduled(&bcp, strg, operatorPod)
@@ -64,10 +64,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 
 	// Reconcile backups list
 	bcpList := batchv1beta1.CronJobList{}
-	err := r.client.List(context.TODO(),
+	err = r.client.List(context.TODO(),
 		&bcpList,
 		&client.ListOptions{
-			Namespace: cr.Namespace,
+			Namespace: operatorPod.ObjectMeta.Namespace,
 			LabelSelector: labels.SelectorFromSet(map[string]string{
 				"cluster": cr.Name,
 				"type":    "cron",

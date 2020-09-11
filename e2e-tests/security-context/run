@@ -45,7 +45,7 @@ desc 'run pvc backup'
 backup="on-demand-backup-pvc"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$backup.yml"
 wait_backup $backup
-compare_kubectl job.batch/$cluster-xb-$backup
+compare_kubectl job.batch/xb-$backup
 
 if [ -n "$OPERATOR_NS" ]; then
     kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$OPERATOR_NS"
@@ -68,7 +68,7 @@ wait_cluster_consistency "$cluster" 3 1
 backup="on-demand-backup-s3"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$backup.yml"
 wait_backup $backup
-compare_kubectl job.batch/$cluster-xb-$backup
+compare_kubectl job.batch/xb-$backup
 
 desc 'run s3 restore'
 restore="restore-s3"

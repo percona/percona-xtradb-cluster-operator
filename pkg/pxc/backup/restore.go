@@ -25,12 +25,12 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+			Name:      "restore-src-" + cr.Name + "-" + trimNameRight(cr.Spec.PXCCluster, 16),
 			Namespace: cr.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"name": "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+				"name": "restore-src-" + cr.Name + "-" + trimNameRight(cr.Spec.PXCCluster, 16),
 			},
 			Type: corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{
@@ -62,7 +62,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	for key, value := range cluster.Backup.Storages[bcpStorageName].Labels {
 		labels[key] = value
 	}
-	labels["name"] = "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster
+	labels["name"] = "restore-src-" + cr.Name + "-" + trimNameRight(cr.Spec.PXCCluster, 16)
 
 	return &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
@@ -70,7 +70,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			Kind:       "Pod",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+			Name:        "restore-src-" + cr.Name + "-" + trimNameRight(cr.Spec.PXCCluster, 16),
 			Namespace:   cr.Namespace,
 			Annotations: cluster.Backup.Storages[bcpStorageName].Annotations,
 			Labels:      labels,
@@ -158,7 +158,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster,
+			Name:      "restore-job-" + cr.Name + "-" + trimNameRight(cr.Spec.PXCCluster, 16),
 			Namespace: cr.Namespace,
 		},
 		Spec: batchv1.JobSpec{
@@ -198,7 +198,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 							Env: []corev1.EnvVar{
 								{
 									Name:  "RESTORE_SRC_SERVICE",
-									Value: "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+									Value: "restore-src-" + cr.Name + "-" + trimNameRight(cr.Spec.PXCCluster, 16),
 								},
 							},
 							Resources: resources,
@@ -267,7 +267,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster,
+			Name:      "restore-job-" + cr.Name + "-" + trimNameRight(cr.Spec.PXCCluster, 16),
 			Namespace: cr.Namespace,
 		},
 		Spec: batchv1.JobSpec{

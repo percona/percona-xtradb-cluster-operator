@@ -10,6 +10,6 @@ kind: ConfigMap
 metadata:
   name: no-proxysql-pxc
   ownerReferences:
-    controller: true
-    kind: PerconaXtraDBCluster
-    name: no-proxysql
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: no-proxysql

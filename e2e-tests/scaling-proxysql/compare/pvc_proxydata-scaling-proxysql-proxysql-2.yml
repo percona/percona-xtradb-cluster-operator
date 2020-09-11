@@ -13,7 +13,7 @@ metadata:
   name: proxydata-scaling-proxysql-proxysql-2
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteOnce
   resources:
     requests:
       storage: 2Gi

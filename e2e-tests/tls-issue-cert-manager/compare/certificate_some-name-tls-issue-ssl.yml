@@ -4,16 +4,16 @@ metadata:
   generation: 1
   name: some-name-tls-issue-ssl
   ownerReferences:
-    controller: true
-    kind: PerconaXtraDBCluster
-    name: some-name-tls-issue
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: some-name-tls-issue
 spec:
   commonName: some-name-tls-issue-proxysql
   dnsNames:
-  - some-name-tls-issue-pxc
-  - '*.some-name-tls-issue-pxc'
-  - '*.some-name-tls-issue-proxysql'
-  - test.com
+    - some-name-tls-issue-pxc
+    - '*.some-name-tls-issue-pxc'
+    - '*.some-name-tls-issue-proxysql'
+    - test.com
   isCA: true
   issuerRef:
     kind: Issuer

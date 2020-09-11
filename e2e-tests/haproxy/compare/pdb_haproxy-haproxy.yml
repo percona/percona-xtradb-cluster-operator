@@ -4,10 +4,9 @@ metadata:
   generation: 1
   name: haproxy-haproxy
   ownerReferences:
-  - apiVersion: apps/v1
-    controller: true
-    kind: StatefulSet
-    name: haproxy-haproxy
+    - controller: true
+      kind: StatefulSet
+      name: haproxy-haproxy
 spec:
   maxUnavailable: 2
   selector:

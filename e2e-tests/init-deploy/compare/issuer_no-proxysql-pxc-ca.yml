@@ -4,8 +4,8 @@ metadata:
   generation: 1
   name: no-proxysql-pxc-ca
   ownerReferences:
-    controller: true
-    kind: PerconaXtraDBCluster
-    name: no-proxysql
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: no-proxysql
 spec:
   selfSigned: {}

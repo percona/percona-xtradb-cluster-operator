@@ -9,7 +9,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters create --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version 1.15 --machine-type n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
+            gcloud container clusters create --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version 1.16.13-gke.400 --machine-type n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --no-enable-autoupgrade
             kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
         """
    }
@@ -121,7 +121,6 @@ pipeline {
         VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
         CLUSTER_NAME = sh(script: "echo jenkins-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
         AUTHOR_NAME  = sh(script: "echo ${CHANGE_AUTHOR_EMAIL} | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
-        IMAGE_BACKUP = 'perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup-test-list'
     }
     agent {
         label 'docker'
@@ -257,59 +256,11 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             parallel {
-                stage('E2E Basic Tests') {
-                    steps {
-                        CreateCluster('basic')
-                        runTest('haproxy', 'basic')
-                        runTest('init-deploy', 'basic')
-                        runTest('limits', 'basic')
-                        runTest('monitoring', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('affinity', 'basic')
-                        runTest('one-pod', 'basic')
-                        runTest('auto-tuning', 'basic')
-                        runTest('proxysql-sidecar-res-limits', 'basic')
-                        runTest('users', 'basic')
-                        ShutdownCluster('basic')
-                   }
-                }
-                stage('E2E Scaling') {
-                    steps {
-                        CreateCluster('scaling')
-                        runTest('scaling', 'scaling')
-                        runTest('scaling-proxysql', 'scaling')
-                        runTest('upgrade', 'scaling')
-                        runTest('upgrade-consistency', 'scaling')
-                        runTest('security-context', 'scaling')
-                        ShutdownCluster('scaling')
-                    }
-                }
-                stage('E2E SelfHealing') {
-                    steps {
-                        CreateCluster('selfhealing')
-                        runTest('storage', 'selfhealing')
-                        runTest('self-healing', 'selfhealing')
-                        runTest('self-healing-advanced', 'selfhealing')
-                        runTest('operator-self-healing', 'selfhealing')
-                        ShutdownCluster('selfhealing')
-                    }
-                }
                 stage('E2E Backups') {
                     steps {
                         CreateCluster('backups')
-                        runTest('recreate', 'backups')
-                        runTest('restore-to-encrypted-cluster', 'backups')
-                        runTest('demand-backup', 'backups')
                         runTest('scheduled-backup', 'backups')
-                        runTest('demand-backup-encrypted-with-tls', 'backups')
                         ShutdownCluster('backups')
-                    }
-                }
-                stage('E2E BigData') {
-                    steps {
-                        CreateCluster('bigdata')
-                        runTest('big-data', 'bigdata')
-                        ShutdownCluster('bigdata')
                     }
                 }
             }

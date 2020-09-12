@@ -79,12 +79,12 @@ wait_all_backups() {
 
 label_node() {
     LABELED_NODE=$(kubectl_bin get nodes -o custom-columns=NAME:.metadata.name --no-headers=true | head -n1)
+    kubectl_bin label nodes $LABELED_NODE backupWorker=True --overwrite
 
-    kubectl_bin label nodes "${LABELED_NODE}" backupWorker=True --overwrite
 }
 
 unlabel_node() {
-    kubectl_bin label nodes "${LABELED_NODE}" backupWorker- --overwrite
+    kubectl_bin label nodes $LABELED_NODE backupWorker- --overwrite
 }
 
 compare_extrafields() {

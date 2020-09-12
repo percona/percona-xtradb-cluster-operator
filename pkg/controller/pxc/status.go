@@ -20,6 +20,144 @@ import (
 
 const maxStatusesQuantity = 20
 
+type clusterStatus struct {
+	PXCStatus       api.AppState
+	HAProxyStatus   api.AppState
+	ProxySQLStatus  api.AppState
+	HAProxyEnabled  bool
+	ProxySQLEnabled bool
+}
+
+func (cs clusterStatus) ProxyEnabled() bool {
+	return cs.HAProxyEnabled || cs.ProxySQLEnabled
+}
+
+func (cs clusterStatus) ProxyReady() bool {
+	return (cs.HAProxyEnabled && cs.HAProxyStatus == api.AppStateReady) ||
+		(cs.ProxySQLEnabled && cs.ProxySQLStatus == api.AppStateReady)
+}
+
+func (cs clusterStatus) ClusterInit() bool {
+	return cs.PXCStatus == api.AppStateInit ||
+		cs.HAProxyStatus == api.AppStateInit ||
+		cs.ProxySQLStatus == api.AppStateInit
+}
+
+func (cs clusterStatus) ClusterError() bool {
+	return cs.PXCStatus == api.AppStateError ||
+		cs.HAProxyStatus == api.AppStateError ||
+		cs.ProxySQLStatus == api.AppStateError
+}
+
+func (cs clusterStatus) PXCReady() bool {
+	return cs.PXCStatus == api.AppStateReady
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updatePXCStatus(cr *api.PerconaXtraDBCluster, clusterStatus *clusterStatus) error {
+	pxcStatus, err := r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC, cr.Namespace)
+	if err != nil {
+		return fmt.Errorf("get pxc status: %v", err)
+	}
+	pxcStatus.Version = cr.Status.PXC.Version
+	pxcStatus.Image = cr.Status.PXC.Image
+
+	cr.Status.PXC = pxcStatus
+	clusterStatus.PXCStatus = pxcStatus.Status
+
+	cr.Status.Host = cr.Name + "-" + "pxc." + cr.Namespace
+	if cr.Status.PXC.Message != "" {
+		cr.Status.Messages = append(cr.Status.Messages, "PXC: "+cr.Status.PXC.Message)
+	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateHAProxyStatus(cr *api.PerconaXtraDBCluster, inProgres *bool, clusterStatus *clusterStatus) error {
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+		clusterStatus.HAProxyEnabled = true
+		haProxyStatus, err := r.appStatus(statefulset.NewHAProxy(cr), cr.Spec.HAProxy, cr.Namespace)
+		if err != nil {
+			return fmt.Errorf("get haproxy status: %v", err)
+		}
+		haProxyStatus.Version = cr.Status.HAProxy.Version
+		cr.Status.HAProxy = haProxyStatus
+		clusterStatus.HAProxyStatus = haProxyStatus.Status
+
+		cr.Status.Host = cr.Name + "-" + "haproxy." + cr.Namespace
+		if cr.Spec.HAProxy.ServiceType == corev1.ServiceTypeLoadBalancer {
+			svc := &corev1.Service{}
+			err := r.client.Get(context.TODO(),
+				types.NamespacedName{
+					Namespace: cr.Namespace,
+					Name:      cr.Name + "-" + "haproxy",
+				}, svc)
+			if err != nil {
+				return errors.Wrap(err, "get haproxy service")
+			}
+			for _, i := range svc.Status.LoadBalancer.Ingress {
+				cr.Status.Host = i.IP
+				if len(i.Hostname) > 0 {
+					cr.Status.Host = i.Hostname
+				}
+			}
+		}
+		if cr.Status.HAProxy.Message != "" {
+			cr.Status.Messages = append(cr.Status.Messages, "HAProxy: "+cr.Status.HAProxy.Message)
+		}
+		*inProgres, err = r.upgradeInProgress(cr, "haproxy")
+		if err != nil {
+			return fmt.Errorf("check haproxy upgrade progress: %v", err)
+		}
+	} else {
+		cr.Status.HAProxy = api.AppStatus{}
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateProxySQLStatus(cr *api.PerconaXtraDBCluster, inProgres *bool, clusterStatus *clusterStatus) error {
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+		clusterStatus.ProxySQLEnabled = true
+		proxyStatus, err := r.appStatus(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr.Namespace)
+		if err != nil {
+			return fmt.Errorf("get proxysql status: %v", err)
+		}
+		proxyStatus.Version = cr.Status.ProxySQL.Version
+		cr.Status.ProxySQL = proxyStatus
+		clusterStatus.ProxySQLStatus = proxyStatus.Status
+
+		cr.Status.Host = cr.Name + "-" + "proxysql." + cr.Namespace
+		if cr.Spec.ProxySQL.ServiceType == corev1.ServiceTypeLoadBalancer {
+			svc := &corev1.Service{}
+			err := r.client.Get(context.TODO(),
+				types.NamespacedName{
+					Namespace: cr.Namespace,
+					Name:      cr.Name + "-" + "proxysql",
+				}, svc)
+			if err != nil {
+				return errors.Wrap(err, "get proxysql service")
+			}
+			for _, i := range svc.Status.LoadBalancer.Ingress {
+				cr.Status.Host = i.IP
+				if len(i.Hostname) > 0 {
+					cr.Status.Host = i.Hostname
+				}
+			}
+		}
+
+		if cr.Status.ProxySQL.Message != "" {
+			cr.Status.Messages = append(cr.Status.Messages, "ProxySQL: "+cr.Status.ProxySQL.Message)
+		}
+		*inProgres, err = r.upgradeInProgress(cr, "proxysql")
+		if err != nil {
+			return fmt.Errorf("check proxysql upgrade progress: %v", err)
+		}
+	} else {
+		cr.Status.ProxySQL = api.AppStatus{}
+	}
+
+	return nil
+}
+
 func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, reconcileErr error) (err error) {
 	clusterCondition := api.ClusterCondition{
 		Status:             api.ConditionTrue,
@@ -46,156 +184,20 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	cr.Status.Messages = cr.Status.Messages[:0]
+	clusterStatus := clusterStatus{}
 
-	pxcStatus, err := r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC, cr.Namespace)
-	if err != nil {
-		return fmt.Errorf("get pxc status: %v", err)
-	}
-	pxcStatus.Version = cr.Status.PXC.Version
-	pxcStatus.Image = cr.Status.PXC.Image
-	if pxcStatus.Status != cr.Status.PXC.Status {
-		if pxcStatus.Status == api.AppStateReady {
-			clusterCondition = api.ClusterCondition{
-				Status:             api.ConditionTrue,
-				Type:               api.ClusterPXCReady,
-				LastTransitionTime: metav1.NewTime(time.Now()),
-			}
-		}
-
-		if pxcStatus.Status == api.AppStateError {
-			clusterCondition = api.ClusterCondition{
-				Status:             api.ConditionTrue,
-				Message:            "PXC" + pxcStatus.Message,
-				Reason:             "ErrorPXC",
-				Type:               api.ClusterError,
-				LastTransitionTime: metav1.NewTime(time.Now()),
-			}
-		}
-	}
-
-	cr.Status.PXC = pxcStatus
-	cr.Status.Host = cr.Name + "-" + "pxc." + cr.Namespace
-	if cr.Status.PXC.Message != "" {
-		cr.Status.Messages = append(cr.Status.Messages, "PXC: "+cr.Status.PXC.Message)
+	if err := r.updatePXCStatus(cr, &clusterStatus); err != nil {
+		return err
 	}
 
 	inProgres := false
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
-		haProxyStatus, err := r.appStatus(statefulset.NewHAProxy(cr), cr.Spec.HAProxy, cr.Namespace)
-		if err != nil {
-			return fmt.Errorf("get haproxy status: %v", err)
-		}
-		haProxyStatus.Version = cr.Status.HAProxy.Version
-
-		if haProxyStatus.Status != cr.Status.HAProxy.Status {
-			if haProxyStatus.Status == api.AppStateReady {
-				clusterCondition = api.ClusterCondition{
-					Status:             api.ConditionTrue,
-					Type:               api.ClusterHAProxyReady,
-					LastTransitionTime: metav1.NewTime(time.Now()),
-				}
-			}
-
-			if haProxyStatus.Status == api.AppStateError {
-				clusterCondition = api.ClusterCondition{
-					Status:             api.ConditionTrue,
-					Message:            "HAProxy:" + haProxyStatus.Message,
-					Reason:             "ErrorHAProxy",
-					Type:               api.ClusterError,
-					LastTransitionTime: metav1.NewTime(time.Now()),
-				}
-			}
-		}
-
-		cr.Status.HAProxy = haProxyStatus
-
-		cr.Status.Host = cr.Name + "-" + "haproxy." + cr.Namespace
-		if cr.Spec.HAProxy.ServiceType == corev1.ServiceTypeLoadBalancer {
-			svc := &corev1.Service{}
-			err := r.client.Get(context.TODO(),
-				types.NamespacedName{
-					Namespace: cr.Namespace,
-					Name:      cr.Name + "-" + "haproxy",
-				}, svc)
-			if err != nil {
-				return errors.Wrap(err, "get haproxy service")
-			}
-			for _, i := range svc.Status.LoadBalancer.Ingress {
-				cr.Status.Host = i.IP
-				if len(i.Hostname) > 0 {
-					cr.Status.Host = i.Hostname
-				}
-			}
-		}
-		if cr.Status.HAProxy.Message != "" {
-			cr.Status.Messages = append(cr.Status.Messages, "HAProxy: "+cr.Status.HAProxy.Message)
-		}
-		inProgres, err = r.upgradeInProgress(cr, "haproxy")
-		if err != nil {
-			return fmt.Errorf("check haproxy upgrade progress: %v", err)
-		}
-	} else {
-		cr.Status.HAProxy = api.AppStatus{}
+	if err := r.updateHAProxyStatus(cr, &inProgres, &clusterStatus); err != nil {
+		return err
 	}
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		proxyStatus, err := r.appStatus(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr.Namespace)
-		if err != nil {
-			return fmt.Errorf("get proxysql status: %v", err)
-		}
-		proxyStatus.Version = cr.Status.ProxySQL.Version
-
-		if proxyStatus.Status != cr.Status.ProxySQL.Status {
-			if proxyStatus.Status == api.AppStateReady {
-				clusterCondition = api.ClusterCondition{
-					Status:             api.ConditionTrue,
-					Type:               api.ClusterProxyReady,
-					LastTransitionTime: metav1.NewTime(time.Now()),
-				}
-			}
-
-			if proxyStatus.Status == api.AppStateError {
-				clusterCondition = api.ClusterCondition{
-					Status:             api.ConditionTrue,
-					Message:            "ProxySQL:" + proxyStatus.Message,
-					Reason:             "ErrorProxySQL",
-					Type:               api.ClusterError,
-					LastTransitionTime: metav1.NewTime(time.Now()),
-				}
-			}
-		}
-
-		cr.Status.ProxySQL = proxyStatus
-
-		cr.Status.Host = cr.Name + "-" + "proxysql." + cr.Namespace
-		if cr.Spec.ProxySQL.ServiceType == corev1.ServiceTypeLoadBalancer {
-			svc := &corev1.Service{}
-			err := r.client.Get(context.TODO(),
-				types.NamespacedName{
-					Namespace: cr.Namespace,
-					Name:      cr.Name + "-" + "proxysql",
-				}, svc)
-			if err != nil {
-				return errors.Wrap(err, "get proxysql service")
-			}
-			for _, i := range svc.Status.LoadBalancer.Ingress {
-				cr.Status.Host = i.IP
-				if len(i.Hostname) > 0 {
-					cr.Status.Host = i.Hostname
-				}
-			}
-		}
-
-		if cr.Status.ProxySQL.Message != "" {
-			cr.Status.Messages = append(cr.Status.Messages, "ProxySQL: "+cr.Status.ProxySQL.Message)
-		}
-		inProgres, err = r.upgradeInProgress(cr, "proxysql")
-		if err != nil {
-			return fmt.Errorf("check proxysql upgrade progress: %v", err)
-		}
-	} else {
-		cr.Status.ProxySQL = api.AppStatus{}
+	if err := r.updateProxySQLStatus(cr, &inProgres, &clusterStatus); err != nil {
+		return err
 	}
 
 	if !inProgres {
@@ -206,37 +208,28 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	switch {
-	case (cr.Status.PXC.Status == cr.Status.ProxySQL.Status && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled) ||
-		(cr.Status.PXC.Status == cr.Status.HAProxy.Status && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled):
-		if cr.Status.PXC.Status == api.AppStateReady {
-			clusterCondition = api.ClusterCondition{
-				Status:             api.ConditionTrue,
-				Type:               api.ClusterReady,
-				LastTransitionTime: metav1.NewTime(time.Now()),
-			}
-		}
-		cr.Status.Status = cr.Status.PXC.Status
-	case (cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled) &&
-		(cr.Spec.HAProxy == nil || !cr.Spec.HAProxy.Enabled) &&
-		cr.Status.PXC.Status == api.AppStateReady:
+	case clusterStatus.ProxyReady() && clusterStatus.PXCReady():
 		clusterCondition = api.ClusterCondition{
 			Status:             api.ConditionTrue,
 			Type:               api.ClusterReady,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 		cr.Status.Status = cr.Status.PXC.Status
-	case cr.Status.PXC.Status == api.AppStateError ||
-		cr.Status.ProxySQL.Status == api.AppStateError ||
-		cr.Status.HAProxy.Status == api.AppStateError:
+	case !clusterStatus.ProxyEnabled() && clusterStatus.PXCReady():
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.ClusterReady,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+		cr.Status.Status = cr.Status.PXC.Status
+	case clusterStatus.ClusterError():
 		clusterCondition = api.ClusterCondition{
 			Status:             api.ConditionTrue,
 			Type:               api.ClusterError,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 		cr.Status.Status = api.AppStateError
-	case cr.Status.PXC.Status == api.AppStateInit ||
-		(cr.Spec.ProxySQL != nil && cr.Status.ProxySQL.Status == api.AppStateInit) ||
-		(cr.Spec.HAProxy != nil && cr.Status.HAProxy.Status == api.AppStateInit):
+	case clusterStatus.ClusterInit():
 		clusterCondition = api.ClusterCondition{
 			Status:             api.ConditionTrue,
 			Type:               api.ClusterInit,
@@ -252,10 +245,9 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	} else {
 		lastClusterCondition := cr.Status.Conditions[len(cr.Status.Conditions)-1]
 
-		switch {
-		case lastClusterCondition.Type != clusterCondition.Type:
+		if lastClusterCondition.Type != clusterCondition.Type {
 			cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
-		default:
+		} else {
 			cr.Status.Conditions[len(cr.Status.Conditions)-1] = lastClusterCondition
 		}
 	}

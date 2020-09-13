@@ -1,7 +1,14 @@
-.. _install-kubernetes:
-
-Install Percona XtraDB Cluster on Kubernetes
+Install Percona XtraDB Cluster cluster-wide
 ============================================
+
+By default, Percona XtraDB Cluster Operator functions in specific Kubernetes
+namespace - either one created as an installation step (like it is shown in the 
+:ref:`installation instructions<install-kubernetes>`) or just in the ``default``
+namespace.
+
+Still, there are use cases when it is highly useful to have a single operator
+for multiple namespaces. The following steps are showing how to install Operator
+in such "cluster-wide" mode.
 
 #. First of all, clone the percona-xtradb-cluster-operator repository:
 
@@ -25,41 +32,63 @@ Install Percona XtraDB Cluster on Kubernetes
 
       $ kubectl apply -f deploy/crd.yaml
 
-#. The next thing to do is to add the ``pxc`` namespace to Kubernetes,
-   not forgetting to set the correspondent context for further steps:
+#. The next thing to do is to decide which Kubernetes namespaces the Operator
+   should control and in which namespace should it reside. Let's suppose that
+   Operator's namespace should be the ``pxc-operator`` one. It is necessary to
+   create it, not forgetting to set the correspondent context for further steps:
 
    .. code:: bash
 
-      $ kubectl create namespace pxc
+      $ kubectl create namespace pxc-operator
       $ kubectl config set-context $(kubectl config current-context) --namespace=pxc
 
+   Namespaces to be under the Operator's control should be created in a same
+   way, if not exist.
+
 #. Now RBAC (role-based access control) for PXC should be set up from
-   the ``deploy/rbac.yaml`` file. Briefly speaking, role-based access is
+   the ``deploy/cw-rbac.yaml`` file. Briefly speaking, role-based access is
    based on specifically defined roles and actions corresponding to
    them, allowed to be done on specific Kubernetes resources (details
    about users and roles can be found in `Kubernetes
-   documentation <https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings>`__).
-
+   documentation <https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings>`_).
+   
+   One option in this file which may need editing is ``subjects.namespace``.
+   It should contain the name of a namespace in which the Operator resides. By
+   default it is equal to ``pxc-operator``. Set it to proper value if you have
+   chosen a different name on the previous step. 
+   
+   Apply the ``deploy/cw-rbac.yaml`` file with the following command:
+   
    .. code:: bash
 
-      $ kubectl apply -f deploy/rbac.yaml
+      $ kubectl apply -f deploy/cw-rbac.yaml
 
    .. note:: Setting RBAC requires your user to have cluster-admin role
       privileges. For example, those using Google Kubernetes Engine can
       grant user needed privileges with the following command:
       ``$ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)``
 
-   Finally it’s time to start the operator within Kubernetes:
+#. Finally it’s time to start the operator within Kubernetes. Before doing this,
+   you should specify in the ``deploy/cw-operator.yaml`` file which namespaces
+   the Operator will control. in the ``env`` scection of this file, set the
+   ``WATCH_NAMESPACE`` key-value pair:
+   
+   * if ``value`` contains empty string, the Operator will control all
+     namespaces,
+   * if ``value`` contains the string with a coma-separated list of the 
+     namespace names, the Operator will control only namespaces from this list.
+
+   When the editing is done, apply this file with the following command:
 
    .. code:: bash
 
-      $ kubectl apply -f deploy/operator.yaml
+      $ kubectl apply -f deploy/cw-operator.yaml
 
 #. Now that’s time to add the PXC Users secrets to Kubernetes. They
    should be placed in the data section of the ``deploy/secrets.yaml``
    file as logins and base64-encoded passwords for the user accounts
    (see `Kubernetes
-   documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`__
+   documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`_
    for details).
 
    .. note:: the following command can be used to get base64-encoded
@@ -94,35 +123,17 @@ Install Percona XtraDB Cluster on Kubernetes
 
       $ kubectl get pods
       NAME                                              READY   STATUS    RESTARTS   AGE
-      cluster1-haproxy-0                                1/1     Running   0          5m
-      cluster1-haproxy-1                                1/1     Running   0          5m
-      cluster1-haproxy-2                                1/1     Running   0          5m
       cluster1-pxc-0                                    1/1     Running   0          5m
       cluster1-pxc-1                                    1/1     Running   0          4m
       cluster1-pxc-2                                    1/1     Running   0          2m
+      cluster1-proxysql-0                               1/1     Running   0          5m
       percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
 
 #. Check connectivity to newly created cluster
 
    .. code:: bash
 
-      $ kubectl run -i --rm --tty percona-client --image=percona:8.0 --restart=Never -- bash -il
-      percona-client:/$ mysql -h cluster1-haproxy -uroot -proot_password
+      $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
+      percona-client:/$ mysql -h cluster1-proxysql -uroot -proot_password
 
-   This command will connect you to the MySQL monitor.
 
-   .. code:: text
-
-      mysql: [Warning] Using a password on the command line interface can be insecure.
-      Welcome to the MySQL monitor.  Commands end with ; or \g.
-      Your MySQL connection id is 1976
-      Server version: 8.0.19-10 Percona XtraDB Cluster (GPL), Release rel10, Revision 727f180, WSREP version 26.4.3
-
-      Copyright (c) 2009-2020 Percona LLC and/or its affiliates
-      Copyright (c) 2000, 2020, Oracle and/or its affiliates. All rights reserved.
-
-      Oracle is a registered trademark of Oracle Corporation and/or its
-      affiliates. Other names may be trademarks of their respective
-      owners.
-
-      Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.

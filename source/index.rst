@@ -42,6 +42,7 @@ Advanced Installation Guides
    openshift
    custom-registry
    broker
+   cluster-wide
 
 Configuration
 =============

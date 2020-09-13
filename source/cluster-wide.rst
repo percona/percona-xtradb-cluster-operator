@@ -1,9 +1,16 @@
-.. _install-kubernetes:
-
-Install Percona XtraDB Cluster on Kubernetes
+Install Percona XtraDB Cluster cluster-wide
 ============================================
 
-0. First of all, clone the percona-xtradb-cluster-operator repository:
+By default, Percona XtraDB Cluster Operator functions in specific Kubernetes
+namespace - either one created as an installation step (like it is shown in the 
+:ref:`installation instructions<install-kubernetes>`) or just in the ``default``
+namespace.
+
+Still, there are use cases when it is highly useful to have a single operator
+for multiple namespaces. The following steps are showing how to install Operator
+in such "cluster-wide" mode.
+
+#. First of all, clone the percona-xtradb-cluster-operator repository:
 
    .. code:: bash
 
@@ -13,7 +20,7 @@ Install Percona XtraDB Cluster on Kubernetes
    .. note:: It is crucial to specify the right branch with ``-b``
       option while cloning the code on this step. Please be careful.
 
-1. Now Custom Resource Definition for PXC should be created from the
+#. Now Custom Resource Definition for PXC should be created from the
    ``deploy/crd.yaml`` file. Custom Resource Definition extends the
    standard set of resources which Kubernetes “knows” about with the new
    items (in our case ones which are the core of the operator).
@@ -25,41 +32,63 @@ Install Percona XtraDB Cluster on Kubernetes
 
       $ kubectl apply -f deploy/crd.yaml
 
-2. The next thing to do is to add the ``pxc`` namespace to Kubernetes,
-   not forgetting to set the correspondent context for further steps:
+#. The next thing to do is to decide which Kubernetes namespaces the Operator
+   should control and in which namespace should it reside. Let's suppose that
+   Operator's namespace should be the ``pxc-operator`` one. It is necessary to
+   create it, not forgetting to set the correspondent context for further steps:
 
    .. code:: bash
 
-      $ kubectl create namespace pxc
+      $ kubectl create namespace pxc-operator
       $ kubectl config set-context $(kubectl config current-context) --namespace=pxc
 
-3. Now RBAC (role-based access control) for PXC should be set up from
-   the ``deploy/rbac.yaml`` file. Briefly speaking, role-based access is
+   Namespaces to be under the Operator's control should be created in a same
+   way, if not exist.
+
+#. Now RBAC (role-based access control) for PXC should be set up from
+   the ``deploy/cw-rbac.yaml`` file. Briefly speaking, role-based access is
    based on specifically defined roles and actions corresponding to
    them, allowed to be done on specific Kubernetes resources (details
    about users and roles can be found in `Kubernetes
-   documentation <https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings>`__).
-
+   documentation <https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings>`_).
+   
+   One option in this file which may need editing is ``subjects.namespace``.
+   It should contain the name of a namespace in which the Operator resides. By
+   default it is equal to ``pxc-operator``. Set it to proper value if you have
+   chosen a different name on the previous step. 
+   
+   Apply the ``deploy/cw-rbac.yaml`` file with the following command:
+   
    .. code:: bash
 
-      $ kubectl apply -f deploy/rbac.yaml
+      $ kubectl apply -f deploy/cw-rbac.yaml
 
    .. note:: Setting RBAC requires your user to have cluster-admin role
       privileges. For example, those using Google Kubernetes Engine can
       grant user needed privileges with the following command:
       ``$ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)``
 
-   Finally it’s time to start the operator within Kubernetes:
+#. Finally it’s time to start the operator within Kubernetes. Before doing this,
+   you should specify in the ``deploy/cw-operator.yaml`` file which namespaces
+   the Operator will control. in the ``env`` scection of this file, set the
+   ``WATCH_NAMESPACE`` key-value pair:
+   
+   * if ``value`` contains empty string, the Operator will control all
+     namespaces,
+   * if ``value`` contains the string with a coma-separated list of the 
+     namespace names, the Operator will control only namespaces from this list.
+
+   When the editing is done, apply this file with the following command:
 
    .. code:: bash
 
-      $ kubectl apply -f deploy/operator.yaml
+      $ kubectl apply -f deploy/cw-operator.yaml
 
-4. Now that’s time to add the PXC Users secrets to Kubernetes. They
+#. Now that’s time to add the PXC Users secrets to Kubernetes. They
    should be placed in the data section of the ``deploy/secrets.yaml``
    file as logins and base64-encoded passwords for the user accounts
    (see `Kubernetes
-   documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`__
+   documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`_
    for details).
 
    .. note:: the following command can be used to get base64-encoded
@@ -75,12 +104,12 @@ Install Percona XtraDB Cluster on Kubernetes
 
    More details about secrets can be found in :ref:`users`.
 
-5. Now certificates should be generated. By default, the Operator generates
+#. Now certificates should be generated. By default, the Operator generates
    certificates automatically, and no actions are required at this step. Still,
    you can generate and apply your own certificates as secrets according
    to the :ref:`TLS instructions <tls>`.
 
-6. After the operator is started and user secrets are added, Percona
+#. After the operator is started and user secrets are added, Percona
    XtraDB Cluster can be created at any time with the following command:
 
    .. code:: bash
@@ -100,9 +129,11 @@ Install Percona XtraDB Cluster on Kubernetes
       cluster1-proxysql-0                               1/1     Running   0          5m
       percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
 
-7. Check connectivity to newly created cluster
+#. Check connectivity to newly created cluster
 
    .. code:: bash
 
       $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
       percona-client:/$ mysql -h cluster1-proxysql -uroot -proot_password
+
+

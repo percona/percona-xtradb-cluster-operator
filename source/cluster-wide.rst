@@ -4,11 +4,17 @@ Install Percona XtraDB Cluster cluster-wide
 By default, Percona XtraDB Cluster Operator functions in specific Kubernetes
 namespace - either one created as an installation step (like it is shown in the 
 :ref:`installation instructions<install-kubernetes>`) or just in the ``default``
-namespace.
+namespace. Still, there are use cases when it is highly useful to have a single
+operator for multiple namespaces.
 
-Still, there are use cases when it is highly useful to have a single operator
-for multiple namespaces. The following steps are showing how to install Operator
-in such "cluster-wide" mode.
+To use the Operator in such **cluster-wide** mode you should install it with a
+different set of configuration YAML files, are available in the ``deploy``
+folder and have filenames with a special ``cw-`` prefix:
+``deploy/cw-bundle.yaml`` (the analogue of the ``deploy/bundle.yaml`` used for
+ simplified installation), and others.
+ 
+ The following example steps are showing how to install Operator cluster-wide on
+ Kubernetes, similarly to our :ref:`original Kubernetes installation guide<install-kubernetes>`.
 
 #. First of all, clone the percona-xtradb-cluster-operator repository:
 

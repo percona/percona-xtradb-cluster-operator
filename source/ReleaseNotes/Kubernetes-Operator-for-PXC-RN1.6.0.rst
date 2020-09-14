@@ -11,12 +11,12 @@ New Features
 ================================================================================
 
 * :jirabug:`K8SPXC-351`: Allow adding configuration options to ProxySQL Pods
-* :jirabug:`K8SPXC-429`: Custom resource options backup and restore
+* :jirabug:`K8SPXC-429`: Custom resource options included in backups
 * :jirabug:`K8SPXC-428`: The Vault token issuer
 * :jirabug:`K8SPXC-368`: Auto update system users by changing the appropriate
   secret name
 * :jirabug:`K8SPXC-144`: Support ConfigMaps for ProxySQL configuration
-* :jirabug:`K8SPXC-343`: Helm chart officially the part of the Operator
+* :jirabug:`K8SPXC-343`: Helm chart officially provided with the Operator
 
 Improvements
 ================================================================================
@@ -28,11 +28,11 @@ Improvements
 Bugs Fixed
 ================================================================================
 
-* :jirabug:`K8SPXC-398`: PXC deployments submitted via the Operator API broken in v1.5.0 - Network Frontends Cannot Authenticate (Thanks to user mike.saah for reporting this issue)
-* :jirabug:`K8SPXC-431`: HAProxy unable to start on OpenShift with default cr.yaml file
+* :jirabug:`K8SPXC-398`: PXC deployments submitted via the Operator API broken in v1.5.0 - network frontends cannot authenticate (Thanks to user mike.saah for reporting this issue)
+* :jirabug:`K8SPXC-431`: HAProxy unable to start on OpenShift with the default cr.yaml file
 * :jirabug:`K8SPXC-408`: **(improvement, not bug!)** Increase MAX_USER_CONNECTIONS for ProxySQL monitor user from 10 to 100
 * :jirabug:`K8SPXC-391`: HA Proxy and PMM cannot be enabled at the same time (Thanks to user rf_enigm for reporting this issue)
-* :jirabug:`K8SPXC-390`: PXC operator pod crashing on missing HAProxy PodDisruptionBudget
+* :jirabug:`K8SPXC-390`: Percona XtraDB Cluster Operator Pod crashing on missing HAProxy PodDisruptionBudget
 * :jirabug:`K8SPXC-372`: TLS - wrong "apiGroups" name for cert-manager (recent versions) blocking issuer creation (Thanks to user rf_enigm for reporting this issue)
 * :jirabug:`K8SPXC-355`: Counterintuitive YYYY-DD-MM dates in the S3 backup folder names (Thanks to user graham.webcurl for reporting this issue)
 * :jirabug:`K8SPXC-274`: Upgrade path from 1.2.0 -> 1.3.0 -> 1.4.0 not working (Thanks to user martin.atroo for reporting this issue)

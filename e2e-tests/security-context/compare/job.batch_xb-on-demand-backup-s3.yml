@@ -5,9 +5,9 @@ metadata:
     openshift.io/scc: privileged
   labels:
     cluster: sec-context
-    job-name: sec-context-xb-on-demand-backup-s3
+    job-name: xb-on-demand-backup-s3
     type: xtrabackup
-  name: sec-context-xb-on-demand-backup-s3
+  name: xb-on-demand-backup-s3
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBClusterBackup
@@ -20,7 +20,7 @@ spec:
   selector:
     matchLabels:
       cluster: sec-context
-      job-name: sec-context-xb-on-demand-backup-s3
+      job-name: xb-on-demand-backup-s3
       type: xtrabackup
   template:
     metadata:
@@ -28,7 +28,7 @@ spec:
         openshift.io/scc: privileged
       labels:
         cluster: sec-context
-        job-name: sec-context-xb-on-demand-backup-s3
+        job-name: xb-on-demand-backup-s3
         type: xtrabackup
     spec:
       containers:

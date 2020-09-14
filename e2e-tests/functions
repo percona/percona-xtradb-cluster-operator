@@ -171,6 +171,7 @@ deploy_helm() {
     helm repo add stable https://kubernetes-charts.storage.googleapis.com/
     helm repo add hashicorp https://helm.releases.hashicorp.com
     helm repo add percona https://percona-charts.storage.googleapis.com/
+    helm repo add minio https://helm.min.io/
     helm repo update
 }
 
@@ -956,7 +957,7 @@ start_minio() {
         --set persistence.size=2G \
         --set environment.MINIO_REGION=us-east-1 \
         --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
-        stable/minio
+        minio/minio
     sleep 30
     MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
     wait_pod $MINIO_POD

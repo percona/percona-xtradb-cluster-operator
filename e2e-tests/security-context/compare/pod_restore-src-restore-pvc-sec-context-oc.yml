@@ -51,7 +51,7 @@ spec:
   volumes:
   - name: backup
     persistentVolumeClaim:
-      claimName: sec-context-xb-on-demand-backup-pvc
+      claimName: xb-on-demand-backup-pvc
   - name: ssl-internal
     secret:
       defaultMode: 420

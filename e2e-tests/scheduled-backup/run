@@ -10,7 +10,7 @@ run_recovery_check() {
     local cluster=$1
     local backup1=$2
 
-    restore_name="restore-name-${backup1:22:32}"
+    restore_name="backup-${backup1:22:32}"
 
     desc 'write data after backup'
     run_mysql \
@@ -30,7 +30,7 @@ run_recovery_check() {
         | kubectl_bin apply -f -
     wait_backup_restore ${restore_name}
 
-    kubectl_bin logs job/restore-job-${restore_name}-${cluster}
+    kubectl_bin logs job/restore-job-${restore_name}-${cluster:0:16}
     
     wait_for_running "$cluster-proxysql" 1
     wait_for_running "$cluster-pxc" 3
@@ -69,6 +69,7 @@ get_failed_backups_amount() {
 
 wait_all_backups() {
     while [[ "$(get_running_backups_amount)" -ne 0 && "$(get_failed_backups_amount)" -eq 0 ]]; do
+        wait_for_running "$cluster-pxc" 3 1
         sleep 20
     done
     if [[ "$(get_failed_backups_amount)" -gt 0 ]]; then

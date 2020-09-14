@@ -27,11 +27,7 @@ func genName63(cr *api.PerconaXtraDBClusterBackup) string {
 		postfix = trimNameRight(postfix, maxNameLen)
 	}
 
-	name := cr.Spec.PXCCluster
-	if len(cr.Spec.PXCCluster) > maxNameLen {
-		name = name[:maxNameLen]
-	}
-	name += "-xb-" + postfix
+	name := "xb-" + postfix
 
 	return name
 }

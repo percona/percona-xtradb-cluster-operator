@@ -102,7 +102,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 									kind: PerconaXtraDBClusterBackup
 									metadata:
 									  namespace: "` + bcp.namespace + `"
-									  name: "cron-${pxcCluster:0:16}-$(date -u "+%Y%m%d%H%M%S")-${suffix}"
+									  name: "cron-${pxcCluster:0:16}-` + trimNameRight(spec.StorageName, 16) + `-$(date -u "+%Y%m%d%H%M%S")-${suffix}"
 									  labels:
 									    ancestor: "` + spec.Name + `"
 									    cluster: "${pxcCluster}"

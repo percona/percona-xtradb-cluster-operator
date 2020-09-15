@@ -4,17 +4,28 @@ Install Percona XtraDB Cluster cluster-wide
 By default, Percona XtraDB Cluster Operator functions in specific Kubernetes
 namespace - either one created as an installation step (like it is shown in the 
 :ref:`installation instructions<install-kubernetes>`) or just in the ``default``
-namespace. Still, there are use cases when it is highly useful to have a single
-operator for multiple namespaces.
+namespace. In this scenario several Operators can co-exist in one
+Kubernetes-based environment, separated in different namespaces.
 
-To use the Operator in such **cluster-wide** mode you should install it with a
-different set of configuration YAML files, are available in the ``deploy``
+Still, there are use cases when it is more convenient to have one Operator
+watching for Percona XtraDB Cluster custom resources several namespaces, or even
+one Operator for the whole Kubernetes cluster. 
+To use the Operator in such *cluster-wide* mode you should install it with a
+different set of configuration YAML files, which are available in the ``deploy``
 folder and have filenames with a special ``cw-`` prefix:
 ``deploy/cw-bundle.yaml`` (the analogue of the ``deploy/bundle.yaml`` used for
- simplified installation), and others.
- 
- The following example steps are showing how to install Operator cluster-wide on
- Kubernetes, similarly to our :ref:`original Kubernetes installation guide<install-kubernetes>`.
+simplified installation), ``deploy/cw-operator.yaml``, etc.
+
+While using this cluster-wide versions of configuration files, you should set
+the following information in them:
+
+* the namespace which will host the Operator,
+* the coma-separated list of namespaces which the Operator will be watching for
+  Percona XtraDB Cluster custom resources (or just a blank list to deal with all
+  namespaces in the Kubernetes cluster).
+
+The following example steps are showing how to install Operator cluster-wide on
+Kubernetes, similarly to our :ref:`original Kubernetes installation guide<install-kubernetes>`.
 
 #. First of all, clone the percona-xtradb-cluster-operator repository:
 
@@ -26,10 +37,8 @@ folder and have filenames with a special ``cw-`` prefix:
    .. note:: It is crucial to specify the right branch with ``-b``
       option while cloning the code on this step. Please be careful.
 
-#. Now Custom Resource Definition for PXC should be created from the
-   ``deploy/crd.yaml`` file. Custom Resource Definition extends the
-   standard set of resources which Kubernetes “knows” about with the new
-   items (in our case ones which are the core of the operator).
+#. Now Custom Resource Definition for Percona XtraDB Cluster should be created
+   from the ``deploy/crd.yaml`` file.
 
    This step should be done only once; it does not need to be repeated
    with the next Operator deployments, etc.
@@ -47,27 +56,31 @@ folder and have filenames with a special ``cw-`` prefix:
 
       $ kubectl create namespace pxc-operator
 
-   Namespaces to be under the Operator's control should be created in a same
-   way, if not exist:
+   Namespaces to be watched by the Operator should be created in a same way if
+   not exist. Let's say the Operator should watch the ``pxc`` namespace:
 
    .. code:: bash
 
       $ kubectl create namespace pxc
 
 #. Now RBAC (role-based access control) for PXC should be set up from
-   the ``deploy/cw-rbac.yaml`` file. Briefly speaking, role-based access is
-   based on specifically defined roles and actions corresponding to
-   them, allowed to be done on specific Kubernetes resources (details
-   about users and roles can be found in `Kubernetes
-   documentation <https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings>`_).
+   the ``deploy/cw-rbac.yaml`` file (details about users and roles can be found
+   in `Kubernetes documentation <https://kubernetes.io/docs/reference/access-authn-authz/rbac/#default-roles-and-role-bindings>`_).
+
+   Edit the ``subjects.namespace`` option in this file, making it contain the
+   proper name of a namespace in which the Operator resides (``pxc-operator`` in
+   our example):
    
-   One option in this file which may need editing is ``subjects.namespace``.
-   It should contain the name of a namespace in which the Operator resides. By
-   default it is equal to ``pxc-operator``. Set it to proper value if you have
-   chosen a different name on the previous step. 
-   
-   Apply the ``deploy/cw-rbac.yaml`` file in the ``pxc-operator`` namespace
-   (or in some other namespace you've chosen for the Operator to reside in) with
+   .. code:: yaml
+
+      ...
+      subjects:
+      - kind: ServiceAccount
+        name: percona-xtradb-cluster-operator
+        namespace: "pxc-operator"
+      ...
+
+   Apply the ``deploy/cw-rbac.yaml`` file in the ``pxc-operator`` namespace with
    the following command:
 
    .. code:: bash
@@ -81,13 +94,23 @@ folder and have filenames with a special ``cw-`` prefix:
 
 #. Finally it’s time to start the operator within Kubernetes. Before doing this,
    you should specify in the ``deploy/cw-operator.yaml`` file which namespaces
-   the Operator will control. in the ``env`` scection of this file, set the
+   the Operator will watch for. in the ``env`` section of this file, set the
    ``WATCH_NAMESPACE`` key-value pair:
    
    * if ``value`` contains empty string, the Operator will control all
      namespaces,
    * if ``value`` contains the string with a coma-separated list of the 
      namespace names, the Operator will control only namespaces from this list.
+
+   In our example it should look as follows:
+
+   .. code:: yaml
+
+      ...
+      env:
+               - name: WATCH_NAMESPACE
+                 value: "pxc"
+      ...
 
    When the editing is done, apply this file with the following command:
 
@@ -146,7 +169,7 @@ folder and have filenames with a special ``cw-`` prefix:
 
    .. code:: bash
 
-      $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
+      $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never --env="POD_NAMESPACE=pxc" -- bash -il
       percona-client:/$ mysql -h cluster1-proxysql -uroot -proot_password
 
 

@@ -162,6 +162,9 @@ pipeline {
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
                     sudo chmod +x /usr/local/bin/license-detector
                     sudo chmod +x /usr/local/bin/swagger
+
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo chmod +x /usr/local/bin/yq
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''

@@ -2,11 +2,11 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   generation: 1
-  name: side-car-proxysql
+  name: haproxy-proxysql
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: side-car
+      name: haproxy
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -14,42 +14,53 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: proxysql
-      app.kubernetes.io/instance: side-car
+      app.kubernetes.io/instance: haproxy
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: side-car-proxysql-unready
+  serviceName: haproxy-proxysql-unready
   template:
     metadata:
       annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
-        app.kubernetes.io/instance: side-car
+        app.kubernetes.io/instance: haproxy
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: proxysql
+                  app.kubernetes.io/instance: haproxy
+                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                  app.kubernetes.io/name: percona-xtradb-cluster
+                  app.kubernetes.io/part-of: percona-xtradb-cluster
+              topologyKey: kubernetes.io/hostname
       containers:
         - env:
             - name: PXC_SERVICE
-              value: side-car-pxc
+              value: haproxy-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-side-car
+                  name: internal-haproxy
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-side-car
+                  name: internal-haproxy
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-side-car
+                  name: internal-haproxy
           imagePullPolicy: Always
           name: proxysql
           ports:
@@ -60,6 +71,9 @@ spec:
               name: proxyadm
               protocol: TCP
           resources:
+            limits:
+              cpu: 700m
+              memory: 1G
             requests:
               cpu: 100m
               memory: 100M
@@ -78,33 +92,27 @@ spec:
             - -service=$(PXC_SERVICE)
           env:
             - name: PXC_SERVICE
-              value: side-car-pxc
+              value: haproxy-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-side-car
+                  name: internal-haproxy
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-side-car
+                  name: internal-haproxy
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-side-car
+                  name: internal-haproxy
           imagePullPolicy: Always
           name: pxc-monit
-          resources:
-            limits:
-              cpu: 600m
-              memory: 2G
-            requests:
-              cpu: 500m
-              memory: 1G
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
         - args:
@@ -113,40 +121,33 @@ spec:
             - -service=$(PROXYSQL_SERVICE)
           env:
             - name: PROXYSQL_SERVICE
-              value: side-car-proxysql-unready
+              value: haproxy-proxysql-unready
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-side-car
+                  name: internal-haproxy
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-side-car
+                  name: internal-haproxy
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-side-car
+                  name: internal-haproxy
           imagePullPolicy: Always
           name: proxysql-monit
-          resources:
-            limits:
-              cpu: 600m
-              memory: 2G
-            requests:
-              cpu: 500m
-              memory: 1G
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        fsGroup: 1001
         supplementalGroups:
           - 1001
       serviceAccount: default
@@ -157,12 +158,12 @@ spec:
           secret:
             defaultMode: 420
             optional: true
-            secretName: some-name-ssl-internal
+            secretName: haproxy-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
             optional: false
-            secretName: some-name-ssl
+            secretName: haproxy-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0
@@ -175,6 +176,6 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 6Gi
+            storage: 2Gi
       status:
         phase: Pending

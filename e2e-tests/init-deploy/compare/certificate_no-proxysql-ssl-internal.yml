@@ -4,13 +4,13 @@ metadata:
   generation: 1
   name: no-proxysql-ssl-internal
   ownerReferences:
-    controller: true
-    kind: PerconaXtraDBCluster
-    name: no-proxysql
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: no-proxysql
 spec:
   commonName: no-proxysql-pxc
   dnsNames:
-  - '*.no-proxysql-pxc'
+    - '*.no-proxysql-pxc'
   isCA: true
   issuerRef:
     kind: Issuer

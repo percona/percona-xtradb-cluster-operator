@@ -4,9 +4,9 @@ metadata:
   generation: 2
   name: no-limits-proxysql
   ownerReferences:
-    controller: true
-    kind: PerconaXtraDBCluster
-    name: no-limits
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: no-limits
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -21,7 +21,7 @@ spec:
   serviceName: no-limits-proxysql-unready
   template:
     metadata:
-      annotations:
+      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: no-limits
@@ -30,138 +30,199 @@ spec:
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
-      - env:
-        - name: PXC_SERVICE
-          value: no-limits-pxc
-        - name: OPERATOR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: operator
-              name: internal-no-limits
-        - name: PROXY_ADMIN_USER
-          value: proxyadmin
-        - name: PROXY_ADMIN_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: proxyadmin
-              name: internal-no-limits
-        - name: MONITOR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: monitor
-              name: internal-no-limits
-        imagePullPolicy: Always
-        name: proxysql
-        ports:
-        - containerPort: 3306
-          name: mysql
-          protocol: TCP
-        - containerPort: 6032
-          name: proxyadm
-          protocol: TCP
-        resources:
-          requests:
-            cpu: 600m
-            memory: 1G
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        volumeMounts:
-        - mountPath: /var/lib/proxysql
-          name: proxydata
-        - mountPath: /etc/proxysql/ssl
-          name: ssl
-        - mountPath: /etc/proxysql/ssl-internal
-          name: ssl-internal
-      - args:
-        - /usr/bin/peer-list
-        - -on-change=/usr/bin/add_pxc_nodes.sh
-        - -service=$(PXC_SERVICE)
-        env:
-        - name: PXC_SERVICE
-          value: no-limits-pxc
-        - name: OPERATOR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: operator
-              name: internal-no-limits
-        - name: PROXY_ADMIN_USER
-          value: proxyadmin
-        - name: PROXY_ADMIN_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: proxyadmin
-              name: internal-no-limits
-        - name: MONITOR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: monitor
-              name: internal-no-limits
-        imagePullPolicy: Always
-        name: pxc-monit
-        resources: {}
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-      - args:
-        - /usr/bin/peer-list
-        - -on-change=/usr/bin/add_proxysql_nodes.sh
-        - -service=$(PROXYSQL_SERVICE)
-        env:
-        - name: PROXYSQL_SERVICE
-          value: no-limits-proxysql-unready
-        - name: OPERATOR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: operator
-              name: internal-no-limits
-        - name: PROXY_ADMIN_USER
-          value: proxyadmin
-        - name: PROXY_ADMIN_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: proxyadmin
-              name: internal-no-limits
-        - name: MONITOR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: monitor
-              name: internal-no-limits
-        imagePullPolicy: Always
-        name: proxysql-monit
-        resources: {}
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
+        - env:
+            - name: PMM_SERVER
+              value: monitoring-service
+            - name: PMM_USER
+              value: pmm
+            - name: PMM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: pmmserver
+                  name: internal-no-limits
+            - name: CLIENT_PORT_LISTEN
+              value: "7777"
+            - name: CLIENT_PORT_MIN
+              value: "30100"
+            - name: CLIENT_PORT_MAX
+              value: "30105"
+            - name: DB_TYPE
+              value: proxysql
+            - name: MONITOR_USER
+              value: monitor
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-no-limits
+            - name: DB_USER
+              value: monitor
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-no-limits
+            - name: DB_CLUSTER
+              value: pxc
+            - name: DB_HOST
+              value: localhost
+            - name: DB_PORT
+              value: "6032"
+          imagePullPolicy: IfNotPresent
+          name: pmm-client
+          ports:
+            - containerPort: 7777
+              protocol: TCP
+            - containerPort: 30100
+              protocol: TCP
+            - containerPort: 30101
+              protocol: TCP
+            - containerPort: 30102
+              protocol: TCP
+            - containerPort: 30103
+              protocol: TCP
+            - containerPort: 30104
+              protocol: TCP
+            - containerPort: 30105
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 300m
+              memory: 500M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        - env:
+            - name: PXC_SERVICE
+              value: no-limits-pxc
+            - name: OPERATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-no-limits
+            - name: PROXY_ADMIN_USER
+              value: proxyadmin
+            - name: PROXY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: proxyadmin
+                  name: internal-no-limits
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-no-limits
+          imagePullPolicy: IfNotPresent
+          name: proxysql
+          ports:
+            - containerPort: 3306
+              name: mysql
+              protocol: TCP
+            - containerPort: 6032
+              name: proxyadm
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 600m
+              memory: 1G
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/proxysql
+              name: proxydata
+            - mountPath: /etc/proxysql/ssl
+              name: ssl
+            - mountPath: /etc/proxysql/ssl-internal
+              name: ssl-internal
+        - args:
+            - /usr/bin/peer-list
+            - -on-change=/usr/bin/add_pxc_nodes.sh
+            - -service=$(PXC_SERVICE)
+          env:
+            - name: PXC_SERVICE
+              value: no-limits-pxc
+            - name: OPERATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-no-limits
+            - name: PROXY_ADMIN_USER
+              value: proxyadmin
+            - name: PROXY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: proxyadmin
+                  name: internal-no-limits
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-no-limits
+          imagePullPolicy: IfNotPresent
+          name: pxc-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        - args:
+            - /usr/bin/peer-list
+            - -on-change=/usr/bin/add_proxysql_nodes.sh
+            - -service=$(PROXYSQL_SERVICE)
+          env:
+            - name: PROXYSQL_SERVICE
+              value: no-limits-proxysql-unready
+            - name: OPERATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-no-limits
+            - name: PROXY_ADMIN_USER
+              value: proxyadmin
+            - name: PROXY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: proxyadmin
+                  name: internal-no-limits
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-no-limits
+          imagePullPolicy: IfNotPresent
+          name: proxysql-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
         supplementalGroups:
-        - 1001
+          - 1001
       serviceAccount: default
       serviceAccountName: default
       terminationGracePeriodSeconds: 30
       volumes:
-      - name: ssl-internal
-        secret:
-          defaultMode: 420
-          optional: true
-          secretName: some-name-ssl-internal
-      - name: ssl
-        secret:
-          defaultMode: 420
-          optional: false
-          secretName: some-name-ssl
+        - name: ssl-internal
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-ssl-internal
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0
     type: RollingUpdate
   volumeClaimTemplates:
-  - metadata:
-      name: proxydata
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 6Gi
-    status:
-      phase: Pending
+    - metadata:
+        name: proxydata
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 6Gi
+      status:
+        phase: Pending

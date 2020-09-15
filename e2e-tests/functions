@@ -232,23 +232,46 @@ compare_kubectl() {
     fi
 
     kubectl_bin get -o yaml ${resource} \
-        | egrep -v "namespace: \w.*|uid:|resourceVersion:|selfLink:|creationTimestamp:|.*: (.*-workload|default)-token-.*|- name: (default|.*-workload)-dockercfg-.*|deletionTimestamp:|image:|clusterIP:|dataSource:|procMount:" \
-        | egrep -v "^  storageClassName:|finalizers:|kubernetes.io/pvc-protection|volumeName:|storage-provisioner:|status: \{\}|volumeMode: Filesystem|imagePullSecrets:" \
-        | egrep -v "percona.com/.*-hash:|control-plane.alpha.kubernetes.io/leader:|volume.kubernetes.io/selected-node:" \
-        | egrep -v "healthCheckNodePort:|nodePort:|nodeName:" \
-        | egrep -v "load-balancer-cleanup" \
-        | egrep -v "apiVersion: pxc.percona.com" \
-        | $sed -e 's/namespace:.*  //' \
-        | $sed -e '/^status:$/,+100500d' \
-        | $sed -e '/NAMESPACE/,+1d' \
-        | $sed -e '/name: suffix/,+1d' \
-        | $sed -e '/name: S3_BUCKET_PATH/,+1d' \
-        | $sed -e '/name: S3_BUCKET_URL/,+1d' \
-        | $sed -e '/annotations:$/{N;N;s/annotations:\n    kubernetes.io.*\n    \(openshift.io.*\)/annotations:\n    \1/}' \
-        | $sed -e '/annotations:$/{$!{N;s/annotations:\n    kubernetes.io.*//;ty;P;D;:y;d}}' \
-        | $sed -e '/annotations:$/{$!{N;s/annotations:\n    cni.projectcalico.org.*//;ty;P;D;:y;d}}' \
-        | $sed -e '/volumeClaimTemplates:$/{N;/  \- apiVersion.*$/ {N;/  kind.*$/ {N;/    metadata:$/{s/volumeClaimTemplates.*metadata:$/volumeClaimTemplates:\n  \- metadata:/}}}}' \
+        | yq d - 'metadata.managedFields' \
+        | yq d - '**.creationTimestamp' \
+        | yq d - '**.namespace' \
+        | yq d - '**.uid' \
+        | yq d - 'metadata.resourceVersion' \
+        | yq d - 'metadata.selfLink' \
+        | yq d - 'metadata.deletionTimestamp' \
+        | yq d - 'metadata.annotations."k8s.v1.cni.cncf.io*"' \
+        | yq d - '**.(name==percona-xtradb-cluster-operator-workload-token*)' \
+        | yq d - '**.creationTimestamp' \
+        | yq d - '**.image' \
+        | yq d - '**.clusterIP' \
+        | yq d - '**.dataSource' \
+        | yq d - '**.procMount' \
+        | yq d - '**.storageClassName' \
+        | yq d - '**.finalizers' \
+        | yq d - '**."kubernetes.io/pvc-protection"' \
+        | yq d - '**.volumeName' \
+        | yq d - '**."volume.beta.kubernetes.io/storage-provisioner"' \
+        | yq d - 'spec.volumeMode' \
+        | yq d - 'spec.nodeName' \
+        | yq d - '**."volume.kubernetes.io/selected-node"' \
+        | yq d - '**."percona.com/*"' \
+        | yq d - '**.(volumeMode==Filesystem).volumeMode' \
+        | yq d - '**.healthCheckNodePort' \
+        | yq d - '**.nodePort' \
+        | yq d - '**.imagePullSecrets' \
+        | yq d - '**.enableServiceLinks' \
+        | yq d - 'status' \
+        | yq d - '**.(name==NAMESPACE)' \
+        | yq d - '**.(name==suffix)' \
+        | yq d - '**.(name==S3_BUCKET_PATH)' \
+        | yq d - '**.(name==S3_BUCKET_URL)' \
+        | yq d - 'spec.volumeClaimTemplates.*.apiVersion' \
+        | yq d - 'spec.volumeClaimTemplates.*.kind' \
+        | yq d - 'metadata.ownerReferences.*.apiVersion' \
+        | yq d - '**.controller-uid' \
+        | sed 's/namespace\:.*name/name/' \
         > ${new_result}
+        # last sed is needed for backup cronjob content
 
     diff -u ${expected_result} ${new_result}
 }
@@ -319,7 +342,7 @@ compare_mysql_cmd_local() {
     local pod="$4"
     local postfix="$5"
     local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
-    
+
 
     if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
         expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
@@ -857,7 +880,7 @@ listener \"tcp\" {
 storage \"file\" {
     path = \"/vault/data\"
 }"
-        
+
     else
         helm install $name hashicorp/vault \
             --disable-openapi-validation \
@@ -948,7 +971,7 @@ patch_secret() {
     local secret=$1
     local key=$2
     local value=$3
-    
+
     kubectl_bin patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
 }
 

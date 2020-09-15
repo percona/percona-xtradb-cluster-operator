@@ -4,9 +4,9 @@ metadata:
   generation: 1
   name: monitoring-haproxy
   ownerReferences:
-    controller: true
-    kind: PerconaXtraDBCluster
-    name: monitoring
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: monitoring
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -21,7 +21,7 @@ spec:
   serviceName: monitoring-haproxy
   template:
     metadata:
-      annotations:
+      annotations: {}
       labels:
         app.kubernetes.io/component: haproxy
         app.kubernetes.io/instance: monitoring
@@ -30,62 +30,62 @@ spec:
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
-      - env:
-        - name: PXC_SERVICE
-          value: monitoring-pxc
-        - name: MONITOR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: monitor
-              name: internal-monitoring
-        imagePullPolicy: Always
-        name: haproxy
-        ports:
-        - containerPort: 3306
-          name: mysql
-          protocol: TCP
-        - containerPort: 3307
-          name: mysql-replicas
-          protocol: TCP
-        - containerPort: 3309
-          name: proxy-protocol
-          protocol: TCP
-        - containerPort: 33062
-          name: mysql-admin
-          protocol: TCP
-        resources:
-          requests:
-            cpu: 300m
-            memory: 500M
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        volumeMounts:
-        - mountPath: /etc/haproxy-custom/
-          name: haproxy-custom
-        - mountPath: /etc/haproxy/pxc
-          name: haproxy-auto
-      - args:
-        - /usr/bin/peer-list
-        - -on-change=/usr/bin/add_pxc_nodes.sh
-        - -service=$(PXC_SERVICE)
-        env:
-        - name: PXC_SERVICE
-          value: monitoring-pxc
-        - name: MONITOR_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: monitor
-              name: internal-monitoring
-        imagePullPolicy: Always
-        name: pxc-monit
-        resources: {}
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        volumeMounts:
-        - mountPath: /etc/haproxy-custom/
-          name: haproxy-custom
-        - mountPath: /etc/haproxy/pxc
-          name: haproxy-auto
+        - env:
+            - name: PXC_SERVICE
+              value: monitoring-pxc
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-monitoring
+          imagePullPolicy: Always
+          name: haproxy
+          ports:
+            - containerPort: 3306
+              name: mysql
+              protocol: TCP
+            - containerPort: 3307
+              name: mysql-replicas
+              protocol: TCP
+            - containerPort: 3309
+              name: proxy-protocol
+              protocol: TCP
+            - containerPort: 33062
+              name: mysql-admin
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 300m
+              memory: 500M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/haproxy-custom/
+              name: haproxy-custom
+            - mountPath: /etc/haproxy/pxc
+              name: haproxy-auto
+        - args:
+            - /usr/bin/peer-list
+            - -on-change=/usr/bin/add_pxc_nodes.sh
+            - -service=$(PXC_SERVICE)
+          env:
+            - name: PXC_SERVICE
+              value: monitoring-pxc
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-monitoring
+          imagePullPolicy: Always
+          name: pxc-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/haproxy-custom/
+              name: haproxy-custom
+            - mountPath: /etc/haproxy/pxc
+              name: haproxy-auto
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -95,13 +95,13 @@ spec:
       shareProcessNamespace: true
       terminationGracePeriodSeconds: 30
       volumes:
-      - configMap:
-          defaultMode: 420
-          name: monitoring-haproxy
-          optional: true
-        name: haproxy-custom
-      - emptyDir: {}
-        name: haproxy-auto
+        - configMap:
+            defaultMode: 420
+            name: monitoring-haproxy
+            optional: true
+          name: haproxy-custom
+        - emptyDir: {}
+          name: haproxy-auto
   updateStrategy:
     rollingUpdate:
       partition: 0

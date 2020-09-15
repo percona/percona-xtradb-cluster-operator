@@ -4,10 +4,9 @@ metadata:
   generation: 1
   name: some-name-pxc
   ownerReferences:
-  - apiVersion: apps/v1
-    controller: true
-    kind: StatefulSet
-    name: some-name-pxc
+    - controller: true
+      kind: StatefulSet
+      name: some-name-pxc
 spec:
   maxUnavailable: 1
   selector:

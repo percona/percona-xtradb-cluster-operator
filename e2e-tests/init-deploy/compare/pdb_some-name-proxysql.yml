@@ -4,10 +4,9 @@ metadata:
   generation: 1
   name: some-name-proxysql
   ownerReferences:
-  - apiVersion: apps/v1
-    controller: true
-    kind: StatefulSet
-    name: some-name-proxysql
+    - controller: true
+      kind: StatefulSet
+      name: some-name-proxysql
 spec:
   maxUnavailable: 1
   selector:

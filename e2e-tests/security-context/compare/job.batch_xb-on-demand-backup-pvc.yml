@@ -9,9 +9,9 @@ metadata:
     type: xtrabackup
   name: xb-on-demand-backup-pvc
   ownerReferences:
-    controller: true
-    kind: PerconaXtraDBClusterBackup
-    name: on-demand-backup-pvc
+    - controller: true
+      kind: PerconaXtraDBClusterBackup
+      name: on-demand-backup-pvc
 spec:
   backoffLimit: 10
   completions: 1
@@ -32,63 +32,63 @@ spec:
         type: xtrabackup
     spec:
       containers:
-      - command:
-        - bash
-        - /usr/bin/backup.sh
-        env:
-        - name: BACKUP_DIR
-          value: /backup
-        - name: PXC_SERVICE
-          value: sec-context-pxc
-        - name: MYSQL_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: root
-              name: my-cluster-secrets
-        imagePullPolicy: Always
-        name: xtrabackup
-        resources: {}
-        securityContext:
-          privileged: true
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        volumeMounts:
-        - mountPath: /backup
+        - command:
+            - bash
+            - /usr/bin/backup.sh
+          env:
+            - name: BACKUP_DIR
+              value: /backup
+            - name: PXC_SERVICE
+              value: sec-context-pxc
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: root
+                  name: my-cluster-secrets
+          imagePullPolicy: Always
           name: xtrabackup
-        - mountPath: /etc/mysql/ssl
-          name: ssl
-        - mountPath: /etc/mysql/ssl-internal
-          name: ssl-internal
-        - mountPath: /etc/mysql/vault-keyring-secret
-          name: vault-keyring-secret
+          resources: {}
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /backup
+              name: xtrabackup
+            - mountPath: /etc/mysql/ssl
+              name: ssl
+            - mountPath: /etc/mysql/ssl-internal
+              name: ssl-internal
+            - mountPath: /etc/mysql/vault-keyring-secret
+              name: vault-keyring-secret
       dnsPolicy: ClusterFirst
       restartPolicy: Never
       schedulerName: default-scheduler
       securityContext:
         fsGroup: 1001
         supplementalGroups:
-        - 1001
-        - 1002
-        - 1003
+          - 1001
+          - 1002
+          - 1003
       serviceAccount: percona-xtradb-cluster-operator-workload
       serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 30
       volumes:
-      - name: xtrabackup
-        persistentVolumeClaim:
-          claimName: xb-on-demand-backup-pvc
-      - name: ssl
-        secret:
-          defaultMode: 420
-          optional: true
-          secretName: some-name-ssl
-      - name: ssl-internal
-        secret:
-          defaultMode: 420
-          optional: true
-          secretName: some-name-ssl-internal
-      - name: vault-keyring-secret
-        secret:
-          defaultMode: 420
-          optional: true
-          secretName: sec-context-vault
+        - name: xtrabackup
+          persistentVolumeClaim:
+            claimName: xb-on-demand-backup-pvc
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-ssl
+        - name: ssl-internal
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-ssl-internal
+        - name: vault-keyring-secret
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: sec-context-vault

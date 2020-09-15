@@ -13,19 +13,20 @@ wait_for_sts_generation() {
     local desired_generation="${2}"
     local size="${3}"
     set +o xtrace
+    echo -n "Waiting for statefulset readyness"
     retry=0
     until [[ "$(kubectl_bin get sts $name -o jsonpath='{.status.observedGeneration}')" == "${desired_generation}" \
-          && "$(kubectl_bin get sts $name -o jsonpath='{.status.readyReplicas}')" == "${size}" ]]; do 
+             && "$(kubectl_bin get sts $name -o jsonpath='{.status.readyReplicas}')" -ge "${size}" ]]; do
         sleep 1
         echo -n .
         let retry+=1
-        if [ $retry -ge 140 ]; then
+        if [ $retry -ge 300 ]; then
             kubectl_bin logs $(get_operator_pod) ${OPERATOR_NS:+-n $OPERATOR_NS}
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
-        echo
     done
+    echo
     set -o xtrace
 }
 

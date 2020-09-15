@@ -41,15 +41,18 @@ folder and have filenames with a special ``cw-`` prefix:
 #. The next thing to do is to decide which Kubernetes namespaces the Operator
    should control and in which namespace should it reside. Let's suppose that
    Operator's namespace should be the ``pxc-operator`` one. It is necessary to
-   create it, not forgetting to set the correspondent context for further steps:
+   create it:
 
    .. code:: bash
 
       $ kubectl create namespace pxc-operator
-      $ kubectl config set-context $(kubectl config current-context) --namespace=pxc
 
    Namespaces to be under the Operator's control should be created in a same
-   way, if not exist.
+   way, if not exist:
+
+   .. code:: bash
+
+      $ kubectl create namespace pxc
 
 #. Now RBAC (role-based access control) for PXC should be set up from
    the ``deploy/cw-rbac.yaml`` file. Briefly speaking, role-based access is
@@ -63,11 +66,13 @@ folder and have filenames with a special ``cw-`` prefix:
    default it is equal to ``pxc-operator``. Set it to proper value if you have
    chosen a different name on the previous step. 
    
-   Apply the ``deploy/cw-rbac.yaml`` file with the following command:
-   
+   Apply the ``deploy/cw-rbac.yaml`` file in the ``pxc-operator`` namespace
+   (or in some other namespace you've chosen for the Operator to reside in) with
+   the following command:
+
    .. code:: bash
 
-      $ kubectl apply -f deploy/cw-rbac.yaml
+      $ kubectl apply -f deploy/cw-rbac.yaml -n pxc-operator
 
    .. note:: Setting RBAC requires your user to have cluster-admin role
       privileges. For example, those using Google Kubernetes Engine can
@@ -88,13 +93,15 @@ folder and have filenames with a special ``cw-`` prefix:
 
    .. code:: bash
 
-      $ kubectl apply -f deploy/cw-operator.yaml
+      $ kubectl apply -f deploy/cw-operator.yaml -n pxc-operator
 
-#. Now that’s time to add the PXC Users secrets to Kubernetes. They
-   should be placed in the data section of the ``deploy/secrets.yaml``
-   file as logins and base64-encoded passwords for the user accounts
-   (see `Kubernetes
-   documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`_
+#. Now that’s time to add the PXC Users secrets to Kubernetes. This should be
+   done non in the Operator's namespace, but in one we have chosen for Percona
+   XtraDB Cluster (``pxc`` in our examples). 
+   
+   PXC Users secrets should be placed in the data section of the
+   ``deploy/secrets.yaml`` file as logins and base64-encoded passwords for the
+   user accounts (see `Kubernetes documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`_
    for details).
 
    .. note:: the following command can be used to get base64-encoded
@@ -106,7 +113,7 @@ folder and have filenames with a special ``cw-`` prefix:
 
    .. code:: bash
 
-      $ kubectl apply -f deploy/secrets.yaml
+      $ kubectl apply -f deploy/secrets.yaml -n pxc
 
    More details about secrets can be found in :ref:`users`.
 
@@ -120,7 +127,7 @@ folder and have filenames with a special ``cw-`` prefix:
 
    .. code:: bash
 
-      $ kubectl apply -f deploy/cr.yaml
+      $ kubectl apply -f deploy/cr.yaml -n pxc
 
    Creation process will take some time. The process is over when both
    operator and replica set pod have reached their Running status:

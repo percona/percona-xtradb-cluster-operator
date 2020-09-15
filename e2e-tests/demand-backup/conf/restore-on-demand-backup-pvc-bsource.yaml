@@ -5,5 +5,5 @@ metadata:
 spec:
   pxcCluster: some-name
   backupSource:
-    destination: pvc/some-name-xb-on-demand-backup-pvc-bsource
+    destination: pvc/xb-on-demand-backup-pvc-bsource
     storageName: pvc

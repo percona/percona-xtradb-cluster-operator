@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/go-openapi/errors"
-
 	"github.com/go-openapi/runtime"
 )
 

@@ -23,10 +23,9 @@ import (
 	"github.com/go-openapi/analysis"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/loads"
+	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/go-openapi/runtime"
 )
 
 // NewAPI creates the default untyped API
@@ -245,6 +244,7 @@ func (d *API) validate() error {
 }
 
 func (d *API) verify(name string, registrations []string, expectations []string) error {
+
 	sort.Strings(registrations)
 	sort.Strings(expectations)
 

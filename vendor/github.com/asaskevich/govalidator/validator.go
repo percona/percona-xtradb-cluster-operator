@@ -282,7 +282,7 @@ func HasLowerCase(str string) bool {
 	return rxHasLowerCase.MatchString(str)
 }
 
-// HasUpperCase check if the string contains as least 1 uppercase. Empty string is valid.
+// HasUpperCase check if the string contians as least 1 uppercase. Empty string is valid.
 func HasUpperCase(str string) bool {
 	if IsNull(str) {
 		return true
@@ -575,7 +575,7 @@ func IsDNSName(str string) bool {
 // IsHash checks if a string is a hash of type algorithm.
 // Algorithm is one of ['md4', 'md5', 'sha1', 'sha256', 'sha384', 'sha512', 'ripemd128', 'ripemd160', 'tiger128', 'tiger160', 'tiger192', 'crc32', 'crc32b']
 func IsHash(str string, algorithm string) bool {
-	var len string
+	len := "0"
 	algo := strings.ToLower(algorithm)
 
 	if algo == "crc32" || algo == "crc32b" {
@@ -737,11 +737,6 @@ func IsLongitude(str string) bool {
 	return rxLongitude.MatchString(str)
 }
 
-// IsIMEI check if a string is valid IMEI
-func IsIMEI(str string) bool {
-	return rxIMEI.MatchString(str)
-}
-
 // IsRsaPublicKey check if a string is valid public key with provided length
 func IsRsaPublicKey(str string, keylen int) bool {
 	bb := bytes.NewBufferString(str)
@@ -813,9 +808,8 @@ func PrependPathToErrors(err error, path string) error {
 
 // ValidateMap use validation map for fields.
 // result will be equal to `false` if there are any errors.
-// s is the map containing the data to be validated.
-// m is the validation map in the form:
-//   map[string]interface{}{"name":"required,alpha","address":map[string]interface{}{"line1":"required,alphanum"}}
+// m is the validation map in the form
+// map[string]interface{}{"name":"required,alpha","address":map[string]interface{}{"line1":"required,alphanum"}}
 func ValidateMap(s map[string]interface{}, m map[string]interface{}) (bool, error) {
 	if s == nil {
 		return true, nil
@@ -1504,11 +1498,11 @@ func ErrorsByField(e error) map[string]string {
 	}
 	// prototype for ValidateStruct
 
-	switch e := e.(type) {
+	switch e.(type) {
 	case Error:
-		m[e.Name] = e.Err.Error()
+		m[e.(Error).Name] = e.(Error).Err.Error()
 	case Errors:
-		for _, item := range e.Errors() {
+		for _, item := range e.(Errors).Errors() {
 			n := ErrorsByField(item)
 			for k, v := range n {
 				m[k] = v

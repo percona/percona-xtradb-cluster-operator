@@ -11,5 +11,3 @@ require (
 	github.com/tidwall/pretty v1.0.0 // indirect
 	go.mongodb.org/mongo-driver v1.0.3
 )
-
-go 1.13

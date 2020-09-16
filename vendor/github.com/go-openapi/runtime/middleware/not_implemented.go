@@ -38,30 +38,11 @@ func (e *errorResp) WriteResponse(rw http.ResponseWriter, producer runtime.Produ
 		rw.WriteHeader(http.StatusInternalServerError)
 	}
 	if err := producer.Produce(rw, e.response); err != nil {
-		Logger.Printf("failed to write error response: %v", err)
+		panic(err)
 	}
 }
 
 // NotImplemented the error response when the response is not implemented
 func NotImplemented(message string) Responder {
-	return Error(http.StatusNotImplemented, message)
-}
-
-// Error creates a generic responder for returning errors, the data will be serialized
-// with the matching producer for the request
-func Error(code int, data interface{}, headers ...http.Header) Responder {
-	var hdr http.Header
-	for _, h := range headers {
-		for k, v := range h {
-			if hdr == nil {
-				hdr = make(http.Header)
-			}
-			hdr[k] = v
-		}
-	}
-	return &errorResp{
-		code:     code,
-		response: data,
-		headers:  hdr,
-	}
+	return &errorResp{http.StatusNotImplemented, message, make(http.Header)}
 }

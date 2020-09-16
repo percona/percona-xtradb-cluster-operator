@@ -19,27 +19,26 @@ import (
 	"reflect"
 
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
-
-	"github.com/go-openapi/runtime"
 )
 
-// UntypedRequestBinder binds and validates the data from a http request
-type UntypedRequestBinder struct {
+// RequestBinder binds and validates the data from a http request
+type untypedRequestBinder struct {
 	Spec         *spec.Swagger
 	Parameters   map[string]spec.Parameter
 	Formats      strfmt.Registry
 	paramBinders map[string]*untypedParamBinder
 }
 
-// NewUntypedRequestBinder creates a new binder for reading a request.
-func NewUntypedRequestBinder(parameters map[string]spec.Parameter, spec *spec.Swagger, formats strfmt.Registry) *UntypedRequestBinder {
+// NewRequestBinder creates a new binder for reading a request.
+func newUntypedRequestBinder(parameters map[string]spec.Parameter, spec *spec.Swagger, formats strfmt.Registry) *untypedRequestBinder {
 	binders := make(map[string]*untypedParamBinder)
 	for fieldName, param := range parameters {
 		binders[fieldName] = newUntypedParamBinder(param, spec, formats)
 	}
-	return &UntypedRequestBinder{
+	return &untypedRequestBinder{
 		Parameters:   parameters,
 		paramBinders: binders,
 		Spec:         spec,
@@ -48,7 +47,7 @@ func NewUntypedRequestBinder(parameters map[string]spec.Parameter, spec *spec.Sw
 }
 
 // Bind perform the databinding and validation
-func (o *UntypedRequestBinder) Bind(request *http.Request, routeParams RouteParams, consumer runtime.Consumer, data interface{}) error {
+func (o *untypedRequestBinder) Bind(request *http.Request, routeParams RouteParams, consumer runtime.Consumer, data interface{}) error {
 	val := reflect.Indirect(reflect.ValueOf(data))
 	isMap := val.Kind() == reflect.Map
 	var result []error
@@ -72,6 +71,7 @@ func (o *UntypedRequestBinder) Bind(request *http.Request, routeParams RoutePara
 				}
 			}
 			target = reflect.Indirect(reflect.New(tpe))
+
 		}
 
 		if !target.IsValid() {

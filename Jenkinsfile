@@ -157,11 +157,9 @@ pipeline {
 
                     curl -s -L https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    sudo curl -s -L https://github.com/go-swagger/go-swagger/releases/download/v0.24.0/swagger_linux_amd64 -o /usr/local/bin/swagger
                     curl -s -L https://github.com/go-enry/go-license-detector/releases/download/v4.0.0/license-detector-v4.0.0-linux-amd64.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
                     sudo chmod +x /usr/local/bin/license-detector
-                    sudo chmod +x /usr/local/bin/swagger
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
@@ -228,9 +226,7 @@ pipeline {
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
-                            golang:1.14 sh -c 'go get github.com/go-swagger/go-swagger/cmd/swagger@v0.24.0 \
-                            && swagger generate client -f vendor/github.com/Percona-Lab/percona-version-service/api/version.swagger.yaml -c versionserviceclient -m versionserviceclient/models \
-                            && go build -v -mod=vendor -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
+                            golang:1.14 sh -c 'go build -v -mod=vendor -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
                     "
                 '''
 

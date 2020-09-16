@@ -619,7 +619,7 @@ spinup_pxc() {
     run_mysql \
         'INSERT myApp.myApp (id) VALUES (100500)' \
         "-h $proxy -uroot -proot_password"
-    sleep 10
+    sleep 30
     for i in $(seq 0 $(($size - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
     done

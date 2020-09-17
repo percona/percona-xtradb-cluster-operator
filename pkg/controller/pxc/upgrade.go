@@ -172,7 +172,8 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	}
 
 	if sfs.StatefulSet().Status.ReadyReplicas < sfs.StatefulSet().Status.Replicas {
-		return fmt.Errorf("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
+		log.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
+		return nil
 	}
 
 	list := corev1.PodList{}

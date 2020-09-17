@@ -221,7 +221,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			return false, false, errors.New("undefined or not exist user " + user.name)
 		}
 
-		if bytes.Compare(sysUsersSecretObj.Data[user.name], internalSysSecretObj.Data[user.name]) == 0 {
+		if bytes.Equal(sysUsersSecretObj.Data[user.name], internalSysSecretObj.Data[user.name]) {
 			continue
 		}
 

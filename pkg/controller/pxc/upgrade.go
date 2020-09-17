@@ -79,8 +79,17 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if err != nil {
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
-	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
+	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 && !isHAproxy(sfs) {
 		currentSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
+	}
+
+	if isHAproxy(sfs) && cr.CompareVersionWith("1.6.0") >= 0 {
+		if _, ok := currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"]; ok {
+			delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
+		}
+		if _, ok := currentSet.Spec.Template.Annotations["percona.com/ssl-hash"]; ok {
+			delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-hash")
+		}
 	}
 
 	var newContainers []corev1.Container
@@ -424,6 +433,10 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, po
 
 func isPXC(sfs api.StatefulApp) bool {
 	return sfs.Labels()["app.kubernetes.io/component"] == "pxc"
+}
+
+func isHAproxy(sfs api.StatefulApp) bool {
+	return sfs.Labels()["app.kubernetes.io/component"] == "haproxy"
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) (bool, error) {

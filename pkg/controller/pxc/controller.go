@@ -629,8 +629,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			nodeSet.Spec.Template.Annotations = make(map[string]string)
 		}
 		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = haProxyConfigHash
-		haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-		haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+		if cr.CompareVersionWith("1.5.0") == 0 {
+			haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+			haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+		}
 		err = r.client.Create(context.TODO(), haProxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return fmt.Errorf("create newStatefulSetHAProxy: %v", err)

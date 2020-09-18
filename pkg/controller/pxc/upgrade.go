@@ -285,35 +285,53 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 
 	podNamePrefix := fmt.Sprintf("%s.%s.%s", pod.Name, sfsName, cr.Namespace)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(waitLimit)*time.Second)
-	defer cancel()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("reach pod wait limit")
-		default:
+	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
+		func() (bool, error) {
 			statuses, err := database.Status(podNamePrefix, pod.Status.PodIP)
 			if err != nil && err != queries.ErrNotFound {
-				return fmt.Errorf("failed to get status: %v", err)
+				return false, fmt.Errorf("failed to get status: %v", err)
 			}
 
-			online := false
 			for _, status := range statuses {
-				if status == "ONLINE" {
-					online = true
-				} else {
-					online = false
-					break
+				if status != "ONLINE" {
+					return false, nil
 				}
 			}
 
-			if online {
-				log.Info(fmt.Sprintf("pod %s is online", pod.Name))
+			log.Info(fmt.Sprintf("pod %s is online", pod.Name))
+			return true, nil
+		})
+}
+
+// retry runs func "f" every "in" time until "limit" is reached
+// it also doesn't have an extra tail wait after the limit is reached
+// and f func runs first time instantly
+func retry(in, limit time.Duration, f func() (bool, error)) error {
+	done := time.NewTimer(limit)
+	defer done.Stop()
+	tk := time.NewTicker(time.Second * 1)
+	defer tk.Stop()
+
+	fdone, err := f()
+	if err != nil {
+		return err
+	}
+	if fdone {
+		return nil
+	}
+
+	for {
+		select {
+		case <-done.C:
+			return fmt.Errorf("reach pod wait limit")
+		case <-tk.C:
+			fdone, err := f()
+			if err != nil {
+				return err
+			}
+			if fdone {
 				return nil
 			}
-
-			time.Sleep(time.Second * 10)
 		}
 	}
 }
@@ -396,40 +414,27 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 
 	defer database.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(waitLimit)*time.Second)
-	defer cancel()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("reach pod wait limit")
-		default:
+	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
+		func() (bool, error) {
 			state, err := database.WsrepLocalStateComment()
 			if err != nil {
-				return fmt.Errorf("failed to get wsrep local state: %v", err)
+				return false, fmt.Errorf("failed to get wsrep local state: %v", err)
 			}
 
 			if state == "Synced" {
-				return nil
+				return true, nil
 			}
 
-			time.Sleep(10 * time.Second)
-		}
-	}
+			return false, nil
+		})
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, pod *corev1.Pod, waitLimit int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(waitLimit)*time.Second)
-	defer cancel()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("reach pod wait limit")
-		default:
+	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
+		func() (bool, error) {
 			err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
 			if err != nil && !k8serrors.IsNotFound(err) {
-				return err
+				return false, err
 			}
 
 			ready := false
@@ -441,12 +446,11 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, po
 
 			if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
 				log.Info(fmt.Sprintf("pod %s is running", pod.Name))
-				return nil
+				return true, nil
 			}
 
-			time.Sleep(10 * time.Second)
-		}
-	}
+			return false, nil
+		})
 }
 
 func isPXC(sfs api.StatefulApp) bool {

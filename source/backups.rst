@@ -204,6 +204,8 @@ When enabled, compression will be used for both backups and `SST <https://www.pe
 Restore the cluster from a previously saved backup
 --------------------------------------------------
 
+Backup can be restored not only on the Kubernetes cluster where it was made, but
+also on any Kubernetes-based environment with the installed Operator.
 Following steps are needed to restore a previously saved backup:
 
 1. First of all make sure that the cluster is running.
@@ -221,7 +223,20 @@ Following steps are needed to restore a previously saved backup:
 
       kubectl get pxc
 
-3. When both correct names are known, it is needed to fix ``spec.pxcCluster`` and ``spec. backupName`` fields in ``deploy/backup/restore.yaml`` file. After that, the actual restoration process can
+   .. note:: Obviously, you can make this checks only on the same cluster on
+      which you have previously made the backup.
+
+3. When both correct names are known, it is needed to appropriate keys
+   (, , and possibly spec.backupSource)
+   fields in the ``deploy/backup/restore.yaml`` file. 
+
+   * set ``spec.pxcCluster`` key to the name of your cluster,
+   * set ``spec.backupName`` key to the name of your backup,
+   * if you are restoring backup on the Kubernetes-based cluster different from
+     one you have used to save this backup, set ``spec.backupSource`` to the PVC
+     or S3-compatible storage which contains your backup.
+
+After that, the actual restoration process can
    be started as follows:
 
    .. code:: bash

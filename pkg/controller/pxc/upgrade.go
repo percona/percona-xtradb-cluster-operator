@@ -175,13 +175,19 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 
 	log.Info("statefullSet was changed, run smart update")
 
-	if err := r.isBackupRunning(cr); err != nil {
+	running, err := r.isBackupRunning(cr)
+	if err != nil {
 		log.Error(err, "can't start 'SmartUpdate'")
+		return nil
+	}
+	if running {
+		log.Info("can't start/continue 'SmartUpdate': backup is running")
 		return nil
 	}
 
 	if sfs.StatefulSet().Status.ReadyReplicas < sfs.StatefulSet().Status.Replicas {
-		return fmt.Errorf("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
+		log.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
+		return nil
 	}
 
 	list := corev1.PodList{}
@@ -433,22 +439,22 @@ func isHAproxy(sfs api.StatefulApp) bool {
 	return sfs.Labels()["app.kubernetes.io/component"] == "haproxy"
 }
 
-func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) (bool, error) {
 	bcpList := api.PerconaXtraDBClusterBackupList{}
 	if err := r.client.List(context.TODO(), &bcpList, &client.ListOptions{Namespace: cr.Namespace}); err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil
+			return false, nil
 		}
-		return fmt.Errorf("failed to get backup object: %v", err)
+		return false, fmt.Errorf("failed to get backup object: %v", err)
 	}
 
 	for _, bcp := range bcpList.Items {
 		if bcp.Status.State == api.BackupRunning || bcp.Status.State == api.BackupStarting {
-			return fmt.Errorf("backup %s is running", bcp.Name)
+			return true, nil
 		}
 	}
 
-	return nil
+	return false, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) string {

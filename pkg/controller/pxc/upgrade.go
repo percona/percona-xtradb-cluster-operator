@@ -285,31 +285,37 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 
 	podNamePrefix := fmt.Sprintf("%s.%s.%s", pod.Name, sfsName, cr.Namespace)
 
-	for i := 0; i < waitLimit; i++ {
-		statuses, err := database.Status(podNamePrefix, pod.Status.PodIP)
-		if err != nil && err != queries.ErrNotFound {
-			return fmt.Errorf("failed to get status: %v", err)
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(waitLimit)*time.Second)
+	defer cancel()
 
-		online := false
-		for _, status := range statuses {
-			if status == "ONLINE" {
-				online = true
-			} else {
-				online = false
-				break
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("reach pod wait limit")
+		default:
+			statuses, err := database.Status(podNamePrefix, pod.Status.PodIP)
+			if err != nil && err != queries.ErrNotFound {
+				return fmt.Errorf("failed to get status: %v", err)
 			}
-		}
 
-		if online {
-			log.Info(fmt.Sprintf("pod %s is online", pod.Name))
-			return nil
-		}
+			online := false
+			for _, status := range statuses {
+				if status == "ONLINE" {
+					online = true
+				} else {
+					online = false
+					break
+				}
+			}
 
-		time.Sleep(time.Second * 1)
+			if online {
+				log.Info(fmt.Sprintf("pod %s is online", pod.Name))
+				return nil
+			}
+
+			time.Sleep(time.Second * 10)
+		}
 	}
-
-	return fmt.Errorf("reach pod wait limit")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
@@ -390,45 +396,57 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 
 	defer database.Close()
 
-	for i := 0; i < waitLimit; i++ {
-		state, err := database.WsrepLocalStateComment()
-		if err != nil {
-			return fmt.Errorf("failed to get wsrep local state: %v", err)
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(waitLimit)*time.Second)
+	defer cancel()
 
-		if state == "Synced" {
-			return nil
-		}
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("reach pod wait limit")
+		default:
+			state, err := database.WsrepLocalStateComment()
+			if err != nil {
+				return fmt.Errorf("failed to get wsrep local state: %v", err)
+			}
 
-		time.Sleep(time.Second * 1)
+			if state == "Synced" {
+				return nil
+			}
+
+			time.Sleep(10 * time.Second)
+		}
 	}
-
-	return fmt.Errorf("reach pod wait limit")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, pod *corev1.Pod, waitLimit int) error {
-	for i := 0; i < waitLimit; i++ {
-		time.Sleep(time.Second * 1)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(waitLimit)*time.Second)
+	defer cancel()
 
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return err
-		}
-
-		ready := false
-		for _, container := range pod.Status.ContainerStatuses {
-			if container.Name == "pxc" {
-				ready = container.Ready
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("reach pod wait limit")
+		default:
+			err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return err
 			}
-		}
 
-		if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
-			log.Info(fmt.Sprintf("pod %s is running", pod.Name))
-			return nil
+			ready := false
+			for _, container := range pod.Status.ContainerStatuses {
+				if container.Name == "pxc" {
+					ready = container.Ready
+				}
+			}
+
+			if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
+				log.Info(fmt.Sprintf("pod %s is running", pod.Name))
+				return nil
+			}
+
+			time.Sleep(10 * time.Second)
 		}
 	}
-
-	return fmt.Errorf("reach pod wait limit")
 }
 
 func isPXC(sfs api.StatefulApp) bool {

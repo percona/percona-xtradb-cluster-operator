@@ -32,7 +32,9 @@ function join {
 function mysql_root_exec() {
   local server="$1"
   local query="$2"
+  { set +x; } 2>/dev/null
   MYSQL_PWD="${OPERATOR_ADMIN_PASSWORD:-operator}" timeout 600 mysql -h "${server}" -P 33062 -uoperator -s -NB -e "${query}"
+  set -x
 }
 
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
@@ -79,7 +81,9 @@ sed -r "s|^[#]?wsrep_cluster_name=.*$|wsrep_cluster_name=${CLUSTER_NAME%'-pxc'}|
 sed -r "s|^[#]?wsrep_sst_donor=.*$|wsrep_sst_donor=${DONOR_ADDRESS}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?wsrep_cluster_address=.*$|wsrep_cluster_address=gcomm://${WSREP_CLUSTER_ADDRESS}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NODE_NAME}:${NODE_PORT}|" ${CFG} 1<> ${CFG}
+{ set +x; } 2>/dev/null
 sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:$XTRABACKUP_PASSWORD'|" ${CFG} 1<> ${CFG}
+set -x
 sed -r "s|^[#]?admin-address=.*$|admin-address=${NODE_IP}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?extra_max_connections=.*$|extra_max_connections=100|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?extra_port=.*$|extra_port=33062|" ${CFG} 1<> ${CFG}

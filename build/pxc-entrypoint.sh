@@ -197,16 +197,19 @@ elif [ -n "$DISCOVERY_SERVICE" ]; then
 	sed -r "s|^[#]?wsrep_cluster_name=.*$|wsrep_cluster_name=${CLUSTER_NAME}|" "${CFG}" 1<> "${CFG}"
 	sed -r "s|^[#]?wsrep_cluster_address=.*$|wsrep_cluster_address=gcomm://${CLUSTER_JOIN}|" "${CFG}" 1<> "${CFG}"
 	sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NODE_NAME}:${NODE_PORT}|" "${CFG}" 1<> "${CFG}"
+	{ set +x; } 2>/dev/null
 	sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:${XTRABACKUP_PASSWORD}'|" "${CFG}" 1<> "${CFG}"
-
 	/usr/bin/clustercheckcron clustercheck "${CLUSTERCHECK_PASSWORD}" 1 /var/lib/mysql/clustercheck.log 1 &
+	set -x
 
 else
 	: checking incoming cluster parameters
 	NODE_IP=$(hostname -I | awk ' { print $1 } ')
 	sed -r "s|^[#]?wsrep_node_address=.*$|wsrep_node_address=${NODE_IP}|" "${CFG}" 1<> "${CFG}"
 	sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NODE_NAME}:${NODE_PORT}|" "${CFG}" 1<> "${CFG}"
+	{ set +x; } 2>/dev/null
 	sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:${XTRABACKUP_PASSWORD}'|" "${CFG}" 1<> "${CFG}"
+	set -x
 
 	if [[ -n "${CLUSTER_JOIN}" ]]; then
 		sed -r "s|^[#]?wsrep_cluster_address=.*$|wsrep_cluster_address=gcomm://${CLUSTER_JOIN}|" "${CFG}" 1<> "${CFG}"
@@ -233,11 +236,14 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 	if [ ! -d "$DATADIR/mysql" ]; then
 		file_env 'MYSQL_ROOT_PASSWORD'
+
+		{ set +x; } 2>/dev/null
 		if [ -z "$MYSQL_ROOT_PASSWORD" -a -z "$MYSQL_ALLOW_EMPTY_PASSWORD" -a -z "$MYSQL_RANDOM_ROOT_PASSWORD" ]; then
 			echo >&2 'error: database is uninitialized and password option is not specified '
 			echo >&2 '  You need to specify one of MYSQL_ROOT_PASSWORD, MYSQL_ALLOW_EMPTY_PASSWORD and MYSQL_RANDOM_ROOT_PASSWORD'
 			exit 1
 		fi
+		set -x
 
 		mkdir -p "$DATADIR"
 		cpat="$(_get_cnf_config sst cpat)"
@@ -276,10 +282,12 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			mysql_tzinfo_to_sql /usr/share/zoneinfo | sed 's/Local time zone must be set--see zic manual page/FCTY/' | "${mysql[@]}" mysql
 		fi
 
+		{ set +x; } 2>/dev/null
 		if [ ! -z "$MYSQL_RANDOM_ROOT_PASSWORD" ]; then
 			MYSQL_ROOT_PASSWORD="$(pwmake 128)"
 			echo "GENERATED ROOT PASSWORD: $MYSQL_ROOT_PASSWORD"
 		fi
+		set -x
 
 		rootCreate=
 		# default root to listen for connections from anywhere
@@ -329,9 +337,11 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			FLUSH PRIVILEGES ;
 		EOSQL
 
+		{ set +x; } 2>/dev/null
 		if [ ! -z "$MYSQL_ROOT_PASSWORD" ]; then
 			mysql+=( -p"${MYSQL_ROOT_PASSWORD}" )
 		fi
+		set -x
 
 		file_env 'MYSQL_DATABASE'
 		if [ "$MYSQL_DATABASE" ]; then
@@ -341,6 +351,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		file_env 'MYSQL_USER'
 		file_env 'MYSQL_PASSWORD'
+		{ set +x; } 2>/dev/null
 		if [ "$MYSQL_USER" -a "$MYSQL_PASSWORD" ]; then
 			echo "CREATE USER '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD' ;" | "${mysql[@]}"
 
@@ -350,6 +361,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 			echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
 		fi
+		set -x
 
 		echo
 		ls /docker-entrypoint-initdb.d/ > /dev/null
@@ -357,11 +369,13 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			process_init_file "$f" "${mysql[@]}"
 		done
 
+		{ set +x; } 2>/dev/null
 		if [ ! -z "$MYSQL_ONETIME_PASSWORD" ]; then
 			"${mysql[@]}" <<-EOSQL
 				ALTER USER 'root'@'%' PASSWORD EXPIRE;
 			EOSQL
 		fi
+		set -x
 		if ! kill -s TERM "$pid" || ! wait "$pid"; then
 			echo >&2 'MySQL init process failed.'
 			exit 1
@@ -392,9 +406,11 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		pid="$!"
 
 		mysql=( mysql --protocol=socket -uoperator -hlocalhost --socket="${SOCKET}" --password="" )
+		{ set +x; } 2>/dev/null
 		if [ ! -z "$OPERATOR_ADMIN_PASSWORD" ]; then
 			mysql+=( -p"${OPERATOR_ADMIN_PASSWORD}" )
 		fi
+		set -x
 
 		for i in {120..0}; do
 			if echo 'SELECT 1' | "${mysql[@]}" &> /dev/null; then

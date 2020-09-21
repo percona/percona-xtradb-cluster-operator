@@ -155,7 +155,7 @@ fi
 
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^[sst]" "$CFG" || printf '[sst]\n' >> "$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh' "$CFG" 1<> "$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh|.*peer-list$' "$CFG" 1<> "$CFG"
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup'
 file_env 'CLUSTERCHECK_PASSWORD' 'clustercheck'
@@ -164,7 +164,7 @@ NODE_PORT=3306
 # Is running in Kubernetes/OpenShift, so find all other pods belonging to the cluster
 if [ -n "$PXC_SERVICE" ]; then
 	echo "Percona XtraDB Cluster: Finding peers"
-	/usr/local/bin/peer-list -on-start="/var/lib/mysql/pxc-configure-pxc.sh" -service="${PXC_SERVICE}"
+	/var/lib/mysql/peer-list -on-start="/var/lib/mysql/pxc-configure-pxc.sh" -service="${PXC_SERVICE}"
 	CLUSTER_JOIN="$(grep '^wsrep_cluster_address=' "$CFG" | cut -d '=' -f 2 | sed -e 's^.*gcomm://^^')"
 	echo "Cluster address set to: $CLUSTER_JOIN"
 elif [ -n "$DISCOVERY_SERVICE" ]; then

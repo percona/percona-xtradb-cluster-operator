@@ -19,6 +19,10 @@ RUN mkdir -p build/_output/bin \
                cmd/manager/main.go \
     && cp -r build/_output/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
 
+RUN go get k8s.io/apimachinery/pkg/util/sets \
+    && go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
+    && cp -r build/_output/bin/peer-list /usr/local/bin/
+
 FROM registry.access.redhat.com/ubi7/ubi-minimal AS ubi7
 RUN microdnf update && microdnf clean all
 
@@ -30,6 +34,7 @@ LABEL name="Percona XtraDB Cluster Operator" \
 
 COPY LICENSE /licenses/
 COPY --from=go_builder /usr/local/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
+COPY --from=go_builder /usr/local/bin/peer-list /peer-list
 COPY build/pxc-entrypoint.sh /pxc-entrypoint.sh
 COPY build/pxc-init-entrypoint.sh /pxc-init-entrypoint.sh
 COPY build/unsafe-bootstrap.sh /unsafe-bootstrap.sh

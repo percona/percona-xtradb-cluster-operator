@@ -84,12 +84,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	if isHAproxy(sfs) && cr.CompareVersionWith("1.6.0") >= 0 {
-		if _, ok := currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"]; ok {
-			delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
-		}
-		if _, ok := currentSet.Spec.Template.Annotations["percona.com/ssl-hash"]; ok {
-			delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-hash")
-		}
+		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
+		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-hash")
 	}
 
 	var newContainers []corev1.Container
@@ -173,7 +169,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	log.Info("statefullSet was changed, run smart update")
+	log.Info("statefulSet was changed, run smart update")
 
 	running, err := r.isBackupRunning(cr)
 	if err != nil {
@@ -214,7 +210,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 
 	log.Info(fmt.Sprintf("primary pod is %s", primary))
 
-	waitLimit := 120
+	waitLimit := 2 * 60 * 60 // 2 hours
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)
 	}
@@ -509,6 +505,11 @@ func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBClust
 		return "", err
 	}
 
+	if secretName == cr.Spec.PXC.SSLSecretName || secretName == cr.Spec.PXC.SSLInternalSecretName{
+		if secretObj.Data["ca.crt"] == nil || secretObj.Data["tls.crt"] == nil || secretObj.Data["tls.key"] == nil {
+			return "", errors.New("one or more tls certificates are not found in secret")
+		}
+	}
 	secretString := fmt.Sprintln(secretObj.Data)
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
 

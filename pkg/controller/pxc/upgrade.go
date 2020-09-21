@@ -84,12 +84,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	if isHAproxy(sfs) && cr.CompareVersionWith("1.6.0") >= 0 {
-		if _, ok := currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"]; ok {
-			delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
-		}
-		if _, ok := currentSet.Spec.Template.Annotations["percona.com/ssl-hash"]; ok {
-			delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-hash")
-		}
+		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
+		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-hash")
 	}
 
 	var newContainers []corev1.Container
@@ -214,7 +210,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 
 	log.Info(fmt.Sprintf("primary pod is %s", primary))
 
-	waitLimit := 120
+	waitLimit := 2 * 60 * 60 // 2 hours
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)
 	}
@@ -420,6 +416,10 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, po
 			if container.Name == "pxc" {
 				ready = container.Ready
 			}
+		}
+
+		if pod.Status.Phase == corev1.PodFailed {
+			return errors.Errorf("pod %s is in failed phase", pod.Name)
 		}
 
 		if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {

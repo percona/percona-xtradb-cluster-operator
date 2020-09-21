@@ -164,7 +164,7 @@ NODE_PORT=3306
 # Is running in Kubernetes/OpenShift, so find all other pods belonging to the cluster
 if [ -n "$PXC_SERVICE" ]; then
 	echo "Percona XtraDB Cluster: Finding peers"
-	/usr/bin/peer-list -on-start="/var/lib/mysql/pxc-configure-pxc.sh" -service="${PXC_SERVICE}"
+	/usr/local/bin/peer-list -on-start="/var/lib/mysql/pxc-configure-pxc.sh" -service="${PXC_SERVICE}"
 	CLUSTER_JOIN="$(grep '^wsrep_cluster_address=' "$CFG" | cut -d '=' -f 2 | sed -e 's^.*gcomm://^^')"
 	echo "Cluster address set to: $CLUSTER_JOIN"
 elif [ -n "$DISCOVERY_SERVICE" ]; then

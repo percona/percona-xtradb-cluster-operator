@@ -226,18 +226,41 @@ Following steps are needed to restore a previously saved backup:
    .. note:: Obviously, you can make this checks only on the same cluster on
       which you have previously made the backup.
 
-3. When both correct names are known, it is needed to appropriate keys
-   (, , and possibly spec.backupSource)
-   fields in the ``deploy/backup/restore.yaml`` file. 
+3. When both correct names are known, it is needed to set appropriate keys
+   in the ``deploy/backup/restore.yaml`` file.
 
    * set ``spec.pxcCluster`` key to the name of your cluster,
    * set ``spec.backupName`` key to the name of your backup,
    * if you are restoring backup on the Kubernetes-based cluster different from
-     one you have used to save this backup, set ``spec.backupSource`` to the PVC
-     or S3-compatible storage which contains your backup.
+     one you have used to save this backup, set ``spec.backupSource`` subsection
+     to point on the appropriate PVC or S3-compatible storage:
 
-After that, the actual restoration process can
-   be started as follows:
+     A. If backup was stored on the PVC volume, ``backupSource`` should contain
+        the PVC-based storage path and name:
+
+        .. code-block:: yaml
+
+           ...
+           backupSource:
+             destination: pvc/PATH_TO_PVC_VOLUME
+             storageName: pvc
+             ...
+
+     B. If backup was stored on the S3-compatible storage, ``backupSource``
+        should contain ``destination`` key equal to the s3 bucket with a special
+        ``s3://`` prefix, followed by the same S3 configuration as present in
+        ``deploy/cr.yaml`` file:
+
+        .. code-block:: yaml
+
+           ...
+           backupSource:
+             destination: s3://S3-BACKUP-BUCKET-NAME-HERE
+             credentialsSecret: my-cluster-name-backup-s3
+             region: us-west-2
+             endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+
+   After that, the actual restoration process can be started as follows:
 
    .. code:: bash
 

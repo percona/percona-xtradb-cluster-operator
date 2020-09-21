@@ -562,8 +562,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("get secret hash error: %v", err)
+	if err != nil {
+		return fmt.Errorf("get internal secret hash error: %v", err)
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash

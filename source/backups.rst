@@ -248,8 +248,8 @@ Following steps are needed to restore a previously saved backup:
 
      B. If backup was stored on the S3-compatible storage, ``backupSource``
         should contain ``destination`` key equal to the s3 bucket with a special
-        ``s3://`` prefix, followed by the same S3 configuration as present in
-        ``deploy/cr.yaml`` file:
+        ``s3://`` prefix, followed by the necessary S3 configuration keys, same
+        as in ``deploy/cr.yaml`` file:
 
         .. code-block:: yaml
 

@@ -173,7 +173,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	log.Info("statefullSet was changed, run smart update")
+	log.Info("statefulSet was changed, run smart update")
 
 	if err := r.isBackupRunning(cr); err != nil {
 		log.Error(err, "can't start 'SmartUpdate'")
@@ -477,6 +477,11 @@ func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBClust
 		return "", err
 	}
 
+	if secretName == cr.Spec.PXC.SSLSecretName || secretName == cr.Spec.PXC.SSLInternalSecretName{
+		if secretObj.Data["ca.crt"] == nil || secretObj.Data["tls.crt"] == nil || secretObj.Data["tls.key"] == nil {
+			return "", errors.New("one or more tls certificates are not found in secret")
+		}
+	}
 	secretString := fmt.Sprintln(secretObj.Data)
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(secretString)))
 

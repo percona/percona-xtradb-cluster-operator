@@ -307,11 +307,6 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 // it also doesn't have an extra tail wait after the limit is reached
 // and f func runs first time instantly
 func retry(in, limit time.Duration, f func() (bool, error)) error {
-	done := time.NewTimer(limit)
-	defer done.Stop()
-	tk := time.NewTicker(time.Second * 1)
-	defer tk.Stop()
-
 	fdone, err := f()
 	if err != nil {
 		return err
@@ -319,6 +314,11 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 	if fdone {
 		return nil
 	}
+
+	done := time.NewTimer(limit)
+	defer done.Stop()
+	tk := time.NewTicker(in)
+	defer tk.Stop()
 
 	for {
 		select {
@@ -445,7 +445,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, po
 			}
 
 			if pod.Status.Phase == corev1.PodFailed {
-				return errors.Errorf("pod %s is in failed phase", pod.Name)
+				return false, errors.Errorf("pod %s is in failed phase", pod.Name)
 			}
 
 			if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {

@@ -412,6 +412,10 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, po
 			}
 		}
 
+		if pod.Status.Phase == corev1.PodFailed {
+			return errors.Errorf("pod %s is in failed phase", pod.Name)
+		}
+
 		if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
 			log.Info(fmt.Sprintf("pod %s is running", pod.Name))
 			return nil

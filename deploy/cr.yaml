@@ -28,7 +28,7 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com
-    apply: recommended
+    apply: Never
     schedule: "0 4 * * *"
   pxc:
     size: 3
@@ -106,7 +106,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.5.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:master-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |

@@ -50,6 +50,7 @@ Object Surgery Crash Recovery method
 .. warning:: This method is intended for advanced users only!
 
 This method involves the following steps:
+
 * swap the original PXC image with the :ref:`debug image<debug-images>`, which
   does not reboot after the crash, and force all Pods to run it,
 * find the Pod with the most recent PXC data, run recovery on it, start
@@ -74,7 +75,7 @@ which is based on three PXC Pods.
 
          $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster:{{{pxc57recommended}}}-debug"}}}'
 
-2.  Restart all Pods:
+2. Restart all Pods:
 
    .. code-block:: bash
 

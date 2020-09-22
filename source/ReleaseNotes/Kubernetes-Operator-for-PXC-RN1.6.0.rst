@@ -12,7 +12,7 @@ New Features
 
 * :jirabug:`K8SPXC-429`: Possibility to restore backups to a new Kubernetes-based environment
 * :jirabug:`K8SPXC-368`: Auto update system users by changing the appropriate secret name
-* :jirabug:`K8SPXC-144`: Allow adding ProxySQL configuration options via ConfigMap
+* :jirabug:`K8SPXC-144`: Allow adding ProxySQL configuration options
 * :jirabug:`K8SPXC-343`: Helm chart officially provided with the Operator
 
 Improvements

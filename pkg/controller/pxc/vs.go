@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient"
@@ -21,7 +22,7 @@ func (vs VersionServiceClient) GetExactVersion(endpoint string, vm versionMeta) 
 
 	srvCl := versionserviceclient.NewHTTPClientWithConfig(nil, &versionserviceclient.TransportConfig{
 		Host:     requestURL.Host,
-		BasePath: requestURL.Path,
+		BasePath: strings.TrimSuffix(requestURL.Path,"/versions"),
 		Schemes:  []string{requestURL.Scheme},
 	})
 

@@ -27,7 +27,7 @@ spec:
 #  pause: false
   updateStrategy: SmartUpdate
   upgradeOptions:
-    versionServiceEndpoint: https://check.percona.com
+    versionServiceEndpoint: https://check.percona.com/versions
     apply: recommended
     schedule: "0 4 * * *"
   pxc:

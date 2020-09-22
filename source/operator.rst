@@ -54,6 +54,11 @@ main subsystems of the cluster:
      - ``my-cluster-secrets``
      - A name for :ref:`users secrets<users>`
 
+   * - crVersion
+     - string
+     - ``{{{release}}}``
+     - Version of the Operator the Custom Resource belongs to
+
    * - vaultSecretName
      - string
      - ``keyring-secret-vault``

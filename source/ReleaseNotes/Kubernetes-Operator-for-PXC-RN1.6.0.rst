@@ -19,7 +19,7 @@ Improvements
 ================================================================================
 
 * :jirabug:`K8SPXC-398`: New crVersion key in ``deploy/cr.yaml`` to indicate the API version that the Custom Resource corresponds to
-* :jirabug:`K8SPXC-416`: Support of the HA Proxy proxy-protocol
+* :jirabug:`K8SPXC-416`: Support of the proxy-protocol in HAProxy
 * :jirabug:`K8SPXC-372`: Support new versions of cert-manager by the Operator
 * :jirabug:`K8SPXC-317`: The possibility to configure the Operator's imagePullPolicy option (Thanks to user imranrazakhan for reporting this issue)
 * :jirabug:`K8SPXC-438`: Cluster name length limit extended to 32 characters to fit the maximum value allowed by Galera

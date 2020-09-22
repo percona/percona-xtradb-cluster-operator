@@ -260,10 +260,7 @@ Following steps are needed to restore a previously saved backup:
                credentialsSecret: my-cluster-name-backup-s3
                region: us-west-2
                endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
-             destination: s3://S3-BACKUP-BUCKET-NAME-HERE
-             credentialsSecret: my-cluster-name-backup-s3
-             region: us-west-2
-             endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+           ...
 
    After that, the actual restoration process can be started as follows:
 

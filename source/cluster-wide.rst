@@ -84,7 +84,7 @@ Kubernetes.
 
    .. code:: bash
 
-      $ kubectl get pods
+      $ kubectl get pods -n pxc
       NAME                                              READY   STATUS    RESTARTS   AGE
       cluster1-pxc-0                                    1/1     Running   0          5m
       cluster1-pxc-1                                    1/1     Running   0          4m
@@ -98,5 +98,4 @@ Kubernetes.
 
       $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never --env="POD_NAMESPACE=pxc" -- bash -il
       percona-client:/$ mysql -h cluster1-proxysql -uroot -proot_password
-
 

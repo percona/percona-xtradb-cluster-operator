@@ -242,7 +242,7 @@ Following steps are needed to restore a previously saved backup:
 
            ...
            backupSource:
-             destination: pvc/PATH_TO_PVC_VOLUME
+             destination: pvc/PVC_VOLUME_NAME
              storageName: pvc
              ...
 

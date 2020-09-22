@@ -35,7 +35,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-390`: Crash on missing HAProxy PodDisruptionBudget
 * :jirabug:`K8SPXC-355`: Counterintuitive YYYY-DD-MM dates in the S3 backup folder names (Thanks to user graham.webcurl for reporting this issue)
 * :jirabug:`K8SPXC-274`: The 1.2.0 -> 1.3.0 -> 1.4.0 upgrade path not working (Thanks to user martin.atroo for reporting this issue)
-* :jirabug:`K8SPXC-450`: The unnecessary ssls annotations added to HA Proxy Pods are potential reasons of the Pod restart if changed
+* :jirabug:`K8SPXC-450`: The TLS annotations are reasons of the unnecessary HAProxy Pod restarts
 * :jirabug:`K8SPXC-443`: The outdated version service endpoint URL
 * :jirabug:`K8SPXC-435`: MySQL root password visible through ``kubectl logs``
 * :jirabug:`K8SPXC-426`: mysqld recovery logs not logged to file and not available through ``kubectl logs``

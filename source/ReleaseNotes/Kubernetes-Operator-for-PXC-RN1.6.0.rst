@@ -39,7 +39,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-443`: The outdated version service endpoint URL
 * :jirabug:`K8SPXC-435`: MySQL root password visible through ``kubectl logs``
 * :jirabug:`K8SPXC-426`: mysqld recovery logs not logged to file and not available through ``kubectl logs``
-* :jirabug:`K8SPXC-423`: HA Proxy not refreshing IP addresses even when the node gets different address
+* :jirabug:`K8SPXC-423`: HAProxy not refreshing IP addresses even when the node gets different address
 * :jirabug:`K8SPXC-419`: Percona XtraDB Cluster incremental state transfers not taken into account by readiness/liveness checks
 * :jirabug:`K8SPXC-418`: HA Proxy not routing traffic for 1 donor, 2 joiners
 * :jirabug:`K8SPXC-417`: Certmanager not compatible with Kubernetes versions below v1.15 due to unnecessarily high API version demand

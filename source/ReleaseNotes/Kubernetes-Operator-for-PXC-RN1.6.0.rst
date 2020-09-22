@@ -41,7 +41,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-426`: mysqld recovery logs not logged to file and not available through ``kubectl logs``
 * :jirabug:`K8SPXC-423`: HAProxy not refreshing IP addresses even when the node gets different address
 * :jirabug:`K8SPXC-419`: Percona XtraDB Cluster incremental state transfers not taken into account by readiness/liveness checks
-* :jirabug:`K8SPXC-418`: HA Proxy not routing traffic for 1 donor, 2 joiners
+* :jirabug:`K8SPXC-418`: HAProxy not routing traffic for 1 donor, 2 joiners
 * :jirabug:`K8SPXC-417`: Certmanager not compatible with Kubernetes versions below v1.15 due to unnecessarily high API version demand
 * :jirabug:`K8SPXC-364`: Smart Updates showing empty "from" versions for non-PXC objects in logs
 * :jirabug:`K8SPXC-379`: operator user credentials not added into internal secrets on upgrade from 1.4.0 (Thanks to user pservit for reporting this issue)

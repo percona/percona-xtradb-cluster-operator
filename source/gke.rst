@@ -155,7 +155,7 @@ If all nodes are up and running, you can try to connect to the cluster with the 
 
 .. code:: bash
 
-   $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
+   $ kubectl run -i --rm --tty percona-client --image=percona:8.0 --restart=Never -- bash -il
 
 Executing this command will open a ``bash`` command prompt:
 

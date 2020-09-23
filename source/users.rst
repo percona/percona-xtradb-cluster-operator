@@ -24,7 +24,7 @@ default. If you need general purpose users, please run commands below:
 
 .. code-block:: bash
 
-   $ kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- mysql -hcluster1-pxc -uroot -proot_password
+   $ kubectl run -it --rm percona-client --image=percona:8.0 --restart=Never -- mysql -hcluster1-pxc -uroot -proot_password
    mysql> GRANT ALL PRIVILEGES ON database1.* TO 'user1'@'%' IDENTIFIED BY 'password1';
 
 .. note:: MySQL password here should not exceed 32 characters due to the `replication-specific limit introduced in MySQL 5.7.5 <https://dev.mysql.com/doc/relnotes/mysql/5.7/en/news-5-7-5.html>`_.
@@ -35,7 +35,7 @@ ProxySQL:
 
 .. code:: bash
 
-   $ kubectl run -it --rm percona-client --image=percona:5.7 --restart=Never -- bash -il
+   $ kubectl run -it --rm percona-client --image=percona:8.0 --restart=Never -- bash -il
    percona-client:/$ mysql -h cluster1-proxysql -uuser1 -ppassword1
    mysql> SELECT * FROM database1.table1 LIMIT 1;
 

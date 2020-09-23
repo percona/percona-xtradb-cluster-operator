@@ -12,7 +12,7 @@ on a cloud.
 
 The following steps are needed to run PXC Operator on Minikube:
 
-0. `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_, using a way recommended for your system. This includes the installation of the following three components:
+#. `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_, using a way recommended for your system. This includes the installation of the following three components:
    #. kubectl tool,
    #. a hypervisor, if it is not already installed,
    #. actual Minikube package
@@ -26,16 +26,16 @@ The following steps are needed to run PXC Operator on Minikube:
    Executing ``minikube dashboard`` will start the dashboard and open it in your
    default web browser.
 
-1. Clone the percona-xtradb-cluster-operator repository::
+#. Clone the percona-xtradb-cluster-operator repository::
 
      git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
      cd percona-xtradb-cluster-operator
 
-2. Deploy the operator with the following command::
+#. Deploy the operator with the following command::
 
      kubectl apply -f deploy/bundle.yaml
 
-3. Because minikube runs locally, the default ``deploy/cr.yaml`` file should
+#. Because minikube runs locally, the default ``deploy/cr.yaml`` file should
    be edited to adapt the Operator for the the local installation with limited
    resources. Change the following keys in ``pxc`` and ``proxysql`` sections:
 
@@ -48,11 +48,26 @@ The following steps are needed to run PXC Operator on Minikube:
    off the Operator’s control over the cluster configuration, making it possible to
    deploy Percona XtraDB Cluster as a one-node cluster).
 
-4. Now apply the ``deploy/cr.yaml`` file with the following command::
+#. Now apply the ``deploy/cr.yaml`` file with the following command::
 
      kubectl apply -f deploy/cr.yaml
 
-5. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the
+   Creation process will take some time. The process is over when both
+   operator and replica set pod have reached their Running status:
+
+   .. code:: bash
+
+      $ kubectl get pods
+      NAME                                              READY   STATUS    RESTARTS   AGE
+      cluster1-haproxy-0                                1/1     Running   0          5m
+      cluster1-haproxy-1                                1/1     Running   0          5m
+      cluster1-haproxy-2                                1/1     Running   0          5m
+      cluster1-pxc-0                                    1/1     Running   0          5m
+      cluster1-pxc-1                                    1/1     Running   0          4m
+      cluster1-pxc-2                                    1/1     Running   0          2m
+      percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
+
+#. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the
    password for the ``root`` user, which you will definitely need to access the
    cluster. Use ``kubectl get secrets`` to see the list of Secrets objects (by
    default Secrets object you are interested in has ``my-cluster-secrets`` name).
@@ -69,7 +84,7 @@ The following steps are needed to run PXC Operator on Minikube:
    ``echo 'cm9vdF9wYXNzd29yZA==' | base64 --decode`` will bring it back to a
    human-readable form.
 
-6. Check connectivity to a newly created cluster.
+#. Check connectivity to a newly created cluster.
 
    First of all, run percona-client and connect its console output to your
    terminal (running it may require some time to deploy the correspondent Pod): 
@@ -83,4 +98,22 @@ The following steps are needed to run PXC Operator on Minikube:
    
    .. code:: bash
 
-      mysql -h cluster1-proxysql -uroot -proot_password
+      mysql -h cluster1-haproxy-0 -uroot -proot_password
+
+   This command will connect you to the MySQL monitor.
+
+   .. code:: text
+
+      mysql: [Warning] Using a password on the command line interface can be insecure.
+      Welcome to the MySQL monitor.  Commands end with ; or \g.
+      Your MySQL connection id is 1976
+      Server version: 8.0.19-10 Percona XtraDB Cluster (GPL), Release rel10, Revision 727f180, WSREP version 26.4.3
+
+      Copyright (c) 2009-2020 Percona LLC and/or its affiliates
+      Copyright (c) 2000, 2020, Oracle and/or its affiliates. All rights reserved.
+
+      Oracle is a registered trademark of Oracle Corporation and/or its
+      affiliates. Other names may be trademarks of their respective
+      owners.
+
+      Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.

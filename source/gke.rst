@@ -50,7 +50,7 @@ In the Google Cloud Console, select your cluster and then click the *Connect* sh
 Installing the Operator
 =======================
 
-1. First of all, use your `Cloud Identity and Access Management (Cloud IAM) <https://cloud.google.com/iam>`_ to control access to the cluster. The following command will give you the ability to create Roles and RoleBindings:
+#. First of all, use your `Cloud Identity and Access Management (Cloud IAM) <https://cloud.google.com/iam>`_ to control access to the cluster. The following command will give you the ability to create Roles and RoleBindings:
 
    .. code:: bash
 
@@ -62,7 +62,7 @@ Installing the Operator
 
       clusterrolebinding.rbac.authorization.k8s.io/cluster-admin-binding created
 
-2. Create a namespace and set the context for the namespace. The resource names must be unique within the namespace and provide a way to divide cluster resources between users spread across multiple projects.
+#. Create a namespace and set the context for the namespace. The resource names must be unique within the namespace and provide a way to divide cluster resources between users spread across multiple projects.
 
    So, create the namespace and save it in the namespace context for subsequent commands as follows (replace the ``<namespace name>`` placeholder with some descriptive name):
 
@@ -73,7 +73,7 @@ Installing the Operator
 
    At success, you will see the message that namespace/<namespace name> was created, and the context (gke_<project name>_<zone location>_<cluster name>) was modified.
 
-3. Use the following ``git clone`` command to download the correct branch of the percona-xtradb-cluster-operator repository:
+#. Use the following ``git clone`` command to download the correct branch of the percona-xtradb-cluster-operator repository:
 
    .. code:: bash
 
@@ -85,7 +85,7 @@ Installing the Operator
 
       cd percona-xtradb-cluster-operator
 
-4. Deploy the Operator with the following command:
+#. Deploy the Operator with the following command:
 
    .. code:: bash
 
@@ -104,7 +104,7 @@ Installing the Operator
       rolebinding.rbac.authorization.k8s.io/service-account-percona-xtradb-cluster-operator created
       deployment.apps/percona-xtradb-cluster-operator created
 
-5. The operator has been started, and you can create the Percona XtraDB cluster:
+#. The operator has been started, and you can create the Percona XtraDB cluster:
 
    .. code:: bash
 
@@ -117,7 +117,7 @@ Installing the Operator
 
       perconaxtradbcluster.pxc.percona.com/cluster1 created
 
-6. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the password for the ``root`` user, which you will need to access the cluster.
+#. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the password for the ``root`` user, which you will need to access the cluster.
 
    Use ``kubectl get secrets`` command to see the list of Secrets objects (by default Secrets object you are interested in has ``my-cluster-secrets`` name). Then ``kubectl get secret my-cluster-secrets -o yaml`` will return the YAML file with generated secrets, including the root password which should look as follows:
 
@@ -139,9 +139,9 @@ It may take ten minutes to get the cluster started. You  can verify its creation
 
    $ kubectl get pods
    NAME                                               READY     STATUS    RESTARTS   AGE
-   cluster1-proxysql-0                                3/3     Running   0          102s
-   cluster1-proxysql-1                                3/3     Running   0          77s
-   cluster1-proxysql-2                                3/3     Running   0          42s
+   cluster1-haproxy-0                                 3/3     Running   0          102s
+   cluster1-haproxy-1                                 3/3     Running   0          77s
+   cluster1-haproxy-2                                 3/3     Running   0          42s
    cluster1-pxc-0                                     1/1     Running   0          103s
    cluster1-pxc-1                                     0/1     Running   0          56s
    percona-xtradb-cluster-operator-7455888c9d-wpn9j   1/1     Running   0          4m3s
@@ -168,7 +168,7 @@ Now run ``mysql`` tool in the percona-client command shell using the password ob
 
 .. code:: bash
 
-   mysql -h cluster1-proxysql -uroot -proot_password
+   mysql -h cluster1-haproxy-0 -uroot -proot_password
 
 This command will connect you to the MySQL monitor.
 
@@ -176,11 +176,11 @@ This command will connect you to the MySQL monitor.
 
    mysql: [Warning] Using a password on the command line interface can be insecure.
    Welcome to the MySQL monitor.  Commands end with ; or \g.
-   Your MySQL connection id is 111
-   Server version: 5.5.30 (ProxySQL)
+   Your MySQL connection id is 1976
+   Server version: 8.0.19-10 Percona XtraDB Cluster (GPL), Release rel10, Revision 727f180, WSREP version 26.4.3
 
-   Copyright (c) 2009-2019 Percona LLC and/or its affiliates
-   Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+   Copyright (c) 2009-2020 Percona LLC and/or its affiliates
+   Copyright (c) 2000, 2020, Oracle and/or its affiliates. All rights reserved.
 
    Oracle is a registered trademark of Oracle Corporation and/or its
    affiliates. Other names may be trademarks of their respective

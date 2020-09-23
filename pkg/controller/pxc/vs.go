@@ -15,6 +15,9 @@ import (
 const productName = "pxc-operator"
 
 func (vs VersionServiceClient) GetExactVersion(endpoint string, vm versionMeta) (DepVersion, error) {
+	if strings.Contains(endpoint, "https://check.percona.com/versions") {
+		endpoint = "https://check.percona.com"
+	}
 	requestURL, err := url.Parse(endpoint)
 	if err != nil {
 		return DepVersion{}, err
@@ -22,7 +25,7 @@ func (vs VersionServiceClient) GetExactVersion(endpoint string, vm versionMeta) 
 
 	srvCl := versionserviceclient.NewHTTPClientWithConfig(nil, &versionserviceclient.TransportConfig{
 		Host:     requestURL.Host,
-		BasePath: strings.TrimSuffix(requestURL.Path,"/versions"),
+		BasePath: requestURL.Path,
 		Schemes:  []string{requestURL.Scheme},
 	})
 

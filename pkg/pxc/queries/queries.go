@@ -42,6 +42,12 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 		return Database{}, err
 	}
 
+	defer func() {
+		if err != nil {
+			db.Close()
+		}
+	}()
+
 	err = db.Ping()
 	if err != nil {
 		return Database{}, err

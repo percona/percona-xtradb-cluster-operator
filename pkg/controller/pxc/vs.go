@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient"
@@ -14,6 +15,9 @@ import (
 const productName = "pxc-operator"
 
 func (vs VersionServiceClient) GetExactVersion(endpoint string, vm versionMeta) (DepVersion, error) {
+	if strings.Contains(endpoint, "https://check.percona.com/versions") {
+		endpoint = "https://check.percona.com"
+	}
 	requestURL, err := url.Parse(endpoint)
 	if err != nil {
 		return DepVersion{}, err

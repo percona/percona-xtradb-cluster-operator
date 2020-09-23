@@ -70,9 +70,8 @@ function check_last_pod_to_update {
 }
 
 main() {
-    create_namespace $namespace
+    create_infra $namespace
     deploy_cert_manager
-    deploy_operator
 
     kubectl_bin patch crd perconaxtradbclusters.pxc.percona.com --type='json' -p '[{"op":"add","path":"/spec/versions/-", "value":{"name": "v9-9-9", "served": true, "storage": false}}]'
 
@@ -96,7 +95,7 @@ main() {
     kubectl_bin delete pvc --all
 
     desc 'Updating HAProxy PXC cluster'
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster-haproxy.yml" 3 10 haproxy
+    spinup_pxc "$cluster" "$test_dir/conf/$cluster-haproxy.yml" 3 10
     pxc_size=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.pxc.size}')
 
     initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${cluster}-haproxy -uroot -proot_password")

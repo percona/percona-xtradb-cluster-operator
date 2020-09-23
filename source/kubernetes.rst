@@ -105,7 +105,7 @@ Install Percona XtraDB Cluster on Kubernetes
    .. code:: bash
 
       $ kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
-      percona-client:/$ mysql -h cluster1-haproxy-0 -uroot -proot_password
+      percona-client:/$ mysql -h cluster1-haproxy -uroot -proot_password
 
    This command will connect you to the MySQL monitor.
 

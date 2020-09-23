@@ -14,11 +14,10 @@ Officially supported platforms
 The following platforms are supported:
 
 * OpenShift 3.11
-* OpenShift 4.2
-* Google Kubernetes Engine (GKE) 1.15
-* GKE 1.17
+* OpenShift 4.5
+* Google Kubernetes Engine (GKE) 1.15 - 1.17
 * Amazon Elastic Kubernetes Service (EKS) 1.15
-* Minikube 1.16
+* Minikube 1.10
 
 Other Kubernetes platforms may also work but have not been tested.
 

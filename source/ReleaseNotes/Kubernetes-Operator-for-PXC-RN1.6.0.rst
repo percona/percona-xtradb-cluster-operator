@@ -30,7 +30,7 @@ Bugs Fixed
 
 * :jirabug:`K8SPXC-431`: HAProxy unable to start on OpenShift with the default ``cr.yaml`` file
 * :jirabug:`K8SPXC-408`: Insufficient MAX_USER_CONNECTIONS=10 for ProxySQL monitor user (increased to 100)
-* :jirabug:`K8SPXC-391`: HA Proxy and PMM cannot be enabled at the same time (Thanks to user rf_enigm for reporting this issue)
+* :jirabug:`K8SPXC-391`: HAProxy and PMM cannot be enabled at the same time (Thanks to user rf_enigm for reporting this issue)
 * :jirabug:`K8SPXC-406`: Second node (XXX-pxc-1) always selected as donor (Thanks to user pservit for reporting this issue)
 * :jirabug:`K8SPXC-390`: Crash on missing HAProxy PodDisruptionBudget
 * :jirabug:`K8SPXC-355`: Counterintuitive YYYY-DD-MM dates in the S3 backup folder names (Thanks to user graham.webcurl for reporting this issue)

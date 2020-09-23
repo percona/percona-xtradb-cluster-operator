@@ -98,7 +98,7 @@ The following steps are needed to run PXC Operator on Minikube:
    
    .. code:: bash
 
-      mysql -h cluster1-haproxy-0 -uroot -proot_password
+      mysql -h cluster1-haproxy -uroot -proot_password
 
    This command will connect you to the MySQL monitor.
 

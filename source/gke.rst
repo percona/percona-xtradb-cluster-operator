@@ -168,7 +168,7 @@ Now run ``mysql`` tool in the percona-client command shell using the password ob
 
 .. code:: bash
 
-   mysql -h cluster1-proxysql-0 -uroot -proot_password
+   mysql -h cluster1-proxysql -uroot -proot_password
 
 This command will connect you to the MySQL monitor.
 

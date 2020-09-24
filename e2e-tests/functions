@@ -451,9 +451,9 @@ destroy() {
 
     kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :
     if [ "$OPENSHIFT" == 1 ]; then
-        oc delete --grace-period=0 --force=true project "$namespace"
+        oc delete --grace-period=0 --force=true project "$namespace" &
     else
-        kubectl_bin delete --grace-period=0 --force=true namespace "$namespace"
+        kubectl_bin delete --grace-period=0 --force=true namespace "$namespace" &
     fi
     rm -rf ${tmp_dir}
 }

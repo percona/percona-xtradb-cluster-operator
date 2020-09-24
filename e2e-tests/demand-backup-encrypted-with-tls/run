@@ -69,7 +69,7 @@ secrets = [ $transition_keys ]
     keyring_plugin_must_be_in_use "$cluster"
 
     for i in $vault1 $vault2; do
-        kubectl delete --grace-period=0 --force=true namespace $i
+        kubectl delete --grace-period=0 --force=true namespace $i &
         helm delete $i || :
     done
 

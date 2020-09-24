@@ -255,7 +255,7 @@ Following steps are needed to restore a previously saved backup:
 
            ...
            backupSource:
-             destination: s3://S3-BUCKET-NAME
+             destination: s3://S3-BUCKET-NAME/BACKUP-NAME
              s3:
                credentialsSecret: my-cluster-name-backup-s3
                region: us-west-2

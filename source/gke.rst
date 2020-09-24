@@ -139,9 +139,9 @@ It may take ten minutes to get the cluster started. You  can verify its creation
 
    $ kubectl get pods
    NAME                                               READY     STATUS    RESTARTS   AGE
-   cluster1-proxysql-0                                3/3     Running   0          102s
-   cluster1-proxysql-1                                3/3     Running   0          77s
-   cluster1-proxysql-2                                3/3     Running   0          42s
+   cluster1-haproxy-0                                 3/3     Running   0          102s
+   cluster1-haproxy-1                                 3/3     Running   0          77s
+   cluster1-haproxy-2                                 3/3     Running   0          42s
    cluster1-pxc-0                                     1/1     Running   0          103s
    cluster1-pxc-1                                     0/1     Running   0          56s
    percona-xtradb-cluster-operator-7455888c9d-wpn9j   1/1     Running   0          4m3s
@@ -168,7 +168,7 @@ Now run ``mysql`` tool in the percona-client command shell using the password ob
 
 .. code:: bash
 
-   mysql -h cluster1-proxysql -uroot -proot_password
+   mysql -h cluster1-haproxy -uroot -proot_password
 
 This command will connect you to the MySQL monitor.
 
@@ -176,8 +176,8 @@ This command will connect you to the MySQL monitor.
 
    mysql: [Warning] Using a password on the command line interface can be insecure.
    Welcome to the MySQL monitor.  Commands end with ; or \g.
-   Your MySQL connection id is 119
-   Server version: 8.0.19 (ProxySQL)
+   Your MySQL connection id is 1976
+   Server version: 8.0.19-10 Percona XtraDB Cluster (GPL), Release rel10, Revision 727f180, WSREP version 26.4.3
 
    Copyright (c) 2009-2020 Percona LLC and/or its affiliates
    Copyright (c) 2000, 2020, Oracle and/or its affiliates. All rights reserved.
@@ -212,7 +212,7 @@ If ``kubectl get pods`` command had shown some errors, you can examine the probl
 
 .. code:: bash
 
-   kubectl describe pod cluster1-proxysql-2
+   kubectl describe pod cluster1-haproxy-2
 
 Review the detailed information for ``Warning`` statements and then correct the configuration. An example of a warning is as follows:
 

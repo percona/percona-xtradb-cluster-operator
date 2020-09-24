@@ -10,6 +10,14 @@ Kubernetes-based environment, being separated in different namespaces.
 Still, sometimes it is more convenient to have one Operator watching for
 Percona XtraDB Cluster custom resources in several namespaces.
 
+We recommend running Percona XtraDB Cluster Operator in a traditional way,
+limited to a specific namespace. But it is possible to run it in so-called
+*cluster-wide* mode, one Operator watching several namespaces, if needed.
+
+.. note:: Please take into account that if several Operators are configured to
+   watch the same namespace, it is entirely unpredictable which one will get
+   ownership of the Custom Resource in it, so this situation should be avoided.
+
 To use the Operator in such *cluster-wide* mode, you should install it with a
 different set of configuration YAML files, which are available in the ``deploy``
 folder and have filenames with a special ``cw-`` prefix: e.g.
@@ -24,13 +32,6 @@ the following information there:
   ``value`` equal to a  comma-separated list of the namespaces to be watched by
   the Operator (or just a blank string to make the Operator deal with *all
   namespaces* in a Kubernetes cluster).
-
-  .. note:: Technically it is possible to have several Operators with the same
-     list of namespaces. But in this case, it is unpredictable, which
-     Operator will get ownership of the Custom Resource in each namespace.
-     Therefore, we recommend to have not more than one Operator watching each
-     namespace, or to have one cluster-wide Operator watching several namespaces
-     at once.
 
 The following simple example shows how to install Operator cluster-wide on
 Kubernetes.

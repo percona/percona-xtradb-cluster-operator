@@ -3,6 +3,9 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/pkg/errors"
 
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 
@@ -10,7 +13,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -29,7 +32,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 	)
 	if err == nil {
 		return nil
-	} else if !errors.IsNotFound(err) {
+	} else if !k8serr.IsNotFound(err) {
 		return fmt.Errorf("get secret: %v", err)
 	}
 
@@ -94,12 +97,12 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	}
 
 	err = r.client.Create(context.TODO(), kubeCert)
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create certificate: %v", err)
 	}
 
 	if cr.Spec.PXC.SSLSecretName == cr.Spec.PXC.SSLInternalSecretName {
-		return nil
+		return r.waitForCerts(cr.Namespace, cr.Spec.PXC.SSLSecretName)
 	}
 
 	kubeCert = &cm.Certificate{
@@ -126,11 +129,41 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		kubeCert.Spec.DNSNames = append(kubeCert.Spec.DNSNames, cr.Spec.TLS.SANs...)
 	}
 	err = r.client.Create(context.TODO(), kubeCert)
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create internal certificate: %v", err)
 	}
 
-	return nil
+	return r.waitForCerts(cr.Namespace, cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)
+}
+
+func (r *ReconcilePerconaXtraDBCluster) waitForCerts(namespace string, secretsList ...string) error {
+	ticker := time.NewTicker(3 * time.Second)
+	timeoutTimer := time.NewTimer(30 * time.Second)
+	defer timeoutTimer.Stop()
+	defer ticker.Stop()
+	for {
+		select {
+		case <-timeoutTimer.C:
+			return errors.Errorf("timeout: can't get tls certificates from certmanager, %s", secretsList)
+		case <-ticker.C:
+			sucessCount := 0
+			for _, secretName := range secretsList {
+				secret := &corev1.Secret{}
+				err := r.client.Get(context.TODO(), types.NamespacedName{
+					Name:      secretName,
+					Namespace: namespace,
+				}, secret)
+				if err != nil && !k8serr.IsNotFound(err) {
+					return err
+				} else if err == nil {
+					sucessCount++
+				}
+			}
+			if sucessCount == len(secretsList) {
+				return nil
+			}
+		}
+	}
 }
 
 func (r *ReconcilePerconaXtraDBCluster) createIssuer(ownRef []metav1.OwnerReference, namespace, issuer string) error {
@@ -146,7 +179,7 @@ func (r *ReconcilePerconaXtraDBCluster) createIssuer(ownRef []metav1.OwnerRefere
 			},
 		},
 	})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create issuer: %v", err)
 	}
 	return nil

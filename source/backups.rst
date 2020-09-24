@@ -236,7 +236,7 @@ Following steps are needed to restore a previously saved backup:
      to point on the appropriate PVC or S3-compatible storage:
 
      A. If backup was stored on the PVC volume, ``backupSource`` should contain
-        the PVC-based storage path and name:
+        the storage name (which should be configured in the main CR) and PVC Name:
 
         .. code-block:: yaml
 

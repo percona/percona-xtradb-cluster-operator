@@ -282,7 +282,6 @@ pipeline {
                         runTest('tls-issue-self','basic')
                         runTest('tls-issue-cert-manager','basic')
                         runTest('tls-issue-cert-manager-ref','basic')
-                        runTest('smart-update', 'basic')
                         ShutdownCluster('basic')
                    }
                 }

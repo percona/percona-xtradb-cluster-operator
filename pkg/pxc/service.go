@@ -283,6 +283,15 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
+	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ReplicasServiceType) > 0 {
+		svcType = cr.Spec.HAProxy.ReplicasServiceType
+	}
+	serviceAnnotations := make(map[string]string)
+	loadBalancerSourceRanges := []string{}
+	if cr.Spec.HAProxy != nil {
+		serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
+		loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
+	}
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -298,6 +307,7 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			},
+			Annotations: serviceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: svcType,
@@ -313,13 +323,14 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/instance":  cr.Name,
 				"app.kubernetes.io/component": "haproxy",
 			},
+			LoadBalancerSourceRanges: loadBalancerSourceRanges,
 		},
 	}
 
 	if svcType == corev1.ServiceTypeLoadBalancer || svcType == corev1.ServiceTypeNodePort {
 		svcTrafficPolicyType := corev1.ServiceExternalTrafficPolicyTypeCluster
-		if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
-			svcTrafficPolicyType = cr.Spec.HAProxy.ExternalTrafficPolicy
+		if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ReplicasExternalTrafficPolicy) > 0 {
+			svcTrafficPolicyType = cr.Spec.HAProxy.ReplicasExternalTrafficPolicy
 		}
 
 		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType

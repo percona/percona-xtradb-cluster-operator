@@ -91,7 +91,7 @@ The following steps are needed to run PXC Operator on Minikube:
    
    .. code:: bash
 
-      kubectl run -i --rm --tty percona-client --image=percona:5.7 --restart=Never -- bash -il
+      kubectl run -i --rm --tty percona-client --image=percona:8.0 --restart=Never -- bash -il
    
    Now run ``mysql`` tool in the percona-client command shell using the password
    obtained from the secret:

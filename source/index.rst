@@ -81,5 +81,6 @@ Reference
    :maxdepth: 1
 
    operator
+   images
    api
    Release Notes <ReleaseNotes/index>

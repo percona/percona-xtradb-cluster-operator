@@ -30,7 +30,7 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.0.12-percona-1.1
+admin-version	2.0.14-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
 mysql-add_ldap_user_comment	
@@ -48,40 +48,22 @@ mysql-client_session_track_gtid	true
 mysql-commands_stats	true
 mysql-connect_retries_delay	1
 mysql-connect_retries_on_failure	10
+mysql-connect_timeout_client	10000
 mysql-connect_timeout_server	10000
 mysql-connect_timeout_server_max	100500
 mysql-connection_delay_multiplex_ms	0
 mysql-connection_max_age_ms	0
 mysql-connection_warming	false
 mysql-connpoll_reset_queue_length	50
-mysql-default_CHARSET	
-mysql-default_action	
-mysql-default_character_set_client	
-mysql-default_character_set_connection	
-mysql-default_character_set_database	
-mysql-default_character_set_results	
-mysql-default_charset	
-mysql-default_collation_connection	
-mysql-default_group_concat_max_len	
-mysql-default_isolation_level	
-mysql-default_max_join_size	
+mysql-default_charset	utf8
+mysql-default_collation_connection	utf8_general_ci
 mysql-default_max_latency_ms	1000
-mysql-default_names	
-mysql-default_net_write_timeout	
 mysql-default_query_delay	0
 mysql-default_query_timeout	10000
 mysql-default_reconnect	true
 mysql-default_schema	information_schema
 mysql-default_session_track_gtids	OFF
-mysql-default_sql_auto_is_null	
-mysql-default_sql_log_bin	
-mysql-default_sql_mode	
-mysql-default_sql_safe_updates	
-mysql-default_sql_select_limit	
-mysql-default_time_zone	
-mysql-default_transaction_read	
 mysql-default_tx_isolation	READ-COMMITTED
-mysql-default_wsrep_sync_wait	
 mysql-enforce_autocommit_on_reads	false
 mysql-eventslog_default_log	0
 mysql-eventslog_filename	
@@ -96,7 +78,7 @@ mysql-have_compress	true
 mysql-have_ssl	true
 mysql-hostgroup_manager_verbose	1
 mysql-init_connect	
-mysql-interfaces	0.0.0.0:3306
+mysql-interfaces	0.0.0.0:3306;0.0.0.0:33062
 mysql-keep_multiplexing_variables	tx_isolation,version
 mysql-kill_backend_connection_when_disconnect	true
 mysql-ldap_user_variable	
@@ -130,6 +112,7 @@ mysql-monitor_query_timeout	100
 mysql-monitor_read_only_interval	1000
 mysql-monitor_read_only_max_timeout_count	3
 mysql-monitor_read_only_timeout	800
+mysql-monitor_replication_lag_count	1
 mysql-monitor_replication_lag_interval	10000
 mysql-monitor_replication_lag_timeout	1000
 mysql-monitor_replication_lag_use_percona_heartbeat	
@@ -159,7 +142,7 @@ mysql-query_processor_iterations	0
 mysql-query_retries_on_failure	1
 mysql-reset_connection_algorithm	2
 mysql-server_capabilities	571947
-mysql-server_version	5.7.30
+mysql-server_version	5.7.31
 mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true

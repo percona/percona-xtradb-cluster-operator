@@ -19,7 +19,7 @@ spec:
       log-slave-updates
 
       wsrep_debug=1
-      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
+      wsrep_provider_options="pc.weight=10; gcache.size=1G; gcache.recover=yes"
     volumeSpec:
       persistentVolumeClaim:
         resources:

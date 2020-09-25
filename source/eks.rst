@@ -79,7 +79,7 @@ by the following command:
 Install the Operator
 =======================
 
-1. Create a namespace and set the context for the namespace. The resource names must be unique within the namespace and provide a way to divide cluster resources between users spread across multiple projects.
+#. Create a namespace and set the context for the namespace. The resource names must be unique within the namespace and provide a way to divide cluster resources between users spread across multiple projects.
 
    So, create the namespace and save it in the namespace context for subsequent commands as follows (replace the ``<namespace name>`` placeholder with some descriptive name):
 
@@ -90,7 +90,7 @@ Install the Operator
 
    At success, you will see the message that namespace/<namespace name> was created, and the context was modified.
 
-2. Use the following ``git clone`` command to download the correct branch of the percona-xtradb-cluster-operator repository:
+#. Use the following ``git clone`` command to download the correct branch of the percona-xtradb-cluster-operator repository:
 
    .. code:: bash
 
@@ -102,7 +102,7 @@ Install the Operator
 
       cd percona-xtradb-cluster-operator
 
-3. Deploy the Operator with the following command:
+#. Deploy the Operator with the following command:
 
    .. code:: bash
 
@@ -121,7 +121,7 @@ Install the Operator
       rolebinding.rbac.authorization.k8s.io/service-account-percona-xtradb-cluster-operator created
       deployment.apps/percona-xtradb-cluster-operator created
 
-4. The operator has been started, and you can create the Percona XtraDB cluster:
+#. The operator has been started, and you can create the Percona XtraDB cluster:
 
    .. code:: bash
 
@@ -134,7 +134,7 @@ Install the Operator
 
       perconaxtradbcluster.pxc.percona.com/cluster1 created
 
-5. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the password for the ``root`` user, which you will need to access the cluster.
+#. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the password for the ``root`` user, which you will need to access the cluster.
 
    Use ``kubectl get secrets`` command to see the list of Secrets objects (by default Secrets object you are interested in has ``my-cluster-secrets`` name). Then ``kubectl get secret my-cluster-secrets -o yaml`` will return the YAML file with generated secrets, including the root password which should look as follows:
 
@@ -147,7 +147,7 @@ Install the Operator
 
    Here the actual password is base64-encoded, and ``echo 'cm9vdF9wYXNzd29yZA==' | base64 --decode`` will bring it back to a human-readable form (in this example it will be a ``root_password`` string).
 
-6. Now you can check wether you are able to connect to MySQL from the outside
+#. Now you can check wether you are able to connect to MySQL from the outside
    with the help of the ``kubectl port-forward`` command as follows:
    
       .. code:: bash

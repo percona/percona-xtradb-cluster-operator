@@ -1,7 +1,7 @@
 Install Percona XtraDB Cluster on Kubernetes
 ============================================
 
-0. First of all, clone the percona-xtradb-cluster-operator repository:
+#. First of all, clone the percona-xtradb-cluster-operator repository:
 
    .. code:: bash
 
@@ -11,7 +11,7 @@ Install Percona XtraDB Cluster on Kubernetes
    .. note:: It is crucial to specify the right branch with ``-b``
       option while cloning the code on this step. Please be careful.
 
-1. Now Custom Resource Definition for PXC should be created from the
+#. Now Custom Resource Definition for PXC should be created from the
    ``deploy/crd.yaml`` file. Custom Resource Definition extends the
    standard set of resources which Kubernetes “knows” about with the new
    items (in our case ones which are the core of the operator).
@@ -23,7 +23,7 @@ Install Percona XtraDB Cluster on Kubernetes
 
       $ kubectl apply -f deploy/crd.yaml
 
-2. The next thing to do is to add the ``pxc`` namespace to Kubernetes,
+#. The next thing to do is to add the ``pxc`` namespace to Kubernetes,
    not forgetting to set the correspondent context for further steps:
 
    .. code:: bash
@@ -31,7 +31,7 @@ Install Percona XtraDB Cluster on Kubernetes
       $ kubectl create namespace pxc
       $ kubectl config set-context $(kubectl config current-context) --namespace=pxc
 
-3. Now RBAC (role-based access control) for PXC should be set up from
+#. Now RBAC (role-based access control) for PXC should be set up from
    the ``deploy/rbac.yaml`` file. Briefly speaking, role-based access is
    based on specifically defined roles and actions corresponding to
    them, allowed to be done on specific Kubernetes resources (details
@@ -53,7 +53,7 @@ Install Percona XtraDB Cluster on Kubernetes
 
       $ kubectl apply -f deploy/operator.yaml
 
-4. Now that’s time to add the PXC Users secrets to Kubernetes. They
+#. Now that’s time to add the PXC Users secrets to Kubernetes. They
    should be placed in the data section of the ``deploy/secrets.yaml``
    file as logins and base64-encoded passwords for the user accounts
    (see `Kubernetes
@@ -73,12 +73,12 @@ Install Percona XtraDB Cluster on Kubernetes
 
    More details about secrets can be found in :ref:`users`.
 
-5. Now certificates should be generated. By default, the Operator generates
+#. Now certificates should be generated. By default, the Operator generates
    certificates automatically, and no actions are required at this step. Still,
    you can generate and apply your own certificates as secrets according
    to the :ref:`TLS instructions <tls>`.
 
-6. After the operator is started and user secrets are added, Percona
+#. After the operator is started and user secrets are added, Percona
    XtraDB Cluster can be created at any time with the following command:
 
    .. code:: bash
@@ -92,15 +92,35 @@ Install Percona XtraDB Cluster on Kubernetes
 
       $ kubectl get pods
       NAME                                              READY   STATUS    RESTARTS   AGE
+      cluster1-haproxy-0                                1/1     Running   0          5m
+      cluster1-haproxy-1                                1/1     Running   0          5m
+      cluster1-haproxy-2                                1/1     Running   0          5m
       cluster1-pxc-0                                    1/1     Running   0          5m
       cluster1-pxc-1                                    1/1     Running   0          4m
       cluster1-pxc-2                                    1/1     Running   0          2m
-      cluster1-proxysql-0                               1/1     Running   0          5m
       percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
 
-7. Check connectivity to newly created cluster
+#. Check connectivity to newly created cluster
 
    .. code:: bash
 
       $ kubectl run -i --rm --tty percona-client --image=percona:8.0 --restart=Never -- bash -il
-      percona-client:/$ mysql -h cluster1-proxysql -uroot -proot_password
+      percona-client:/$ mysql -h cluster1-haproxy -uroot -proot_password
+
+   This command will connect you to the MySQL monitor.
+
+   .. code:: text
+
+      mysql: [Warning] Using a password on the command line interface can be insecure.
+      Welcome to the MySQL monitor.  Commands end with ; or \g.
+      Your MySQL connection id is 1976
+      Server version: 8.0.19-10 Percona XtraDB Cluster (GPL), Release rel10, Revision 727f180, WSREP version 26.4.3
+
+      Copyright (c) 2009-2020 Percona LLC and/or its affiliates
+      Copyright (c) 2000, 2020, Oracle and/or its affiliates. All rights reserved.
+
+      Oracle is a registered trademark of Oracle Corporation and/or its
+      affiliates. Other names may be trademarks of their respective
+      owners.
+
+      Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.

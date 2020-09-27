@@ -18,11 +18,6 @@ function get_pod_names_images {
                                    -o jsonpath="{range .items[*]}{.metadata.name}{\",\"}{.spec.containers[?(@.name == \"${type}\")].image}{\"\n\"}{end}")
 }
 
-function get_proxy_engine {
-    local cluster_proxy="$(get_proxy)"
-    echo "${cluster_proxy//$cluster-}"
-}
-
 function get_vs_image {
     local apply_type=${1}
     case $(curl -o /dev/null -s -w "%{http_code}\n" https://check.percona.com/versions/v1/pxc-operator/$(echo ${API//pxc.percona.com\/v/} | sed 's/-/\./g')/${apply_type}) in
@@ -80,13 +75,13 @@ main() {
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
     pxc_size=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.pxc.size}')
 
-    initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "${cluster}-$(get_proxy_engine)-0")
+    initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$(get_proxy ${cluster})-0")
     kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"pxc":{"image":"'"${IMAGE_PXC_TO_UPDATE}"'"}}}'
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_PXC_TO_UPDATE}
 
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine)'.size}')
+    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
     for i in $(seq 0 $((${pxc_size} - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
     done
@@ -103,7 +98,7 @@ main() {
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_PXC_TO_UPDATE}
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine)'.size}')
+    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
     for i in $(seq 0 $((${pxc_size} - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
     done
@@ -121,7 +116,7 @@ main() {
 
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_PXC_TO_UPDATE}
 
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine)'.size}')
+    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
     for i in $(seq 0 $((${pxc_size} - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
     done
@@ -133,7 +128,7 @@ main() {
     spinup_pxc "$cluster" "$test_dir/conf/$cluster-version-service-unreachable.yml"
     pxc_size=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.pxc.size}')
 
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine)'.size}')
+    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
     if [[ $(kubectl_bin get pxc/${cluster} -o jsonpath='{.spec.pxc.image}') != ${IMAGE_PXC} ]]; then
         echo "ERROR: PXC image has been changed. Exiting..."
         exit 1
@@ -150,7 +145,7 @@ main() {
 
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
 
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine)'.size}')
+    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
     for i in $(seq 0 $((${pxc_size} - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
     done
@@ -169,7 +164,7 @@ main() {
 
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
 
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine)'.size}')
+    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
     for i in $(seq 0 $((${pxc_size} - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
     done
@@ -188,7 +183,7 @@ main() {
 
     check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
 
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine)'.size}')
+    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
     for i in $(seq 0 $((${pxc_size} - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
     done

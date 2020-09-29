@@ -230,10 +230,10 @@ Following steps are needed to restore a previously saved backup:
 3. When both correct names are known, it is needed to set appropriate keys
    in the ``deploy/backup/restore.yaml`` file.
 
-   * set ``spec.pxcCluster`` key to the name of your cluster,
+   * set ``spec.pxcCluster`` key to the name of your cluster on which we should recover the backup,
    * set ``spec.backupName`` key to the name of your backup,
    * if you are restoring backup on the Kubernetes-based cluster different from
-     one you have used to save this backup, set ``spec.backupSource`` subsection
+     one you have used to save this backup, set ``spec.backupSource`` subsection instead of ``spec.backupName`` field
      to point on the appropriate PVC or S3-compatible storage:
 
      A. If backup was stored on the PVC volume, ``backupSource`` should contain

@@ -574,7 +574,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
 	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = sslHash
+		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)

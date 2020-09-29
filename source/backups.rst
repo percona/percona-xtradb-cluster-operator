@@ -217,14 +217,15 @@ Following steps are needed to restore a previously saved backup:
 
       kubectl get pxc-backup
 
-   And the following command will list available clusters:
+   .. note:: Obviously, you can make this check only on the same cluster on
+      which you have previously made the backup.
+
+   And the following command will list existing Percona XtraDB Cluster names in
+   the current Kubernetes-based environment:
 
    .. code:: bash
 
       kubectl get pxc
-
-   .. note:: Obviously, you can make this checks only on the same cluster on
-      which you have previously made the backup.
 
 3. When both correct names are known, it is needed to set appropriate keys
    in the ``deploy/backup/restore.yaml`` file.

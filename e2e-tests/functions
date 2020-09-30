@@ -240,6 +240,7 @@ compare_kubectl() {
         | yq d - 'metadata.selfLink' \
         | yq d - 'metadata.deletionTimestamp' \
         | yq d - 'metadata.annotations."k8s.v1.cni.cncf.io*"' \
+        | yq d - 'metadata.annotations."kubernetes.io/psp"' \
         | yq d - '**.(name==percona-xtradb-cluster-operator-workload-token*)' \
         | yq d - '**.creationTimestamp' \
         | yq d - '**.image' \

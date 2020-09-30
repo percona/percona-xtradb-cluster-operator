@@ -38,6 +38,79 @@ the readers, then the writer PXC member is finally upgraded.
 .. note:: when both ProxySQL and PXC are upgraded, they are upgraded
    in parallel.
 
+.. proxysql-conf-custom::
+
+Passing custom configuration options to ProxySQL
+------------------------------------------------
+
+You can pass custom configuration to ProxySQL using the ``proxysql.configuration``
+key in the ``deploy/cr.yaml`` file. 
+
+.. note:: If you specify a custom ProxySQL configuration in this way, the
+   Operator doesn't provide its own ProxySQL configuration file. That's why you
+   should specify either a full set of configuration options or nothing.
+
+Here is an example of ProxySQL configuration passed through ``deploy/cr.yaml``:
+
+.. code:: yaml
+
+   ...
+   proxysql:
+     enabled: false
+     size: 3
+     image: percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql
+     configuration: |
+       datadir="/var/lib/proxysql"
+
+       admin_variables =
+       {
+         admin_credentials="proxyadmin:admin_password"
+         mysql_ifaces="0.0.0.0:6032"
+         refresh_interval=2000
+
+         cluster_username="proxyadmin"
+         cluster_password="admin_password"
+         cluster_check_interval_ms=200
+         cluster_check_status_frequency=100
+         cluster_mysql_query_rules_save_to_disk=true
+         cluster_mysql_servers_save_to_disk=true
+         cluster_mysql_users_save_to_disk=true
+         cluster_proxysql_servers_save_to_disk=true
+         cluster_mysql_query_rules_diffs_before_sync=1
+         cluster_mysql_servers_diffs_before_sync=1
+         cluster_mysql_users_diffs_before_sync=1
+         cluster_proxysql_servers_diffs_before_sync=1
+       }
+
+       mysql_variables=
+       {
+         monitor_password="monitor"
+         monitor_galera_healthcheck_interval=1000
+         threads=2
+         max_connections=2048
+         default_query_delay=0
+         default_query_timeout=10000
+         poll_timeout=2000
+         interfaces="0.0.0.0:3306"
+         default_schema="information_schema"
+         stacksize=1048576
+         connect_timeout_server=10000
+         monitor_history=60000
+         monitor_connect_interval=20000
+         monitor_ping_interval=10000
+         ping_timeout_server=200
+         commands_stats=true
+         sessions_sort=true
+         have_ssl=true
+         ssl_p2s_ca="/etc/proxysql/ssl-internal/ca.crt"
+         ssl_p2s_cert="/etc/proxysql/ssl-internal/tls.crt"
+         ssl_p2s_key="/etc/proxysql/ssl-internal/tls.key"
+         ssl_p2s_cipher="ECDHE-RSA-AES128-GCM-SHA256"
+       }
+   ...
+
+.. proxysql-conf-admin::
+
 Accessing the ProxySQL Admin Interface
 --------------------------------------
 

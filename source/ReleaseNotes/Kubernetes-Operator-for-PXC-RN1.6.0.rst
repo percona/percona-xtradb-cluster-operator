@@ -12,8 +12,8 @@ New Features
 
 * :jirabug:`K8SPXC-416`: Support of the proxy-protocol in HAProxy
 * :jirabug:`K8SPXC-429`: Possibility to restore backups to a new Kubernetes-based environment :ref:`when needed<backups-restore>`
-* :jirabug:`K8SPXC-144`: Allow adding ProxySQL configuration options
-* :jirabug:`K8SPXC-343`: Helm chart officially provided with the Operator
+* :jirabug:`K8SPXC-144`: Allow :ref:`adding ProxySQL configuration options<proxysql-conf-custom>`
+* :jirabug:`K8SPXC-343`: Helm chart :ref:`officially provided with the Operator`
 
 Improvements
 ================================================================================
@@ -37,7 +37,6 @@ Bugs Fixed
 * :jirabug:`K8SPXC-305`: ProxySQL not working in case of passwords with ``%`` symbol in the Secrets object (thanks to user ben.wilson for reporting this issue)
 * :jirabug:`K8SPXC-278`: ProxySQL never getting ready status on some environments after the cluster launch due to the ``proxysql-monit`` Pod crash (thanks to user lots0logs for contribution)
 * :jirabug:`K8SPXC-274`: The 1.2.0 -> 1.3.0 -> 1.4.0 upgrade path not working (thanks to user martin.atroo for reporting this issue)
-* :jirabug:`K8SPXC-457`: Fix secret creation in PXC operator
 * :jirabug:`K8SPXC-454`: After the cluster creation, pxc-0 Pod was restarting because cert-manager had not enough time to issue requested certificates (thanks to user mike.saah for reporting this issue)
 * :jirabug:`K8SPXC-450`: TLS annotations causing unnecessary HAProxy Pod restarts
 * :jirabug:`K8SPXC-443` and :jirabug:`K8SPXC-456`: The outdated version service endpoint URL (fix with preserving backward compatibility)

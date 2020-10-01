@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -68,6 +69,16 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	if podSpec.ForceUnsafeBootstrap {
 		ic := appC.DeepCopy()
 		ic.Name = ic.Name + "-init-unsafe"
+		ic.Resources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse("600m"),
+				corev1.ResourceMemory: resource.MustParse("1G"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("1G"),
+			},
+		}
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil
 		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}

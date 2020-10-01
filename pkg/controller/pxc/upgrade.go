@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sort"
 	"strings"
 	"time"
@@ -121,6 +122,16 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	if podSpec.ForceUnsafeBootstrap {
 		ic := appC.DeepCopy()
+		ic.Resources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse("600m"),
+				corev1.ResourceMemory: resource.MustParse("1G"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU: resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("1G"),
+			},
+		}
 		ic.Name = ic.Name + "-init-unsafe"
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil

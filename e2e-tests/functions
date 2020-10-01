@@ -52,7 +52,7 @@ create_namespace() {
     local skip_clean_namespace="$2"
 
     if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
     if [ "$OPENSHIFT" == 1 ]; then

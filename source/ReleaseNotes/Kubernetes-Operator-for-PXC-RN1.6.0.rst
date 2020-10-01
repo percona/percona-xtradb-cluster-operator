@@ -33,7 +33,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-391`: HAProxy and PMM cannot be enabled at the same time (thanks to user rf_enigm for reporting this issue)
 * :jirabug:`K8SPXC-406`: Second node (XXX-pxc-1) always selected as donor (thanks to user pservit for reporting this issue)
 * :jirabug:`K8SPXC-390`: Crash on missing HAProxy PodDisruptionBudget
-* :jirabug:`K8SPXC-355`: Counterintuitive YYYY-DD-MM dates in the S3 backup folder names (thanks to user graham.webcurl for reporting this issue)
+* :jirabug:`K8SPXC-355`: Counterintuitive YYYY-DD-MM dates in the S3 backup folder names (thanks to user graham-web for contribution)
 * :jirabug:`K8SPXC-305`: ProxySQL not working in case of passwords with ``%`` symbol in the Secrets object (thanks to user ben.wilson for reporting this issue)
 * :jirabug:`K8SPXC-278`: ProxySQL never getting ready status on some environments after the cluster launch due to the ``proxysql-monit`` Pod crash (thanks to user lots0logs for contribution)
 * :jirabug:`K8SPXC-274`: The 1.2.0 -> 1.3.0 -> 1.4.0 upgrade path not working (thanks to user martin.atroo for reporting this issue)

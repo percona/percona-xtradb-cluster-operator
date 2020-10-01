@@ -143,10 +143,10 @@ func main() {
 		}
 		peerList := newPeers.List()
 		sort.Strings(peerList)
-		if strings.Join(peers.List(),":") != strings.Join(newPeers.List(),":") {
-		  log.Printf("Peer list updated\nwas %v\nnow %v", peers.List(), newPeers.List())
-		  shellOut(strings.Join(peerList, "\n"), script)
-		  peers = newPeers
+		if strings.Join(peers.List(), ":") != strings.Join(newPeers.List(), ":") {
+			log.Printf("Peer list updated\nwas %v\nnow %v", peers.List(), newPeers.List())
+			shellOut(strings.Join(peerList, "\n"), script)
+			peers = newPeers
 		}
 		script = *onChange
 	}

@@ -185,7 +185,7 @@ spec:
         - command:
             - /pxc-init-entrypoint.sh
           imagePullPolicy: Always
-           name: pxc-init
+          name: pxc-init
           resources:
             limits:
               cpu: "1"

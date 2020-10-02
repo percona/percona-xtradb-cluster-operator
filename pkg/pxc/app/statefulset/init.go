@@ -7,7 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func EntrypointInitContainer(initImageName string, resources *api.PodResources, securityContext *corev1.SecurityContext) (corev1.Container,error) {
+func EntrypointInitContainer(initImageName string, resources *api.PodResources, securityContext *corev1.SecurityContext) (corev1.Container, error) {
 	c := corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -21,11 +21,11 @@ func EntrypointInitContainer(initImageName string, resources *api.PodResources, 
 		Command:         []string{"/pxc-init-entrypoint.sh"},
 		SecurityContext: securityContext,
 	}
-	res,err := app.CreateResources(resources)
+	res, err := app.CreateResources(resources)
 	if err != nil {
-		return corev1.Container{}, errors.Wrap(err,"create resources")
+		return corev1.Container{}, errors.Wrap(err, "create resources")
 	}
 	c.Resources = res
 
-	return c,nil
+	return c, nil
 }

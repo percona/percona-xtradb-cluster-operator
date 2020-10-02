@@ -122,9 +122,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	if podSpec.ForceUnsafeBootstrap {
 		ic := appC.DeepCopy()
-		res,err := app.CreateResources(podSpec.Resources)
+		res, err := app.CreateResources(podSpec.Resources)
 		if err != nil {
-			return errors.Wrap(err,"create resources")
+			return errors.Wrap(err, "create resources")
 		}
 		ic.Resources = res
 		ic.Name = ic.Name + "-init-unsafe"

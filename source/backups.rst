@@ -62,7 +62,6 @@ Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb
 
    ...
    backup:
-     enabled: true
      ...
      storages:
        s3-us-west:

@@ -137,10 +137,7 @@ spec:
             - /pxc-init-entrypoint.sh
           imagePullPolicy: Always
           name: pxc-init
-          resources:
-            requests:
-              cpu: 300m
-              memory: 500M
+          resources: {}
           securityContext:
             privileged: false
           terminationMessagePath: /dev/termination-log

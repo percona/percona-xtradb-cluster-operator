@@ -18,20 +18,23 @@ New Features
 Improvements
 ================================================================================
 
+* :jirabug:`K8SPXC-394`: Support of "cluster-wide" mode for Percona XtraDB Cluster Operator
 * :jirabug:`K8SPXC-398`: New crVersion key in ``deploy/cr.yaml`` to indicate the API version that the Custom Resource corresponds to (thanks to user mike.saah for contribution)
 * :jirabug:`K8SPXC-372`: Support new versions of cert-manager by the Operator (thanks to user rf_enigm for contribution)
 * :jirabug:`K8SPXC-317`: Possibility to configure the ``imagePullPolicy`` Operator option (thanks to user imranrazakhan for contribution)
 * :jirabug:`K8SPXC-438`: Cluster name length limit extended to 32 characters to fit the maximum value allowed by ``wsrep_cluster_name``
 * :jirabug:`K8SPXC-411`: Extend cert-manager configuration to add additional domains (multiple SAN) to a certificate
 * :jirabug:`K8SPXC-368`: Autoupdate system users by changing the appropriate Secret name
+* :jirabug:`K8SPXC-462`: Add readiness probe for HAProxy
+* :jirabug:`K8SPXC-375`: Improve HAProxy behavior in case of switching writer node to a new one and back
 
 Known Issues and Limitations
 ================================================================================
 
 OpenShift 3.11 requires additional configuration for the correct HAProxy operation:
-The feature gate ``PodShareProcessNamespace`` should be set to ``true``. If
+the feature gate ``PodShareProcessNamespace`` should be set to ``true``. If
 getting it enabled is not possible, we recommend using ProxySQL instead of
-HAProxy with this OpenShift version.
+HAProxy with OpenShift 3.11. Other OpenShift and Kubernetes versions are not affected.
 
 Bugs Fixed
 ================================================================================
@@ -57,3 +60,4 @@ Bugs Fixed
 * :jirabug:`K8SPXC-383`: DNS warnings in PXC Pods when using HAProxy
 * :jirabug:`K8SPXC-364`: Smart Updates showing empty "from" versions for non-PXC objects in logs
 * :jirabug:`K8SPXC-379`: The Operator user credentials not added into internal secrets when upgrading from 1.4.0 (thanks to user pservit for reporting this issue)
+* :jirabug:`K8SPXC-384`: Debug images were not fully functional for the latest version of the Operator because of having no infinity loop

@@ -265,7 +265,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		initC, err := statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, o.Spec.PXC.Resources, o.Spec.PXC.ContainerSecurityContext)
+		var initResources *api.PodResources = nil
+		if o.CompareVersionWith("1.6.0") >= 0 {
+			initResources = o.Spec.PXC.Resources
+		}
+		initC, err := statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, initResources, o.Spec.PXC.ContainerSecurityContext)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -534,7 +538,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		initC, err := statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, cr.Spec.PXC.Resources, cr.Spec.PXC.ContainerSecurityContext)
+		var initResources *api.PodResources = nil
+		if cr.CompareVersionWith("1.6.0") >= 0 {
+			initResources = cr.Spec.PXC.Resources
+		}
+		initC, err := statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, initResources, cr.Spec.PXC.ContainerSecurityContext)
 		if err != nil {
 			return err
 		}

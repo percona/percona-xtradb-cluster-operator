@@ -664,6 +664,21 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-externaltrafficpolicy:                                                        |
+|                 |                                                                                           |
+| **Key**         | `haproxy.externalTrafficPolicy <operator.html#haproxy-externaltrafficpolicy>`_            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Cluster``                                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Specifies whether Service should `route external traffic to cluster-wide or node-local    |
+|                 | endpoints <https://kubernetes.io/docs/tasks/access-application-cluster/                   |
+|                 | create-external-load-balancer/#preserving-the-client-source-ip>`_ (it can influence the   |
+|                 | load balancing effectiveness)                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _haproxy-resources-requests-memory:                                                    |
 |                 |                                                                                           |
 | **Key**         | `haproxy.resources.requests.memory <operator.html#haproxy-resources-requests-memory>`_    |
@@ -1054,7 +1069,7 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _proxysql-servicetype:                                                                 |
 |                 |                                                                                           |
-| **Key**         | `proxysql.servicetype <operator.html#proxysql-servicetype>`_                              |
+| **Key**         | `proxysql.serviceType <operator.html#proxysql-servicetype>`_                              |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1063,6 +1078,21 @@ configuration options for the ProxySQL daemon.
 | **Description** | Specifies the type of `Kubernetes Service                                                 |
 |                 | <https://kubernetes.io/docs/concepts/services-networking/service/                         |
 |                 | #publishing-services-service-types>`_ to be used                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _proxysql-externaltrafficpolicy:                                                       |
+|                 |                                                                                           |
+| **Key**         | `proxysql.externalTrafficPolicy <operator.html#proxysql-externaltrafficpolicy>`_          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Cluster``                                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Specifies whether Service should `route external traffic to cluster-wide or node-local    |
+|                 | endpoints <https://kubernetes.io/docs/tasks/access-application-cluster/                   |
+|                 | create-external-load-balancer/#preserving-the-client-source-ip>`_ (it can influence the   |
+|                 | load balancing effectiveness)                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

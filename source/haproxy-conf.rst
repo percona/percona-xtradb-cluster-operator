@@ -91,3 +91,28 @@ Here is an example of HAProxy configuration passed through ``deploy/cr.yaml``:
            option clitcpka
            default_backend galera-replica-nodes
     ...
+
+.. haproxy-conf-protocol::
+
+Enabling the Proxy protocol
+-----------------------------------------------
+
+The Proxy protocol `allows <https://www.percona.com/doc/percona-server/LATEST/flexibility/proxy_protocol_support.html>`_
+HAProxy to provide a real client address to Percona XtraDB Cluster. 
+
+Normally Proxy protocol is disabled, and Percona XtraDB Cluster sees the IP
+address of the proxying server (HAProxy) instead of the real client address.
+But there are scenarios when making real client IP-address visible for Percona
+XtraDB Cluster is important: e.g. it allows to have privilege grants based on
+client/application address, and significantly enhance auditing.
+
+You can enable Proxy protocol on Percona XtraDB Cluster by adding
+`proxy_protocol_networks <https://www.percona.com/doc/percona-server/LATEST/flexibility/proxy_protocol_support.html#proxy_protocol_networks>`_ 
+option to :ref:`pxc-configuration` key in the ``deploy/cr.yaml`` configuration
+file.
+
+.. note:: Depending on the load balancer of your cloud provider, you may also
+   need setting :ref:`haproxy-externaltrafficpolicy` option in ``deploy/cr.yaml``.
+
+More information about Proxy protocol can be found in the `official HAProxy documentation <https://www.haproxy.com/blog/using-haproxy-with-the-proxy-protocol-to-better-secure-your-database/>`_.
+

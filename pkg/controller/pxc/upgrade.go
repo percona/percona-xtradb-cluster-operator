@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"sort"
 	"strings"
 	"time"
@@ -121,6 +122,11 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	if podSpec.ForceUnsafeBootstrap {
 		ic := appC.DeepCopy()
+		res, err := app.CreateResources(podSpec.Resources)
+		if err != nil {
+			return errors.Wrap(err, "create resources")
+		}
+		ic.Resources = res
 		ic.Name = ic.Name + "-init-unsafe"
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil

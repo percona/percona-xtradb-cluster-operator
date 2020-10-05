@@ -10,7 +10,7 @@ create_infra $namespace
 deploy_cert_manager
 
 kubectl_bin apply -f "$test_dir/conf/service-account.yml"
-if [[ "${OPENSHIFT}" == 1 ]]; then
+if [[ ! -z "${OPENSHIFT}" ]]; then
     oc adm policy add-scc-to-user privileged -z percona-xtradb-cluster-operator-workload
 
     if [ -n "$OPERATOR_NS" ]; then
@@ -76,7 +76,7 @@ kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
 wait_backup_restore $restore
 compare_kubectl job.batch/restore-job-$restore-$cluster
 
-if [[ "${OPENSHIFT}" == 1 ]]; then
+if [[ ! -z "${OPENSHIFT}" ]]; then
     oc adm policy remove-scc-from-user privileged -z percona-xtradb-cluster-operator-workload
 fi
 destroy $namespace

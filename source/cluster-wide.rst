@@ -1,3 +1,5 @@
+.. _install-clusterwide:
+
 Install Percona XtraDB Cluster cluster-wide
 ============================================
 

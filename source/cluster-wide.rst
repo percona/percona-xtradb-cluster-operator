@@ -61,22 +61,24 @@ Kubernetes.
 
       $ kubectl create namespace pxc
 
-#. Edit the ``deploy/cw-bundle.yaml`` configuration file to set proper namespaces:
+   .. only:: comment
 
-   .. code:: yaml
+      #. Edit the ``deploy/cw-bundle.yaml`` configuration file to set proper namespaces:
 
-      ...
-      subjects:
-      - kind: ServiceAccount
-        name: percona-xtradb-cluster-operator
-        namespace: "pxc-operator"
-      ...
-      env:
-               - name: WATCH_NAMESPACE
-                 value: "pxc"
-      ...
+         .. code:: yaml
 
-   When the editing is done, apply the file with the following command:
+            ...
+            subjects:
+            - kind: ServiceAccount
+              name: percona-xtradb-cluster-operator
+              namespace: "pxc-operator"
+            ...
+            env:
+                     - name: WATCH_NAMESPACE
+                       value: "pxc"
+            ...
+
+#. Apply the ``deploy/cw-bundle.yaml`` file with the following command:
 
    .. code:: bash
 

@@ -24,7 +24,6 @@ Improvements
 * :jirabug:`K8SPXC-372`: Support new versions of cert-manager by the Operator (thanks to user rf_enigm for contribution)
 * :jirabug:`K8SPXC-317`: Possibility to configure the ``imagePullPolicy`` Operator option (thanks to user imranrazakhan for contribution)
 * :jirabug:`K8SPXC-462`: Add readiness probe for HAProxy
-* :jirabug:`K8SPXC-438`: Cluster name length limit extended to 32 characters to fit the maximum value allowed by ``wsrep_cluster_name``
 * :jirabug:`K8SPXC-411`: Extend cert-manager configuration to add additional domains (multiple SAN) to a certificate
 * :jirabug:`K8SPXC-375`: Improve HAProxy behavior in case of switching writer node to a new one and back
 * :jirabug:`K8SPXC-368`: Autoupdate system users by changing the appropriate Secret name

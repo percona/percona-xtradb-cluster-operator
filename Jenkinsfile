@@ -188,6 +188,7 @@ pipeline {
                         echo ${DOCKER_TAG} > "${docker_tag_file}"
                             sg docker -c "
                                 docker login -u '${USER}' -p '${PASS}'
+                                export RELEASE=0
                                 export IMAGE=\$DOCKER_TAG
                                 ./e2e-tests/build
                                 docker logout

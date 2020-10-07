@@ -130,13 +130,13 @@ func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBC
 		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", pxcUser, pxcPass)
+	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":3306", pxcUser, pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "new users manager for grant")
 	}
 	defer um.Close()
 
-	err = um.Update160MonitorUserGrant()
+	err = um.Update160MonitorUserGrant(string(internalSysSecretObj.Data["monitor"]))
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
 	}

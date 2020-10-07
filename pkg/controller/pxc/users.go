@@ -130,7 +130,16 @@ func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBC
 		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":3306", pxcUser, pxcPass)
+	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
+	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	if err != nil {
+		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	}
+	if hasKey {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+
+	um, err := users.NewManager(addr, pxcUser, pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "new users manager for grant")
 	}

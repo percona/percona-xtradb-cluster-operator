@@ -35,7 +35,7 @@ main() {
 
     apply_config "$conf_dir/client.yml"
     kubectl_bin apply \
-        -f "$test_dir/conf/secrets.ym
+        -f "$test_dir/conf/secrets.yml"
 
     # test 1.0.0
     API="pxc.percona.com/v1"
@@ -114,7 +114,6 @@ main() {
     # test 1.6.0
     API="pxc.percona.com/v1-6-0"
     kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-1.6.0/deploy/rbac.yaml
-    kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-1.6.0/deploy/crd.yaml
     kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.6.0"}
     }'

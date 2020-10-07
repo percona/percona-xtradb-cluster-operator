@@ -1,15 +1,15 @@
 Providing Backups
 =================
 
-Percona XtraDB Cluster Operator allows doing cluster backup in two ways.
+The Operator usually stores Percona XtraDB Cluster backups on `Amazon S3 or S3-compatible
+storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`_ outside the Kubernetes cluster.
+But storing backups on `Persistent Volumes <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_ inside the Kubernetes cluster is also possible.
+
+The Operator allows doing backup in two ways. 
 *Scheduled backups* are configured in the
 `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
 file to be executed automatically in proper time. *On-demand backups*
 can be done manually at any moment.
-
-Backup files are usually stored on `Amazon S3 or S3-compatible
-storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`_,
-but storing backups on Persistent Volumes is also possible.
 
 .. contents:: :local:
 

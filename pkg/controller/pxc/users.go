@@ -62,16 +62,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	}
 
 	if cr.Status.PXC.Ready > 0 {
+		err := r.manageOperatorAdminUser(cr, &sysUsersSecretObj, &internalSysSecretObj)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "manage operator admin user")
+		}
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			// monitor user need more grants for work in version more then 1.6.0
 			err = r.manageMonitorUser(cr, &internalSysSecretObj)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "manage monitor user")
 			}
-		}
-		err := r.manageOperatorAdminUser(cr, &sysUsersSecretObj, &internalSysSecretObj)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "manage operator admin user")
 		}
 	}
 

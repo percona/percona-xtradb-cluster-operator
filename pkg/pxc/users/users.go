@@ -204,7 +204,7 @@ func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
 
 // Update160MonitorUserGrant grants SERVICE_CONNECTION_ADMIN rights to the monitor user
 // if pxc version is 8 or more and sets the MAX_USER_CONNECTIONS parameter to 100 (empirically determined)
-func (u *Manager) Update160MonitorUserGrant() (err error) {
+func (u *Manager) Update160MonitorUserGrant(pass string) (err error) {
 	tx, err := u.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")
@@ -222,6 +222,15 @@ func (u *Manager) Update160MonitorUserGrant() (err error) {
 		err = tx.Commit()
 		err = errors.Wrap(err, "commit transaction")
 	}()
+
+	_, err = tx.Exec("CREATE USER IF NOT EXISTS 'monitor'@'%' IDENTIFIED BY ?", pass)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("create operator user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "create monitor user")
+	}
 
 	_, err = tx.Exec("/*!80015 GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%' */")
 	if err != nil {

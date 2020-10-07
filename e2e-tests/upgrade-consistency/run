@@ -34,7 +34,8 @@ main() {
     create_infra $namespace
 
     apply_config "$conf_dir/client.yml"
-    kubectl_bin apply -f $conf_dir/secrets.yml
+    kubectl_bin apply \
+        -f "$test_dir/conf/secrets.ym
 
     # test 1.0.0
     API="pxc.percona.com/v1"

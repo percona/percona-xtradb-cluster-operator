@@ -55,9 +55,11 @@ Semi-automatic upgrade
             -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
 
          kubectl patch pxc cluster1 --type=merge --patch '{
-            "spec": {"crVersion":"{{{release}}}"},
-            "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
+            "spec": {
+                "crVersion":"{{{release}}}",
+                "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
+                "haproxy": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-backup" },
                 "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
             }}'
@@ -70,9 +72,11 @@ Semi-automatic upgrade
             -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
 
          kubectl patch pxc cluster1 --type=merge --patch '{
-            "spec": {"crVersion":"{{{release}}}"},
-            "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
+            "spec": {
+                "crVersion":"{{{release}}}",
+                "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
+                "haproxy": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-backup" },
                 "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
             }}'
@@ -120,9 +124,11 @@ Manual update
             -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
 
          kubectl patch pxc cluster1 --type=merge --patch '{
-            "spec": {"crVersion":"{{{release}}}"},
-            "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
+            "spec": {
+                "crVersion":"{{{release}}}",
+                "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
+                "haproxy": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-backup" },
                 "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
             }}'
@@ -135,9 +141,11 @@ Manual update
             -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
 
          kubectl patch pxc cluster1 --type=merge --patch '{
-            "spec": {"crVersion":"{{{release}}}"},
-            "spec": {"pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
+            "spec": {
+                "crVersion":"{{{release}}}",
+                "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
+                "haproxy": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-backup" },
                 "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
             }}'

@@ -25,15 +25,17 @@ different set of configuration YAML files, which are available in the ``deploy``
 folder and have filenames with a special ``cw-`` prefix: e.g.
 ``deploy/cw-bundle.yaml``.
 
-While using this cluster-wide versions of configuration files, you should set
-the following information there:
+.. only:: comment
 
-* ``subjects.namespace`` option should contain the namespace which will host
-  the Operator,
-* ``WATCH_NAMESPACE`` key-value pair in the ``env`` section should have
-  ``value`` equal to a  comma-separated list of the namespaces to be watched by
-  the Operator (or just a blank string to make the Operator deal with *all
-  namespaces* in a Kubernetes cluster).
+   While using this cluster-wide versions of configuration files, you should set
+   the following information there:
+
+   * ``subjects.namespace`` option should contain the namespace which will host
+     the Operator,
+   * ``WATCH_NAMESPACE`` key-value pair in the ``env`` section should have
+     ``value`` equal to a  comma-separated list of the namespaces to be watched by
+     the Operator (or just a blank string to make the Operator deal with *all
+     namespaces* in a Kubernetes cluster).
 
 The following simple example shows how to install Operator cluster-wide on
 Kubernetes.
@@ -45,8 +47,12 @@ Kubernetes.
       git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
       cd percona-xtradb-cluster-operator
 
-#. The next thing to do is to decide which Kubernetes namespaces the Operator
-   should control and in which namespace should it reside. Let's suppose that
+   .. only:: comment 
+
+      #. The next thing to do is to decide which Kubernetes namespaces the Operator
+         should control and in which namespace should it reside.
+
+#. Let's suppose that
    Operator's namespace should be the ``pxc-operator`` one. Create it as
    follows:
 
@@ -61,22 +67,24 @@ Kubernetes.
 
       $ kubectl create namespace pxc
 
-#. Edit the ``deploy/cw-bundle.yaml`` configuration file to set proper namespaces:
+   .. only:: comment
 
-   .. code:: yaml
+      #. Edit the ``deploy/cw-bundle.yaml`` configuration file to set proper namespaces:
 
-      ...
-      subjects:
-      - kind: ServiceAccount
-        name: percona-xtradb-cluster-operator
-        namespace: "pxc-operator"
-      ...
-      env:
-               - name: WATCH_NAMESPACE
-                 value: "pxc"
-      ...
+         .. code:: yaml
 
-   When the editing is done, apply the file with the following command:
+            ...
+            subjects:
+            - kind: ServiceAccount
+              name: percona-xtradb-cluster-operator
+              namespace: "pxc-operator"
+            ...
+            env:
+                     - name: WATCH_NAMESPACE
+                       value: "pxc"
+            ...
+
+#. Apply the ``deploy/cw-bundle.yaml`` file with the following command:
 
    .. code:: bash
 

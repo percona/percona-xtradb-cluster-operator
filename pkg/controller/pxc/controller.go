@@ -294,19 +294,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to get current PXC service")
 		}
-		ports := []corev1.ServicePort{
-			{
-				Port: 3306,
-				Name: "mysql",
-			},
-		}
-		if o.CompareVersionWith("1.6.0") >= 0 {
-			currentService.Spec.Ports = append(ports,
-				corev1.ServicePort{
-					Port: 33062,
-					Name: "mysql-admin"},
-			)
-		}
+
+		currentService.Spec.Ports = pxcService.Spec.Ports
+
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
 			err = fmt.Errorf("PXC service upgrade error: %v", err)

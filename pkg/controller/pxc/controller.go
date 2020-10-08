@@ -288,7 +288,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	for _, pxcService := range []corev1.Service{*pxc.NewServicePXC(o), *pxc.NewServicePXCUnready(o)} {
+	for _, pxcService := range []*corev1.Service{pxc.NewServicePXC(o), pxc.NewServicePXCUnready(o)} {
 		currentService := &corev1.Service{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pxcService.Name, Namespace: pxcService.Namespace}, currentService)
 		if err != nil {

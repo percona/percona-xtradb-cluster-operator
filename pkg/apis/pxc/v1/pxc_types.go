@@ -283,7 +283,7 @@ type StatefulApp interface {
 	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy
 }
 
-const clusterNameMaxLen = 22
+const clusterNameMaxLen = 32
 
 var defaultPXCGracePeriodSec int64 = 600
 var livenessInitialDelaySeconds int32 = 300

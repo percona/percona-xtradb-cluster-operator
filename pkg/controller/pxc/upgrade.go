@@ -332,7 +332,7 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 
 		hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 		if err != nil {
-			return database, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+			return database, errors.Wrap(err, "check if config has proxy_protocol_networks key")
 		}
 
 		if hasKey && cr.CompareVersionWith("1.6.0") >= 0 {

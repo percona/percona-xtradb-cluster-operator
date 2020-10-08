@@ -66,6 +66,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "manage operator admin user")
 		}
+		if cr.CompareVersionWith("1.6.0") >= 0 {
+			// monitor user need more grants for work in version more then 1.6.0
+			err = r.manageMonitorUser(cr, &internalSysSecretObj)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "manage monitor user")
+			}
+		}
 	}
 
 	if cr.Status.Status != api.AppStateReady {
@@ -77,14 +84,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil, nil, errors.Wrap(err, "marshal sys secret data")
 	}
 	newSecretDataHash := sha256Hash(newSysData)
-
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		// monitor user need more grants for work in version more then 1.6.0
-		err = r.manageMonitorUser(cr, &internalSysSecretObj)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "manage monitor user")
-		}
-	}
 
 	dataChanged, err := sysUsersSecretDataChanged(newSecretDataHash, &internalSysSecretObj)
 	if err != nil {
@@ -131,13 +130,22 @@ func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBC
 		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
-	um, err := users.NewManager(cr.Name+"-pxc-unready."+cr.Namespace+":33062", pxcUser, pxcPass)
+	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
+	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	if err != nil {
+		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	}
+	if hasKey {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+
+	um, err := users.NewManager(addr, pxcUser, pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "new users manager for grant")
 	}
 	defer um.Close()
 
-	err = um.Update160MonitorUserGrant()
+	err = um.Update160MonitorUserGrant(string(internalSysSecretObj.Data["monitor"]))
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
 	}

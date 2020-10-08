@@ -276,6 +276,32 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	for _, pxcService := range []corev1.Service{*pxc.NewServicePXC(o), *pxc.NewServicePXCUnready(o)} {
+		currentService := &corev1.Service{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pxcService.Name, Namespace: pxcService.Namespace}, currentService)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to get current PXC service")
+		}
+		ports := []corev1.ServicePort{
+			{
+				Port: 3306,
+				Name: "mysql",
+			},
+		}
+		if o.CompareVersionWith("1.6.0") >= 0 {
+			currentService.Spec.Ports = append(ports,
+				corev1.ServicePort{
+					Port: 33062,
+					Name: "mysql-admin"},
+			)
+		}
+		err = r.client.Update(context.TODO(), currentService)
+		if err != nil {
+			err = fmt.Errorf("PXC service upgrade error: %v", err)
+			return reconcile.Result{}, err
+		}
+	}
+
 	haProxySet := statefulset.NewHAProxy(o)
 	haProxyService := pxc.NewServiceHAProxy(o)
 
@@ -293,57 +319,28 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 
+		ports := []corev1.ServicePort{
+			{
+				Port:       3306,
+				TargetPort: intstr.FromInt(3306),
+				Name:       "mysql",
+			},
+			{
+				Port:       3309,
+				TargetPort: intstr.FromInt(3309),
+				Name:       "proxy-protocol",
+			},
+		}
+
 		if len(o.Spec.HAProxy.ServiceType) > 0 {
 			//Upgrading service only if something is changed
 			if currentService.Spec.Type != o.Spec.HAProxy.ServiceType {
-				currentService.Spec.Ports = []corev1.ServicePort{
-					{
-						Port:       3306,
-						TargetPort: intstr.FromInt(3306),
-						Name:       "mysql",
-					},
-					{
-						Port:       3309,
-						TargetPort: intstr.FromInt(3309),
-						Name:       "proxy-protocol",
-					},
-				}
-				if o.CompareVersionWith("1.6.0") >= 0 {
-					currentService.Spec.Ports = append(
-						currentService.Spec.Ports,
-						corev1.ServicePort{
-							Port:       33062,
-							TargetPort: intstr.FromInt(33062),
-							Name:       "mysql-admin",
-						},
-					)
-				}
+				currentService.Spec.Ports = ports
 				currentService.Spec.Type = o.Spec.HAProxy.ServiceType
 			}
 			//Checking default ServiceType
 		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
-			currentService.Spec.Ports = []corev1.ServicePort{
-				{
-					Port:       3306,
-					TargetPort: intstr.FromInt(3306),
-					Name:       "mysql",
-				},
-				{
-					Port:       3309,
-					TargetPort: intstr.FromInt(3309),
-					Name:       "proxy-protocol",
-				},
-			}
-			if o.CompareVersionWith("1.6.0") >= 0 {
-				currentService.Spec.Ports = append(
-					currentService.Spec.Ports,
-					corev1.ServicePort{
-						Port:       33062,
-						TargetPort: intstr.FromInt(33062),
-						Name:       "mysql-admin",
-					},
-				)
-			}
+			currentService.Spec.Ports = ports
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
 
@@ -353,6 +350,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.HAProxy.ExternalTrafficPolicy {
 				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
 			}
+		}
+
+		if o.CompareVersionWith("1.6.0") >= 0 {
+			currentService.Spec.Ports = append(ports,
+				corev1.ServicePort{
+					Port:       33062,
+					TargetPort: intstr.FromInt(33062),
+					Name:       "mysql-admin",
+				},
+			)
 		}
 
 		err = r.client.Update(context.TODO(), currentService)
@@ -403,43 +410,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 
+		ports := []corev1.ServicePort{
+			{
+				Port: 3306,
+				Name: "mysql",
+			},
+		}
+
 		if len(o.Spec.ProxySQL.ServiceType) > 0 {
 			//Upgrading service only if something is changed
 			if currentService.Spec.Type != o.Spec.ProxySQL.ServiceType {
-				currentService.Spec.Ports = []corev1.ServicePort{
-					{
-						Port: 3306,
-						Name: "mysql",
-					},
-				}
-				if o.CompareVersionWith("1.6.0") >= 0 {
-					currentService.Spec.Ports = append(
-						currentService.Spec.Ports,
-						corev1.ServicePort{
-							Port: 33062,
-							Name: "mysql-admin",
-						},
-					)
-				}
+				currentService.Spec.Ports = ports
 				currentService.Spec.Type = o.Spec.ProxySQL.ServiceType
 			}
 			//Checking default ServiceType
 		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
-			currentService.Spec.Ports = []corev1.ServicePort{
-				{
-					Port: 3306,
-					Name: "mysql",
-				},
-			}
-			if o.CompareVersionWith("1.6.0") >= 0 {
-				currentService.Spec.Ports = append(
-					currentService.Spec.Ports,
-					corev1.ServicePort{
-						Port: 33062,
-						Name: "mysql-admin",
-					},
-				)
-			}
+			currentService.Spec.Ports = ports
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
 
@@ -449,6 +435,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.ProxySQL.ExternalTrafficPolicy {
 				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
 			}
+		}
+
+		if o.CompareVersionWith("1.6.0") >= 0 {
+			currentService.Spec.Ports = append(
+				ports,
+				corev1.ServicePort{
+					Port: 33062,
+					Name: "mysql-admin",
+				},
+			)
 		}
 
 		err = r.client.Update(context.TODO(), currentService)

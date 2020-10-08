@@ -265,7 +265,19 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, o.Spec.PXC.ContainerSecurityContext))
+		imageName := operatorPod.Spec.Containers[0].Image
+		if o.CompareVersionWith(version.Version) != 0 {
+			imageName = strings.Split(imageName, ":")[0] + ":" + o.Spec.CRVersion
+		}
+		var initResources *api.PodResources
+		if o.CompareVersionWith("1.6.0") >= 0 {
+			initResources = o.Spec.PXC.Resources
+		}
+		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		inits = append(inits, initC)
 	}
 
 	pxcSet := statefulset.NewNode(o)
@@ -526,7 +538,19 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, cr.Spec.PXC.ContainerSecurityContext))
+		imageName := operatorPod.Spec.Containers[0].Image
+		if cr.CompareVersionWith(version.Version) != 0 {
+			imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
+		}
+		var initResources *api.PodResources
+		if cr.CompareVersionWith("1.6.0") >= 0 {
+			initResources = cr.Spec.PXC.Resources
+		}
+		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext)
+		if err != nil {
+			return err
+		}
+		inits = append(inits, initC)
 	}
 
 	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, inits)
@@ -570,7 +594,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
 	}
 	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = sslHash
+		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
 	}
 
 	err = setControllerReference(cr, nodeSet, r.scheme)

@@ -97,6 +97,17 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 	}
 
 	if cr.CompareVersionWith("1.6.0") >= 0 {
+		redinessDelay := int32(15)
+		if spec.ReadinessInitialDelaySeconds != nil {
+			redinessDelay = *spec.ReadinessInitialDelaySeconds
+		}
+		appc.ReadinessProbe = app.Probe(&corev1.Probe{
+			InitialDelaySeconds: redinessDelay,
+			TimeoutSeconds:      1,
+			PeriodSeconds:       5,
+			FailureThreshold:    3,
+		}, "/usr/local/bin/readiness-check.sh")
+
 		appc.Ports = append(
 			appc.Ports,
 			corev1.ContainerPort{

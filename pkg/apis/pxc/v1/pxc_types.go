@@ -283,7 +283,7 @@ type StatefulApp interface {
 	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy
 }
 
-const clusterNameMaxLen = 32
+const clusterNameMaxLen = 22
 
 var defaultPXCGracePeriodSec int64 = 600
 var livenessInitialDelaySeconds int32 = 300
@@ -327,6 +327,12 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // returned "changed" means CR should be updated on cluster
 func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion) (changed bool, err error) {
 	CRVerChanged, err := cr.setVersion()
+
+	workloadSA := "percona-xtradb-cluster-operator-workload"
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		workloadSA = WorkloadSA
+	}
+
 	if err != nil {
 		return false, errors.Wrap(err, "set version")
 	}
@@ -394,7 +400,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		if len(c.PXC.ServiceAccountName) == 0 {
-			c.PXC.ServiceAccountName = WorkloadSA
+			c.PXC.ServiceAccountName = workloadSA
 		}
 
 		c.PXC.reconcileAffinityOpts()
@@ -435,7 +441,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		if len(c.HAProxy.ServiceAccountName) == 0 {
-			c.HAProxy.ServiceAccountName = WorkloadSA
+			c.HAProxy.ServiceAccountName = workloadSA
 		}
 
 		c.HAProxy.reconcileAffinityOpts()
@@ -481,7 +487,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		if len(c.ProxySQL.ServiceAccountName) == 0 {
-			c.ProxySQL.ServiceAccountName = WorkloadSA
+			c.ProxySQL.ServiceAccountName = workloadSA
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()

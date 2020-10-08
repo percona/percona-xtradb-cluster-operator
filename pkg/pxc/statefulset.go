@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,6 +70,11 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	if podSpec.ForceUnsafeBootstrap {
 		ic := appC.DeepCopy()
 		ic.Name = ic.Name + "-init-unsafe"
+		res, err := app.CreateResources(podSpec.Resources)
+		if err != nil {
+			return nil, errors.Wrap(err, "create resources")
+		}
+		ic.Resources = res
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil
 		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}

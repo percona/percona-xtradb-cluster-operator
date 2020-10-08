@@ -30,7 +30,7 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.0.13-percona-1.1
+admin-version	2.0.14-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
 mysql-add_ldap_user_comment	
@@ -48,6 +48,7 @@ mysql-client_session_track_gtid	true
 mysql-commands_stats	true
 mysql-connect_retries_delay	1
 mysql-connect_retries_on_failure	10
+mysql-connect_timeout_client	10000
 mysql-connect_timeout_server	10000
 mysql-connect_timeout_server_max	100500
 mysql-connection_delay_multiplex_ms	0
@@ -111,6 +112,7 @@ mysql-monitor_query_timeout	100
 mysql-monitor_read_only_interval	1000
 mysql-monitor_read_only_max_timeout_count	3
 mysql-monitor_read_only_timeout	800
+mysql-monitor_replication_lag_count	1
 mysql-monitor_replication_lag_interval	10000
 mysql-monitor_replication_lag_timeout	1000
 mysql-monitor_replication_lag_use_percona_heartbeat	
@@ -140,7 +142,7 @@ mysql-query_processor_iterations	0
 mysql-query_retries_on_failure	1
 mysql-reset_connection_algorithm	2
 mysql-server_capabilities	571947
-mysql-server_version	8.0.19
+mysql-server_version	8.0.20
 mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true

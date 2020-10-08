@@ -22,7 +22,11 @@ conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
 
 if oc get projects ; then
-    OPENSHIFT=1
+    # Guessing Openshift version from master node API version
+    case "$(oc get nodes --no-headers=true | grep master | head -n1 | grep -Eo 'v[0-9]+\.[0-9]+')" in
+        "v1.11") OPENSHIFT=3.11 ;;
+              *) OPENSHIFT=4    ;;
+    esac
 fi
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
@@ -52,10 +56,10 @@ create_namespace() {
     local skip_clean_namespace="$2"
 
     if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
-    if [ "$OPENSHIFT" == 1 ]; then
+    if [ ! -z "$OPENSHIFT" ]; then
         oc delete project "$namespace" && sleep 40 || :
         oc new-project "$namespace"
         oc project "$namespace"
@@ -223,8 +227,11 @@ compare_kubectl() {
     local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
     local new_result="${tmp_dir}/${resource//\//_}.yml"
 
-    if [ "$OPENSHIFT" = 1 -a -f ${expected_result//.yml/-oc.yml} ]; then
+    if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
         expected_result=${expected_result//.yml/-oc.yml}
+        if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
+            expected_result=${expected_result//-oc.yml/-4-oc.yml}
+        fi
     fi
 
     if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
@@ -240,6 +247,7 @@ compare_kubectl() {
         | yq d - 'metadata.selfLink' \
         | yq d - 'metadata.deletionTimestamp' \
         | yq d - 'metadata.annotations."k8s.v1.cni.cncf.io*"' \
+        | yq d - 'metadata.annotations."kubernetes.io/psp"' \
         | yq d - '**.(name==percona-xtradb-cluster-operator-workload-token*)' \
         | yq d - '**.creationTimestamp' \
         | yq d - '**.image' \
@@ -450,10 +458,10 @@ destroy() {
     kubectl_bin delete pxc-restore --all || :
 
     kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :
-    if [ "$OPENSHIFT" == 1 ]; then
-        oc delete --grace-period=0 --force=true project "$namespace"
+    if [ ! -z "$OPENSHIFT" ]; then
+        oc delete --grace-period=0 --force=true project "$namespace" &
     else
-        kubectl_bin delete --grace-period=0 --force=true namespace "$namespace"
+        kubectl_bin delete --grace-period=0 --force=true namespace "$namespace" &
     fi
     rm -rf ${tmp_dir}
 }
@@ -818,7 +826,7 @@ EOF
     kubectl_bin get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' > ${tmp_dir}/serverCert
     openssl base64 -in ${tmp_dir}/serverCert -d -A -out ${tmp_dir}/vault.crt
     kubectl_bin config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d > ${tmp_dir}/vault.ca
-    if [[ ${OPENSHIFT} == 1 ]]; then
+    if [[ ! -z ${OPENSHIFT} ]]; then
         if [[ "x$(kubectl_bin get namespaces | awk '{print $1}' | grep openshift-kube-controller-manager-operator)" != "x" ]]; then
             #Detecting openshift 4+
             kubectl_bin -n openshift-kube-controller-manager-operator get secret csr-signer -o jsonpath='{.data.tls\.crt}' \
@@ -846,7 +854,7 @@ start_vault() {
 
     local platform=kubernetes
 
-    if [[ ${OPENSHIFT} == 1 ]]; then
+    if [[ ! -z ${OPENSHIFT} ]]; then
         platform=openshift
         oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
     fi
@@ -890,7 +898,7 @@ storage \"file\" {
             --set global.platform="${platform}"
     fi
 
-    if [[ "${OPENSHIFT}" == 1 ]]; then
+    if [[ ! -z "${OPENSHIFT}" ]]; then
         oc patch clusterrole $name-agent-injector-clusterrole --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
         oc adm policy add-scc-to-user privileged $name-agent-injector
     fi

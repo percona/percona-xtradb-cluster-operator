@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+
 	"github.com/pkg/errors"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -121,6 +123,11 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	if podSpec.ForceUnsafeBootstrap {
 		ic := appC.DeepCopy()
+		res, err := app.CreateResources(podSpec.Resources)
+		if err != nil {
+			return errors.Wrap(err, "create resources")
+		}
+		ic.Resources = res
 		ic.Name = ic.Name + "-init-unsafe"
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil
@@ -323,7 +330,12 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 		host = fmt.Sprintf("%s-haproxy.%s", cr.ObjectMeta.Name, cr.Namespace)
 		proxySize = cr.Spec.HAProxy.Size
 
-		if cr.CompareVersionWith("1.6.0") >= 0 {
+		hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+		if err != nil {
+			return database, errors.Wrap(err, "check if config has proxy_protocol_networks key")
+		}
+
+		if hasKey && cr.CompareVersionWith("1.6.0") >= 0 {
 			port = 33062
 		} else {
 			port = 3306

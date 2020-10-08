@@ -29,7 +29,7 @@ main() {
     keyring_plugin_must_be_in_use "$cluster"
     table_must_not_be_encrypted "$cluster" "myApp"
 
-    kubectl delete --grace-period=0 --force=true namespace $vault1
+    kubectl delete --grace-period=0 --force=true namespace $vault1 &
     helm delete $vault1 || :
     destroy $namespace
 }

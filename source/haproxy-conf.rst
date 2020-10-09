@@ -1,4 +1,4 @@
-.. haproxy-conf::
+.. _haproxy-conf:
 
 Configuring Load Balancing with HAProxy
 =======================================
@@ -45,7 +45,7 @@ until the upgraded PXC member becomes synced, and then
 proceeds to upgrade the next member. When the upgrade is finished for all 
 the readers, then the writer PXC member is finally upgraded.
 
-.. haproxy-conf-custom::
+.. _haproxy-conf-custom:
 
 Passing custom configuration options to HAProxy
 -----------------------------------------------
@@ -92,7 +92,7 @@ Here is an example of HAProxy configuration passed through ``deploy/cr.yaml``:
            default_backend galera-replica-nodes
     ...
 
-.. haproxy-conf-protocol::
+.. _haproxy-conf-protocol:
 
 Enabling the Proxy protocol
 -----------------------------------------------

@@ -13,7 +13,7 @@ New Features
 * :jirabug:`K8SPXC-394`: Support of :ref:`"cluster-wide" mode<install-clusterwide>` for Percona XtraDB Cluster Operator
 * :jirabug:`K8SPXC-416`: :ref:`Support of the proxy-protocol<haproxy-conf-protocol>` in HAProxy
 * :jirabug:`K8SPXC-429`: A possibility to :ref:`restore backups to a new Kubernetes-based environment<backups-restore>` with no existing Percona XtraDB Cluster Custom Resource
-* :jirabug:`K8SPXC-343`: Helm chart :ref:`officially provided with the Operator`
+* :jirabug:`K8SPXC-343`: Helm chart :ref:`officially provided with the Operator<install-helm>`
 
 Improvements
 ================================================================================

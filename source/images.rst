@@ -13,20 +13,24 @@ Percona XtraDB Cluster Operator:
 
          * - Image
            - Digest
-         * - percona/percona-xtradb-cluster-operator:1.5.0
-           - 99c551f5437ed5f2fe004877c15a4665260969d0923f7c95fbf7a4c9e7305bb1
-         * - percona/percona-xtradb-cluster-operator:1.5.0-haproxy
-           - 6978a9a4a49515fd8be713312221ab72729a220c180663c5bfdd5bd6d3317504
-         * - percona/percona-xtradb-cluster-operator:1.5.0-proxysql
-           - 629f344e6d6b4e2cec95a461cfcba7f48759bb742182c4ebff453707aba77b6b
-         * - percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0-backup
-           - 7cddeedaa90ec9ba529340e34ee5662c9485139b2b197fc0abdbb6c261a14f62
-         * - percona/percona-xtradb-cluster-operator:1.5.0-pxc5.7-backup
-           - 6191dd4f7b8678d69dea9a87e083becfbba1a633ef725a0513babd55e5ac76f3
-         * - percona/percona-xtradb-cluster-operator:1.5.0-pmm
+         * - percona/percona-xtradb-cluster-operator:1.6.0
+           - 9871d6fb960b4ec498430a398a44eca08873591a6b6efb8a35349e79e24f3072
+         * - percona/percona-xtradb-cluster-operator:1.6.0-haproxy
+           - 59bcc3ae1e3aadb410a89ed266102045437753a82e79501caa74d40c529a9955
+         * - percona/percona-xtradb-cluster-operator:1.6.0-proxysql
+           - 5c0ee8cb56f3a9cd01b907c2edddc8265b9d84d58a48bae31f8ee460d40ad3d6
+         * - percona/percona-xtradb-cluster-operator:1.6.0-pxc8.0-backup
+           - 3d57e1174bac5c1c10b253437205682445c1f72c9b2b462bc8375e211c0265b5
+         * - percona/percona-xtradb-cluster-operator:1.6.0-pxc5.7-backup
+           - 6b7e5f284e99553ab6a0c1dc3d8104b3e908d2bac8a71d52d2ea068c3df7d252
+         * - percona/percona-xtradb-cluster-operator:1.6.0-pmm
            - 28bbb6693689a15c407c85053755334cd25d864e632ef7fed890bc85726cfb68
+         * - percona/percona-xtradb-cluster:8.0.20-11.1
+           - 54b1b2f5153b78b05d651034d4603a13e685cbb9b45bfa09a39864fa3f169349
          * - percona/percona-xtradb-cluster:8.0.19-10.1
            - 1058ae8eded735ebdf664807aad7187942fc9a1170b3fd0369574cb61206b63a
+         * - percona/percona-xtradb-cluster:5.7.31-31.45
+           - 3852cef43cc0c6aa791463ba6279e59dcdac3a4fb1a5616c745c1b3c68041dc2
          * - percona/percona-xtradb-cluster:5.7.30-31.43
            - b03a060e9261b37288a2153c78f86dcfc53367c36e1bcdcae046dd2d0b0721af
          * - percona/percona-xtradb-cluster:5.7.29-31.43

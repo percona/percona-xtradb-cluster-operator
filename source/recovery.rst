@@ -63,7 +63,22 @@ which is based on three PXC Pods.
 .. note:: The following commands are written for PXC 8.0. The same steps are
    also for PXC 5.7 unless specifically indicated otherwise.
 
-1. Change the normal PXC image inside the cluster object to the debug image:
+#. Check the current Update Strategy with the following command:
+
+   .. code-block:: bash
+
+      $ kubectl get pxc cluster1 -o jsonpath='{.spec.updateStrategy}'
+
+   If the returned value is different from ``onDelete`` (e.g., you are using
+   :ref:`Smart Updates<operator-update-smartupdates>` and therefore have 
+   ``updateStrategy=SmartUpdate``), please remember the old value and change it
+   to ``onDelete`` with the following command:
+
+   .. code-block:: bash
+
+      $ kubectl patch pxc cluster1 --type=merge --patch '{"spec": {"updateStrategy": "OnDelete" }}'
+
+#. Change the normal PXC image inside the cluster object to the debug image:
 
    .. code-block:: bash
 
@@ -75,26 +90,26 @@ which is based on three PXC Pods.
 
          $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster:{{{pxc57recommended}}}-debug"}}}'
 
-2. Restart all Pods:
+#. Restart all Pods:
 
    .. code-block:: bash
 
       $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do kubectl delete pod cluster1-pxc-$i --force --grace-period=0; done
 
-3. Wait until the Pod ``0`` is ready, and execute the following code (it is
+#. Wait until the Pod ``0`` is ready, and execute the following code (it is
    required for the Pod liveness check):
 
    .. code-block:: bash
 
       $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do until [[ $(kubectl get pod cluster1-pxc-$i -o jsonpath='{.status.phase}') == 'Running' ]]; do sleep 10; done; kubectl exec cluster1-pxc-$i -- touch /var/lib/mysql/sst_in_progress; done
 
-4. Wait for all PXC Pods to start, and execute the following code to make sure no mysqld processes are running:
+#. Wait for all PXC Pods to start, and execute the following code to make sure no mysqld processes are running:
 
    .. code-block:: bash
 
       $ for i in $(seq $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do pid=$(kubectl exec cluster1-pxc-$i -- ps -C mysqld-ps -o pid=); if [[ -n "$pid" ]]; then kubectl exec cluster1-pxc-$i -- kill -9 $pid; fi;  done
 
-5. Wait for all PXC Pods to start, then find the PXC instance with the most
+#. Wait for all PXC Pods to start, then find the PXC instance with the most
    recent data - i.e. the one with the highest `sequence number (seqno) <https://www.percona.com/blog/2017/12/14/sequence-numbers-seqno-percona-xtradb-cluster/>`_:
 
    .. code-block:: bash
@@ -125,7 +140,7 @@ which is based on three PXC Pods.
    Now find the Pod with the largest ``seqno`` (it is ``cluster1-pxc-2`` in the
    above example).
 
-6. Now execute the following commands *in a separate shell* to start this
+#. Now execute the following commands *in a separate shell* to start this
    instance:
 
    .. code-block:: bash
@@ -138,7 +153,7 @@ which is based on three PXC Pods.
    The ``mysqld`` process will initialize the database once again, and it will
    be available for the incoming connections.
 
-7. Go back *to the previous shell* and return the original PXC image because the
+#. Go back *to the previous shell* and return the original PXC image because the
    debug image is no longer needed:
 
    .. code-block:: bash
@@ -151,18 +166,27 @@ which is based on three PXC Pods.
 
          $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster:{{{pxc57recommended}}}"}}}'
 
-8. Restart all Pods besides the ``cluster1-pxc-2`` Pod (the recovery donor).
+#. Restart all Pods besides the ``cluster1-pxc-2`` Pod (the recovery donor).
 
    .. code-block:: bash
 
       $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do until [[ $(kubectl get pod cluster1-pxc-$i -o jsonpath='{.status.phase}') == 'Running' ]]; do sleep 10; done; kubectl exec cluster1-pxc-$i -- rm /var/lib/mysql/sst_in_progress; done
       $ kubectl delete pods --force --grace-period=0 cluster1-pxc-0 cluster1-pxc-1
 
-9. Wait for the successful startup of the Pods which were deleted during the
+#. Wait for the successful startup of the Pods which were deleted during the
    previous step, and finally remove the ``cluster1-pxc-2`` Pod:
 
    .. code-block:: bash
 
       $ kubectl delete pods --force --grace-period=0 cluster1-pxc-2
 
-10. After the Pod startup, the cluster is fully recovered.
+#. After the Pod startup, the cluster is fully recovered.
+
+   .. note:: If you have changed the update strategy on the 1st step, don't
+      forget to revert it with the command similar to the one you have already
+      used to change it. For example, changing it back to ``SmartUpdate`` would
+      look as follows:
+
+      .. code-block:: bash
+
+         $ kubectl patch pxc cluster1 --type=merge --patch '{"spec": {"updateStrategy": "SmartUpdate" }}'

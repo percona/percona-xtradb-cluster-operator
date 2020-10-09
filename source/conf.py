@@ -37,12 +37,12 @@ project = u'Percona Kubernetes Operator for PXC'
 copyright = u'Percona LLC and/or its affiliates 2009 - 2020'
 
 # the short X.Y version
-version = '1.5.0'
+version = '1.6.0'
 # the full version including alpha/beta/rc tags.
-release = '1.5.0'
+release = '1.6.0'
 # the PXC 5.7 and PXC 8.0 recommended versions to be used in docs
-pxc57recommended = '5.7.30-31.43'
-pxc80recommended = '8.0.19-10.1'
+pxc57recommended = '5.7.31-31.45'
+pxc80recommended = '8.0.20-11.1'
 
 
 # List of patterns, relative to source directory, that match files and

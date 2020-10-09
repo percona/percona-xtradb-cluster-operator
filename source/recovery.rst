@@ -63,16 +63,16 @@ which is based on three PXC Pods.
 .. note:: The following commands are written for PXC 8.0. The same steps are
    also for PXC 5.7 unless specifically indicated otherwise.
 
-#. Check the current Update Strategy with the following command:
+#. Check the current Update Strategy with the following command to make sure
+   :ref:`Smart Updates<operator-update-smartupdates>` are turned off during the
+   recovery:
 
    .. code-block:: bash
 
       $ kubectl get pxc cluster1 -o jsonpath='{.spec.updateStrategy}'
 
-   If the returned value is different from ``onDelete`` (e.g., you are using
-   :ref:`Smart Updates<operator-update-smartupdates>` and therefore have 
-   ``updateStrategy=SmartUpdate``), please remember the old value and change it
-   to ``onDelete`` with the following command:
+   If the returned value is ``SmartUpdate``, please change it to ``onDelete``
+   with the following command:
 
    .. code-block:: bash
 
@@ -183,9 +183,7 @@ which is based on three PXC Pods.
 #. After the Pod startup, the cluster is fully recovered.
 
    .. note:: If you have changed the update strategy on the 1st step, don't
-      forget to revert it with the command similar to the one you have already
-      used to change it. For example, changing it back to ``SmartUpdate`` would
-      look as follows:
+      forget to revert it back to ``SmartUpdate`` with the following command:
 
       .. code-block:: bash
 

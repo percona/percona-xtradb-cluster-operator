@@ -34,7 +34,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 
-	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" {
+	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" && cr.CompareVersionWith("1.7.0") == -1 {
 		t := true
 		pod.ShareProcessNamespace = &t
 	}

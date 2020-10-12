@@ -208,7 +208,7 @@ also on any Kubernetes-based environment with the installed Operator.
 
 .. note:: When restoring to a new Kubernetes-based environment, make sure it
    has a Secrets object with the same user passwords as in the original cluster.
-   More details about secrets can be found in :ref:`users`.
+   More details about secrets can be found in :ref:`users.system-users`.
 
 Following steps are needed to restore a previously saved backup:
 

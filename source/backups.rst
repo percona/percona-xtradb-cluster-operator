@@ -205,6 +205,11 @@ Restore the cluster from a previously saved backup
 
 Backup can be restored not only on the Kubernetes cluster where it was made, but
 also on any Kubernetes-based environment with the installed Operator.
+
+.. note:: When restoring to a new Kubernetes-based environment, make sure it
+   has a Secrets object with the same user passwords as in the original cluster.
+   More details about secrets can be found in :ref:`users`.
+
 Following steps are needed to restore a previously saved backup:
 
 1. First of all make sure that the cluster is running.

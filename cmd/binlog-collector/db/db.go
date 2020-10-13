@@ -1,8 +1,8 @@
 package db
 
 import (
-	"bytes"
 	"database/sql"
+	"io"
 	"os/exec"
 	"strings"
 
@@ -10,6 +10,9 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 )
+
+var UsingPassErrorMessage = `mysqlbinlog: [Warning] Using a password on the command line interface can be insecure.
+`
 
 // Manager is a type for working with pxc
 type Manager struct {
@@ -118,19 +121,22 @@ func (m *Manager) GetBinLogNameByGTIDSet(gtidSet string) (string, error) {
 	return strings.Replace(binlog, "./", "", -1), nil
 }
 
-// GetBinLogFileContent return content of given binary log file
-func (m *Manager) GetBinLogFileContent(binlogName string) ([]byte, error) {
+// GetBinLogFileContent return pipes with stdout end stderr of given binary log file
+func (m *Manager) GetBinLogFileContent(binlogName string) (io.ReadCloser, io.ReadCloser, error) {
 	cmnd := exec.Command("mysqlbinlog", "-R", "-h"+m.config.Addr, "-u"+m.config.User, "-p"+m.config.Passwd, binlogName)
-	var stdout, stderr bytes.Buffer
-	cmnd.Stdout = &stdout
-	cmnd.Stderr = &stderr
-	err := cmnd.Run()
+
+	out, err := cmnd.StdoutPipe()
 	if err != nil {
-		return nil, errors.Wrap(err, "run mysqlbinlog command")
+		return nil, nil, errors.Wrap(err, "get stdout pipe")
 	}
-	if stderr.Bytes() != nil && !strings.Contains(stderr.String(), "Using a password on the command line") {
-		return nil, errors.New(stderr.String())
+	errOut, err := cmnd.StderrPipe()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "get stderr pipe")
+	}
+	err = cmnd.Start()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "run mysqlbinlog command")
 	}
 
-	return stdout.Bytes(), nil
+	return out, errOut, nil
 }

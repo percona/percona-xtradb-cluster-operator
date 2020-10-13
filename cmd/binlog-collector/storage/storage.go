@@ -54,15 +54,19 @@ func (m *Manager) GetObjectContent(objectName string) ([]byte, error) {
 	return objCont.Bytes(), nil
 }
 
-// PutObject puts new object to storage with given name and content
-func (m *Manager) PutObject(name, content string) error {
-	var objCont bytes.Buffer
-	_, err := objCont.WriteString(content)
-	if err != nil {
-		return errors.Wrap(err, "write content to buffer")
-	}
+type reader struct {
+	r io.Reader
+}
 
-	_, err = m.minioClient.PutObject(m.ctx, m.bucketName, name, &objCont, -1, minio.PutObjectOptions{ContentType: "application/text"})
+func (r *reader) Read(p []byte) (int, error) {
+	return r.r.Read(p)
+}
+
+// PutObject puts new object to storage with given name and content
+func (m *Manager) PutObject(name string, data io.Reader) error {
+	r := reader{data}
+
+	_, err := m.minioClient.PutObject(m.ctx, m.bucketName, name, &r, -1, minio.PutObjectOptions{ContentType: "application/text"})
 	if err != nil {
 		return errors.Wrap(err, "put object")
 	}

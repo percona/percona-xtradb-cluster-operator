@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"log"
 	"strings"
 
@@ -60,12 +62,23 @@ func collectBinLogFiles(dbm *db.Manager, sm *storage.Manager) error {
 		if binlog == binlogName { // this check is for uploading starting from needed file
 			upload = true
 		}
+
 		if upload {
-			binlogFileContent, err := dbm.GetBinLogFileContent(binlog)
+			fmt.Println("get", binlog)
+			binlogFileContent, errOut, err := dbm.GetBinLogFileContent(binlog)
 			if err != nil {
 				return errors.Wrap(err, "get binlog content")
 			}
-			err = sm.PutObject(binlog, string(binlogFileContent))
+
+			if errOut != nil {
+				var stderr bytes.Buffer
+				stderr.ReadFrom(errOut)
+				if stderr.String() != db.UsingPassErrorMessage {
+					return errors.New(stderr.String())
+				}
+
+			}
+			err = sm.PutObject(binlog, binlogFileContent)
 			if err != nil {
 				return errors.Wrap(err, "put binlog object")
 			}
@@ -74,7 +87,14 @@ func collectBinLogFiles(dbm *db.Manager, sm *storage.Manager) error {
 			if err != nil {
 				return errors.Wrap(err, "get GTID set")
 			}
-			err = sm.PutObject(sm.LastSetObjectName, set)
+			var setBuffer bytes.Buffer
+			setBuffer.WriteString(set)
+			err = sm.PutObject(binlog+"-gtid-set", &setBuffer)
+			if err != nil {
+				return errors.Wrap(err, "put gtid-set object")
+			}
+			setBuffer.WriteString(set)
+			err = sm.PutObject(sm.LastSetObjectName, &setBuffer)
 			if err != nil {
 				return errors.Wrap(err, "put last-set object")
 			}

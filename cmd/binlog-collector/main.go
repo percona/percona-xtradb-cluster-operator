@@ -3,42 +3,35 @@ package main
 import (
 	"log"
 	"os"
-	"strings"
 	"time"
+
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/binlog-collector/controller"
 )
 
-type config struct {
-	pxcHosts      []string
-	pxcUser       string
-	pxcPass       string
-	s3Endpoint    string
-	s3accessKeyID string
-	s3accessKey   string
-	s3bucketName  string
-}
-
 func main() {
+	c, err := controller.New(getConfig())
+	if err != nil {
+		log.Println("ERROR: new controller", err)
+		os.Exit(1)
+	}
 	for {
-		err := manageBinlogs(getConfig())
+		err := c.Run()
 		if err != nil {
 			log.Println("ERROR:", err)
 		}
-
 		time.Sleep(60 * time.Second)
 	}
 }
 
-func getConfig() config {
-	hostsString := getEnv("PXC_HOSTS", "127.0.0.1")
-
-	return config{
-		pxcHosts:      getHosts(hostsString),
-		pxcUser:       getEnv("PXC_USER", "root"),
-		pxcPass:       getEnv("PXC_PASS", "root"),
-		s3Endpoint:    getEnv("S3_ENDPOINT", "storage.googleapis.com"),
-		s3accessKeyID: getEnv("S3_ACCESS_KEY_ID", ""),
-		s3accessKey:   getEnv("S3_ACCESS_KEY", ""),
-		s3bucketName:  getEnv("S3_BUCKET_NAME", "binlog-test"),
+func getConfig() controller.Config {
+	return controller.Config{
+		PXCUser:        getEnv("PXC_USER", "root"),
+		PXCPass:        getEnv("PXC_PASS", "root"),
+		PXCServiceName: getEnv("PXC_SERVICE", "some-name"),
+		S3Endpoint:     getEnv("S3_ENDPOINT", "storage.googleapis.com"),
+		S3accessKeyID:  getEnv("S3_ACCESS_KEY_ID", ""),
+		S3accessKey:    getEnv("S3_ACCESS_KEY", ""),
+		S3bucketName:   getEnv("S3_BUCKET_NAME", "binlog-test"),
 	}
 }
 
@@ -49,8 +42,4 @@ func getEnv(key, defaultVal string) string {
 	}
 
 	return value
-}
-
-func getHosts(hosts string) []string {
-	return strings.Split(hosts, ",")
 }

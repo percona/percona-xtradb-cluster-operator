@@ -1,9 +1,9 @@
 package storage
 
 import (
-	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -20,16 +20,16 @@ type Manager struct {
 }
 
 // NewManager return new Manager
-func NewManager(endpoint, accessKeyID, secretAccessKey, bucketName, lastSetObjectName string, useSSL bool) (Manager, error) {
+func NewManager(endpoint, accessKeyID, secretAccessKey, bucketName, lastSetObjectName string, useSSL bool) (*Manager, error) {
 	minioClient, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
 	})
 	if err != nil {
-		return Manager{}, errors.Wrap(err, "new minio client")
+		return nil, errors.Wrap(err, "new minio client")
 	}
 
-	return Manager{
+	return &Manager{
 		minioClient:       minioClient,
 		ctx:               context.Background(),
 		useSSL:            useSSL,
@@ -45,13 +45,7 @@ func (m *Manager) GetObjectContent(objectName string) ([]byte, error) {
 		return nil, errors.Wrap(err, "get object")
 	}
 
-	var objCont bytes.Buffer
-	_, err = io.Copy(&objCont, oldObj)
-	if err != nil {
-		return nil, errors.Wrap(err, "copy content")
-	}
-
-	return objCont.Bytes(), nil
+	return ioutil.ReadAll(oldObj)
 }
 
 type reader struct {

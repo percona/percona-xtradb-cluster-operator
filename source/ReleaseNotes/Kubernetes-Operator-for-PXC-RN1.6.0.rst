@@ -31,10 +31,14 @@ Improvements
 Known Issues and Limitations
 ================================================================================
 
-OpenShift 3.11 requires additional configuration for the correct HAProxy operation:
-the feature gate ``PodShareProcessNamespace`` should be set to ``true``. If
-getting it enabled is not possible, we recommend using ProxySQL instead of
-HAProxy with OpenShift 3.11. Other OpenShift and Kubernetes versions are not affected.
+* OpenShift 3.11 requires additional configuration for the correct HAProxy operation:
+  the feature gate ``PodShareProcessNamespace`` should be set to ``true``. If
+  getting it enabled is not possible, we recommend using ProxySQL instead of
+  HAProxy with OpenShift 3.11. Other OpenShift and Kubernetes versions are not affected.
+* :jirabug:`K8SPXC-491`: Compressed backups are not compatible with the Operator 1.6.0
+  (``percona/percona-xtradb-cluster-operator:1.5.0-pxc8.0-backup`` or
+  ``percona/percona-xtradb-cluster-operator:1.5.0-pxc5.7-backup`` image can be
+  used as a workaround if needed).
 
 Bugs Fixed
 ================================================================================

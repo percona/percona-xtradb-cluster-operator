@@ -45,6 +45,9 @@ spec:
 #      xbstream-opts=--decompress
 #      [xtrabackup]
 #      compress=lz4
+#      for PXC 5.7
+#      [xtrabackup]
+#      compress
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    priorityClassName: high-priority

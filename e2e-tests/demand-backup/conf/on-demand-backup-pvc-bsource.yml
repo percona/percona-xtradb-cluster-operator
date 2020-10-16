@@ -3,5 +3,5 @@ kind: PerconaXtraDBClusterBackup
 metadata:
   name: on-demand-backup-pvc-bsource
 spec:
-  pxcCluster: some-name
+  pxcCluster: demand-backup
   storageName: pvc

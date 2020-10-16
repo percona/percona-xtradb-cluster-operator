@@ -87,23 +87,15 @@ func (c *Controller) closeDB() error {
 
 func (c *Controller) getHost() (string, error) {
 	cmd := exec.Command("peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+c.pxcServiceName)
-	err := cmd.Run()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", errors.Wrap(err, "get peer list")
+		return "", errors.Wrap(err, "get output")
 	}
-
-	var stdOut, stdErr bytes.Buffer
-	cmd.Stdout = &stdOut
-	cmd.Stderr = &stdErr
-	if stdErr.Bytes() != nil {
-		return "", errors.New("peer-list: " + stdErr.String())
-	}
-
-	nodes := strings.Split(stdOut.String(), "node:")
+	nodes := strings.Split(string(out), "node:")
 	for _, node := range nodes {
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
 			nodeArr := strings.Split(node, ".")
-			return nodeArr[0], nil
+			return nodeArr[0] + "." + c.pxcServiceName, nil
 		}
 	}
 

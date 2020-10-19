@@ -318,7 +318,7 @@ spec:
 #        cpu: 500m
   backup:
     image: percona/percona-xtradb-cluster-operator:1.6.0-pxc8.0-backup
-    serviceAccountName: percona-xtradb-cluster-operator
+#    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials
     storages:

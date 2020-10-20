@@ -668,8 +668,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = haProxyConfigHash
 		if cr.CompareVersionWith("1.5.0") == 0 {
-			haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-			haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+			if sslHash != "" {
+				haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+			}
+			if sslInternalHash != "" {
+				haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+			}
 		}
 		err = r.client.Create(context.TODO(), haProxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -722,8 +726,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 		if cr.CompareVersionWith("1.1.0") >= 0 {
 			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = proxyConfigHash
-			proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-			proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+			if sslHash != "" {
+				proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+			}
+			if sslInternalHash != "" {
+				proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+			}
 		}
 
 		err = r.client.Create(context.TODO(), proxySet)

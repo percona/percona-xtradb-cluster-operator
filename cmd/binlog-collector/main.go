@@ -3,28 +3,36 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
 	"time"
 
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/binlog-collector/controller"
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/binlog-collector/collector"
 )
 
 func main() {
-	c, err := controller.New(getConfig())
+	c, err := collector.New(getConfig())
 	if err != nil {
 		log.Println("ERROR: new controller", err)
 		os.Exit(1)
 	}
+
+	sleep, err := strconv.ParseInt(getEnv("SLEEP_SECONDS", "60"), 10, 64)
+	if err != nil {
+		log.Println("ERROR: get sleep env", err)
+		os.Exit(1)
+	}
+
 	for {
 		err := c.Run()
 		if err != nil {
 			log.Println("ERROR:", err)
 		}
-		time.Sleep(60 * time.Second)
+		time.Sleep(time.Duration(sleep) * time.Second)
 	}
 }
 
-func getConfig() controller.Config {
-	return controller.Config{
+func getConfig() collector.Config {
+	return collector.Config{
 		PXCUser:        getEnv("PXC_USER", "root"),
 		PXCPass:        getEnv("PXC_PASS", "root"),
 		PXCServiceName: getEnv("PXC_SERVICE", "some-name"),

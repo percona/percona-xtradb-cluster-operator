@@ -1,4 +1,4 @@
-package controller
+package collector
 
 import (
 	"bytes"
@@ -12,12 +12,13 @@ import (
 )
 
 type Controller struct {
-	dbm            *db.Manager
-	sm             *storage.Manager
-	lastSet        string
-	pxcServiceName string
-	pxcUser        string
-	pxcPass        string
+	db              db.DB
+	storage         storage.Client
+	lastSet         string
+	pxcServiceName  string
+	pxcUser         string
+	pxcPass         string
+	lastSetFileName string // name for object where the last binlog set will stored
 }
 
 type Config struct {
@@ -31,23 +32,24 @@ type Config struct {
 }
 
 func New(c Config) (*Controller, error) {
-	sm, err := storage.NewManager(c.S3Endpoint, c.S3accessKeyID, c.S3accessKey, c.S3bucketName, "last-set.txt", true)
+	s3, err := storage.NewS3(c.S3Endpoint, c.S3accessKeyID, c.S3accessKey, c.S3bucketName, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
-
+	lastSetFileName := "last-set.txt"
 	// get last binlog set stored on S3
-	lastSet, err := sm.GetObjectContent(sm.LastSetObjectName)
+	lastSet, err := s3.GetObject(lastSetFileName)
 	if err != nil && !strings.Contains(err.Error(), "does not exist") {
 		return nil, errors.Wrap(err, "get lastset content")
 	}
 
 	return &Controller{
-		sm:             sm,
-		lastSet:        string(lastSet),
-		pxcUser:        c.PXCUser,
-		pxcPass:        c.PXCPass,
-		pxcServiceName: c.PXCServiceName,
+		storage:         s3,
+		lastSet:         string(lastSet),
+		pxcUser:         c.PXCUser,
+		pxcPass:         c.PXCPass,
+		pxcServiceName:  c.PXCServiceName,
+		lastSetFileName: lastSetFileName,
 	}, nil
 }
 
@@ -58,7 +60,7 @@ func (c *Controller) Run() error {
 	}
 	defer c.closeDB()
 
-	err = c.CollectBinLogFiles()
+	err = c.CollectBinLogs()
 	if err != nil {
 		return errors.Wrap(err, "collect binlog files:")
 	}
@@ -71,18 +73,18 @@ func (c *Controller) newDB() error {
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
-	m, err := db.NewManager(host, c.pxcUser, c.pxcPass)
+	pxc, err := db.NewPXC(host, c.pxcUser, c.pxcPass)
 	if err != nil {
 		return errors.Wrapf(err, "new manager with host %s", host)
 
 	}
-	c.dbm = m
+	c.db = pxc
 
 	return nil
 }
 
 func (c *Controller) closeDB() error {
-	return c.dbm.Close()
+	return c.db.Close()
 }
 
 func (c *Controller) getHost() (string, error) {
@@ -102,13 +104,13 @@ func (c *Controller) getHost() (string, error) {
 	return "", nil
 }
 
-func (c *Controller) CollectBinLogFiles() error {
+func (c *Controller) CollectBinLogs() error {
 	// get last uploaded binlog file name
-	binlogName, err := c.getLastBinlogName()
+	binlogName, err := c.db.GetBinLogName(c.lastSet)
 	if err != nil {
-		return errors.Wrap(err, "get last binlog name")
+		return errors.Wrap(err, "get binlog name by set")
 	}
-	list, err := c.dbm.GetBinLogFilesList()
+	list, err := c.db.GetBinLogList()
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
@@ -134,18 +136,8 @@ func (c *Controller) CollectBinLogFiles() error {
 	return nil
 }
 
-func (c *Controller) getLastBinlogName() (string, error) {
-	// get name of binlog file that contains given GTID set
-	binlogName, err := c.dbm.GetBinLogNameByGTIDSet(c.lastSet)
-	if err != nil {
-		return "", errors.Wrap(err, "get binlog by set")
-	}
-
-	return binlogName, nil
-}
-
 func (c *Controller) manageBinlog(binlog string) error {
-	cmd := exec.Command("mysqlbinlog", "-R", "-h"+c.dbm.Config.Addr, "-u"+c.dbm.Config.User, "-p"+c.dbm.Config.Passwd, binlog)
+	cmd := exec.Command("mysqlbinlog", "-R", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "-p"+c.pxcPass, binlog)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return errors.Wrap(err, "get stdout pipe")
@@ -160,33 +152,29 @@ func (c *Controller) manageBinlog(binlog string) error {
 	}
 	defer cmd.Wait()
 
-	var stdErr bytes.Buffer
-	go func(stdErr *bytes.Buffer) {
-		if errOut != nil {
-			stdErr.ReadFrom(errOut)
-
-		}
-	}(&stdErr)
-
-	err = c.sm.PutObject(binlog, out)
+	err = c.storage.PutObject(binlog, out)
 	if err != nil {
 		return errors.Wrap(err, "put binlog object")
 	}
+
+	var stdErr bytes.Buffer
+	stdErr.ReadFrom(errOut)
 	if stdErr.Bytes() != nil && stdErr.String() != db.UsingPassErrorMessage {
-		return errors.New("mysqlbinlog: " + stdErr.String())
+		return errors.Errorf("mysqlbinlog: %s", stdErr.String())
 	}
-	set, err := c.dbm.GetGTIDSetByBinLog(binlog)
+
+	set, err := c.db.GetGTIDSet(binlog)
 	if err != nil {
 		return errors.Wrap(err, "get GTID set")
 	}
 	var setBuffer bytes.Buffer
 	setBuffer.WriteString(set)
-	err = c.sm.PutObject(binlog+"-gtid-set", &setBuffer)
+	err = c.storage.PutObject(binlog+"-gtid-set", &setBuffer)
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
 	setBuffer.WriteString(set)
-	err = c.sm.PutObject(c.sm.LastSetObjectName, &setBuffer)
+	err = c.storage.PutObject(c.lastSetFileName, &setBuffer)
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}

@@ -30,3 +30,10 @@ func getAutoTuneParams(memory string) (string, error) {
 
 	return autotuneParams, nil
 }
+
+func getAutoTunePITRParams() string {
+	return `
+	plugin_load="binlog_utils_udf=binlog_utils_udf.so"
+	gtid-mode=ON
+	enforce-gtid-consistency`
+}

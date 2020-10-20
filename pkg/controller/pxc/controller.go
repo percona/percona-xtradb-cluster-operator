@@ -738,41 +738,24 @@ func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBClust
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
 	stsApp := statefulset.NewNode(cr)
 	ls := stsApp.Labels()
-	limitMemory := ""
-	requestMemory := ""
-
-	if cr.Spec.PXC.Resources != nil {
-		if cr.Spec.PXC.Resources.Limits != nil {
-			if cr.Spec.PXC.Resources.Limits.Memory != "" {
-				limitMemory = cr.Spec.PXC.Resources.Limits.Memory
-			}
-		}
-		if cr.Spec.PXC.Resources.Requests != nil {
-			if cr.Spec.PXC.Resources.Requests.Memory != "" {
-				requestMemory = cr.Spec.PXC.Resources.Requests.Memory
-			}
-		}
-	}
 
 	if cr.CompareVersionWith("1.3.0") >= 0 {
-		if len(limitMemory) > 0 || len(requestMemory) > 0 {
-			autoConfigMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		autoConfigMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		if err != nil {
+			return errors.Wrap(err, "new auto-config map")
+		}
+		err = setControllerReference(cr, autoConfigMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set auto-config controller ref")
+		}
+		err = r.client.Create(context.TODO(), autoConfigMap)
+		if err != nil && k8serrors.IsAlreadyExists(err) {
+			err = r.client.Update(context.TODO(), autoConfigMap)
 			if err != nil {
-				return errors.Wrap(err, "new auto-config map")
+				return errors.Wrap(err, "update AutoConfigMap")
 			}
-			err = setControllerReference(cr, autoConfigMap, r.scheme)
-			if err != nil {
-				return errors.Wrap(err, "set auto-config controller ref")
-			}
-			err = r.client.Create(context.TODO(), autoConfigMap)
-			if err != nil && k8serrors.IsAlreadyExists(err) {
-				err = r.client.Update(context.TODO(), autoConfigMap)
-				if err != nil {
-					return errors.Wrap(err, "update AutoConfigMap")
-				}
-			} else if err != nil {
-				return errors.Wrap(err, "create AutoConfigMap")
-			}
+		} else if err != nil {
+			return errors.Wrap(err, "create AutoConfigMap")
 		}
 	}
 

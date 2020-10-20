@@ -42,7 +42,7 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.
 	if err != nil {
 		return nil, err
 	}
-
+	autotunePITRParams := getAutoTunePITRParams()
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -53,7 +53,7 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.
 			Namespace: cr.Namespace,
 		},
 		Data: map[string]string{
-			"auto-config.cnf": "[mysqld]" + autotuneParams,
+			"auto-config.cnf": "[mysqld]" + autotuneParams + autotunePITRParams,
 		},
 	}, nil
 }

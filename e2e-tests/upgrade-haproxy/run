@@ -1,0 +1,262 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+CLUSTER="upgrade-haproxy"
+CLUSTER_SIZE=3
+TARGET_API="${API}"
+TARGET_OPERATOR_VER=$(echo -n "${API//pxc.percona.com\/v}" | $sed 's/-/./g')
+TARGET_IMAGE="${IMAGE}"
+TARGET_IMAGE_PXC="${IMAGE_PXC}"
+TARGET_IMAGE_PMM="${IMAGE_PMM}"
+TARGET_IMAGE_PROXY="${IMAGE_PROXY}"
+TARGET_IMAGE_HAPROXY="${IMAGE_HAPROXY}"
+TARGET_IMAGE_BACKUP="${IMAGE_BACKUP}"
+if [[ "${TARGET_IMAGE_PXC}" == *"percona-xtradb-cluster-operator"* ]]; then
+    PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*([0-9].[0-9])$/\1/')
+else
+    PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*:([0-9]+\.[0-9]+).*$/\1/')
+fi
+
+INIT_OPERATOR_VER=$(curl -s https://check.percona.com/versions/v1/pxc-operator | jq -r '.versions[].operator' | sort -V | tail -n1)
+# if testing on release branch and version service is already updated with new operator images
+# use the older version of operator as initial point for test
+if [[ "${INIT_OPERATOR_VER}" == "${TARGET_OPERATOR_VER}" ]]; then
+    INIT_OPERATOR_VER=$(curl -s https://check.percona.com/versions/v1/pxc-operator | jq -r '.versions[].operator' | sort -V | tail -n2 | head -n1)
+fi
+GIT_TAG="v${INIT_OPERATOR_VER}"
+INIT_OPERATOR_IMAGES=$(curl -s "https://check.percona.com/versions/v1/pxc-operator/${INIT_OPERATOR_VER}/latest?databaseVersion=${PXC_VER}")
+OPERATOR_NAME="percona-xtradb-cluster-operator"
+API="pxc.percona.com/v${INIT_OPERATOR_VER//./-}"
+IMAGE=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.operator[].imagePath')
+IMAGE_PXC=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pxc[].imagePath')
+IMAGE_PMM=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pmm[].imagePath')
+IMAGE_PROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.proxysql[].imagePath')
+IMAGE_HAPROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.haproxy[].imagePath')
+IMAGE_BACKUP=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.backup[].imagePath')
+
+if [[ "${TARGET_API}" == "${API}" ]]; then
+    echo "API and TARGET_API variables are the same: ${API}! Something is wrong!"
+    exit 1
+fi
+
+function check_pxc_liveness() {
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}"
+
+    wait_for_running "${CLUSTER}-pxc" "${CLUSTER_SIZE}"
+
+    for i in $(seq 0 $((CLUSTER_SIZE-1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
+    done
+}
+
+function compare_generation() {
+    local generation="$1"
+    local proxy="$2"
+    local current_generation
+
+    if [[ "${proxy}" == "haproxy" ]]; then
+        containers=(pxc haproxy)
+      else
+        containers=(pxc proxysql)
+    fi
+    for container in "${containers[@]}"; do
+        current_generation="$(kubectl_bin get statefulset "${CLUSTER}-${container}" -o jsonpath='{.metadata.generation}')"
+        if [[ "${generation}" != "${current_generation}" ]]; then
+            echo "Generation for resource ${container} is: ${current_generation}, but should be: ${generation}"
+            exit 1
+        fi
+    done
+}
+
+function check_applied_images() {
+    local updated_image="$1"
+
+    case "${updated_image}" in
+        "operator")
+            if [[ "${TARGET_IMAGE}" == $(kubectl_bin get pod ${OPERATOR_NS:+-n $OPERATOR_NS} --selector=name="${OPERATOR_NAME}" -o jsonpath='{.items[*].spec.containers[?(@.name == "'"${OPERATOR_NAME}"'")].image}') \
+                && "${IMAGE_PROXY}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
+                && "${IMAGE_HAPROXY}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.haproxy.image}') \
+                && "${IMAGE_BACKUP}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.backup.image}') \
+                && "${IMAGE_PMM}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pmm.image}') \
+                && "${IMAGE_PXC}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
+                : Operator image has been updated correctly
+            else
+                echo 'Operator image has not been updated'
+                exit 1
+            fi
+            ;;
+        "all")
+            if [[ "${TARGET_IMAGE}" == $(kubectl_bin get pod ${OPERATOR_NS:+-n $OPERATOR_NS} --selector=name="${OPERATOR_NAME}" -o jsonpath='{.items[*].spec.containers[?(@.name == "'"${OPERATOR_NAME}"'")].image}') \
+                && "${TARGET_IMAGE_PROXY}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
+                && "${TARGET_IMAGE_HAPROXY}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.haproxy.image}') \
+                && "${TARGET_IMAGE_BACKUP}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.backup.image}') \
+                && "${TARGET_IMAGE_PMM}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pmm.image}') \
+                && "${TARGET_IMAGE_PXC}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.pxc.image}') ]]; then
+                : Cluster images have been updated correctly
+            else
+                echo 'Cluster images have not been updated'
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+function apply_rbac_gh() {
+    local operator_namespace="${OPERATOR_NS:-'pxc-operator'}"
+    local rbac="${1:-'rbac'}"
+
+    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/${rbac}.yaml" > "${tmp_dir}/rbac_${GIT_TAG}.yaml"
+    $sed -i -e "s^namespace: .*^namespace: ${operator_namespace}^" "${tmp_dir}/rbac_${GIT_TAG}.yaml"
+    kubectl_bin apply -f "${tmp_dir}/rbac_${GIT_TAG}.yaml"
+}
+
+function deploy_operator_gh() {
+    desc 'start operator'
+    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/crd.yaml" > "${tmp_dir}/crd_${GIT_TAG}.yaml"
+    kubectl_bin apply -f "${tmp_dir}/crd_${GIT_TAG}.yaml"
+
+    if [ -n "${OPERATOR_NS}" ]; then
+        apply_rbac_gh cw-rbac "${GIT_TAG}"
+        curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/cw-operator.yaml" > "${tmp_dir}/cw-operator_${GIT_TAG}.yaml"
+        $sed -i -e "s^image: .*^image: ${IMAGE}^" "${tmp_dir}/cw-operator_${GIT_TAG}.yaml"
+        kubectl_bin apply -f "${tmp_dir}/cw-operator_${GIT_TAG}.yaml" -n "${OPERATOR_NS}"
+    else
+        apply_rbac_gh rbac "${GIT_TAG}"
+        curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/operator.yaml" > "${tmp_dir}/operator_${GIT_TAG}.yaml"
+        $sed -i -e "s^image: .*^image: ${IMAGE}^" "${tmp_dir}/operator_${GIT_TAG}.yaml"
+        kubectl_bin apply -f "${tmp_dir}/operator_${GIT_TAG}.yaml"
+    fi
+
+    sleep 2
+    wait_pod "$(get_operator_pod)"
+}
+
+function create_infra_gh() {
+    local ns="$1"
+
+    if [ -n "${OPERATOR_NS}" ]; then
+        create_namespace "${OPERATOR_NS}"
+        deploy_operator_gh "${GIT_TAG}"
+        create_namespace "${ns}"
+    else
+        create_namespace "${ns}"
+        deploy_operator_gh "${GIT_TAG}"
+    fi
+}
+
+function prepare_cr_yaml() {
+    local cr_yaml="$1"
+    local proxy="$2"
+
+    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/cr.yaml" > "${cr_yaml}"
+    yq w -i "${cr_yaml}" "metadata.name" "${CLUSTER}"
+    yq w -i "${cr_yaml}" "spec.initImage" "${IMAGE}"
+    yq w -i "${cr_yaml}" "spec.upgradeOptions.apply" "disabled"
+    yq w -i "${cr_yaml}" "spec.pxc.size" "${CLUSTER_SIZE}"
+    yq w -i "${cr_yaml}" "spec.proxysql.size" "${CLUSTER_SIZE}"
+    yq w -i "${cr_yaml}" "spec.haproxy.size" "${CLUSTER_SIZE}"
+    # spinup function expects images to have suffix like "-pxc"
+    # to replace them with images from environment variables
+    yq w -i "${cr_yaml}" "spec.pxc.image" -- "-pxc"
+    yq w -i "${cr_yaml}" "spec.proxysql.image" -- "-proxysql"
+    yq w -i "${cr_yaml}" "spec.haproxy.image" -- "-haproxy"
+    yq w -i "${cr_yaml}" "spec.backup.image" -- "-backup"
+    if [[ "${proxy}" == "haproxy" ]]; then
+        yq w -i "${cr_yaml}" "spec.haproxy.enabled" "true"
+        yq w -i "${cr_yaml}" "spec.proxysql.enabled" "false"
+    else
+        yq w -i "${cr_yaml}" "spec.haproxy.enabled" "false"
+        yq w -i "${cr_yaml}" "spec.proxysql.enabled" "true"
+    fi
+}
+
+function main() {
+    kubectl_bin delete -f "${src_dir}/deploy/crd.yaml" || true
+    if [[ -n "${OPERATOR_NS}" ]]; then
+        kubectl_bin delete ns "${OPERATOR_NS}" --force --grace-period=0 || true
+        kubectl_bin delete -f "${src_dir}/deploy/cw-rbac.yaml" || true
+    else
+        kubectl_bin delete -f "${src_dir}/deploy/rbac.yaml" || true
+    fi
+    deploy_cert_manager
+    # we cannot use create_infra and deploy_operator from functions since they deploy from the current source tree
+    # so we fetch last officially released images and yaml files as initial state for upgrade from github
+    create_infra_gh "${namespace}"
+
+    local proxy="haproxy"
+    local cr_yaml="${tmp_dir}/cr_${INIT_OPERATOR_VER}_${proxy}.yaml"
+    prepare_cr_yaml "${cr_yaml}" "${proxy}"
+    spinup_pxc "${CLUSTER}" "${cr_yaml}"
+    compare_generation "1" "${proxy}"
+
+    desc 'upgrade operator'
+    kubectl_bin apply -f "${src_dir}/deploy/crd.yaml"
+    if [[ -n "${OPERATOR_NS}" ]]; then
+        apply_rbac cw-rbac
+    else
+        apply_rbac rbac
+    fi
+    kubectl_bin patch deployment "${OPERATOR_NAME}" \
+        -p'{"spec":{"template":{"spec":{"containers":[{"name":"'"${OPERATOR_NAME}"'","image":"'"${TARGET_IMAGE}"'"}]}}}}' ${OPERATOR_NS:+-n $OPERATOR_NS}
+    kubectl_bin rollout status deployment/"${OPERATOR_NAME}" ${OPERATOR_NS:+-n $OPERATOR_NS}
+    sleep 10
+
+    desc 'wait for operator upgrade'
+    until [[ $(kubectl_bin get pods --selector=name=${OPERATOR_NAME} \
+                  -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' ${OPERATOR_NS:+-n $OPERATOR_NS} \
+                  | grep -vc 'NAME' | awk '{print $1}') -eq 1 ]]; do
+        sleep 5
+    done
+
+    if [ -n "${OPERATOR_NS}" ]; then
+        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="${OPERATOR_NS}"
+    fi
+    wait_pod "$(kubectl_bin get pods --selector=name=${OPERATOR_NAME} \
+                    -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' \
+                    | grep "${TARGET_IMAGE}" | awk '{print $1}')"
+    kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="${namespace}"
+
+    desc 'check images and generation after operator upgrade'
+    check_pxc_liveness
+    check_applied_images "operator"
+    compare_generation "1" "${proxy}"
+
+    desc 'patch pxc images and upgrade'
+    kubectl_bin patch pxc "${CLUSTER}" --type=merge --patch '{
+        "spec": {
+            "crVersion": "'"${TARGET_OPERATOR_VER}"'",
+            "initImage": "'"${TARGET_IMAGE}"'",
+            "pxc": { "image": "'"${TARGET_IMAGE_PXC}"'" },
+            "pmm": { "image": "'"${TARGET_IMAGE_PMM}"'" },
+            "haproxy": { "image": "'"${TARGET_IMAGE_HAPROXY}"'" },
+            "proxysql": { "image": "'"${TARGET_IMAGE_PROXY}"'" },
+            "backup": { "image": "'"${TARGET_IMAGE_BACKUP}"'" }
+        }}'
+    sleep 10
+
+    desc 'check images and generation after full upgrade'
+    check_pxc_liveness
+    check_applied_images "all"
+    compare_generation "2" "${proxy}"
+    compare_kubectl "statefulset/${CLUSTER}-pxc"
+    compare_kubectl "statefulset/${CLUSTER}-haproxy"
+
+    desc 'cleanup'
+    kubectl_bin delete -f "${cr_yaml}" || true
+    kubectl_bin delete -f "${src_dir}/deploy/crd.yaml" || true
+    kubectl_bin delete pvc --all
+    if [[ -n "${OPERATOR_NS}" ]]; then
+        kubectl_bin delete ns "${OPERATOR_NS}" || true
+        kubectl_bin delete -f "${src_dir}/deploy/cw-rbac.yaml" || true
+    else
+        kubectl_bin delete -f "${src_dir}/deploy/rbac.yaml" || true
+    fi
+    destroy "${namespace}"
+}
+
+main

@@ -273,6 +273,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if o.CompareVersionWith("1.6.0") >= 0 {
 			initResources = o.Spec.PXC.Resources
 		}
+		if o.CompareVersionWith("1.7.0") >= 0 && len(o.Spec.InitImage) > 0 {
+			imageName = o.Spec.InitImage
+		}
 		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext)
 		if err != nil {
 			return reconcile.Result{}, err

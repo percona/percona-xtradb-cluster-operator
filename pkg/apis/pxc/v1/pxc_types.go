@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -360,6 +361,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if len(c.PXC.ImagePullPolicy) == 0 {
 			c.PXC.ImagePullPolicy = corev1.PullAlways
 		}
+		if len(os.Getenv("RELATED_IMAGE_PXC")) != 0 {
+			c.PXC.Image = os.Getenv("RELATED_IMAGE_PXC")
+			c.PXC.ImagePullPolicy = corev1.PullIfNotPresent
+		}
 		c.PXC.VaultSecretName = c.VaultSecretName
 		if len(c.PXC.VaultSecretName) == 0 {
 			c.PXC.VaultSecretName = cr.Name + "-vault"
@@ -421,6 +426,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if len(c.PMM.ImagePullPolicy) == 0 {
 			c.PMM.ImagePullPolicy = corev1.PullAlways
 		}
+		if len(os.Getenv("RELATED_IMAGE_PMM")) != 0 {
+			c.PMM.Image = os.Getenv("RELATED_IMAGE_PMM")
+			c.PMM.ImagePullPolicy = corev1.PullIfNotPresent
+		}
 	}
 
 	if c.HAProxy != nil && c.HAProxy.Enabled &&
@@ -431,6 +440,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if c.HAProxy != nil && c.HAProxy.Enabled {
 		if len(c.HAProxy.ImagePullPolicy) == 0 {
 			c.HAProxy.ImagePullPolicy = corev1.PullAlways
+		}
+		if len(os.Getenv("RELATED_IMAGE_HAPROXY")) != 0 {
+			c.HAProxy.Image = os.Getenv("RELATED_IMAGE_HAPROXY")
+			c.HAProxy.ImagePullPolicy = corev1.PullIfNotPresent
 		}
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-HAProxy.
 		if c.HAProxy.PodDisruptionBudget == nil {
@@ -457,6 +470,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
 		if len(c.ProxySQL.ImagePullPolicy) == 0 {
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
+		}
+		if len(os.Getenv("RELATED_IMAGE_PROXYSQL")) != 0 {
+			c.ProxySQL.Image = os.Getenv("RELATED_IMAGE_PROXYSQL")
+			c.ProxySQL.ImagePullPolicy = corev1.PullIfNotPresent
 		}
 		if c.ProxySQL.VolumeSpec == nil {
 			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")
@@ -501,6 +518,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.Backup != nil {
+		if len(os.Getenv("RELATED_IMAGE_BACKUP")) != 0 {
+			c.Backup.Image = os.Getenv("RELATED_IMAGE_BACKUP")
+		}
 		if c.Backup.Image == "" {
 			return false, fmt.Errorf("backup.Image can't be empty")
 		}

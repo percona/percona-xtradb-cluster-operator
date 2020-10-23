@@ -509,7 +509,7 @@ get_metric_values() {
     local end=$($date -u "+%s")
     local endpoint=$(get_service_endpoint monitoring-service)
 
-    curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=$metric%7bcontainer_name%3d%22$instance%22%7d%20or%20$metric%7binstance%3d%22$instance%22%7d&start=$start&end=$end&step=60" \
+    curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=min%28$metric%7Bnode_name%3D%7E%22$instance%22%7d%20or%20$metric%7Bnode_name%3D%7E%22$instance%22%7D%29&start=$start&end=$end&step=60" \
         | jq '.data.result[0].values[][1]' \
         | grep '^"[0-9]'
 

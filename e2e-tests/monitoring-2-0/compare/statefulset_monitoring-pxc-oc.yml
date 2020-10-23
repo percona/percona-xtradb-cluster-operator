@@ -21,7 +21,7 @@ spec:
   serviceName: monitoring-pxc
   template:
     metadata:
-      annotations:
+      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: monitoring
@@ -30,11 +30,7 @@ spec:
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
       containers:
-        - args:
-            - mysqld
-          command:
-            - /var/lib/mysql/pxc-entrypoint.sh
-          env:
+        - env:
             - name: PMM_SERVER
               value: monitoring-service
             - name: PMM_USER
@@ -50,6 +46,47 @@ spec:
               value: "30100"
             - name: CLIENT_PORT_MAX
               value: "30105"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPASE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: PMM_AGENT_SERVER_ADDRESS
+              value: monitoring-service
+            - name: PMM_AGENT_SERVER_USERNAME
+              value: admin
+            - name: PMM_AGENT_SERVER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: pmmserver
+                  name: internal-monitoring
+            - name: PMM_AGENT_LISTEN_PORT
+              value: "7777"
+            - name: PMM_AGENT_PORTS_MIN
+              value: "30100"
+            - name: PMM_AGENT_PORTS_MAX
+              value: "30105"
+            - name: PMM_AGENT_CONFIG_FILE
+              value: /usr/local/percona/pmm2/config/pmm-agent.yaml
+            - name: PMM_AGENT_SERVER_INSECURE_TLS
+              value: "1"
+            - name: PMM_AGENT_LISTEN_ADDRESS
+              value: 0.0.0.0
+            - name: PMM_AGENT_SETUP_NODE_NAME
+              value: $(POD_NAMESPASE)-$(POD_NAME)
+            - name: PMM_AGENT_SETUP_METRICS_MODE
+              value: push
+            - name: PMM_AGENT_SETUP
+              value: "1"
+            - name: PMM_AGENT_SETUP_FORCE
+              value: "1"
+            - name: PMM_AGENT_SETUP_NODE_TYPE
+              value: container
             - name: DB_TYPE
               value: mysql
             - name: DB_USER
@@ -67,7 +104,19 @@ spec:
               value: localhost
             - name: DB_PORT
               value: "3306"
+            - name: PMM_AGENT_PRERUN_SCRIPT
+              value: sleep 10; pmm-admin add $(DB_TYPE) --skip-connection-check --metrics-mode=push --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(DB_CLUSTER)  --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(DB_HOST) --port=$(DB_PORT) $(DB_ARGS); pmm-admin annotate restart
           imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /local/Status
+              port: 7777
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
           name: pmm-client
           ports:
             - containerPort: 7777
@@ -93,7 +142,11 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: datadir
-        - env:
+        - args:
+            - mysqld
+          command:
+            - /var/lib/mysql/pxc-entrypoint.sh
+          env:
             - name: PXC_SERVICE
               value: monitoring-pxc-unready
             - name: MONITOR_HOST

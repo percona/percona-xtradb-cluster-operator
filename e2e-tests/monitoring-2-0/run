@@ -27,8 +27,8 @@ compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-haproxy
 
 desc 'check mysql metrics'
-get_metric_values node_boot_time_seconds $cluster-pxc-0 admin:admin
-get_metric_values mysql_global_status_uptime $cluster-pxc-0 admin:admin
+get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin
+get_metric_values mysql_global_status_uptime $namespace-$cluster-pxc-0 admin:admin
 
 # TODO: check haproxy metrics
 

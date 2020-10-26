@@ -139,6 +139,57 @@ type PerconaXtraDBCluster struct {
 	Status PerconaXtraDBClusterStatus `json:"status,omitempty"`
 }
 
+func (cr *PerconaXtraDBCluster) Validate() error {
+	if len(cr.Name) > clusterNameMaxLen {
+		return ErrClusterNameOverflow
+	}
+
+	c := cr.Spec
+
+	if c.PXC == nil {
+		return fmt.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
+	}
+
+	if c.PXC.VolumeSpec == nil {
+		return fmt.Errorf("PXC: volumeSpec should be specified")
+	}
+
+	if c.HAProxy != nil && c.HAProxy.Enabled &&
+		c.ProxySQL != nil && c.ProxySQL.Enabled {
+		return errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
+	}
+
+	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+		if c.ProxySQL.VolumeSpec == nil {
+			return fmt.Errorf("ProxySQL: volumeSpec should be specified")
+		}
+	}
+
+	if c.Backup != nil {
+		if c.Backup.Image == "" {
+			return fmt.Errorf("backup.Image can't be empty")
+		}
+
+		for _, sch := range c.Backup.Schedule {
+			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
+			if !ok {
+				return fmt.Errorf("storage %s doesn't exist", sch.StorageName)
+			}
+			if strg.Type == BackupStorageFilesystem && strg.Volume == nil {
+				return fmt.Errorf("backup storage %s: volume should be specified", sch.StorageName)
+			}
+		}
+	}
+
+	if c.UpdateStrategy == SmartUpdateStatefulSetStrategyType &&
+		(c.ProxySQL == nil || !c.ProxySQL.Enabled) &&
+		(c.HAProxy == nil || !c.HAProxy.Enabled) {
+		return fmt.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
+	}
+
+	return nil
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PerconaXtraDBClusterList contains a list of PerconaXtraDBCluster
@@ -340,19 +391,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		return false, errors.Wrap(err, "set version")
 	}
 
-	if len(cr.Name) > clusterNameMaxLen {
-		return false, ErrClusterNameOverflow
+	err = cr.Validate()
+	if err != nil {
+		return false, errors.Wrap(err, "validate cr")
 	}
 
 	c := cr.Spec
-	if c.PXC == nil {
-		return false, fmt.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
-	}
 
 	if c.PXC != nil {
-		if c.PXC.VolumeSpec == nil {
-			return false, fmt.Errorf("PXC: volumeSpec should be specified")
-		}
 		changed, err = c.PXC.VolumeSpec.reconcileOpts()
 		if err != nil {
 			return false, fmt.Errorf("PXC.Volume: %v", err)
@@ -423,11 +469,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
-	if c.HAProxy != nil && c.HAProxy.Enabled &&
-		c.ProxySQL != nil && c.ProxySQL.Enabled {
-		return false, errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
-	}
-
 	if c.HAProxy != nil && c.HAProxy.Enabled {
 		if len(c.HAProxy.ImagePullPolicy) == 0 {
 			c.HAProxy.ImagePullPolicy = corev1.PullAlways
@@ -457,9 +498,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
 		if len(c.ProxySQL.ImagePullPolicy) == 0 {
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
-		}
-		if c.ProxySQL.VolumeSpec == nil {
-			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")
 		}
 		changed, err = c.ProxySQL.VolumeSpec.reconcileOpts()
 		if err != nil {
@@ -501,22 +539,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.Backup != nil {
-		if c.Backup.Image == "" {
-			return false, fmt.Errorf("backup.Image can't be empty")
-		}
-
 		for _, sch := range c.Backup.Schedule {
-			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
-			if !ok {
-				return false, fmt.Errorf("storage %s doesn't exist", sch.StorageName)
-			}
+			strg := c.Backup.Storages[sch.StorageName]
 			switch strg.Type {
 			case BackupStorageS3:
 				//TODO what should we check here?
 			case BackupStorageFilesystem:
-				if strg.Volume == nil {
-					return false, fmt.Errorf("backup storage %s: volume should be specified", sch.StorageName)
-				}
 				changed, err = strg.Volume.reconcileOpts()
 				if err != nil {
 					return false, fmt.Errorf("backup.Volume: %v", err)
@@ -525,22 +553,15 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
-	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType &&
-		(cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled) &&
-		(cr.Spec.HAProxy == nil || !cr.Spec.HAProxy.Enabled) {
-		return false, fmt.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
-	}
-
-	if len(cr.Spec.Platform) == 0 {
+	if len(c.Platform) == 0 {
 		if len(serverVersion.Platform) > 0 {
-			cr.Spec.Platform = serverVersion.Platform
+			c.Platform = serverVersion.Platform
 		} else {
-			cr.Spec.Platform = version.PlatformKubernetes
+			c.Platform = version.PlatformKubernetes
 		}
 	}
 
 	cr.setSecurityContext()
-	cr.Spec.Platform = serverVersion.Platform
 
 	return CRVerChanged || changed, nil
 }

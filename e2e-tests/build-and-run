@@ -11,8 +11,10 @@ if [[ $BUILD != "0" ]]; then
     $test_dir/build
 fi
 
-create_namespace run-$GIT_BRANCH-$RANDOM
-deploy_operator
+create_infra run-$GIT_BRANCH-$RANDOM
+
+# create_namespace run-$GIT_BRANCH-$RANDOM
+# deploy_operator
 
 desc 'create PXC cluster'
 apply_config $src_dir/deploy/cr.yaml

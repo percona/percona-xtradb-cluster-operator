@@ -363,7 +363,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 		if len(os.Getenv("RELATED_IMAGE_PXC")) != 0 {
 			c.PXC.Image = os.Getenv("RELATED_IMAGE_PXC")
-			c.PXC.ImagePullPolicy = corev1.PullIfNotPresent
 		}
 		c.PXC.VaultSecretName = c.VaultSecretName
 		if len(c.PXC.VaultSecretName) == 0 {
@@ -428,7 +427,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 		if len(os.Getenv("RELATED_IMAGE_PMM")) != 0 {
 			c.PMM.Image = os.Getenv("RELATED_IMAGE_PMM")
-			c.PMM.ImagePullPolicy = corev1.PullIfNotPresent
 		}
 	}
 
@@ -443,7 +441,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 		if len(os.Getenv("RELATED_IMAGE_HAPROXY")) != 0 {
 			c.HAProxy.Image = os.Getenv("RELATED_IMAGE_HAPROXY")
-			c.HAProxy.ImagePullPolicy = corev1.PullIfNotPresent
 		}
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-HAProxy.
 		if c.HAProxy.PodDisruptionBudget == nil {
@@ -473,7 +470,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 		if len(os.Getenv("RELATED_IMAGE_PROXYSQL")) != 0 {
 			c.ProxySQL.Image = os.Getenv("RELATED_IMAGE_PROXYSQL")
-			c.ProxySQL.ImagePullPolicy = corev1.PullIfNotPresent
 		}
 		if c.ProxySQL.VolumeSpec == nil {
 			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")

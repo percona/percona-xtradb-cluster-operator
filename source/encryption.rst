@@ -156,7 +156,9 @@ when you create a table or a tablespace. This can be done by adding the
 
 .. note:: See more details on encryption in Percona XtraDB Cluster 5.7 `here <https://www.percona.com/doc/percona-xtradb-cluster/5.7/management/data_at_rest_encryption.html>`_.
 
-If using *Percona XtraDB Cluster* 8.0, the encryption is turned on by default.
+If using *Percona XtraDB Cluster* 8.0, the encryption is turned on by default
+(in case if Vault is configured).
+
 The following table presents the default values of the `correspondent my.cnf
 configuration options <https://www.percona.com/doc/percona-server/LATEST/security/data-at-rest-encryption.html>`_:
 

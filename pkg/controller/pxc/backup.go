@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	appsv1 "k8s.io/api/apps/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -28,16 +27,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 	if cr.Spec.Backup != nil {
 		bcpObj := backup.New(cr)
 
-		if cr.Spec.Backup.EnablePITR {
-			var binlogCollector appsv1.Deployment
+		if cr.Spec.Backup.PITR.Enabled {
+			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
+			if err != nil {
+				return fmt.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
+			}
 			binlogCollectorName := cr.Name + "-bl-collector"
 
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, &binlogCollector)
 			if err != nil && k8serrors.IsNotFound(err) {
-				binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
-				if err != nil {
-					return fmt.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
-				}
 				err = r.client.Create(context.TODO(), &binlogCollector)
 				if err != nil {
 					return fmt.Errorf("create binlog collector deployment for cluster '%s': %v", cr.Name, err)

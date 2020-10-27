@@ -25,7 +25,7 @@ type S3 struct {
 // NewS3 return new Manager, useSSL using ssl for connection with storage
 func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL bool) (*S3, error) {
 	minioClient, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Creds:  credentials.NewStaticV2(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
 	})
 	if err != nil {
@@ -34,7 +34,7 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL boo
 
 	return &S3{
 		minioClient: minioClient,
-		ctx:         context.Background(),
+		ctx:         context.TODO(),
 		bucketName:  bucketName,
 	}, nil
 }
@@ -42,26 +42,16 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL boo
 // GetObject return content by given object name
 func (s *S3) GetObject(objectName string) ([]byte, error) {
 	oldObj, err := s.minioClient.GetObject(s.ctx, s.bucketName, objectName, minio.GetObjectOptions{})
-	if err != nil {
+	if err != nil && minio.ToErrorResponse(err).Code != "NoSuchKey" {
 		return nil, errors.Wrap(err, "get object")
 	}
 
 	return ioutil.ReadAll(oldObj)
 }
 
-type reader struct {
-	r io.Reader
-}
-
-func (r *reader) Read(p []byte) (int, error) {
-	return r.r.Read(p)
-}
-
 // PutObject puts new object to storage with given name and content
 func (s *S3) PutObject(name string, data io.Reader) error {
-	r := reader{data}
-
-	_, err := s.minioClient.PutObject(s.ctx, s.bucketName, name, &r, -1, minio.PutObjectOptions{ContentType: "application/text"})
+	_, err := s.minioClient.PutObject(s.ctx, s.bucketName, name, data, -1, minio.PutObjectOptions{})
 	if err != nil {
 		return errors.Wrap(err, "put object")
 	}

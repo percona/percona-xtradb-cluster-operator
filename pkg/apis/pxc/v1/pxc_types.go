@@ -59,8 +59,14 @@ type PXCScheduledBackup struct {
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
 	Annotations        map[string]string             `json:"annotations,omitempty"`
-	EnablePITR         bool                          `json:"enablePITR"`
-	BinlogStorageName  string                        `json:"binlogStorageName"`
+	PITR               PITRSpec                      `json:"pitr,omitempty"`
+}
+
+type PITRSpec struct {
+	Enabled            bool          `json:"enabled"`
+	StorageName        string        `json:"storageName"`
+	Resources          *PodResources `json:"resources,omitempty"`
+	TimeBetweenUploads int64         `json:"timeBetweenUploads"`
 }
 
 type PXCScheduledBackupSchedule struct {

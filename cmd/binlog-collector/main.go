@@ -36,10 +36,10 @@ func getConfig() collector.Config {
 		PXCUser:        getEnv("PXC_USER", "root"),
 		PXCPass:        getEnv("PXC_PASS", "root"),
 		PXCServiceName: getEnv("PXC_SERVICE", "some-name"),
-		S3Endpoint:     getEnv("S3_ENDPOINT", "storage.googleapis.com"),
-		S3accessKeyID:  getEnv("S3_ACCESS_KEY_ID", ""),
-		S3accessKey:    getEnv("S3_ACCESS_KEY", ""),
-		S3bucketName:   getEnv("S3_BUCKET_NAME", "binlog-test"),
+		S3Endpoint:     getEnv("ENDPOINT", "storage.googleapis.com"),
+		S3AccessKeyID:  getEnv("ACCESS_KEY_ID", ""),
+		S3AccessKey:    getEnv("SECRET_ACCESS_KEY", ""),
+		S3BucketName:   getEnv("S3_BUCKET", "binlog-test"),
 	}
 }
 

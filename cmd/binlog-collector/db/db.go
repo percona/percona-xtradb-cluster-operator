@@ -11,18 +11,10 @@ import (
 const UsingPassErrorMessage = `mysqlbinlog: [Warning] Using a password on the command line interface can be insecure.
 `
 
-type DB interface {
-	Close() error
-	GetGTIDSet(binlogName string) (string, error)
-	GetBinLogList() ([]string, error)
-	GetBinLogName(gtidSet string) (string, error)
-	GetHost() string
-}
-
 // PXC is a type for working with pxc
 type PXC struct {
 	db   *sql.DB // handle for work with database
-	host string  //config mysql.Config // config with data for connection to PXC database
+	host string  // host for connection
 }
 
 // NewManager return new manager for work with pxc
@@ -52,21 +44,26 @@ func (p *PXC) Close() error {
 	return p.db.Close()
 }
 
+// GetHost returns pxc host
 func (p *PXC) GetHost() string {
 	return p.host
 }
 
 // GetGTIDSet return GTID set by binary log file name
 func (p *PXC) GetGTIDSet(binlogName string) (string, error) {
-	_, err := p.db.Exec("DROP FUNCTION get_gtid_set_by_binlog")
-	if err != nil && !strings.Contains(err.Error(), "does not exist") {
-		return "", errors.Wrap(err, "drop function")
+	//select name from mysql.func where name='get_gtid_set_by_binlog'
+	var existFunc string
+	nameRow := p.db.QueryRow("select name from mysql.func where name='get_gtid_set_by_binlog'")
+	err := nameRow.Scan(&existFunc)
+	if err != nil && err != sql.ErrNoRows {
+		return "", errors.Wrap(err, "get udf name")
 	}
-	_, err = p.db.Exec("CREATE FUNCTION get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
-	if err != nil {
-		return "", errors.Wrap(err, "create function")
+	if len(existFunc) == 0 {
+		_, err = p.db.Exec("CREATE FUNCTION get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
+		if err != nil {
+			return "", errors.Wrap(err, "create function")
+		}
 	}
-
 	var binlogSet string
 	binlogName = "./" + binlogName
 	row := p.db.QueryRow("SELECT get_gtid_set_by_binlog(?)", binlogName)
@@ -98,20 +95,28 @@ func (p *PXC) GetBinLogList() ([]string, error) {
 		binlogList = append(binlogList, b.Name)
 	}
 
+	_, err = p.db.Exec("FLUSH BINARY LOGS")
+	if err != nil {
+		return nil, errors.Wrap(err, "flush binary logs")
+	}
+
 	return binlogList, nil
 }
 
 // GetBinLogName return name og binary log file by passed GTID set
 func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
-	_, err := p.db.Exec("DROP FUNCTION get_binlog_by_gtid_set")
-	if err != nil && !strings.Contains(err.Error(), "does not exist") {
-		return "", errors.Wrap(err, "drop function")
+	var existFunc string
+	nameRow := p.db.QueryRow("select name from mysql.func where name='get_binlog_by_gtid_set'")
+	err := nameRow.Scan(&existFunc)
+	if err != nil && err != sql.ErrNoRows {
+		return "", errors.Wrap(err, "get udf name")
 	}
-	_, err = p.db.Exec("CREATE FUNCTION get_binlog_by_gtid_set RETURNS STRING SONAME 'binlog_utils_udf.so'")
-	if err != nil {
-		return "", errors.Wrap(err, "create function")
+	if len(existFunc) == 0 {
+		_, err = p.db.Exec("CREATE FUNCTION get_binlog_by_gtid_set RETURNS STRING SONAME 'binlog_utils_udf.so'")
+		if err != nil {
+			return "", errors.Wrap(err, "create function")
+		}
 	}
-
 	var binlog string
 	row := p.db.QueryRow("SELECT get_binlog_by_gtid_set(?)", gtidSet)
 	if err != nil {

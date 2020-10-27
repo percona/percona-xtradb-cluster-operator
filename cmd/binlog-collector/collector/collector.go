@@ -2,8 +2,11 @@ package collector
 
 import (
 	"bytes"
+	"log"
 	"os/exec"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -12,12 +15,12 @@ import (
 )
 
 type Controller struct {
-	db              db.DB
+	db              *db.PXC
 	storage         storage.Client
-	lastSet         string
-	pxcServiceName  string
-	pxcUser         string
-	pxcPass         string
+	lastSet         string // last uploaded binary logs set
+	pxcServiceName  string // k8s service name for PXC, its for get correct host for connection
+	pxcUser         string // user for connection to PXC
+	pxcPass         string // password for connection to PXC
 	lastSetFileName string // name for object where the last binlog set will stored
 }
 
@@ -26,20 +29,20 @@ type Config struct {
 	PXCUser        string
 	PXCPass        string
 	S3Endpoint     string
-	S3accessKeyID  string
-	S3accessKey    string
-	S3bucketName   string
+	S3AccessKeyID  string
+	S3AccessKey    string
+	S3BucketName   string
 }
 
 func New(c Config) (*Controller, error) {
-	s3, err := storage.NewS3(c.S3Endpoint, c.S3accessKeyID, c.S3accessKey, c.S3bucketName, true)
+	s3, err := storage.NewS3(c.S3Endpoint, c.S3AccessKeyID, c.S3AccessKey, c.S3BucketName, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
-	lastSetFileName := "last-set.txt"
+	lastSetFileName := "last-set"
 	// get last binlog set stored on S3
 	lastSet, err := s3.GetObject(lastSetFileName)
-	if err != nil && !strings.Contains(err.Error(), "does not exist") {
+	if err != nil {
 		return nil, errors.Wrap(err, "get lastset content")
 	}
 
@@ -94,14 +97,19 @@ func (c *Controller) getHost() (string, error) {
 		return "", errors.Wrap(err, "get output")
 	}
 	nodes := strings.Split(string(out), "node:")
+	sort.Strings(nodes)
+	lastHost := ""
 	for _, node := range nodes {
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
 			nodeArr := strings.Split(node, ".")
-			return nodeArr[0] + "." + c.pxcServiceName, nil
+			lastHost = nodeArr[0]
 		}
 	}
+	if len(lastHost) == 0 {
+		return "", errors.New("cant find host")
+	}
 
-	return "", nil
+	return lastHost + "." + c.pxcServiceName, nil
 }
 
 func (c *Controller) CollectBinLogs() error {
@@ -138,10 +146,12 @@ func (c *Controller) CollectBinLogs() error {
 
 func (c *Controller) manageBinlog(binlog string) error {
 	cmd := exec.Command("mysqlbinlog", "-R", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "-p"+c.pxcPass, binlog)
+
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return errors.Wrap(err, "get stdout pipe")
 	}
+
 	errOut, err := cmd.StderrPipe()
 	if err != nil {
 		return errors.Wrap(err, "get stderr pipe")
@@ -151,11 +161,22 @@ func (c *Controller) manageBinlog(binlog string) error {
 		return errors.Wrap(err, "run mysqlbinlog command")
 	}
 	defer cmd.Wait()
+	var outBuf bytes.Buffer
+	wg := sync.WaitGroup{}
+	go func() {
+		wg.Add(1)
+		_, err = outBuf.ReadFrom(out)
+		if err != nil {
+			log.Println("ERROR: read to buffer:", err)
+		}
+		wg.Done()
+	}()
 
-	err = c.storage.PutObject(binlog, out)
+	err = c.storage.PutObject(binlog, &outBuf)
 	if err != nil {
 		return errors.Wrap(err, "put binlog object")
 	}
+	wg.Wait()
 
 	var stdErr bytes.Buffer
 	stdErr.ReadFrom(errOut)

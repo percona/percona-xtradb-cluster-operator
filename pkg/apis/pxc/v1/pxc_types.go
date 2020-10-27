@@ -36,6 +36,7 @@ type PerconaXtraDBClusterSpec struct {
 	UpgradeOptions        UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	InitImage             string                               `json:"initImage,omitempty"`
+	DisableHookValidation bool                                 `json:"disableHookValidation,omitempty"`
 }
 
 type TLSSpec struct {

@@ -179,6 +179,11 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if cr.Spec.DisableHookValidation {
+		sendResponse(req.Request.UID, req.TypeMeta, w, nil)
+		return
+	}
+
 	err = sendResponse(req.Request.UID, req.TypeMeta, w, cr.Validate())
 	if err != nil {
 		logf.Log.Error(err, "Can't send validation response")
@@ -197,6 +202,7 @@ func sendResponse(uid types.UID, meta metav1.TypeMeta, w http.ResponseWriter, er
 		resp.Response.Allowed = false
 		resp.Response.Result = &metav1.Status{
 			Message: err.Error(),
+			Code:    403,
 		}
 	}
 	data, err := json.Marshal(resp)

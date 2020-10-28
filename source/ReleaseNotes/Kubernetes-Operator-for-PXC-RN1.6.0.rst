@@ -11,7 +11,8 @@ New Features
 ================================================================================
 
 * :jirabug:`K8SPXC-394`: Support of :ref:`"cluster-wide" mode<install-clusterwide>` for Percona XtraDB Cluster Operator
-* :jirabug:`K8SPXC-416`: :ref:`Support of the proxy-protocol<haproxy-conf-protocol>` in HAProxy
+* :jirabug:`K8SPXC-416`: :ref:`Support of the proxy-protocol<haproxy-conf-protocol>` in HAProxy (to use this feature, you should have a Percona XtraDB Cluster image version ``8.0.21`` or newer)
+
 * :jirabug:`K8SPXC-429`: A possibility to :ref:`restore backups to a new Kubernetes-based environment<backups-restore>` with no existing Percona XtraDB Cluster Custom Resource
 * :jirabug:`K8SPXC-343`: Helm chart :ref:`officially provided with the Operator<install-helm>`
 
@@ -20,7 +21,7 @@ Improvements
 
 * :jirabug:`K8SPXC-144`: Allow :ref:`adding ProxySQL configuration options<proxysql-conf-custom>`
 * :jirabug:`K8SPXC-398`: New ``crVersion key`` in ``deploy/cr.yaml`` to indicate the API version that the Custom Resource corresponds to (thanks to user mike.saah for contribution)
-* :jirabug:`K8SPXC-474`: The init container now has the same resource requests as the main container of a correspondent Pod (Thanks to user yann.leenhardt for contribution)
+* :jirabug:`K8SPXC-474`: The init container now has the same resource requests as the main container of a correspondent Pod (thanks to user yann.leenhardt for contribution)
 * :jirabug:`K8SPXC-372`: Support new versions of cert-manager by the Operator (thanks to user rf_enigm for contribution)
 * :jirabug:`K8SPXC-317`: Possibility to configure the ``imagePullPolicy`` Operator option (thanks to user imranrazakhan for contribution)
 * :jirabug:`K8SPXC-462`: Add readiness probe for HAProxy

@@ -98,7 +98,10 @@ Enabling the Proxy protocol
 -----------------------------------------------
 
 The Proxy protocol `allows <https://www.percona.com/doc/percona-server/LATEST/flexibility/proxy_protocol_support.html>`_
-HAProxy to provide a real client address to Percona XtraDB Cluster. 
+HAProxy to provide a real client address to Percona XtraDB Cluster.
+
+.. note:: To use this feature, you should have a Percona XtraDB Cluster image
+   version ``8.0.21`` or newer.
 
 Normally Proxy protocol is disabled, and Percona XtraDB Cluster sees the IP
 address of the proxying server (HAProxy) instead of the real client address.

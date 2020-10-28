@@ -155,6 +155,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return fmt.Errorf("PXC: volumeSpec should be specified")
 	}
 
+	if err := c.PXC.VolumeSpec.validate(); err != nil {
+		return errors.Wrap(err, "PXC: validate volume spec")
+	}
+
 	if c.HAProxy != nil && c.HAProxy.Enabled &&
 		c.ProxySQL != nil && c.ProxySQL.Enabled {
 		return errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
@@ -163,6 +167,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
 		if c.ProxySQL.VolumeSpec == nil {
 			return fmt.Errorf("ProxySQL: volumeSpec should be specified")
+		}
+
+		if err := c.ProxySQL.VolumeSpec.validate(); err != nil {
+			return errors.Wrap(err, "ProxySQL: validate volume spec")
 		}
 	}
 
@@ -176,8 +184,14 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 			if !ok {
 				return fmt.Errorf("storage %s doesn't exist", sch.StorageName)
 			}
-			if strg.Type == BackupStorageFilesystem && strg.Volume == nil {
-				return fmt.Errorf("backup storage %s: volume should be specified", sch.StorageName)
+			if strg.Type == BackupStorageFilesystem {
+				if strg.Volume == nil {
+					return fmt.Errorf("backup storage %s: volume should be specified", sch.StorageName)
+				}
+
+				if err := strg.Volume.validate(); err != nil {
+					return errors.Wrap(err, "Backup: validate volume spec")
+				}
 			}
 		}
 	}
@@ -400,10 +414,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	c := cr.Spec
 
 	if c.PXC != nil {
-		changed, err = c.PXC.VolumeSpec.reconcileOpts()
-		if err != nil {
-			return false, fmt.Errorf("PXC.Volume: %v", err)
-		}
+		changed = c.PXC.VolumeSpec.reconcileOpts()
 		if len(c.PXC.ImagePullPolicy) == 0 {
 			c.PXC.ImagePullPolicy = corev1.PullAlways
 		}
@@ -500,10 +511,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if len(c.ProxySQL.ImagePullPolicy) == 0 {
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
 		}
-		changed, err = c.ProxySQL.VolumeSpec.reconcileOpts()
-		if err != nil {
-			return false, fmt.Errorf("ProxySQL.Volume: %v", err)
-		}
+		changed = c.ProxySQL.VolumeSpec.reconcileOpts()
 
 		if len(c.SSLSecretName) > 0 {
 			c.ProxySQL.SSLSecretName = c.SSLSecretName
@@ -546,10 +554,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			case BackupStorageS3:
 				//TODO what should we check here?
 			case BackupStorageFilesystem:
-				changed, err = strg.Volume.reconcileOpts()
-				if err != nil {
-					return false, fmt.Errorf("backup.Volume: %v", err)
-				}
+				changed = strg.Volume.reconcileOpts()
 			}
 		}
 	}
@@ -656,7 +661,22 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	}
 }
 
-func (v *VolumeSpec) reconcileOpts() (changed bool, err error) {
+func (v *VolumeSpec) reconcileOpts() (changed bool) {
+	if v.EmptyDir == nil && v.HostPath == nil && v.PersistentVolumeClaim == nil {
+		v.PersistentVolumeClaim = &corev1.PersistentVolumeClaimSpec{}
+	}
+
+	if v.PersistentVolumeClaim != nil {
+		if v.PersistentVolumeClaim.AccessModes == nil || len(v.PersistentVolumeClaim.AccessModes) == 0 {
+			v.PersistentVolumeClaim.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+			changed = true
+		}
+	}
+
+	return changed
+}
+
+func (v *VolumeSpec) validate() error {
 	if v.EmptyDir == nil && v.HostPath == nil && v.PersistentVolumeClaim == nil {
 		v.PersistentVolumeClaim = &corev1.PersistentVolumeClaimSpec{}
 	}
@@ -664,14 +684,8 @@ func (v *VolumeSpec) reconcileOpts() (changed bool, err error) {
 	if v.PersistentVolumeClaim != nil {
 		_, ok := v.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 		if !ok {
-			return changed, fmt.Errorf("volume.resources.storage can't be empty")
-		}
-
-		if v.PersistentVolumeClaim.AccessModes == nil || len(v.PersistentVolumeClaim.AccessModes) == 0 {
-			v.PersistentVolumeClaim.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
-			changed = true
+			return fmt.Errorf("volume.resources.storage can't be empty")
 		}
 	}
-
-	return changed, nil
+	return nil
 }

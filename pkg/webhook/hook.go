@@ -24,7 +24,7 @@ import (
 
 const certPath = "/tmp/k8s-webhook-server/serving-certs/"
 
-var hookPath = "/validate-pxc-percona-com"
+var hookPath = "/validate-percona-xtradbcluster"
 
 type hook struct {
 	cl        client.Client
@@ -46,7 +46,7 @@ func (h *hook) createWebhook() error {
 	sideEffects := admissionregistration.SideEffectClassNone
 	hook := &admissionregistration.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "pxc-validation-webhook",
+			Name: "percona-xtradbcluster-webhook",
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{
 			{
@@ -67,7 +67,7 @@ func (h *hook) createWebhook() error {
 						Rule: admissionregistration.Rule{
 							APIGroups:   []string{"pxc.percona.com"},
 							APIVersions: []string{"*"},
-							Resources:   []string{"*/*"},
+							Resources:   []string{"perconaxtradbclusters/*"},
 						},
 						Operations: []admissionregistration.OperationType{"CREATE", "UPDATE"},
 					},
@@ -76,17 +76,19 @@ func (h *hook) createWebhook() error {
 		},
 	}
 	err := h.cl.Create(context.TODO(), hook)
-	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			err = h.cl.Delete(context.TODO(), hook)
-			if err != nil {
-				return err
-			}
-			return h.cl.Create(context.TODO(), hook)
+	if err != nil && k8serrors.IsAlreadyExists(err) {
+		hook := &admissionregistration.ValidatingWebhookConfiguration{}
+		err := h.cl.Get(context.TODO(), types.NamespacedName{
+			Name:      "percona-xtradbcluster-webhook",
+		}, hook)
+		if err != nil {
+			return err
 		}
-		return err
+
+		hook.Webhooks[0].ClientConfig.CABundle = h.caBunlde
+		return h.cl.Update(context.TODO(), hook)
 	}
-	return nil
+	return err
 }
 
 // SetupWebhook prepares certificates for webhook and
@@ -111,6 +113,7 @@ func SetupWebhook(mgr manager.Manager) error {
 
 	srv := mgr.GetWebhookServer()
 	srv.Port = 9443
+	srv.CertDir = certPath
 	srv.Register(hookPath, h)
 
 	err = mgr.Add(h)
@@ -130,24 +133,19 @@ func setupCertificates(cl client.Reader, namespace string) ([]byte, error) {
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, err
 	}
+
 	var ca, crt, key []byte
-	if err != nil {
-		ca, crt, key, err = issueCertificates(namespace)
+
+	if k8serrors.IsNotFound(err) {
+		ca, crt, key, err = pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"})
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "issue tls certificates")
 		}
 	} else {
 		ca, crt, key = certSecret.Data["ca.crt"], certSecret.Data["tls.crt"], certSecret.Data["tls.key"]
 	}
-	return ca, writeCerts(crt, key)
-}
 
-func issueCertificates(namespace string) ([]byte, []byte, []byte, error) {
-	ca, crt, key, err := pxctls.Issue([]string{"percona-xtradb-cluster-operator." + namespace + ".svc"})
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "issue tls certificate")
-	}
-	return ca, crt, key, nil
+	return ca, writeCerts(crt, key)
 }
 
 func writeCerts(crt, key []byte) error {

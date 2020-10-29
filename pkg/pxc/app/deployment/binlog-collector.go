@@ -6,6 +6,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -15,17 +16,22 @@ import (
 
 func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployment, error) {
 	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
-	binlogCollectorName := "bl-collector"
+	binlogCollectorName := "pitr"
 	pxcUser := "operator"
 	sleepTime := strconv.FormatInt(cr.Spec.Backup.PITR.TimeBetweenUploads, 10)
 	if len(sleepTime) == 0 {
 		sleepTime = "60"
 	}
+	bufferSize, err := getBufferSize(cr.Spec)
+	if err != nil {
+		return appsv1.Deployment{}, errors.Wrap(err, "get buffer size")
+	}
+
 	storageEndpoint := strings.TrimPrefix(storage.S3.EndpointURL, "https://")
 	labels := map[string]string{
 		"app.kubernetes.io/name":       "percona-xtradb-cluster",
 		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  cr.Name + "-" + binlogCollectorName,
+		"app.kubernetes.io/component":  binlogCollectorName,
 		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
 		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 	}
@@ -74,8 +80,16 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			},
 		},
 		{
+			Name:  "S3_REGION",
+			Value: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].S3.Region,
+		},
+		{
 			Name:  "SLEEP_SECONDS",
 			Value: sleepTime,
+		},
+		{
+			Name:  "BUFFER_SIZE",
+			Value: strconv.FormatInt(bufferSize, 10),
 		},
 	}
 	res, err := app.CreateResources(cr.Spec.Backup.PITR.Resources)
@@ -85,9 +99,9 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	container := corev1.Container{
 		Name:            "collector",
 		Image:           cr.Spec.Backup.Image,
-		ImagePullPolicy: cr.Spec.PXC.ImagePullPolicy,
+		ImagePullPolicy: cr.Spec.Backup.PITR.ImagePullPolicy,
 		Env:             envs,
-		SecurityContext: cr.Spec.PXC.ContainerSecurityContext,
+		SecurityContext: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].ContainerSecurityContext,
 		Command:         []string{"binlog-collector"},
 		Resources:       res,
 	}
@@ -127,4 +141,28 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			},
 		},
 	}, nil
+}
+
+func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) {
+	var memory string
+
+	if cluster.Backup.PITR.Resources == nil {
+		return 0, nil
+	}
+
+	if cluster.Backup.PITR.Resources.Requests != nil && cluster.Backup.PITR.Resources.Requests.Memory != "" {
+		memory = cluster.Backup.PITR.Resources.Requests.Memory
+	}
+
+	if cluster.Backup.PITR.Resources.Limits != nil && cluster.Backup.PITR.Resources.Limits.Memory != "" {
+		memory = cluster.Backup.PITR.Resources.Limits.Memory
+	}
+
+	k8sQuantity, err := resource.ParseQuantity(memory)
+	if err != nil {
+		return 0, err
+	}
+
+	return k8sQuantity.Value() / int64(100) * int64(75), nil
+
 }

@@ -63,10 +63,11 @@ type PXCScheduledBackup struct {
 }
 
 type PITRSpec struct {
-	Enabled            bool          `json:"enabled"`
-	StorageName        string        `json:"storageName"`
-	Resources          *PodResources `json:"resources,omitempty"`
-	TimeBetweenUploads int64         `json:"timeBetweenUploads"`
+	Enabled            bool              `json:"enabled"`
+	StorageName        string            `json:"storageName"`
+	Resources          *PodResources     `json:"resources,omitempty"`
+	TimeBetweenUploads int64             `json:"timeBetweenUploads,omitempty"`
+	ImagePullPolicy    corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {

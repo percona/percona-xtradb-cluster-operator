@@ -68,7 +68,14 @@ func (p *PXC) GetGTIDSet(binlogName string) (string, error) {
 	binlogName = "./" + binlogName
 	row := p.db.QueryRow("SELECT get_gtid_set_by_binlog(?)", binlogName)
 	err = row.Scan(&binlogSet)
-	if err != nil {
+	if err != nil && strings.Contains(err.Error(), "Binary log does not exist") {
+		row := p.db.QueryRow("SELECT get_gtid_set_by_binlog(?)", strings.TrimLeft(binlogName, "./"))
+		err = row.Scan(&binlogSet)
+		if err != nil {
+			return "", errors.Wrap(err, "scan set")
+		}
+		return binlogSet, nil
+	} else if err != nil {
 		return "", errors.Wrap(err, "scan set")
 	}
 

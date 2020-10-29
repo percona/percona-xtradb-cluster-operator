@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -33,8 +34,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				return fmt.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
 			}
 			binlogCollectorName := cr.Name + "-bl-collector"
-
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, &binlogCollector)
+			currentCollector := appsv1.Deployment{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, &currentCollector)
 			if err != nil && k8serrors.IsNotFound(err) {
 				err = r.client.Create(context.TODO(), &binlogCollector)
 				if err != nil {
@@ -48,7 +49,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 					return fmt.Errorf("update binlogCollector '%s': %v", binlogCollectorName, err)
 				}
 			}
-
 		}
 
 		for _, bcp := range cr.Spec.Backup.Schedule {

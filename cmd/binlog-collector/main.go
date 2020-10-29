@@ -7,18 +7,25 @@ import (
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/binlog-collector/collector"
+	"github.com/pkg/errors"
 )
 
 func main() {
-	c, err := collector.New(getConfig())
+	config, err := getConfig()
 	if err != nil {
-		log.Println("ERROR: new controller", err)
+		log.Println("ERROR: get config:", err)
+		os.Exit(1)
+	}
+
+	c, err := collector.New(config)
+	if err != nil {
+		log.Println("ERROR: new controller:", err)
 		os.Exit(1)
 	}
 
 	sleep, err := strconv.ParseInt(getEnv("SLEEP_SECONDS", "60"), 10, 64)
 	if err != nil {
-		log.Println("ERROR: get sleep env", err)
+		log.Println("ERROR: get sleep env:", err)
 		os.Exit(1)
 	}
 
@@ -27,11 +34,16 @@ func main() {
 		if err != nil {
 			log.Println("ERROR:", err)
 		}
+
 		time.Sleep(time.Duration(sleep) * time.Second)
 	}
 }
 
-func getConfig() collector.Config {
+func getConfig() (collector.Config, error) {
+	bufferSize, err := strconv.ParseInt(getEnv("BUFFER_SIZE", "60"), 10, 64)
+	if err != nil {
+		return collector.Config{}, errors.Wrap(err, "get buffer size")
+	}
 	return collector.Config{
 		PXCUser:        getEnv("PXC_USER", "root"),
 		PXCPass:        getEnv("PXC_PASS", "root"),
@@ -40,7 +52,9 @@ func getConfig() collector.Config {
 		S3AccessKeyID:  getEnv("ACCESS_KEY_ID", ""),
 		S3AccessKey:    getEnv("SECRET_ACCESS_KEY", ""),
 		S3BucketName:   getEnv("S3_BUCKET", "binlog-test"),
-	}
+		S3Region:       getEnv("S3_REGION", ""),
+		BufferSize:     bufferSize,
+	}, nil
 }
 
 func getEnv(key, defaultVal string) string {

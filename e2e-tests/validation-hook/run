@@ -1,0 +1,26 @@
+#!/bin/bash
+
+if [ -z "$OPERATOR_NS" ]; then
+    exit 0
+fi
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+create_infra $namespace
+
+output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-too-long-name.yaml")
+
+if [[ $output != *"cluster (pxc) name too long, must be no more than 22 characters"* ]]; then
+    echo 'invalid hook response'
+    exit 1
+fi
+
+output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-haproxy-and-proxysql.yaml")
+
+if [[ $output != *"can't enable both HAProxy and ProxySQL"* ]]; then
+    echo 'invalid hook response'
+    exit 1
+fi
+
+kubectl delete ns $namespace

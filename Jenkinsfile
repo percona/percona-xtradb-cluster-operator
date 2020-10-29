@@ -279,6 +279,7 @@ pipeline {
                         runTest('tls-issue-self','basic')
                         runTest('tls-issue-cert-manager','basic')
                         runTest('tls-issue-cert-manager-ref','basic')
+                        runTest('validation-hook','basic')
                         ShutdownCluster('basic')
                    }
                 }

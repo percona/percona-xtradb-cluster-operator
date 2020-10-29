@@ -3,5 +3,5 @@ kind: PerconaXtraDBClusterRestore
 metadata:
   name: on-demand-backup-minio
 spec:
-  pxcCluster: some-name
+  pxcCluster: demand-backup
   backupName: on-demand-backup-minio

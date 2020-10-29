@@ -31,8 +31,8 @@ main() {
         -f $conf_dir/cloud-secret.yml
     start_minio
 
-    cluster="some-name"
-    spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+    cluster="demand-backup"
+    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
     run_backup         "$cluster" "on-demand-backup-pvc"
     run_recovery_check "$cluster" "on-demand-backup-pvc"

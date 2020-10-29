@@ -3,5 +3,5 @@ kind: PerconaXtraDBClusterBackup
 metadata:
   name: on-demand-backup-aws-s3
 spec:
-  pxcCluster: some-name
+  pxcCluster: demand-backup
   storageName: aws-s3

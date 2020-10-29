@@ -9,8 +9,12 @@ src_dir="$(realpath ${test_dir}/..)"
 IMAGE=$(echo "$IMAGE" | sed -e 's#percona/#perconalab/#')
 
 build_operator() {
-    export GO_LDFLAGS="-w -s $GO_LDFLAGS"
+    if [ "${RELEASE:-1}" = 0 ]; then
+        GO_LDFLAGS="-race"
+    fi
+
     export IMAGE
+    export GO_LDFLAGS="-w -s -trimpath $GO_LDFLAGS"
     pushd ${src_dir}
         docker build \
             --build-arg GIT_COMMIT=$GIT_COMMIT \
@@ -20,10 +24,7 @@ build_operator() {
             --no-cache \
             -t "${IMAGE}" -f build/Dockerfile .
     popd
-
-    if [ "$RHEL" != "1" ]; then
-        docker push ${IMAGE}
-    fi
+    docker push ${IMAGE}
 }
 
 if [[ $BUILD = "0" ]]; then

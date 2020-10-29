@@ -5,7 +5,7 @@ BASH_XTRACEFD="5"
 
 GIT_COMMIT=$(git rev-parse HEAD)
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-API="pxc.percona.com/v1-6-0"
+API="pxc.percona.com/v1-7-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/percona-xtradb-cluster-operator:master-pmm"}
@@ -34,18 +34,18 @@ if [ "${HELM_VERSION:0:2}" == "v2" ]; then
 fi
 
 wait_cluster_consistency() {
-    cluster_name=$1
-    cluster_size=$2
-    proxy_sql_size=${3}
+    local cluster_name=${1}
+    local cluster_size=${2}
+    local proxy_size=${3}
 
-    if [ -z "$proxy_sql_size" ]; then
-      proxy_sql_size=$cluster_size
+    if [ -z "${proxy_size}" ]; then
+      proxy_size=${cluster_size}
     fi
 
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
     until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" \
              && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" \
-             && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.proxysql.ready}')" == "${proxy_sql_size}"  ]]; do
+             && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
         echo 'waiting for cluster readyness'
         sleep 20
     done
@@ -56,7 +56,7 @@ create_namespace() {
     local skip_clean_namespace="$2"
 
     if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
     fi
 
     if [ ! -z "$OPENSHIFT" ]; then
@@ -586,15 +586,22 @@ apply_config() {
 }
 
 get_proxy() {
-    if [[ "$(kubectl get pxc monitoring -o 'jsonpath={.spec.haproxy.enabled}')" = "true" ]]; then
-        echo $cluster-haproxy
+    local target_cluster=${1}
+    if [[ "$(kubectl get pxc ${target_cluster} -o 'jsonpath={.spec.haproxy.enabled}')" = "true" ]]; then
+        echo "${target_cluster}-haproxy"
         return
     fi
-    if [[ "$(kubectl get pxc monitoring -o 'jsonpath={.spec.proxysql.enabled}')" = "true" ]]; then
-        echo $cluster-proxysql
+    if [[ "$(kubectl get pxc ${target_cluster} -o 'jsonpath={.spec.proxysql.enabled}')" = "true" ]]; then
+        echo "${target_cluster}-proxysql"
         return
     fi
-    echo $cluster-pxc
+    echo "${target_cluster}-pxc"
+}
+
+get_proxy_engine() {
+    local cluster_name=$1
+    local cluster_proxy="$(get_proxy ${cluster_name})"
+    echo "${cluster_proxy//$cluster_name-}"
 }
 
 spinup_pxc() {
@@ -607,9 +614,15 @@ spinup_pxc() {
 
     desc 'create first PXC cluster'
     kubectl_bin apply -f $secretsFile
-
     apply_config "$pxcClientFile"
-    apply_config "$config"
+    if [[ "$IMAGE_PXC" =~ 5\.7 ]] && [ "$cluster" == 'demand-backup' ]; then
+        cat_config "$config" \
+            | $sed '/\[sst\]/,+1d' \
+            | $sed 's|compress=lz4|compress|' \
+            | kubectl_bin apply -f -
+    else
+        apply_config "$config"
+    fi
 
     desc 'check if all 3 Pods started'
     local proxy=$(get_proxy "$cluster")
@@ -635,6 +648,7 @@ spinup_pxc() {
     if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
         table_must_be_encrypted "$cluster" "myApp"
     fi
+
 }
 
 function is_table_encrypted() {

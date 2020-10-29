@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io/ioutil"
@@ -79,7 +80,7 @@ func (h *hook) createWebhook() error {
 	if err != nil && k8serrors.IsAlreadyExists(err) {
 		hook := &admissionregistration.ValidatingWebhookConfiguration{}
 		err := h.cl.Get(context.TODO(), types.NamespacedName{
-			Name:      "percona-xtradbcluster-webhook",
+			Name: "percona-xtradbcluster-webhook",
 		}, hook)
 		if err != nil {
 			return err
@@ -171,7 +172,10 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cr := &v1.PerconaXtraDBCluster{}
-	err = json.Unmarshal(req.Request.Object.Raw, &cr)
+	decoder := json.NewDecoder(bytes.NewReader(req.Request.Object.Raw))
+	decoder.DisallowUnknownFields()
+
+	err = decoder.Decode(&cr)
 	if err != nil {
 		sendResponse(req.Request.UID, req.TypeMeta, w, err)
 		return

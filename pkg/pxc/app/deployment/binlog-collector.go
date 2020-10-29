@@ -19,9 +19,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	binlogCollectorName := "pitr"
 	pxcUser := "operator"
 	sleepTime := strconv.FormatInt(cr.Spec.Backup.PITR.TimeBetweenUploads, 10)
-	if len(sleepTime) == 0 {
-		sleepTime = "60"
-	}
+
 	bufferSize, err := getBufferSize(cr.Spec)
 	if err != nil {
 		return appsv1.Deployment{}, errors.Wrap(err, "get buffer size")
@@ -164,5 +162,4 @@ func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) 
 	}
 
 	return k8sQuantity.Value() / int64(100) * int64(75), nil
-
 }

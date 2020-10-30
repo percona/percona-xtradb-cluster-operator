@@ -23,4 +23,4 @@ if [[ $output != *"can't enable both HAProxy and ProxySQL"* ]]; then
     exit 1
 fi
 
-kubectl delete ns $namespace
+destroy $namespace

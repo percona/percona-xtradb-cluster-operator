@@ -142,17 +142,17 @@ type PerconaXtraDBCluster struct {
 
 func (cr *PerconaXtraDBCluster) Validate() error {
 	if len(cr.Name) > clusterNameMaxLen {
-		return ErrClusterNameOverflow
+		return errors.Errorf("cluster name (%s) too long, must be no more than %d characters", cr.Name, clusterNameMaxLen)
 	}
 
 	c := cr.Spec
 
 	if c.PXC == nil {
-		return fmt.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
+		return errors.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
 	}
 
 	if c.PXC.VolumeSpec == nil {
-		return fmt.Errorf("PXC: volumeSpec should be specified")
+		return errors.Errorf("PXC: volumeSpec should be specified")
 	}
 
 	if err := c.PXC.VolumeSpec.validate(); err != nil {
@@ -166,7 +166,7 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
 		if c.ProxySQL.VolumeSpec == nil {
-			return fmt.Errorf("ProxySQL: volumeSpec should be specified")
+			return errors.Errorf("ProxySQL: volumeSpec should be specified")
 		}
 
 		if err := c.ProxySQL.VolumeSpec.validate(); err != nil {
@@ -176,17 +176,17 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.Backup != nil {
 		if c.Backup.Image == "" {
-			return fmt.Errorf("backup.Image can't be empty")
+			return errors.Errorf("backup.Image can't be empty")
 		}
 
 		for _, sch := range c.Backup.Schedule {
 			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
 			if !ok {
-				return fmt.Errorf("storage %s doesn't exist", sch.StorageName)
+				return errors.Errorf("storage %s doesn't exist", sch.StorageName)
 			}
 			if strg.Type == BackupStorageFilesystem {
 				if strg.Volume == nil {
-					return fmt.Errorf("backup storage %s: volume should be specified", sch.StorageName)
+					return errors.Errorf("backup storage %s: volume should be specified", sch.StorageName)
 				}
 
 				if err := strg.Volume.validate(); err != nil {
@@ -199,7 +199,7 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	if c.UpdateStrategy == SmartUpdateStatefulSetStrategyType &&
 		(c.ProxySQL == nil || !c.ProxySQL.Enabled) &&
 		(c.HAProxy == nil || !c.HAProxy.Enabled) {
-		return fmt.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
+		return errors.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
 	}
 
 	return nil
@@ -356,9 +356,6 @@ const clusterNameMaxLen = 22
 
 var defaultPXCGracePeriodSec int64 = 600
 var livenessInitialDelaySeconds int32 = 300
-
-// ErrClusterNameOverflow upspring when the cluster name is longer than acceptable
-var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no more than %d characters", clusterNameMaxLen)
 
 func (cr *PerconaXtraDBCluster) setSecurityContext() {
 	var fsgroup *int64
@@ -667,7 +664,7 @@ func (v *VolumeSpec) reconcileOpts() (changed bool) {
 	}
 
 	if v.PersistentVolumeClaim != nil {
-		if v.PersistentVolumeClaim.AccessModes == nil || len(v.PersistentVolumeClaim.AccessModes) == 0 {
+		if len(v.PersistentVolumeClaim.AccessModes) == 0 {
 			v.PersistentVolumeClaim.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
 			changed = true
 		}

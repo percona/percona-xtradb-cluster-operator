@@ -187,8 +187,12 @@ create_infra() {
     local ns="$1"
 
     if [ -n "$OPERATOR_NS" ]; then
-        kubectl_bin delete pxc --all --all-namespaces
-        kubectl_bin delete pxc-backup --all --all-namespaces
+        kubectl get pxc --all-namespaces -o wide \
+            | grep -v 'NAMESPACE' \
+            | xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
+            || :
+        kubectl_bin delete pxc --all --all-namespaces || :
+        kubectl_bin delete pxc-backup --all --all-namespaces || :
         kubectl_bin delete pxc-restore --all --all-namespaces || :
 
         create_namespace $OPERATOR_NS
@@ -461,8 +465,12 @@ destroy() {
     #TODO: maybe will be enabled later
     #diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
-    kubectl_bin delete pxc --all --all-namespaces
-    kubectl_bin delete pxc-backup --all --all-namespaces
+    kubectl get pxc --all-namespaces -o wide \
+        | grep -v 'NAMESPACE' \
+        | xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
+        || :
+    kubectl_bin delete pxc --all --all-namespaces || :
+    kubectl_bin delete pxc-backup --all --all-namespaces || :
     kubectl_bin delete pxc-restore --all --all-namespaces || :
 
     kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :

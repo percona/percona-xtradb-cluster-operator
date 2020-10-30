@@ -59,7 +59,7 @@ create_namespace() {
         kubectl_bin get ns \
             | egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" \
             | awk '{print$1}' \
-            | xargs kubectl_bin delete ns &
+            | xargs kubectl delete ns &
     fi
 
     if [ ! -z "$OPENSHIFT" ]; then
@@ -684,7 +684,7 @@ function is_table_encrypted() {
 
 function is_keyring_plugin_in_use() {
     local cluster=$1
-    kubectl_bin exec -it $cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
+    kubectl_bin exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
         | egrep -o "early-plugin-load=keyring_\w+.so"
 }
 

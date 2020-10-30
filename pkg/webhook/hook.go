@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/pkg/errors"
 	admission "k8s.io/api/admission/v1"
 	admissionregistration "k8s.io/api/admissionregistration/v1"
@@ -16,8 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/cert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
@@ -36,7 +36,7 @@ type hook struct {
 func (h *hook) Start(i <-chan struct{}) error {
 	err := h.createWebhook()
 	if err != nil {
-		logf.Log.Info("Can't create webhook", "error", err.Error())
+		log.Log.Info("Can't create webhook", "error", err.Error())
 	}
 	<-i
 	return nil
@@ -100,17 +100,17 @@ func SetupWebhook(mgr manager.Manager) error {
 		return errors.Wrap(err, "add admissionregistration to scheme")
 	}
 
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	namespace, err := k8sutil.GetOperatorNamespace()
 	if err != nil {
-		return errors.Wrap(err, "read namespace name from file")
+		return errors.Wrap(err, "get operator namespace")
 	}
 
-	ca, err := setupCertificates(mgr.GetAPIReader(), string(nsBytes))
+	ca, err := setupCertificates(mgr.GetAPIReader(), namespace)
 	if err != nil {
 		return errors.Wrap(err, "prepare hook tls certs")
 	}
 
-	h := &hook{cl: mgr.GetClient(), caBunlde: ca, namespace: string(nsBytes)}
+	h := &hook{cl: mgr.GetClient(), caBunlde: ca, namespace: namespace}
 
 	srv := mgr.GetWebhookServer()
 	srv.Port = 9443
@@ -167,7 +167,7 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(req)
 	if err != nil {
-		logf.Log.Error(err, "Can't decode admission review request")
+		log.Log.Error(err, "Can't decode admission review request")
 		return
 	}
 
@@ -175,20 +175,26 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(bytes.NewReader(req.Request.Object.Raw))
 	decoder.DisallowUnknownFields()
 
-	err = decoder.Decode(&cr)
+	err = decoder.Decode(cr)
 	if err != nil {
-		sendResponse(req.Request.UID, req.TypeMeta, w, err)
+		err = sendResponse(req.Request.UID, req.TypeMeta, w, err)
+		if err != nil {
+			log.Log.Error(err, "Can't send validation response")
+		}
 		return
 	}
 
 	if cr.Spec.DisableHookValidation {
-		sendResponse(req.Request.UID, req.TypeMeta, w, nil)
+		err = sendResponse(req.Request.UID, req.TypeMeta, w, nil)
+		if err != nil {
+			log.Log.Error(err, "Can't send validation response")
+		}
 		return
 	}
 
 	err = sendResponse(req.Request.UID, req.TypeMeta, w, cr.Validate())
 	if err != nil {
-		logf.Log.Error(err, "Can't send validation response")
+		log.Log.Error(err, "Can't send validation response")
 	}
 }
 

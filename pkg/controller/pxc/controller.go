@@ -868,6 +868,23 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" && cr.CompareVersionWith("1.7.0") >= 0 {
+		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-logcollector", "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set controller ref LogCollector")
+		}
+		err = r.client.Create(context.TODO(), configMap)
+		if err != nil && k8serrors.IsAlreadyExists(err) {
+			err = r.client.Update(context.TODO(), configMap)
+			if err != nil {
+				return errors.Wrap(err, "update ConfigMap LogCollector")
+			}
+		} else if err != nil {
+			return errors.Wrap(err, "create ConfigMap LogCollector")
+		}
+	}
+
 	return nil
 }
 

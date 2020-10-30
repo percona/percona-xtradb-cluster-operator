@@ -192,6 +192,10 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 	return []corev1.Container{container}, nil
 }
 
+func (c *HAProxy) LogCollectorContainer(spec *api.LogCollectorSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	return nil, nil
+}
+
 func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
 	return nil, nil
 }

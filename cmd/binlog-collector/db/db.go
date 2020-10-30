@@ -8,8 +8,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const UsingPassErrorMessage = `mysqlbinlog: [Warning] Using a password on the command line interface can be insecure.
-`
+const UsingPassErrorMessage = `mysqlbinlog: [Warning] Using a password on the command line interface can be insecure.`
 
 // PXC is a type for working with pxc
 type PXC struct {

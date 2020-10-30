@@ -40,7 +40,7 @@ func main() {
 }
 
 func getConfig() (collector.Config, error) {
-	bufferSize, err := strconv.ParseInt(getEnv("BUFFER_SIZE", "60"), 10, 64)
+	bufferSize, err := strconv.ParseInt(getEnv("BUFFER_SIZE", ""), 10, 64)
 	if err != nil {
 		return collector.Config{}, errors.Wrap(err, "get buffer size")
 	}

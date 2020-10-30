@@ -54,18 +54,8 @@ func (s *S3) GetObject(objectName string) ([]byte, error) {
 	return out, nil
 }
 
-/*
-type reader struct {
-	r io.Reader
-}
-
-func (r *reader) Read(p []byte) (int, error) {
-	return r.r.Read(p)
-}*/
-
 // PutObject puts new object to storage with given name and content
 func (s *S3) PutObject(name string, data io.Reader) error {
-	//r := reader{data}
 	_, err := s.minioClient.PutObject(s.ctx, s.bucketName, name, data, -1, minio.PutObjectOptions{})
 	if err != nil {
 		return errors.Wrap(err, "put object")

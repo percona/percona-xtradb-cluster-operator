@@ -1,12 +1,13 @@
 package collector
 
 import (
+	"bufio"
 	"bytes"
-	"log"
+	"io"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -153,6 +154,19 @@ func (c *Collector) CollectBinLogs() error {
 	return nil
 }
 
+func (c *Collector) read(r io.Reader) <-chan []byte {
+	bytes := make(chan []byte, c.bufferSize/2)
+	go func() {
+		defer close(bytes)
+		scan := bufio.NewScanner(r)
+		for scan.Scan() {
+			bytes <- scan.Bytes()
+		}
+	}()
+
+	return bytes
+}
+
 func (c *Collector) manageBinlog(binlog string) error {
 	set, err := c.db.GetGTIDSet(binlog)
 	if err != nil {
@@ -165,7 +179,7 @@ func (c *Collector) manageBinlog(binlog string) error {
 		return nil
 	}
 
-	cmd := exec.Command("mysqlbinlog", "-R", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "-p"+c.pxcPass, binlog)
+	cmd := exec.Command("mysqlbinlog", "-R", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "-p"+os.ExpandEnv("$PXC_PASS"), binlog)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return errors.Wrap(err, "get stdout pipe")
@@ -181,28 +195,27 @@ func (c *Collector) manageBinlog(binlog string) error {
 	}
 	defer cmd.Wait()
 
-	outBuf := bytes.NewBuffer(make([]byte, c.bufferSize))
-	wg := sync.WaitGroup{}
+	outBuf := bytes.Buffer{}
+
 	go func() {
-		wg.Add(1)
-		_, err = outBuf.ReadFrom(out)
-		if err != nil {
-			log.Println("ERROR: read to buffer:", err)
+		outBytes := c.read(out)
+		for b := range outBytes {
+			for _, v := range b {
+				outBuf.WriteByte(v)
+			}
 		}
-		wg.Done()
 	}()
 
 	time.Sleep(300 * time.Millisecond)
 
-	err = c.storage.PutObject(binlog, outBuf)
+	err = c.storage.PutObject(binlog, &outBuf)
 	if err != nil {
 		return errors.Wrap(err, "put binlog object")
 	}
-	wg.Wait()
 
 	var stdErr bytes.Buffer
 	stdErr.ReadFrom(errOut)
-	if stdErr.Bytes() != nil && stdErr.String() != db.UsingPassErrorMessage {
+	if stdErr.Bytes() != nil && strings.TrimRight(stdErr.String(), "\n") != db.UsingPassErrorMessage {
 		return errors.Errorf("mysqlbinlog: %s", stdErr.String())
 	}
 

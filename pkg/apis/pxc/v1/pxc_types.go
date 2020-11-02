@@ -637,6 +637,11 @@ func (p *PodSpec) reconcileAffinityOpts() {
 func (v *VolumeSpec) reconcileOpts() (changed bool, err error) {
 	if v.EmptyDir == nil && v.HostPath == nil && v.PersistentVolumeClaim == nil {
 		v.PersistentVolumeClaim = &corev1.PersistentVolumeClaimSpec{}
+		storageList:=make(corev1.ResourceList)
+		storageList[corev1.ResourceStorage], _ = ParseQuantity("1Mb")
+		v.PersistentVolumeClaim.Resources.Requests=storageList
+		storageCls:="perona-storage-class"
+		v.PersistentVolumeClaim.StorageClassName=&storageCls
 	}
 
 	if v.PersistentVolumeClaim != nil {

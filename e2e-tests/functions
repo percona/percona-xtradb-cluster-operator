@@ -74,7 +74,7 @@ create_namespace() {
 
 get_operator_pod() {
     kubectl_bin get pods \
-        --selector=name=percona-xtradb-cluster-operator \
+        --selector=app.kubernetes.io/name=percona-xtradb-cluster-operator \
         -o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
 }
 

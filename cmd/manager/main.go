@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	_ "github.com/Percona-Lab/percona-version-service/api"
 	certmgrscheme "github.com/jetstack/cert-manager/pkg/client/clientset/versioned/scheme"
@@ -16,6 +17,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
@@ -62,6 +64,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Add support for MultiNamespace set in WATCH_NAMESPACE
+	options := manager.Options{
+		Namespace: namespace,
+	}
+
+	if strings.Contains(namespace, ",") {
+		options.Namespace = ""
+		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
+	}
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -81,7 +93,7 @@ func main() {
 	defer r.Unset()
 
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{Namespace: namespace})
+	mgr, err := manager.New(cfg, options)
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)

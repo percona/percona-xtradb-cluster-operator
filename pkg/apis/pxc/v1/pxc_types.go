@@ -151,8 +151,12 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
 	}
 
+	if c.PXC.Image == "" {
+		return errors.New("pxc.Image can't be empty")
+	}
+
 	if c.PXC.VolumeSpec == nil {
-		return errors.Errorf("PXC: volumeSpec should be specified")
+		return errors.New("PXC: volumeSpec should be specified")
 	}
 
 	if err := c.PXC.VolumeSpec.validate(); err != nil {
@@ -164,9 +168,18 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
 	}
 
+	if c.HAProxy != nil && c.HAProxy.Enabled {
+		if c.HAProxy.Image == "" {
+			return errors.New("haproxy.Image can't be empty")
+		}
+	}
+
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+		if c.ProxySQL.Image == "" {
+			return errors.New("proxysql.Image can't be empty")
+		}
 		if c.ProxySQL.VolumeSpec == nil {
-			return errors.Errorf("ProxySQL: volumeSpec should be specified")
+			return errors.New("ProxySQL: volumeSpec should be specified")
 		}
 
 		if err := c.ProxySQL.VolumeSpec.validate(); err != nil {
@@ -176,7 +189,7 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.Backup != nil {
 		if c.Backup.Image == "" {
-			return errors.Errorf("backup.Image can't be empty")
+			return errors.New("backup.Image can't be empty")
 		}
 
 		for _, sch := range c.Backup.Schedule {

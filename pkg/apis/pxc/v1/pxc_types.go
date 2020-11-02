@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -694,7 +693,7 @@ func (v *VolumeSpec) validate() error {
 	if v.PersistentVolumeClaim != nil {
 		_, ok := v.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 		if !ok {
-			return fmt.Errorf("volume.resources.storage can't be empty")
+			return errors.New("volume.resources.storage can't be empty")
 		}
 	}
 	return nil

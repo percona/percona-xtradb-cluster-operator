@@ -232,7 +232,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	return []corev1.Container{pxcMonit, proxysqlMonit}, nil
 }
 
-func (c *Proxy) LogCollectorContainer(spec *api.LogCollectorSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+func (c *Proxy) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	return nil, nil
 }
 

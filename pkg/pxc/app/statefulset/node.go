@@ -225,9 +225,13 @@ func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Perc
 	return nil, nil
 }
 
-func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+	res, err := app.CreateResources(spec.Resources)
+	if err != nil {
+		return nil, fmt.Errorf("create resources error: %v", err)
+	}
 
-	logEnvs := []corev1.EnvVar{
+	logProcEnvs := []corev1.EnvVar{
 		{
 			Name:  "LOG_DATA_DIR",
 			Value: "/var/lib/mysql",
@@ -250,46 +254,71 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, secrets string,
 		},
 	}
 
+	logRotEnvs := []corev1.EnvVar{
+		{
+			Name:  "SERVICE_TYPE",
+			Value: "mysql",
+		},
+		{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(logRsecrets, "monitor"),
+			},
+		},
+	}
+
 	fvar := true
-	container := corev1.Container{
-		Name:            "log-collector",
+	logProcContainer := corev1.Container{
+		Name:            "logs",
 		Image:           spec.Image,
 		ImagePullPolicy: spec.ImagePullPolicy,
-		Env:             logEnvs,
+		Env:             logProcEnvs,
 		SecurityContext: spec.ContainerSecurityContext,
+		Resources:       res,
 		EnvFrom: []corev1.EnvFromSource{
 			{
 				SecretRef: &corev1.SecretEnvSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secrets,
+						Name: logPsecrets,
 					},
 					Optional: &fvar,
 				},
 			},
 		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      DataVolumeName,
+				MountPath: "/var/lib/mysql",
+			},
+		},
 	}
 
-	res, err := app.CreateResources(spec.Resources)
-	if err != nil {
-		return nil, fmt.Errorf("create resources error: %v", err)
-	}
-	container.Resources = res
-
-	container.VolumeMounts = []corev1.VolumeMount{
-		{
-			Name:      DataVolumeName,
-			MountPath: "/var/lib/mysql",
+	logRotContainer := corev1.Container{
+		Name:            "logrotate",
+		Image:           spec.Image,
+		ImagePullPolicy: spec.ImagePullPolicy,
+		Env:             logRotEnvs,
+		SecurityContext: spec.ContainerSecurityContext,
+		Resources:       res,
+		Args: []string{
+			"logrotate",
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      DataVolumeName,
+				MountPath: "/var/lib/mysql",
+			},
 		},
 	}
 
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
 			Name:      "custom-config",
 			MountPath: "/etc/fluentbit/custom",
 		})
 	}
 
-	return &container, nil
+	return []corev1.Container{logProcContainer, logRotContainer}, nil
 }
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {

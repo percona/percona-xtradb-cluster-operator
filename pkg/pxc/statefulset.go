@@ -64,12 +64,12 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
-		logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, cr)
+		logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, secrets, cr)
 		if err != nil {
 			return nil, fmt.Errorf("logcollector container error: %v", err)
 		}
 		if logCollectorC != nil {
-			pod.Containers = append(pod.Containers, *logCollectorC)
+			pod.Containers = append(pod.Containers, logCollectorC...)
 		}
 	}
 

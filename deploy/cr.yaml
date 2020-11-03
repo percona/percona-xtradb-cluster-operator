@@ -311,7 +311,7 @@ spec:
 #   serviceAnnotations:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   logcollector:
-    enabled: false
+    enabled: true
     image: percona/percona-xtradb-cluster-operator:1.6.0-logcollector
 #    configuration: |
 #      [OUTPUT]

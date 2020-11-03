@@ -287,7 +287,7 @@ type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(spec *PMMSpec, secrets string, cr *PerconaXtraDBCluster) (*corev1.Container, error)
-	LogCollectorContainer(spec *LogCollectorSpec, secrets string, cr *PerconaXtraDBCluster) (*corev1.Container, error)
+	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster) (*Volume, error)
 	Labels() map[string]string
 }

@@ -85,4 +85,5 @@ Reference
    operator
    images
    api
+   faq
    Release Notes <ReleaseNotes/index>

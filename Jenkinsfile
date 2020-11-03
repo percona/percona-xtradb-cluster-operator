@@ -264,7 +264,7 @@ pipeline {
                         runTest('smart-update', 'upgrade')
                         runTest('upgrade-consistency', 'upgrade')
                         ShutdownCluster('upgrade')
-                   }
+                    }
                 }
                 stage('E2E Basic Tests') {
                     steps {
@@ -283,7 +283,7 @@ pipeline {
                         runTest('tls-issue-cert-manager','basic')
                         runTest('tls-issue-cert-manager-ref','basic')
                         ShutdownCluster('basic')
-                   }
+                    }
                 }
                 stage('E2E Scaling') {
                     steps {

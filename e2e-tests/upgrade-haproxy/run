@@ -117,20 +117,18 @@ function apply_rbac_gh() {
 
 function deploy_operator_gh() {
     desc 'start operator'
-    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/crd.yaml" > "${tmp_dir}/crd_${GIT_TAG}.yaml"
-    kubectl_bin apply -f "${tmp_dir}/crd_${GIT_TAG}.yaml"
+    kubectl_bin apply -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/crd.yaml" > "${tmp_dir}/crd_${GIT_TAG}.yaml"
 
+    local rbac_yaml="rbac"
+    local operator_yaml="operator.yaml"
     if [ -n "${OPERATOR_NS}" ]; then
-        apply_rbac_gh cw-rbac "${GIT_TAG}"
-        curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/cw-operator.yaml" > "${tmp_dir}/cw-operator_${GIT_TAG}.yaml"
-        $sed -i -e "s^image: .*^image: ${IMAGE}^" "${tmp_dir}/cw-operator_${GIT_TAG}.yaml"
-        kubectl_bin apply -f "${tmp_dir}/cw-operator_${GIT_TAG}.yaml" -n "${OPERATOR_NS}"
-    else
-        apply_rbac_gh rbac "${GIT_TAG}"
-        curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/operator.yaml" > "${tmp_dir}/operator_${GIT_TAG}.yaml"
-        $sed -i -e "s^image: .*^image: ${IMAGE}^" "${tmp_dir}/operator_${GIT_TAG}.yaml"
-        kubectl_bin apply -f "${tmp_dir}/operator_${GIT_TAG}.yaml"
+        rbac_yaml="cw-rbac"
+        operator_yaml="cw-operator.yaml"
     fi
+    apply_rbac_gh "${rbac_yaml}" "${GIT_TAG}"
+    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/${operator_yaml}" > "${tmp_dir}/${operator_yaml}_${GIT_TAG}.yaml"
+    $sed -i -e "s^image: .*^image: ${IMAGE}^" "${tmp_dir}/${operator_yaml}_${GIT_TAG}.yaml"
+    kubectl_bin apply -f "${tmp_dir}/${operator_yaml}_${GIT_TAG}.yaml" ${OPERATOR_NS:+-n $OPERATOR_NS}
 
     sleep 2
     wait_pod "$(get_operator_pod)"
@@ -247,15 +245,6 @@ function main() {
     compare_kubectl "statefulset/${CLUSTER}-haproxy"
 
     desc 'cleanup'
-    kubectl_bin delete -f "${cr_yaml}" || true
-    kubectl_bin delete -f "${src_dir}/deploy/crd.yaml" || true
-    kubectl_bin delete pvc --all
-    if [[ -n "${OPERATOR_NS}" ]]; then
-        kubectl_bin delete ns "${OPERATOR_NS}" || true
-        kubectl_bin delete -f "${src_dir}/deploy/cw-rbac.yaml" || true
-    else
-        kubectl_bin delete -f "${src_dir}/deploy/rbac.yaml" || true
-    fi
     destroy "${namespace}"
 }
 

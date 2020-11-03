@@ -155,18 +155,18 @@ function prepare_cr_yaml() {
     local cr_yaml="$1"
     local proxy="$2"
 
-    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/cr.yaml" > "${cr_yaml}"
-    yq w -i "${cr_yaml}" "metadata.name" "${CLUSTER}"
-    yq w -i "${cr_yaml}" "spec.upgradeOptions.apply" "disabled"
-    yq w -i "${cr_yaml}" "spec.pxc.size" "${CLUSTER_SIZE}"
-    yq w -i "${cr_yaml}" "spec.proxysql.size" "${CLUSTER_SIZE}"
-    yq w -i "${cr_yaml}" "spec.haproxy.size" "${CLUSTER_SIZE}"
     # spinup function expects images to have suffix like "-pxc"
     # to replace them with images from environment variables
-    yq w -i "${cr_yaml}" "spec.pxc.image" -- "-pxc"
-    yq w -i "${cr_yaml}" "spec.proxysql.image" -- "-proxysql"
-    yq w -i "${cr_yaml}" "spec.haproxy.image" -- "-haproxy"
-    yq w -i "${cr_yaml}" "spec.backup.image" -- "-backup"
+    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/cr.yaml" \
+        | yq w - "metadata.name" "${CLUSTER}" \
+        | yq w - "spec.upgradeOptions.apply" "disabled" \
+        | yq w - "spec.pxc.size" "${CLUSTER_SIZE}" \
+        | yq w - "spec.proxysql.size" "${CLUSTER_SIZE}" \
+        | yq w - "spec.haproxy.size" "${CLUSTER_SIZE}" \
+        | yq w - "spec.pxc.image" -- "-pxc" \
+        | yq w - "spec.proxysql.image" -- "-proxysql" \
+        | yq w - "spec.haproxy.image" -- "-haproxy" \
+        | yq w - "spec.backup.image" -- "-backup" > "${cr_yaml}"
     if [[ "${proxy}" == "haproxy" ]]; then
         yq w -i "${cr_yaml}" "spec.haproxy.enabled" "true"
         yq w -i "${cr_yaml}" "spec.proxysql.enabled" "false"

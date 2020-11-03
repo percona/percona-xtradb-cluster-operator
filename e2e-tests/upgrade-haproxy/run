@@ -33,6 +33,10 @@ INIT_OPERATOR_IMAGES=$(curl -s "https://check.percona.com/versions/v1/pxc-operat
 OPERATOR_NAME="percona-xtradb-cluster-operator"
 API="pxc.percona.com/v${INIT_OPERATOR_VER//./-}"
 IMAGE=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.operator[].imagePath')
+# we use the starting image from the same repo so we don't need to use initImage option
+if [[ "$(echo ${TARGET_IMAGE}|cut -d'/' -f1)" == "perconalab" ]]; then
+    IMAGE="${IMAGE/percona/perconalab}"
+fi
 IMAGE_PXC=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pxc[].imagePath')
 IMAGE_PMM=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pmm[].imagePath')
 IMAGE_PROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.proxysql[].imagePath')
@@ -153,7 +157,6 @@ function prepare_cr_yaml() {
 
     curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/cr.yaml" > "${cr_yaml}"
     yq w -i "${cr_yaml}" "metadata.name" "${CLUSTER}"
-    yq w -i "${cr_yaml}" "spec.initImage" "${IMAGE}"
     yq w -i "${cr_yaml}" "spec.upgradeOptions.apply" "disabled"
     yq w -i "${cr_yaml}" "spec.pxc.size" "${CLUSTER_SIZE}"
     yq w -i "${cr_yaml}" "spec.proxysql.size" "${CLUSTER_SIZE}"
@@ -228,7 +231,6 @@ function main() {
     kubectl_bin patch pxc "${CLUSTER}" --type=merge --patch '{
         "spec": {
             "crVersion": "'"${TARGET_OPERATOR_VER}"'",
-            "initImage": "'"${TARGET_IMAGE}"'",
             "pxc": { "image": "'"${TARGET_IMAGE_PXC}"'" },
             "pmm": { "image": "'"${TARGET_IMAGE_PMM}"'" },
             "haproxy": { "image": "'"${TARGET_IMAGE_HAPROXY}"'" },

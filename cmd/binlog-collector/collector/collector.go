@@ -1,14 +1,11 @@
 package collector
 
 import (
-	"bufio"
 	"bytes"
-	"io"
 	"os"
 	"os/exec"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -50,10 +47,6 @@ func New(c Config) (*Collector, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get last set content")
 	}
-	bufferSize := int64(16000000)
-	if c.BufferSize != 0 {
-		bufferSize = c.BufferSize
-	}
 
 	return &Collector{
 		storage:         s3,
@@ -62,7 +55,6 @@ func New(c Config) (*Collector, error) {
 		pxcPass:         c.PXCPass,
 		pxcServiceName:  c.PXCServiceName,
 		lastSetFileName: lastSetFileName,
-		bufferSize:      bufferSize,
 	}, nil
 }
 
@@ -154,19 +146,6 @@ func (c *Collector) CollectBinLogs() error {
 	return nil
 }
 
-func (c *Collector) read(r io.Reader) <-chan []byte {
-	bytes := make(chan []byte, c.bufferSize/2)
-	go func() {
-		defer close(bytes)
-		scan := bufio.NewScanner(r)
-		for scan.Scan() {
-			bytes <- scan.Bytes()
-		}
-	}()
-
-	return bytes
-}
-
 func (c *Collector) manageBinlog(binlog string) error {
 	set, err := c.db.GetGTIDSet(binlog)
 	if err != nil {
@@ -195,20 +174,7 @@ func (c *Collector) manageBinlog(binlog string) error {
 	}
 	defer cmd.Wait()
 
-	outBuf := bytes.Buffer{}
-
-	go func() {
-		outBytes := c.read(out)
-		for b := range outBytes {
-			for _, v := range b {
-				outBuf.WriteByte(v)
-			}
-		}
-	}()
-
-	time.Sleep(300 * time.Millisecond)
-
-	err = c.storage.PutObject(binlog, &outBuf)
+	err = c.storage.PutObject(binlog, out)
 	if err != nil {
 		return errors.Wrap(err, "put binlog object")
 	}

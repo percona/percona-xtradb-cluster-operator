@@ -159,6 +159,10 @@ function prepare_cr_yaml() {
     # to replace them with images from environment variables
     curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${GIT_TAG}/deploy/cr.yaml" \
         | yq w - "metadata.name" "${CLUSTER}" \
+        | yq w - "spec.secretsName" "my-cluster-secrets" \
+        | yq w - "spec.vaultSecretName" "some-name-vault" \
+        | yq w - "spec.sslSecretName" "some-name-ssl" \
+        | yq w - "spec.sslInternalSecretName" "some-name-ssl-internal" \
         | yq w - "spec.upgradeOptions.apply" "disabled" \
         | yq w - "spec.pxc.size" "${CLUSTER_SIZE}" \
         | yq w - "spec.proxysql.size" "${CLUSTER_SIZE}" \
@@ -192,7 +196,7 @@ function main() {
     local proxy="haproxy"
     local cr_yaml="${tmp_dir}/cr_${INIT_OPERATOR_VER}_${proxy}.yaml"
     prepare_cr_yaml "${cr_yaml}" "${proxy}"
-    spinup_pxc "${CLUSTER}" "${cr_yaml}"
+    spinup_pxc "${CLUSTER}" "${cr_yaml}" "30" "${conf_dir}/secrets_without_tls.yml"
     compare_generation "1" "${proxy}"
 
     desc 'upgrade operator'

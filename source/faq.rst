@@ -30,6 +30,16 @@ Three major numbers in the XtraDB Cluster version refer to the version of
 Percona Server in use. More details on the exact Percona Server version can be
 found in the release notes (`8.0 <https://www.percona.com/doc/percona-server/8.0/release-notes/release-notes_index.html>`_, `5.7 <https://www.percona.com/doc/percona-server/5.7/release-notes/release-notes_index.html>`_).
 
+What is the difference between the Operator quickstart and advanced installation ways?
+=======================================================================================
+
+As you have noticed, the installation section of docs contains both quickstart and advanced installation guides.
+The quickstart guide is simpler. It has fewer installation steps in favor of predefined default choices. Particularly, in advanced installation guides, you separately apply the Custom Resource Definition and Role-based Access Control configuration files with possible edits in them. At the same time, quickstart guides rely on the all-inclusive bundle configuration.
+
+Also, quickstart guides are related to specific platforms you are going to use (Minikube, Google Kubernetes Engine, etc.), and therefore may include some additional steps needed for these platforms.
+
+Generally, rely on the quickstart guide if you are a beginner user of the specific platform and/or the Percona XtraDB Cluster Operator as a whole.
+
 How HAProxy is better than ProxySQL?
 ================================================================================
 

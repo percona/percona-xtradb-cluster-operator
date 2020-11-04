@@ -567,6 +567,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			initResources = cr.Spec.PXC.Resources
 		}
+		if len(cr.Spec.InitImage) > 0 {
+			imageName = cr.Spec.InitImage
+		}
 		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext)
 		if err != nil {
 			return err

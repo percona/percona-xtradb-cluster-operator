@@ -73,8 +73,13 @@ create_namespace() {
 }
 
 get_operator_pod() {
+    local label_prefix="app.kubernetes.io/"
+    local check_label=$(kubectl get pods --selector=app.kubernetes.io/name=percona-xtradb-cluster-operator ${OPERATOR_NS:+-n $OPERATOR_NS} | grep -c "percona-xtradb-cluster-operator")
+    if [[ ${check_label} -eq 0 ]]; then
+        label_prefix=""
+    fi
     kubectl_bin get pods \
-        --selector=app.kubernetes.io/name=percona-xtradb-cluster-operator \
+        --selector=${label_prefix}name=percona-xtradb-cluster-operator \
         -o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
 }
 

@@ -168,12 +168,12 @@ spec:
           secret:
             defaultMode: 420
             optional: true
-            secretName: my-cluster-ssl-internal
+            secretName: some-name-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
             optional: false
-            secretName: my-cluster-ssl
+            secretName: some-name-ssl
         - configMap:
             defaultMode: 420
             name: auto-upgrade-proxysql-pxc
@@ -183,7 +183,7 @@ spec:
           secret:
             defaultMode: 420
             optional: true
-            secretName: keyring-secret-vault
+            secretName: some-name-vault
   updateStrategy:
     type: OnDelete
   volumeClaimTemplates:

@@ -188,7 +188,10 @@ function main() {
     else
         kubectl_bin delete -f "${src_dir}/deploy/rbac.yaml" || true
     fi
+
     deploy_cert_manager
+    sleep 30
+
     # we cannot use create_infra and deploy_operator from functions since they deploy from the current source tree
     # so we fetch last officially released images and yaml files as initial state for upgrade from github
     create_infra_gh "${namespace}"

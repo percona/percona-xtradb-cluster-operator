@@ -19,40 +19,49 @@ If you would like to report a bug, use the `Percona Kubernetes Operator for Perc
 Which versions of MySQL PXC Operator supports?
 ================================================================================
 
+Percona XtraDB Cluster Operator provides a ready-to-use installation of the
+MySQL-based Percona XtraDB Cluster inside your Kubernetes installation. It works
+with both MySQL 8.0 and 5.7 branches, and the exact version is determined by the
+Docker image in use.
+
+Percona-certified Docker images used by the Operator are listed `here <https://www.percona.com/doc/kubernetes-operator-for-pxc/images.html>`_.  As you can see, both Percona XtraDB Cluster 8.0 and 5.7 are
+supported with the following recommended versions: {{{pxc80recommended}}} and {{{pxc57recommended}}}.
+Three major numbers in the XtraDB Cluster version refer to the version of
+Percona Server in use. More details on the exact Percona Server version can be
+found in the release notes (`8.0 <https://www.percona.com/doc/percona-server/8.0/release-notes/release-notes_index.html>`_, `5.7 <https://www.percona.com/doc/percona-server/5.7/release-notes/release-notes_index.html>`_).
+
 How HAProxy is better than ProxySQL?
 ================================================================================
 
-How to perform PITR with MySQL PXC Operator?
-================================================================================
+Percona XtraDB Cluster Operator supports both HAProxy and ProxySQL as a load
+balancer. HAProxy is turned on by default, but both solutions are similar in
+terms of their configuration and operation under the control of the Operator.
 
-How to set up async replication from PXC managed by Operator? 
-================================================================================
+Still, they have technical differences. HAProxy is a general and widely used
+high availability, load balancing, and proxying solution for TCP and HTTP-based
+applications. ProxySQL provides similar functionality but is specific to MySQL
+clusters. As an SQL-aware solution, it is able to provide more tight
+internal integration with MySQL instances.
 
-How to set up async replication to PXC managed by Operator? 
-================================================================================
+Both projects do a really good job with Percona XtraDB Cluster Operator. The
+load balancer choice should depend mostly on your personal preferences,
+experience with one or another project and its usage in your current
+infrastructure, and (possibly) specific needs of the application.
 
-How to set up DR for PXC Operator: Percona preferred way? Backups with PITR or async from pxc to pxc?
+Why do we need to follow "the Kubernetes way" when Kubernetes was never intended to run databases?
 =====================================================================================================
 
-Why incremental backups are not supported by the Operator
-================================================================================
+As it is well known, the Kubernetes approach is targeted at stateless
+applications but provides ways to store state (in Persistent Volumes, etc.) if
+the application needs it. Generally, a stateless mode of operation is supposed
+to provide better safety and sustainability. Moreover, it makes the
+already-deployed components interchangeable.
 
-What is the difference between the Operator quickstart and ordinary/normal installation way?
-============================================================================================
-
-What is proper way to do rolling restart
-================================================================================
-
-How to diagnose failing SST
-================================================================================
-
-How do we run strace/gdb/perf/bpftrace/etc on the nodes to understand performance issues
-=========================================================================================
-
-Why do we need to follow "the Kubernetes way" when Kubernetes was never intended to run databases, and all evidence points to the fact this idea of "the process must have PID 1" is not fit for databases or other things that require post-mortem diagnostic
-What is the right way to prove phsyical conectivity between two K8s hosts (not pods) is working
-================================================================================================
-
-Can we have an easy tool that we can deploy to allow direct/easy access to the PVC(s) attached to a pod?
-=========================================================================================================
+In the case of state-centric applications (like databases), Kubernetes
+allows to *separate* those parts of the application which *can* be treated as
+stateless (the database engine, etc.) from parts that can not (actual data).
+Depending on the usage scenario, this separation and the appropriate level of
+complexity can bring additional load, like in the case of large databases with
+massive replication, etc. But there are substantial benefits in automatic
+scalability and manageability. Please see `this blog post <https://www.percona.com/blog/2020/10/08/the-criticality-of-a-kubernetes-operator-for-databases/>`_ for more details.
 

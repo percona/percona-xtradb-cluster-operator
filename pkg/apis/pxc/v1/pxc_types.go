@@ -420,7 +420,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		return false, errors.Wrap(err, "validate cr")
 	}
 
-	c := cr.Spec
+	c := &cr.Spec
 
 	if c.PXC != nil {
 		changed = c.PXC.VolumeSpec.reconcileOpts()

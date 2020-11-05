@@ -11,7 +11,7 @@ Cluster debug image has the following specifics:
 * it contains additional tools useful for debugging (sudo, telnet, gdb, etc.),
 * it has debug mode enabled for the logs.
 
-There are debug versions for all :ref:`Percona certified images<custom-registry-images>`: they have same names as normal images with a special ``-debug`` suffix in their version tag: for example, ``percona-xtradb-cluster-operator:{{{release}}}-debug``.
+There are debug versions for all :ref:`Percona XtraDB Cluster images<custom-registry-images>`: they have same names as normal images with a special ``-debug`` suffix in their version tag: for example, ``percona-xtradb-cluster:{{{pxc80recommended}}}-debug``.
 
 Particularly, using such image is useful if the container entry point fails
 (e.g. ``mysqld`` crashes). In such a situation, Pod is continuously restarting.

@@ -254,6 +254,14 @@ function main() {
     compare_kubectl "statefulset/${CLUSTER}-proxysql"
 
     desc 'cleanup'
+    kubectl_bin delete -f "${src_dir}/deploy/crd.yaml" || :
+    kubectl_bin delete pvc --all
+    if [[ -n "${OPERATOR_NS}" ]]; then
+        kubectl_bin delete ns "${OPERATOR_NS}" || :
+        kubectl_bin delete -f "${src_dir}/deploy/cw-rbac.yaml" || :
+    else
+        kubectl_bin delete -f "${src_dir}/deploy/rbac.yaml" || :
+    fi
     destroy "${namespace}"
 }
 

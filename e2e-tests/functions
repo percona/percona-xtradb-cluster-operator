@@ -56,7 +56,10 @@ create_namespace() {
     local skip_clean_namespace="$2"
 
     if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+        kubectl_bin get ns \
+            | egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" \
+            | awk '{print$1}' \
+            | xargs kubectl delete ns &
     fi
 
     if [ ! -z "$OPENSHIFT" ]; then
@@ -86,19 +89,20 @@ get_operator_pod() {
 wait_pod() {
     local pod=$1
     local max_retry="${2:-480}"
+    local ns=$3
 
     set +o xtrace
     retry=0
     echo -n $pod
     #until kubectl_bin get pod/$pod -o jsonpath='{.status.phase}' 2>/dev/null | grep 'Running'; do
-    until kubectl_bin get pod/$pod -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null | grep 'true'; do
+    until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null | grep 'true'; do
         sleep 1
         echo -n .
         let retry+=1
         if [[ $retry -ge $max_retry ]]; then
             kubectl_bin describe pod/$pod
             kubectl_bin logs $pod
-            kubectl_bin logs $(get_operator_pod)
+            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -117,7 +121,7 @@ wait_backup() {
         echo -n .
         let retry+=1
         if [ $retry -ge 60 ]; then
-            kubectl_bin logs $(get_operator_pod)
+            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -136,7 +140,7 @@ wait_backup_restore() {
         echo -n .
         let retry+=1
         if [ $retry -ge 1500 ]; then
-            kubectl_bin logs $(get_operator_pod)
+            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -173,7 +177,7 @@ deploy_operator() {
 
     sleep 2
 
-    wait_pod $(get_operator_pod)
+    wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
 }
 
 deploy_helm() {
@@ -188,6 +192,14 @@ create_infra() {
     local ns="$1"
 
     if [ -n "$OPERATOR_NS" ]; then
+        kubectl get pxc --all-namespaces -o wide \
+            | grep -v 'NAMESPACE' \
+            | xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
+            || :
+        kubectl_bin delete pxc --all --all-namespaces || :
+        kubectl_bin delete pxc-backup --all --all-namespaces || :
+        kubectl_bin delete pxc-restore --all --all-namespaces || :
+
         create_namespace $OPERATOR_NS
         deploy_operator
         create_namespace $ns
@@ -218,7 +230,7 @@ wait_for_delete() {
         echo -n .
         let retry+=1
         if [ $retry -ge 120 ]; then
-            kubectl_bin logs $(get_operator_pod)
+            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -447,7 +459,7 @@ deploy_cert_manager() {
 destroy() {
     local namespace="$1"
 
-    kubectl_bin logs $(get_operator_pod) \
+    kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
         | grep -v '"level":"info"' \
         | grep -v 'the object has been modified' \
         | grep -v 'get backup status: Job.batch' \
@@ -458,15 +470,25 @@ destroy() {
     #TODO: maybe will be enabled later
     #diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
-    kubectl_bin delete pxc --all
-    kubectl_bin delete pxc-backup --all
-    kubectl_bin delete pxc-restore --all || :
+    kubectl get pxc --all-namespaces -o wide \
+        | grep -v 'NAMESPACE' \
+        | xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
+        || :
+    kubectl_bin delete pxc --all --all-namespaces || :
+    kubectl_bin delete pxc-backup --all --all-namespaces || :
+    kubectl_bin delete pxc-restore --all --all-namespaces || :
 
     kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :
     if [ ! -z "$OPENSHIFT" ]; then
         oc delete --grace-period=0 --force=true project "$namespace" &
+        if [ -n "$OPERATOR_NS" ]; then
+            oc delete --grace-period=0 --force=true project "$OPERATOR_NS" &
+        fi
     else
         kubectl_bin delete --grace-period=0 --force=true namespace "$namespace" &
+        if [ -n "$OPERATOR_NS" ]; then
+            kubectl_bin delete --grace-period=0 --force=true namespace "$OPERATOR_NS" &
+        fi
     fi
     rm -rf ${tmp_dir}
 }
@@ -592,11 +614,11 @@ apply_config() {
 
 get_proxy() {
     local target_cluster=${1}
-    if [[ "$(kubectl get pxc ${target_cluster} -o 'jsonpath={.spec.haproxy.enabled}')" = "true" ]]; then
+    if [[ "$(kubectl_bin get pxc ${target_cluster} -o 'jsonpath={.spec.haproxy.enabled}')" = "true" ]]; then
         echo "${target_cluster}-haproxy"
         return
     fi
-    if [[ "$(kubectl get pxc ${target_cluster} -o 'jsonpath={.spec.proxysql.enabled}')" = "true" ]]; then
+    if [[ "$(kubectl_bin get pxc ${target_cluster} -o 'jsonpath={.spec.proxysql.enabled}')" = "true" ]]; then
         echo "${target_cluster}-proxysql"
         return
     fi
@@ -667,7 +689,7 @@ function is_table_encrypted() {
 
 function is_keyring_plugin_in_use() {
     local cluster=$1
-    kubectl_bin exec -it $cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
+    kubectl_bin exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
         | egrep -o "early-plugin-load=keyring_\w+.so"
 }
 

@@ -156,7 +156,7 @@ main() {
 
     cluster="scheduled-backup"
 
-    cat - <<-EOF | kubectl apply -f -
+    cat - <<-EOF | kubectl_bin apply -f -
         apiVersion: scheduling.k8s.io/v1beta1
         kind: PriorityClass
         metadata:

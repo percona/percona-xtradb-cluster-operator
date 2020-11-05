@@ -199,7 +199,7 @@ function main() {
     local proxy="haproxy"
     local cr_yaml="${tmp_dir}/cr_${INIT_OPERATOR_VER}_${proxy}.yaml"
     prepare_cr_yaml "${cr_yaml}" "${proxy}"
-    spinup_pxc "${CLUSTER}" "${cr_yaml}" "30" "${conf_dir}/secrets_without_tls.yml"
+    spinup_pxc "${CLUSTER}" "${cr_yaml}" "${CLUSTER_SIZE}" "30" "${conf_dir}/secrets_without_tls.yml"
     compare_generation "1" "${proxy}"
 
     desc 'upgrade operator'

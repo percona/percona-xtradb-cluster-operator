@@ -2,6 +2,8 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -150,8 +152,22 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
 	}
 
+	if pxcIMG := os.Getenv("RELATED_IMAGE_PXC"); len(pxcIMG) > 0 {
+		c.PXC.Image = pxcIMG
+	}
+
 	if c.PXC.Image == "" {
 		return errors.New("pxc.Image can't be empty")
+	}
+
+	if c.PMM != nil && c.PMM.Enabled {
+		if pmmIMG := os.Getenv("RELATED_IMAGE_PMM"); len(pmmIMG) > 0 {
+			c.PMM.Image = pmmIMG
+		}
+
+		if c.PMM.Image == "" {
+			return errors.New("pmm.Image can't be empty")
+		}
 	}
 
 	if c.PXC.VolumeSpec == nil {
@@ -168,15 +184,24 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	}
 
 	if c.HAProxy != nil && c.HAProxy.Enabled {
+		if haproxyIMG := os.Getenv("RELATED_IMAGE_HAPROXY"); len(haproxyIMG) > 0 {
+			c.HAProxy.Image = haproxyIMG
+		}
+
 		if c.HAProxy.Image == "" {
 			return errors.New("haproxy.Image can't be empty")
 		}
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+		if proxysqlIMG := os.Getenv("RELATED_IMAGE_PROXYSQL"); len(proxysqlIMG) > 0 {
+			c.ProxySQL.Image = proxysqlIMG
+		}
+
 		if c.ProxySQL.Image == "" {
 			return errors.New("proxysql.Image can't be empty")
 		}
+		
 		if c.ProxySQL.VolumeSpec == nil {
 			return errors.New("ProxySQL: volumeSpec should be specified")
 		}
@@ -187,6 +212,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	}
 
 	if c.Backup != nil {
+		if backupIMG := os.Getenv("RELATED_IMAGE_BACKUP"); len(backupIMG) > 0 {
+			c.Backup.Image = backupIMG
+		}
+
 		if c.Backup.Image == "" {
 			return errors.New("backup.Image can't be empty")
 		}
@@ -404,13 +433,12 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
 func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion) (changed bool, err error) {
-	CRVerChanged, err := cr.setVersion()
-
 	workloadSA := "percona-xtradb-cluster-operator-workload"
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		workloadSA = WorkloadSA
 	}
 
+	CRVerChanged, err := cr.setVersion()
 	if err != nil {
 		return false, errors.Wrap(err, "set version")
 	}
@@ -424,9 +452,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 	if c.PXC != nil {
 		changed = c.PXC.VolumeSpec.reconcileOpts()
+
 		if len(c.PXC.ImagePullPolicy) == 0 {
 			c.PXC.ImagePullPolicy = corev1.PullAlways
 		}
+
 		c.PXC.VaultSecretName = c.VaultSecretName
 		if len(c.PXC.VaultSecretName) == 0 {
 			c.PXC.VaultSecretName = cr.Name + "-vault"
@@ -494,6 +524,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if len(c.HAProxy.ImagePullPolicy) == 0 {
 			c.HAProxy.ImagePullPolicy = corev1.PullAlways
 		}
+
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-HAProxy.
 		if c.HAProxy.PodDisruptionBudget == nil {
 			defaultMaxUnavailable := intstr.FromInt(1)
@@ -520,6 +551,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if len(c.ProxySQL.ImagePullPolicy) == 0 {
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
 		}
+
 		changed = c.ProxySQL.VolumeSpec.reconcileOpts()
 
 		if len(c.SSLSecretName) > 0 {

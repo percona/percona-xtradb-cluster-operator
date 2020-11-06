@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"strings"
 
@@ -201,7 +200,6 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		if c.ProxySQL.Image == "" {
 			return errors.New("proxysql.Image can't be empty")
 		}
-		
 		if c.ProxySQL.VolumeSpec == nil {
 			return errors.New("ProxySQL: volumeSpec should be specified")
 		}

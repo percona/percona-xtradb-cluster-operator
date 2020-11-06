@@ -14,16 +14,26 @@ Why do we need to follow "the Kubernetes way" when Kubernetes was never intended
 As it is well known, the Kubernetes approach is targeted at stateless
 applications but provides ways to store state (in Persistent Volumes, etc.) if
 the application needs it. Generally, a stateless mode of operation is supposed
-to provide better safety and sustainability. Moreover, it makes the
-already-deployed components interchangeable.
+to provide better safety, sustainability, and scalability, it makes the
+already-deployed components interchangeable. You can find more about substantial
+benefits brought by Kubernetes to databases in `this blog post <https://www.percona.com/blog/2020/10/08/the-criticality-of-a-kubernetes-operator-for-databases/>`_.
 
-In the case of state-centric applications (like databases), Kubernetes
-allows to *separate* those parts of the application which *can* be treated as
-stateless (the database engine, etc.) from parts that can not (actual data).
-Depending on the usage scenario, this separation and the appropriate level of
-complexity can bring additional load, like in the case of large databases with
-massive replication, etc. But there are substantial benefits in automatic
-scalability and manageability. Please see `this blog post <https://www.percona.com/blog/2020/10/08/the-criticality-of-a-kubernetes-operator-for-databases/>`_ for more details.
+The architecture of state-centric applications (like databases) should be
+composed in a right way to allow avoiding crashes, data loss, or data
+inconsistencies during hardware fail. It is the main goal of the database
+Kubernetes Operator to solve or simplify these aspects.
+
+It worth to mention, that in a non-Kubernetes environment issues are the same.
+Unfortunately, we, Engineers, tend to think that crash, data loss, or data
+inconsistency issues are not important or even do not exist in the
+non-Kubernetes world, but of course that's not true.
+
+Percona Kubernetes Operator for Percona XtraDB Cluster uses synchronous
+replication which guarantees consistency on any kind of fail of one cluster
+member. It has automatic recovery if one member had fully or partially lost
+data. The proxy layer automatically switches traffic to alive members. The
+Operator provides this among other things which are typically not solved at all
+in a typical non-Kubernetes setup.
 
 How can I contact the developers?
 ================================================================================
@@ -60,11 +70,12 @@ MySQL-based Percona XtraDB Cluster inside your Kubernetes installation. It works
 with both MySQL 8.0 and 5.7 branches, and the exact version is determined by the
 Docker image in use.
 
-Percona-certified Docker images used by the Operator are listed `here <https://www.percona.com/doc/kubernetes-operator-for-pxc/images.html>`_.  As you can see, both Percona XtraDB Cluster 8.0 and 5.7 are
-supported with the following recommended versions: {{{pxc80recommended}}} and {{{pxc57recommended}}}.
-Three major numbers in the XtraDB Cluster version refer to the version of
-Percona Server in use. More details on the exact Percona Server version can be
-found in the release notes (`8.0 <https://www.percona.com/doc/percona-server/8.0/release-notes/release-notes_index.html>`_, `5.7 <https://www.percona.com/doc/percona-server/5.7/release-notes/release-notes_index.html>`_).
+Percona-certified Docker images used by the Operator are listed `here <https://www.percona.com/doc/kubernetes-operator-for-pxc/images.html>`_.
+As you can see, both Percona XtraDB Cluster 8.0 and 5.7 are supported with the
+following recommended versions: {{{pxc80recommended}}} and
+{{{pxc57recommended}}}. Three major numbers in the XtraDB Cluster version refer
+to the version of Percona Server in use. More details on the exact Percona
+Server version can be found in the release notes (`8.0 <https://www.percona.com/doc/percona-server/8.0/release-notes/release-notes_index.html>`_, `5.7 <https://www.percona.com/doc/percona-server/5.7/release-notes/release-notes_index.html>`_).
 
 How HAProxy is better than ProxySQL?
 ================================================================================

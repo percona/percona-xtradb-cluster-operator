@@ -49,3 +49,16 @@ spec:
           name: metrics
           protocol: TCP
       serviceAccountName: percona-xtradb-cluster-operator
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: percona-xtradb-cluster-operator
+  labels:
+    name: percona-xtradb-cluster-operator
+spec:
+  ports:
+    - port: 443
+      targetPort: 9443
+  selector:
+    app.kubernetes.io/name: percona-xtradb-cluster-operator

@@ -23,6 +23,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -115,6 +116,12 @@ func main() {
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	err = webhook.SetupWebhook(mgr)
+	if err != nil {
+		log.Error(err, "set up validation webhook")
 		os.Exit(1)
 	}
 

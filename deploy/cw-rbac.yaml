@@ -21,6 +21,18 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete 
+- apiGroups:
   - ""
   resources:
   - pods

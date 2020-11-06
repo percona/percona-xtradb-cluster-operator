@@ -54,8 +54,8 @@ clusters. As an SQL-aware solution, it is able to provide more tight
 internal integration with MySQL instances.
 
 Both projects do a really good job with Percona XtraDB Cluster Operator. The
-load balancer choice should depend mostly on your personal preferences,
-experience with one or another project and its usage in your current
+proxy choice should depend mostly on application-specific workload (including ORM),
+performance requirements, advanced routing and caching needs with one or another project and its usage in your current
 infrastructure, and (possibly) specific needs of the application.
 
 Why do we need to follow "the Kubernetes way" when Kubernetes was never intended to run databases?
@@ -74,4 +74,3 @@ Depending on the usage scenario, this separation and the appropriate level of
 complexity can bring additional load, like in the case of large databases with
 massive replication, etc. But there are substantial benefits in automatic
 scalability and manageability. Please see `this blog post <https://www.percona.com/blog/2020/10/08/the-criticality-of-a-kubernetes-operator-for-databases/>`_ for more details.
-

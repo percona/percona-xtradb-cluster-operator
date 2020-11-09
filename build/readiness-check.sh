@@ -5,6 +5,10 @@ if [[ $1 == '-h' || $1 == '--help' ]];then
     exit
 fi
 
+if [ -f /tmp/recovery-case ]; then
+    exit 0
+fi
+
 { set +x; } 2>/dev/null
 MYSQL_USERNAME="${MYSQL_USERNAME:-clustercheck}"
 MYSQL_PASSWORD="${CLUSTERCHECK_PASSWORD:-clustercheckpassword!}"

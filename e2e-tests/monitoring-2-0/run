@@ -13,7 +13,7 @@ deploy_helm $namespace
 
 desc 'install PMM Server'
 platform=kubernetes
-if [ "$OPENSHIFT" == 1 ]; then
+if [ ! -z "$OPENSHIFT" ]; then
     platform=openshift
 fi
 helm del monitoring || :

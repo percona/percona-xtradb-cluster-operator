@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -35,6 +36,8 @@ type PerconaXtraDBClusterSpec struct {
 	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
 	UpgradeOptions        UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+	InitImage             string                               `json:"initImage,omitempty"`
+	DisableHookValidation bool                                 `json:"disableHookValidation,omitempty"`
 }
 
 type TLSSpec struct {
@@ -147,6 +150,110 @@ type PerconaXtraDBCluster struct {
 	Status PerconaXtraDBClusterStatus `json:"status,omitempty"`
 }
 
+func (cr *PerconaXtraDBCluster) Validate() error {
+	if len(cr.Name) > clusterNameMaxLen {
+		return errors.Errorf("cluster name (%s) too long, must be no more than %d characters", cr.Name, clusterNameMaxLen)
+	}
+
+	c := cr.Spec
+
+	if c.PXC == nil {
+		return errors.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
+	}
+
+	if pxcIMG := os.Getenv("RELATED_IMAGE_PXC"); len(pxcIMG) > 0 {
+		c.PXC.Image = pxcIMG
+	}
+
+	if c.PXC.Image == "" {
+		return errors.New("pxc.Image can't be empty")
+	}
+
+	if c.PMM != nil && c.PMM.Enabled {
+		if pmmIMG := os.Getenv("RELATED_IMAGE_PMM"); len(pmmIMG) > 0 {
+			c.PMM.Image = pmmIMG
+		}
+
+		if c.PMM.Image == "" {
+			return errors.New("pmm.Image can't be empty")
+		}
+	}
+
+	if c.PXC.VolumeSpec == nil {
+		return errors.New("PXC: volumeSpec should be specified")
+	}
+
+	if err := c.PXC.VolumeSpec.validate(); err != nil {
+		return errors.Wrap(err, "PXC: validate volume spec")
+	}
+
+	if c.HAProxy != nil && c.HAProxy.Enabled &&
+		c.ProxySQL != nil && c.ProxySQL.Enabled {
+		return errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
+	}
+
+	if c.HAProxy != nil && c.HAProxy.Enabled {
+		if haproxyIMG := os.Getenv("RELATED_IMAGE_HAPROXY"); len(haproxyIMG) > 0 {
+			c.HAProxy.Image = haproxyIMG
+		}
+
+		if c.HAProxy.Image == "" {
+			return errors.New("haproxy.Image can't be empty")
+		}
+	}
+
+	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+		if proxysqlIMG := os.Getenv("RELATED_IMAGE_PROXYSQL"); len(proxysqlIMG) > 0 {
+			c.ProxySQL.Image = proxysqlIMG
+		}
+
+		if c.ProxySQL.Image == "" {
+			return errors.New("proxysql.Image can't be empty")
+		}
+		if c.ProxySQL.VolumeSpec == nil {
+			return errors.New("ProxySQL: volumeSpec should be specified")
+		}
+
+		if err := c.ProxySQL.VolumeSpec.validate(); err != nil {
+			return errors.Wrap(err, "ProxySQL: validate volume spec")
+		}
+	}
+
+	if c.Backup != nil {
+		if backupIMG := os.Getenv("RELATED_IMAGE_BACKUP"); len(backupIMG) > 0 {
+			c.Backup.Image = backupIMG
+		}
+
+		if c.Backup.Image == "" {
+			return errors.New("backup.Image can't be empty")
+		}
+
+		for _, sch := range c.Backup.Schedule {
+			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
+			if !ok {
+				return errors.Errorf("storage %s doesn't exist", sch.StorageName)
+			}
+			if strg.Type == BackupStorageFilesystem {
+				if strg.Volume == nil {
+					return errors.Errorf("backup storage %s: volume should be specified", sch.StorageName)
+				}
+
+				if err := strg.Volume.validate(); err != nil {
+					return errors.Wrap(err, "Backup: validate volume spec")
+				}
+			}
+		}
+	}
+
+	if c.UpdateStrategy == SmartUpdateStatefulSetStrategyType &&
+		(c.ProxySQL == nil || !c.ProxySQL.Enabled) &&
+		(c.HAProxy == nil || !c.HAProxy.Enabled) {
+		return errors.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
+	}
+
+	return nil
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PerconaXtraDBClusterList contains a list of PerconaXtraDBCluster
@@ -178,7 +285,9 @@ type PodSpec struct {
 	TerminationGracePeriodSeconds *int64                                  `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                                    `json:"forceUnsafeBootstrap,omitempty"`
 	ServiceType                   corev1.ServiceType                      `json:"serviceType,omitempty"`
+	ReplicasServiceType           corev1.ServiceType                      `json:"replicasServiceType,omitempty"`
 	ExternalTrafficPolicy         corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
 	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
@@ -292,13 +401,10 @@ type StatefulApp interface {
 	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy
 }
 
-const clusterNameMaxLen = 32
+const clusterNameMaxLen = 22
 
 var defaultPXCGracePeriodSec int64 = 600
 var livenessInitialDelaySeconds int32 = 300
-
-// ErrClusterNameOverflow upspring when the cluster name is longer than acceptable
-var ErrClusterNameOverflow = fmt.Errorf("cluster (pxc) name too long, must be no more than %d characters", clusterNameMaxLen)
 
 func (cr *PerconaXtraDBCluster) setSecurityContext() {
 	var fsgroup *int64
@@ -335,31 +441,30 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
 func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion) (changed bool, err error) {
+	workloadSA := "percona-xtradb-cluster-operator-workload"
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		workloadSA = WorkloadSA
+	}
+
 	CRVerChanged, err := cr.setVersion()
 	if err != nil {
 		return false, errors.Wrap(err, "set version")
 	}
 
-	if len(cr.Name) > clusterNameMaxLen {
-		return false, ErrClusterNameOverflow
+	err = cr.Validate()
+	if err != nil {
+		return false, errors.Wrap(err, "validate cr")
 	}
 
-	c := cr.Spec
-	if c.PXC == nil {
-		return false, fmt.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
-	}
+	c := &cr.Spec
 
 	if c.PXC != nil {
-		if c.PXC.VolumeSpec == nil {
-			return false, fmt.Errorf("PXC: volumeSpec should be specified")
-		}
-		changed, err = c.PXC.VolumeSpec.reconcileOpts()
-		if err != nil {
-			return false, fmt.Errorf("PXC.Volume: %v", err)
-		}
+		changed = c.PXC.VolumeSpec.reconcileOpts()
+
 		if len(c.PXC.ImagePullPolicy) == 0 {
 			c.PXC.ImagePullPolicy = corev1.PullAlways
 		}
+
 		c.PXC.VaultSecretName = c.VaultSecretName
 		if len(c.PXC.VaultSecretName) == 0 {
 			c.PXC.VaultSecretName = cr.Name + "-vault"
@@ -403,7 +508,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		if len(c.PXC.ServiceAccountName) == 0 {
-			c.PXC.ServiceAccountName = WorkloadSA
+			c.PXC.ServiceAccountName = workloadSA
 		}
 
 		c.PXC.reconcileAffinityOpts()
@@ -423,15 +528,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
-	if c.HAProxy != nil && c.HAProxy.Enabled &&
-		c.ProxySQL != nil && c.ProxySQL.Enabled {
-		return false, errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
-	}
-
 	if c.HAProxy != nil && c.HAProxy.Enabled {
 		if len(c.HAProxy.ImagePullPolicy) == 0 {
 			c.HAProxy.ImagePullPolicy = corev1.PullAlways
 		}
+
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-HAProxy.
 		if c.HAProxy.PodDisruptionBudget == nil {
 			defaultMaxUnavailable := intstr.FromInt(1)
@@ -444,7 +545,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		if len(c.HAProxy.ServiceAccountName) == 0 {
-			c.HAProxy.ServiceAccountName = WorkloadSA
+			c.HAProxy.ServiceAccountName = workloadSA
 		}
 
 		c.HAProxy.reconcileAffinityOpts()
@@ -458,13 +559,8 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if len(c.ProxySQL.ImagePullPolicy) == 0 {
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
 		}
-		if c.ProxySQL.VolumeSpec == nil {
-			return false, fmt.Errorf("ProxySQL: volumeSpec should be specified")
-		}
-		changed, err = c.ProxySQL.VolumeSpec.reconcileOpts()
-		if err != nil {
-			return false, fmt.Errorf("ProxySQL.Volume: %v", err)
-		}
+
+		changed = c.ProxySQL.VolumeSpec.reconcileOpts()
 
 		if len(c.SSLSecretName) > 0 {
 			c.ProxySQL.SSLSecretName = c.SSLSecretName
@@ -490,7 +586,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		if len(c.ProxySQL.ServiceAccountName) == 0 {
-			c.ProxySQL.ServiceAccountName = WorkloadSA
+			c.ProxySQL.ServiceAccountName = workloadSA
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
@@ -512,42 +608,27 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 				cr.Spec.Backup.PITR.TimeBetweenUploads = 60
 			}
 		}
+
 		for _, sch := range c.Backup.Schedule {
-			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
-			if !ok {
-				return false, fmt.Errorf("storage %s doesn't exist", sch.StorageName)
-			}
+			strg := c.Backup.Storages[sch.StorageName]
 			switch strg.Type {
 			case BackupStorageS3:
 				//TODO what should we check here?
 			case BackupStorageFilesystem:
-				if strg.Volume == nil {
-					return false, fmt.Errorf("backup storage %s: volume should be specified", sch.StorageName)
-				}
-				changed, err = strg.Volume.reconcileOpts()
-				if err != nil {
-					return false, fmt.Errorf("backup.Volume: %v", err)
-				}
+				changed = strg.Volume.reconcileOpts()
 			}
 		}
 	}
 
-	if cr.Spec.UpdateStrategy == SmartUpdateStatefulSetStrategyType &&
-		(cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled) &&
-		(cr.Spec.HAProxy == nil || !cr.Spec.HAProxy.Enabled) {
-		return false, fmt.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
-	}
-
-	if len(cr.Spec.Platform) == 0 {
+	if len(c.Platform) == 0 {
 		if len(serverVersion.Platform) > 0 {
-			cr.Spec.Platform = serverVersion.Platform
+			c.Platform = serverVersion.Platform
 		} else {
-			cr.Spec.Platform = version.PlatformKubernetes
+			c.Platform = version.PlatformKubernetes
 		}
 	}
 
 	cr.setSecurityContext()
-	cr.Spec.Platform = serverVersion.Platform
 
 	return CRVerChanged || changed, nil
 }
@@ -641,7 +722,22 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	}
 }
 
-func (v *VolumeSpec) reconcileOpts() (changed bool, err error) {
+func (v *VolumeSpec) reconcileOpts() (changed bool) {
+	if v.EmptyDir == nil && v.HostPath == nil && v.PersistentVolumeClaim == nil {
+		v.PersistentVolumeClaim = &corev1.PersistentVolumeClaimSpec{}
+	}
+
+	if v.PersistentVolumeClaim != nil {
+		if len(v.PersistentVolumeClaim.AccessModes) == 0 {
+			v.PersistentVolumeClaim.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+			changed = true
+		}
+	}
+
+	return changed
+}
+
+func (v *VolumeSpec) validate() error {
 	if v.EmptyDir == nil && v.HostPath == nil && v.PersistentVolumeClaim == nil {
 		v.PersistentVolumeClaim = &corev1.PersistentVolumeClaimSpec{}
 	}
@@ -649,14 +745,8 @@ func (v *VolumeSpec) reconcileOpts() (changed bool, err error) {
 	if v.PersistentVolumeClaim != nil {
 		_, ok := v.PersistentVolumeClaim.Resources.Requests[corev1.ResourceStorage]
 		if !ok {
-			return changed, fmt.Errorf("volume.resources.storage can't be empty")
-		}
-
-		if v.PersistentVolumeClaim.AccessModes == nil || len(v.PersistentVolumeClaim.AccessModes) == 0 {
-			v.PersistentVolumeClaim.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
-			changed = true
+			return errors.New("volume.resources.storage can't be empty")
 		}
 	}
-
-	return changed, nil
+	return nil
 }

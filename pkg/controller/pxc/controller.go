@@ -265,7 +265,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, o.Spec.PXC.ContainerSecurityContext))
+		imageName := operatorPod.Spec.Containers[0].Image
+		if o.CompareVersionWith(version.Version) != 0 {
+			imageName = strings.Split(imageName, ":")[0] + ":" + o.Spec.CRVersion
+		}
+		var initResources *api.PodResources
+		if o.CompareVersionWith("1.6.0") >= 0 {
+			initResources = o.Spec.PXC.Resources
+		}
+		if len(o.Spec.InitImage) > 0 {
+			imageName = o.Spec.InitImage
+		}
+		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		inits = append(inits, initC)
 	}
 
 	pxcSet := statefulset.NewNode(o)
@@ -274,6 +289,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if err != nil {
 		err = fmt.Errorf("pxc upgrade error: %v", err)
 		return reconcile.Result{}, err
+	}
+
+	for _, pxcService := range []*corev1.Service{pxc.NewServicePXC(o), pxc.NewServicePXCUnready(o)} {
+		currentService := &corev1.Service{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pxcService.Name, Namespace: pxcService.Namespace}, currentService)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to get current PXC service")
+		}
+
+		currentService.Spec.Ports = pxcService.Spec.Ports
+
+		err = r.client.Update(context.TODO(), currentService)
+		if err != nil {
+			err = fmt.Errorf("PXC service upgrade error: %v", err)
+			return reconcile.Result{}, err
+		}
 	}
 
 	haProxySet := statefulset.NewHAProxy(o)
@@ -293,57 +324,28 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 
+		ports := []corev1.ServicePort{
+			{
+				Port:       3306,
+				TargetPort: intstr.FromInt(3306),
+				Name:       "mysql",
+			},
+			{
+				Port:       3309,
+				TargetPort: intstr.FromInt(3309),
+				Name:       "proxy-protocol",
+			},
+		}
+
 		if len(o.Spec.HAProxy.ServiceType) > 0 {
 			//Upgrading service only if something is changed
 			if currentService.Spec.Type != o.Spec.HAProxy.ServiceType {
-				currentService.Spec.Ports = []corev1.ServicePort{
-					{
-						Port:       3306,
-						TargetPort: intstr.FromInt(3306),
-						Name:       "mysql",
-					},
-					{
-						Port:       3309,
-						TargetPort: intstr.FromInt(3309),
-						Name:       "proxy-protocol",
-					},
-				}
-				if o.CompareVersionWith("1.6.0") >= 0 {
-					currentService.Spec.Ports = append(
-						currentService.Spec.Ports,
-						corev1.ServicePort{
-							Port:       33062,
-							TargetPort: intstr.FromInt(33062),
-							Name:       "mysql-admin",
-						},
-					)
-				}
+				currentService.Spec.Ports = ports
 				currentService.Spec.Type = o.Spec.HAProxy.ServiceType
 			}
 			//Checking default ServiceType
 		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
-			currentService.Spec.Ports = []corev1.ServicePort{
-				{
-					Port:       3306,
-					TargetPort: intstr.FromInt(3306),
-					Name:       "mysql",
-				},
-				{
-					Port:       3309,
-					TargetPort: intstr.FromInt(3309),
-					Name:       "proxy-protocol",
-				},
-			}
-			if o.CompareVersionWith("1.6.0") >= 0 {
-				currentService.Spec.Ports = append(
-					currentService.Spec.Ports,
-					corev1.ServicePort{
-						Port:       33062,
-						TargetPort: intstr.FromInt(33062),
-						Name:       "mysql-admin",
-					},
-				)
-			}
+			currentService.Spec.Ports = ports
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
 
@@ -355,19 +357,57 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			}
 		}
 
+		if o.CompareVersionWith("1.6.0") >= 0 {
+			currentService.Spec.Ports = append(ports,
+				corev1.ServicePort{
+					Port:       33062,
+					TargetPort: intstr.FromInt(33062),
+					Name:       "mysql-admin",
+				},
+			)
+		}
+
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
 			err = fmt.Errorf("HAProxy service upgrade error: %v", err)
 			return reconcile.Result{}, err
 		}
 
-		haProxyServiceReplicas := pxc.NewServiceHAProxy(o)
+		haProxyServiceReplicas := pxc.NewServiceHAProxyReplicas(o)
 		currentServiceReplicas := &corev1.Service{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: haProxyServiceReplicas.Name, Namespace: haProxyServiceReplicas.Namespace}, currentServiceReplicas)
 		if err != nil {
 			err = fmt.Errorf("failed to get HAProxyReplicas service: %v", err)
 			return reconcile.Result{}, err
 		}
+
+		replicaPorts := []corev1.ServicePort{
+			{
+				Port:       3306,
+				TargetPort: intstr.FromInt(3307),
+				Name:       "mysql-replicas",
+			},
+		}
+		if len(o.Spec.HAProxy.ReplicasServiceType) > 0 {
+			//Upgrading service only if something is changed
+			if currentServiceReplicas.Spec.Type != o.Spec.HAProxy.ReplicasServiceType {
+				currentServiceReplicas.Spec.Ports = replicaPorts
+				currentServiceReplicas.Spec.Type = o.Spec.HAProxy.ReplicasServiceType
+			}
+			//Checking default ServiceType
+		} else if currentServiceReplicas.Spec.Type != corev1.ServiceTypeClusterIP {
+			currentServiceReplicas.Spec.Ports = replicaPorts
+			currentServiceReplicas.Spec.Type = corev1.ServiceTypeClusterIP
+		}
+
+		if currentServiceReplicas.Spec.Type == corev1.ServiceTypeLoadBalancer || currentServiceReplicas.Spec.Type == corev1.ServiceTypeNodePort {
+			if len(o.Spec.HAProxy.ReplicasExternalTrafficPolicy) > 0 {
+				currentServiceReplicas.Spec.ExternalTrafficPolicy = o.Spec.HAProxy.ReplicasExternalTrafficPolicy
+			} else {
+				currentServiceReplicas.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
+		}
+
 		err = r.client.Update(context.TODO(), currentServiceReplicas)
 		if err != nil {
 			err = fmt.Errorf("HAProxyReplicas service upgrade error: %v", err)
@@ -403,43 +443,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 
+		ports := []corev1.ServicePort{
+			{
+				Port: 3306,
+				Name: "mysql",
+			},
+		}
+
 		if len(o.Spec.ProxySQL.ServiceType) > 0 {
 			//Upgrading service only if something is changed
 			if currentService.Spec.Type != o.Spec.ProxySQL.ServiceType {
-				currentService.Spec.Ports = []corev1.ServicePort{
-					{
-						Port: 3306,
-						Name: "mysql",
-					},
-				}
-				if o.CompareVersionWith("1.6.0") >= 0 {
-					currentService.Spec.Ports = append(
-						currentService.Spec.Ports,
-						corev1.ServicePort{
-							Port: 33062,
-							Name: "mysql-admin",
-						},
-					)
-				}
+				currentService.Spec.Ports = ports
 				currentService.Spec.Type = o.Spec.ProxySQL.ServiceType
 			}
 			//Checking default ServiceType
 		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
-			currentService.Spec.Ports = []corev1.ServicePort{
-				{
-					Port: 3306,
-					Name: "mysql",
-				},
-			}
-			if o.CompareVersionWith("1.6.0") >= 0 {
-				currentService.Spec.Ports = append(
-					currentService.Spec.Ports,
-					corev1.ServicePort{
-						Port: 33062,
-						Name: "mysql-admin",
-					},
-				)
-			}
+			currentService.Spec.Ports = ports
 			currentService.Spec.Type = corev1.ServiceTypeClusterIP
 		}
 
@@ -449,6 +468,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.ProxySQL.ExternalTrafficPolicy {
 				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
 			}
+		}
+
+		if o.CompareVersionWith("1.6.0") >= 0 {
+			currentService.Spec.Ports = append(
+				ports,
+				corev1.ServicePort{
+					Port: 33062,
+					Name: "mysql-admin",
+				},
+			)
 		}
 
 		err = r.client.Update(context.TODO(), currentService)
@@ -530,7 +559,22 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		inits = append(inits, statefulset.EntrypointInitContainer(operatorPod.Spec.Containers[0].Image, cr.Spec.PXC.ContainerSecurityContext))
+		imageName := operatorPod.Spec.Containers[0].Image
+		if cr.CompareVersionWith(version.Version) != 0 {
+			imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
+		}
+		var initResources *api.PodResources
+		if cr.CompareVersionWith("1.6.0") >= 0 {
+			initResources = cr.Spec.PXC.Resources
+		}
+		if len(cr.Spec.InitImage) > 0 {
+			imageName = cr.Spec.InitImage
+		}
+		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext)
+		if err != nil {
+			return err
+		}
+		inits = append(inits, initC)
 	}
 
 	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, inits)
@@ -630,8 +674,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = haProxyConfigHash
 		if cr.CompareVersionWith("1.5.0") == 0 {
-			haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-			haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+			if sslHash != "" {
+				haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+			}
+			if sslInternalHash != "" {
+				haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+			}
 		}
 		err = r.client.Create(context.TODO(), haProxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -684,8 +732,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 		if cr.CompareVersionWith("1.1.0") >= 0 {
 			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = proxyConfigHash
-			proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-			proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+			if sslHash != "" {
+				proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+			}
+			if sslInternalHash != "" {
+				proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+			}
 		}
 
 		err = r.client.Create(context.TODO(), proxySet)

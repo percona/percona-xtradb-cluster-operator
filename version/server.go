@@ -1,6 +1,7 @@
 package version
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -93,7 +94,7 @@ func GetServer() (*ServerVersion, error) {
 
 func probeAPI(path string, client rest.Interface) (k8sversion.Info, error) {
 	var vInfo k8sversion.Info
-	vBody, err := client.Get().AbsPath(path).Do().Raw()
+	vBody, err := client.Get().AbsPath(path).Do(context.TODO()).Raw()
 	if err != nil {
 		return vInfo, err
 	}

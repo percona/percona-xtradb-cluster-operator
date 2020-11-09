@@ -443,7 +443,10 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	DATADIR="$(_get_config 'datadir' "$@")"
 	grastate_loc="${DATADIR}/grastate.dat"
 	wsrep_verbose_logfile="$DATADIR/wsrep_recovery_verbose.log"
-	rm -f "$wsrep_verbose_logfile"
+	if [ -f "$wsrep_verbose_logfile" ]; then
+		cat "$wsrep_verbose_logfile" | tee -a "$DATADIR/wsrep_recovery_verbose_history.log"
+		rm -f "$wsrep_verbose_logfile"
+	fi
 
 	if [ -s "$grastate_loc" -a -d "$DATADIR/mysql" ]; then
 		uuid=$(grep 'uuid:' "$grastate_loc" | cut -d: -f2 | tr -d ' ' || :)

@@ -32,6 +32,8 @@ spec:
         - mountPath: /etc/mysql/vault-keyring-secret
           name: vault-keyring-secret
   dnsPolicy: ClusterFirst
+  nodeSelector:
+    node-role.kubernetes.io/compute: "true"
   priority: 0
   restartPolicy: Always
   schedulerName: default-scheduler
@@ -44,15 +46,6 @@ spec:
   serviceAccount: percona-xtradb-cluster-operator-workload
   serviceAccountName: percona-xtradb-cluster-operator-workload
   terminationGracePeriodSeconds: 30
-  tolerations:
-    - effect: NoExecute
-      key: node.kubernetes.io/not-ready
-      operator: Exists
-      tolerationSeconds: 300
-    - effect: NoExecute
-      key: node.kubernetes.io/unreachable
-      operator: Exists
-      tolerationSeconds: 300
   volumes:
     - name: backup
       persistentVolumeClaim:

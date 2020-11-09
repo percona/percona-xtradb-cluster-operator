@@ -179,7 +179,7 @@ func (c *Collector) manageBinlog(binlog string) error {
 	}
 	defer cmd.Wait()
 
-	err = c.storage.PutObject(binlog, io.Reader(out))
+	err = c.storage.PutObject(binlog, io.Reader(out)) // Wrapping in io.Reader needed bacause minio will check data with isReadAt(). It will be true, so minio will read data not sequentially.
 	if err != nil {
 		return errors.Wrap(err, "put binlog object")
 	}

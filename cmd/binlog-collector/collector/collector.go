@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"os"
 	"os/exec"
 	"sort"
 	"strings"
@@ -163,7 +162,8 @@ func (c *Collector) manageBinlog(binlog string) error {
 		return nil
 	}
 
-	cmd := exec.Command("mysqlbinlog", "-R", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "-p"+os.ExpandEnv("$PXC_PASS"), binlog)
+	cmd := exec.Command("mysqlbinlog", "-R", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "-p$PXC_PASS", binlog)
+	cmd.Env = append(cmd.Env, "PXC_PASS="+c.pxcPass)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return errors.Wrap(err, "get stdout pipe")

@@ -149,7 +149,7 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 	return nil
 }
 
-func MergeTmplateAnnotations(sfs *appsv1.StatefulSet, annotations map[string]string) {
+func MergeTemplateAnnotations(sfs *appsv1.StatefulSet, annotations map[string]string) {
 	if len(annotations) == 0 {
 		return
 	}

@@ -35,7 +35,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	currentSet.Spec.UpdateStrategy = sfs.UpdateStrategy(cr)
 
 	// support annotation adjustements
-	pxc.MergeTmplateAnnotations(currentSet, podSpec.Annotations)
+	pxc.MergeTemplateAnnotations(currentSet, podSpec.Annotations)
 
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
@@ -49,7 +49,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Annotations = make(map[string]string)
 	}
 
-	pxc.MergeTmplateAnnotations(currentSet, newAnnotations)
+	pxc.MergeTemplateAnnotations(currentSet, newAnnotations)
 
 	if cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash

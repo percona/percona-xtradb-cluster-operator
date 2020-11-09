@@ -7,7 +7,6 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
 create_infra $namespace
-deploy_cert_manager
 
 desc 'create PXC cluster'
 

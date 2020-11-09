@@ -66,7 +66,6 @@ function check_last_pod_to_update {
 
 main() {
     create_infra $namespace
-    deploy_cert_manager
 
     kubectl_bin patch crd perconaxtradbclusters.pxc.percona.com --type='json' -p '[{"op":"add","path":"/spec/versions/-", "value":{"name": "v9-9-9", "served": true, "storage": false}}]'
 

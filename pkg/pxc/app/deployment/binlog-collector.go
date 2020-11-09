@@ -82,7 +82,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			Value: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].S3.Region,
 		},
 		{
-			Name:  "SLEEP_SECONDS",
+			Name:  "COLLECT_SPAN_SEC",
 			Value: sleepTime,
 		},
 		{

@@ -23,7 +23,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	sleep, err := strconv.ParseInt(getEnv("SLEEP_SECONDS", "60"), 10, 64)
+	sleep, err := strconv.ParseInt(getEnv("COLLECT_SPAN_SEC", "60"), 10, 64)
 	if err != nil {
 		log.Println("ERROR: get sleep env:", err)
 		os.Exit(1)

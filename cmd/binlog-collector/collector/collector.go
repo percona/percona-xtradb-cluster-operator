@@ -2,6 +2,8 @@ package collector
 
 import (
 	"bytes"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"sort"
@@ -14,14 +16,13 @@ import (
 )
 
 type Collector struct {
-	db              *db.PXC
-	storage         storage.Client
-	lastSet         string // last uploaded binary logs set
-	pxcServiceName  string // k8s service name for PXC, its for get correct host for connection
-	pxcUser         string // user for connection to PXC
-	pxcPass         string // password for connection to PXC
-	lastSetFileName string // name for object where the last binlog set will stored
-	bufferSize      int64  // size of uploading buffer
+	db             *db.PXC
+	storage        storage.Client
+	lastSet        string // last uploaded binary logs set
+	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
+	pxcUser        string // user for connection to PXC
+	pxcPass        string // password for connection to PXC
+	bufferSize     int64  // size of uploading buffer
 }
 
 type Config struct {
@@ -36,12 +37,17 @@ type Config struct {
 	BufferSize     int64
 }
 
+const (
+	lastSetFileName string = "last-binlog-set" // name for object where the last binlog set will stored
+	gtidPostfix     string = "-gtid-set"       // filename postfix for files with GTID set
+)
+
 func New(c Config) (*Collector, error) {
 	s3, err := storage.NewS3(c.S3Endpoint, c.S3AccessKeyID, c.S3AccessKey, c.S3BucketName, c.S3Region, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
-	lastSetFileName := "last-binlog-set"
+
 	// get last binlog set stored on S3
 	lastSet, err := s3.GetObject(lastSetFileName)
 	if err != nil {
@@ -49,12 +55,11 @@ func New(c Config) (*Collector, error) {
 	}
 
 	return &Collector{
-		storage:         s3,
-		lastSet:         string(lastSet),
-		pxcUser:         c.PXCUser,
-		pxcPass:         c.PXCPass,
-		pxcServiceName:  c.PXCServiceName,
-		lastSetFileName: lastSetFileName,
+		storage:        s3,
+		lastSet:        string(lastSet),
+		pxcUser:        c.PXCUser,
+		pxcPass:        c.PXCPass,
+		pxcServiceName: c.PXCServiceName,
 	}, nil
 }
 
@@ -174,24 +179,26 @@ func (c *Collector) manageBinlog(binlog string) error {
 	}
 	defer cmd.Wait()
 
-	err = c.storage.PutObject(binlog, out)
+	err = c.storage.PutObject(binlog, io.Reader(out))
 	if err != nil {
 		return errors.Wrap(err, "put binlog object")
 	}
 
-	var stdErr bytes.Buffer
-	stdErr.ReadFrom(errOut)
-	if stdErr.Bytes() != nil && strings.TrimRight(stdErr.String(), "\n") != db.UsingPassErrorMessage {
-		return errors.Errorf("mysqlbinlog: %s", stdErr.String())
+	stdErr, err := ioutil.ReadAll(errOut)
+	if err != nil {
+		return errors.Wrap(err, "read error output")
+	}
+	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != db.UsingPassErrorMessage {
+		return errors.Errorf("mysqlbinlog: %s", stdErr)
 	}
 
-	err = c.storage.PutObject(binlog+"-gtid-set", &setBuffer)
+	err = c.storage.PutObject(binlog+gtidPostfix, &setBuffer)
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
 
 	setBuffer.WriteString(set)
-	err = c.storage.PutObject(c.lastSetFileName, &setBuffer)
+	err = c.storage.PutObject(lastSetFileName, &setBuffer)
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}

@@ -21,16 +21,16 @@ spec:
     - name: v1-4-0
       storage: false
       served: true
-    - name: v1
-      storage: false
-      served: true
-    - name: v1-1-0
+    - name: v1-3-0
       storage: false
       served: true
     - name: v1-2-0
       storage: false
       served: true
-    - name: v1-3-0
+    - name: v1-1-0
+      storage: false
+      served: true
+    - name: v1
       storage: false
       served: true
     - name: v1alpha1

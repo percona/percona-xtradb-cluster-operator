@@ -17,7 +17,7 @@ import (
 func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployment, error) {
 	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
 	binlogCollectorName := "pitr"
-	pxcUser := "operator"
+	pxcUser := "xtrabackup"
 	sleepTime := strconv.FormatInt(cr.Spec.Backup.PITR.TimeBetweenUploads, 10)
 
 	bufferSize, err := getBufferSize(cr.Spec)

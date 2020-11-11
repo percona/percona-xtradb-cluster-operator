@@ -600,6 +600,9 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if c.Backup.Image == "" {
 			return false, fmt.Errorf("backup.Image can't be empty")
 		}
+		if len(c.Backup.ImagePullPolicy) == 0 {
+			c.Backup.ImagePullPolicy = corev1.PullAlways
+		}
 		if cr.Spec.Backup.PITR.Enabled {
 			if len(cr.Spec.Backup.PITR.StorageName) == 0 {
 				return false, fmt.Errorf("backup.PITR.StorageName can't be empty")

@@ -73,6 +73,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 				return nil, nil, errors.Wrap(err, "manage monitor user")
 			}
 		}
+		if cr.CompareVersionWith("1.7.0") >= 0 {
+			// xtrabackup user need more grants for work in version more then 1.7.0
+			err = r.manageXtrabackupUser(cr, &internalSysSecretObj)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "manage xtrabackup user")
+			}
+		}
 	}
 
 	if cr.Status.Status != api.AppStateReady {
@@ -148,6 +155,52 @@ func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBC
 	err = um.Update160MonitorUserGrant(string(internalSysSecretObj.Data["monitor"]))
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
+	}
+
+	if internalSysSecretObj.Annotations == nil {
+		internalSysSecretObj.Annotations = make(map[string]string)
+	}
+
+	internalSysSecretObj.Annotations[annotationName] = "done"
+	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update internal sys users secret annotation")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) manageXtrabackupUser(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+	annotationName := "grant-for-1.7.0-xtrabackup-user"
+	if internalSysSecretObj.Annotations[annotationName] == "done" {
+		return nil
+	}
+
+	pxcUser := "root"
+	pxcPass := string(internalSysSecretObj.Data["root"])
+	if _, ok := internalSysSecretObj.Data["operator"]; ok {
+		pxcUser = "operator"
+		pxcPass = string(internalSysSecretObj.Data["operator"])
+	}
+
+	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
+	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	if err != nil {
+		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	}
+	if hasKey {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+
+	um, err := users.NewManager(addr, pxcUser, pxcPass)
+	if err != nil {
+		return errors.Wrap(err, "new users manager for grant")
+	}
+	defer um.Close()
+
+	err = um.Update170XtrabackupUser(string(internalSysSecretObj.Data["xtrabackup"]))
+	if err != nil {
+		return errors.Wrap(err, "update xtrabackup grant")
 	}
 
 	if internalSysSecretObj.Annotations == nil {

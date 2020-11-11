@@ -82,7 +82,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 				{
 					Name:            "ncat",
 					Image:           cluster.Backup.Image,
-					ImagePullPolicy: corev1.PullAlways,
+					ImagePullPolicy: cluster.Backup.ImagePullPolicy,
 					Command:         []string{"recovery-pvc-donor.sh"},
 					SecurityContext: cluster.Backup.Storages[bcpStorageName].ContainerSecurityContext,
 					VolumeMounts: []corev1.VolumeMount{
@@ -174,7 +174,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 						{
 							Name:            "xtrabackup",
 							Image:           cluster.Backup.Image,
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: cluster.Backup.ImagePullPolicy,
 							Command:         []string{"recovery-pvc-joiner.sh"},
 							SecurityContext: cluster.PXC.ContainerSecurityContext,
 							VolumeMounts: []corev1.VolumeMount{
@@ -283,7 +283,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 						{
 							Name:            "xtrabackup",
 							Image:           cluster.Backup.Image,
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: cluster.Backup.ImagePullPolicy,
 							Command:         []string{"recovery-s3.sh"},
 							SecurityContext: cluster.PXC.ContainerSecurityContext,
 							VolumeMounts: []corev1.VolumeMount{

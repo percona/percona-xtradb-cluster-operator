@@ -284,7 +284,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	pxcSet := statefulset.NewNode(o)
-	pxc.MergeTmplateAnnotations(pxcSet.StatefulSet(), pxcAnnotations)
+	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), pxcAnnotations)
 	err = r.updatePod(pxcSet, o.Spec.PXC, o, inits)
 	if err != nil {
 		err = fmt.Errorf("pxc upgrade error: %v", err)
@@ -426,7 +426,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
-	pxc.MergeTmplateAnnotations(proxysqlSet.StatefulSet(), proxysqlAnnotations)
+	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), proxysqlAnnotations)
 	proxysqlService := pxc.NewServiceProxySQL(o)
 
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {

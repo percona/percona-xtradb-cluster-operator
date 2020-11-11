@@ -19,21 +19,10 @@ already-deployed components interchangeable. You can find more about substantial
 benefits brought by Kubernetes to databases in `this blog post <https://www.percona.com/blog/2020/10/08/the-criticality-of-a-kubernetes-operator-for-databases/>`_.
 
 The architecture of state-centric applications (like databases) should be
-composed in a right way to allow avoiding crashes, data loss, or data
-inconsistencies during hardware fail. It is the main goal of the database
-Kubernetes Operator to solve or simplify these aspects.
-
-It worth to mention, that in a non-Kubernetes environment issues are the same.
-Unfortunately, we, Engineers, tend to think that crash, data loss, or data
-inconsistency issues are not important or even do not exist in the
-non-Kubernetes world, but of course that's not true.
-
-Percona Kubernetes Operator for Percona XtraDB Cluster uses synchronous
-replication which guarantees consistency on any kind of fail of one cluster
-member. It has automatic recovery if one member had fully or partially lost
-data. The proxy layer automatically switches traffic to alive members. The
-Operator provides this among other things which are typically not solved at all
-in a typical non-Kubernetes setup.
+composed in a right way to avoid crashes, data loss, or data inconsistencies
+during hardware failure. Percona Kubernetes Operator for Percona XtraDB Cluster
+provides out-of-the-box functionality to automate provisioning and management of
+highly available MySQL database clusters on Kubernetes.
 
 How can I contact the developers?
 ================================================================================
@@ -55,12 +44,13 @@ separately apply the Custom Resource Definition and Role-based Access Control
 configuration files with possible edits in them. At the same time, quickstart
 guides rely on the all-inclusive bundle configuration.
 
-Also, quickstart guides are related to specific platforms you are going to use
-(Minikube, Google Kubernetes Engine, etc.), and therefore may include some
-additional steps needed for these platforms.
+At another point, quickstart guides are related to specific platforms you are
+going to use (Minikube, Google Kubernetes Engine, etc.) and therefore include
+some additional steps needed for these platforms.
 
 Generally, rely on the quickstart guide if you are a beginner user of the
-specific platform and/or the Percona XtraDB Cluster Operator as a whole.
+specific platform and/or you are new to the Percona XtraDB Cluster Operator as
+a whole.
 
 Which versions of MySQL PXC Operator supports?
 ================================================================================

@@ -66,19 +66,13 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			Value: pxcUser,
 		},
 		{
-			Name: "MYSQL_ROOT_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(cr.Spec.SecretsName, "root"),
-			},
-		},
-		{
 			Name: "PXC_PASS",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: app.SecretKeySelector(cr.Spec.SecretsName, pxcUser),
 			},
 		},
 		{
-			Name:  "S3_REGION",
+			Name:  "DEFAULT_REGION",
 			Value: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].S3.Region,
 		},
 		{
@@ -97,7 +91,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	container := corev1.Container{
 		Name:            "collector",
 		Image:           cr.Spec.Backup.Image,
-		ImagePullPolicy: cr.Spec.Backup.PITR.ImagePullPolicy,
+		ImagePullPolicy: cr.Spec.Backup.ImagePullPolicy,
 		Env:             envs,
 		SecurityContext: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].ContainerSecurityContext,
 		Command:         []string{"binlog-collector"},
@@ -121,9 +115,10 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      cr.Name + "-" + binlogCollectorName,
-					Namespace: cr.Namespace,
-					Labels:    labels,
+					Name:        cr.Name + "-" + binlogCollectorName,
+					Namespace:   cr.Namespace,
+					Labels:      labels,
+					Annotations: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Annotations,
 				},
 				Spec: corev1.PodSpec{
 					Containers:         []corev1.Container{container},

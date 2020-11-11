@@ -58,6 +58,7 @@ const (
 type PXCScheduledBackup struct {
 	Image              string                        `json:"image,omitempty"`
 	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullPolicy    corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
 	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
@@ -66,11 +67,10 @@ type PXCScheduledBackup struct {
 }
 
 type PITRSpec struct {
-	Enabled            bool              `json:"enabled"`
-	StorageName        string            `json:"storageName"`
-	Resources          *PodResources     `json:"resources,omitempty"`
-	TimeBetweenUploads int64             `json:"timeBetweenUploads,omitempty"`
-	ImagePullPolicy    corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	Enabled            bool          `json:"enabled"`
+	StorageName        string        `json:"storageName"`
+	Resources          *PodResources `json:"resources,omitempty"`
+	TimeBetweenUploads int64         `json:"timeBetweenUploads,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {

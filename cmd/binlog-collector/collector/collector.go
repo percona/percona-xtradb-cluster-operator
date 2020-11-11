@@ -107,7 +107,7 @@ func (c *Collector) getHost() (string, error) {
 	lastHost := ""
 	for _, node := range nodes {
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
-			nodeArr := strings.Split(node, ".")
+			nodeArr := strings.Split(node, ":")
 			lastHost = nodeArr[0]
 		}
 	}
@@ -115,7 +115,7 @@ func (c *Collector) getHost() (string, error) {
 		return "", errors.New("cant find host")
 	}
 
-	return lastHost + "." + c.pxcServiceName, nil
+	return lastHost, nil
 }
 
 func (c *Collector) CollectBinLogs() error {

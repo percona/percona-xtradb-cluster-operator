@@ -48,11 +48,11 @@ func getConfig() (collector.Config, error) {
 		PXCUser:        getEnv("PXC_USER", "root"),
 		PXCPass:        getEnv("PXC_PASS", "root"),
 		PXCServiceName: getEnv("PXC_SERVICE", "some-name"),
-		S3Endpoint:     getEnv("ENDPOINT", "storage.googleapis.com"),
+		S3Endpoint:     getEnv("ENDPOINT", ""),
 		S3AccessKeyID:  getEnv("ACCESS_KEY_ID", ""),
 		S3AccessKey:    getEnv("SECRET_ACCESS_KEY", ""),
 		S3BucketName:   getEnv("S3_BUCKET", "binlog-test"),
-		S3Region:       getEnv("S3_REGION", ""),
+		S3Region:       getEnv("DEFAULT_REGION", ""),
 		BufferSize:     bufferSize,
 	}, nil
 }

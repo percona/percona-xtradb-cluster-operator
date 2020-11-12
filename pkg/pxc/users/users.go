@@ -284,7 +284,7 @@ func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
 		return errors.Wrapf(err, "grant for mysql db to user xtrabackup")
 	}
 
-	_, err = tx.Exec("GRANT RELOAD,PROCESS,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'%'")
+	_, err = tx.Exec("GRANT RELOAD,PROCESS,LOCK TABLES,REPLICATION CLIENT,REPLICATION SLAVE ON *.* TO 'xtrabackup'@'%'")
 	if err != nil {
 		return errors.Wrapf(err, "grant privileges to user xtrabackup")
 	}

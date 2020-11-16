@@ -37,21 +37,6 @@ check_cr_config() {
         -f $test_dir/conf/$cluster.yml
 }
 
-no_storage() {
-    local cluster="no-storage"
-
-    # apply cr config
-    apply_config $test_dir/conf/$cluster.yml
-
-    # check operator logs
-    kubectl_bin logs $(get_operator_pod) ${OPERATOR_NS:+-n $OPERATOR_NS} \
-        | grep "volume.resources.storage can't be empty"
-    
-    # delete cluster
-    kubectl_bin delete \
-        -f $test_dir/conf/$cluster.yml
-}
-
 main() {
     create_infra $namespace
     kubectl_bin apply -f $conf_dir/secrets.yml
@@ -64,9 +49,6 @@ main() {
 
     desc 'check if possible to create cluster without CPU/Memory requests and limits'
     check_cr_config "no-requests-no-limits"
-
-    desc 'check if possible to create cluster without storage size'
-    no_storage
 
     destroy $namespace
 }

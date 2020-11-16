@@ -23,4 +23,11 @@ if [[ $output != *"can't enable both HAProxy and ProxySQL"* ]]; then
     exit 1
 fi
 
+output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-no-storage.yaml")
+
+if [[ $output != *"PXC: volumeSpec should be specified"* ]]; then
+    echo 'invalid hook response'
+    exit 1
+fi
+
 destroy $namespace

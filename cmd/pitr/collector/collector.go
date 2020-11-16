@@ -2,16 +2,16 @@ package collector
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
 
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/binlog-collector/db"
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/binlog-collector/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
 )
 
 type Collector struct {
@@ -162,12 +162,8 @@ func (c *Collector) manageBinlog(binlog string) error {
 		return nil
 	}
 
-	cmd := exec.Command("mysqlbinlog", "-R", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "-p$PXC_PASS", binlog)
+	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "-p"+c.pxcPass, "--result-file=/tmp/", binlog)
 	cmd.Env = append(cmd.Env, "PXC_PASS="+c.pxcPass)
-	out, err := cmd.StdoutPipe()
-	if err != nil {
-		return errors.Wrap(err, "get stdout pipe")
-	}
 
 	errOut, err := cmd.StderrPipe()
 	if err != nil {
@@ -177,19 +173,27 @@ func (c *Collector) manageBinlog(binlog string) error {
 	if err != nil {
 		return errors.Wrap(err, "run mysqlbinlog command")
 	}
-	defer cmd.Wait()
-
-	err = c.storage.PutObject(binlog, io.Reader(out)) // Wrapping in io.Reader needed bacause minio will check data with isReadAt(). It will be true, so minio will read data not sequentially.
-	if err != nil {
-		return errors.Wrap(err, "put binlog object")
-	}
-
 	stdErr, err := ioutil.ReadAll(errOut)
 	if err != nil {
 		return errors.Wrap(err, "read error output")
 	}
+	cmd.Wait()
+
 	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != db.UsingPassErrorMessage {
 		return errors.Errorf("mysqlbinlog: %s", stdErr)
+	}
+	f, err := os.Open("/tmp/" + binlog)
+	if err != nil {
+		return errors.Wrap(err, "open file")
+	}
+	defer f.Close()
+	err = c.storage.PutObject(binlog, f)
+	if err != nil {
+		return errors.Wrap(err, "put binlog object")
+	}
+	os.Remove("/tmp/" + binlog)
+	if err != nil {
+		return errors.Wrap(err, "remove file")
 	}
 
 	err = c.storage.PutObject(binlog+gtidPostfix, &setBuffer)

@@ -63,3 +63,17 @@ func (s *S3) PutObject(name string, data io.Reader) error {
 
 	return nil
 }
+
+func (s *S3) ListObjects(prefix string) []string {
+	opts := minio.ListObjectsOptions{
+		UseV1:  true,
+		Prefix: prefix,
+	}
+	list := []string{}
+
+	for object := range s.minioClient.ListObjects(s.ctx, s.bucketName, opts) {
+		list = append(list, object.Key)
+	}
+
+	return list
+}

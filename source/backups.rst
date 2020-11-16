@@ -138,6 +138,40 @@ When the backup destination is configured and applied with `kubectl apply -f dep
         storageName: s3-us-west
       EOF
 
+.. _backups-pitr-binlog:
+
+Backing up binary logs for point-in-time-recovery
+--------------------------------------------------
+
+Point-in-time-recovery functionality allows users to roll back the cluster to a
+specific transaction, time (or even skip a transaction in some cases).
+Technically, this feature involves continuously saving binary log updates to the
+backup storage. Point-in-time-recovery is off by default.
+
+To be used, it requires setting a number of keys in the ``pitr`` subsection
+under the ``backup`` section of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file:
+
+* ``enabled`` key should be set to ``true``,
+* ``storageName`` key should point to the name of the storage already configured
+  in the ``storages`` subsection (currently, only s3-compatible storages are
+  supported),
+* ``timeBetweenUploads`` key specifies the number of seconds between running the
+  binlog uploader,
+* ``retentionDays`` key sets the number of days during which binlogs are kept on
+  the backup storage.
+
+Following example shows how ``pitr`` subsection looks like:
+
+.. code:: yaml
+
+   backup:
+     ...
+     pitr:
+       enabled: true
+       storageName: s3-us-west
+       timeBetweenUploads: 60
+       retentionDays: 7
+
 .. _backups-private-volume:
 
 Storing backup on a private volume
@@ -210,29 +244,36 @@ also on any Kubernetes-based environment with the installed Operator.
    has a Secrets object with the same user passwords as in the original cluster.
    More details about secrets can be found in :ref:`users.system-users`.
 
-Following steps are needed to restore a previously saved backup:
+Following things are needed to restore a previously saved backup:
 
-1. First of all make sure that the cluster is running.
+* Make sure that the cluster is running.
 
-2. Now find out correct names for the **backup** and the **cluster**. Available
-   backups can be listed with the following command:
+* Find out correct names for the **backup** and the **cluster**. Available
+  backups can be listed with the following command:
 
-   .. code:: bash
+  .. code:: bash
 
-      kubectl get pxc-backup
+     kubectl get pxc-backup
 
-   .. note:: Obviously, you can make this check only on the same cluster on
-      which you have previously made the backup.
+  .. note:: Obviously, you can make this check only on the same cluster on
+     which you have previously made the backup.
 
-   And the following command will list existing Percona XtraDB Cluster names in
-   the current Kubernetes-based environment:
+  And the following command will list existing Percona XtraDB Cluster names in
+  the current Kubernetes-based environment:
 
-   .. code:: bash
+  .. code:: bash
 
-      kubectl get pxc
+     kubectl get pxc
 
-3. When both correct names are known, it is needed to set appropriate keys
-   in the ``deploy/backup/restore.yaml`` file.
+.. _backups-no-pitr-restore:
+
+Restoring without point-in-time-recovery
+****************************************
+
+When the correct names for the backup and the cluster are known, backup
+restoration can be done in the following way. 
+
+1. Set appropriate keys in the ``deploy/backup/restore.yaml`` file.
 
    * set ``spec.pxcCluster`` key to the name of the target cluster to restore
      the backup on,
@@ -271,7 +312,7 @@ Following steps are needed to restore a previously saved backup:
                endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
            ...
 
-   After that, the actual restoration process can be started as follows:
+2. After that, the actual restoration process can be started as follows:
 
    .. code:: bash
 
@@ -291,6 +332,83 @@ Following steps are needed to restore a previously saved backup:
         pxcCluster: "cluster1"
         backupName: "backup1"
       EOF
+
+.. _backups-pitr-restore:
+
+Restoring backup with point-in-time-recovery
+********************************************
+
+If the point-in-time-recovery feature :ref:`was enabled<backups-pitr-binlog>`,
+you can use put additional restoration parameters to the ``restore.yaml`` file
+``pitr`` section for the most fine-grained restoration.
+
+* ``backupSource`` key should contain ``destination`` key equal to the s3 bucket
+  with a special ``s3://`` prefix, followed by the necessary S3 configuration
+  keys, same as in ``deploy/cr.yaml`` file: ``s3://S3-BUCKET-NAME/BACKUP-NAME``,
+* ``type`` key can be equal to one of the following options,
+  * ``date`` - roll back to specific date,
+  * ``transaction`` - roll back to specific transaction,
+  * ``skip`` - roll back, skip the transaction, roll over,
+  * ``latest`` - recover to the latest possible transaction,
+* ``date`` key is used with ``type=date`` option - it contains value in
+  datetime format,
+* ``gtidSet`` key is used with ``type=transaction`` and ``type=skip`` options -
+  it contain exact GTID.
+
+The resulting ``restore.yaml`` file may look as follows:
+
+.. code-block:: yaml
+
+   apiVersion: pxc.percona.com/v1
+   kind: PerconaXtraDBClusterRestore
+   metadata:
+     name: restore1
+   spec:
+     pxcCluster: cluster1
+     backupName: backup1
+     pitr:
+       type: date
+       date: 20201013-12:03:12
+       backupSource:
+         destination: s3://S3-BUCKET-NAME/BACKUP-NAME
+         s3:
+           credentialsSecret: my-cluster-name-backup-s3
+           region: us-west-2
+           endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+
+The actual restoration process can be started as follows:
+
+   .. code:: bash
+
+      kubectl apply -f deploy/backup/restore.yaml
+
+.. note:: Storing backup settings in a separate file can be replaced by passing
+   its content to the ``kubectl apply`` command as follows:
+
+   .. code:: bash
+
+      cat <<EOF | kubectl apply -f-
+      apiVersion: "pxc.percona.com/v1"
+      kind: "PerconaXtraDBClusterRestore"
+      metadata:
+        name: "restore1"
+      spec:
+        pxcCluster: "cluster1"
+        backupName: "backup1"
+        pitr:
+          type: date
+          date: 20201013-12:03:12
+          backupSource:
+            destination: s3://S3-BUCKET-NAME/BACKUP-NAME
+            s3:
+              credentialsSecret: my-cluster-name-backup-s3
+              region: us-west-2
+              endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+      EOF
+
+
+
+
 
 .. _backups-delete:
 

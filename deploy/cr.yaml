@@ -9,7 +9,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.6.0
+  crVersion: 1.7.0
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
@@ -110,7 +110,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.6.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:master-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |

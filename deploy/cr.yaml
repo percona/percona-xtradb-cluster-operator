@@ -28,7 +28,7 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com
-    apply: recommended
+    apply: Never
     schedule: "0 4 * * *"
   pxc:
     size: 3
@@ -306,9 +306,9 @@ spec:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   pmm:
     enabled: false
-    image: percona/percona-xtradb-cluster-operator:1.6.0-pmm
+    image: perconalab/percona-xtradb-cluster-operator:rbc-pmm2-client
     serverHost: monitoring-service
-    serverUser: pmm
+    serverUser: admin
 #    resources:
 #      requests:
 #        memory: 200M

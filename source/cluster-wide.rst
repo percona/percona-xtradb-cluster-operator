@@ -43,8 +43,9 @@ the following information there:
   cluster).
   
   .. note:: The list of namespaces to watch is fully supported by Percona XtraDB
-     Cluster Operator starting from the version 1.7. Version 1.6 allowed to
-     watch only one namespace listed in the ``WATCH_NAMESPACE`` key.
+     Cluster Operator starting from the version 1.7. In version 1.6 you can only
+     use cluster-wide mode with empty ``WATCH_NAMESPACE`` key to watch all
+     namespaces.
 
 The following simple example shows how to install Operator cluster-wide on
 Kubernetes.

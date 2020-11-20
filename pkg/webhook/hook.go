@@ -14,6 +14,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/cert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -34,11 +35,36 @@ type hook struct {
 }
 
 func (h *hook) Start(i <-chan struct{}) error {
-	err := h.createWebhook()
+	err := h.createService()
+	if err != nil {
+		log.Log.Info("Can't create service", "err", err.Error())
+	}
+	err = h.createWebhook()
 	if err != nil {
 		log.Log.Info("Can't create webhook", "error", err.Error())
 	}
 	<-i
+	return nil
+}
+
+func (h *hook) createService() error {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "percona-xtradb-cluster-operator",
+			Labels: map[string]string{"name": "percona-xtradb-cluster-operator"},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports:    []corev1.ServicePort{{Port: 443, TargetPort: intstr.FromInt(9443)}},
+			Selector: map[string]string{"app.kubernetes.io/name": "percona-xtradb-cluster-operator"},
+		},
+	}
+	err := h.cl.Create(context.TODO(), svc)
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return err
+	}
 	return nil
 }
 

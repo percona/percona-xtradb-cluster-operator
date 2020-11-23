@@ -71,7 +71,7 @@ func runRecoverer() {
 		os.Exit(1)
 	}
 
-	err = c.Recover()
+	err = c.Run()
 	if err != nil {
 		log.Println("ERROR: recover:", err)
 		os.Exit(1)
@@ -100,7 +100,7 @@ func getCollectorConfig() (collector.Config, error) {
 func getRecovererConfig() (recoverer.Config, error) {
 	recTime, err := strconv.ParseInt(getEnv("RECOVER_TIME", ""), 10, 64)
 	if err != nil {
-		return recoverer.Config{}, errors.Wrap(err, "get buffer size")
+		return recoverer.Config{}, errors.Wrap(err, "get recover time")
 	}
 
 	return recoverer.Config{

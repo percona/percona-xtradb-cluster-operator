@@ -3,7 +3,6 @@ package recoverer
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"sort"
@@ -109,24 +108,6 @@ func (r *Recoverer) Run() error {
 	err = r.Recover()
 	if err != nil {
 		return errors.Wrap(err, "recover")
-	}
-	return nil
-}
-
-func (r *Recoverer) DownloadBinlogs() error {
-	for _, binlog := range r.storage.ListObjects("") {
-		if strings.Contains(binlog, "set") {
-			continue
-		}
-		data, err := r.storage.GetObject(binlog)
-		if err != nil {
-			return errors.Wrap(err, "get object")
-		}
-		err = ioutil.WriteFile(binlog, data, 0644)
-		if err != nil {
-			return errors.Wrap(err, "write file")
-		}
-		r.binlogs = append(r.binlogs, binlog)
 	}
 	return nil
 }

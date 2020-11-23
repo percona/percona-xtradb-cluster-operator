@@ -13,12 +13,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCluster) error {
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
-	operatorPod, err := r.operatorPod()
+	operatorPod, err := k8s.OperatorPod(r.client)
 	if err != nil {
 		return errors.Wrap(err, "get operator deployment")
 	}

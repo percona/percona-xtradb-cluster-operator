@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 )
 
@@ -48,20 +49,35 @@ func (h *hook) Start(i <-chan struct{}) error {
 }
 
 func (h *hook) createService() error {
+	opPod, err := k8s.OperatorPod(h.cl)
+	if err != nil {
+		return errors.Wrap(err, "get operator pod")
+	}
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "percona-xtradb-cluster-operator",
-			Labels: map[string]string{"name": "percona-xtradb-cluster-operator"},
+			Name:      "percona-xtradb-cluster-operator",
+			Namespace: h.namespace,
+			Labels:    map[string]string{"name": "percona-xtradb-cluster-operator"},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports:    []corev1.ServicePort{{Port: 443, TargetPort: intstr.FromInt(9443)}},
-			Selector: map[string]string{"app.kubernetes.io/name": "percona-xtradb-cluster-operator"},
+			Selector: opPod.Labels,
 		},
 	}
-	err := h.cl.Create(context.TODO(), svc)
+	err = h.cl.Create(context.TODO(), svc)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
-			return nil
+			service := &corev1.Service{}
+			err = h.cl.Get(context.TODO(), types.NamespacedName{
+				Name:      "percona-xtradb-cluster-operator",
+				Namespace: h.namespace,
+			}, service)
+			if err != nil {
+				return err
+			}
+
+			service.Spec.Selector = opPod.Labels
+			return h.cl.Update(context.TODO(), service)
 		}
 		return err
 	}

@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -33,6 +31,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -258,7 +257,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	operatorPod, err := r.operatorPod()
+	operatorPod, err := k8s.OperatorPod(r.client)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
 	}
@@ -525,26 +524,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) operatorPod() (corev1.Pod, error) {
-	operatorPod := corev1.Pod{}
-
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if err != nil {
-		return operatorPod, err
-	}
-
-	ns := strings.TrimSpace(string(nsBytes))
-
-	if err := r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: ns,
-		Name:      os.Getenv("HOSTNAME"),
-	}, &operatorPod); err != nil {
-		return operatorPod, err
-	}
-
-	return operatorPod, nil
-}
-
 func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
@@ -552,7 +531,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	operatorPod, err := r.operatorPod()
+	operatorPod, err := k8s.OperatorPod(r.client)
 	if err != nil {
 		return errors.Wrap(err, "get operator deployment")
 	}

@@ -260,6 +260,76 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		jobPVC,
 		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
 	}
+	pxcUser := "xtrabackup"
+	command := []string{"recovery-s3.sh"}
+
+	envs := []corev1.EnvVar{
+		{
+			Name:  "S3_BUCKET_URL",
+			Value: s3dest,
+		},
+		{
+			Name:  "ENDPOINT",
+			Value: bcp.Status.S3.EndpointURL,
+		},
+		{
+			Name:  "DEFAULT_REGION",
+			Value: bcp.Status.S3.Region,
+		},
+		{
+			Name: "ACCESS_KEY_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: bcp.Status.S3.CredentialsSecret,
+					},
+					Key: "AWS_ACCESS_KEY_ID",
+				},
+			},
+		},
+		{
+			Name: "SECRET_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: bcp.Status.S3.CredentialsSecret,
+					},
+					Key: "AWS_SECRET_ACCESS_KEY",
+				},
+			},
+		},
+		{
+			Name:  "PXC_SERVICE",
+			Value: cr.Name + "-pxc",
+		},
+		{
+			Name:  "PXC_USER",
+			Value: pxcUser,
+		},
+		{
+			Name: "PXC_PASS",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, pxcUser),
+			},
+		},
+	}
+
+	if cr.Spec.PITR != nil {
+		command = []string{"recovery-s3.sh", "&&", "pitr", "-r"}
+		envs = append(envs, corev1.EnvVar{
+			Name:  "RECOVERY_TYPE",
+			Value: cr.Spec.PITR.Type,
+		})
+		bcpNameArr := strings.Split(cr.Spec.PITR.BackupSource.Destination, "/")
+		bcpName := ""
+		if len(bcpNameArr) > 0 {
+			bcpName = bcpNameArr[len(bcpNameArr)-1]
+		}
+		envs = append(envs, corev1.EnvVar{
+			Name:  "BACKUP_NAME",
+			Value: bcpName,
+		})
+	}
 
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
@@ -284,7 +354,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 							Name:            "xtrabackup",
 							Image:           cluster.Backup.Image,
 							ImagePullPolicy: cluster.Backup.ImagePullPolicy,
-							Command:         []string{"recovery-s3.sh"},
+							Command:         command,
 							SecurityContext: cluster.PXC.ContainerSecurityContext,
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -296,42 +366,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 									MountPath: "/etc/mysql/vault-keyring-secret",
 								},
 							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "S3_BUCKET_URL",
-									Value: s3dest,
-								},
-								{
-									Name:  "ENDPOINT",
-									Value: bcp.Status.S3.EndpointURL,
-								},
-								{
-									Name:  "DEFAULT_REGION",
-									Value: bcp.Status.S3.Region,
-								},
-								{
-									Name: "ACCESS_KEY_ID",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: bcp.Status.S3.CredentialsSecret,
-											},
-											Key: "AWS_ACCESS_KEY_ID",
-										},
-									},
-								},
-								{
-									Name: "SECRET_ACCESS_KEY",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: bcp.Status.S3.CredentialsSecret,
-											},
-											Key: "AWS_SECRET_ACCESS_KEY",
-										},
-									},
-								},
-							},
+							Env:       envs,
 							Resources: resources,
 						},
 					},

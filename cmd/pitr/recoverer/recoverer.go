@@ -2,6 +2,7 @@ package recoverer
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -15,7 +16,7 @@ import (
 
 type Recoverer struct {
 	recoverTime      int64
-	storage          *storage.S3
+	storage          Storage
 	localDest        string
 	pxcUser          string
 	pxcHost          string
@@ -25,6 +26,7 @@ type Recoverer struct {
 	binlogs          []string
 	backupNAme       string
 	excludingGTIDSet string
+	s3BucketName     string
 }
 
 type Config struct {
@@ -41,6 +43,12 @@ type Config struct {
 	BackupName     string
 }
 
+type Storage interface {
+	GetObject(objectName string) ([]byte, error)
+	PutObject(name string, data io.Reader) error
+	ListObjects(prefix string) []string
+}
+
 type RecoverType string
 
 func New(c Config) (*Recoverer, error) {
@@ -54,16 +62,17 @@ func New(c Config) (*Recoverer, error) {
 		pxcUser:        c.PXCUser,
 		pxcPass:        c.PXCPass,
 		pxcServiceName: c.PXCServiceName,
-		recoverType:    RecoverType(c.RecoverTime),
+		recoverType:    RecoverType(c.RecoverType),
 		backupNAme:     c.BackupName,
+		localDest:      "/tmp/",
 	}, nil
 }
 
 const (
-	Latest      RecoverType = "latest"
-	Date        RecoverType = "date"
-	Transaction RecoverType = "transaction"
-	Skip        RecoverType = "skip"
+	Latest      RecoverType = "latest"      // recover to the latest existing binlog
+	Date        RecoverType = "date"        // recover to exact date
+	Transaction RecoverType = "transaction" // recover to needed trunsaction
+	Skip        RecoverType = "skip"        // skip transactions
 )
 
 func (r *Recoverer) getHost() (string, error) {
@@ -93,7 +102,7 @@ func (r *Recoverer) Run() error {
 	if err != nil {
 		return errors.Wrap(err, "get last gtid")
 	}
-	err = r.GetBinlogList(startGTID)
+	err = r.SetBinlogs(startGTID)
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
@@ -127,23 +136,29 @@ func (r *Recoverer) Recover() error {
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
+	cfgCmd := exec.Command("sh", "-c", `mc -C `+r.localDest+`mc config host add dest "${ENDPOINT:-https://s3.amazonaws.com}" "$ACCESS_KEY_ID" "$SECRET_ACCESS_KEY"`)
+	err = cfgCmd.Run()
+	if err != nil {
+		return errors.Wrap(err, "update mc config")
+	}
+	flags := ""
+
+	// TODO: add logic for all types
+	switch r.recoverType {
+	case Skip:
+		flags = "--exclude-gtids=" + r.excludingGTIDSet
+	case Transaction:
+	case Date:
+	case Latest:
+	}
 
 	for _, binlog := range r.binlogs {
 		err = r.DownloadBinlog(binlog)
 		if err != nil {
 			return errors.Wrap(err, "download binlog")
 		}
-		flags := ""
 
-		// TODO: add logic for all types
-		switch r.recoverType {
-		case Skip:
-			flags = "--exclude-gtids=" + r.excludingGTIDSet
-		case Transaction:
-		case Date:
-		case Latest:
-		}
-		cmdString := "mysqlbinlog /tmp/" + binlog + " " + flags + " | mysql -h" + host + " -u" + r.pxcUser + " -p$PXC_PASS"
+		cmdString := "mc -C " + r.localDest + "mc cat " + r.s3BucketName + "/" + binlog + " | mysqlbinlog " + flags + " - | mysql -h" + host + " -u" + r.pxcUser + " -p$PXC_PASS"
 		cmd := exec.Command("sh", "-c", cmdString)
 		var outb, errb bytes.Buffer
 		cmd.Stdout = &outb
@@ -155,7 +170,7 @@ func (r *Recoverer) Recover() error {
 		if errb.Bytes() != nil {
 			errors.Errorf("cmd error: %s", errb.String())
 		}
-		err = os.Remove("/tmp/" + binlog)
+		err = os.Remove(r.localDest + binlog)
 		if err != nil {
 			return errors.Wrap(err, "remove binlog")
 		}
@@ -169,7 +184,7 @@ func (r *Recoverer) DownloadBinlog(binlog string) error {
 	if err != nil {
 		return errors.Wrap(err, "get object")
 	}
-	f, err := os.Create("/tmp/" + binlog)
+	f, err := os.Create(r.localDest + binlog)
 	if err != nil {
 		return errors.Wrap(err, "create file")
 	}
@@ -214,7 +229,7 @@ func (r *Recoverer) GetLastBackupGTID() (int64, error) {
 	return id, nil
 }
 
-func (r *Recoverer) GetBinlogList(startID int64) error {
+func (r *Recoverer) SetBinlogs(startID int64) error {
 	saveBinlog := false
 	for _, binlog := range r.storage.ListObjects("") {
 		if strings.Contains(binlog, "binlog.") && !strings.Contains(binlog, "gtid-set") {
@@ -248,5 +263,6 @@ func (r *Recoverer) GetBinlogList(startID int64) error {
 			}
 		}
 	}
+
 	return nil
 }

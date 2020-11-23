@@ -2,11 +2,13 @@ package collector
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/pkg/errors"
 
@@ -16,7 +18,7 @@ import (
 
 type Collector struct {
 	db             *db.PXC
-	storage        storage.Client
+	storage        Storage
 	lastSet        string // last uploaded binary logs set
 	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
 	pxcUser        string // user for connection to PXC
@@ -34,6 +36,11 @@ type Config struct {
 	S3BucketName   string
 	S3Region       string
 	BufferSize     int64
+}
+
+type Storage interface {
+	GetObject(objectName string) ([]byte, error)
+	PutObject(name string, data io.Reader) error
 }
 
 const (
@@ -150,6 +157,14 @@ func (c *Collector) CollectBinLogs() error {
 	return nil
 }
 
+type reader struct {
+	r io.Reader
+}
+
+func (r *reader) Read(p []byte) (int, error) {
+	return r.r.Read(p)
+}
+
 func (c *Collector) manageBinlog(binlog string) error {
 	set, err := c.db.GetGTIDSet(binlog)
 	if err != nil {
@@ -162,13 +177,27 @@ func (c *Collector) manageBinlog(binlog string) error {
 		return nil
 	}
 
-	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "-p"+c.pxcPass, "--result-file=/tmp/", binlog)
-	cmd.Env = append(cmd.Env, "PXC_PASS="+c.pxcPass)
+	os.Remove("/tmp/" + binlog)
+
+	err = syscall.Mkfifo("/tmp/"+binlog, 0666)
+	if err != nil {
+		return errors.Wrap(err, "make named pipe file error")
+	}
+
+	file, err := os.OpenFile("/tmp/"+binlog, syscall.O_NONBLOCK, os.ModeNamedPipe)
+	if err != nil {
+		return errors.Wrap(err, "open named pipe file error:")
+	}
+	defer file.Close()
+
+	cmdStr := "mysqlbinlog -R --raw" + " -h" + c.db.GetHost() + " -u" + c.pxcUser + " -p$PXC_PASS --result-file=/tmp/ " + binlog
+	cmd := exec.Command("sh", "-c", cmdStr)
 
 	errOut, err := cmd.StderrPipe()
 	if err != nil {
 		return errors.Wrap(err, "get stderr pipe")
 	}
+
 	err = cmd.Start()
 	if err != nil {
 		return errors.Wrap(err, "run mysqlbinlog command")
@@ -177,21 +206,19 @@ func (c *Collector) manageBinlog(binlog string) error {
 	if err != nil {
 		return errors.Wrap(err, "read error output")
 	}
-	cmd.Wait()
 
 	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != db.UsingPassErrorMessage {
 		return errors.Errorf("mysqlbinlog: %s", stdErr)
 	}
-	f, err := os.Open("/tmp/" + binlog)
-	if err != nil {
-		return errors.Wrap(err, "open file")
-	}
-	defer f.Close()
-	err = c.storage.PutObject(binlog, f)
+
+	data := reader{file}
+	err = c.storage.PutObject(binlog, &data)
 	if err != nil {
 		return errors.Wrap(err, "put binlog object")
 	}
-	os.Remove("/tmp/" + binlog)
+
+	cmd.Wait()
+	err = os.Remove("/tmp/" + binlog)
 	if err != nil {
 		return errors.Wrap(err, "remove file")
 	}

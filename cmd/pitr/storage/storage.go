@@ -10,11 +10,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Client interface {
-	GetObject(objectName string) ([]byte, error)
-	PutObject(name string, data io.Reader) error
-}
-
 // S3 is a type for working with S3 storages
 type S3 struct {
 	minioClient *minio.Client   // minio client for work with storage

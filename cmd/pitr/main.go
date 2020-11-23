@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -15,13 +16,17 @@ import (
 var action string
 
 func main() {
-	flag.StringVar(&action, "action", "c", "'c' - collacting bimnlogs, 'r' - recover")
+	flag.StringVar(&action, "action", "c", "'c' - binlogs collection, 'r' - recovery")
 	switch action {
 	case "c":
 		runCollector()
 	case "r":
 		runRecoverer()
+	default:
+		fmt.Println("wrong or none flag")
+		os.Exit(1)
 	}
+
 }
 
 func runCollector() {
@@ -54,7 +59,23 @@ func runCollector() {
 }
 
 func runRecoverer() {
+	config, err := getRecovererConfig()
+	if err != nil {
+		log.Println("ERROR: get recoverer config:", err)
+		os.Exit(1)
+	}
 
+	c, err := recoverer.New(config)
+	if err != nil {
+		log.Println("ERROR: new  recoverer controller:", err)
+		os.Exit(1)
+	}
+
+	err = c.Recover()
+	if err != nil {
+		log.Println("ERROR: recover:", err)
+		os.Exit(1)
+	}
 }
 
 func getCollectorConfig() (collector.Config, error) {
@@ -62,6 +83,7 @@ func getCollectorConfig() (collector.Config, error) {
 	if err != nil {
 		return collector.Config{}, errors.Wrap(err, "get buffer size")
 	}
+
 	return collector.Config{
 		PXCUser:        getEnv("PXC_USER", "root"),
 		PXCPass:        getEnv("PXC_PASS", "root"),

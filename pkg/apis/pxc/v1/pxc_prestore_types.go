@@ -10,7 +10,8 @@ import (
 type PerconaXtraDBClusterRestoreSpec struct {
 	PXCCluster   string           `json:"pxcCluster"`
 	BackupName   string           `json:"backupName"`
-	BackupSource *PXCBackupStatus `json:"backupSource"`
+	BackupSource *PXCBackupStatus `json:"backupSource,omitempty"`
+	PITR         *PITR            `json:"pitr,omitempty"`
 }
 
 // PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore
@@ -19,6 +20,13 @@ type PerconaXtraDBClusterRestoreStatus struct {
 	Comments      string           `json:"comments,omitempty"`
 	CompletedAt   *metav1.Time     `json:"completed,omitempty"`
 	LastScheduled *metav1.Time     `json:"lastscheduled,omitempty"`
+}
+
+type PITR struct {
+	BackupSource *PXCBackupStatus `json:"backupSource"`
+	Type         string           `json:"type"`
+	Date         string           `json:"date"`
+	GTIDSet      string           `json:"gtidSet"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

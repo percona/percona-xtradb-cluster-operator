@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/minio/minio-go"
 	"github.com/pkg/errors"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
@@ -39,7 +40,7 @@ type Config struct {
 }
 
 type Storage interface {
-	GetObject(objectName string) ([]byte, error)
+	GetObject(objectName string) (io.Reader, error)
 	PutObject(name string, data io.Reader) error
 }
 
@@ -55,11 +56,14 @@ func New(c Config) (*Collector, error) {
 	}
 
 	// get last binlog set stored on S3
-	lastSet, err := s3.GetObject(lastSetFileName)
+	lastSetObject, err := s3.GetObject(lastSetFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "get last set content")
 	}
-
+	lastSet, err := ioutil.ReadAll(lastSetObject)
+	if err != nil && minio.ToErrorResponse(err).Code != "NoSuchKey" {
+		return nil, errors.Wrap(err, "read object")
+	}
 	return &Collector{
 		storage:        s3,
 		lastSet:        string(lastSet),

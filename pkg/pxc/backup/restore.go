@@ -237,7 +237,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 }
 
 // S3RestoreJob returns restore job object for s3
-func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
+func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec, pitr bool) (*batchv1.Job, error) {
 	resources, err := app.CreateResources(cluster.PXC.Resources)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse PXC resources: %w", err)
@@ -300,7 +300,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		},
 		{
 			Name:  "PXC_SERVICE",
-			Value: cr.Name + "-pxc",
+			Value: cr.Spec.PXCCluster + "-pxc",
 		},
 		{
 			Name:  "PXC_USER",
@@ -313,9 +313,27 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			},
 		},
 	}
-
-	if cr.Spec.PITR != nil {
-		command = []string{"recovery-s3.sh", "&&", "pitr", "-r"}
+	jobName := "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "datadir",
+			MountPath: "/datadir",
+		},
+		{
+			Name:      "vault-keyring-secret",
+			MountPath: "/etc/mysql/vault-keyring-secret",
+		},
+	}
+	if pitr {
+		bucket := "operator-testing"
+		if cluster.Backup != nil && len(cluster.Backup.Storages) > 0 {
+			storage, ok := cluster.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
+			if ok {
+				bucket = storage.S3.Bucket
+			}
+			fmt.Println("bucket from cr is", bucket)
+		}
+		command = []string{"pitr", "-action=r"}
 		envs = append(envs, corev1.EnvVar{
 			Name:  "RECOVERY_TYPE",
 			Value: cr.Spec.PITR.Type,
@@ -329,6 +347,13 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			Name:  "BACKUP_NAME",
 			Value: bcpName,
 		})
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_BUCKET",
+			Value: bucket,
+		})
+		jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
+		volumeMounts = []corev1.VolumeMount{}
+		jobPVCs = []corev1.Volume{}
 	}
 
 	job := &batchv1.Job{
@@ -337,7 +362,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster,
+			Name:      jobName,
 			Namespace: cr.Namespace,
 		},
 		Spec: batchv1.JobSpec{
@@ -356,18 +381,9 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 							ImagePullPolicy: cluster.Backup.ImagePullPolicy,
 							Command:         command,
 							SecurityContext: cluster.PXC.ContainerSecurityContext,
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "datadir",
-									MountPath: "/datadir",
-								},
-								{
-									Name:      "vault-keyring-secret",
-									MountPath: "/etc/mysql/vault-keyring-secret",
-								},
-							},
-							Env:       envs,
-							Resources: resources,
+							VolumeMounts:    volumeMounts,
+							Env:             envs,
+							Resources:       resources,
 						},
 					},
 					RestartPolicy:      corev1.RestartPolicyNever,

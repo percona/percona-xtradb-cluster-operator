@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/collector"
@@ -17,6 +18,8 @@ var action string
 
 func main() {
 	flag.StringVar(&action, "action", "c", "'c' - binlogs collection, 'r' - recovery")
+	flag.Parse()
+
 	switch action {
 	case "c":
 		runCollector()
@@ -70,7 +73,7 @@ func runRecoverer() {
 		log.Println("ERROR: new  recoverer controller:", err)
 		os.Exit(1)
 	}
-
+	log.Println("run recover")
 	err = c.Run()
 	if err != nil {
 		log.Println("ERROR: recover:", err)
@@ -98,16 +101,21 @@ func getCollectorConfig() (collector.Config, error) {
 }
 
 func getRecovererConfig() (recoverer.Config, error) {
-	recTime, err := strconv.ParseInt(getEnv("RECOVER_TIME", ""), 10, 64)
-	if err != nil {
-		return recoverer.Config{}, errors.Wrap(err, "get recover time")
+	recTimeString := getEnv("RECOVER_TIME", "")
+	recTime := int64(0)
+	if len(recTimeString) > 0 {
+		time, err := strconv.ParseInt(recTimeString, 10, 64)
+		if err != nil {
+			return recoverer.Config{}, errors.Wrap(err, "get recover time")
+		}
+		recTime = time
 	}
 
 	return recoverer.Config{
 		PXCUser:        getEnv("PXC_USER", "root"),
 		PXCPass:        getEnv("PXC_PASS", "root"),
 		PXCServiceName: getEnv("PXC_SERVICE", "some-name"),
-		S3Endpoint:     getEnv("ENDPOINT", ""),
+		S3Endpoint:     strings.TrimPrefix(getEnv("ENDPOINT", ""), "https://"),
 		S3AccessKeyID:  getEnv("ACCESS_KEY_ID", ""),
 		S3AccessKey:    getEnv("SECRET_ACCESS_KEY", ""),
 		S3BucketName:   getEnv("S3_BUCKET", "binlog-test"),

@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"io"
-	"io/ioutil"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -36,17 +35,17 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, region string, us
 }
 
 // GetObject return content by given object name
-func (s *S3) GetObject(objectName string) ([]byte, error) {
+func (s *S3) GetObject(objectName string) (io.Reader, error) {
 	oldObj, err := s.minioClient.GetObject(s.ctx, s.bucketName, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "get object")
 	}
-	out, err := ioutil.ReadAll(oldObj)
+	/*out, err := ioutil.ReadAll(oldObj)
 	if err != nil && minio.ToErrorResponse(err).Code != "NoSuchKey" {
 		return nil, errors.Wrap(err, "read object")
-	}
+	}*/
 	//TODO: this method should return io.Reader
-	return out, nil
+	return oldObj, nil
 }
 
 // PutObject puts new object to storage with given name and content

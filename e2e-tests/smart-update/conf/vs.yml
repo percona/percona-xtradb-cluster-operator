@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: version-service
+  name: version-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: version-service
+  template:
+    metadata:
+      labels:
+        run: version-service
+    spec:
+      containers:
+      - env:
+        - name: SERVE_HTTP
+          value: "true"
+        image: perconalab/version-service:tests
+        imagePullPolicy: IfNotPresent
+        name: version-service
+        ports:
+        - containerPort: 11000
+          protocol: TCP
+        volumeMounts:
+        - name: versions
+          mountPath: /sources/operator.9.9.9.pxc-operator.dep.json
+          subPath: operator.9.9.9.pxc-operator.dep.json
+        - name: versions
+          mountPath: /sources/operator.9.9.9.pxc-operator.json
+          subPath: operator.9.9.9.pxc-operator.json
+      volumes:
+      - name: versions
+        configMap:
+          name: versions 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: version-service
+spec:
+  ports:
+  - port: 11000
+    protocol: TCP
+    targetPort: 11000
+  selector:
+    run: version-service
+  type: ClusterIP

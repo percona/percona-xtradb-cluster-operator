@@ -18,9 +18,7 @@ import (
 type Recoverer struct {
 	recoverTime      int64
 	storage          Storage
-	localDest        string
 	pxcUser          string
-	pxcHost          string
 	pxcPass          string
 	recoverType      RecoverType
 	pxcServiceName   string
@@ -33,7 +31,6 @@ type Recoverer struct {
 type Config struct {
 	PXCServiceName string
 	PXCUser        string
-	PXCPass        string
 	S3Endpoint     string
 	S3AccessKeyID  string
 	S3AccessKey    string
@@ -61,12 +58,9 @@ func New(c Config) (*Recoverer, error) {
 		storage:        s3,
 		recoverTime:    c.RecoverTime,
 		pxcUser:        c.PXCUser,
-		pxcPass:        c.PXCPass,
 		pxcServiceName: c.PXCServiceName,
 		recoverType:    RecoverType(c.RecoverType),
 		backupNAme:     c.BackupName,
-		localDest:      "/tmp/",
-		s3BucketName:   c.S3BucketName,
 	}, nil
 }
 
@@ -149,17 +143,15 @@ func (r *Recoverer) recover() error {
 		cmd.Stderr = &errb
 		err = cmd.Start()
 		if err != nil {
-			log.Println(errb.String(), outb.String())
 			return errors.Wrap(err, "cmd start")
 		}
 		err = cmd.Wait()
 		if err != nil {
-			log.Println(outb.String(), errb.String())
 			return errors.Wrap(err, "cmd wait")
 		}
 
 		if errb.Bytes() != nil {
-			log.Println(errors.Errorf("cmd error: %s", errb.String()))
+			log.Println(errors.Errorf("cmd error: %s, stdout: %s", errb.String(), outb.String()))
 		}
 	}
 

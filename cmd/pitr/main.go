@@ -113,7 +113,6 @@ func getRecovererConfig() (recoverer.Config, error) {
 
 	return recoverer.Config{
 		PXCUser:        getEnv("PXC_USER", "root"),
-		PXCPass:        getEnv("PXC_PASS", "root"),
 		PXCServiceName: getEnv("PXC_SERVICE", "some-name"),
 		S3Endpoint:     strings.TrimPrefix(getEnv("ENDPOINT", ""), "https://"),
 		S3AccessKeyID:  getEnv("ACCESS_KEY_ID", ""),

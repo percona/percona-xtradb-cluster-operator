@@ -109,7 +109,7 @@ func (p *PXC) GetBinLogList() ([]string, error) {
 	return binlogList, nil
 }
 
-// GetBinLogName return name og binary log file by passed GTID set
+// GetBinLogName returns name of the binary log file by given GTID set
 func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
 	var existFunc string
 	nameRow := p.db.QueryRow("select name from mysql.func where name='get_binlog_by_gtid_set'")

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
@@ -16,16 +17,16 @@ import (
 )
 
 type Recoverer struct {
-	recoverTime      int64
-	storage          Storage
-	pxcUser          string
-	pxcPass          string
-	recoverType      RecoverType
-	pxcServiceName   string
-	binlogs          []string
-	backupNAme       string
-	excludingGTIDSet string
-	s3BucketName     string
+	recoverTime    string
+	storage        Storage
+	pxcUser        string
+	pxcPass        string
+	recoverType    RecoverType
+	pxcServiceName string
+	binlogs        []string
+	backupNAme     string
+	gtidSet        string
+	s3BucketName   string
 }
 
 type Config struct {
@@ -36,9 +37,10 @@ type Config struct {
 	S3AccessKey    string
 	S3BucketName   string
 	S3Region       string
-	RecoverTime    int64
+	RecoverTime    string
 	RecoverType    string
 	BackupName     string
+	GTIDSet        string
 }
 
 type Storage interface {
@@ -117,13 +119,22 @@ func (r *Recoverer) recover() error {
 	}
 
 	flags := ""
-
+	endTime := time.Time{}
 	// TODO: add logic for all types
 	switch r.recoverType {
 	case Skip:
-		flags = " --exclude-gtids=" + r.excludingGTIDSet
+		flags = " --exclude-gtids=" + r.gtidSet
 	case Transaction:
 	case Date:
+		flags = ` --stop-datetime="` + r.recoverTime + `"`
+
+		newTime := strings.Replace(r.recoverTime, " ", "T", -1)
+		format := "2006-01-02T15:04:05"
+		t, err := time.Parse(format, newTime)
+		if err != nil {
+			log.Println(err)
+		}
+		endTime = t
 	case Latest:
 	}
 
@@ -132,6 +143,20 @@ func (r *Recoverer) recover() error {
 		binlogObj, err := r.storage.GetObject(binlog)
 		if err != nil {
 			return errors.Wrap(err, "get obj")
+		}
+
+		if r.recoverType == Date {
+			binlogArr := strings.Split(binlog, ":")
+			if len(binlogArr) < 2 {
+				return errors.New("get timestamp from binlog name")
+			}
+			binlogTime, err := strconv.ParseInt(binlogArr[1], 10, 64)
+			if err != nil {
+				return errors.Wrap(err, "get binlog time")
+			}
+			if binlogTime > endTime.Unix() {
+				return nil
+			}
 		}
 
 		cmdString := "cat | mysqlbinlog" + flags + " - | mysql -h" + host + " -u" + r.pxcUser + " -p$PXC_PASS"
@@ -197,7 +222,7 @@ func (r *Recoverer) getLastBackupGTID() (int64, error) {
 func (r *Recoverer) setBinlogs(startID int64) error {
 	saveBinlog := false
 	for _, binlog := range r.storage.ListObjects("") {
-		if strings.Contains(binlog, "binlog.") && !strings.Contains(binlog, "gtid-set") {
+		if strings.Contains(binlog, "binlog") && !strings.Contains(binlog, "gtid-set") {
 			if saveBinlog {
 				r.binlogs = append(r.binlogs, binlog)
 				continue

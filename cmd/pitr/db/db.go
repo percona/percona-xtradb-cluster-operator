@@ -111,6 +111,9 @@ func (p *PXC) GetBinLogList() ([]string, error) {
 
 // GetBinLogName returns name of the binary log file by given GTID set
 func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
+	if len(gtidSet) == 0 {
+		return "", nil
+	}
 	var existFunc string
 	nameRow := p.db.QueryRow("select name from mysql.func where name='get_binlog_by_gtid_set'")
 	err := nameRow.Scan(&existFunc)
@@ -125,9 +128,6 @@ func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
 	}
 	var binlog string
 	row := p.db.QueryRow("SELECT get_binlog_by_gtid_set(?)", gtidSet)
-	if err != nil {
-		return "", errors.Wrap(err, "select binlog by set")
-	}
 
 	err = row.Scan(&binlog)
 	if err != nil {
@@ -135,4 +135,32 @@ func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
 	}
 
 	return strings.TrimPrefix(binlog, "./"), nil
+}
+
+// GetBinLogFirstTimestamp return binary log file first timestamp
+func (p *PXC) GetBinLogFirstTimestamp(binlog string) (string, error) {
+	var existFunc string
+	nameRow := p.db.QueryRow("select name from mysql.func where name='get_first_record_timestamp_by_binlog'")
+	err := nameRow.Scan(&existFunc)
+	if err != nil && err != sql.ErrNoRows {
+		return "", errors.Wrap(err, "get udf name")
+	}
+	if len(existFunc) == 0 {
+		_, err = p.db.Exec("CREATE FUNCTION get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
+		if err != nil {
+			return "", errors.Wrap(err, "create function")
+		}
+	}
+	var timestamp string
+	row := p.db.QueryRow("SELECT get_first_record_timestamp_by_binlog(?)", binlog)
+	if err != nil {
+		return "", errors.Wrap(err, "select binlog timestamp")
+	}
+
+	err = row.Scan(&timestamp)
+	if err != nil {
+		return "", errors.Wrap(err, "scan binlog timestamp")
+	}
+
+	return timestamp, nil
 }

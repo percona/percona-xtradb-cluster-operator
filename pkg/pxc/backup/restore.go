@@ -351,6 +351,14 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			Name:  "S3_BUCKET",
 			Value: bucket,
 		})
+		envs = append(envs, corev1.EnvVar{
+			Name:  "GTID_SET",
+			Value: cr.Spec.PITR.GTIDSet,
+		})
+		envs = append(envs, corev1.EnvVar{
+			Name:  "DATE",
+			Value: cr.Spec.PITR.Date,
+		})
 		jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 		volumeMounts = []corev1.VolumeMount{}
 		jobPVCs = []corev1.Volume{}

@@ -50,7 +50,7 @@ func runCollector() {
 		log.Println("ERROR: get sleep env:", err)
 		os.Exit(1)
 	}
-
+	log.Println("run collector")
 	for {
 		err := c.Run()
 		if err != nil {
@@ -101,16 +101,6 @@ func getCollectorConfig() (collector.Config, error) {
 }
 
 func getRecovererConfig() (recoverer.Config, error) {
-	recTimeString := getEnv("RECOVER_TIME", "")
-	recTime := int64(0)
-	if len(recTimeString) > 0 {
-		time, err := strconv.ParseInt(recTimeString, 10, 64)
-		if err != nil {
-			return recoverer.Config{}, errors.Wrap(err, "get recover time")
-		}
-		recTime = time
-	}
-
 	return recoverer.Config{
 		PXCUser:        getEnv("PXC_USER", "root"),
 		PXCServiceName: getEnv("PXC_SERVICE", "some-name"),
@@ -119,9 +109,10 @@ func getRecovererConfig() (recoverer.Config, error) {
 		S3AccessKey:    getEnv("SECRET_ACCESS_KEY", ""),
 		S3BucketName:   getEnv("S3_BUCKET", "binlog-test"),
 		S3Region:       getEnv("DEFAULT_REGION", ""),
-		RecoverTime:    recTime,
+		RecoverTime:    getEnv("DATE", ""),
 		RecoverType:    getEnv("RECOVERY_TYPE", ""),
 		BackupName:     getEnv("BACKUP_NAME", ""),
+		GTIDSet:        getEnv("GTID_SET", ""),
 	}, nil
 }
 

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/minio/minio-go"
 	"github.com/pkg/errors"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
@@ -61,9 +60,11 @@ func New(c Config) (*Collector, error) {
 		return nil, errors.Wrap(err, "get last set content")
 	}
 	lastSet, err := ioutil.ReadAll(lastSetObject)
-	if err != nil && minio.ToErrorResponse(err).Code != "NoSuchKey" {
+	if err != nil && !strings.Contains(err.Error(), "The specified key does not exist") {
 		return nil, errors.Wrap(err, "read object")
 	}
+
+	lastSet = []byte("")
 	return &Collector{
 		storage:        s3,
 		lastSet:        string(lastSet),
@@ -177,21 +178,32 @@ func (c *Collector) manageBinlog(binlog string) error {
 	if len(set) == 0 {
 		return nil
 	}
+
+	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(binlog)
+	if err != nil {
+		return errors.Wrapf(err, "get first timestamp for %s", binlog)
+	}
+
+	binlogName := "binlog:" + binlogTmstmp
+
 	var setBuffer bytes.Buffer
 	setBuffer.WriteString(set)
 
 	tmpDir := os.TempDir()
+	if len(tmpDir) == 0 {
+		tmpDir = "/tmp"
+	}
 	err = os.Remove(tmpDir + binlog)
 	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
 		return errors.Wrap(err, "remove temp file")
 	}
 
-	err = syscall.Mkfifo(tmpDir+binlog, 0666)
+	err = syscall.Mkfifo(tmpDir+"/"+binlog, 0666)
 	if err != nil {
 		return errors.Wrap(err, "make named pipe file error")
 	}
 
-	file, err := os.OpenFile(tmpDir+binlog, syscall.O_NONBLOCK, os.ModeNamedPipe)
+	file, err := os.OpenFile(tmpDir+"/"+binlog, syscall.O_NONBLOCK, os.ModeNamedPipe)
 	if err != nil {
 		return errors.Wrap(err, "open named pipe file error")
 	}
@@ -200,14 +212,14 @@ func (c *Collector) manageBinlog(binlog string) error {
 		if err != nil {
 			return errors.Wrapf(err, "close tmp file for %s", binlog)
 		}
-		err = os.Remove(tmpDir + binlog)
+		err = os.Remove(tmpDir + "/" + binlog)
 		if err != nil {
 			return errors.Wrapf(err, "remove tmp file for %s", binlog)
 		}
 		return nil
 	}()
 
-	cmdStr := "mysqlbinlog -R --raw" + " -h" + c.db.GetHost() + " -u" + c.pxcUser + " -p$PXC_PASS --result-file=" + tmpDir + " " + binlog
+	cmdStr := "mysqlbinlog -R --raw" + " -h" + c.db.GetHost() + " -u" + c.pxcUser + " -p$PXC_PASS --result-file=" + tmpDir + "/ " + binlog
 	cmd := exec.Command("sh", "-c", cmdStr)
 
 	errOut, err := cmd.StderrPipe()
@@ -221,23 +233,22 @@ func (c *Collector) manageBinlog(binlog string) error {
 	}
 
 	data := reader{file}
-	err = c.storage.PutObject(binlog, &data)
+	err = c.storage.PutObject(binlogName, &data)
 	if err != nil {
 		return errors.Wrapf(err, "put %s object", binlog)
 	}
-
-	cmd.Wait()
-
 	stdErr, err := ioutil.ReadAll(errOut)
 	if err != nil {
 		return errors.Wrap(err, "read error output")
 	}
 
+	cmd.Wait()
+
 	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != db.UsingPassErrorMessage {
 		return errors.Errorf("mysqlbinlog: %s", stdErr)
 	}
 
-	err = c.storage.PutObject(binlog+gtidPostfix, &setBuffer)
+	err = c.storage.PutObject(binlogName+gtidPostfix, &setBuffer)
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}

@@ -40,11 +40,7 @@ func (s *S3) GetObject(objectName string) (io.Reader, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get object")
 	}
-	/*out, err := ioutil.ReadAll(oldObj)
-	if err != nil && minio.ToErrorResponse(err).Code != "NoSuchKey" {
-		return nil, errors.Wrap(err, "read object")
-	}*/
-	//TODO: this method should return io.Reader
+
 	return oldObj, nil
 }
 

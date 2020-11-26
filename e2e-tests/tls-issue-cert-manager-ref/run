@@ -13,8 +13,6 @@ main() {
   desc 'deploy cert manager'
   deploy_cert_manager
 
-  sleep 30
-
   desc 'create issuer'
   apply_config "$test_dir/conf/issuer.yml"
 

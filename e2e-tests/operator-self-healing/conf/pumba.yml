@@ -18,7 +18,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: name
+              - key: app.kubernetes.io/name
                 operator: In
                 values:
                 - percona-xtradb-cluster-operator

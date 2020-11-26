@@ -11,7 +11,13 @@ deploy_cert_manager
 
 desc 'create first PXC cluster'
 cluster="some-name"
-spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
+spinup_pxc "$cluster" "$conf_dir/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
+
+desc 'check if cert-manager issued ssl certificates'
+if [ "$(kubectl get secrets ${cluster}-ssl -o jsonpath='{.metadata.annotations.cert-manager\.io/issuer-kind}')" != "Issuer" ]; then
+  echo "Cert manager didn't create the ssl certificates! Something went wrong."
+  exit 1
+fi
 
 desc 'check if service and statefulset created with expected config'
 compare_kubectl statefulset/$cluster-pxc

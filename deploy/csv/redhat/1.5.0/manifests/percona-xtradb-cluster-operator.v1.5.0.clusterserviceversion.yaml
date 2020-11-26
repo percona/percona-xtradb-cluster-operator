@@ -1,0 +1,480 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: percona-xtradb-cluster-operator.v1.5.0
+  namespace: default
+  annotations:
+    alm-examples: >-
+      [{"apiVersion":"pxc.percona.com/v1-5-0","kind":"PerconaXtraDBCluster","metadata":{"name":"cluster1","finalizers":["delete-pxc-pods-in-order"]},"spec":{"secretsName":"my-cluster-secrets","vaultSecretName":"keyring-secret-vault","sslSecretName":"my-cluster-ssl","sslInternalSecretName":"my-cluster-ssl-internal","allowUnsafeConfigurations":false,"updateStrategy":"SmartUpdate","upgradeOptions":{"versionServiceEndpoint":"https://check.percona.com/versions","apply":"recommended","schedule":"0
+      4 * *
+      *"},"pxc":{"size":3,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:8.0.19-10.1","resources":{"requests":{"memory":"1G","cpu":"600m"}},"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"podDisruptionBudget":{"maxUnavailable":1},"volumeSpec":{"persistentVolumeClaim":{"resources":{"requests":{"storage":"6Gi"}}}},"gracePeriod":600},"haproxy":{"enabled":true,"size":3,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.5.0-haproxy","resources":{"requests":{"memory":"1G","cpu":"600m"}},"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"podDisruptionBudget":{"maxUnavailable":1},"gracePeriod":30},"proxysql":{"enabled":false,"size":3,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.5.0-proxysql","resources":{"requests":{"memory":"1G","cpu":"600m"}},"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"volumeSpec":{"persistentVolumeClaim":{"resources":{"requests":{"storage":"2Gi"}}}},"podDisruptionBudget":{"maxUnavailable":1},"gracePeriod":30},"pmm":{"enabled":false,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.5.0-pmm","serverHost":"monitoring-service","serverUser":"pmm"},"backup":{"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.5.0-pxc8.0-backup","serviceAccountName":"percona-xtradb-cluster-operator","storages":{"s3-us-west":{"type":"s3","s3":{"bucket":"S3-BACKUP-BUCKET-NAME-HERE","credentialsSecret":"my-cluster-name-backup-s3","region":"us-west-2"}},"fs-pvc":{"type":"filesystem","volume":{"persistentVolumeClaim":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"6Gi"}}}}}},"schedule":[{"name":"sat-night-backup","schedule":"0
+      0 * *
+      6","keep":3,"storageName":"s3-us-west"},{"name":"daily-backup","schedule":"0
+      0 * *
+      *","keep":5,"storageName":"fs-pvc"}]}}},{"apiVersion":"pxc.percona.com/v1","kind":"PerconaXtraDBClusterBackup","metadata":{"name":"backup1"},"spec":{"pxcCluster":"cluster1","storageName":"fs-pvc"}},{"apiVersion":"pxc.percona.com/v1alpha1","kind":"PerconaXtraDBBackup","metadata":{"name":"backup1"},"spec":{"pxcCluster":"cluster1","storageName":"s3-us-west"}},{"apiVersion":"pxc.percona.com/v1","kind":"PerconaXtraDBClusterRestore","metadata":{"name":"restore1"},"spec":{"pxcCluster":"cluster1","backupName":"backup1"}},{"apiVersion":"pxc.percona.com/v1","kind":"PerconaXtraDBClusterBackup","metadata":{"name":"backup1"},"spec":{"pxcCluster":"cluster1","storageName":"fs-pvc"}},{"apiVersion":"pxc.percona.com/v1alpha1","kind":"PerconaXtraDBBackup","metadata":{"name":"backup1"},"spec":{"pxcCluster":"cluster1","storageName":"s3-us-west"}},{"apiVersion":"pxc.percona.com/v1","kind":"PerconaXtraDBClusterRestore","metadata":{"name":"restore1"},"spec":{"pxcCluster":"cluster1","backupName":"backup1"}}]
+    categories: Database
+    certified: 'true'
+    createdAt: '2020-05-08T19:11:44.000Z'
+    description: >-
+      Percona XtraDB Cluster Operator manages the lifecycle of Percona XtraDB
+      cluster instances.
+    containerImage: 'registry.connect.redhat.com/percona/percona-xtradb-cluster-operator:1.5.0'
+    support: Percona
+    capabilities: Deep Insights
+    repository: 'https://github.com/percona/percona-xtradb-cluster-operator'
+spec:
+  displayName: Percona XtraDB Cluster Operator
+  description: >+
+
+    ## Percona is Cloud Native
+
+
+    The Percona Kubernetes Operator for Percona XtraDB Cluster automates the
+    creation, alteration, or deletion of nodes in your cluster environment. It
+    can be used to instantiate a new database cluster or to scale an existing
+    database cluster. The Operator contains all necessary Kubernetes settings to
+    provide a proper and consistent Percona XtraDB Cluster instance.
+
+
+    Consult the
+    [documentation](https://percona.github.io/percona-xtradb-cluster-operator/)
+    on the Percona Kubernetes Operator for Percona XtraDB Cluster for complete
+    details on capabilities and options.
+
+
+    ### Supported Features
+
+
+    * **Scale Your Cluster** â€“ change the `size` parameter to [add or remove
+    members](https://percona.github.io/percona-xtradb-cluster-operator/install/scaling)
+    of the cluster. Three is the minimum recommended size for a functioning
+    cluster.
+
+
+    * **Manage Your Users** â€“ [add, remove, or
+    change](https://percona.github.io/percona-xtradb-cluster-operator/configure/users)
+    the privileges of database users
+
+
+    * **Automate Your Backups** â€“ [configure cluster
+    backups](https://percona.github.io/percona-xtradb-cluster-operator/configure/operator)
+    to run on a scheduled basis. Backups are stored on a persistent volume.
+
+
+    ### Common Configurations
+
+
+    * **Set Resource Limits** - set limitation on requests to CPU and memory
+    resources.
+
+
+    * **Customize Storage** - set the desired Storage Class and Access Mode for
+    your database cluster data.
+
+
+    * **Control Scheduling** - define how your PXC Pods are scheduled onto the
+    K8S cluster with tolerations, pod disruption budgets, node selector and
+    affinity settings.
+
+    * Automatic synchronization of MySQL users with ProxySQL
+
+    * HAProxy Support
+
+    * Fully automated minor version updates (Smart Update)
+
+    * Update Reader members before Writer member at cluster upgrades
+
+    * Support multiple PXC minor versions by the Operator
+
+    ### Before You Start
+
+
+    Add the PXC user `Secret` to Kubernetes. User information must be placed in
+    the data section of the `secrets.yaml`
+
+    file with Base64-encoded logins and passwords for the user accounts.
+
+
+    Below is a sample `secrets.yaml` file for the correct formatting.
+
+
+    ```
+
+    apiVersion: v1
+
+    kind: Secret
+
+    metadata:
+      name: my-cluster-secrets
+    type: Opaque
+
+    data:
+      root: cm9vdF9wYXNzd29yZA==
+      xtrabackup: YmFja3VwX3Bhc3N3b3Jk
+      monitor: bW9uaXRvcg==
+      clustercheck: Y2x1c3RlcmNoZWNrcGFzc3dvcmQ=
+      proxyadmin: YWRtaW5fcGFzc3dvcmQ=
+      pmmserver: c3VwYXxefHBheno=
+    ```
+
+
+
+
+
+
+
+
+  maturity: stable
+  version: 1.5.0
+  skips: []
+  minKubeVersion: ''
+  keywords:
+    - mysql
+    - percona
+    - database
+    - pxc
+    - galera
+  maintainers:
+    - name: Percona
+      email: info@percona.com
+  provider:
+    name: Percona
+  labels: {}
+  selector:
+    matchLabels: {}
+  links:
+    - name: Percona
+      url: 'https://www.percona.com/'
+    - name: Percona Kubernetes Operators Landing Page
+      url: 'https://www.percona.com/software/percona-kubernetes-operators'
+    - name: Documentation
+      url: 'https://percona.github.io/percona-xtradb-cluster-operator/'
+    - name: Github
+      url: 'https://github.com/percona/percona-xtradb-cluster-operator'
+  icon:
+    - base64data: >-
+        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
+      mediatype: image/png
+  customresourcedefinitions:
+    owned:
+      - description: Instance of a Percona XtraDB Cluster
+        displayName: PerconaXtraDBCluster
+        kind: PerconaXtraDBCluster
+        name: perconaxtradbclusters.pxc.percona.com
+        version: v1-5-0
+        specDescriptors: []
+        statusDescriptors: []
+        resources:
+          - version: v1
+            kind: Deployment
+          - version: v1
+            kind: Service
+          - version: v1
+            kind: ReplicaSet
+          - version: v1
+            kind: Pod
+          - version: v1
+            kind: Secret
+          - version: v1
+            kind: ConfigMap
+      - description: Instance of a Percona XtraDB Cluster Backup
+        displayName: PerconaXtraDBClusterBackup
+        kind: PerconaXtraDBClusterBackup
+        name: perconaxtradbclusterbackups.pxc.percona.com
+        version: v1
+        specDescriptors: []
+        statusDescriptors: []
+        resources:
+          - version: v1
+            kind: Deployment
+          - version: v1
+            kind: Service
+          - version: v1
+            kind: ReplicaSet
+          - version: v1
+            kind: Pod
+          - version: v1
+            kind: Secret
+          - version: v1
+            kind: ConfigMap
+      - description: Instance of a Percona XtraDB Cluster Restore
+        displayName: PerconaXtraDBClusterRestore
+        kind: PerconaXtraDBClusterRestore
+        name: perconaxtradbclusterrestores.pxc.percona.com
+        version: v1
+        specDescriptors: []
+        statusDescriptors: []
+        resources:
+          - version: v1
+            kind: Deployment
+          - version: v1
+            kind: Service
+          - version: v1
+            kind: ReplicaSet
+          - version: v1
+            kind: Pod
+          - version: v1
+            kind: Secret
+          - version: v1
+            kind: ConfigMap
+      - description: (Legacy) Instance of a Percona XtraDB Cluster Backup
+        displayName: PerconaXtraDBBackup
+        kind: PerconaXtraDBBackup
+        name: perconaxtradbbackups.pxc.percona.com
+        version: v1alpha1
+        specDescriptors: []
+        statusDescriptors: []
+        resources:
+          - version: v1
+            kind: Deployment
+          - version: v1
+            kind: Service
+          - version: v1
+            kind: ReplicaSet
+          - version: v1
+            kind: Pod
+          - version: v1
+            kind: Secret
+          - version: v1
+            kind: ConfigMap
+    required: []
+  install:
+    strategy: deployment
+    spec:
+      permissions:
+        - rules:
+            - apiGroups:
+                - pxc.percona.com
+              resources:
+                - perconaxtradbclusters
+                - perconaxtradbclusters/status
+                - perconaxtradbclusterbackups
+                - perconaxtradbclusterbackups/status
+                - perconaxtradbclusterrestores
+                - perconaxtradbclusterrestores/status
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - ''
+              resources:
+                - pods
+                - pods/exec
+                - configmaps
+                - services
+                - persistentvolumeclaims
+                - secrets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+                - replicasets
+                - statefulsets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - batch
+              resources:
+                - jobs
+                - cronjobs
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - policy
+              resources:
+                - poddisruptionbudgets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - certmanager.k8s.io
+              resources:
+                - issuers
+                - certificates
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+                - deletecollection
+          serviceAccountName: percona-xtradb-cluster-operator
+        - serviceAccountName: percona-xtradb-cluster-operator-workload
+          rules:
+            - apiGroups:
+              - ""
+              resources:
+              - ""
+              verbs:
+              - ""
+      clusterPermissions: []
+      deployments:
+        - name: percona-xtradb-cluster-operator
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                name: percona-xtradb-cluster-operator
+            template:
+              metadata:
+                labels:
+                  name: percona-xtradb-cluster-operator
+              spec:
+                serviceAccountName: percona-xtradb-cluster-operator
+                containers:
+                  - name: percona-xtradb-cluster-operator
+                    image: >-
+                      registry.connect.redhat.com/percona/percona-xtradb-cluster-operator:1.5.0
+                    ports:
+                      - containerPort: 60000
+                        name: metrics
+                    command:
+                      - percona-xtradb-cluster-operator
+                    imagePullPolicy: Always
+                    env:
+                      - name: WATCH_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
+                      - name: OPERATOR_NAME
+                        value: percona-xtradb-cluster-operator
+      strategy: deployment
+      spec:
+        permissions:
+          kind: Role
+          apiVersion: rbac.authorization.k8s.io/v1beta1
+          metadata:
+            name: percona-xtradb-cluster-operator
+          rules:
+            - apiGroups:
+                - pxc.percona.com
+              resources:
+                - perconaxtradbclusters
+                - perconaxtradbclusters/status
+                - perconaxtradbclusterbackups
+                - perconaxtradbclusterbackups/status
+                - perconaxtradbclusterrestores
+                - perconaxtradbclusterrestores/status
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - ''
+              resources:
+                - pods
+                - pods/exec
+                - configmaps
+                - services
+                - persistentvolumeclaims
+                - secrets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+                - replicasets
+                - statefulsets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - batch
+              resources:
+                - jobs
+                - cronjobs
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - policy
+              resources:
+                - poddisruptionbudgets
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+            - apiGroups:
+                - certmanager.k8s.io
+              resources:
+                - issuers
+                - certificates
+              verbs:
+                - get
+                - list
+                - watch
+                - create
+                - update
+                - patch
+                - delete
+                - deletecollection
+          serviceAccountName: percona-xtradb-cluster-operator
+        deployments: []
+  installModes:
+    - type: OwnNamespace
+      supported: true
+    - type: SingleNamespace
+      supported: true
+    - type: MultiNamespace
+      supported: false
+    - type: AllNamespaces
+      supported: false
+  apiservicedefinitions: {}
+  replaces: percona-xtradb-cluster-operator.v1.4.0

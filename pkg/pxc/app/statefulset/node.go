@@ -313,7 +313,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
 		logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
-			Name:      "custom-config",
+			Name:      "logcollector-config",
 			MountPath: "/etc/fluentbit/custom",
 		})
 	}
@@ -400,7 +400,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 			app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true))
 	}
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" && cr.CompareVersionWith("1.7.0") >= 0 {
-		vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("custom-config", ls["app.kubernetes.io/instance"]+"-logcollector"))
+		vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("logcollector-config", ls["app.kubernetes.io/instance"]+"-logcollector"))
 	}
 	return vol, nil
 }

@@ -66,21 +66,17 @@ Install Percona XtraDB Cluster on OpenShift
 
 #. Now that’s time to add the PXC Users secrets to OpenShift. They
    should be placed in the data section of the ``deploy/secrets.yaml``
-   file as logins and base64-encoded passwords for the user accounts
+   file as logins and plaintext passwords for the user accounts
    (see `Kubernetes
    documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`__
    for details).
-
-   .. note:: The following command can be used to get base64-encoded
-      password from a plain text string:
-      ``$ echo -n 'plain-text-password' | base64``
 
    After editing is finished, users secrets should be created (or
    updated with the new passwords) using the following command:
 
    .. code:: bash
 
-      $ oc apply -f deploy/secrets.yaml
+      $ oc create -f deploy/secrets.yaml
 
    More details about secrets can be found in :ref:`users`.
 

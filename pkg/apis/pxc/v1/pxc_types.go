@@ -19,24 +19,26 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform              version.Platform                     `json:"platform,omitempty"`
-	CRVersion             string                               `json:"crVersion,omitempty"`
-	Pause                 bool                                 `json:"pause,omitempty"`
-	SecretsName           string                               `json:"secretsName,omitempty"`
-	VaultSecretName       string                               `json:"vaultSecretName,omitempty"`
-	SSLSecretName         string                               `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName string                               `json:"sslInternalSecretName,omitempty"`
-	TLS                   *TLSSpec                             `json:"tls,omitempty"`
-	PXC                   *PodSpec                             `json:"pxc,omitempty"`
-	ProxySQL              *PodSpec                             `json:"proxysql,omitempty"`
-	HAProxy               *PodSpec                             `json:"haproxy,omitempty"`
-	PMM                   *PMMSpec                             `json:"pmm,omitempty"`
-	Backup                *PXCScheduledBackup                  `json:"backup,omitempty"`
-	UpdateStrategy        appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
-	UpgradeOptions        UpgradeOptions                       `json:"upgradeOptions,omitempty"`
-	AllowUnsafeConfig     bool                                 `json:"allowUnsafeConfigurations,omitempty"`
-	InitImage             string                               `json:"initImage,omitempty"`
-	DisableHookValidation bool                                 `json:"disableHookValidation,omitempty"`
+	Platform               version.Platform                     `json:"platform,omitempty"`
+	CRVersion              string                               `json:"crVersion,omitempty"`
+	Pause                  bool                                 `json:"pause,omitempty"`
+	SecretsName            string                               `json:"secretsName,omitempty"`
+	VaultSecretName        string                               `json:"vaultSecretName,omitempty"`
+	SSLSecretName          string                               `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName  string                               `json:"sslInternalSecretName,omitempty"`
+	LogCollectorSecretName string                               `json:"logCollectorSecretName,omitempty"`
+	TLS                    *TLSSpec                             `json:"tls,omitempty"`
+	PXC                    *PodSpec                             `json:"pxc,omitempty"`
+	ProxySQL               *PodSpec                             `json:"proxysql,omitempty"`
+	HAProxy                *PodSpec                             `json:"haproxy,omitempty"`
+	PMM                    *PMMSpec                             `json:"pmm,omitempty"`
+	LogCollector           *LogCollectorSpec                    `json:"logcollector,omitempty"`
+	Backup                 *PXCScheduledBackup                  `json:"backup,omitempty"`
+	UpdateStrategy         appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
+	UpgradeOptions         UpgradeOptions                       `json:"upgradeOptions,omitempty"`
+	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+	InitImage              string                               `json:"initImage,omitempty"`
+	DisableHookValidation  bool                                 `json:"disableHookValidation,omitempty"`
 }
 
 type TLSSpec struct {
@@ -85,6 +87,7 @@ type PerconaXtraDBClusterStatus struct {
 	HAProxy            AppStatus          `json:"haproxy,omitempty"`
 	Backup             AppStatus          `json:"backup,omitempty"`
 	PMM                AppStatus          `json:"pmm,omitempty"`
+	LogCollector       AppStatus          `json:"logcollector,omitempty"`
 	Host               string             `json:"host,omitempty"`
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`
@@ -304,6 +307,15 @@ type PodResources struct {
 	Limits   *ResourcesList `json:"limits,omitempty"`
 }
 
+type LogCollectorSpec struct {
+	Enabled                  bool                    `json:"enabled,omitempty"`
+	Image                    string                  `json:"image,omitempty"`
+	Resources                *PodResources           `json:"resources,omitempty"`
+	Configuration            string                  `json:"configuration,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
+	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
+}
+
 type PMMSpec struct {
 	Enabled                  bool                    `json:"enabled,omitempty"`
 	ServerHost               string                  `json:"serverHost,omitempty"`
@@ -380,6 +392,7 @@ type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(spec *PMMSpec, secrets string, cr *PerconaXtraDBCluster) (*corev1.Container, error)
+	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster) (*Volume, error)
 	Labels() map[string]string
 }
@@ -510,11 +523,21 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if c.PMM != nil && c.PMM.Resources == nil {
 			c.PMM.Resources = c.PXC.Resources
 		}
+
+		if c.LogCollector != nil && c.LogCollector.Resources == nil {
+			c.LogCollector.Resources = c.PXC.Resources
+		}
 	}
 
 	if c.PMM != nil && c.PMM.Enabled {
 		if len(c.PMM.ImagePullPolicy) == 0 {
 			c.PMM.ImagePullPolicy = corev1.PullAlways
+		}
+	}
+
+	if c.LogCollector != nil && c.LogCollector.Enabled {
+		if len(c.LogCollector.ImagePullPolicy) == 0 {
+			c.LogCollector.ImagePullPolicy = corev1.PullAlways
 		}
 	}
 

@@ -59,11 +59,11 @@ Install Percona XtraDB Cluster on Kubernetes
    should be placed in the data section of the ``deploy/secrets.yaml``
    file as logins and plaintext passwords for the user accounts
    (see `Kubernetes
-   documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`__
+   documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`_
    for details).
 
-   After editing is finished, users secrets should be created (or
-   updated with the new passwords) using the following command:
+   After editing is finished, users secrets should be created using the
+   following command:
 
    .. code:: bash
 

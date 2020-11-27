@@ -71,8 +71,8 @@ Install Percona XtraDB Cluster on OpenShift
    documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`__
    for details).
 
-   After editing is finished, users secrets should be created (or
-   updated with the new passwords) using the following command:
+   After editing is finished, users secrets should be created using the
+   following command:
 
    .. code:: bash
 

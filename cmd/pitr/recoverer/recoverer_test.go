@@ -2,6 +2,7 @@ package recoverer
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -20,10 +21,10 @@ func (r *reader) Read(p []byte) (int, error) {
 
 func (t *testStorage) GetObject(name string) (io.Reader, error) {
 	if strings.Contains(name, "gtid-set") {
-		buf := bytes.NewBufferString("someset-name:1-15")
+		buf := bytes.NewBufferString("some-set:1-15")
 		return buf, nil
 	}
-	buf := bytes.NewBufferString("some text with GTID of the last some-set:9-13'\n")
+	buf := bytes.NewBufferString("some text with GTID of the last 'some-set:9-13'\n")
 	return buf, nil
 }
 
@@ -45,7 +46,7 @@ func TestGetBinlogList(t *testing.T) {
 	r := Recoverer{
 		storage: ts,
 	}
-	err := r.setBinlogs(1)
+	err := r.setBinlogs("some-set", 1)
 	if err != nil {
 		t.Error("setBinlogs", err.Error())
 	}
@@ -59,9 +60,13 @@ func TestGetLastBackupGTID(t *testing.T) {
 	r := Recoverer{
 		storage: ts,
 	}
-	lastID, err := r.getLastBackupGTID()
+	set, lastID, err := r.getLastBackupGTID()
 	if err != nil {
 		t.Error("setBinlogs", err.Error())
+	}
+	if set != "some-set" {
+		fmt.Println("set-name", set)
+		t.Error("incorrect last gtid set name")
 	}
 	if lastID != 13 {
 		t.Error("incorrect last gtid")

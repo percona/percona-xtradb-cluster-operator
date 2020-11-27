@@ -201,7 +201,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 
 	err = r.pitr(cr, bcp, cluster.Spec)
 	if err != nil {
-		err = errors.Wrap(err, "run restore")
+		err = errors.Wrap(err, "run pitr")
 		return rr, err
 	}
 

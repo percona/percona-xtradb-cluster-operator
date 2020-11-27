@@ -16,7 +16,7 @@ import (
 
 func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployment, error) {
 	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
-	binlogCollectorName := "pitr"
+	binlogCollectorName := cr.Name + "pitr"
 	pxcUser := "xtrabackup"
 	sleepTime := strconv.FormatInt(cr.Spec.Backup.PITR.TimeBetweenUploads, 10)
 
@@ -25,7 +25,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 		return appsv1.Deployment{}, errors.Wrap(err, "get buffer size")
 	}
 
-	storageEndpoint := strings.TrimPrefix(storage.S3.EndpointURL, "https://")
+	storageEndpoint := strings.TrimPrefix(strings.TrimPrefix(storage.S3.EndpointURL, "https://"), "http://")
 	labels := map[string]string{
 		"app.kubernetes.io/name":       "percona-xtradb-cluster",
 		"app.kubernetes.io/instance":   cr.Name,
@@ -54,7 +54,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			},
 		},
 		{
-			Name:  "S3_BUCKET",
+			Name:  "S3_BUCKET_NAME",
 			Value: storage.S3.Bucket,
 		},
 		{
@@ -89,7 +89,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 		return appsv1.Deployment{}, errors.Wrap(err, "create resources")
 	}
 	container := corev1.Container{
-		Name:            "collector",
+		Name:            binlogCollectorName,
 		Image:           cr.Spec.Backup.Image,
 		ImagePullPolicy: cr.Spec.Backup.ImagePullPolicy,
 		Env:             envs,

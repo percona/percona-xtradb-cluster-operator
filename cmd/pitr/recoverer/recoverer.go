@@ -95,11 +95,11 @@ func (r *Recoverer) getHost() (string, error) {
 }
 
 func (r *Recoverer) Run() error {
-	startGTID, err := r.getLastBackupGTID()
+	gtid, startGTID, err := r.getLastBackupGTID()
 	if err != nil {
 		return errors.Wrap(err, "get last gtid")
 	}
-	err = r.setBinlogs(startGTID)
+	err = r.setBinlogs(gtid, startGTID)
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
@@ -180,43 +180,51 @@ func (r *Recoverer) recover() error {
 	return nil
 }
 
-func (r *Recoverer) getLastBackupGTID() (int64, error) {
+func (r *Recoverer) getLastBackupGTID() (string, int64, error) {
 	sep := []byte("GTID of the last")
 
 	infoObj, err := r.storage.GetObject(r.backupName + "/xtrabackup_info.lz4.00000000000000000000")
 	if err != nil {
-		return 0, errors.Wrap(err, "get object")
+		return "", 0, errors.Wrap(err, "get object")
 	}
 	content, err := ioutil.ReadAll(infoObj)
 	if err != nil {
-		return 0, errors.Wrap(err, "read object")
+		return "", 0, errors.Wrap(err, "read object")
 	}
 	startIndex := bytes.Index(content, sep)
 	if startIndex == -1 {
-		return 0, errors.New("no gtid data in backup")
+		return "", 0, errors.New("no gtid data in backup")
 	}
 	newOut := content[startIndex+len(sep):]
 	e := bytes.Index(newOut, []byte("'\n"))
 	if e == -1 {
-		return 0, errors.New("cant find gtid data in backup")
+		return "", 0, errors.New("cant find gtid data in backup")
+	}
+	content = content[:e]
+
+	se := bytes.Index(newOut, []byte("'"))
+	set := newOut[se+1 : e]
+
+	gtidArr := bytes.Split(set, []byte(":"))
+	if len(gtidArr) < 2 {
+		return "", 0, errors.New("can't read gtid set")
 	}
 
-	set := newOut[:e]
-	setArr := bytes.Split(set, []byte("-"))
-	if len(setArr) < 2 {
-		return 0, errors.New("cant find lastgtid in backup")
+	setArr := bytes.Split(gtidArr[1], []byte("-"))
+	idBytes := setArr[0]
+	if len(setArr) == 2 {
+		idBytes = setArr[1]
 	}
-	idBytes := setArr[len(setArr)-1]
 
 	id, err := strconv.ParseInt(string(idBytes), 10, 64)
 	if err != nil {
-		return 0, errors.New("cant convert last gtid to int64")
+		return "", 0, errors.New("cant convert last gtid to int64")
 	}
 
-	return id, nil
+	return string(gtidArr[0]), id, nil
 }
 
-func (r *Recoverer) setBinlogs(startID int64) error {
+func (r *Recoverer) setBinlogs(gtidStr string, startID int64) error {
 	saveBinlog := false
 	for _, binlog := range r.storage.ListObjects("") {
 		if strings.Contains(binlog, "binlog") && !strings.Contains(binlog, "gtid-set") {
@@ -246,6 +254,10 @@ func (r *Recoverer) setBinlogs(startID int64) error {
 			lastID, err := strconv.ParseInt(string(lastGTIDinSet), 10, 64)
 			if err != nil {
 				return errors.New("cant convert last gtid to int64")
+			}
+
+			if string(oArr[0]) != gtidStr {
+				continue
 			}
 			if startID < lastID {
 				saveBinlog = true

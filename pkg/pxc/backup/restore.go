@@ -325,13 +325,15 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		},
 	}
 	if pitr {
-		bucket := "operator-testing"
+		bucket := ""
 		if cluster.Backup != nil && len(cluster.Backup.Storages) > 0 {
 			storage, ok := cluster.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
 			if ok {
 				bucket = storage.S3.Bucket
 			}
-			fmt.Println("bucket from cr is", bucket)
+		}
+		if len(bucket) == 0 {
+			return nil, errors.New("no backet in storage")
 		}
 		command = []string{"pitr", "-action=r"}
 		envs = append(envs, corev1.EnvVar{
@@ -348,7 +350,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			Value: bcpName,
 		})
 		envs = append(envs, corev1.EnvVar{
-			Name:  "S3_BUCKET",
+			Name:  "S3_BUCKET_NAME",
 			Value: bucket,
 		})
 		envs = append(envs, corev1.EnvVar{

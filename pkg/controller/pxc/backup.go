@@ -33,7 +33,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			if err != nil {
 				return fmt.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
 			}
-			binlogCollectorName := cr.Name + "-bl-collector"
+			binlogCollectorName := cr.Name + "pitr"
 			currentCollector := appsv1.Deployment{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, &currentCollector)
 			if err != nil && k8serrors.IsNotFound(err) {
@@ -45,6 +45,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				return fmt.Errorf("get binlogCollector '%s': %v", binlogCollectorName, err)
 			} else {
 				err = r.client.Update(context.TODO(), &currentCollector)
+				currentCollector.Spec = binlogCollector.Spec
 				if err != nil {
 					return fmt.Errorf("update binlogCollector '%s': %v", binlogCollectorName, err)
 				}

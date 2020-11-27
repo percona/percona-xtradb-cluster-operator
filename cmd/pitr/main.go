@@ -94,7 +94,7 @@ func getCollectorConfig() (collector.Config, error) {
 		S3Endpoint:     getEnv("ENDPOINT", ""),
 		S3AccessKeyID:  getEnv("ACCESS_KEY_ID", ""),
 		S3AccessKey:    getEnv("SECRET_ACCESS_KEY", ""),
-		S3BucketName:   getEnv("S3_BUCKET", "binlog-test"),
+		S3BucketName:   getEnv("S3_BUCKET_NAME", ""),
 		S3Region:       getEnv("DEFAULT_REGION", ""),
 		BufferSize:     bufferSize,
 	}, nil
@@ -107,7 +107,7 @@ func getRecovererConfig() (recoverer.Config, error) {
 		S3Endpoint:     strings.TrimPrefix(getEnv("ENDPOINT", ""), "https://"),
 		S3AccessKeyID:  getEnv("ACCESS_KEY_ID", ""),
 		S3AccessKey:    getEnv("SECRET_ACCESS_KEY", ""),
-		S3BucketName:   getEnv("S3_BUCKET", "binlog-test"),
+		S3BucketName:   getEnv("S3_BUCKET_NAME", ""),
 		S3Region:       getEnv("DEFAULT_REGION", ""),
 		RecoverTime:    getEnv("DATE", ""),
 		RecoverType:    getEnv("RECOVERY_TYPE", ""),

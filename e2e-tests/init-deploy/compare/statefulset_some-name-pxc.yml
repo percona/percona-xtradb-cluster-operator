@@ -41,6 +41,61 @@ spec:
                   app.kubernetes.io/part-of: percona-xtradb-cluster
               topologyKey: kubernetes.io/hostname
       containers:
+        - env:
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: POD_NAMESPASE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: some-name-log-collector
+                optional: true
+          imagePullPolicy: Always
+          name: logs
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 100m
+              memory: 100M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
+        - args:
+            - logrotate
+          env:
+            - name: SERVICE_TYPE
+              value: mysql
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-some-name
+          imagePullPolicy: Always
+          name: logrotate
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 100m
+              memory: 100M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
         - args:
             - mysqld
           command:
@@ -70,6 +125,10 @@ spec:
                 secretKeyRef:
                   key: clustercheck
                   name: internal-some-name
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: IS_LOGCOLLECTOR
+              value: "yes"
             - name: OPERATOR_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:

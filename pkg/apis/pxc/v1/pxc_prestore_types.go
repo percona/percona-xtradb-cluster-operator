@@ -68,7 +68,7 @@ func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
 	}
 
 	if cr.Spec.BackupName == "" && cr.Spec.BackupSource == nil && cr.Spec.PITR == nil {
-		return errors.New("backupName BackupSource and PITR can't be empty simultaneously")
+		return errors.New("backupName, BackupSource and PITR can't be empty simultaneously")
 	}
 
 	return nil

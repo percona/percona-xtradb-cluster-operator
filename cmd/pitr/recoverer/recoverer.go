@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/minio-go"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
 	"github.com/pkg/errors"
 )
@@ -24,7 +23,7 @@ type Recoverer struct {
 	recoverType    RecoverType
 	pxcServiceName string
 	binlogs        []string
-	backupNAme     string
+	backupName     string
 	gtidSet        string
 	s3BucketName   string
 }
@@ -62,7 +61,7 @@ func New(c Config) (*Recoverer, error) {
 		pxcUser:        c.PXCUser,
 		pxcServiceName: c.PXCServiceName,
 		recoverType:    RecoverType(c.RecoverType),
-		backupNAme:     c.BackupName,
+		backupName:     c.BackupName,
 	}, nil
 }
 
@@ -128,22 +127,19 @@ func (r *Recoverer) recover() error {
 	case Date:
 		flags = ` --stop-datetime="` + r.recoverTime + `"`
 
-		newTime := strings.Replace(r.recoverTime, " ", "T", -1)
-		format := "2006-01-02T15:04:05"
-		t, err := time.Parse(format, newTime)
+		format := "2006-01-02 15:04:05"
+		t, err := time.Parse(format, r.recoverTime)
 		if err != nil {
-			log.Println(err)
+			return errors.Wrap(err, "parse date")
 		}
 		endTime = t
 	case Latest:
+	default:
+		return errors.New("wrong recover type")
 	}
 
 	for _, binlog := range r.binlogs {
 		log.Println("working with", binlog)
-		binlogObj, err := r.storage.GetObject(binlog)
-		if err != nil {
-			return errors.Wrap(err, "get obj")
-		}
 
 		if r.recoverType == Date {
 			binlogArr := strings.Split(binlog, ":")
@@ -159,6 +155,11 @@ func (r *Recoverer) recover() error {
 			}
 		}
 
+		binlogObj, err := r.storage.GetObject(binlog)
+		if err != nil {
+			return errors.Wrap(err, "get obj")
+		}
+
 		cmdString := "cat | mysqlbinlog" + flags + " - | mysql -h" + host + " -u" + r.pxcUser + " -p$PXC_PASS"
 		cmd := exec.Command("sh", "-c", cmdString)
 
@@ -166,13 +167,9 @@ func (r *Recoverer) recover() error {
 		var outb, errb bytes.Buffer
 		cmd.Stdout = &outb
 		cmd.Stderr = &errb
-		err = cmd.Start()
+		err = cmd.Run()
 		if err != nil {
-			return errors.Wrap(err, "cmd start")
-		}
-		err = cmd.Wait()
-		if err != nil {
-			return errors.Wrap(err, "cmd wait")
+			return errors.Wrap(err, "cmd run")
 		}
 
 		if errb.Bytes() != nil {
@@ -186,22 +183,22 @@ func (r *Recoverer) recover() error {
 func (r *Recoverer) getLastBackupGTID() (int64, error) {
 	sep := []byte("GTID of the last")
 
-	infoObj, err := r.storage.GetObject(r.backupNAme + "/xtrabackup_info.lz4.00000000000000000000")
+	infoObj, err := r.storage.GetObject(r.backupName + "/xtrabackup_info.lz4.00000000000000000000")
 	if err != nil {
 		return 0, errors.Wrap(err, "get object")
 	}
 	content, err := ioutil.ReadAll(infoObj)
-	if err != nil && minio.ToErrorResponse(err).Code != "NoSuchKey" {
+	if err != nil {
 		return 0, errors.Wrap(err, "read object")
 	}
 	startIndex := bytes.Index(content, sep)
 	if startIndex == -1 {
-		return 0, errors.New("no gtid  data in backup")
+		return 0, errors.New("no gtid data in backup")
 	}
 	newOut := content[startIndex+len(sep):]
 	e := bytes.Index(newOut, []byte("'\n"))
 	if e == -1 {
-		return 0, errors.New("cant find gtid  data in backup")
+		return 0, errors.New("cant find gtid data in backup")
 	}
 
 	set := newOut[:e]
@@ -232,8 +229,8 @@ func (r *Recoverer) setBinlogs(startID int64) error {
 				return errors.Wrap(err, "get object with gtid set")
 			}
 			content, err := ioutil.ReadAll(infoObj)
-			if err != nil && minio.ToErrorResponse(err).Code != "NoSuchKey" {
-				return errors.Wrap(err, "read object")
+			if err != nil {
+				return errors.Wrap(err, "get object")
 			}
 			oArr := bytes.Split(content, []byte(":"))
 			if len(oArr) < 2 {

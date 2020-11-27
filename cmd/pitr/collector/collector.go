@@ -170,7 +170,7 @@ func (r *reader) Read(p []byte) (int, error) {
 	return r.r.Read(p)
 }
 
-func (c *Collector) manageBinlog(binlog string) error {
+func (c *Collector) manageBinlog(binlog string) (err error) {
 	set, err := c.db.GetGTIDSet(binlog)
 	if err != nil {
 		return errors.Wrap(err, "get GTID set")
@@ -189,37 +189,37 @@ func (c *Collector) manageBinlog(binlog string) error {
 	var setBuffer bytes.Buffer
 	setBuffer.WriteString(set)
 
-	tmpDir := os.TempDir()
-	if len(tmpDir) == 0 {
-		tmpDir = "/tmp"
-	}
+	tmpDir := os.TempDir() + "/"
+
 	err = os.Remove(tmpDir + binlog)
 	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
 		return errors.Wrap(err, "remove temp file")
 	}
 
-	err = syscall.Mkfifo(tmpDir+"/"+binlog, 0666)
+	err = syscall.Mkfifo(tmpDir+binlog, 0666)
 	if err != nil {
 		return errors.Wrap(err, "make named pipe file error")
 	}
 
-	file, err := os.OpenFile(tmpDir+"/"+binlog, syscall.O_NONBLOCK, os.ModeNamedPipe)
+	file, err := os.OpenFile(tmpDir+binlog, syscall.O_NONBLOCK, os.ModeNamedPipe)
 	if err != nil {
 		return errors.Wrap(err, "open named pipe file error")
 	}
-	defer func() error {
+	defer func() {
 		err = file.Close()
 		if err != nil {
-			return errors.Wrapf(err, "close tmp file for %s", binlog)
+			err = errors.Wrapf(err, "close tmp file for %s", binlog)
+			return
 		}
-		err = os.Remove(tmpDir + "/" + binlog)
+		err = os.Remove(tmpDir + binlog)
 		if err != nil {
-			return errors.Wrapf(err, "remove tmp file for %s", binlog)
+			err = errors.Wrapf(err, "remove tmp file for %s", binlog)
+			return
 		}
-		return nil
+		return
 	}()
 
-	cmdStr := "mysqlbinlog -R --raw" + " -h" + c.db.GetHost() + " -u" + c.pxcUser + " -p$PXC_PASS --result-file=" + tmpDir + "/ " + binlog
+	cmdStr := "mysqlbinlog -R --raw" + " -h" + c.db.GetHost() + " -u" + c.pxcUser + " -p$PXC_PASS --result-file=" + tmpDir + " " + binlog
 	cmd := exec.Command("sh", "-c", cmdStr)
 
 	errOut, err := cmd.StderrPipe()

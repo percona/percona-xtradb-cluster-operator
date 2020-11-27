@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"strings"
 
@@ -227,7 +226,11 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		if c.Backup.Image == "" {
 			return errors.New("backup.Image can't be empty")
 		}
-
+		if cr.Spec.Backup.PITR.Enabled {
+			if len(cr.Spec.Backup.PITR.StorageName) == 0 {
+				return errors.Errorf("backup.PITR.StorageName can't be empty")
+			}
+		}
 		for _, sch := range c.Backup.Schedule {
 			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
 			if !ok {
@@ -597,16 +600,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.Backup != nil {
-		if c.Backup.Image == "" {
-			return false, fmt.Errorf("backup.Image can't be empty")
-		}
+
 		if len(c.Backup.ImagePullPolicy) == 0 {
 			c.Backup.ImagePullPolicy = corev1.PullAlways
 		}
 		if cr.Spec.Backup.PITR.Enabled {
-			if len(cr.Spec.Backup.PITR.StorageName) == 0 {
-				return false, fmt.Errorf("backup.PITR.StorageName can't be empty")
-			}
 			if cr.Spec.Backup.PITR.TimeBetweenUploads == 0 {
 				cr.Spec.Backup.PITR.TimeBetweenUploads = 60
 			}

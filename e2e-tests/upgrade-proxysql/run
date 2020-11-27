@@ -50,16 +50,7 @@ fi
 
 
 function main() {
-    kubectl_bin delete -f "${src_dir}/deploy/crd.yaml" || true
-    if [[ -n "${OPERATOR_NS}" ]]; then
-        kubectl_bin delete ns "${OPERATOR_NS}" --force --grace-period=0 || true
-        kubectl_bin delete -f "${src_dir}/deploy/cw-rbac.yaml" || true
-    else
-        kubectl_bin delete -f "${src_dir}/deploy/rbac.yaml" || true
-    fi
-
     deploy_cert_manager
-    sleep 30
 
     # we cannot use create_infra and deploy_operator from functions since they deploy from the current source tree
     # so we fetch last officially released images and yaml files as initial state for upgrade from github
@@ -143,14 +134,6 @@ function main() {
     compare_kubectl "statefulset/${CLUSTER}-proxysql"
 
     desc 'cleanup'
-    kubectl_bin delete -f "${src_dir}/deploy/crd.yaml" || :
-    kubectl_bin delete pvc --all
-    if [[ -n "${OPERATOR_NS}" ]]; then
-        kubectl_bin delete ns "${OPERATOR_NS}" || :
-        kubectl_bin delete -f "${src_dir}/deploy/cw-rbac.yaml" || :
-    else
-        kubectl_bin delete -f "${src_dir}/deploy/rbac.yaml" || :
-    fi
     destroy "${namespace}"
 }
 

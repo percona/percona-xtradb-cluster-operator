@@ -168,11 +168,13 @@ deploy_operator() {
         apply_rbac cw-rbac
         cat ${src_dir}/deploy/cw-operator.yaml \
             | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
             | kubectl_bin apply  -f -
     else
         apply_rbac rbac
         cat ${src_dir}/deploy/operator.yaml \
             | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
             | kubectl_bin apply  -f -
     fi
 

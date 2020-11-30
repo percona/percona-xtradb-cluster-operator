@@ -5,14 +5,14 @@ The Operator usually stores Percona XtraDB Cluster backups on `Amazon S3 or S3-c
 storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`_ outside the Kubernetes cluster:
 
 
-.. image:: backup-s3.png
+.. image:: assets/images/backup-s3.png
    :align: center
    :alt: Backup on S3-compatible storage
 
 But storing backups on `Persistent Volumes <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_ inside the Kubernetes cluster is also possible:
 
 
-.. image:: backup-pv.png
+.. image:: assets/images/backup-pv.png
    :align: center
    :alt: Backup on Persistent Volume
 

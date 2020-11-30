@@ -11,11 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
 	"github.com/pkg/errors"
 )
 
 type Recoverer struct {
+	db             *db.PXC
 	recoverTime    string
 	storage        Storage
 	pxcUser        string
@@ -31,6 +33,7 @@ type Recoverer struct {
 type Config struct {
 	PXCServiceName string
 	PXCUser        string
+	PXCPass        string
 	S3Endpoint     string
 	S3AccessKeyID  string
 	S3AccessKey    string
@@ -55,10 +58,12 @@ func New(c Config) (*Recoverer, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
+
 	return &Recoverer{
 		storage:        s3,
 		recoverTime:    c.RecoverTime,
 		pxcUser:        c.PXCUser,
+		pxcPass:        c.PXCPass,
 		pxcServiceName: c.PXCServiceName,
 		recoverType:    RecoverType(c.RecoverType),
 		backupName:     c.BackupName,
@@ -95,11 +100,22 @@ func (r *Recoverer) getHost() (string, error) {
 }
 
 func (r *Recoverer) Run() error {
-	gtid, startGTID, err := r.getLastBackupGTID()
+	host, err := r.getHost()
+	if err != nil {
+		return errors.Wrap(err, "get host")
+	}
+	pxc, err := db.NewPXC(host, r.pxcUser, r.pxcPass)
+	if err != nil {
+		return errors.Wrapf(err, "new manager with host %s", host)
+
+	}
+	r.db = pxc
+
+	startGTID, err := r.getLastBackupGTID()
 	if err != nil {
 		return errors.Wrap(err, "get last gtid")
 	}
-	err = r.setBinlogs(gtid, startGTID)
+	err = r.setBinlogs(startGTID)
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
@@ -142,7 +158,7 @@ func (r *Recoverer) recover() error {
 		log.Println("working with", binlog)
 
 		if r.recoverType == Date {
-			binlogArr := strings.Split(binlog, ":")
+			binlogArr := strings.Split(binlog, "_")
 			if len(binlogArr) < 2 {
 				return errors.New("get timestamp from binlog name")
 			}
@@ -180,51 +196,35 @@ func (r *Recoverer) recover() error {
 	return nil
 }
 
-func (r *Recoverer) getLastBackupGTID() (string, int64, error) {
+func (r *Recoverer) getLastBackupGTID() (string, error) {
 	sep := []byte("GTID of the last")
 
 	infoObj, err := r.storage.GetObject(r.backupName + "/xtrabackup_info.lz4.00000000000000000000")
 	if err != nil {
-		return "", 0, errors.Wrap(err, "get object")
+		return "", errors.Wrap(err, "get object")
 	}
 	content, err := ioutil.ReadAll(infoObj)
 	if err != nil {
-		return "", 0, errors.Wrap(err, "read object")
+		return "", errors.Wrap(err, "read object")
 	}
 	startIndex := bytes.Index(content, sep)
 	if startIndex == -1 {
-		return "", 0, errors.New("no gtid data in backup")
+		return "", errors.New("no gtid data in backup")
 	}
 	newOut := content[startIndex+len(sep):]
 	e := bytes.Index(newOut, []byte("'\n"))
 	if e == -1 {
-		return "", 0, errors.New("cant find gtid data in backup")
+		return "", errors.New("cant find gtid data in backup")
 	}
 	content = content[:e]
 
 	se := bytes.Index(newOut, []byte("'"))
 	set := newOut[se+1 : e]
 
-	gtidArr := bytes.Split(set, []byte(":"))
-	if len(gtidArr) < 2 {
-		return "", 0, errors.New("can't read gtid set")
-	}
-
-	setArr := bytes.Split(gtidArr[1], []byte("-"))
-	idBytes := setArr[0]
-	if len(setArr) == 2 {
-		idBytes = setArr[1]
-	}
-
-	id, err := strconv.ParseInt(string(idBytes), 10, 64)
-	if err != nil {
-		return "", 0, errors.New("cant convert last gtid to int64")
-	}
-
-	return string(gtidArr[0]), id, nil
+	return string(set), nil
 }
 
-func (r *Recoverer) setBinlogs(gtidStr string, startID int64) error {
+func (r *Recoverer) setBinlogs(startID string) error {
 	saveBinlog := false
 	for _, binlog := range r.storage.ListObjects("") {
 		if strings.Contains(binlog, "binlog") && !strings.Contains(binlog, "gtid-set") {
@@ -240,26 +240,11 @@ func (r *Recoverer) setBinlogs(gtidStr string, startID int64) error {
 			if err != nil {
 				return errors.Wrap(err, "get object")
 			}
-			oArr := bytes.Split(content, []byte(":"))
-			if len(oArr) < 2 {
-				return errors.New("cant read gtid set")
-			}
-
-			gtidArr := bytes.Split(oArr[1], []byte("-"))
-			lastGTIDinSet := gtidArr[0]
-			if len(gtidArr) > 1 {
-				lastGTIDinSet = gtidArr[1]
-			}
-
-			lastID, err := strconv.ParseInt(string(lastGTIDinSet), 10, 64)
+			isSubset, err := r.db.IsGTIDSubset(startID, string(content))
 			if err != nil {
-				return errors.New("cant convert last gtid to int64")
+				return errors.Wrapf(err, "is '%s' subset of '%s", startID, string(content))
 			}
-
-			if string(oArr[0]) != gtidStr {
-				continue
-			}
-			if startID < lastID {
+			if isSubset {
 				saveBinlog = true
 				r.binlogs = append(r.binlogs, binlog)
 			}

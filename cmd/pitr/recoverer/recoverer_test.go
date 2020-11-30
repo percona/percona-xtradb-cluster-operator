@@ -46,7 +46,7 @@ func TestGetBinlogList(t *testing.T) {
 	r := Recoverer{
 		storage: ts,
 	}
-	err := r.setBinlogs("some-set", 1)
+	err := r.setBinlogs("some-set")
 	if err != nil {
 		t.Error("setBinlogs", err.Error())
 	}
@@ -60,15 +60,12 @@ func TestGetLastBackupGTID(t *testing.T) {
 	r := Recoverer{
 		storage: ts,
 	}
-	set, lastID, err := r.getLastBackupGTID()
+	lastID, err := r.getLastBackupGTID()
 	if err != nil {
 		t.Error("setBinlogs", err.Error())
 	}
-	if set != "some-set" {
-		fmt.Println("set-name", set)
+	if lastID != "some-set:9-13" {
+		fmt.Println("set-name", lastID)
 		t.Error("incorrect last gtid set name")
-	}
-	if lastID != 13 {
-		t.Error("incorrect last gtid")
 	}
 }

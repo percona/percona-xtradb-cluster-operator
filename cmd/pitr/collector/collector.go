@@ -2,6 +2,8 @@ package collector
 
 import (
 	"bytes"
+	"crypto/md5"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -148,8 +150,16 @@ func (c *Collector) CollectBinLogs() error {
 	}
 
 	for _, binlog := range list {
-		if binlog == binlogName { // this check is for uploading starting from needed file
-			upload = true
+		// this check is for uploading starting from needed file
+		c.db.GetGTIDSet(binlog)
+		if binlog == binlogName {
+			bSet, err := c.db.GetGTIDSet(binlog)
+			if err != nil {
+				return errors.Wrap(err, "get binlog gtid set")
+			}
+			if c.lastSet != bSet {
+				upload = true
+			}
 		}
 		if upload {
 			err = c.manageBinlog(binlog)
@@ -184,7 +194,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 		return errors.Wrapf(err, "get first timestamp for %s", binlog)
 	}
 
-	binlogName := "binlog:" + binlogTmstmp
+	binlogName := "binlog_" + binlogTmstmp + "_" + fmt.Sprintf("%x", md5.Sum([]byte(set)))
 
 	var setBuffer bytes.Buffer
 	setBuffer.WriteString(set)
@@ -192,7 +202,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 	tmpDir := os.TempDir() + "/"
 
 	err = os.Remove(tmpDir + binlog)
-	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
+	if err != nil && !os.IsNotExist(err) {
 		return errors.Wrap(err, "remove temp file")
 	}
 

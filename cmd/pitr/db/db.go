@@ -153,9 +153,6 @@ func (p *PXC) GetBinLogFirstTimestamp(binlog string) (string, error) {
 	}
 	var timestamp string
 	row := p.db.QueryRow("SELECT get_first_record_timestamp_by_binlog(?)", binlog)
-	if err != nil {
-		return "", errors.Wrap(err, "select binlog timestamp")
-	}
 
 	err = row.Scan(&timestamp)
 	if err != nil {
@@ -163,4 +160,16 @@ func (p *PXC) GetBinLogFirstTimestamp(binlog string) (string, error) {
 	}
 
 	return timestamp, nil
+}
+
+func (p *PXC) IsGTIDSubset(subSet, gtidSet string) (bool, error) {
+	var isSubset bool
+	row := p.db.QueryRow("SELECT GTID_SUBSET(?,?)", subSet, gtidSet)
+
+	err := row.Scan(&isSubset)
+	if err != nil {
+		return false, errors.Wrap(err, "scan binlog timestamp")
+	}
+
+	return isSubset, nil
 }

@@ -45,6 +45,9 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
+  logcollector:
+    enabled: true
+    image: -logcollector
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1

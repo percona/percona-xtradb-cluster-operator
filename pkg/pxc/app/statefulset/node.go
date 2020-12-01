@@ -260,10 +260,24 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 		ct.Resources = res
 	}
 	if cr.CompareVersionWith("1.7.0") >= 0 {
+		for k, v := range ct.Env {
+			if v.Name == "DB_PORT" {
+				ct.Env[k].Value = "33062"
+				break
+			}
+		}
+		PmmPxcParams := ""
+		if spec.PxcParams != "" {
+			PmmPxcParams = spec.PxcParams
+		}
 		clusterPmmEnvs := []corev1.EnvVar{
 			{
 				Name:  "CLUSTER_NAME",
 				Value: cr.Name,
+			},
+			{
+				Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+				Value: PmmPxcParams,
 			},
 		}
 		ct.Env = append(ct.Env, clusterPmmEnvs...)

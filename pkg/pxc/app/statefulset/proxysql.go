@@ -297,10 +297,18 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 	}
 
 	if cr.CompareVersionWith("1.7.0") >= 0 {
+		PmmProxysqlParams := ""
+		if spec.ProxysqlParams != "" {
+			PmmProxysqlParams = spec.ProxysqlParams
+		}
 		clusterPmmEnvs := []corev1.EnvVar{
 			{
 				Name:  "CLUSTER_NAME",
 				Value: cr.Name,
+			},
+			{
+				Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+				Value: PmmProxysqlParams,
 			},
 		}
 		ct.Env = append(ct.Env, clusterPmmEnvs...)

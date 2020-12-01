@@ -34,3 +34,4 @@ spec:
     image: -pmm
     serverHost: monitoring-service
     serverUser: admin
+    pxcParams: "--disable-tablestats-limit=2000"

@@ -66,6 +66,13 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGrea
 			},
 		}
 		container.Env = append(container.Env, pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secrets)...)
+		container.Lifecycle = &corev1.Lifecycle{
+			PreStop: &corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"bash", "-c", "pmm-admin inventory remove node --force $(pmm-admin status --json | python -c \"import sys, json; print(json.load(sys.stdin)['pmm_agent_status']['node_id'])\")"},
+				},
+			},
+		}
 	}
 
 	return container
@@ -151,16 +158,16 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string) []corev1.EnvVar 
 }
 
 func PMMAgentScript(dbType string) []corev1.EnvVar {
-	pmmServerArgs := " --skip-connection-check --metrics-mode=push "
-	pmmServerArgs = pmmServerArgs + " --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME) "
-	pmmServerArgs = pmmServerArgs + " --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(DB_HOST) --port=$(DB_PORT) "
+	pmmServerArgs := " $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push "
+	pmmServerArgs += " --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME) "
+	pmmServerArgs += " --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT) "
 	if dbType == "mysql" {
-		pmmServerArgs = pmmServerArgs + "$(DB_ARGS)"
+		pmmServerArgs += "$(DB_ARGS)"
 	}
 	return []corev1.EnvVar{
 		{
 			Name:  "PMM_AGENT_PRERUN_SCRIPT",
-			Value: "pmm-admin status --wait=10s; pmm-admin add $(DB_TYPE)" + pmmServerArgs + "; pmm-admin annotate restart",
+			Value: "pmm-admin status --wait=10s; pmm-admin add $(DB_TYPE)" + pmmServerArgs + "; pmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) restart",
 		},
 	}
 }

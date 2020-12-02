@@ -84,7 +84,6 @@ Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb
      schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"
-        keep: 3
         storageName: s3-us-west
      ...
 

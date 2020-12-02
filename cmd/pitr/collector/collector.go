@@ -26,6 +26,7 @@ type Collector struct {
 	pxcUser        string // user for connection to PXC
 	pxcPass        string // password for connection to PXC
 	bufferSize     int64  // size of uploading buffer
+	bucketPrefix   string // prefix for files in bucket. For example bucket-name/{prefix}/binlog-file
 }
 
 type Config struct {
@@ -51,13 +52,18 @@ const (
 )
 
 func New(c Config) (*Collector, error) {
-	s3, err := storage.NewS3(c.S3Endpoint, c.S3AccessKeyID, c.S3AccessKey, c.S3BucketName, c.S3Region, true)
+	bucketArr := strings.Split(c.S3BucketName, "/")
+
+	s3, err := storage.NewS3(c.S3Endpoint, c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], c.S3Region, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
-
+	prefix := ""
+	if len(bucketArr) > 0 {
+		prefix = strings.TrimPrefix(c.S3BucketName, bucketArr[0]+"/")
+	}
 	// get last binlog set stored on S3
-	lastSetObject, err := s3.GetObject(lastSetFileName)
+	lastSetObject, err := s3.GetObject(prefix + "/" + lastSetFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "get last set content")
 	}
@@ -73,6 +79,7 @@ func New(c Config) (*Collector, error) {
 		pxcUser:        c.PXCUser,
 		pxcPass:        c.PXCPass,
 		pxcServiceName: c.PXCServiceName,
+		bucketPrefix:   prefix,
 	}, nil
 }
 
@@ -133,14 +140,14 @@ func (c *Collector) getHost() (string, error) {
 }
 
 func (c *Collector) CollectBinLogs() error {
+	list, err := c.db.GetBinLogList()
+	if err != nil {
+		return errors.Wrap(err, "get binlog list")
+	}
 	// get last uploaded binlog file name
 	binlogName, err := c.db.GetBinLogName(c.lastSet)
 	if err != nil {
 		return errors.Wrap(err, "get binlog name by set")
-	}
-	list, err := c.db.GetBinLogList()
-	if err != nil {
-		return errors.Wrap(err, "get binlog list")
 	}
 
 	upload := false
@@ -195,6 +202,9 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 	}
 
 	binlogName := "binlog_" + binlogTmstmp + "_" + fmt.Sprintf("%x", md5.Sum([]byte(set)))
+	if len(c.bucketPrefix) > 0 {
+		binlogName = c.bucketPrefix + "/" + binlogName
+	}
 
 	var setBuffer bytes.Buffer
 	setBuffer.WriteString(set)
@@ -264,7 +274,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 	}
 
 	setBuffer.WriteString(set)
-	err = c.storage.PutObject(lastSetFileName, &setBuffer)
+	err = c.storage.PutObject(c.bucketPrefix+"/"+lastSetFileName, &setBuffer)
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}

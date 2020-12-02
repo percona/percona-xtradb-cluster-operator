@@ -32,7 +32,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) pitr(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) error {
-	if cr.Spec.PITR != nil && len(cr.Spec.PITR.BackupSource.Destination) > 6 {
+	if cr.Spec.PITR != nil {
 		return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:], cluster, true), "restore")
 	}
 

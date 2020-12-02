@@ -326,21 +326,54 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 	}
 	if pitr {
 		bucket := ""
-		if cluster.Backup != nil && len(cluster.Backup.Storages) > 0 {
-			storage, ok := cluster.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
-			if ok {
-				bucket = storage.S3.Bucket
-			}
+		if cluster.Backup == nil && len(cluster.Backup.Storages) == 0 {
+			return nil, errors.New("no storage section")
 		}
+		storage, ok := cluster.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
+		if ok {
+			bucket = storage.S3.Bucket
+		}
+
 		if len(bucket) == 0 {
 			return nil, errors.New("no backet in storage")
 		}
 		command = []string{"pitr", "-action=r"}
 		envs = append(envs, corev1.EnvVar{
+			Name:  "BINLOG_S3_ENDPOINT",
+			Value: storage.S3.EndpointURL,
+		})
+		envs = append(envs, corev1.EnvVar{
+			Name:  "BINLOG_S3_REGION",
+			Value: storage.S3.Region,
+		})
+		envs = append(envs, corev1.EnvVar{
+			Name: "BINLOG_ACCESS_KEY_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: storage.S3.CredentialsSecret,
+					},
+					Key: "AWS_ACCESS_KEY_ID",
+				},
+			},
+		})
+		envs = append(envs, corev1.EnvVar{
+			Name: "BINLOG_SECRET_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: storage.S3.CredentialsSecret,
+					},
+					Key: "AWS_SECRET_ACCESS_KEY",
+				},
+			},
+		})
+
+		envs = append(envs, corev1.EnvVar{
 			Name:  "RECOVERY_TYPE",
 			Value: cr.Spec.PITR.Type,
 		})
-		bcpNameArr := strings.Split(cr.Spec.PITR.BackupSource.Destination, "/")
+		/*bcpNameArr := strings.Split(cr.Spec.PITR.BackupSource.Destination, "/")
 		bcpName := ""
 		if len(bcpNameArr) > 0 {
 			bcpName = bcpNameArr[len(bcpNameArr)-1]
@@ -348,9 +381,9 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		envs = append(envs, corev1.EnvVar{
 			Name:  "BACKUP_NAME",
 			Value: bcpName,
-		})
+		})*/
 		envs = append(envs, corev1.EnvVar{
-			Name:  "S3_BUCKET_NAME",
+			Name:  "BINLOG_S3_BUCKET_NAME",
 			Value: bucket,
 		})
 		envs = append(envs, corev1.EnvVar{

@@ -103,16 +103,25 @@ func getCollectorConfig() (collector.Config, error) {
 func getRecovererConfig() (recoverer.Config, error) {
 	return recoverer.Config{
 		PXCUser:        getEnv("PXC_USER", "root"),
+		PXCPass:        getEnv("PXC_PASS", "root"),
 		PXCServiceName: getEnv("PXC_SERVICE", "some-name"),
-		S3Endpoint:     strings.TrimPrefix(getEnv("ENDPOINT", ""), "https://"),
-		S3AccessKeyID:  getEnv("ACCESS_KEY_ID", ""),
-		S3AccessKey:    getEnv("SECRET_ACCESS_KEY", ""),
-		S3BucketName:   getEnv("S3_BUCKET_NAME", ""),
-		S3Region:       getEnv("DEFAULT_REGION", ""),
-		RecoverTime:    getEnv("DATE", ""),
-		RecoverType:    getEnv("RECOVERY_TYPE", ""),
-		BackupName:     getEnv("BACKUP_NAME", ""),
-		GTIDSet:        getEnv("GTID_SET", ""),
+		BackupStorage: recoverer.S3{
+			Endpoint:    strings.TrimPrefix(strings.TrimPrefix(getEnv("ENDPOINT", ""), "https://"), "http://"),
+			AccessKeyID: getEnv("ACCESS_KEY_ID", ""),
+			AccessKey:   getEnv("SECRET_ACCESS_KEY", ""),
+			BackupDest:  getEnv("S3_BUCKET_URL", ""),
+			Region:      getEnv("DEFAULT_REGION", ""),
+		},
+		BinlogStorage: recoverer.S3{
+			Endpoint:    strings.TrimPrefix(strings.TrimPrefix(getEnv("BINLOG_S3_ENDPOINT", ""), "https://"), "http://"),
+			AccessKeyID: getEnv("BINLOG_ACCESS_KEY_ID", ""),
+			AccessKey:   getEnv("BINLOG_SECRET_ACCESS_KEY", ""),
+			Region:      getEnv("BINLOG_S3_REGION", ""),
+			BucketName:  getEnv("BINLOG_S3_BUCKET_NAME", ""),
+		},
+		RecoverTime: getEnv("DATE", ""),
+		RecoverType: getEnv("RECOVERY_TYPE", ""),
+		GTIDSet:     getEnv("GTID_SET", ""),
 	}, nil
 }
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
+
 	"github.com/pkg/errors"
 )
 
@@ -25,24 +26,29 @@ type Recoverer struct {
 	recoverType    RecoverType
 	pxcServiceName string
 	binlogs        []string
-	backupName     string
 	gtidSet        string
-	s3BucketName   string
+	s3Prefix       string
+	startGTID      string
 }
 
 type Config struct {
 	PXCServiceName string
 	PXCUser        string
 	PXCPass        string
-	S3Endpoint     string
-	S3AccessKeyID  string
-	S3AccessKey    string
-	S3BucketName   string
-	S3Region       string
+	BackupStorage  S3
 	RecoverTime    string
 	RecoverType    string
-	BackupName     string
 	GTIDSet        string
+	BinlogStorage  S3
+}
+
+type S3 struct {
+	Endpoint    string
+	AccessKeyID string
+	AccessKey   string
+	Region      string
+	BackupDest  string
+	BucketName  string
 }
 
 type Storage interface {
@@ -54,9 +60,18 @@ type Storage interface {
 type RecoverType string
 
 func New(c Config) (*Recoverer, error) {
-	s3, err := storage.NewS3(c.S3Endpoint, c.S3AccessKeyID, c.S3AccessKey, c.S3BucketName, c.S3Region, true)
+	bucketArr := strings.Split(c.BinlogStorage.BucketName, "/")
+	s3Prefix := ""
+	if len(bucketArr) > 1 {
+		s3Prefix = strings.TrimPrefix(c.BinlogStorage.BucketName, bucketArr[0]+"/")
+	}
+	s3, err := storage.NewS3(c.BinlogStorage.Endpoint, c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucketArr[0], c.BinlogStorage.Region, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
+	}
+	startGTID, err := getStartGTIDSet(c.BackupStorage)
+	if err != nil {
+		return nil, errors.Wrap(err, "get start GTID")
 	}
 
 	return &Recoverer{
@@ -66,8 +81,34 @@ func New(c Config) (*Recoverer, error) {
 		pxcPass:        c.PXCPass,
 		pxcServiceName: c.PXCServiceName,
 		recoverType:    RecoverType(c.RecoverType),
-		backupName:     c.BackupName,
+		startGTID:      startGTID,
+		s3Prefix:       s3Prefix,
+		gtidSet:        c.GTIDSet,
 	}, nil
+}
+
+func getStartGTIDSet(c S3) (string, error) {
+	bucketArr := strings.Split(c.BackupDest, "/")
+	if len(bucketArr) < 2 {
+		return "", errors.New("parsing bucket")
+	}
+	prefix := strings.TrimLeft(c.BackupDest, bucketArr[0]+"/")
+	bucket := bucketArr[0]
+	s3, err := storage.NewS3(c.Endpoint, c.AccessKeyID, c.AccessKey, bucket, c.Region, true)
+	if err != nil {
+		return "", errors.Wrap(err, "new storage manager")
+	}
+
+	infoObj, err := s3.GetObject(prefix + "/xtrabackup_info.00000000000000000000") //TODO: work with compressed file
+	if err != nil {
+		return "", errors.Wrap(err, "get object")
+	}
+
+	lastGTID, err := getLastBackupGTID(infoObj)
+	if err != nil {
+		return "", errors.Wrap(err, "get last backup gtid")
+	}
+	return lastGTID, nil
 }
 
 const (
@@ -111,14 +152,11 @@ func (r *Recoverer) Run() error {
 	}
 	r.db = pxc
 
-	startGTID, err := r.getLastBackupGTID()
-	if err != nil {
-		return errors.Wrap(err, "get last gtid")
-	}
-	err = r.setBinlogs(startGTID)
+	err = r.setBinlogs()
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
+
 	err = r.recover()
 	if err != nil {
 		return errors.Wrap(err, "recover")
@@ -196,17 +234,14 @@ func (r *Recoverer) recover() error {
 	return nil
 }
 
-func (r *Recoverer) getLastBackupGTID() (string, error) {
+func getLastBackupGTID(infoObj io.Reader) (string, error) {
 	sep := []byte("GTID of the last")
 
-	infoObj, err := r.storage.GetObject(r.backupName + "/xtrabackup_info.lz4.00000000000000000000")
-	if err != nil {
-		return "", errors.Wrap(err, "get object")
-	}
 	content, err := ioutil.ReadAll(infoObj)
 	if err != nil {
 		return "", errors.Wrap(err, "read object")
 	}
+
 	startIndex := bytes.Index(content, sep)
 	if startIndex == -1 {
 		return "", errors.New("no gtid data in backup")
@@ -214,7 +249,7 @@ func (r *Recoverer) getLastBackupGTID() (string, error) {
 	newOut := content[startIndex+len(sep):]
 	e := bytes.Index(newOut, []byte("'\n"))
 	if e == -1 {
-		return "", errors.New("cant find gtid data in backup")
+		return "", errors.New("can't find gtid data in backup")
 	}
 	content = content[:e]
 
@@ -224,14 +259,13 @@ func (r *Recoverer) getLastBackupGTID() (string, error) {
 	return string(set), nil
 }
 
-func (r *Recoverer) setBinlogs(startID string) error {
-	saveBinlog := false
-	for _, binlog := range r.storage.ListObjects("") {
-		if strings.Contains(binlog, "binlog") && !strings.Contains(binlog, "gtid-set") {
-			if saveBinlog {
-				r.binlogs = append(r.binlogs, binlog)
-				continue
-			}
+func (r *Recoverer) setBinlogs() error {
+	list := r.storage.ListObjects(r.s3Prefix + "/")
+	binlogs := []string{}
+	for _, binlog := range reverseArr(list) {
+		if strings.Contains(binlog, "binlog") && !strings.Contains(binlog, "-set") {
+			binlogs = append(binlogs, binlog)
+
 			infoObj, err := r.storage.GetObject(binlog + "-gtid-set")
 			if err != nil {
 				return errors.Wrap(err, "get object with gtid set")
@@ -240,16 +274,28 @@ func (r *Recoverer) setBinlogs(startID string) error {
 			if err != nil {
 				return errors.Wrap(err, "get object")
 			}
-			isSubset, err := r.db.IsGTIDSubset(startID, string(content))
+
+			isSubset, err := r.db.IsGTIDSubset(r.startGTID, string(content))
 			if err != nil {
-				return errors.Wrapf(err, "is '%s' subset of '%s", startID, string(content))
+				return errors.Wrapf(err, "is '%s' subset of '%s", r.startGTID, string(content))
 			}
+
 			if isSubset {
-				saveBinlog = true
-				r.binlogs = append(r.binlogs, binlog)
+				break
 			}
 		}
 	}
 
+	r.binlogs = reverseArr(binlogs)
+
 	return nil
+}
+
+func reverseArr(arr []string) []string {
+	newArr := make([]string, len(arr))
+	for k, v := range arr {
+		newKey := len(newArr) - k - 1
+		newArr[newKey] = v
+	}
+	return newArr
 }

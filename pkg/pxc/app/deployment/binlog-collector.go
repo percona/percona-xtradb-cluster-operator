@@ -16,7 +16,7 @@ import (
 
 func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployment, error) {
 	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
-	binlogCollectorName := cr.Name + "pitr"
+	binlogCollectorName := cr.Name + "-pitr"
 	pxcUser := "xtrabackup"
 	sleepTime := strconv.FormatInt(cr.Spec.Backup.PITR.TimeBetweenUploads, 10)
 
@@ -105,7 +105,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + binlogCollectorName,
+			Name:      binlogCollectorName,
 			Namespace: cr.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -115,7 +115,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        cr.Name + "-" + binlogCollectorName,
+					Name:        binlogCollectorName,
 					Namespace:   cr.Namespace,
 					Labels:      labels,
 					Annotations: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Annotations,

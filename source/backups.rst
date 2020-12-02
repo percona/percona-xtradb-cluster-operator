@@ -8,16 +8,12 @@ storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`
 .. figure:: assets/images/backup-s3.png
    :align: center
    :alt: Backup on S3-compatible storage
-   
-   Backup on S3-compatible storage
 
 But storing backups on `Persistent Volumes <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_ inside the Kubernetes cluster is also possible:
 
 .. figure:: assets/images/backup-pv.png
    :align: center
    :alt: Backup on Persistent Volume
-   
-   Backup on Persistent Volume
 
 The Operator allows doing backup in two ways.
 *Scheduled backups* are configured in the

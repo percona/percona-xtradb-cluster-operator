@@ -112,6 +112,17 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		}
 	}
 
+	// log-collector container
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
+		logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, secrets, cr)
+		if err != nil {
+			return fmt.Errorf("logcollector container error: %v", err)
+		}
+		if logCollectorC != nil {
+			newContainers = append(newContainers, logCollectorC...)
+		}
+	}
+
 	// application container
 	appC, err := sfs.AppContainer(podSpec, secrets, cr)
 	if err != nil {

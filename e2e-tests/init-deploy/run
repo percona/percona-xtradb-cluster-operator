@@ -34,8 +34,8 @@ desc 'check if MySQL users created'
 compare_mysql_user "-h $cluster-pxc -uroot -proot_password"
 compare_mysql_user "-h $cluster-pxc -umonitor -pmonitor"
 compare_mysql_user "-h $cluster-pxc -uproxyuser -ps3cret"
-compare_mysql_user_local "-uxtrabackup -pbackup_password" "$cluster-pxc-0"
-compare_mysql_user_local "-uclustercheck -pclustercheckpassword" "$cluster-pxc-0"
+compare_mysql_user_local "-uxtrabackup -pbackup_password" "$cluster-pxc-0" "" -c' pxc'
+compare_mysql_user_local "-uclustercheck -pclustercheckpassword" "$cluster-pxc-0" "" -c'pxc'
 # check that pmm server user don't have access
 compare_mysql_user "-h $cluster-pxc -upmmserver -pmonitor"
 
@@ -92,6 +92,7 @@ run_mysql \
 run_mysql \
     'INSERT myApp.myApp (id) VALUES (100500)' \
     "-h $cluster3-pxc -uroot -proot_password"
+sleep 10
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-0.$cluster3-pxc -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-1.$cluster3-pxc -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-2.$cluster3-pxc -uroot -proot_password"

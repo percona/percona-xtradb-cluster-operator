@@ -74,6 +74,9 @@ else
     egrep -q "^[#]?extra_port" "$CFG" || sed '/^\[mysqld\]/a extra_port=\n' ${CFG} 1<> ${CFG}
 fi
 
+if [ "$IS_LOGCOLLECTOR" == 'yes' ]; then
+    egrep -q "^[#]?log-error" "$CFG" || sed "/^\[mysqld\]/a log-error=$LOG_DATA_DIR/mysqld-error.log\n" ${CFG} 1<> ${CFG}
+fi
 egrep -q "^[#]?wsrep_sst_donor" "$CFG" || sed '/^\[mysqld\]/a wsrep_sst_donor=\n' ${CFG} 1<> ${CFG}
 egrep -q "^[#]?wsrep_node_incoming_address" "$CFG" || sed '/^\[mysqld\]/a wsrep_node_incoming_address=\n' ${CFG} 1<> ${CFG}
 egrep -q "^[#]?wsrep_provider_options" "$CFG" || sed '/^\[mysqld\]/a wsrep_provider_options="pc.weight=10"\n' ${CFG} 1<> ${CFG}

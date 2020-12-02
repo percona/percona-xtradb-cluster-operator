@@ -12,6 +12,7 @@ IMAGE_PMM=${IMAGE_PMM:-"perconalab/percona-xtradb-cluster-operator:master-pmm"}
 IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:master-proxysql"}
 IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:master-haproxy"}
 IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup"}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:master-logcollector"}
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -95,7 +96,7 @@ wait_pod() {
     retry=0
     echo -n $pod
     #until kubectl_bin get pod/$pod -o jsonpath='{.status.phase}' 2>/dev/null | grep 'Running'; do
-    until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null | grep 'true'; do
+    until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -i 'true'; do
         sleep 1
         echo -n .
         let retry+=1
@@ -167,11 +168,13 @@ deploy_operator() {
         apply_rbac cw-rbac
         cat ${src_dir}/deploy/cw-operator.yaml \
             | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
             | kubectl_bin apply  -f -
     else
         apply_rbac rbac
         cat ${src_dir}/deploy/operator.yaml \
             | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
             | kubectl_bin apply  -f -
     fi
 
@@ -328,11 +331,12 @@ run_mysql_local() {
     local command="$1"
     local uri="$2"
     local pod="$3"
+    local container_name="$4"
 
     [[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
     set +o xtrace
-    kubectl_bin exec $pod -- \
+    kubectl_bin exec $pod $container_name -- \
         bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
         | sed -e 's/mysql: //' \
         | (egrep -v 'Using a password on the command line interface can be insecure.|Defaulting container name|see all of the containers in this pod' || :)
@@ -366,6 +370,7 @@ compare_mysql_cmd_local() {
     local uri="$3"
     local pod="$4"
     local postfix="$5"
+    local container_name="$6"
     local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
 
 
@@ -373,7 +378,7 @@ compare_mysql_cmd_local() {
         expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
     fi
 
-    run_mysql_local "$command" "$uri" "$pod"\
+    run_mysql_local "$command" "$uri" "$pod" "$container_name"\
         >$tmp_dir/${command_id}.sql
     if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
         sleep 20
@@ -426,6 +431,7 @@ compare_mysql_user_local() {
     local uri="$1"
     local pod="$2"
     local postfix="$3"
+    local container_name="$4"
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
     local expected_result=$test_dir/compare/$user$postfix.sql
 
@@ -433,7 +439,7 @@ compare_mysql_user_local() {
         expected_result=${test_dir}/compare/$user$postfix-80.sql
     fi
 
-    (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" || :) \
+    (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" "$container_name" || :) \
         | $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
     diff -u $expected_result $tmp_dir/$user.sql
@@ -606,6 +612,7 @@ cat_config() {
         | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
         | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
         | $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
+        | $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
         | $sed -e "s#apply:.*#apply: Never#"
 }
 

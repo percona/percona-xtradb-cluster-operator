@@ -88,7 +88,7 @@ netem_pod() {
 main() {
     create_infra $namespace
 
-    kubectl_bin apply -f "$test_dir/conf/cw-rbac-without-hook.yaml"
+    kubectl_bin patch clusterrole percona-xtradb-cluster-operator --type=json -p '[{"op":"remove","path":"/rules/1"}]'
     kubectl_bin delete validatingwebhookconfigurations.admissionregistration.k8s.io percona-xtradbcluster-webhook
 
     kubectl_bin apply -f "$test_dir/conf/pumba.yml" ${OPERATOR_NS:+-n $OPERATOR_NS}
@@ -125,8 +125,6 @@ main() {
 
     desc 'emulate bad network'
     netem_pod
-
-    kubectl_bin apply -f "$test_dir/conf/cw-rbac-with-hook.yaml"
 
     destroy $namespace
 }

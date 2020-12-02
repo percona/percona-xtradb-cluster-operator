@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -787,22 +789,18 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		if len(limitMemory) > 0 || len(requestMemory) > 0 {
-			autoConfigMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+			configMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 			if err != nil {
 				return errors.Wrap(err, "new auto-config map")
 			}
-			err = setControllerReference(cr, autoConfigMap, r.scheme)
+			err = setControllerReference(cr, configMap, r.scheme)
 			if err != nil {
 				return errors.Wrap(err, "set auto-config controller ref")
 			}
-			err = r.client.Create(context.TODO(), autoConfigMap)
-			if err != nil && k8serrors.IsAlreadyExists(err) {
-				err = r.client.Update(context.TODO(), autoConfigMap)
-				if err != nil {
-					return errors.Wrap(err, "update AutoConfigMap")
-				}
-			} else if err != nil {
-				return errors.Wrap(err, "create AutoConfigMap")
+
+			err = createOrUpdateConfigmap(r.client, configMap)
+			if err != nil {
+				return errors.Wrap(err, "auto-config config map")
 			}
 		}
 	}
@@ -813,48 +811,36 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		if err != nil {
 			return errors.Wrap(err, "set controller ref")
 		}
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && k8serrors.IsAlreadyExists(err) {
-			err = r.client.Update(context.TODO(), configMap)
-			if err != nil {
-				return errors.Wrap(err, "update ConfigMap")
-			}
-		} else if err != nil {
-			return errors.Wrap(err, "create ConfigMap")
+
+		err = createOrUpdateConfigmap(r.client, configMap)
+		if err != nil {
+			return errors.Wrap(err, "pxc config map")
 		}
 	}
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Configuration != "" {
 		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-proxysql", "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref ProxySQL")
 		}
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && k8serrors.IsAlreadyExists(err) {
-			err = r.client.Update(context.TODO(), configMap)
-			if err != nil {
-				return errors.Wrap(err, "update ConfigMap HAProxy")
-			}
-		} else if err != nil {
-			return errors.Wrap(err, "create ConfigMap HAProxy")
+
+		err = createOrUpdateConfigmap(r.client, configMap)
+		if err != nil {
+			return errors.Wrap(err, "proxysql config map")
 		}
 	}
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Configuration != "" {
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Spec.HAProxy.Configuration != "" {
 		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-haproxy", "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref HAProxy")
 		}
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && k8serrors.IsAlreadyExists(err) {
-			err = r.client.Update(context.TODO(), configMap)
-			if err != nil {
-				return errors.Wrap(err, "update ConfigMap HAProxy")
-			}
-		} else if err != nil {
-			return errors.Wrap(err, "create ConfigMap HAProxy")
+
+		err = createOrUpdateConfigmap(r.client, configMap)
+		if err != nil {
+			return errors.Wrap(err, "haproxy config map")
 		}
 	}
 
@@ -943,14 +929,26 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {
-	err := r.client.Delete(context.TODO(), sfs.StatefulSet())
+	err := r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      sfs.StatefulSet().Name,
+		Namespace: namespace,
+	}, &appsv1.StatefulSet{})
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("delete proxysql: %v", err)
+		return errors.Wrapf(err, "get statefulset: %s", sfs.StatefulSet().Name)
+	}
+
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+
+	err = r.client.Delete(context.TODO(), sfs.StatefulSet())
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "delete statefulset: %s", sfs.StatefulSet().Name)
 	}
 	if deletePVC {
 		err = r.deletePVC(namespace, sfs.Labels())
 		if err != nil {
-			return fmt.Errorf("delete proxysql pvc: %v", err)
+			return errors.Wrapf(err, "delete pvc: %s", sfs.StatefulSet().Name)
 		}
 	}
 
@@ -959,9 +957,21 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs 
 
 func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs []*corev1.Service) error {
 	for _, s := range svcs {
-		err := r.client.Delete(context.TODO(), s)
+		err := r.client.Get(context.TODO(), types.NamespacedName{
+			Name:      s.Name,
+			Namespace: s.Namespace,
+		}, &corev1.Service{})
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("delete service: %v", err)
+			return errors.Wrapf(err, "get service: %s", s.Name)
+		}
+
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), s)
+		if err != nil {
+			return errors.Wrapf(err, "delete service: %s", s.Name)
 		}
 	}
 	return nil
@@ -1034,4 +1044,25 @@ func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.Perco
 		}
 		atomic.StoreInt32(&r.syncUsersState, stateFree)
 	}()
+}
+
+func createOrUpdateConfigmap(cl client.Client, configMap *corev1.ConfigMap) error {
+	currMap := &corev1.ConfigMap{}
+	err := cl.Get(context.TODO(), types.NamespacedName{
+		Namespace: configMap.Namespace,
+		Name:      configMap.Name,
+	}, currMap)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "get current configmap")
+	}
+
+	if k8serrors.IsNotFound(err) {
+		return cl.Create(context.TODO(), configMap)
+	}
+
+	if !reflect.DeepEqual(currMap.Data, configMap.Data) {
+		return cl.Update(context.TODO(), configMap)
+	}
+
+	return nil
 }

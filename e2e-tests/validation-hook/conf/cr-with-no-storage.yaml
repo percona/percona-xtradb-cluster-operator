@@ -9,34 +9,34 @@ spec:
   pxc:
     size: 3
     image: -pxc
-    volumeSpec:
+#    volumeSpec:
 #      emptyDir: {}
 #      hostPath:
 #        path: /data
 #        type: Directory
 #      persistentVolumeClaim:
 #        storageClassName: standard
-        accessModes: [ "ReadWriteOnce" ]
-        resources:
-          requests:
-            storage: 6Gi
+#        accessModes: [ "ReadWriteOnce" ]
+#        resources:
+#        requests:
+#        storage: 6Gi
     affinity:
       antiAffinityTopologyKey: none
   proxysql:
     enabled: true
     size: 1
     image: -proxysql
-    volumeSpec:
+#    volumeSpec:
 #      emptyDir: {}
 #      hostPath:
 #        path: /data
 #        type: Directory
 #      persistentVolumeClaim:
 #        storageClassName: standard
-        accessModes: [ "ReadWriteOnce" ]
-        resources:
-          requests:
-            storage: 6Gi
+#        accessModes: [ "ReadWriteOnce" ]
+#        resources:
+#        requests:
+#        storage: 6Gi
     affinity:
       antiAffinityTopologyKey: none
   pmm:

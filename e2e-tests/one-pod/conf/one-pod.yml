@@ -8,7 +8,6 @@ spec:
   pause: false
   pxc:
     size: 1
-    allowUnsafeConfigurations: true
     image: -pxc
     configuration: |
       [mysqld]

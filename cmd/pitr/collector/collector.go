@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
@@ -68,11 +69,10 @@ func New(c Config) (*Collector, error) {
 		return nil, errors.Wrap(err, "get last set content")
 	}
 	lastSet, err := ioutil.ReadAll(lastSetObject)
-	if err != nil && !strings.Contains(err.Error(), "The specified key does not exist") {
+	if err != nil && minio.ToErrorResponse(errors.Cause(err)).Code != "NoSuchKey" {
 		return nil, errors.Wrap(err, "read object")
 	}
 
-	lastSet = []byte("")
 	return &Collector{
 		storage:        s3,
 		lastSet:        string(lastSet),

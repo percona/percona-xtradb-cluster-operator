@@ -8,13 +8,13 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 	"syscall"
 
 	"github.com/pkg/errors"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/network"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
 )
 
@@ -99,7 +99,7 @@ func (c *Collector) Run() error {
 }
 
 func (c *Collector) newDB() error {
-	host, err := c.getHost()
+	host, err := network.GetPXCLastHost(c.pxcServiceName)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
@@ -115,28 +115,6 @@ func (c *Collector) newDB() error {
 
 func (c *Collector) closeDB() error {
 	return c.db.Close()
-}
-
-func (c *Collector) getHost() (string, error) {
-	cmd := exec.Command("peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+c.pxcServiceName)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", errors.Wrap(err, "get output")
-	}
-	nodes := strings.Split(string(out), "node:")
-	sort.Strings(nodes)
-	lastHost := ""
-	for _, node := range nodes {
-		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
-			nodeArr := strings.Split(node, ":")
-			lastHost = nodeArr[0]
-		}
-	}
-	if len(lastHost) == 0 {
-		return "", errors.New("cant find host")
-	}
-
-	return lastHost, nil
 }
 
 func (c *Collector) CollectBinLogs() error {

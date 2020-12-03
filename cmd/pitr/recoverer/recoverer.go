@@ -6,12 +6,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os/exec"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/network"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
 
 	"github.com/pkg/errors"
@@ -118,30 +118,8 @@ const (
 	Skip        RecoverType = "skip"        // skip transactions
 )
 
-func (r *Recoverer) getHost() (string, error) {
-	cmd := exec.Command("peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+r.pxcServiceName)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", errors.Wrap(err, "get output")
-	}
-	nodes := strings.Split(string(out), "node:")
-	sort.Strings(nodes)
-	lastHost := ""
-	for _, node := range nodes {
-		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
-			nodeArr := strings.Split(node, ".")
-			lastHost = nodeArr[0]
-		}
-	}
-	if len(lastHost) == 0 {
-		return "", errors.New("cant find host")
-	}
-
-	return lastHost + "." + r.pxcServiceName, nil
-}
-
 func (r *Recoverer) Run() error {
-	host, err := r.getHost()
+	host, err := network.GetPXCLastHost(r.pxcServiceName)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
@@ -166,7 +144,7 @@ func (r *Recoverer) Run() error {
 }
 
 func (r *Recoverer) recover() error {
-	host, err := r.getHost()
+	host, err := network.GetPXCLastHost(r.pxcServiceName)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}

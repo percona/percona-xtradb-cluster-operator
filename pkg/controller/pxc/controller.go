@@ -288,8 +288,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), pxcAnnotations)
 	err = r.updatePod(pxcSet, o.Spec.PXC, o, inits)
 	if err != nil {
-		err = fmt.Errorf("pxc upgrade error: %v", err)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
 
 	for _, pxcService := range []*corev1.Service{pxc.NewServicePXC(o), pxc.NewServicePXCUnready(o)} {
@@ -299,12 +298,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, errors.Wrap(err, "failed to get current PXC service")
 		}
 
+		if reflect.DeepEqual(currentService.Spec.Ports, pxcService.Spec.Ports) {
+			continue
+		}
+
 		currentService.Spec.Ports = pxcService.Spec.Ports
 
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
-			err = fmt.Errorf("PXC service upgrade error: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
 		}
 	}
 
@@ -314,15 +316,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled {
 		err = r.updatePod(haProxySet, o.Spec.HAProxy, o, nil)
 		if err != nil {
-			err = fmt.Errorf("HAProxy upgrade error: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "HAProxy upgrade error")
 		}
 
 		currentService := &corev1.Service{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: haProxyService.Name, Namespace: haProxyService.Namespace}, currentService)
 		if err != nil {
-			err = fmt.Errorf("failed to get HAProxy service: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "failed to get HAProxy service")
 		}
 
 		ports := []corev1.ServicePort{
@@ -378,8 +378,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		currentServiceReplicas := &corev1.Service{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: haProxyServiceReplicas.Name, Namespace: haProxyServiceReplicas.Namespace}, currentServiceReplicas)
 		if err != nil {
-			err = fmt.Errorf("failed to get HAProxyReplicas service: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "failed to get HAProxyReplicas service")
 		}
 
 		replicaPorts := []corev1.ServicePort{
@@ -411,18 +410,17 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 		err = r.client.Update(context.TODO(), currentServiceReplicas)
 		if err != nil {
-			err = fmt.Errorf("HAProxyReplicas service upgrade error: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "HAProxyReplicas service upgrade error")
 		}
 	} else {
 		err = r.deleteStatefulSet(o.Namespace, haProxySet, false)
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "delete HAProxy stateful set")
 		}
 		haProxyReplicasService := pxc.NewServiceHAProxyReplicas(o)
 		err = r.deleteServices([]*corev1.Service{haProxyService, haProxyReplicasService})
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "delete HAProxy replica service")
 		}
 	}
 

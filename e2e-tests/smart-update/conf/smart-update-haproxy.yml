@@ -5,7 +5,12 @@ metadata:
   finalizers:
     - delete-pxc-pods-in-order
 spec:
+  crVersion: 9.9.9
   updateStrategy: SmartUpdate
+  upgradeOptions:
+    versionServiceEndpoint: https://check.percona.com
+    apply: never
+    schedule: "0 4 * * *"
   secretsName: my-cluster-secrets
   pause: false
   pxc:
@@ -13,16 +18,16 @@ spec:
     image: -pxc
     resources:
       requests:
-        memory: 4Gi
+        memory: 2Gi
         cpu: "1"
       limits:
-        memory: 4Gi
+        memory: 2Gi
         cpu: "1"
     volumeSpec:
       persistentVolumeClaim:
         resources:
           requests:
-            storage: 20Gi
+            storage: 6Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
@@ -72,24 +77,4 @@ spec:
             accessModes: [ "ReadWriteOnce" ]
             resources:
               requests:
-                storage: 20Gi
-      aws-s3:
-        type: s3
-        s3:
-          region: us-east-1
-          bucket: operator-testing
-          credentialsSecret: aws-s3-secret
-      minio:
-        type: s3
-        s3:
-          credentialsSecret: minio-secret
-          region: us-east-1
-          bucket: operator-testing
-          endpointUrl: http://minio-service:9000/
-      gcp-cs:
-        type: s3
-        s3:
-          credentialsSecret: gcp-cs-secret
-          region: us-east-1
-          bucket: operator-testing
-          endpointUrl: https://storage.googleapis.com
+                storage: 2Gi

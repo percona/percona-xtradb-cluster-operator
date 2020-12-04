@@ -5,10 +5,22 @@ set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
 API='pxc.percona.com/v9-9-9'
-IMAGE_PXC_TO_UPDATE=${IMAGE_PXC}
-PXC_VER=$(echo -n "${IMAGE_PXC_TO_UPDATE}" | $sed -r 's/.*([0-9].[0-9])$/\1/')
-IMAGE_PXC="percona/percona-xtradb-cluster-operator:1.4.0-pxc$PXC_VER"
+TARGET_IMAGE_PXC=${IMAGE_PXC}
+CLUSTER="smart-update"
+CLUSTER_SIZE=3
+PROXY_SIZE=1
+
+if [[ "${TARGET_IMAGE_PXC}" == *"percona-xtradb-cluster-operator"* ]]; then
+    PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*([0-9].[0-9])$/\1/')
+else
+    PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*:([0-9]+\.[0-9]+).*$/\1/')
+fi
+TARGET_IMAGE_PXC_VS="perconalab/percona-xtradb-cluster-operator:master-pxc${PXC_VER}"
+VS_URL="http://version-service"
+VS_PORT="11000"
+VS_ENDPOINT="${VS_URL}:${VS_PORT}"
 
 function get_pod_names_images {
     local cluster=${1}
@@ -16,20 +28,6 @@ function get_pod_names_images {
 
     echo -e $(kubectl_bin get pods -l "app.kubernetes.io/instance=${cluster},app.kubernetes.io/component=${type}" \
                                    -o jsonpath="{range .items[*]}{.metadata.name}{\",\"}{.spec.containers[?(@.name == \"${type}\")].image}{\"\n\"}{end}")
-}
-
-function get_vs_image {
-    local apply_type=${1}
-    case $(curl -o /dev/null -s -w "%{http_code}\n" https://check.percona.com/versions/v1/pxc-operator/$(echo ${API//pxc.percona.com\/v/} | sed 's/-/\./g')/${apply_type}) in
-        404)
-            local version=$(curl -s https://check.percona.com/versions/v1/pxc-operator | jq -r '.versions[].operator' | sort | tail -n1 )            # get the latest operator version
-            echo $(curl -s https://check.percona.com/versions/v1/pxc-operator/${version}/${apply_type} | jq -r '.versions[].matrix.pxc[].imagePath')
-        ;;
-        200)
-            echo $(curl -s https://check.percona.com/versions/v1/pxc-operator/$(echo ${API//pxc.percona.com\/v/} | sed 's/-/\./g')/${apply_type} | jq -r '.versions[].matrix.pxc[].imagePath')
-        ;;
-    esac
-
 }
 
 function check_last_pod_to_update {
@@ -44,13 +42,13 @@ function check_last_pod_to_update {
         echo -n "."
         updated_pods_count=0
         for entry in $(get_pod_names_images "${cluster}"); do
-            if [[ -n $(echo ${entry} | grep ${target_image}) ]]; then
+            if [[ -n "$(echo ${entry} | grep ${target_image})" ]]; then
                 ((updated_pods_count+=1))
             fi
         done
 
         if [[ ${updated_pods_count} == $((pxc_size-1)) ]]; then
-            if [[ -n $(get_pod_names_images "${cluster}" | grep ${initial_primary} | grep ${IMAGE_PXC}) ]]; then
+            if [[ -n $(get_pod_names_images "${cluster}" | grep "${initial_primary}" | grep "${IMAGE_PXC}") ]]; then
                 echo
                 echo "${initial_primary} is REALLY the last one to update"
                 break
@@ -64,134 +62,149 @@ function check_last_pod_to_update {
     set -x
 }
 
-main() {
-    create_infra $namespace
+function deploy_version_service {
+    desc 'install version service'
+    kubectl_bin create configmap versions \
+      --from-file "${test_dir}/conf/operator.9.9.9.pxc-operator.dep.json" \
+      --from-file "${test_dir}/conf/operator.9.9.9.pxc-operator.json"
+    kubectl_bin apply -f "${test_dir}/conf/vs.yml"
+    sleep 10
+}
+
+
+function main() {
+    create_infra "${namespace}"
+    deploy_version_service
     deploy_cert_manager
+    IMAGE_PXC=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pxc[].imagePath' | grep ":${PXC_VER}"| sort -V | tail -n3 | head -n1)
 
     kubectl_bin patch crd perconaxtradbclusters.pxc.percona.com --type='json' -p '[{"op":"add","path":"/spec/versions/-", "value":{"name": "v9-9-9", "served": true, "storage": false}}]'
 
+    ##################################################
     desc 'Updating ProxySQL PXC cluster'
-    cluster="smart-update"
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
-    pxc_size=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.pxc.size}')
+    cp -f "${test_dir}/conf/${CLUSTER}.yml" "${tmp_dir}/${CLUSTER}.yml"
+    yq w -i "${tmp_dir}/${CLUSTER}.yml" "spec.initImage" "${IMAGE}"
+    spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}.yml"
 
-    initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$(get_proxy ${cluster})-0")
-    kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"pxc":{"image":"'"${IMAGE_PXC_TO_UPDATE}"'"}}}'
+    initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$(get_proxy ${CLUSTER})-0")
+    kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
-    check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_PXC_TO_UPDATE}
-
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
-    for i in $(seq 0 $((${pxc_size} - 1))); do
-        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+    check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+    for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
 
-    kubectl_bin delete -f $test_dir/conf/$cluster.yml
+    kubectl_bin delete -f "${test_dir}/conf/${CLUSTER}.yml"
     kubectl_bin delete pvc --all
 
+    ##################################################
     desc 'Updating HAProxy PXC cluster'
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster-haproxy.yml" 3 10
-    pxc_size=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.pxc.size}')
+    cp -f "${test_dir}/conf/${CLUSTER}-haproxy.yml" "${tmp_dir}/${CLUSTER}-haproxy.yml"
+    yq w -i "${tmp_dir}/${CLUSTER}-haproxy.yml" "spec.initImage" "${IMAGE}"
+    spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-haproxy.yml"
 
-    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${cluster}-haproxy -uroot -proot_password")
-    kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"pxc":{"image":"'"${IMAGE_PXC_TO_UPDATE}"'"}}}'
+    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")
+    kubectl_bin patch pxc/${CLUSTER} --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
-    check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_PXC_TO_UPDATE}
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
-    for i in $(seq 0 $((${pxc_size} - 1))); do
-        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+    check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+    for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
 
-    kubectl_bin delete -f "$test_dir/conf/$cluster-haproxy.yml"
+    kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-haproxy.yml"
     kubectl_bin delete pvc --all
 
+    ##################################################
     desc 'Updating PXC cluster with version service available but disabled'
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster-version-service-reachable.yml"
-    pxc_size=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.pxc.size}')
+    cp -f "${test_dir}/conf/${CLUSTER}-version-service-reachable.yml" "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
+    yq w -i "${tmp_dir}/${CLUSTER}-version-service-reachable.yml" "spec.initImage" "${IMAGE}"
+    spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
 
-    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${cluster}-haproxy -uroot -proot_password")
-    kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"pxc":{"image":"'"${IMAGE_PXC_TO_UPDATE}"'"}}}'
+    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")
+    kubectl_bin patch pxc/${CLUSTER} --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
-    check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${IMAGE_PXC_TO_UPDATE}
-
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
-    for i in $(seq 0 $((${pxc_size} - 1))); do
-        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+    for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
 
-    kubectl_bin delete -f $test_dir/conf/$cluster-version-service-reachable.yml
+    kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
     kubectl_bin delete pvc --all
 
+    ##################################################
     desc 'PXC cluster with version service offline'
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster-version-service-unreachable.yml"
-    pxc_size=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.pxc.size}')
+    cp -f "${test_dir}/conf/${CLUSTER}-version-service-unreachable.yml" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
+    yq w -i "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml" "spec.initImage" "${IMAGE}"
+    spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
-    if [[ $(kubectl_bin get pxc/${cluster} -o jsonpath='{.spec.pxc.image}') != ${IMAGE_PXC} ]]; then
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+    if [[ "$(kubectl_bin get pxc/${CLUSTER} -o jsonpath='{.spec.pxc.image}')" != "${IMAGE_PXC}" ]]; then
         echo "ERROR: PXC image has been changed. Exiting..."
         exit 1
     fi
 
+    ##################################################
     desc 'PXC cluster update with recommended image by version service'
-    pxc_size=$(kubectl_bin get pxc "${cluster}" -o jsonpath='{.spec.pxc.size}')
-    version_service_image="recommended"
-    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h $cluster-haproxy -uroot -proot_password")
+    vs_image="recommended"
+    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")
 
-    kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"https://check.percona.com/versions","apply":"'${version_service_image}'","schedule": "* * * * *"}}}'
-    target_image=$(get_vs_image ${version_service_image})
+    kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"'${VS_ENDPOINT}'","apply":"'${vs_image}'","schedule": "* * * * *"}}}'
     sleep 55
 
-    check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
-
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
-    for i in $(seq 0 $((${pxc_size} - 1))); do
-        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC_VS}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+    for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
 
-    kubectl_bin delete -f $test_dir/conf/$cluster-version-service-unreachable.yml
+    kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
     kubectl_bin delete pvc --all
 
+    ##################################################
     desc 'PXC cluster update with the latest image by version service'
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster-version-service-unreachable.yml"
-    version_service_image="latest"
-    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h $cluster-haproxy -uroot -proot_password")
+    spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
+    vs_image="latest"
+    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")
 
-    kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"https://check.percona.com/versions","apply":"'${version_service_image}'","schedule": "* * * * *"}}}'
-    target_image=$(get_vs_image ${version_service_image})
+    kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"'${VS_ENDPOINT}'","apply":"'${vs_image}'","schedule": "* * * * *"}}}'
     sleep 55
 
-    check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
-
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
-    for i in $(seq 0 $((${pxc_size} - 1))); do
-        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC_VS}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+    for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
 
-    kubectl_bin delete -f $test_dir/conf/$cluster-version-service-unreachable.yml
+    kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
     kubectl_bin delete pvc --all
 
+    ##################################################
     desc 'PXC cluster update with explicitly specified image inside version service'
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster-version-service-unreachable.yml"
-    version_service_image="8.0.19-10.1"
-    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h $cluster-haproxy -uroot -proot_password")
+    spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
+    vs_image=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pxc[].imagePath' | grep ":${PXC_VER}"| sort -V | tail -n2 | head -n1)
+    initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")
 
-    kubectl_bin patch pxc/$cluster --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"https://check.percona.com/versions","apply":"'${version_service_image}'","schedule": "* * * * *"}}}'
-    target_image=$(get_vs_image ${version_service_image})
+    kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"upgradeOptions":{"versionServiceEndpoint":"'${VS_ENDPOINT}'","apply":"'${vs_image}'","schedule": "* * * * *"}}}'
     sleep 55
 
-    check_last_pod_to_update ${cluster} ${initial_primary} ${pxc_size} ${target_image}
-
-    wait_cluster_consistency ${cluster} ${pxc_size} $(kubectl_bin get pxc ${cluster} -o jsonpath='{.spec.'$(get_proxy_engine ${cluster})'.size}')
-    for i in $(seq 0 $((${pxc_size} - 1))); do
-        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "percona/percona-xtradb-cluster:${vs_image}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
+    for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
 
-    kubectl_bin delete -f $test_dir/conf/$cluster-version-service-unreachable.yml
+    kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
     kubectl_bin delete pvc --all
 
-    destroy ${namespace}
+    desc 'cleanup'
+    kubectl_bin delete -f "${test_dir}/conf/vs.yml"
+    destroy "${namespace}"
 }
 
 main

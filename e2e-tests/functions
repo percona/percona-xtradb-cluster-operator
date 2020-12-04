@@ -12,6 +12,7 @@ IMAGE_PMM=${IMAGE_PMM:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:master-proxysql"}
 IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:master-haproxy"}
 IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup"}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:master-logcollector"}
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -56,7 +57,10 @@ create_namespace() {
     local skip_clean_namespace="$2"
 
     if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
-        kubectl get ns | egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" | awk '{print$1}' | xargs kubectl delete ns &
+        kubectl_bin get ns \
+            | egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" \
+            | awk '{print$1}' \
+            | xargs kubectl delete ns &
     fi
 
     if [ ! -z "$OPENSHIFT" ]; then
@@ -73,27 +77,33 @@ create_namespace() {
 }
 
 get_operator_pod() {
+    local label_prefix="app.kubernetes.io/"
+    local check_label=$(kubectl get pods --selector=app.kubernetes.io/name=percona-xtradb-cluster-operator ${OPERATOR_NS:+-n $OPERATOR_NS} | grep -c "percona-xtradb-cluster-operator")
+    if [[ ${check_label} -eq 0 ]]; then
+        label_prefix=""
+    fi
     kubectl_bin get pods \
-        --selector=name=percona-xtradb-cluster-operator \
+        --selector=${label_prefix}name=percona-xtradb-cluster-operator \
         -o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
 }
 
 wait_pod() {
     local pod=$1
     local max_retry="${2:-480}"
+    local ns=$3
 
     set +o xtrace
     retry=0
     echo -n $pod
     #until kubectl_bin get pod/$pod -o jsonpath='{.status.phase}' 2>/dev/null | grep 'Running'; do
-    until kubectl_bin get pod/$pod -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null | grep 'true'; do
+    until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -i 'true'; do
         sleep 1
         echo -n .
         let retry+=1
         if [[ $retry -ge $max_retry ]]; then
             kubectl_bin describe pod/$pod
             kubectl_bin logs $pod
-            kubectl_bin logs $(get_operator_pod)
+            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -112,7 +122,7 @@ wait_backup() {
         echo -n .
         let retry+=1
         if [ $retry -ge 60 ]; then
-            kubectl_bin logs $(get_operator_pod)
+            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -131,7 +141,7 @@ wait_backup_restore() {
         echo -n .
         let retry+=1
         if [ $retry -ge 1500 ]; then
-            kubectl_bin logs $(get_operator_pod)
+            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -158,17 +168,19 @@ deploy_operator() {
         apply_rbac cw-rbac
         cat ${src_dir}/deploy/cw-operator.yaml \
             | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
             | kubectl_bin apply  -f -
     else
         apply_rbac rbac
         cat ${src_dir}/deploy/operator.yaml \
             | sed -e "s^image: .*^image: ${IMAGE}^" \
+            | sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
             | kubectl_bin apply  -f -
     fi
 
-    sleep 2
+    sleep 10
 
-    wait_pod $(get_operator_pod)
+    wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
 }
 
 deploy_helm() {
@@ -183,6 +195,14 @@ create_infra() {
     local ns="$1"
 
     if [ -n "$OPERATOR_NS" ]; then
+        kubectl get pxc --all-namespaces -o wide \
+            | grep -v 'NAMESPACE' \
+            | xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
+            || :
+        kubectl_bin delete pxc --all --all-namespaces || :
+        kubectl_bin delete pxc-backup --all --all-namespaces || :
+        kubectl_bin delete pxc-restore --all --all-namespaces || :
+
         create_namespace $OPERATOR_NS
         deploy_operator
         create_namespace $ns
@@ -213,7 +233,7 @@ wait_for_delete() {
         echo -n .
         let retry+=1
         if [ $retry -ge 120 ]; then
-            kubectl_bin logs $(get_operator_pod)
+            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
         fi
@@ -311,11 +331,12 @@ run_mysql_local() {
     local command="$1"
     local uri="$2"
     local pod="$3"
+    local container_name="$4"
 
     [[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
     set +o xtrace
-    kubectl_bin exec $pod -- \
+    kubectl_bin exec $pod $container_name -- \
         bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
         | sed -e 's/mysql: //' \
         | (egrep -v 'Using a password on the command line interface can be insecure.|Defaulting container name|see all of the containers in this pod' || :)
@@ -349,6 +370,7 @@ compare_mysql_cmd_local() {
     local uri="$3"
     local pod="$4"
     local postfix="$5"
+    local container_name="$6"
     local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
 
 
@@ -356,7 +378,7 @@ compare_mysql_cmd_local() {
         expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
     fi
 
-    run_mysql_local "$command" "$uri" "$pod"\
+    run_mysql_local "$command" "$uri" "$pod" "$container_name"\
         >$tmp_dir/${command_id}.sql
     if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
         sleep 20
@@ -409,6 +431,7 @@ compare_mysql_user_local() {
     local uri="$1"
     local pod="$2"
     local postfix="$3"
+    local container_name="$4"
     local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
     local expected_result=$test_dir/compare/$user$postfix.sql
 
@@ -416,7 +439,7 @@ compare_mysql_user_local() {
         expected_result=${test_dir}/compare/$user$postfix-80.sql
     fi
 
-    (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" || :) \
+    (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" "$container_name" || :) \
         | $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
         > $tmp_dir/$user.sql
     diff -u $expected_result $tmp_dir/$user.sql
@@ -437,12 +460,13 @@ deploy_cert_manager() {
     kubectl_bin create namespace cert-manager || :
     kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
     kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml --validate=false || : 2>/dev/null
+    sleep 45
 }
 
 destroy() {
     local namespace="$1"
 
-    kubectl_bin logs $(get_operator_pod) \
+    kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
         | grep -v '"level":"info"' \
         | grep -v 'the object has been modified' \
         | grep -v 'get backup status: Job.batch' \
@@ -453,15 +477,26 @@ destroy() {
     #TODO: maybe will be enabled later
     #diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
-    kubectl_bin delete pxc --all
-    kubectl_bin delete pxc-backup --all
-    kubectl_bin delete pxc-restore --all || :
+    kubectl get pxc --all-namespaces -o wide \
+        | grep -v 'NAMESPACE' \
+        | xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
+        || :
+    kubectl_bin delete pxc --all --all-namespaces || :
+    kubectl_bin delete pxc-backup --all --all-namespaces || :
+    kubectl_bin delete pxc-restore --all --all-namespaces || :
+    kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
 
     kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :
     if [ ! -z "$OPENSHIFT" ]; then
         oc delete --grace-period=0 --force=true project "$namespace" &
+        if [ -n "$OPERATOR_NS" ]; then
+            oc delete --grace-period=0 --force=true project "$OPERATOR_NS" &
+        fi
     else
         kubectl_bin delete --grace-period=0 --force=true namespace "$namespace" &
+        if [ -n "$OPERATOR_NS" ]; then
+            kubectl_bin delete --grace-period=0 --force=true namespace "$OPERATOR_NS" &
+        fi
     fi
     rm -rf ${tmp_dir}
 }
@@ -577,6 +612,7 @@ cat_config() {
         | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
         | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
         | $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
+        | $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
         | $sed -e "s#apply:.*#apply: Never#"
 }
 
@@ -587,11 +623,11 @@ apply_config() {
 
 get_proxy() {
     local target_cluster=${1}
-    if [[ "$(kubectl get pxc ${target_cluster} -o 'jsonpath={.spec.haproxy.enabled}')" = "true" ]]; then
+    if [[ "$(kubectl_bin get pxc ${target_cluster} -o 'jsonpath={.spec.haproxy.enabled}')" = "true" ]]; then
         echo "${target_cluster}-haproxy"
         return
     fi
-    if [[ "$(kubectl get pxc ${target_cluster} -o 'jsonpath={.spec.proxysql.enabled}')" = "true" ]]; then
+    if [[ "$(kubectl_bin get pxc ${target_cluster} -o 'jsonpath={.spec.proxysql.enabled}')" = "true" ]]; then
         echo "${target_cluster}-proxysql"
         return
     fi
@@ -662,7 +698,7 @@ function is_table_encrypted() {
 
 function is_keyring_plugin_in_use() {
     local cluster=$1
-    kubectl_bin exec -it $cluster-pxc-0 -- bash -c "cat /etc/mysql/node.cnf" \
+    kubectl_bin exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
         | egrep -o "early-plugin-load=keyring_\w+.so"
 }
 
@@ -1018,4 +1054,113 @@ tlsSecretsShouldExist() {
   checkTLSSecret "$secretName" 'ca.crt'
   checkTLSSecret "$secretName" 'tls.crt'
   checkTLSSecret "$secretName" 'tls.key'
+}
+
+function check_pxc_liveness() {
+    local cluster="$1"
+    local cluster_size="$2"
+    wait_cluster_consistency "${cluster}" "${cluster_size}"
+
+    wait_for_running "${cluster}-pxc" "${cluster_size}"
+
+    for i in $(seq 0 $((cluster_size-1))); do
+        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+    done
+}
+
+function compare_generation() {
+    local generation="$1"
+    local proxy="$2"
+    local cluster="$3"
+    local current_generation
+
+    if [[ "${proxy}" == "haproxy" ]]; then
+        containers=(pxc haproxy)
+      else
+        containers=(pxc proxysql)
+    fi
+    for container in "${containers[@]}"; do
+        current_generation="$(kubectl_bin get statefulset "${cluster}-${container}" -o jsonpath='{.metadata.generation}')"
+        if [[ "${generation}" != "${current_generation}" ]]; then
+            echo "Generation for resource ${container} is: ${current_generation}, but should be: ${generation}"
+            exit 1
+        fi
+    done
+}
+
+function apply_rbac_gh() {
+    local operator_namespace="${OPERATOR_NS:-'pxc-operator'}"
+    local rbac="${1:-'rbac'}"
+    local git_tag="$2"
+
+    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/${rbac}.yaml" > "${tmp_dir}/rbac_${git_tag}.yaml"
+    $sed -i -e "s^namespace: .*^namespace: ${operator_namespace}^" "${tmp_dir}/rbac_${git_tag}.yaml"
+    kubectl_bin apply -f "${tmp_dir}/rbac_${git_tag}.yaml"
+}
+
+function deploy_operator_gh() {
+    local git_tag="$1"
+
+    desc 'start operator'
+    kubectl_bin apply -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/crd.yaml" > "${tmp_dir}/crd_${git_tag}.yaml"
+
+    local rbac_yaml="rbac"
+    local operator_yaml="operator.yaml"
+    if [ -n "${OPERATOR_NS}" ]; then
+        rbac_yaml="cw-rbac"
+        operator_yaml="cw-operator.yaml"
+    fi
+    apply_rbac_gh "${rbac_yaml}" "${git_tag}"
+    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/${operator_yaml}" > "${tmp_dir}/${operator_yaml}_${git_tag}.yaml"
+    $sed -i -e "s^image: .*^image: ${IMAGE}^" "${tmp_dir}/${operator_yaml}_${git_tag}.yaml"
+    kubectl_bin apply -f "${tmp_dir}/${operator_yaml}_${git_tag}.yaml" ${OPERATOR_NS:+-n $OPERATOR_NS}
+
+    sleep 2
+    wait_pod "$(get_operator_pod)"
+}
+
+function create_infra_gh() {
+    local ns="$1"
+    local git_tag="$2"
+
+    if [ -n "${OPERATOR_NS}" ]; then
+        create_namespace "${OPERATOR_NS}"
+        deploy_operator_gh "${git_tag}"
+        create_namespace "${ns}"
+    else
+        create_namespace "${ns}"
+        deploy_operator_gh "${git_tag}"
+    fi
+}
+
+function prepare_cr_yaml() {
+    local cr_yaml="$1"
+    local proxy="$2"
+    local cluster="$3"
+    local cluster_size="$4"
+    local git_tag="$5"
+
+    # spinup function expects images to have suffix like "-pxc"
+    # to replace them with images from environment variables
+    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/cr.yaml" \
+        | yq w - "metadata.name" "${cluster}" \
+        | yq w - "spec.secretsName" "my-cluster-secrets" \
+        | yq w - "spec.vaultSecretName" "some-name-vault" \
+        | yq w - "spec.sslSecretName" "some-name-ssl" \
+        | yq w - "spec.sslInternalSecretName" "some-name-ssl-internal" \
+        | yq w - "spec.upgradeOptions.apply" "disabled" \
+        | yq w - "spec.pxc.size" "${cluster_size}" \
+        | yq w - "spec.proxysql.size" "${cluster_size}" \
+        | yq w - "spec.haproxy.size" "${cluster_size}" \
+        | yq w - "spec.pxc.image" -- "-pxc" \
+        | yq w - "spec.proxysql.image" -- "-proxysql" \
+        | yq w - "spec.haproxy.image" -- "-haproxy" \
+        | yq w - "spec.backup.image" -- "-backup" > "${cr_yaml}"
+    if [[ "${proxy}" == "haproxy" ]]; then
+        yq w -i "${cr_yaml}" "spec.haproxy.enabled" "true"
+        yq w -i "${cr_yaml}" "spec.proxysql.enabled" "false"
+    else
+        yq w -i "${cr_yaml}" "spec.haproxy.enabled" "false"
+        yq w -i "${cr_yaml}" "spec.proxysql.enabled" "true"
+    fi
 }

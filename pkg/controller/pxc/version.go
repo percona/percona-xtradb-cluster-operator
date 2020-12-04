@@ -119,7 +119,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return fmt.Errorf("failed to check version: %v", err)
 	}
 
-	if cr.Spec.PXC.Image != newVersion.PXCImage {
+	if cr.Spec.PXC != nil && cr.Spec.PXC.Image != newVersion.PXCImage {
 		if cr.Status.PXC.Version == "" {
 			log.Info(fmt.Sprintf("set PXC version to %s", newVersion.PXCVersion))
 		} else {
@@ -128,7 +128,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		cr.Spec.PXC.Image = newVersion.PXCImage
 	}
 
-	if cr.Spec.Backup.Image != newVersion.BackupImage {
+	if cr.Spec.Backup != nil && cr.Spec.Backup.Image != newVersion.BackupImage {
 		if cr.Status.Backup.Version == "" {
 			log.Info(fmt.Sprintf("set Backup version to %s", newVersion.BackupVersion))
 		} else {
@@ -232,7 +232,7 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 	}
 
 	for _, pod := range list.Items {
-		database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Status.PodIP, port)
+		database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
 		if err != nil {
 			log.Error(err, "failed to create db instance")
 			continue

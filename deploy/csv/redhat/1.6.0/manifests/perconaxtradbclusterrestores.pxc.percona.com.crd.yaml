@@ -1,0 +1,38 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: perconaxtradbclusterrestores.pxc.percona.com
+spec:
+  additionalPrinterColumns:
+    - JSONPath: .spec.pxcCluster
+      description: Cluster name
+      name: Cluster
+      type: string
+    - JSONPath: .status.state
+      description: Job status
+      name: Status
+      type: string
+    - JSONPath: .status.completed
+      description: Completed time
+      name: Completed
+      type: date
+    - JSONPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+  group: pxc.percona.com
+  names:
+    kind: PerconaXtraDBClusterRestore
+    listKind: PerconaXtraDBClusterRestoreList
+    plural: perconaxtradbclusterrestores
+    shortNames:
+      - pxc-restore
+      - pxc-restores
+    singular: perconaxtradbclusterrestore
+  scope: Namespaced
+  subresources:
+    status: {}
+  version: v1
+  versions:
+    - name: v1
+      served: true
+      storage: true

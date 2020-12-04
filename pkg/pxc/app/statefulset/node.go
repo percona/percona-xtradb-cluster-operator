@@ -155,6 +155,20 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		}
 	}
 
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
+		logEnvs := []corev1.EnvVar{
+			{
+				Name:  "LOG_DATA_DIR",
+				Value: "/var/lib/mysql",
+			},
+			{
+				Name:  "IS_LOGCOLLECTOR",
+				Value: "yes",
+			},
+		}
+		appc.Env = append(appc.Env, logEnvs...)
+	}
+
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		for k, v := range appc.VolumeMounts {
 			if v.Name == "config" {
@@ -209,6 +223,102 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 
 func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	return nil, nil
+}
+
+func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+	res, err := app.CreateResources(spec.Resources)
+	if err != nil {
+		return nil, fmt.Errorf("create resources error: %v", err)
+	}
+
+	logProcEnvs := []corev1.EnvVar{
+		{
+			Name:  "LOG_DATA_DIR",
+			Value: "/var/lib/mysql",
+		},
+		{
+			Name: "POD_NAMESPASE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+		},
+		{
+			Name: "POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+	}
+
+	logRotEnvs := []corev1.EnvVar{
+		{
+			Name:  "SERVICE_TYPE",
+			Value: "mysql",
+		},
+		{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(logRsecrets, "monitor"),
+			},
+		},
+	}
+
+	fvar := true
+	logProcContainer := corev1.Container{
+		Name:            "logs",
+		Image:           spec.Image,
+		ImagePullPolicy: spec.ImagePullPolicy,
+		Env:             logProcEnvs,
+		SecurityContext: spec.ContainerSecurityContext,
+		Resources:       res,
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: logPsecrets,
+					},
+					Optional: &fvar,
+				},
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      DataVolumeName,
+				MountPath: "/var/lib/mysql",
+			},
+		},
+	}
+
+	logRotContainer := corev1.Container{
+		Name:            "logrotate",
+		Image:           spec.Image,
+		ImagePullPolicy: spec.ImagePullPolicy,
+		Env:             logRotEnvs,
+		SecurityContext: spec.ContainerSecurityContext,
+		Resources:       res,
+		Args: []string{
+			"logrotate",
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      DataVolumeName,
+				MountPath: "/var/lib/mysql",
+			},
+		},
+	}
+
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
+		logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      "logcollector-config",
+			MountPath: "/etc/fluentbit/custom",
+		})
+	}
+
+	return []corev1.Container{logProcContainer, logRotContainer}, nil
 }
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
@@ -313,6 +423,9 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 		vol.Volumes = append(
 			vol.Volumes,
 			app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true))
+	}
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" && cr.CompareVersionWith("1.7.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("logcollector-config", ls["app.kubernetes.io/instance"]+"-logcollector"))
 	}
 	return vol, nil
 }

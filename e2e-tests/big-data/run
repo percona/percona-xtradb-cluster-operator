@@ -13,7 +13,7 @@ main() {
 
     desc 'create first PXC cluster'
     cluster="some-name"
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
 
     kubectl_bin apply -f "${conf_dir}/cloud-secret.yml" 
 

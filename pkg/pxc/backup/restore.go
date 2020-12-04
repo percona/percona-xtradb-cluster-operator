@@ -370,28 +370,19 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		})
 
 		envs = append(envs, corev1.EnvVar{
-			Name:  "RECOVERY_TYPE",
+			Name:  "PITR_RECOVERY_TYPE",
 			Value: cr.Spec.PITR.Type,
 		})
-		/*bcpNameArr := strings.Split(cr.Spec.PITR.BackupSource.Destination, "/")
-		bcpName := ""
-		if len(bcpNameArr) > 0 {
-			bcpName = bcpNameArr[len(bcpNameArr)-1]
-		}
 		envs = append(envs, corev1.EnvVar{
-			Name:  "BACKUP_NAME",
-			Value: bcpName,
-		})*/
-		envs = append(envs, corev1.EnvVar{
-			Name:  "BINLOG_S3_BUCKET_NAME",
+			Name:  "BINLOG_S3_BUCKET_URL",
 			Value: bucket,
 		})
 		envs = append(envs, corev1.EnvVar{
-			Name:  "GTID_SET",
+			Name:  "PITR_GTID_SET",
 			Value: cr.Spec.PITR.GTIDSet,
 		})
 		envs = append(envs, corev1.EnvVar{
-			Name:  "DATE",
+			Name:  "PITR_DATE",
 			Value: cr.Spec.PITR.Date,
 		})
 		jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster

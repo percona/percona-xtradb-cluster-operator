@@ -230,27 +230,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBCl
 			},
 		}, nil
 	}
-	/*
-		if cr.Spec.PITR != nil && cr.Spec.PITR.BackupSource != nil {
-			return &api.PerconaXtraDBClusterBackup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        cr.Name,
-					Namespace:   cr.Namespace,
-					ClusterName: cr.ClusterName,
-				},
-				Spec: api.PXCBackupSpec{
-					PXCCluster:  cr.Spec.PXCCluster,
-					StorageName: cr.Spec.PITR.BackupSource.StorageName,
-				},
-				Status: api.PXCBackupStatus{
-					State:       api.BackupSucceeded,
-					Destination: cr.Spec.PITR.BackupSource.Destination,
-					StorageName: cr.Spec.PITR.BackupSource.StorageName,
-					S3:          cr.Spec.PITR.BackupSource.S3,
-				},
-			}, nil
-		}
-	*/
+
 	bcp := &api.PerconaXtraDBClusterBackup{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
 	if err != nil {

@@ -79,12 +79,6 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 								Value: spec.PXCCluster + "-pxc",
 							},
 							{
-								Name: "MYSQL_ROOT_PASSWORD",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, "root"),
-								},
-							},
-							{
 								Name: "PXC_PASS",
 								ValueFrom: &corev1.EnvVarSource{
 									SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, "xtrabackup"),

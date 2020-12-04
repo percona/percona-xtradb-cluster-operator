@@ -37,7 +37,7 @@ type Config struct {
 	S3Endpoint     string
 	S3AccessKeyID  string
 	S3AccessKey    string
-	S3BucketName   string
+	S3BucketURL    string
 	S3Region       string
 	BufferSize     int64
 }
@@ -53,18 +53,19 @@ const (
 )
 
 func New(c Config) (*Collector, error) {
-	bucketArr := strings.Split(c.S3BucketName, "/")
+	bucketArr := strings.Split(c.S3BucketURL, "/")
 
-	s3, err := storage.NewS3(c.S3Endpoint, c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], c.S3Region, true)
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.S3Endpoint, "https://"), "http://"), c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], c.S3Region, strings.HasPrefix(c.S3Endpoint, "https"))
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
 	prefix := ""
+	// if c.S3BucketURL looks like "my-bucket/data/more-data" we nned prefix be "data/more-data/"
 	if len(bucketArr) > 0 {
-		prefix = strings.TrimPrefix(c.S3BucketName, bucketArr[0]+"/")
+		prefix = strings.TrimPrefix(c.S3BucketURL, bucketArr[0]+"/") + "/"
 	}
 	// get last binlog set stored on S3
-	lastSetObject, err := s3.GetObject(prefix + "/" + lastSetFileName)
+	lastSetObject, err := s3.GetObject(prefix + lastSetFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "get last set content")
 	}
@@ -135,14 +136,14 @@ func (c *Collector) CollectBinLogs() error {
 	}
 
 	for _, binlog := range list {
+		binlogSet := ""
 		// this check is for uploading starting from needed file
-		c.db.GetGTIDSet(binlog)
 		if binlog == binlogName {
-			bSet, err := c.db.GetGTIDSet(binlog)
+			binlogSet, err = c.db.GetGTIDSet(binlog)
 			if err != nil {
 				return errors.Wrap(err, "get binlog gtid set")
 			}
-			if c.lastSet != bSet {
+			if c.lastSet != binlogSet {
 				upload = true
 			}
 		}
@@ -151,6 +152,10 @@ func (c *Collector) CollectBinLogs() error {
 			if err != nil {
 				return errors.Wrap(err, "manage binlog")
 			}
+		}
+		// need this for start uploading files that goes after current
+		if c.lastSet == binlogSet {
+			upload = true
 		}
 	}
 
@@ -181,7 +186,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 
 	binlogName := "binlog_" + binlogTmstmp + "_" + fmt.Sprintf("%x", md5.Sum([]byte(set)))
 	if len(c.bucketPrefix) > 0 {
-		binlogName = c.bucketPrefix + "/" + binlogName
+		binlogName = c.bucketPrefix + binlogName
 	}
 
 	var setBuffer bytes.Buffer
@@ -204,6 +209,9 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 		return errors.Wrap(err, "open named pipe file error")
 	}
 	defer func() {
+		if err != nil {
+			return
+		}
 		err = file.Close()
 		if err != nil {
 			err = errors.Wrapf(err, "close tmp file for %s", binlog)
@@ -214,11 +222,13 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 			err = errors.Wrapf(err, "remove tmp file for %s", binlog)
 			return
 		}
-		return
 	}()
+	err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))
+	if err != nil {
+		return errors.Wrap(err, "set mysql pwd env var")
+	}
 
-	cmdStr := "mysqlbinlog -R --raw" + " -h" + c.db.GetHost() + " -u" + c.pxcUser + " -p$PXC_PASS --result-file=" + tmpDir + " " + binlog
-	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "--result-file="+tmpDir, binlog)
 
 	errOut, err := cmd.StderrPipe()
 	if err != nil {
@@ -252,7 +262,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 	}
 
 	setBuffer.WriteString(set)
-	err = c.storage.PutObject(c.bucketPrefix+"/"+lastSetFileName, &setBuffer)
+	err = c.storage.PutObject(c.bucketPrefix+lastSetFileName, &setBuffer)
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}

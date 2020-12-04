@@ -19,7 +19,7 @@ type S3 struct {
 // NewS3 return new Manager, useSSL using ssl for connection with storage
 func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, region string, useSSL bool) (*S3, error) {
 	minioClient, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV2(accessKeyID, secretAccessKey, ""),
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
 		Region: region,
 	})

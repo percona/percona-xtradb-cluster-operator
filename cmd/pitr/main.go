@@ -2,11 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/collector"
@@ -25,9 +23,6 @@ func main() {
 		runCollector()
 	case "r":
 		runRecoverer()
-	default:
-		fmt.Println("wrong or none flag")
-		os.Exit(1)
 	}
 
 }
@@ -82,7 +77,7 @@ func runRecoverer() {
 }
 
 func getCollectorConfig() (collector.Config, error) {
-	bufferSize, err := strconv.ParseInt(getEnv("BUFFER_SIZE", ""), 10, 64)
+	bufferSize, err := strconv.ParseInt(getEnv("BUFFER_SIZE", "0"), 10, 64)
 	if err != nil {
 		return collector.Config{}, errors.Wrap(err, "get buffer size")
 	}
@@ -94,7 +89,7 @@ func getCollectorConfig() (collector.Config, error) {
 		S3Endpoint:     getEnv("ENDPOINT", ""),
 		S3AccessKeyID:  getEnv("ACCESS_KEY_ID", ""),
 		S3AccessKey:    getEnv("SECRET_ACCESS_KEY", ""),
-		S3BucketName:   getEnv("S3_BUCKET_NAME", ""),
+		S3BucketURL:    getEnv("S3_BUCKET_URL", ""),
 		S3Region:       getEnv("DEFAULT_REGION", ""),
 		BufferSize:     bufferSize,
 	}, nil
@@ -106,22 +101,22 @@ func getRecovererConfig() (recoverer.Config, error) {
 		PXCPass:        getEnv("PXC_PASS", "root"),
 		PXCServiceName: getEnv("PXC_SERVICE", "some-name"),
 		BackupStorage: recoverer.S3{
-			Endpoint:    strings.TrimPrefix(strings.TrimPrefix(getEnv("ENDPOINT", ""), "https://"), "http://"),
+			Endpoint:    getEnv("ENDPOINT", ""),
 			AccessKeyID: getEnv("ACCESS_KEY_ID", ""),
 			AccessKey:   getEnv("SECRET_ACCESS_KEY", ""),
 			BackupDest:  getEnv("S3_BUCKET_URL", ""),
 			Region:      getEnv("DEFAULT_REGION", ""),
 		},
 		BinlogStorage: recoverer.S3{
-			Endpoint:    strings.TrimPrefix(strings.TrimPrefix(getEnv("BINLOG_S3_ENDPOINT", ""), "https://"), "http://"),
+			Endpoint:    getEnv("BINLOG_S3_ENDPOINT", ""),
 			AccessKeyID: getEnv("BINLOG_ACCESS_KEY_ID", ""),
 			AccessKey:   getEnv("BINLOG_SECRET_ACCESS_KEY", ""),
 			Region:      getEnv("BINLOG_S3_REGION", ""),
-			BucketName:  getEnv("BINLOG_S3_BUCKET_NAME", ""),
+			BucketURL:   getEnv("BINLOG_S3_BUCKET_URL", ""),
 		},
-		RecoverTime: getEnv("DATE", ""),
-		RecoverType: getEnv("RECOVERY_TYPE", ""),
-		GTIDSet:     getEnv("GTID_SET", ""),
+		RecoverTime: getEnv("PITR_DATE", ""),
+		RecoverType: getEnv("PITR_RECOVERY_TYPE", ""),
+		GTIDSet:     getEnv("PITR_GTID_SET", ""),
 	}, nil
 }
 

@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"strconv"
-	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -25,7 +24,6 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 		return appsv1.Deployment{}, errors.Wrap(err, "get buffer size")
 	}
 
-	storageEndpoint := strings.TrimPrefix(strings.TrimPrefix(storage.S3.EndpointURL, "https://"), "http://")
 	labels := map[string]string{
 		"app.kubernetes.io/name":       "percona-xtradb-cluster",
 		"app.kubernetes.io/instance":   cr.Name,
@@ -39,7 +37,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	envs := []corev1.EnvVar{
 		{
 			Name:  "ENDPOINT",
-			Value: storageEndpoint,
+			Value: storage.S3.EndpointURL,
 		},
 		{
 			Name: "SECRET_ACCESS_KEY",
@@ -54,7 +52,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			},
 		},
 		{
-			Name:  "S3_BUCKET_NAME",
+			Name:  "S3_BUCKET_URL",
 			Value: storage.S3.Bucket,
 		},
 		{

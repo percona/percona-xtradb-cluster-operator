@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -48,7 +49,7 @@ type S3 struct {
 	AccessKey   string
 	Region      string
 	BackupDest  string
-	BucketName  string
+	BucketURL   string
 }
 
 type Storage interface {
@@ -60,12 +61,12 @@ type Storage interface {
 type RecoverType string
 
 func New(c Config) (*Recoverer, error) {
-	bucketArr := strings.Split(c.BinlogStorage.BucketName, "/")
+	bucketArr := strings.Split(c.BinlogStorage.BucketURL, "/")
 	s3Prefix := ""
 	if len(bucketArr) > 1 {
-		s3Prefix = strings.TrimPrefix(c.BinlogStorage.BucketName, bucketArr[0]+"/")
+		s3Prefix = strings.TrimPrefix(c.BinlogStorage.BucketURL, bucketArr[0]+"/")
 	}
-	s3, err := storage.NewS3(c.BinlogStorage.Endpoint, c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucketArr[0], c.BinlogStorage.Region, true)
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://"), c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucketArr[0], c.BinlogStorage.Region, strings.HasPrefix(c.BinlogStorage.Endpoint, "https"))
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
@@ -94,7 +95,7 @@ func getStartGTIDSet(c S3) (string, error) {
 	}
 	prefix := strings.TrimLeft(c.BackupDest, bucketArr[0]+"/")
 	bucket := bucketArr[0]
-	s3, err := storage.NewS3(c.Endpoint, c.AccessKeyID, c.AccessKey, bucket, c.Region, true)
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.Endpoint, "https://"), "http://"), c.AccessKeyID, c.AccessKey, bucket, c.Region, strings.HasPrefix(c.Endpoint, "https"))
 	if err != nil {
 		return "", errors.Wrap(err, "new storage manager")
 	}
@@ -192,7 +193,12 @@ func (r *Recoverer) recover() error {
 			return errors.Wrap(err, "get obj")
 		}
 
-		cmdString := "cat | mysqlbinlog" + flags + " - | mysql -h" + host + " -u" + r.pxcUser + " -p$PXC_PASS"
+		err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))
+		if err != nil {
+			return errors.Wrap(err, "set mysql pwd env var")
+		}
+
+		cmdString := "cat | mysqlbinlog" + flags + " - | mysql -h" + host + " -u" + r.pxcUser
 		cmd := exec.Command("sh", "-c", cmdString)
 
 		cmd.Stdin = binlogObj
@@ -238,29 +244,27 @@ func getLastBackupGTID(infoObj io.Reader) (string, error) {
 }
 
 func (r *Recoverer) setBinlogs() error {
-	list := r.storage.ListObjects(r.s3Prefix + "/")
+	list := r.storage.ListObjects(r.s3Prefix + "/binlog_")
 	binlogs := []string{}
 	for _, binlog := range reverseArr(list) {
-		if strings.Contains(binlog, "binlog") && !strings.Contains(binlog, "-set") {
-			binlogs = append(binlogs, binlog)
+		binlogs = append(binlogs, binlog)
 
-			infoObj, err := r.storage.GetObject(binlog + "-gtid-set")
-			if err != nil {
-				return errors.Wrap(err, "get object with gtid set")
-			}
-			content, err := ioutil.ReadAll(infoObj)
-			if err != nil {
-				return errors.Wrap(err, "get object")
-			}
+		infoObj, err := r.storage.GetObject(binlog + "-gtid-set")
+		if err != nil {
+			return errors.Wrap(err, "get object with gtid set")
+		}
+		content, err := ioutil.ReadAll(infoObj)
+		if err != nil {
+			return errors.Wrap(err, "get object")
+		}
 
-			isSubset, err := r.db.IsGTIDSubset(r.startGTID, string(content))
-			if err != nil {
-				return errors.Wrapf(err, "is '%s' subset of '%s", r.startGTID, string(content))
-			}
+		isSubset, err := r.db.IsGTIDSubset(r.startGTID, string(content))
+		if err != nil {
+			return errors.Wrapf(err, "is '%s' subset of '%s", r.startGTID, string(content))
+		}
 
-			if isSubset {
-				break
-			}
+		if isSubset {
+			break
 		}
 	}
 

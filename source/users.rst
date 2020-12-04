@@ -39,7 +39,7 @@ ProxySQL:
    percona-client:/$ mysql -h cluster1-proxysql -uuser1 -ppassword1
    mysql> SELECT * FROM database1.table1 LIMIT 1;
 
-You may also try executing any simple SQL statement to ensure the 
+You may also try executing any simple SQL statement to ensure the
 permissions have been successfully granted.
 
 .. _users.system-users:
@@ -72,7 +72,7 @@ The following table shows system users' names and purposes.
       - root
       - root
       - Database administrative user, can be used by the application if needed
-    * - ProxySQLAdmin   
+    * - ProxySQLAdmin
       - proxyadmin
       - proxyadmin
       - ProxySQL administrative user, can be used to `add general-purpose ProxySQL users <https://github.com/sysown/proxysql/wiki/Users-configuration>`__
@@ -86,7 +86,7 @@ The following table shows system users' names and purposes.
       - `User for liveness checks and readiness checks <http://galeracluster.com/library/documentation/monitoring-cluster.html>`__
     * - Monitoring
       - monitor
-      - monitor 
+      - monitor
       - User for internal monitoring purposes and `PMM agent <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__
     * - PMM Server Password
       - should be set through the `operator options <operator>`__
@@ -112,14 +112,14 @@ it should match the following simple format:
    metadata:
      name: my-cluster-secrets
    type: Opaque
-   data:
-     root: cm9vdF9wYXNzd29yZA==
-     xtrabackup: YmFja3VwX3Bhc3N3b3Jk
-     monitor: bW9uaXRvcg==
-     clustercheck: Y2x1c3RlcmNoZWNrcGFzc3dvcmQ=
-     proxyadmin: YWRtaW5fcGFzc3dvcmQ=
-     pmmserver: c3VwYXxefHBheno=
-     operator: b3BlcmF0b3JhZG1pbg==
+   stringData:
+     root: root_password
+     xtrabackup: backup_password
+     monitor: monitory
+     clustercheck: clustercheckpassword
+     proxyadmin: admin_password
+     pmmserver: supa|^|pazz
+     operator: operatoradmin
 
 The example above matches
 :ref:`what is shipped in deploy/secrets.yaml<users.development-mode>` which
@@ -127,10 +127,19 @@ contains default passwords. You should NOT use these in production, but they are
 present to assist in automated testing or simple use in a development
 environment.
 
-As you can see, because we use the ``data`` type in the Secrets object, all
-values for each key/value pair must be encoded in base64. To do this you can
-simply run ``echo -n "password" | base64`` in your local shell to get valid
-values.
+As you can see, because we use the ``stringData`` type when creating the Secrets
+object, all values for each key/value pair are stated in plain text format
+convenient from the user's point of view. But the resulting Secrets
+object contains passwords stored as ``data`` - i.e., base64-encoded strings.
+If you want to update any field, you'll need to encode the value into base64
+format. To do this, you can run ``echo -n "password" | base64`` in your local
+shell to get valid values. For example, setting the PMM Server user's password
+to ``new_password`` in the ``my-cluster-name-secrets`` object can be done
+with the following command:
+
+.. code:: bash
+
+   kubectl patch secret/my-cluster-name-secrets -p '{"data":{"pmmserver": '$(echo -n new_password | base64)'}}'
 
 Password Rotation Policies and Timing
 *************************************

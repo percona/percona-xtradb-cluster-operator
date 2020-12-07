@@ -27,7 +27,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	labels := map[string]string{
 		"app.kubernetes.io/name":       "percona-xtradb-cluster",
 		"app.kubernetes.io/instance":   cr.Name,
-		"app.kubernetes.io/component":  binlogCollectorName,
+		"app.kubernetes.io/component":  "pitr",
 		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
 		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 	}
@@ -87,7 +87,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 		return appsv1.Deployment{}, errors.Wrap(err, "create resources")
 	}
 	container := corev1.Container{
-		Name:            binlogCollectorName,
+		Name:            "pitr",
 		Image:           cr.Spec.Backup.Image,
 		ImagePullPolicy: cr.Spec.Backup.ImagePullPolicy,
 		Env:             envs,

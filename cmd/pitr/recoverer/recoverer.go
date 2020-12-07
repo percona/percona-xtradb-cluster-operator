@@ -198,7 +198,7 @@ func (r *Recoverer) recover() error {
 			return errors.Wrap(err, "set mysql pwd env var")
 		}
 
-		cmdString := "cat | mysqlbinlog" + flags + " - | mysql -h" + host + " -u" + r.pxcUser
+		cmdString := "mysqlbinlog" + flags + " - | mysql -h" + host + " -u" + r.pxcUser
 		cmd := exec.Command("sh", "-c", cmdString)
 
 		cmd.Stdin = binlogObj
@@ -249,7 +249,7 @@ func (r *Recoverer) setBinlogs() error {
 	for _, binlog := range reverseArr(list) {
 		binlogs = append(binlogs, binlog)
 
-		infoObj, err := r.storage.GetObject(binlog + "-gtid-set")
+		infoObj, err := r.storage.GetObject(r.s3Prefix + binlog + "-gtid-set")
 		if err != nil {
 			return errors.Wrap(err, "get object with gtid set")
 		}

@@ -14,12 +14,14 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/cert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 )
 
@@ -34,11 +36,51 @@ type hook struct {
 }
 
 func (h *hook) Start(i <-chan struct{}) error {
-	err := h.createWebhook()
+	err := h.createService()
+	if err != nil {
+		log.Log.Info("Can't create service", "err", err.Error())
+	}
+	err = h.createWebhook()
 	if err != nil {
 		log.Log.Info("Can't create webhook", "error", err.Error())
 	}
 	<-i
+	return nil
+}
+
+func (h *hook) createService() error {
+	opPod, err := k8s.OperatorPod(h.cl)
+	if err != nil {
+		return errors.Wrap(err, "get operator pod")
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "percona-xtradb-cluster-operator",
+			Namespace: h.namespace,
+			Labels:    map[string]string{"name": "percona-xtradb-cluster-operator"},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports:    []corev1.ServicePort{{Port: 443, TargetPort: intstr.FromInt(9443)}},
+			Selector: opPod.Labels,
+		},
+	}
+	err = h.cl.Create(context.TODO(), svc)
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			service := &corev1.Service{}
+			err = h.cl.Get(context.TODO(), types.NamespacedName{
+				Name:      "percona-xtradb-cluster-operator",
+				Namespace: h.namespace,
+			}, service)
+			if err != nil {
+				return err
+			}
+
+			service.Spec.Selector = opPod.Labels
+			return h.cl.Update(context.TODO(), service)
+		}
+		return err
+	}
 	return nil
 }
 

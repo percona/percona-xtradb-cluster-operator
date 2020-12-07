@@ -1007,10 +1007,11 @@ start_minio() {
     retry 10 60 helm install \
         $HELM_ARGS \
         minio-service \
+        --version 8.0.5 \
         --set accessKey=some-access-key \
         --set secretKey=some-secret-key \
         --set service.type=ClusterIP \
-        --set configPath=/tmp/.minio/ \
+        --set configPathmc=/tmp/.minio/ \
         --set securityContext.enabled=false \
         --set persistence.size=2G \
         --set environment.MINIO_REGION=us-east-1 \

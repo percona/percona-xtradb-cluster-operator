@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -54,15 +55,16 @@ type S3 struct {
 type RecoverType string
 
 func New(c Config) (*Recoverer, error) {
-	bucketArr := strings.Split(c.BinlogStorage.BucketURL, "/")
-	s3Prefix := ""
-	if len(bucketArr) > 1 {
-		s3Prefix = strings.TrimPrefix(c.BinlogStorage.BucketURL, bucketArr[0]+"/") + "/"
+	bucket, prefix, err := getBucketAndPrefix(c.BinlogStorage.BucketURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "get bucket and prefix")
 	}
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://"), c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucketArr[0], c.BinlogStorage.Region, strings.HasPrefix(c.BinlogStorage.Endpoint, "https"))
+
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://"), c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucket, c.BinlogStorage.Region, strings.HasPrefix(c.BinlogStorage.Endpoint, "https"))
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
+
 	startGTID, err := getStartGTIDSet(c.BackupStorage)
 	if err != nil {
 		return nil, errors.Wrap(err, "get start GTID")
@@ -76,9 +78,35 @@ func New(c Config) (*Recoverer, error) {
 		pxcServiceName: c.PXCServiceName,
 		recoverType:    RecoverType(c.RecoverType),
 		startGTID:      startGTID,
-		s3Prefix:       s3Prefix,
+		s3Prefix:       prefix,
 		gtidSet:        c.GTIDSet,
 	}, nil
+}
+
+func getBucketAndPrefix(bucketURL string) (bucket string, prefix string, err error) {
+	u, err := url.Parse(bucketURL)
+	if err != nil {
+		err = errors.Wrap(err, "parse url")
+		return
+	}
+	path := strings.TrimPrefix(u.Path, "/")
+
+	if u.IsAbs() && u.Scheme == "s3" {
+		bucket = u.Host
+		prefix = path + "/"
+		return
+	}
+	bucketArr := strings.Split(path, "/")
+	if len(bucketArr) > 1 {
+		prefix = strings.TrimPrefix(path, bucketArr[0]+"/") + "/"
+	}
+	bucket = bucketArr[0]
+	if len(bucket) == 0 {
+		err = errors.Errorf("can't get bucket name from %s", bucketURL)
+		return
+	}
+
+	return
 }
 
 func getStartGTIDSet(c S3) (string, error) {

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -15,38 +15,37 @@ import (
 var action string
 
 func main() {
-	flag.StringVar(&action, "action", "c", "'c' - binlogs collection, 'r' - recovery")
-	flag.Parse()
-
-	switch action {
-	case "c":
-		runCollector()
-	case "r":
-		runRecoverer()
+	command := "collect"
+	if len(os.Args) > 1 {
+		command = os.Args[1]
 	}
-
+	switch command {
+	case "collect":
+		runCollector()
+	case "recover":
+		runRecoverer()
+	default:
+		fmt.Fprintf(os.Stderr, "ERROR: unknown command \"%s\".\nCommands:\n  collect - collect binlogs\n  recover - recover from binlogs\n", command)
+		os.Exit(1)
+	}
 }
 
 func runCollector() {
 	config, err := getCollectorConfig()
 	if err != nil {
-		log.Println("ERROR: get config:", err)
-		os.Exit(1)
+		log.Fatalln("ERROR: get config:", err)
 	}
-
 	c, err := collector.New(config)
 	if err != nil {
-		log.Println("ERROR: new controller:", err)
-		os.Exit(1)
+		log.Fatalln("ERROR: new controller:", err)
 	}
 	sleepStr, err := getEnv("COLLECT_SPAN_SEC", "60", false)
 	if err != nil {
-		log.Println("ERROR: get sllep env")
+		log.Fatalln("ERROR: get COLLECT_SPAN_SEC env")
 	}
 	sleep, err := strconv.ParseInt(sleepStr, 10, 64)
 	if err != nil {
-		log.Println("ERROR: parse sleep env:", err)
-		os.Exit(1)
+		log.Fatalln("ERROR: parse COLLECT_SPAN_SEC env:", err)
 	}
 	log.Println("run collector")
 	for {
@@ -62,20 +61,16 @@ func runCollector() {
 func runRecoverer() {
 	config, err := getRecovererConfig()
 	if err != nil {
-		log.Println("ERROR: get recoverer config:", err)
-		os.Exit(1)
+		log.Fatalln("ERROR: get recoverer config:", err)
 	}
-
 	c, err := recoverer.New(config)
 	if err != nil {
-		log.Println("ERROR: new  recoverer controller:", err)
-		os.Exit(1)
+		log.Fatalln("ERROR: new  recoverer controller:", err)
 	}
 	log.Println("run recover")
 	err = c.Run()
 	if err != nil {
-		log.Println("ERROR: recover:", err)
-		os.Exit(1)
+		log.Fatalln("ERROR: recover:", err)
 	}
 }
 

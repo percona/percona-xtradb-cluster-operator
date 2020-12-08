@@ -14,14 +14,13 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/network"
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
 )
 
 type Collector struct {
-	db             *db.PXC
-	storage        Storage
+	db             *pxc.PXC
+	storage        storage.Storage
 	lastSet        string // last uploaded binary logs set
 	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
 	pxcUser        string // user for connection to PXC
@@ -42,11 +41,6 @@ type Config struct {
 	BufferSize     int64
 }
 
-type Storage interface {
-	GetObject(objectName string) (io.Reader, error)
-	PutObject(name string, data io.Reader) error
-}
-
 const (
 	lastSetFileName string = "last-binlog-set" // name for object where the last binlog set will stored
 	gtidPostfix     string = "-gtid-set"       // filename postfix for files with GTID set
@@ -60,7 +54,7 @@ func New(c Config) (*Collector, error) {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
 	prefix := ""
-	// if c.S3BucketURL looks like "my-bucket/data/more-data" we nned prefix be "data/more-data/"
+	// if c.S3BucketURL looks like "my-bucket/data/more-data" we need prefix to be "data/more-data/"
 	if len(bucketArr) > 0 {
 		prefix = strings.TrimPrefix(c.S3BucketURL, bucketArr[0]+"/") + "/"
 	}
@@ -71,7 +65,7 @@ func New(c Config) (*Collector, error) {
 	}
 	lastSet, err := ioutil.ReadAll(lastSetObject)
 	if err != nil && minio.ToErrorResponse(errors.Cause(err)).Code != "NoSuchKey" {
-		return nil, errors.Wrap(err, "read object")
+		return nil, errors.Wrap(err, "read last gtid set")
 	}
 
 	return &Collector{
@@ -100,16 +94,15 @@ func (c *Collector) Run() error {
 }
 
 func (c *Collector) newDB() error {
-	host, err := network.GetPXCLastHost(c.pxcServiceName)
+	host, err := pxc.GetPXCLastHost(c.pxcServiceName)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
-	pxc, err := db.NewPXC(host, c.pxcUser, c.pxcPass)
+	c.db, err = pxc.NewPXC(host, c.pxcUser, c.pxcPass)
 	if err != nil {
 		return errors.Wrapf(err, "new manager with host %s", host)
 
 	}
-	c.db = pxc
 
 	return nil
 }
@@ -170,6 +163,19 @@ func (r *reader) Read(p []byte) (int, error) {
 	return r.r.Read(p)
 }
 
+func mergeErrors(firstErr, secErr error) error {
+	if firstErr != nil && secErr != nil {
+		return errors.New(firstErr.Error() + "; " + secErr.Error())
+	}
+	if firstErr != nil && secErr == nil {
+		return firstErr
+	}
+	if firstErr == nil && secErr != nil {
+		return secErr
+	}
+	return nil
+}
+
 func (c *Collector) manageBinlog(binlog string) (err error) {
 	set, err := c.db.GetGTIDSet(binlog)
 	if err != nil {
@@ -212,14 +218,14 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 		if err != nil {
 			return
 		}
-		err = file.Close()
-		if err != nil {
-			err = errors.Wrapf(err, "close tmp file for %s", binlog)
+		errC := file.Close()
+		if errC != nil {
+			err = mergeErrors(err, errors.Wrapf(errC, "close tmp file for %s", binlog))
 			return
 		}
-		err = os.Remove(tmpDir + binlog)
-		if err != nil {
-			err = errors.Wrapf(err, "remove tmp file for %s", binlog)
+		errR := os.Remove(tmpDir + binlog)
+		if errR != nil {
+			err = mergeErrors(err, errors.Wrapf(errR, "remove tmp file for %s", binlog))
 			return
 		}
 	}()
@@ -232,7 +238,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 
 	errOut, err := cmd.StderrPipe()
 	if err != nil {
-		return errors.Wrap(err, "get stderr pipe")
+		return errors.Wrap(err, "get mysqlbinlog stderr pipe")
 	}
 
 	err = cmd.Start()
@@ -247,12 +253,12 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 	}
 	stdErr, err := ioutil.ReadAll(errOut)
 	if err != nil {
-		return errors.Wrap(err, "read error output")
+		return errors.Wrap(err, "read mysqlbinlog error output")
 	}
 
 	cmd.Wait()
 
-	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != db.UsingPassErrorMessage {
+	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != pxc.UsingPassErrorMessage {
 		return errors.Errorf("mysqlbinlog: %s", stdErr)
 	}
 

@@ -347,7 +347,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			return nil, errors.New("no backet in storage")
 		}
 
-		command = []string{"pitr", "-action=r"}
+		command = []string{"pitr", "recover"}
 		envs = append(envs, corev1.EnvVar{
 			Name:  "BINLOG_S3_ENDPOINT",
 			Value: storageS3.EndpointURL,

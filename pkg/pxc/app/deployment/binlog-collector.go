@@ -92,7 +92,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 		ImagePullPolicy: cr.Spec.Backup.ImagePullPolicy,
 		Env:             envs,
 		SecurityContext: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].ContainerSecurityContext,
-		Command:         []string{"pitr", "-action=c"},
+		Command:         []string{"pitr"},
 		Resources:       res,
 	}
 	replicas := int32(1)

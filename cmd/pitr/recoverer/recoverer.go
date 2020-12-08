@@ -11,17 +11,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/db"
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/network"
+	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
 
 	"github.com/pkg/errors"
 )
 
 type Recoverer struct {
-	db             *db.PXC
+	db             *pxc.PXC
 	recoverTime    string
-	storage        Storage
+	storage        storage.Storage
 	pxcUser        string
 	pxcPass        string
 	recoverType    RecoverType
@@ -52,19 +51,13 @@ type S3 struct {
 	BucketURL   string
 }
 
-type Storage interface {
-	GetObject(objectName string) (io.Reader, error)
-	PutObject(name string, data io.Reader) error
-	ListObjects(prefix string) []string
-}
-
 type RecoverType string
 
 func New(c Config) (*Recoverer, error) {
 	bucketArr := strings.Split(c.BinlogStorage.BucketURL, "/")
 	s3Prefix := ""
 	if len(bucketArr) > 1 {
-		s3Prefix = strings.TrimPrefix(c.BinlogStorage.BucketURL, bucketArr[0]+"/")
+		s3Prefix = strings.TrimPrefix(c.BinlogStorage.BucketURL, bucketArr[0]+"/") + "/"
 	}
 	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://"), c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucketArr[0], c.BinlogStorage.Region, strings.HasPrefix(c.BinlogStorage.Endpoint, "https"))
 	if err != nil {
@@ -102,7 +95,7 @@ func getStartGTIDSet(c S3) (string, error) {
 
 	infoObj, err := s3.GetObject(prefix + "/xtrabackup_info.00000000000000000000") //TODO: work with compressed file
 	if err != nil {
-		return "", errors.Wrap(err, "get object")
+		return "", errors.Wrapf(err, "get %s info", prefix)
 	}
 
 	lastGTID, err := getLastBackupGTID(infoObj)
@@ -120,16 +113,15 @@ const (
 )
 
 func (r *Recoverer) Run() error {
-	host, err := network.GetPXCLastHost(r.pxcServiceName)
+	host, err := pxc.GetPXCLastHost(r.pxcServiceName)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
-	pxc, err := db.NewPXC(host, r.pxcUser, r.pxcPass)
+	r.db, err = pxc.NewPXC(host, r.pxcUser, r.pxcPass)
 	if err != nil {
 		return errors.Wrapf(err, "new manager with host %s", host)
 
 	}
-	r.db = pxc
 
 	err = r.setBinlogs()
 	if err != nil {
@@ -144,12 +136,7 @@ func (r *Recoverer) Run() error {
 	return nil
 }
 
-func (r *Recoverer) recover() error {
-	host, err := network.GetPXCLastHost(r.pxcServiceName)
-	if err != nil {
-		return errors.Wrap(err, "get host")
-	}
-
+func (r *Recoverer) recover() (err error) {
 	flags := ""
 	endTime := time.Time{}
 	// TODO: add logic for all types
@@ -160,12 +147,12 @@ func (r *Recoverer) recover() error {
 	case Date:
 		flags = ` --stop-datetime="` + r.recoverTime + `"`
 
-		format := "2006-01-02 15:04:05"
-		t, err := time.Parse(format, r.recoverTime)
+		const format = "2006-01-02 15:04:05"
+		endTime, err = time.Parse(format, r.recoverTime)
 		if err != nil {
 			return errors.Wrap(err, "parse date")
 		}
-		endTime = t
+
 	case Latest:
 	default:
 		return errors.New("wrong recover type")
@@ -198,7 +185,7 @@ func (r *Recoverer) recover() error {
 			return errors.Wrap(err, "set mysql pwd env var")
 		}
 
-		cmdString := "mysqlbinlog" + flags + " - | mysql -h" + host + " -u" + r.pxcUser
+		cmdString := "mysqlbinlog" + flags + " - | mysql -h" + r.db.GetHost() + " -u" + r.pxcUser
 		cmd := exec.Command("sh", "-c", cmdString)
 
 		cmd.Stdin = binlogObj
@@ -244,40 +231,48 @@ func getLastBackupGTID(infoObj io.Reader) (string, error) {
 }
 
 func (r *Recoverer) setBinlogs() error {
-	list := r.storage.ListObjects(r.s3Prefix + "/binlog_")
+	list, err := r.storage.ListObjects(r.s3Prefix + "binlog_")
+	if err != nil {
+		return errors.Wrapf(err, "list objects with prefix", r.s3Prefix+"binlog_")
+	}
 	binlogs := []string{}
 	for _, binlog := range reverseArr(list) {
+		if strings.Contains(binlog, "-gtid-set") {
+			continue
+		}
 		binlogs = append(binlogs, binlog)
 
-		infoObj, err := r.storage.GetObject(r.s3Prefix + binlog + "-gtid-set")
+		infoObj, err := r.storage.GetObject(binlog + "-gtid-set")
 		if err != nil {
-			return errors.Wrap(err, "get object with gtid set")
+			return errors.Wrapf(err, "get %s object with gtid set", binlog)
 		}
 		content, err := ioutil.ReadAll(infoObj)
 		if err != nil {
-			return errors.Wrap(err, "get object")
+			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
 
 		isSubset, err := r.db.IsGTIDSubset(r.startGTID, string(content))
 		if err != nil {
-			return errors.Wrapf(err, "is '%s' subset of '%s", r.startGTID, string(content))
+			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, string(content))
 		}
 
 		if isSubset {
 			break
 		}
 	}
-
+	if len(binlogs) == 0 {
+		return errors.Errorf("no objects for prefix %s", r.s3Prefix+"binlog_")
+	}
 	r.binlogs = reverseArr(binlogs)
 
 	return nil
 }
 
 func reverseArr(arr []string) []string {
-	newArr := make([]string, len(arr))
-	for k, v := range arr {
-		newKey := len(newArr) - k - 1
-		newArr[newKey] = v
+	for i := len(arr)/2 - 1; i >= 0; i-- {
+		opp := len(arr) - 1 - i
+		arr[i], arr[opp] = arr[opp], arr[i]
 	}
-	return newArr
+
+	return arr
 }

@@ -9,6 +9,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Storage interface {
+	GetObject(objectName string) (io.Reader, error)
+	PutObject(name string, data io.Reader) error
+	ListObjects(prefix string) ([]string, error)
+}
+
 // S3 is a type for working with S3 storages
 type S3 struct {
 	minioClient *minio.Client   // minio client for work with storage
@@ -54,7 +60,7 @@ func (s *S3) PutObject(name string, data io.Reader) error {
 	return nil
 }
 
-func (s *S3) ListObjects(prefix string) []string {
+func (s *S3) ListObjects(prefix string) ([]string, error) {
 	opts := minio.ListObjectsOptions{
 		UseV1:  true,
 		Prefix: prefix,
@@ -62,8 +68,11 @@ func (s *S3) ListObjects(prefix string) []string {
 	list := []string{}
 
 	for object := range s.minioClient.ListObjects(s.ctx, s.bucketName, opts) {
+		if object.Err != nil {
+			return nil, errors.Wrapf(object.Err, "list object %s", object.Key)
+		}
 		list = append(list, object.Key)
 	}
 
-	return list
+	return list, nil
 }

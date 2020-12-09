@@ -87,6 +87,12 @@ netem_pod() {
 
 main() {
     create_infra $namespace
+
+    if [ -n "$OPERATOR_NS" ]; then
+        kubectl_bin patch clusterrole percona-xtradb-cluster-operator --type=json -p '[{"op":"remove","path":"/rules/1"}]'
+        kubectl_bin delete validatingwebhookconfigurations.admissionregistration.k8s.io percona-xtradbcluster-webhook
+    fi
+
     kubectl_bin apply -f "$test_dir/conf/pumba.yml" ${OPERATOR_NS:+-n $OPERATOR_NS}
 
     desc 'create PXC cluster'

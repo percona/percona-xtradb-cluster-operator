@@ -4,8 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"io/ioutil"
-	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +33,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -258,7 +259,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	operatorPod, err := r.operatorPod()
+	operatorPod, err := k8s.OperatorPod(r.client)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
 	}
@@ -287,8 +288,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), pxcAnnotations)
 	err = r.updatePod(pxcSet, o.Spec.PXC, o, inits)
 	if err != nil {
-		err = fmt.Errorf("pxc upgrade error: %v", err)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
 
 	for _, pxcService := range []*corev1.Service{pxc.NewServicePXC(o), pxc.NewServicePXCUnready(o)} {
@@ -298,12 +298,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, errors.Wrap(err, "failed to get current PXC service")
 		}
 
+		if reflect.DeepEqual(currentService.Spec.Ports, pxcService.Spec.Ports) {
+			continue
+		}
+
 		currentService.Spec.Ports = pxcService.Spec.Ports
 
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
-			err = fmt.Errorf("PXC service upgrade error: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
 		}
 	}
 
@@ -313,15 +316,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled {
 		err = r.updatePod(haProxySet, o.Spec.HAProxy, o, nil)
 		if err != nil {
-			err = fmt.Errorf("HAProxy upgrade error: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "HAProxy upgrade error")
 		}
 
 		currentService := &corev1.Service{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: haProxyService.Name, Namespace: haProxyService.Namespace}, currentService)
 		if err != nil {
-			err = fmt.Errorf("failed to get HAProxy service: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "failed to get HAProxy service")
 		}
 
 		ports := []corev1.ServicePort{
@@ -377,8 +378,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		currentServiceReplicas := &corev1.Service{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: haProxyServiceReplicas.Name, Namespace: haProxyServiceReplicas.Namespace}, currentServiceReplicas)
 		if err != nil {
-			err = fmt.Errorf("failed to get HAProxyReplicas service: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "failed to get HAProxyReplicas service")
 		}
 
 		replicaPorts := []corev1.ServicePort{
@@ -410,18 +410,17 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 		err = r.client.Update(context.TODO(), currentServiceReplicas)
 		if err != nil {
-			err = fmt.Errorf("HAProxyReplicas service upgrade error: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "HAProxyReplicas service upgrade error")
 		}
 	} else {
 		err = r.deleteStatefulSet(o.Namespace, haProxySet, false)
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "delete HAProxy stateful set")
 		}
 		haProxyReplicasService := pxc.NewServiceHAProxyReplicas(o)
 		err = r.deleteServices([]*corev1.Service{haProxyService, haProxyReplicasService})
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "delete HAProxy replica service")
 		}
 	}
 
@@ -525,26 +524,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) operatorPod() (corev1.Pod, error) {
-	operatorPod := corev1.Pod{}
-
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if err != nil {
-		return operatorPod, err
-	}
-
-	ns := strings.TrimSpace(string(nsBytes))
-
-	if err := r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: ns,
-		Name:      os.Getenv("HOSTNAME"),
-	}, &operatorPod); err != nil {
-		return operatorPod, err
-	}
-
-	return operatorPod, nil
-}
-
 func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
@@ -552,7 +531,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	operatorPod, err := r.operatorPod()
+	operatorPod, err := k8s.OperatorPod(r.client)
 	if err != nil {
 		return errors.Wrap(err, "get operator deployment")
 	}
@@ -807,22 +786,18 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	}
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		if len(limitMemory) > 0 || len(requestMemory) > 0 {
-			autoConfigMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+			configMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 			if err != nil {
 				return errors.Wrap(err, "new auto-config map")
 			}
-			err = setControllerReference(cr, autoConfigMap, r.scheme)
+			err = setControllerReference(cr, configMap, r.scheme)
 			if err != nil {
 				return errors.Wrap(err, "set auto-config controller ref")
 			}
-			err = r.client.Create(context.TODO(), autoConfigMap)
-			if err != nil && k8serrors.IsAlreadyExists(err) {
-				err = r.client.Update(context.TODO(), autoConfigMap)
-				if err != nil {
-					return errors.Wrap(err, "update AutoConfigMap")
-				}
-			} else if err != nil {
-				return errors.Wrap(err, "create AutoConfigMap")
+
+			err = createOrUpdateConfigmap(r.client, configMap)
+			if err != nil {
+				return errors.Wrap(err, "auto-config config map")
 			}
 		}
 	}
@@ -833,48 +808,53 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		if err != nil {
 			return errors.Wrap(err, "set controller ref")
 		}
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && k8serrors.IsAlreadyExists(err) {
-			err = r.client.Update(context.TODO(), configMap)
-			if err != nil {
-				return errors.Wrap(err, "update ConfigMap")
-			}
-		} else if err != nil {
-			return errors.Wrap(err, "create ConfigMap")
+
+		err = createOrUpdateConfigmap(r.client, configMap)
+		if err != nil {
+			return errors.Wrap(err, "pxc config map")
 		}
 	}
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Configuration != "" {
 		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-proxysql", "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref ProxySQL")
 		}
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && k8serrors.IsAlreadyExists(err) {
-			err = r.client.Update(context.TODO(), configMap)
-			if err != nil {
-				return errors.Wrap(err, "update ConfigMap HAProxy")
-			}
-		} else if err != nil {
-			return errors.Wrap(err, "create ConfigMap HAProxy")
+
+		err = createOrUpdateConfigmap(r.client, configMap)
+		if err != nil {
+			return errors.Wrap(err, "proxysql config map")
 		}
 	}
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Configuration != "" {
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Spec.HAProxy.Configuration != "" {
 		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-haproxy", "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref HAProxy")
 		}
+
+		err = createOrUpdateConfigmap(r.client, configMap)
+		if err != nil {
+			return errors.Wrap(err, "haproxy config map")
+		}
+	}
+
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" && cr.CompareVersionWith("1.7.0") >= 0 {
+		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-logcollector", "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set controller ref LogCollector")
+		}
 		err = r.client.Create(context.TODO(), configMap)
 		if err != nil && k8serrors.IsAlreadyExists(err) {
 			err = r.client.Update(context.TODO(), configMap)
 			if err != nil {
-				return errors.Wrap(err, "update ConfigMap HAProxy")
+				return errors.Wrap(err, "update ConfigMap LogCollector")
 			}
 		} else if err != nil {
-			return errors.Wrap(err, "create ConfigMap HAProxy")
+			return errors.Wrap(err, "create ConfigMap LogCollector")
 		}
 	}
 
@@ -946,14 +926,26 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {
-	err := r.client.Delete(context.TODO(), sfs.StatefulSet())
+	err := r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      sfs.StatefulSet().Name,
+		Namespace: namespace,
+	}, &appsv1.StatefulSet{})
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("delete proxysql: %v", err)
+		return errors.Wrapf(err, "get statefulset: %s", sfs.StatefulSet().Name)
+	}
+
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+
+	err = r.client.Delete(context.TODO(), sfs.StatefulSet())
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrapf(err, "delete statefulset: %s", sfs.StatefulSet().Name)
 	}
 	if deletePVC {
 		err = r.deletePVC(namespace, sfs.Labels())
 		if err != nil {
-			return fmt.Errorf("delete proxysql pvc: %v", err)
+			return errors.Wrapf(err, "delete pvc: %s", sfs.StatefulSet().Name)
 		}
 	}
 
@@ -962,9 +954,21 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs 
 
 func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs []*corev1.Service) error {
 	for _, s := range svcs {
-		err := r.client.Delete(context.TODO(), s)
+		err := r.client.Get(context.TODO(), types.NamespacedName{
+			Name:      s.Name,
+			Namespace: s.Namespace,
+		}, &corev1.Service{})
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("delete service: %v", err)
+			return errors.Wrapf(err, "get service: %s", s.Name)
+		}
+
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), s)
+		if err != nil {
+			return errors.Wrapf(err, "delete service: %s", s.Name)
 		}
 	}
 	return nil
@@ -1037,4 +1041,25 @@ func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.Perco
 		}
 		atomic.StoreInt32(&r.syncUsersState, stateFree)
 	}()
+}
+
+func createOrUpdateConfigmap(cl client.Client, configMap *corev1.ConfigMap) error {
+	currMap := &corev1.ConfigMap{}
+	err := cl.Get(context.TODO(), types.NamespacedName{
+		Namespace: configMap.Namespace,
+		Name:      configMap.Name,
+	}, currMap)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "get current configmap")
+	}
+
+	if k8serrors.IsNotFound(err) {
+		return cl.Create(context.TODO(), configMap)
+	}
+
+	if !reflect.DeepEqual(currMap.Data, configMap.Data) {
+		return cl.Update(context.TODO(), configMap)
+	}
+
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -14,13 +15,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCluster) error {
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
-	operatorPod, err := r.operatorPod()
+	operatorPod, err := k8s.OperatorPod(r.client)
 	if err != nil {
 		return errors.Wrap(err, "get operator deployment")
 	}
@@ -70,19 +73,23 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 
 			// Check if this Job already exists
 			currentBcpJob := new(batchv1beta1.CronJob)
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: bcpjob.Name, Namespace: bcpjob.Namespace}, currentBcpJob)
-			if err != nil && k8serrors.IsNotFound(err) {
-				// reqLogger.Info("Creating a new backup job", "Namespace", bcpjob.Namespace, "Name", bcpjob.Name)
+			err = r.client.Get(context.TODO(), types.NamespacedName{
+				Name:      bcpjob.Name,
+				Namespace: bcpjob.Namespace,
+			}, currentBcpJob)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return errors.Wrapf(err, "create scheduled backup %s", bcp.Name)
+			}
+
+			if k8serrors.IsNotFound(err) {
 				err = r.client.Create(context.TODO(), bcpjob)
 				if err != nil {
-					return fmt.Errorf("create scheduled backup '%s': %v", bcp.Name, err)
+					return errors.Wrapf(err, "create scheduled backup %s", bcp.Name)
 				}
-			} else if err != nil {
-				return fmt.Errorf("create scheduled backup '%s': %v", bcp.Name, err)
-			} else {
+			} else if !reflect.DeepEqual(currentBcpJob.Spec, bcpjob.Spec) {
 				err = r.client.Update(context.TODO(), bcpjob)
 				if err != nil {
-					return fmt.Errorf("update backup schedule '%s': %v", bcp.Name, err)
+					return errors.Wrapf(err, "update backup schedule %s", bcp.Name)
 				}
 			}
 		}

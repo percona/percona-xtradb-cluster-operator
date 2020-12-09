@@ -14,6 +14,7 @@ spec:
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
+  logCollectorSecretName: my-log-collector-secrets
 #  disableHookValidation: true
 #  tls:
 #    SANs:
@@ -310,6 +311,21 @@ spec:
 #     - 10.0.0.0/8
 #   serviceAnnotations:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+  logcollector:
+    enabled: true
+    image: percona/percona-xtradb-cluster-operator:1.6.0-logcollector
+#    configuration: |
+#      [OUTPUT]
+#           Name  es
+#           Match *
+#           Host  192.168.2.3
+#           Port  9200
+#           Index my_index
+#           Type  my_type
+#    resources:
+#      requests:
+#        memory: 200M
+#        cpu: 500m
   pmm:
     enabled: false
     image: percona/percona-xtradb-cluster-operator:1.6.0-pmm

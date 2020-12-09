@@ -69,6 +69,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGrea
 		container.Lifecycle = &corev1.Lifecycle{
 			PreStop: &corev1.Handler{
 				Exec: &corev1.ExecAction{
+					// TODO https://jira.percona.com/browse/PMM-7010
 					Command: []string{"bash", "-c", "pmm-admin inventory remove node --force $(pmm-admin status --json | python -c \"import sys, json; print(json.load(sys.stdin)['pmm_agent_status']['node_id'])\")"},
 				},
 			},
@@ -167,7 +168,7 @@ func PMMAgentScript(dbType string) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "PMM_AGENT_PRERUN_SCRIPT",
-			Value: "pmm-admin status --wait=10s; pmm-admin add $(DB_TYPE)" + pmmServerArgs + "; pmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) restart",
+			Value: "pmm-admin status --wait=10s;\npmm-admin add $(DB_TYPE)" + pmmServerArgs + ";\npmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) restart",
 		},
 	}
 }

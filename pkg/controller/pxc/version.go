@@ -13,6 +13,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/robfig/cron/v3"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,6 +60,12 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 
 		localCr := &api.PerconaXtraDBCluster{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		if k8serrors.IsNotFound(err) {
+			log.Info("cluster is not found, deleting the job",
+				"job name", jobName, "cluster", cr.Name, "namespace", cr.Namespace)
+			r.deleteEnsureVersion(r.crons.jobs[jobName].ID)
+			return
+		}
 		if err != nil {
 			log.Error(err, "failed to get CR")
 			return

@@ -31,7 +31,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 	if cr.Spec.Backup != nil {
 		bcpObj := backup.New(cr)
 
-		if cr.Spec.Backup.PITR.Enabled {
+		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled {
 			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
 			if err != nil {
 				return fmt.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)

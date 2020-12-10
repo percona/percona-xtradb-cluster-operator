@@ -26,7 +26,7 @@ type Collector struct {
 	pxcUser        string // user for connection to PXC
 	pxcPass        string // password for connection to PXC
 	bufferSize     int64  // size of uploading buffer
-	bucketPrefix   string // prefix for files in bucket. For example bucket-name/{prefix}/binlog-file
+	//bucketPrefix   string // prefix for files in bucket. For example bucket-name/{prefix}/binlog-file
 }
 
 type Config struct {
@@ -48,18 +48,18 @@ const (
 
 func New(c Config) (*Collector, error) {
 	bucketArr := strings.Split(c.S3BucketURL, "/")
-
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.S3Endpoint, "https://"), "http://"), c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], c.S3Region, strings.HasPrefix(c.S3Endpoint, "https"))
+	prefix := ""
+	// if c.S3BucketURL looks like "my-bucket/data/more-data" we need prefix to be "data/more-data/"
+	if len(bucketArr) > 1 {
+		prefix = strings.TrimPrefix(c.S3BucketURL, bucketArr[0]+"/") + "/"
+	}
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.S3Endpoint, "https://"), "http://"), c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], prefix, c.S3Region, strings.HasPrefix(c.S3Endpoint, "https"))
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
-	prefix := ""
-	// if c.S3BucketURL looks like "my-bucket/data/more-data" we need prefix to be "data/more-data/"
-	if len(bucketArr) > 0 {
-		prefix = strings.TrimPrefix(c.S3BucketURL, bucketArr[0]+"/") + "/"
-	}
+
 	// get last binlog set stored on S3
-	lastSetObject, err := s3.GetObject(prefix + lastSetFileName)
+	lastSetObject, err := s3.GetObject(lastSetFileName)
 	if err != nil {
 		return nil, errors.Wrap(err, "get last set content")
 	}
@@ -74,7 +74,6 @@ func New(c Config) (*Collector, error) {
 		pxcUser:        c.PXCUser,
 		pxcPass:        c.PXCPass,
 		pxcServiceName: c.PXCServiceName,
-		bucketPrefix:   prefix,
 	}, nil
 }
 
@@ -116,10 +115,11 @@ func (c *Collector) CollectBinLogs() error {
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
+
 	// get last uploaded binlog file name
 	binlogName, err := c.db.GetBinLogName(c.lastSet)
-	if err != nil {
-		return errors.Wrap(err, "get binlog name by set")
+	if err != nil && !strings.Contains(err.Error(), "converting NULL to string is unsupported") {
+		return errors.Wrap(err, "get latst uploaded binlog name by set")
 	}
 
 	upload := false
@@ -191,9 +191,6 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 	}
 
 	binlogName := "binlog_" + binlogTmstmp + "_" + fmt.Sprintf("%x", md5.Sum([]byte(set)))
-	if len(c.bucketPrefix) > 0 {
-		binlogName = c.bucketPrefix + binlogName
-	}
 
 	var setBuffer bytes.Buffer
 	setBuffer.WriteString(set)
@@ -258,7 +255,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 
 	cmd.Wait()
 
-	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != pxc.UsingPassErrorMessage {
+	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != pxc.UsingPassErrorMessage && len(string(stdErr)) != 0 {
 		return errors.Errorf("mysqlbinlog: %s", stdErr)
 	}
 
@@ -268,7 +265,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 	}
 
 	setBuffer.WriteString(set)
-	err = c.storage.PutObject(c.bucketPrefix+lastSetFileName, &setBuffer)
+	err = c.storage.PutObject(lastSetFileName, &setBuffer)
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}

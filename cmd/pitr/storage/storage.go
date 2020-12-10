@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"io"
+	"log"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -20,10 +22,11 @@ type S3 struct {
 	minioClient *minio.Client   // minio client for work with storage
 	ctx         context.Context // context for client operations
 	bucketName  string          // S3 bucket name where binlogs will be stored
+	prefix      string          // prefix for S3 requests
 }
 
 // NewS3 return new Manager, useSSL using ssl for connection with storage
-func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, region string, useSSL bool) (*S3, error) {
+func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, useSSL bool) (*S3, error) {
 	minioClient, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
@@ -37,12 +40,14 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, region string, us
 		minioClient: minioClient,
 		ctx:         context.TODO(),
 		bucketName:  bucketName,
+		prefix:      prefix,
 	}, nil
 }
 
 // GetObject return content by given object name
 func (s *S3) GetObject(objectName string) (io.Reader, error) {
-	oldObj, err := s.minioClient.GetObject(s.ctx, s.bucketName, objectName, minio.GetObjectOptions{})
+	log.Println(s.prefix + objectName)
+	oldObj, err := s.minioClient.GetObject(s.ctx, s.bucketName, s.prefix+objectName, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "get object")
 	}
@@ -52,7 +57,7 @@ func (s *S3) GetObject(objectName string) (io.Reader, error) {
 
 // PutObject puts new object to storage with given name and content
 func (s *S3) PutObject(name string, data io.Reader) error {
-	_, err := s.minioClient.PutObject(s.ctx, s.bucketName, name, data, -1, minio.PutObjectOptions{})
+	_, err := s.minioClient.PutObject(s.ctx, s.bucketName, s.prefix+name, data, -1, minio.PutObjectOptions{})
 	if err != nil {
 		return errors.Wrap(err, "put object")
 	}
@@ -63,7 +68,7 @@ func (s *S3) PutObject(name string, data io.Reader) error {
 func (s *S3) ListObjects(prefix string) ([]string, error) {
 	opts := minio.ListObjectsOptions{
 		UseV1:  true,
-		Prefix: prefix,
+		Prefix: s.prefix + prefix,
 	}
 	list := []string{}
 
@@ -71,7 +76,7 @@ func (s *S3) ListObjects(prefix string) ([]string, error) {
 		if object.Err != nil {
 			return nil, errors.Wrapf(object.Err, "list object %s", object.Key)
 		}
-		list = append(list, object.Key)
+		list = append(list, strings.TrimPrefix(object.Key, s.prefix))
 	}
 
 	return list, nil

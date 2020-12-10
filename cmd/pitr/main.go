@@ -65,7 +65,7 @@ func runRecoverer() {
 	}
 	c, err := recoverer.New(config)
 	if err != nil {
-		log.Fatalln("ERROR: new  recoverer controller:", err)
+		log.Fatalln("ERROR: new recoverer controller:", err)
 	}
 	log.Println("run recover")
 	err = c.Run()

@@ -28,7 +28,6 @@ type Recoverer struct {
 	pxcServiceName string
 	binlogs        []string
 	gtidSet        string
-	s3Prefix       string
 	startGTID      string
 }
 
@@ -60,7 +59,7 @@ func New(c Config) (*Recoverer, error) {
 		return nil, errors.Wrap(err, "get bucket and prefix")
 	}
 
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://"), c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucket, c.BinlogStorage.Region, strings.HasPrefix(c.BinlogStorage.Endpoint, "https"))
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://"), c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucket, prefix, c.BinlogStorage.Region, strings.HasPrefix(c.BinlogStorage.Endpoint, "https"))
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
@@ -78,7 +77,6 @@ func New(c Config) (*Recoverer, error) {
 		pxcServiceName: c.PXCServiceName,
 		recoverType:    RecoverType(c.RecoverType),
 		startGTID:      startGTID,
-		s3Prefix:       prefix,
 		gtidSet:        c.GTIDSet,
 	}, nil
 }
@@ -114,14 +112,15 @@ func getStartGTIDSet(c S3) (string, error) {
 	if len(bucketArr) < 2 {
 		return "", errors.New("parsing bucket")
 	}
-	prefix := strings.TrimLeft(c.BackupDest, bucketArr[0]+"/")
-	bucket := bucketArr[0]
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.Endpoint, "https://"), "http://"), c.AccessKeyID, c.AccessKey, bucket, c.Region, strings.HasPrefix(c.Endpoint, "https"))
+
+	prefix := strings.TrimPrefix(c.BackupDest, bucketArr[0]+"/") + "/"
+
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.Endpoint, "https://"), "http://"), c.AccessKeyID, c.AccessKey, bucketArr[0], prefix, c.Region, strings.HasPrefix(c.Endpoint, "https"))
 	if err != nil {
 		return "", errors.Wrap(err, "new storage manager")
 	}
 
-	infoObj, err := s3.GetObject(prefix + "/xtrabackup_info.00000000000000000000") //TODO: work with compressed file
+	infoObj, err := s3.GetObject("xtrabackup_info.00000000000000000000") //TODO: work with compressed file
 	if err != nil {
 		return "", errors.Wrapf(err, "get %s info", prefix)
 	}
@@ -222,11 +221,7 @@ func (r *Recoverer) recover() (err error) {
 		cmd.Stderr = &errb
 		err = cmd.Run()
 		if err != nil {
-			return errors.Wrap(err, "cmd run")
-		}
-
-		if errb.Bytes() != nil {
-			log.Println(errors.Errorf("cmd error: %s, stdout: %s", errb.String(), outb.String()))
+			return errors.Wrapf(err, "cmd run. stderr: %s, stdout: %s", errb.String(), outb.String())
 		}
 	}
 
@@ -259,9 +254,9 @@ func getLastBackupGTID(infoObj io.Reader) (string, error) {
 }
 
 func (r *Recoverer) setBinlogs() error {
-	list, err := r.storage.ListObjects(r.s3Prefix + "binlog_")
+	list, err := r.storage.ListObjects("binlog_")
 	if err != nil {
-		return errors.Wrapf(err, "list objects with prefix", r.s3Prefix+"binlog_")
+		return errors.Wrapf(err, "list objects with prefix", "binlog_")
 	}
 	binlogs := []string{}
 	for _, binlog := range reverseArr(list) {
@@ -289,7 +284,7 @@ func (r *Recoverer) setBinlogs() error {
 		}
 	}
 	if len(binlogs) == 0 {
-		return errors.Errorf("no objects for prefix %s", r.s3Prefix+"binlog_")
+		return errors.Errorf("no objects for prefix %s", "binlog_")
 	}
 	r.binlogs = reverseArr(binlogs)
 

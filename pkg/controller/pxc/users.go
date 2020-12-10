@@ -240,11 +240,6 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			action: syncProxyUsers,
 		},
 		{
-			name:   "xtrabackup",
-			hosts:  []string{"localhost"},
-			action: rPXC,
-		},
-		{
 			name:      "monitor",
 			hosts:     []string{"%"},
 			proxyUser: true,
@@ -261,6 +256,17 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			action: rProxy,
 		},
 	}
+
+	xtrabcupUser := user{
+		name:   "xtrabackup",
+		hosts:  []string{"localhost"},
+		action: rPXC,
+	}
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		xtrabcupUser.hosts = []string{"%"}
+	}
+	requiredUsers = append(requiredUsers, xtrabcupUser)
+
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		requiredUsers = append(requiredUsers, user{
 			name:   "pmmserver",

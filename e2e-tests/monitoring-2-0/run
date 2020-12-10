@@ -17,7 +17,7 @@ if [ ! -z "$OPENSHIFT" ]; then
     platform=openshift
 fi
 helm del monitoring || :
-helm install monitoring percona/pmm-server --set platform=$platform --version 2.7.0
+helm install monitoring percona/pmm-server --set platform=$platform --version 2.12.0
 
 desc 'create PXC cluster'
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
@@ -27,8 +27,8 @@ compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-haproxy
 
 desc 'check mysql metrics'
-get_metric_values node_boot_time_seconds $cluster-pxc-0 admin:admin
-get_metric_values mysql_global_status_uptime $cluster-pxc-0 admin:admin
+get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin
+get_metric_values mysql_global_status_uptime $namespace-$cluster-pxc-0 admin:admin
 
 # TODO: check haproxy metrics
 

@@ -201,6 +201,8 @@ type PMMSpec struct {
 	ServerHost               string                  `json:"serverHost,omitempty"`
 	Image                    string                  `json:"image,omitempty"`
 	ServerUser               string                  `json:"serverUser,omitempty"`
+	PxcParams                string                  `json:"pxcParams,omitempty"`
+	ProxysqlParams           string                  `json:"proxysqlParams,omitempty"`
 	Resources                *PodResources           `json:"resources,omitempty"`
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`

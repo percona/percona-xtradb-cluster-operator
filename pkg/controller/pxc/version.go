@@ -22,19 +22,20 @@ import (
 const never = "never"
 const disabled = "disabled"
 
-func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(cr *api.PerconaXtraDBCluster, id int) {
-	r.crons.crons.Remove(cron.EntryID(id))
-	delete(r.crons.jobs, jobName(cr))
+func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
+	r.crons.crons.Remove(cron.EntryID(r.crons.jobs[jobName].ID))
+	delete(r.crons.jobs, jobName)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
-	schedule, ok := r.crons.jobs[jobName(cr)]
+	jn := jobName(cr)
+	schedule, ok := r.crons.jobs[jn]
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
 		cr.Spec.UpgradeOptions.Schedule == "" ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == disabled {
 		if ok {
-			r.deleteEnsureVersion(cr, schedule.ID)
+			r.deleteEnsureVersion(jn)
 		}
 		return nil
 	}
@@ -45,7 +46,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 
 	if ok {
 		log.Info("remove job because of new", "old", schedule.CronShedule, "new", cr.Spec.UpgradeOptions.Schedule)
-		r.deleteEnsureVersion(cr, schedule.ID)
+		r.deleteEnsureVersion(jn)
 	}
 
 	nn := types.NamespacedName{
@@ -69,7 +70,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 		if k8serrors.IsNotFound(err) {
 			log.Info("cluster is not found, deleting the job",
 				"job name", jobName, "cluster", cr.Name, "namespace", cr.Namespace)
-			r.deleteEnsureVersion(r.crons.jobs[jobName].ID)
+			r.deleteEnsureVersion(jn)
 			return
 		}
 		if err != nil {
@@ -97,7 +98,6 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 		return err
 	}
 
-	jn := jobName(cr)
 	log.Info("add new job", "name", jn, "schedule", cr.Spec.UpgradeOptions.Schedule)
 
 	r.crons.jobs[jn] = Shedule{

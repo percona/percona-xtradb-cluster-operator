@@ -483,4 +483,51 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	fi
 fi
 
+function get_primary() {
+    peer-list -on-start=/usr/bin/get-pxc-state -service=$PXC_SERVICE 2>&1 \
+        | grep wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary \
+        | sort \
+        | tail -1 || true
+}
+
+IS_PRIMARY_EXISTS=$(get_primary)
+if [ -f ${DATADIR}/grastate.dat ]; then
+    NOT_SAVE_BOOTSTRAP=$(cat ${DATADIR}/grastate.dat | grep 'safe_to_bootstrap: 0' || true)
+fi
+
+function node_recovery() {
+    echo "Recovery is in progress, please wait...."
+    sed -i 's/safe_to_bootstrap: 0/safe_to_bootstrap: 1/g' ${DATADIR}/grastate.dat
+    sed -i 's/wsrep_cluster_address=.*/wsrep_cluster_address=gcomm:\/\//g' /etc/mysql/node.cnf
+    rm -f /tmp/recovery-case
+    exec mysqld
+}
+
+if [[ -z "$IS_PRIMARY_EXISTS" && -n "$NOT_SAVE_BOOTSTRAP" ]] || [[ -z "$IS_PRIMARY_EXISTS" && -f "${DATADIR}/gvwstate.dat" ]]; then
+    trap node_recovery USR1
+    touch /tmp/recovery-case
+
+    seq_no=$(mysqld --wsrep_recover 2>&1 | grep 'Recovered position' | awk -F':' '{print $NF}' || true)
+
+    set +o xtrace
+    sleep 3
+
+    echo '################################################################################################################################'
+    echo 'You have the situation of a full PXC cluster crash. In order to restore your PXC cluster, please check the log'
+    echo 'from all pods/nodes to find the node with the most recent data (the one with the highest sequence number (seqno).'
+    echo "It is $NODE_NAME node with sequence number (seqno): $seq_no"
+    echo 'If you want to recover from this node you need to execute the following command:'
+    echo "kubectl exec $(hostname) -- sh -c 'kill -s USR1 1'"
+    echo '################################################################################################################################'
+
+    for (( ; ; )) do
+        IS_PRIMARY_EXISTS=$(get_primary)
+        if [ -n "$IS_PRIMARY_EXISTS" ]; then
+            rm -f /tmp/recovery-case
+            exit 0
+        fi
+    done
+    set -o xtrace
+fi
+
 exec "$@" $wsrep_start_position_opt

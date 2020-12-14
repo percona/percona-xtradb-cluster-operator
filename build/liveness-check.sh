@@ -5,6 +5,10 @@ if [[ $1 == '-h' || $1 == '--help' ]];then
     exit
 fi
 
+if [ -f /tmp/recovery-case ]; then
+    exit 0
+fi
+
 if [[ -f '/var/lib/mysql/sst_in_progress' ]] || [[ -f '/var/lib/mysql/wsrep_recovery_verbose.log' ]];  then
     exit 0
 fi

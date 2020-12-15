@@ -85,14 +85,14 @@ func getBucketAndPrefix(bucketURL string) (bucket string, prefix string, err err
 	u, err := url.Parse(bucketURL)
 	if err != nil {
 		err = errors.Wrap(err, "parse url")
-		return
+		return bucket, prefix, err
 	}
 	path := strings.TrimPrefix(u.Path, "/")
 
 	if u.IsAbs() && u.Scheme == "s3" {
 		bucket = u.Host
 		prefix = path + "/"
-		return
+		return bucket, prefix, err
 	}
 	bucketArr := strings.Split(path, "/")
 	if len(bucketArr) > 1 {
@@ -101,10 +101,10 @@ func getBucketAndPrefix(bucketURL string) (bucket string, prefix string, err err
 	bucket = bucketArr[0]
 	if len(bucket) == 0 {
 		err = errors.Errorf("can't get bucket name from %s", bucketURL)
-		return
+		return bucket, prefix, err
 	}
 
-	return
+	return bucket, prefix, err
 }
 
 func getStartGTIDSet(c S3) (string, error) {
@@ -258,8 +258,9 @@ func (r *Recoverer) setBinlogs() error {
 	if err != nil {
 		return errors.Wrapf(err, "list objects with prefix", "binlog_")
 	}
+	reverse(list)
 	binlogs := []string{}
-	for _, binlog := range reverseArr(list) {
+	for _, binlog := range list {
 		if strings.Contains(binlog, "-gtid-set") {
 			continue
 		}
@@ -286,16 +287,15 @@ func (r *Recoverer) setBinlogs() error {
 	if len(binlogs) == 0 {
 		return errors.Errorf("no objects for prefix %s", "binlog_")
 	}
-	r.binlogs = reverseArr(binlogs)
+	reverse(binlogs)
+	r.binlogs = binlogs
 
 	return nil
 }
 
-func reverseArr(arr []string) []string {
-	for i := len(arr)/2 - 1; i >= 0; i-- {
-		opp := len(arr) - 1 - i
-		arr[i], arr[opp] = arr[opp], arr[i]
+func reverse(list []string) {
+	for i := len(list)/2 - 1; i >= 0; i-- {
+		opp := len(list) - 1 - i
+		list[i], list[opp] = list[opp], list[i]
 	}
-
-	return arr
 }

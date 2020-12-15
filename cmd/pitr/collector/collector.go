@@ -26,7 +26,6 @@ type Collector struct {
 	pxcUser        string // user for connection to PXC
 	pxcPass        string // password for connection to PXC
 	bufferSize     int64  // size of uploading buffer
-	//bucketPrefix   string // prefix for files in bucket. For example bucket-name/{prefix}/binlog-file
 }
 
 type Config struct {
@@ -118,7 +117,7 @@ func (c *Collector) CollectBinLogs() error {
 
 	// get last uploaded binlog file name
 	binlogName, err := c.db.GetBinLogName(c.lastSet)
-	if err != nil && !strings.Contains(err.Error(), "converting NULL to string is unsupported") {
+	if err != nil {
 		return errors.Wrap(err, "get latst uploaded binlog name by set")
 	}
 
@@ -163,19 +162,16 @@ func (r *reader) Read(p []byte) (int, error) {
 	return r.r.Read(p)
 }
 
-func mergeErrors(firstErr, secErr error) error {
-	if firstErr != nil && secErr != nil {
-		return errors.New(firstErr.Error() + "; " + secErr.Error())
+func mergeErrors(a, b error) error {
+	if a != nil && b != nil {
+		return errors.New(a.Error() + "; " + b.Error())
 	}
-	if firstErr != nil && secErr == nil {
-		return firstErr
+	if a != nil {
+		return a
 	}
-	if firstErr == nil && secErr != nil {
-		return secErr
-	}
-	return nil
-}
 
+	return b
+}
 func (c *Collector) manageBinlog(binlog string) (err error) {
 	set, err := c.db.GetGTIDSet(binlog)
 	if err != nil {
@@ -212,9 +208,6 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 		return errors.Wrap(err, "open named pipe file error")
 	}
 	defer func() {
-		if err != nil {
-			return
-		}
 		errC := file.Close()
 		if errC != nil {
 			err = mergeErrors(err, errors.Wrapf(errC, "close tmp file for %s", binlog))
@@ -255,7 +248,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 
 	cmd.Wait()
 
-	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != pxc.UsingPassErrorMessage && len(string(stdErr)) != 0 {
+	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != pxc.UsingPassErrorMessage && len(stdErr) != 0 {
 		return errors.Errorf("mysqlbinlog: %s", stdErr)
 	}
 

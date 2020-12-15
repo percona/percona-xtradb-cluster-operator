@@ -90,6 +90,15 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		SecurityContext: spec.ContainerSecurityContext,
 	}
 
+	if cr.CompareVersionWith("1.7.0") < 0 {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+			},
+		})
+	}
+
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		redinessDelay := int32(15)
 		if spec.ReadinessInitialDelaySeconds != nil {
@@ -181,6 +190,14 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  "IS_PROXY_PROTOCOL",
 			Value: "yes",
+		})
+	}
+	if cr.CompareVersionWith("1.7.0") < 0 {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+			},
 		})
 	}
 	if cr.CompareVersionWith("1.7.0") >= 0 {

@@ -148,7 +148,14 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			Value: "%",
 		}
 	}
-
+	if cr.CompareVersionWith("1.7.0") < 0 {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name: "CLUSTERCHECK_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "clustercheck"),
+			},
+		})
+	}
 	if cr.CompareVersionWith("1.7.0") >= 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "mysql-users-secret-file",

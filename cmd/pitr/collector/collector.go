@@ -154,6 +154,8 @@ func (c *Collector) CollectBinLogs() error {
 	return nil
 }
 
+// minio.PutObject method would check if data implements `os.File` and handle it respectively.
+// So we have to restrain it to `io.Reader` only.
 type reader struct {
 	r io.Reader
 }

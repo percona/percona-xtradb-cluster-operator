@@ -40,10 +40,10 @@ spec:
               value: /backup
             - name: PXC_SERVICE
               value: sec-context-pxc
-            - name: MYSQL_ROOT_PASSWORD
+            - name: PXC_PASS
               valueFrom:
                 secretKeyRef:
-                  key: root
+                  key: xtrabackup
                   name: my-cluster-secrets
           imagePullPolicy: Always
           name: xtrabackup

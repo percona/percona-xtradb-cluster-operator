@@ -11,7 +11,7 @@ fi
 
 { set +x; } 2>/dev/null
 MYSQL_USERNAME="${MYSQL_USERNAME:-clustercheck}"
-mysql_pass=$(cat /etc/mysql/mysql-users-secret/clustercheck)
+mysql_pass=$(cat /etc/mysql/mysql-users-secret/clustercheck || :)
 MYSQL_PASSWORD="${mysql_pass:-$CLUSTERCHECK_PASSWORD}"
 ERR_FILE="${ERR_FILE:-/var/log/mysql/clustercheck.log}"
 DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}

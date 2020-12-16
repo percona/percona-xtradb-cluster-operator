@@ -80,11 +80,6 @@ spec:
           env:
             - name: PXC_SERVICE
               value: monitoring-pxc
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-monitoring
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}

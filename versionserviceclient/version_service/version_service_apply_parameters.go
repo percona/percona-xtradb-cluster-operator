@@ -72,6 +72,8 @@ type VersionServiceApplyParams struct {
 	HaproxyVersion *string
 	/*KubeVersion*/
 	KubeVersion *string
+	/*LogCollectorVersion*/
+	LogCollectorVersion *string
 	/*NamespaceUID*/
 	NamespaceUID *string
 	/*OperatorVersion*/
@@ -187,6 +189,17 @@ func (o *VersionServiceApplyParams) WithKubeVersion(kubeVersion *string) *Versio
 // SetKubeVersion adds the kubeVersion to the version service apply params
 func (o *VersionServiceApplyParams) SetKubeVersion(kubeVersion *string) {
 	o.KubeVersion = kubeVersion
+}
+
+// WithLogCollectorVersion adds the logCollectorVersion to the version service apply params
+func (o *VersionServiceApplyParams) WithLogCollectorVersion(logCollectorVersion *string) *VersionServiceApplyParams {
+	o.SetLogCollectorVersion(logCollectorVersion)
+	return o
+}
+
+// SetLogCollectorVersion adds the logCollectorVersion to the version service apply params
+func (o *VersionServiceApplyParams) SetLogCollectorVersion(logCollectorVersion *string) {
+	o.LogCollectorVersion = logCollectorVersion
 }
 
 // WithNamespaceUID adds the namespaceUID to the version service apply params
@@ -342,6 +355,22 @@ func (o *VersionServiceApplyParams) WriteToRequest(r runtime.ClientRequest, reg 
 		qKubeVersion := qrKubeVersion
 		if qKubeVersion != "" {
 			if err := r.SetQueryParam("kubeVersion", qKubeVersion); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	if o.LogCollectorVersion != nil {
+
+		// query param logCollectorVersion
+		var qrLogCollectorVersion string
+		if o.LogCollectorVersion != nil {
+			qrLogCollectorVersion = *o.LogCollectorVersion
+		}
+		qLogCollectorVersion := qrLogCollectorVersion
+		if qLogCollectorVersion != "" {
+			if err := r.SetQueryParam("logCollectorVersion", qLogCollectorVersion); err != nil {
 				return err
 			}
 		}

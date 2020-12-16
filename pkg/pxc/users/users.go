@@ -249,3 +249,45 @@ func (u *Manager) Update160MonitorUserGrant(pass string) (err error) {
 
 	return nil
 }
+
+// Update170XtrabackupUser grants all needed rights to the xtrabackup user
+func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	defer func() {
+		if err != nil {
+			errT := tx.Rollback()
+			if errT != nil {
+				err = errors.Wrapf(err, "rollback error: %v, transaction failed with", errT)
+			}
+			return
+		}
+
+		err = tx.Commit()
+		err = errors.Wrap(err, "commit transaction")
+	}()
+
+	_, err = tx.Exec("CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY ?", pass)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("create operator user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "create xtrabackup user")
+	}
+
+	_, err = tx.Exec("GRANT RELOAD,PROCESS,LOCK TABLES,REPLICATION CLIENT, REPLICATION SLAVE, REPLICATION_APPLIER, SYSTEM_VARIABLES_ADMIN, DROP, SELECT, DELETE, CREATE, INSERT, UPDATE ON *.* TO 'xtrabackup'@'%'")
+	if err != nil {
+		return errors.Wrapf(err, "grant privileges to user xtrabackup")
+	}
+
+	_, err = tx.Exec("FLUSH PRIVILEGES")
+	if err != nil {
+		return errors.Wrap(err, "flush privileges")
+	}
+
+	return nil
+}

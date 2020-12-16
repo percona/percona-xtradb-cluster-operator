@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -14,7 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
@@ -27,6 +30,30 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 
 	if cr.Spec.Backup != nil {
 		bcpObj := backup.New(cr)
+
+		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled {
+			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
+			if err != nil {
+				return fmt.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
+			}
+			binlogCollectorName := cr.Name + "-pitr"
+			currentCollector := appsv1.Deployment{}
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, &currentCollector)
+			if err != nil && k8serrors.IsNotFound(err) {
+				err = r.client.Create(context.TODO(), &binlogCollector)
+				if err != nil && !k8serrors.IsAlreadyExists(err) {
+					return fmt.Errorf("create binlog collector deployment for cluster '%s': %v", cr.Name, err)
+				}
+			} else if err != nil {
+				return fmt.Errorf("get binlogCollector '%s': %v", binlogCollectorName, err)
+			} else {
+				currentCollector.Spec = binlogCollector.Spec
+				err = r.client.Update(context.TODO(), &currentCollector)
+				if err != nil {
+					return fmt.Errorf("update binlogCollector '%s': %v", binlogCollectorName, err)
+				}
+			}
+		}
 
 		for _, bcp := range cr.Spec.Backup.Schedule {
 			backups[bcp.Name] = bcp

@@ -811,7 +811,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			}
 		}
 	}
-
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		if len(limitMemory) > 0 || len(requestMemory) > 0 {
 			configMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])

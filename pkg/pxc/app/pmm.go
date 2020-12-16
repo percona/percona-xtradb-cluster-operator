@@ -7,7 +7,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
-func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGreater bool) corev1.Container {
+func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v160OrGreater bool) corev1.Container {
 	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
 
 	for i := 30100; i <= 30105; i++ {
@@ -53,7 +53,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGrea
 		container.Ports = ports
 	}
 
-	if v170OrGreater {
+	if v160OrGreater {
 		container.LivenessProbe = &corev1.Probe{
 			InitialDelaySeconds: 60,
 			TimeoutSeconds:      5,

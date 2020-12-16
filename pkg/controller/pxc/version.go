@@ -104,16 +104,17 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return errors.New("cluster is not ready")
 	}
 
-	newVersion, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.VersionServiceEndpoint, versionMeta{
-		Apply:           cr.Spec.UpgradeOptions.Apply,
-		Platform:        string(cr.Spec.Platform),
-		KubeVersion:     r.serverVersion.Info.GitVersion,
-		PXCVersion:      cr.Status.PXC.Version,
-		PMMVersion:      cr.Status.PMM.Version,
-		HAProxyVersion:  cr.Status.HAProxy.Version,
-		ProxySQLVersion: cr.Status.ProxySQL.Version,
-		BackupVersion:   cr.Status.Backup.Version,
-		CRUID:           string(cr.GetUID()),
+	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, versionMeta{
+		Apply:               cr.Spec.UpgradeOptions.Apply,
+		Platform:            string(cr.Spec.Platform),
+		KubeVersion:         r.serverVersion.Info.GitVersion,
+		PXCVersion:          cr.Status.PXC.Version,
+		PMMVersion:          cr.Status.PMM.Version,
+		HAProxyVersion:      cr.Status.HAProxy.Version,
+		ProxySQLVersion:     cr.Status.ProxySQL.Version,
+		BackupVersion:       cr.Status.Backup.Version,
+		LogCollectorVersion: cr.Status.LogCollector.Version,
+		CRUID:               string(cr.GetUID()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to check version: %v", err)
@@ -164,6 +165,15 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		cr.Spec.HAProxy.Image = newVersion.HAProxyImage
 	}
 
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.Spec.LogCollector.Image != newVersion.LogCollectorImage {
+		if cr.Status.LogCollector.Version == "" {
+			log.Info(fmt.Sprintf("set LogCollector version to %s", newVersion.LogCollectorVersion))
+		} else {
+			log.Info(fmt.Sprintf("update LogCollector version from %s to %s", cr.Status.LogCollector.Version, newVersion.LogCollectorVersion))
+		}
+		cr.Spec.LogCollector.Image = newVersion.LogCollectorImage
+	}
+
 	err = r.client.Update(context.Background(), cr)
 	if err != nil {
 		return fmt.Errorf("failed to update CR: %v", err)
@@ -182,6 +192,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	cr.Status.Backup.Version = newVersion.BackupVersion
 	cr.Status.PXC.Version = newVersion.PXCVersion
 	cr.Status.PXC.Image = newVersion.PXCImage
+	cr.Status.LogCollector.Version = newVersion.LogCollectorVersion
 
 	err = r.client.Status().Update(context.Background(), cr)
 	if err != nil {

@@ -50,6 +50,15 @@ spec:
                   key: monitor
                   name: internal-upgrade-haproxy
           imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/readiness-check.sh
+            failureThreshold: 4
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
           name: haproxy
           ports:
             - containerPort: 3306

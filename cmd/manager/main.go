@@ -127,11 +127,7 @@ func main() {
 
 	log.Info("Starting the Cmd.")
 
-	stopCH, err := k8s.StartStopSignalHandler(mgr.GetClient())
-	if err != nil {
-		log.Error(err, "start stop signal handler")
-		os.Exit(1)
-	}
+	stopCH := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
 
 	// Start the Cmd
 	if err := mgr.Start(stopCH); err != nil {

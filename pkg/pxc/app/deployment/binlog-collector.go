@@ -1,0 +1,158 @@
+package deployment
+
+import (
+	"strconv"
+
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/pkg/errors"
+)
+
+func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployment, error) {
+	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
+	binlogCollectorName := cr.Name + "-pitr"
+	pxcUser := "xtrabackup"
+	sleepTime := strconv.FormatInt(cr.Spec.Backup.PITR.TimeBetweenUploads, 10)
+
+	bufferSize, err := getBufferSize(cr.Spec)
+	if err != nil {
+		return appsv1.Deployment{}, errors.Wrap(err, "get buffer size")
+	}
+
+	labels := map[string]string{
+		"app.kubernetes.io/name":       "percona-xtradb-cluster",
+		"app.kubernetes.io/instance":   cr.Name,
+		"app.kubernetes.io/component":  "pitr",
+		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+	}
+	for key, value := range cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Labels {
+		labels[key] = value
+	}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "ENDPOINT",
+			Value: storage.S3.EndpointURL,
+		},
+		{
+			Name: "SECRET_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(storage.S3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
+			},
+		},
+		{
+			Name: "ACCESS_KEY_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(storage.S3.CredentialsSecret, "AWS_ACCESS_KEY_ID"),
+			},
+		},
+		{
+			Name:  "S3_BUCKET_URL",
+			Value: storage.S3.Bucket,
+		},
+		{
+			Name:  "PXC_SERVICE",
+			Value: cr.Name + "-pxc",
+		},
+		{
+			Name:  "PXC_USER",
+			Value: pxcUser,
+		},
+		{
+			Name: "PXC_PASS",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(cr.Spec.SecretsName, pxcUser),
+			},
+		},
+		{
+			Name:  "DEFAULT_REGION",
+			Value: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].S3.Region,
+		},
+		{
+			Name:  "COLLECT_SPAN_SEC",
+			Value: sleepTime,
+		},
+		{
+			Name:  "BUFFER_SIZE",
+			Value: strconv.FormatInt(bufferSize, 10),
+		},
+	}
+	res, err := app.CreateResources(cr.Spec.Backup.PITR.Resources)
+	if err != nil {
+		return appsv1.Deployment{}, errors.Wrap(err, "create resources")
+	}
+	container := corev1.Container{
+		Name:            "pitr",
+		Image:           cr.Spec.Backup.Image,
+		ImagePullPolicy: cr.Spec.Backup.ImagePullPolicy,
+		Env:             envs,
+		SecurityContext: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].ContainerSecurityContext,
+		Command:         []string{"pitr"},
+		Resources:       res,
+	}
+	replicas := int32(1)
+
+	return appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      binlogCollectorName,
+			Namespace: cr.Namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        binlogCollectorName,
+					Namespace:   cr.Namespace,
+					Labels:      labels,
+					Annotations: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Annotations,
+				},
+				Spec: corev1.PodSpec{
+					Containers:         []corev1.Container{container},
+					ImagePullSecrets:   cr.Spec.Backup.ImagePullSecrets,
+					ServiceAccountName: cr.Spec.Backup.ServiceAccountName,
+					SecurityContext:    cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].PodSecurityContext,
+					Affinity:           cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Affinity,
+					Tolerations:        cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Tolerations,
+					NodeSelector:       cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].NodeSelector,
+					SchedulerName:      cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].SchedulerName,
+					PriorityClassName:  cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].PriorityClassName,
+				},
+			},
+		},
+	}, nil
+}
+
+func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) {
+	var memory string
+
+	if cluster.Backup.PITR.Resources == nil {
+		return 0, nil
+	}
+
+	if cluster.Backup.PITR.Resources.Requests != nil && cluster.Backup.PITR.Resources.Requests.Memory != "" {
+		memory = cluster.Backup.PITR.Resources.Requests.Memory
+	}
+
+	if cluster.Backup.PITR.Resources.Limits != nil && cluster.Backup.PITR.Resources.Limits.Memory != "" {
+		memory = cluster.Backup.PITR.Resources.Limits.Memory
+	}
+
+	k8sQuantity, err := resource.ParseQuantity(memory)
+	if err != nil {
+		return 0, err
+	}
+
+	return k8sQuantity.Value() / int64(100) * int64(75), nil
+}

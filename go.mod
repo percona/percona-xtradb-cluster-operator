@@ -14,8 +14,10 @@ require (
 	github.com/google/go-cmp v0.4.1 // indirect
 	github.com/hashicorp/go-version v1.1.0
 	github.com/jetstack/cert-manager v0.15.1
-	github.com/minio/minio-go/v7 v7.0.6 // indirect
+	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/minio/minio-go/v7 v7.0.6
 	github.com/operator-framework/operator-sdk v0.17.1
+	github.com/pierrec/lz4 v2.6.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
 	golang.org/x/mod v0.3.0 // indirect
@@ -26,7 +28,9 @@ require (
 	k8s.io/api v0.18.6
 	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/kubernetes v1.13.0
 	sigs.k8s.io/controller-runtime v0.6.2
+
 )
 
 replace (

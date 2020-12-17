@@ -185,7 +185,7 @@ spec:
           secret:
             defaultMode: 420
             optional: false
-            secretName: internal-some-name
+            secretName: internal-upgrade-haproxy
   updateStrategy:
     type: OnDelete
   volumeClaimTemplates:

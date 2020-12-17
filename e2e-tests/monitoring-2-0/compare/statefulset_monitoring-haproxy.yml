@@ -33,11 +33,6 @@ spec:
         - env:
             - name: PXC_SERVICE
               value: monitoring-pxc
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-monitoring
           imagePullPolicy: Always
           name: haproxy
           ports:
@@ -90,6 +85,8 @@ spec:
               name: haproxy-custom
             - mountPath: /etc/haproxy/pxc
               name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -105,6 +102,11 @@ spec:
           name: haproxy-custom
         - emptyDir: {}
           name: haproxy-auto
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-monitoring
   updateStrategy:
     rollingUpdate:
       partition: 0

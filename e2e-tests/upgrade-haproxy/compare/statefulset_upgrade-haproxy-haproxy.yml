@@ -44,11 +44,6 @@ spec:
         - env:
             - name: PXC_SERVICE
               value: upgrade-haproxy-pxc
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-upgrade-haproxy
           imagePullPolicy: Always
           name: haproxy
           ports:
@@ -84,6 +79,8 @@ spec:
               name: haproxy-custom
             - mountPath: /etc/haproxy/pxc
               name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -91,11 +88,6 @@ spec:
           env:
             - name: PXC_SERVICE
               value: upgrade-haproxy-pxc
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-upgrade-haproxy
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -106,6 +98,8 @@ spec:
               name: haproxy-custom
             - mountPath: /etc/haproxy/pxc
               name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -122,6 +116,11 @@ spec:
           name: haproxy-custom
         - emptyDir: {}
           name: haproxy-auto
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-upgrade-haproxy
   updateStrategy:
     rollingUpdate:
       partition: 0

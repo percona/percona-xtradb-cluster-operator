@@ -68,6 +68,8 @@ spec:
               name: haproxy-custom
             - mountPath: /etc/haproxy/pxc
               name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_pxc_nodes.sh

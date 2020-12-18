@@ -81,7 +81,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 					{
 						Name:            "run-backup",
 						Image:           bcp.image,
-						ImagePullPolicy: corev1.PullAlways,
+						ImagePullPolicy: bcp.imagePullPolicy,
 						Resources:       resources,
 						SecurityContext: strg.ContainerSecurityContext,
 						Env: []corev1.EnvVar{

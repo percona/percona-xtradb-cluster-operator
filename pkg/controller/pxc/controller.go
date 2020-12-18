@@ -69,7 +69,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		crons:         NewCronRegistry(),
 		serverVersion: sv,
 		clientcmd:     cli,
-		statusMutex:   new(sync.Mutex),
+		lockers:       newLockStore(),
 	}, nil
 }
 
@@ -101,10 +101,32 @@ type ReconcilePerconaXtraDBCluster struct {
 	crons          CronRegistry
 	clientcmd      *clientcmd.Client
 	syncUsersState int32
+	serverVersion  *version.ServerVersion
+	lockers        lockStore
+}
 
-	serverVersion *version.ServerVersion
-	statusMutex   *sync.Mutex
-	updateSync    int32
+type lockStore struct {
+	store *sync.Map
+}
+
+func newLockStore() lockStore {
+	return lockStore{
+		store: new(sync.Map),
+	}
+}
+
+func (l lockStore) LoadOrCreate(key string) lock {
+	val, _ := l.store.LoadOrStore(key, lock{
+		statusMutex: new(sync.Mutex),
+		updateSync:  new(int32),
+	})
+
+	return val.(lock)
+}
+
+type lock struct {
+	statusMutex *sync.Mutex
+	updateSync  *int32
 }
 
 const (
@@ -150,15 +172,20 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
 	}
+
+	// As operator can handle a few clusters
+	// lock should be created per cluster to not lock cron jobs of other clusters
+	l := r.lockers.LoadOrCreate(request.NamespacedName.String())
+
 	// Fetch the PerconaXtraDBCluster instance
 	// PerconaXtraDBCluster object is also accessed and changed by a version service's corn job (that run concurrently)
-	r.statusMutex.Lock()
-	defer r.statusMutex.Unlock()
+	l.statusMutex.Lock()
+	defer l.statusMutex.Unlock()
 	// we have to be sure the reconcile loop will be run at least once
 	// in-between any version service jobs (hence any two vs jobs shouldn't be run sequentially).
 	// the version service job sets the state to  `updateWait` and the next job can be run only
 	// after the state was dropped to`updateDone` again
-	defer atomic.StoreInt32(&r.updateSync, updateDone)
+	defer atomic.StoreInt32(l.updateSync, updateDone)
 
 	o := &api.PerconaXtraDBCluster{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, o)
@@ -784,7 +811,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			}
 		}
 	}
-
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		if len(limitMemory) > 0 || len(requestMemory) > 0 {
 			configMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])

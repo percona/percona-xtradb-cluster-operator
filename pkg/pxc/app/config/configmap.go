@@ -42,7 +42,6 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.
 	if err != nil {
 		return nil, err
 	}
-
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",

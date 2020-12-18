@@ -59,10 +59,19 @@ const (
 type PXCScheduledBackup struct {
 	Image              string                        `json:"image,omitempty"`
 	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullPolicy    corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
 	Schedule           []PXCScheduledBackupSchedule  `json:"schedule,omitempty"`
 	Storages           map[string]*BackupStorageSpec `json:"storages,omitempty"`
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
 	Annotations        map[string]string             `json:"annotations,omitempty"`
+	PITR               PITRSpec                      `json:"pitr,omitempty"`
+}
+
+type PITRSpec struct {
+	Enabled            bool          `json:"enabled"`
+	StorageName        string        `json:"storageName"`
+	Resources          *PodResources `json:"resources,omitempty"`
+	TimeBetweenUploads int64         `json:"timeBetweenUploads,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
@@ -220,7 +229,11 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		if c.Backup.Image == "" {
 			return errors.New("backup.Image can't be empty")
 		}
-
+		if cr.Spec.Backup.PITR.Enabled {
+			if len(cr.Spec.Backup.PITR.StorageName) == 0 {
+				return errors.Errorf("backup.PITR.StorageName can't be empty")
+			}
+		}
 		for _, sch := range c.Backup.Schedule {
 			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
 			if !ok {
@@ -616,6 +629,16 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.Backup != nil {
+
+		if len(c.Backup.ImagePullPolicy) == 0 {
+			c.Backup.ImagePullPolicy = corev1.PullAlways
+		}
+		if cr.Spec.Backup.PITR.Enabled {
+			if cr.Spec.Backup.PITR.TimeBetweenUploads == 0 {
+				cr.Spec.Backup.PITR.TimeBetweenUploads = 60
+			}
+		}
+
 		for _, sch := range c.Backup.Schedule {
 			strg := c.Backup.Storages[sch.StorageName]
 			switch strg.Type {

@@ -117,6 +117,19 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		)
 	}
 
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		livenessDelay := int32(60)
+		if spec.LivenessInitialDelaySeconds != nil {
+			livenessDelay = *spec.LivenessInitialDelaySeconds
+		}
+		appc.LivenessProbe = app.Probe(&corev1.Probe{
+			InitialDelaySeconds: livenessDelay,
+			TimeoutSeconds:      5,
+			PeriodSeconds:       30,
+			FailureThreshold:    4,
+		}, "/usr/local/bin/readiness-check.sh")
+	}
+
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 	if err != nil {
 		return appc, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")

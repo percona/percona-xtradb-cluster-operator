@@ -39,6 +39,15 @@ spec:
                 secretKeyRef:
                   key: AWS_SECRET_ACCESS_KEY
                   name: minio-secret
+            - name: PXC_SERVICE
+              value: sec-context-pxc
+            - name: PXC_USER
+              value: xtrabackup
+            - name: PXC_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup
+                  name: my-cluster-secrets
             - name: XB_USE_MEMORY
               value: "750000000"
           imagePullPolicy: Always

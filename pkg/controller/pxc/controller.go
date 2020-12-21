@@ -218,6 +218,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}()
 
+	if o.CompareVersionWith("1.7.0") >= 0 {
+		err = r.recoverFullClusterCrashIfNeeded(o)
+		if err != nil {
+			log.Error(err, "Failed to check if cluster needs to recover")
+		}
+	}
+
 	err = r.reconcileUsersSecret(o)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("reconcile users secret: %v", err)

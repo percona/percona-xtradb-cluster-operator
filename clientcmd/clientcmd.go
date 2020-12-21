@@ -1,9 +1,12 @@
 package clientcmd
 
 import (
+	"bytes"
+	"context"
 	"io"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	restclient "k8s.io/client-go/rest"
@@ -40,6 +43,31 @@ func NewClient() (*Client, error) {
 		client:     cl,
 		restconfig: restconfig,
 	}, nil
+}
+
+func (c *Client) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) (string, error) {
+	logs, err := c.client.Pods(namespace).GetLogs(podName, opts).Stream(context.TODO())
+	if err != nil {
+		return "", err
+	}
+	defer logs.Close()
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, logs)
+	return buf.String(), err
+}
+
+func (c *Client) IsPodRunning(namespace, podName string) (bool, error) {
+	pod, err := c.client.Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	isReady := false
+	for _, v := range pod.Status.Conditions {
+		if v.Type == corev1.ContainersReady && v.Status == corev1.ConditionTrue {
+			isReady = true
+		}
+	}
+	return pod.Status.Phase == corev1.PodRunning && isReady, nil
 }
 
 func (c *Client) Exec(pod *corev1.Pod, containerName string, command []string, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {

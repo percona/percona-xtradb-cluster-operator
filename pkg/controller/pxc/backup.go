@@ -30,12 +30,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 
 	if cr.Spec.Backup != nil {
 		bcpObj := backup.New(cr)
-
+		binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
+		if err != nil {
+			return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
+		}
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled {
-			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
-			if err != nil {
-				return fmt.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
-			}
 			binlogCollectorName := cr.Name + "-pitr"
 			currentCollector := appsv1.Deployment{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, &currentCollector)
@@ -52,6 +51,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				if err != nil {
 					return fmt.Errorf("update binlogCollector '%s': %v", binlogCollectorName, err)
 				}
+			}
+		}
+		if !cr.Spec.Backup.PITR.Enabled {
+			err = r.client.Delete(context.TODO(), &binlogCollector)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				errors.Wrap(err, "remove pitr deployment")
 			}
 		}
 

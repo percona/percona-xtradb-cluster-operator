@@ -32,23 +32,30 @@ type Recoverer struct {
 }
 
 type Config struct {
-	PXCServiceName string
-	PXCUser        string
-	PXCPass        string
-	BackupStorage  S3
-	RecoverTime    string
-	RecoverType    string
-	GTIDSet        string
-	BinlogStorage  S3
+	PXCServiceName string `env:"PXC_SERVICE,required"`
+	PXCUser        string `env:"PXC_USER,required"`
+	PXCPass        string `env:"PXC_PASS,required"`
+	BackupStorage  BackupS3
+	RecoverTime    string `env:"PITR_DATE"`
+	RecoverType    string `env:"PITR_RECOVERY_TYPE,required"`
+	GTIDSet        string `env:"PITR_GTID_SET"`
+	BinlogStorage  BinlogS3
 }
 
-type S3 struct {
-	Endpoint    string
-	AccessKeyID string
-	AccessKey   string
-	Region      string
-	BackupDest  string
-	BucketURL   string
+type BackupS3 struct {
+	Endpoint    string `env:"ENDPOINT,required"`
+	AccessKeyID string `env:"ACCESS_KEY_ID,required"`
+	AccessKey   string `env:"SECRET_ACCESS_KEY,required"`
+	Region      string `env:"DEFAULT_REGION,required"`
+	BackupDest  string `env:"S3_BUCKET_URL,required"`
+}
+
+type BinlogS3 struct {
+	Endpoint    string `env:"BINLOG_S3_ENDPOINT,required"`
+	AccessKeyID string `env:"BINLOG_ACCESS_KEY_ID,required"`
+	AccessKey   string `env:"BINLOG_SECRET_ACCESS_KEY,required"`
+	Region      string `env:"BINLOG_S3_REGION,required"`
+	BucketURL   string `env:"BINLOG_S3_BUCKET_URL,required"`
 }
 
 type RecoverType string
@@ -107,7 +114,7 @@ func getBucketAndPrefix(bucketURL string) (bucket string, prefix string, err err
 	return bucket, prefix, err
 }
 
-func getStartGTIDSet(c S3) (string, error) {
+func getStartGTIDSet(c BackupS3) (string, error) {
 	bucketArr := strings.Split(c.BackupDest, "/")
 	if len(bucketArr) < 2 {
 		return "", errors.New("parsing bucket")
@@ -164,6 +171,10 @@ func (r *Recoverer) Run() error {
 }
 
 func (r *Recoverer) recover() (err error) {
+	err = r.db.DropCollectorFunctions()
+	if err != nil {
+		return errors.Wrap(err, "drop collector funcs")
+	}
 	flags := ""
 	endTime := time.Time{}
 	// TODO: add logic for all types
@@ -179,7 +190,6 @@ func (r *Recoverer) recover() (err error) {
 		if err != nil {
 			return errors.Wrap(err, "parse date")
 		}
-
 	case Latest:
 	default:
 		return errors.New("wrong recover type")
@@ -187,7 +197,6 @@ func (r *Recoverer) recover() (err error) {
 
 	for _, binlog := range r.binlogs {
 		log.Println("working with", binlog)
-
 		if r.recoverType == Date {
 			binlogArr := strings.Split(binlog, "_")
 			if len(binlogArr) < 2 {
@@ -256,7 +265,7 @@ func getLastBackupGTID(infoObj io.Reader) (string, error) {
 func (r *Recoverer) setBinlogs() error {
 	list, err := r.storage.ListObjects("binlog_")
 	if err != nil {
-		return errors.Wrapf(err, "list objects with prefix", "binlog_")
+		return errors.Wrap(err, "list objects with prefix 'binlog_'")
 	}
 	reverse(list)
 	binlogs := []string{}

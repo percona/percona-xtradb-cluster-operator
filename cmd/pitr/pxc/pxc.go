@@ -154,7 +154,7 @@ func (p *PXC) GetBinLogFirstTimestamp(binlog string) (string, error) {
 		}
 	}
 	var timestamp string
-	row := p.db.QueryRow("SELECT get_first_record_timestamp_by_binlog(?)", binlog)
+	row := p.db.QueryRow("SELECT get_first_record_timestamp_by_binlog(?) DIV 1000000", binlog)
 
 	err = row.Scan(&timestamp)
 	if err != nil {
@@ -196,4 +196,22 @@ func GetPXCLastHost(pxcServiceName string) (string, error) {
 	}
 
 	return lastHost, nil
+}
+
+func (p *PXC) DropCollectorFunctions() error {
+	_, err := p.db.Exec("DROP FUNCTION IF EXISTS get_first_record_timestamp_by_binlog")
+	if err != nil {
+		return errors.Wrap(err, "drop get_first_record_timestamp_by_binlog function")
+	}
+	_, err = p.db.Exec("DROP FUNCTION IF EXISTS get_binlog_by_gtid_set")
+	if err != nil {
+		return errors.Wrap(err, "drop get_binlog_by_gtid_set function")
+	}
+
+	_, err = p.db.Exec("DROP FUNCTION IF EXISTS get_gtid_set_by_binlog")
+	if err != nil {
+		return errors.Wrap(err, "drop get_gtid_set_by_binlog function")
+	}
+
+	return nil
 }

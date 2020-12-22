@@ -125,6 +125,17 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			Name:      "mysql-users-secret-file",
 			MountPath: "/etc/mysql/mysql-users-secret",
 		})
+
+		livenessDelay := int32(60)
+		if spec.LivenessInitialDelaySeconds != nil {
+			livenessDelay = *spec.LivenessInitialDelaySeconds
+		}
+		appc.LivenessProbe = app.Probe(&corev1.Probe{
+			InitialDelaySeconds: livenessDelay,
+			TimeoutSeconds:      5,
+			PeriodSeconds:       30,
+			FailureThreshold:    4,
+		}, "/usr/local/bin/readiness-check.sh")
 	}
 
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")

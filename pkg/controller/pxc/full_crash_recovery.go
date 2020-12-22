@@ -70,10 +70,9 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace st
 			return nil
 		}
 
-		seqStrRaw := sequenceRegexp.FindString(logs)
-		seqStrSplit := strings.Split(seqStrRaw, ":")
-		if len(seqStrSplit) < 2 {
-			return errors.Wrapf(err, "get sequence number from %s pod, seqSTR: %s", podName, seqStrRaw)
+		seqStrSplit := sequenceRegexp.FindStringSubmatch(logs)
+		if len(seqStrSplit) != 2 {
+			return errors.Wrapf(err, "get sequence number from %s pod, seqSTR: %s", podName, seqStrSplit)
 		}
 
 		seq, err := strconv.ParseInt(strings.TrimSpace(seqStrSplit[1]), 10, 64)

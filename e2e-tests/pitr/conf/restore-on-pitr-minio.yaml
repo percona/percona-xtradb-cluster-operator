@@ -1,0 +1,19 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: on-pitr-minio
+spec:
+  pxcCluster: pitr
+  backupName: on-pitr-minio
+#  backupSource:
+#      destination: s3://operator-testing/demand-backup-2020-12-03-09:05:22-full
+#      s3:
+#        bucket: operator-testing
+#        credentialsSecret: gcp-cs-secret
+#        endpointUrl: https://storage.googleapis.com
+#        region: us-east-1
+  pitr:
+    type: latest
+    backupSource:
+      storageName: "minio-binlogs"
+

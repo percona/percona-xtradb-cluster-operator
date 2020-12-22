@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,8 @@ import (
 )
 
 var ErrNotAllPXCPodsRunning = errors.New("Not all pxc pods are running")
+
+var sequenceRegexp = regexp.MustCompile(`node with sequence number [(]seqno[)]: ([-]?\d+)`)
 
 const crashBorder = `################################################################################################################################`
 
@@ -47,7 +50,7 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.P
 }
 
 func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace string, pxcSize int) error {
-	maxSeq := -100
+	maxSeq := int64(-100)
 	maxSeqPod := ""
 	logLinesRequired := int64(7)
 	logOpts := &corev1.PodLogOptions{
@@ -67,11 +70,16 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace st
 			return nil
 		}
 
-		seq, err := strconv.Atoi(strings.Split(strings.Split(logs, "\n")[3], "(seqno): ")[1])
-		if err != nil {
-			return errors.Wrapf(err, "parse sequence number %d from %s pod", seq, podName)
+		seqStrRaw := sequenceRegexp.FindString(logs)
+		seqStrSplit := strings.Split(seqStrRaw, ":")
+		if len(seqStrSplit) < 2 {
+			return errors.Wrapf(err, "get sequence number from %s pod, seqSTR: %s", podName, seqStrRaw)
 		}
 
+		seq, err := strconv.ParseInt(strings.TrimSpace(seqStrSplit[1]), 10, 64)
+		if err != nil {
+			return errors.Wrapf(err, "parse sequence %s", seqStrSplit[1])
+		}
 		if seq > maxSeq {
 			maxSeq = seq
 			maxSeqPod = podName

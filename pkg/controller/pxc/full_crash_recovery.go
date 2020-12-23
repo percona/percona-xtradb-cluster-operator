@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var ErrNotAllPXCPodsRunning = errors.New("Not all pxc pods are running")
+var ErrNotAllPXCPodsRunning = errors.New("not all pxc pods are running")
 
 var sequenceRegexp = regexp.MustCompile(`node with sequence number [(]seqno[)]: ([-]?\d+)`)
 

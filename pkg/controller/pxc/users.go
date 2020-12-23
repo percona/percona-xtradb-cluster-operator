@@ -246,9 +246,8 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			action:    rProxy | rPXCifPMM,
 		},
 		{
-			name:   "clustercheck",
-			hosts:  []string{"localhost"},
-			action: rPXC,
+			name:  "clustercheck",
+			hosts: []string{"localhost"},
 		},
 		{
 			name:   "operator",
@@ -338,12 +337,12 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return false, false, errors.Wrap(err, "update sys users pass")
 	}
-
-	err = updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
-	if err != nil {
-		return false, false, errors.Wrap(err, "update Proxy users pass")
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+		err = updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
+		if err != nil {
+			return false, false, errors.Wrap(err, "update Proxy users pass")
+		}
 	}
-
 	if todo&syncProxyUsers != 0 && !restartProxy {
 		err = r.syncPXCUsersWithProxySQL(cr)
 		if err != nil {

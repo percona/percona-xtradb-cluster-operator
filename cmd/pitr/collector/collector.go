@@ -38,6 +38,7 @@ type Config struct {
 	S3BucketURL    string `env:"S3_BUCKET_URL,required"`
 	S3Region       string `env:"DEFAULT_REGION,required"`
 	BufferSize     int64  `env:"BUFFER_SIZE"`
+	CollectSpanSec int64  `env:"COLLECT_SPAN_SEC" envDefault:"60"`
 }
 
 const (

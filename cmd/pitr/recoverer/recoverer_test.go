@@ -6,7 +6,61 @@ import (
 )
 
 func TestGetBucketAndPrefix(t *testing.T) {
-	bucket, prefix, err := getBucketAndPrefix("operator-testing/test")
+	type testCase struct {
+		address        string
+		expecteBucket  string
+		expectedPrefix string
+	}
+	cases := []testCase{
+		{
+			address:        "operator-testing/test",
+			expecteBucket:  "operator-testing",
+			expectedPrefix: "test/",
+		},
+		{
+			address:        "s3://operator-testing/test",
+			expecteBucket:  "operator-testing",
+			expectedPrefix: "test/",
+		},
+		{
+			address:        "https://somedomain/operator-testing/test",
+			expecteBucket:  "operator-testing",
+			expectedPrefix: "test/",
+		},
+		{
+			address:        "operator-testing/test/",
+			expecteBucket:  "operator-testing",
+			expectedPrefix: "test/",
+		},
+		{
+			address:        "operator-testing/test/pitr",
+			expecteBucket:  "operator-testing",
+			expectedPrefix: "test/pitr/",
+		},
+		{
+			address:        "https://somedomain/operator-testing",
+			expecteBucket:  "operator-testing",
+			expectedPrefix: "",
+		},
+		{
+			address:        "operator-testing",
+			expecteBucket:  "operator-testing",
+			expectedPrefix: "",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.address, func(t *testing.T) {
+			bucket, prefix, err := getBucketAndPrefix(c.address)
+			if err != nil {
+				t.Error("get from 'operator-testing/test'", err.Error())
+			}
+
+			if bucket != c.expecteBucket || prefix != c.expectedPrefix {
+				t.Errorf("wrong parsing of '%s'", c.address)
+			}
+		})
+	}
+	/*bucket, prefix, err := getBucketAndPrefix("operator-testing/test")
 	if err != nil {
 		t.Error("get from 'operator-testing/test'", err.Error())
 	}
@@ -26,7 +80,7 @@ func TestGetBucketAndPrefix(t *testing.T) {
 	}
 	if bucket != "operator-testing" && prefix != "test" {
 		t.Error("wrong parsing of 'operator-testing/test'")
-	}
+	}*/
 }
 
 func TestGetLastBackupGTID(t *testing.T) {

@@ -94,7 +94,7 @@ func getBucketAndPrefix(bucketURL string) (bucket string, prefix string, err err
 		err = errors.Wrap(err, "parse url")
 		return bucket, prefix, err
 	}
-	path := strings.TrimPrefix(u.Path, "/")
+	path := strings.TrimPrefix(strings.TrimSuffix(u.Path, "/"), "/")
 
 	if u.IsAbs() && u.Scheme == "s3" {
 		bucket = u.Host

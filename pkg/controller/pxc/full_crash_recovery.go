@@ -84,7 +84,7 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace st
 			maxSeqPod = podName
 		}
 	}
-	log.Info("We are in full cluster crash,starting recovery")
+	log.Info("We are in full cluster crash, starting recovery")
 	log.Info("Results of scanning sequences", "pod", maxSeqPod, "maxSeq", maxSeq)
 
 	pod := &corev1.Pod{}

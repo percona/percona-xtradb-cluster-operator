@@ -521,13 +521,13 @@ if [[ -z "$IS_PRIMARY_EXISTS" && -n "$NOT_SAVE_BOOTSTRAP" ]] || [[ -z "$IS_PRIMA
     set +o xtrace
     sleep 3
 
-    echo '################################################################################################################################'
+    echo '#####################################################FULL_PXC_CLUSTER_CRASH#####################################################'
     echo 'You have the situation of a full PXC cluster crash. In order to restore your PXC cluster, please check the log'
     echo 'from all pods/nodes to find the node with the most recent data (the one with the highest sequence number (seqno).'
     echo "It is $NODE_NAME node with sequence number (seqno): $seqno"
     echo 'If you want to recover from this node you need to execute the following command:'
     echo "kubectl exec $(hostname) -c pxc -- sh -c 'kill -s USR1 1'"
-    echo '################################################################################################################################'
+    echo '#####################################################FULL_PXC_CLUSTER_CRASH#####################################################'
 
     for (( ; ; )) do
         IS_PRIMARY_EXISTS=$(get_primary)

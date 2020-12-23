@@ -1,10 +1,11 @@
 package clientcmd
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"io"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -45,15 +46,19 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) (string, error) {
+func (c *Client) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) ([]string, error) {
 	logs, err := c.client.Pods(namespace).GetLogs(podName, opts).Stream(context.TODO())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer logs.Close()
-	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, logs)
-	return buf.String(), err
+
+	logArr := make([]string, 0)
+	sc := bufio.NewScanner(logs)
+	for sc.Scan() {
+		logArr = append(logArr, sc.Text())
+	}
+	return logArr, errors.Wrap(sc.Err(), "reading logs stream")
 }
 
 func (c *Client) IsPodRunning(namespace, podName string) (bool, error) {

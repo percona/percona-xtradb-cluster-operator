@@ -20,7 +20,7 @@ var ErrNotAllPXCPodsRunning = errors.New("not all pxc pods are running")
 
 var sequenceRegexp = regexp.MustCompile(`node with sequence number [(]seqno[)]: ([-]?\d+)`)
 
-const crashBorder = `################################################################################################################################`
+const crashBorder = `#####################################################FULL_PXC_CLUSTER_CRASH#####################################################`
 
 func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.PerconaXtraDBCluster) error {
 
@@ -42,8 +42,11 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.P
 		return errors.Wrap(err, "get logs from pxc 0 pod")
 	}
 
-	if strings.HasPrefix(logs, crashBorder+"\n") && strings.HasSuffix(logs, crashBorder+"\n") &&
-		strings.Contains(logs, "You have the situation of a full PXC cluster crash.") {
+	if len(logs) != 7 {
+		return nil
+	}
+
+	if logs[0] == crashBorder && logs[6] == crashBorder {
 		return r.doFullCrashRecovery(cr.Name, cr.Namespace, int(cr.Spec.PXC.Size))
 	}
 	return nil
@@ -65,12 +68,15 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace st
 			return errors.Wrapf(err, "get logs from %s pod", podName)
 		}
 
-		if !strings.HasPrefix(logs, crashBorder+"\n") || !strings.HasSuffix(logs, crashBorder+"\n") ||
-			!strings.Contains(logs, "You have the situation of a full PXC cluster crash.") {
+		if len(logs) != 7 {
 			return nil
 		}
 
-		seqStrSplit := sequenceRegexp.FindStringSubmatch(logs)
+		if logs[0] != crashBorder || logs[6] != crashBorder {
+			return nil
+		}
+
+		seqStrSplit := sequenceRegexp.FindStringSubmatch(logs[3])
 		if len(seqStrSplit) != 2 {
 			return errors.Wrapf(err, "get sequence number from %s pod, seqSTR: %s", podName, seqStrSplit)
 		}

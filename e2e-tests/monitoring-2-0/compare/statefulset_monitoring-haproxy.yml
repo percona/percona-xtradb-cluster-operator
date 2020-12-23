@@ -33,12 +33,16 @@ spec:
         - env:
             - name: PXC_SERVICE
               value: monitoring-pxc
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-monitoring
           imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/readiness-check.sh
+            failureThreshold: 4
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
           name: haproxy
           ports:
             - containerPort: 3306
@@ -73,6 +77,8 @@ spec:
               name: haproxy-custom
             - mountPath: /etc/haproxy/pxc
               name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -80,11 +86,6 @@ spec:
           env:
             - name: PXC_SERVICE
               value: monitoring-pxc
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-monitoring
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -95,6 +96,8 @@ spec:
               name: haproxy-custom
             - mountPath: /etc/haproxy/pxc
               name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -110,6 +113,11 @@ spec:
           name: haproxy-custom
         - emptyDir: {}
           name: haproxy-auto
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-monitoring
   updateStrategy:
     rollingUpdate:
       partition: 0

@@ -15,7 +15,8 @@ create_namespace run-$GIT_BRANCH-$RANDOM
 deploy_operator
 
 desc 'create PXC cluster'
-apply_config $src_dir/deploy/cr.yaml
 apply_config $src_dir/deploy/secrets.yaml
+apply_config $src_dir/deploy/cr.yaml
+
 
 wait_for_running cluster1-pxc 3

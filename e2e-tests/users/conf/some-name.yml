@@ -1,11 +1,9 @@
 apiVersion: pxc.percona.com/v1-6-0
 kind: PerconaXtraDBCluster
 metadata:
-  name: demand-backup
+  name: some-name
   finalizers:
     - delete-pxc-pods-in-order
-  # annotations:
-  #   percona.com/issue-vault-token: "true"
 spec:
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault
@@ -13,15 +11,6 @@ spec:
   pxc:
     size: 3
     image: -pxc
-    configuration: |
-      [mysqld]
-      wsrep_log_conflicts
-      log_error_verbosity=3
-      wsrep_debug=1
-      [sst]
-      xbstream-opts=--decompress
-      [xtrabackup]
-      compress=lz4
     resources:
       requests:
         memory: 0.1G
@@ -36,8 +25,23 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
-  proxysql:
+    podDisruptionBudget:
+      maxUnavailable: 1
+  haproxy:
     enabled: true
+    size: 3
+    image: -haproxy
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+    tolerations:
+    - key: "node.alpha.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 6000
+    podDisruptionBudget:
+      maxUnavailable: 2
+  proxysql:
+    enabled: false
     size: 1
     image: -proxysql
     resources:
@@ -54,6 +58,8 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
+    podDisruptionBudget:
+      maxUnavailable: 1
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1
@@ -61,6 +67,7 @@ spec:
     serverUser: pmm
   backup:
     image: -backup
+    serviceAccountName: default
     storages:
       pvc:
         type: filesystem

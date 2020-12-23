@@ -61,13 +61,17 @@ func (c *Client) IsPodRunning(namespace, podName string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	isReady := false
+
+	if pod.Status.Phase != corev1.PodRunning {
+		return false, nil
+	}
+
 	for _, v := range pod.Status.Conditions {
 		if v.Type == corev1.ContainersReady && v.Status == corev1.ConditionTrue {
-			isReady = true
+			return true, nil
 		}
 	}
-	return pod.Status.Phase == corev1.PodRunning && isReady, nil
+	return false, nil
 }
 
 func (c *Client) Exec(pod *corev1.Pod, containerName string, command []string, stdin io.Reader, stdout, stderr io.Writer, tty bool) error {

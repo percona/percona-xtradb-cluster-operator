@@ -47,7 +47,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 	cr.Status.Messages = cr.Status.Messages[:0]
 
-	pxcStatus, err := r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC, cr.Namespace)
+	pxcStatus, err := r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC.PodSpec, cr.Namespace)
 	if err != nil {
 		return fmt.Errorf("get pxc status: %v", err)
 	}

@@ -28,7 +28,7 @@ type PerconaXtraDBClusterSpec struct {
 	SSLInternalSecretName  string                               `json:"sslInternalSecretName,omitempty"`
 	LogCollectorSecretName string                               `json:"logCollectorSecretName,omitempty"`
 	TLS                    *TLSSpec                             `json:"tls,omitempty"`
-	PXC                    *PodSpec                             `json:"pxc,omitempty"`
+	PXC                    *PXCSpec                             `json:"pxc,omitempty"`
 	ProxySQL               *PodSpec                             `json:"proxysql,omitempty"`
 	HAProxy                *PodSpec                             `json:"haproxy,omitempty"`
 	PMM                    *PMMSpec                             `json:"pmm,omitempty"`
@@ -39,6 +39,11 @@ type PerconaXtraDBClusterSpec struct {
 	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	InitImage              string                               `json:"initImage,omitempty"`
 	DisableHookValidation  bool                                 `json:"disableHookValidation,omitempty"`
+}
+
+type PXCSpec struct {
+	AutoRecovery bool `json:"autoRecovery,omitempty"`
+	*PodSpec
 }
 
 type TLSSpec struct {

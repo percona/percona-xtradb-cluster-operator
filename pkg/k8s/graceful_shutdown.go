@@ -11,19 +11,19 @@ import (
 )
 
 var (
-	stopCH = make(chan struct{}, 0)
-	log    = logf.Log
+	log = logf.Log
 )
 
 // StartStopSignalHandler starts gorutine which is waiting for
 // termination signal and returns chan for indication when operator
 // can really stop.
 func StartStopSignalHandler(client client.Client, namespaces []string) <-chan struct{} {
-	go handleStopSignal(client, namespaces)
+	stopCH := make(chan struct{})
+	go handleStopSignal(client, namespaces, stopCH)
 	return stopCH
 }
 
-func handleStopSignal(client client.Client, namespaces []string) {
+func handleStopSignal(client client.Client, namespaces []string, stopCH chan struct{}) {
 	<-signals.SetupSignalHandler()
 	stop(client, namespaces)
 	close(stopCH)

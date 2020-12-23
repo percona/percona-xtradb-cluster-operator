@@ -109,7 +109,7 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace st
 	}
 
 	if stderrBuf.Len() != 0 {
-		return errors.New("Invalid exec command return " + stderrBuf.String())
+		return errors.New("invalid exec command return: " + stderrBuf.String())
 	}
 
 	// sleep there a little to start script and do not send

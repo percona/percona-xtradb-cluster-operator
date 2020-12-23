@@ -10,9 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
-var (
-	log = logf.Log
-)
+var log = logf.Log
 
 // StartStopSignalHandler starts gorutine which is waiting for
 // termination signal and returns chan for indication when operator
@@ -37,7 +35,7 @@ func stop(cl client.Client, namespaces []string) {
 
 	for {
 		time.Sleep(5 * time.Second)
-		inProgress := len(namespaces)
+		clustersAreReadyForDelete := true
 
 		for _, ns := range namespaces {
 
@@ -47,28 +45,27 @@ func stop(cl client.Client, namespaces []string) {
 				Namespace: ns,
 			})
 			if err != nil {
-				log.Error(err, "list clusters in current ns", "ns", ns)
+				log.Error(err, "list clusters in namespace", "namespace", ns)
 				continue
 			}
 
-			clusterDeleteInProgress := 0
-
-			for _, v := range clusterList.Items {
-				if v.ObjectMeta.DeletionTimestamp != nil {
-					log.Info("got deletion timestamp,check if cluster ready to delete", "name", v.Name)
-					clusterDeleteInProgress++
-					if len(v.Finalizers) == 0 {
-						clusterDeleteInProgress--
-					}
-				}
-			}
-			if clusterDeleteInProgress == 0 {
-				inProgress--
+			if !isClustersReadyToDelete(clusterList.Items) {
+				clustersAreReadyForDelete = false
+				break
 			}
 		}
 
-		if inProgress == 0 {
+		if clustersAreReadyForDelete {
 			return
 		}
 	}
+}
+
+func isClustersReadyToDelete(list []api.PerconaXtraDBCluster) bool {
+	for _, v := range list {
+		if v.ObjectMeta.DeletionTimestamp != nil && len(v.Finalizers) != 0 {
+			return false
+		}
+	}
+	return true
 }

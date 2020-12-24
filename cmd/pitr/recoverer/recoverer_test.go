@@ -52,11 +52,12 @@ func TestGetBucketAndPrefix(t *testing.T) {
 		t.Run(c.address, func(t *testing.T) {
 			bucket, prefix, err := getBucketAndPrefix(c.address)
 			if err != nil {
-				t.Error("get from 'operator-testing/test'", err.Error())
+				t.Errorf("get from '%s': %s", c.address, err.Error())
 			}
 
 			if bucket != c.expecteBucket || prefix != c.expectedPrefix {
 				t.Errorf("wrong parsing of '%s'", c.address)
+				t.Errorf("%s: bucket expect '%s', got '%s'; prefix expect '%s', got '%s'", c.address, c.expecteBucket, bucket, c.expectedPrefix, prefix)
 			}
 		})
 	}

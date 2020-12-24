@@ -113,7 +113,7 @@ github.com/mailru/easyjson/jwriter
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/minio/md5-simd v1.1.0
 github.com/minio/md5-simd
-# github.com/minio/minio-go/v7 v7.0.5
+# github.com/minio/minio-go/v7 v7.0.6
 github.com/minio/minio-go/v7
 github.com/minio/minio-go/v7/pkg/credentials
 github.com/minio/minio-go/v7/pkg/encrypt

@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,12 +31,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 
 	if cr.Spec.Backup != nil {
 		bcpObj := backup.New(cr)
-		binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
-		if err != nil {
-			return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
-		}
+
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled {
-			binlogCollectorName := cr.Name + "-pitr"
+			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
+			if err != nil {
+				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
+			}
+			binlogCollectorName := deployment.GetBinlogCollectorDeploymentName(cr)
 			currentCollector := appsv1.Deployment{}
 			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, &currentCollector)
 			if err != nil && k8serrors.IsNotFound(err) {
@@ -54,7 +56,17 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			}
 		}
 		if !cr.Spec.Backup.PITR.Enabled {
-			err = r.client.Delete(context.TODO(), &binlogCollector)
+			collectorDeployment := appsv1.Deployment{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      deployment.GetBinlogCollectorDeploymentName(cr),
+					Namespace: cr.Namespace,
+				},
+			}
+			err = r.client.Delete(context.TODO(), &collectorDeployment)
 			if err != nil && !k8serrors.IsNotFound(err) {
 				errors.Wrap(err, "remove pitr deployment")
 			}

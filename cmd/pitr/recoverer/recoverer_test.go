@@ -60,27 +60,6 @@ func TestGetBucketAndPrefix(t *testing.T) {
 			}
 		})
 	}
-	/*bucket, prefix, err := getBucketAndPrefix("operator-testing/test")
-	if err != nil {
-		t.Error("get from 'operator-testing/test'", err.Error())
-	}
-	if bucket != "operator-testing" && prefix != "test" {
-		t.Error("wrong parsing of 'operator-testing/test'")
-	}
-	bucket, prefix, err = getBucketAndPrefix("s3://operator-testing/test")
-	if err != nil {
-		t.Error("get from 'operator-testing/test'", err.Error())
-	}
-	if bucket != "operator-testing" && prefix != "test" {
-		t.Error("wrong parsing of 'operator-testing/test'")
-	}
-	bucket, prefix, err = getBucketAndPrefix("https://somedomain/operator-testing/test")
-	if err != nil {
-		t.Error("get from 'operator-testing/test'", err.Error())
-	}
-	if bucket != "operator-testing" && prefix != "test" {
-		t.Error("wrong parsing of 'operator-testing/test'")
-	}*/
 }
 
 func TestGetLastBackupGTID(t *testing.T) {

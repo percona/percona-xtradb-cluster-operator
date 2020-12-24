@@ -10,6 +10,132 @@ consumes:
 produces:
   - application/json
 paths:
+  /versions/v1/{product}:
+    get:
+      summary: Product versions for all operator version
+      description: Return product versions for all operator
+      operationId: VersionService_Product
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/versionProductResponse'
+        default:
+          description: An unexpected error response
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: product
+          in: path
+          required: true
+          type: string
+        - name: databaseVersion
+          in: query
+          required: false
+          type: string
+        - name: kubeVersion
+          in: query
+          required: false
+          type: string
+        - name: platform
+          in: query
+          required: false
+          type: string
+        - name: pmmVersion
+          in: query
+          required: false
+          type: string
+        - name: backupVersion
+          in: query
+          required: false
+          type: string
+        - name: proxysqlVersion
+          in: query
+          required: false
+          type: string
+        - name: haproxyVersion
+          in: query
+          required: false
+          type: string
+        - name: namespaceUid
+          in: query
+          required: false
+          type: string
+        - name: customResourceUid
+          in: query
+          required: false
+          type: string
+        - name: logCollectorVersion
+          in: query
+          required: false
+          type: string
+      tags:
+        - VersionService
+  /versions/v1/{product}/{operatorVersion}:
+    get:
+      summary: Product versions for specific operator version
+      description: Return product versions for specific operator
+      operationId: VersionService_Operator
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/versionOperatorResponse'
+        default:
+          description: An unexpected error response
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: product
+          in: path
+          required: true
+          type: string
+        - name: operatorVersion
+          in: path
+          required: true
+          type: string
+        - name: databaseVersion
+          in: query
+          required: false
+          type: string
+        - name: kubeVersion
+          in: query
+          required: false
+          type: string
+        - name: platform
+          in: query
+          required: false
+          type: string
+        - name: pmmVersion
+          in: query
+          required: false
+          type: string
+        - name: backupVersion
+          in: query
+          required: false
+          type: string
+        - name: proxysqlVersion
+          in: query
+          required: false
+          type: string
+        - name: haproxyVersion
+          in: query
+          required: false
+          type: string
+        - name: namespaceUid
+          in: query
+          required: false
+          type: string
+        - name: customResourceUid
+          in: query
+          required: false
+          type: string
+        - name: logCollectorVersion
+          in: query
+          required: false
+          type: string
+      tags:
+        - VersionService
   /versions/v1/{product}/{operatorVersion}/{apply}:
     get:
       summary: Specific version
@@ -70,6 +196,10 @@ paths:
           required: false
           type: string
         - name: customResourceUid
+          in: query
+          required: false
+          type: string
+        - name: logCollectorVersion
           in: query
           required: false
           type: string
@@ -205,6 +335,13 @@ definitions:
             "@type": "type.googleapis.com/google.protobuf.Duration",
             "value": "1.212s"
           }
+  versionOperatorResponse:
+    type: object
+    properties:
+      versions:
+        type: array
+        items:
+          $ref: '#/definitions/versionOperatorVersion'
   versionOperatorVersion:
     type: object
     properties:
@@ -215,6 +352,13 @@ definitions:
       matrix:
         $ref: '#/definitions/versionVersionMatrix'
     description: OperatorVersion represents operator version.
+  versionProductResponse:
+    type: object
+    properties:
+      versions:
+        type: array
+        items:
+          $ref: '#/definitions/versionOperatorVersion'
   versionStatus:
     type: string
     enum:
@@ -266,6 +410,10 @@ definitions:
         additionalProperties:
           $ref: '#/definitions/versionVersion'
       operator:
+        type: object
+        additionalProperties:
+          $ref: '#/definitions/versionVersion'
+      logCollector:
         type: object
         additionalProperties:
           $ref: '#/definitions/versionVersion'

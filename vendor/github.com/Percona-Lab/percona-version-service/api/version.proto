@@ -35,6 +35,26 @@ service VersionService {
       description: "Return specific product version"
     };
   }
+  // Operator provides information about product versions and its dependencies for operator.
+  rpc Operator(OperatorRequest) returns (OperatorResponse) {
+    option (google.api.http) = {
+      get: "/versions/v1/{product}/{operator_version}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Product versions for specific operator version"
+      description: "Return product versions for specific operator"
+    };
+  }
+  // Product provides information about product versions among all operator versions.
+  rpc Product(ProductRequest) returns (ProductResponse) {
+    option (google.api.http) = {
+      get: "/versions/v1/{product}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      summary: "Product versions for all operator version"
+      description: "Return product versions for all operator"
+    };
+  }
 }
 
 message ApplyRequest {
@@ -50,6 +70,36 @@ message ApplyRequest {
   string haproxy_version = 10;
   string namespace_uid = 11;
   string custom_resource_uid = 12;
+  string log_collector_version = 13;
+}
+
+message OperatorRequest {
+  string product = 1;
+  string operator_version = 2;
+  string database_version = 4;
+  string kube_version = 5;
+  string platform = 6;
+  string pmm_version = 7;
+  string backup_version = 8;
+  string proxysql_version = 9;
+  string haproxy_version = 10;
+  string namespace_uid = 11;
+  string custom_resource_uid = 12;
+  string log_collector_version = 13;
+}
+
+message ProductRequest {
+  string product = 1;
+  string database_version = 4;
+  string kube_version = 5;
+  string platform = 6;
+  string pmm_version = 7;
+  string backup_version = 8;
+  string proxysql_version = 9;
+  string haproxy_version = 10;
+  string namespace_uid = 11;
+  string custom_resource_uid = 12;
+  string log_collector_version = 13;
 }
 
 // Status describes the current version status.
@@ -78,6 +128,7 @@ message VersionMatrix {
   map<string, Version> haproxy = 5;
   map<string, Version> backup = 6;
   map<string, Version> operator = 7;
+  map<string, Version> log_collector = 8;
 }
 
 // OperatorVersion represents operator version.
@@ -88,5 +139,13 @@ message OperatorVersion {
 }
 
 message VersionResponse {
+  repeated OperatorVersion versions = 1;
+}
+
+message OperatorResponse {
+  repeated OperatorVersion versions = 1;
+}
+
+message ProductResponse {
   repeated OperatorVersion versions = 1;
 }

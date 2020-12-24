@@ -42,7 +42,7 @@ type PerconaXtraDBClusterSpec struct {
 }
 
 type PXCSpec struct {
-	AutoRecovery bool `json:"autoRecovery,omitempty"`
+	AutoRecovery *bool `json:"autoRecovery,omitempty"`
 	*PodSpec
 }
 
@@ -166,6 +166,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.PXC == nil {
 		return errors.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
+	}
+	if c.PXC.AutoRecovery == nil {
+		boolVar := true
+		c.PXC.AutoRecovery = &boolVar
 	}
 
 	if pxcIMG := os.Getenv("RELATED_IMAGE_PXC"); len(pxcIMG) > 0 {

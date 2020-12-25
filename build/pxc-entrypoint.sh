@@ -153,9 +153,11 @@ if [ -f "$vault_secret" ]; then
 	fi
 fi
 
-sed -i '/\[mysqld\]/a plugin_load="binlog_utils_udf=binlog_utils_udf.so"' $CFG
-sed -i "/\[mysqld\]/a gtid-mode=ON" $CFG
-sed -i "/\[mysqld\]/a enforce-gtid-consistency" $CFG
+if [ -f "/usr/lib64/mysql/plugin/binlog_utils_udf.so" ]; then
+    sed -i '/\[mysqld\]/a plugin_load="binlog_utils_udf=binlog_utils_udf.so"' $CFG
+    sed -i "/\[mysqld\]/a gtid-mode=ON" $CFG
+    sed -i "/\[mysqld\]/a enforce-gtid-consistency" $CFG
+fi
 
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^[sst]" "$CFG" || printf '[sst]\n' >> "$CFG"

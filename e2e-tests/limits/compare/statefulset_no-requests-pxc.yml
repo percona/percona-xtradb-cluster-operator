@@ -54,11 +54,6 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests
-            - name: CLUSTERCHECK_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: clustercheck
-                  name: internal-no-requests
             - name: OPERATOR_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -117,6 +112,8 @@ spec:
               name: ssl
             - mountPath: /etc/mysql/ssl-internal
               name: ssl-internal
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
             - mountPath: /etc/my.cnf.d
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
@@ -173,6 +170,11 @@ spec:
             defaultMode: 420
             optional: true
             secretName: no-requests-vault
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-no-requests
   updateStrategy:
     rollingUpdate:
       partition: 0

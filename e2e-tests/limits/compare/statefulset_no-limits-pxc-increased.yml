@@ -46,6 +46,47 @@ spec:
               value: "30100"
             - name: CLIENT_PORT_MAX
               value: "30105"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: POD_NAMESPASE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: PMM_AGENT_SERVER_ADDRESS
+              value: monitoring-service
+            - name: PMM_AGENT_SERVER_USERNAME
+              value: pmm
+            - name: PMM_AGENT_SERVER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: pmmserver
+                  name: internal-no-limits
+            - name: PMM_AGENT_LISTEN_PORT
+              value: "7777"
+            - name: PMM_AGENT_PORTS_MIN
+              value: "30100"
+            - name: PMM_AGENT_PORTS_MAX
+              value: "30105"
+            - name: PMM_AGENT_CONFIG_FILE
+              value: /usr/local/percona/pmm2/config/pmm-agent.yaml
+            - name: PMM_AGENT_SERVER_INSECURE_TLS
+              value: "1"
+            - name: PMM_AGENT_LISTEN_ADDRESS
+              value: 0.0.0.0
+            - name: PMM_AGENT_SETUP_NODE_NAME
+              value: $(POD_NAMESPASE)-$(POD_NAME)
+            - name: PMM_AGENT_SETUP_METRICS_MODE
+              value: push
+            - name: PMM_AGENT_SETUP
+              value: "1"
+            - name: PMM_AGENT_SETUP_FORCE
+              value: "1"
+            - name: PMM_AGENT_SETUP_NODE_TYPE
+              value: container
             - name: DB_TYPE
               value: mysql
             - name: DB_USER
@@ -62,8 +103,33 @@ spec:
             - name: DB_HOST
               value: localhost
             - name: DB_PORT
-              value: "3306"
+              value: "33062"
+            - name: CLUSTER_NAME
+              value: no-limits
+            - name: PMM_ADMIN_CUSTOM_PARAMS
+            - name: PMM_AGENT_PRERUN_SCRIPT
+              value: |-
+                pmm-admin status --wait=10s;
+                pmm-admin add $(DB_TYPE) $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push  --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME)  --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT) $(DB_ARGS);
+                pmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) 'Service restarted'
           imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - bash
+                  - -c
+                  - pmm-admin inventory remove node --force $(pmm-admin status --json | python -c "import sys, json; print(json.load(sys.stdin)['pmm_agent_status']['node_id'])")
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /local/Status
+              port: 7777
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
           name: pmm-client
           ports:
             - containerPort: 7777
@@ -112,11 +178,6 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-no-limits
-            - name: CLUSTERCHECK_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: clustercheck
                   name: internal-no-limits
             - name: OPERATOR_ADMIN_PASSWORD
               valueFrom:
@@ -176,6 +237,8 @@ spec:
               name: ssl
             - mountPath: /etc/mysql/ssl-internal
               name: ssl-internal
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
             - mountPath: /etc/my.cnf.d
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
@@ -232,6 +295,11 @@ spec:
             defaultMode: 420
             optional: true
             secretName: no-limits-vault
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-no-limits
   updateStrategy:
     rollingUpdate:
       partition: 0

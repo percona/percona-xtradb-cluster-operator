@@ -73,6 +73,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 				return nil, nil, errors.Wrap(err, "manage monitor user")
 			}
 		}
+		if cr.CompareVersionWith("1.7.0") >= 0 {
+			// xtrabackup user need more grants for work in version more then 1.7.0
+			err = r.manageXtrabackupUser(cr, &internalSysSecretObj)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "manage xtrabackup user")
+			}
+		}
 	}
 
 	if cr.Status.Status != api.AppStateReady {
@@ -163,6 +170,52 @@ func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBC
 	return nil
 }
 
+func (r *ReconcilePerconaXtraDBCluster) manageXtrabackupUser(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+	annotationName := "grant-for-1.7.0-xtrabackup-user"
+	if internalSysSecretObj.Annotations[annotationName] == "done" {
+		return nil
+	}
+
+	pxcUser := "root"
+	pxcPass := string(internalSysSecretObj.Data["root"])
+	if _, ok := internalSysSecretObj.Data["operator"]; ok {
+		pxcUser = "operator"
+		pxcPass = string(internalSysSecretObj.Data["operator"])
+	}
+
+	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
+	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	if err != nil {
+		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	}
+	if hasKey {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+
+	um, err := users.NewManager(addr, pxcUser, pxcPass)
+	if err != nil {
+		return errors.Wrap(err, "new users manager for grant")
+	}
+	defer um.Close()
+
+	err = um.Update170XtrabackupUser(string(internalSysSecretObj.Data["xtrabackup"]))
+	if err != nil {
+		return errors.Wrap(err, "update xtrabackup grant")
+	}
+
+	if internalSysSecretObj.Annotations == nil {
+		internalSysSecretObj.Annotations = make(map[string]string)
+	}
+
+	internalSysSecretObj.Annotations[annotationName] = "done"
+	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update internal sys users secret annotation")
+	}
+
+	return nil
+}
+
 func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
 	type action int
 
@@ -187,20 +240,14 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			action: syncProxyUsers,
 		},
 		{
-			name:   "xtrabackup",
-			hosts:  []string{"localhost"},
-			action: rPXC,
-		},
-		{
 			name:      "monitor",
 			hosts:     []string{"%"},
 			proxyUser: true,
 			action:    rProxy | rPXCifPMM,
 		},
 		{
-			name:   "clustercheck",
-			hosts:  []string{"localhost"},
-			action: rPXC,
+			name:  "clustercheck",
+			hosts: []string{"localhost"},
 		},
 		{
 			name:   "operator",
@@ -208,6 +255,17 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 			action: rProxy,
 		},
 	}
+
+	xtrabcupUser := user{
+		name:   "xtrabackup",
+		hosts:  []string{"localhost"},
+		action: rPXC,
+	}
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		xtrabcupUser.hosts = []string{"%"}
+	}
+	requiredUsers = append(requiredUsers, xtrabcupUser)
+
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		requiredUsers = append(requiredUsers, user{
 			name:   "pmmserver",
@@ -279,12 +337,12 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return false, false, errors.Wrap(err, "update sys users pass")
 	}
-
-	err = updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
-	if err != nil {
-		return false, false, errors.Wrap(err, "update Proxy users pass")
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+		err = updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
+		if err != nil {
+			return false, false, errors.Wrap(err, "update Proxy users pass")
+		}
 	}
-
 	if todo&syncProxyUsers != 0 && !restartProxy {
 		err = r.syncPXCUsersWithProxySQL(cr)
 		if err != nil {

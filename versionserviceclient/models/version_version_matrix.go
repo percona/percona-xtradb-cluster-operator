@@ -23,6 +23,9 @@ type VersionVersionMatrix struct {
 	// haproxy
 	Haproxy map[string]VersionVersion `json:"haproxy,omitempty"`
 
+	// log collector
+	LogCollector map[string]VersionVersion `json:"logCollector,omitempty"`
+
 	// mongod
 	Mongod map[string]VersionVersion `json:"mongod,omitempty"`
 
@@ -48,6 +51,10 @@ func (m *VersionVersionMatrix) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateHaproxy(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateLogCollector(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -111,6 +118,28 @@ func (m *VersionVersionMatrix) validateHaproxy(formats strfmt.Registry) error {
 			return err
 		}
 		if val, ok := m.Haproxy[k]; ok {
+			if err := val.Validate(formats); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *VersionVersionMatrix) validateLogCollector(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.LogCollector) { // not required
+		return nil
+	}
+
+	for k := range m.LogCollector {
+
+		if err := validate.Required("logCollector"+"."+k, "body", m.LogCollector[k]); err != nil {
+			return err
+		}
+		if val, ok := m.LogCollector[k]; ok {
 			if err := val.Validate(formats); err != nil {
 				return err
 			}

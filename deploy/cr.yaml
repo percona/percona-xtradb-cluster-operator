@@ -328,9 +328,11 @@ spec:
 #        cpu: 500m
   pmm:
     enabled: false
-    image: percona/percona-xtradb-cluster-operator:1.6.0-pmm
+    image: percona/pmm-client:2.12.0
     serverHost: monitoring-service
     serverUser: pmm
+#    pxcParams: "--disable-tablestats-limit=2000"
+#    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
 #    resources:
 #      requests:
 #        memory: 200M

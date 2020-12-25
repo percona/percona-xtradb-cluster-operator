@@ -13,28 +13,29 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/robfig/cron/v3"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const jobName = "ensure-version"
 const never = "never"
 const disabled = "disabled"
 
-func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(id int) {
-	r.crons.crons.Remove(cron.EntryID(id))
+func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
+	r.crons.crons.Remove(cron.EntryID(r.crons.jobs[jobName].ID))
 	delete(r.crons.jobs, jobName)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
-	schedule, ok := r.crons.jobs[jobName]
+	jn := jobName(cr)
+	schedule, ok := r.crons.jobs[jn]
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
 		cr.Spec.UpgradeOptions.Schedule == "" ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == disabled {
 		if ok {
-			r.deleteEnsureVersion(schedule.ID)
+			r.deleteEnsureVersion(jn)
 		}
 		return nil
 	}
@@ -44,21 +45,34 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 	}
 
 	if ok {
-		log.Info(fmt.Sprintf("remove job %s because of new %s", schedule.CronShedule, cr.Spec.UpgradeOptions.Schedule))
-		r.deleteEnsureVersion(schedule.ID)
+		log.Info("remove job because of new", "old", schedule.CronShedule, "new", cr.Spec.UpgradeOptions.Schedule)
+		r.deleteEnsureVersion(jn)
 	}
+
+	nn := types.NamespacedName{
+		Name:      cr.Name,
+		Namespace: cr.Namespace,
+	}
+
+	l := r.lockers.LoadOrCreate(nn.String())
 
 	log.Info(fmt.Sprintf("add new job: %s", cr.Spec.UpgradeOptions.Schedule))
 	id, err := r.crons.crons.AddFunc(cr.Spec.UpgradeOptions.Schedule, func() {
-		r.statusMutex.Lock()
-		defer r.statusMutex.Unlock()
+		l.statusMutex.Lock()
+		defer l.statusMutex.Unlock()
 
-		if !atomic.CompareAndSwapInt32(&r.updateSync, updateDone, updateWait) {
+		if !atomic.CompareAndSwapInt32(l.updateSync, updateDone, updateWait) {
 			return
 		}
 
 		localCr := &api.PerconaXtraDBCluster{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		if k8serrors.IsNotFound(err) {
+			log.Info("cluster is not found, deleting the job",
+				"job name", jobName, "cluster", cr.Name, "namespace", cr.Namespace)
+			r.deleteEnsureVersion(jn)
+			return
+		}
 		if err != nil {
 			log.Error(err, "failed to get CR")
 			return
@@ -84,12 +98,23 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 		return err
 	}
 
-	r.crons.jobs[jobName] = Shedule{
+	log.Info("add new job", "name", jn, "schedule", cr.Spec.UpgradeOptions.Schedule)
+
+	r.crons.jobs[jn] = Shedule{
 		ID:          int(id),
 		CronShedule: cr.Spec.UpgradeOptions.Schedule,
 	}
 
 	return nil
+}
+
+func jobName(cr *api.PerconaXtraDBCluster) string {
+	jobName := "ensure-version"
+	nn := types.NamespacedName{
+		Name:      cr.Name,
+		Namespace: cr.Namespace,
+	}
+	return fmt.Sprintf("%s/%s", jobName, nn.String())
 }
 
 func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
@@ -104,16 +129,17 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		return errors.New("cluster is not ready")
 	}
 
-	newVersion, err := vs.GetExactVersion(cr.Spec.UpgradeOptions.VersionServiceEndpoint, versionMeta{
-		Apply:           cr.Spec.UpgradeOptions.Apply,
-		Platform:        string(cr.Spec.Platform),
-		KubeVersion:     r.serverVersion.Info.GitVersion,
-		PXCVersion:      cr.Status.PXC.Version,
-		PMMVersion:      cr.Status.PMM.Version,
-		HAProxyVersion:  cr.Status.HAProxy.Version,
-		ProxySQLVersion: cr.Status.ProxySQL.Version,
-		BackupVersion:   cr.Status.Backup.Version,
-		CRUID:           string(cr.GetUID()),
+	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, versionMeta{
+		Apply:               cr.Spec.UpgradeOptions.Apply,
+		Platform:            string(cr.Spec.Platform),
+		KubeVersion:         r.serverVersion.Info.GitVersion,
+		PXCVersion:          cr.Status.PXC.Version,
+		PMMVersion:          cr.Status.PMM.Version,
+		HAProxyVersion:      cr.Status.HAProxy.Version,
+		ProxySQLVersion:     cr.Status.ProxySQL.Version,
+		BackupVersion:       cr.Status.Backup.Version,
+		LogCollectorVersion: cr.Status.LogCollector.Version,
+		CRUID:               string(cr.GetUID()),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to check version: %v", err)
@@ -164,6 +190,15 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		cr.Spec.HAProxy.Image = newVersion.HAProxyImage
 	}
 
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.Spec.LogCollector.Image != newVersion.LogCollectorImage {
+		if cr.Status.LogCollector.Version == "" {
+			log.Info(fmt.Sprintf("set LogCollector version to %s", newVersion.LogCollectorVersion))
+		} else {
+			log.Info(fmt.Sprintf("update LogCollector version from %s to %s", cr.Status.LogCollector.Version, newVersion.LogCollectorVersion))
+		}
+		cr.Spec.LogCollector.Image = newVersion.LogCollectorImage
+	}
+
 	err = r.client.Update(context.Background(), cr)
 	if err != nil {
 		return fmt.Errorf("failed to update CR: %v", err)
@@ -182,6 +217,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	cr.Status.Backup.Version = newVersion.BackupVersion
 	cr.Status.PXC.Version = newVersion.PXCVersion
 	cr.Status.PXC.Image = newVersion.PXCImage
+	cr.Status.LogCollector.Version = newVersion.LogCollectorVersion
 
 	err = r.client.Status().Update(context.Background(), cr)
 	if err != nil {

@@ -24,11 +24,19 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 		case bcp.Status.Destination[:4] == "pvc/":
 			return errors.Wrap(r.restorePVC(cr, bcp, bcp.Status.Destination[4:], cluster), "pvc")
 		case bcp.Status.Destination[:5] == "s3://":
-			return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:], cluster), "s3")
+			return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:], cluster, false), "s3")
 		}
 	}
 
 	return errors.Errorf("unknown destination %s", bcp.Status.Destination)
+}
+
+func (r *ReconcilePerconaXtraDBClusterRestore) pitr(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) error {
+	if cr.Spec.PITR != nil {
+		return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:], cluster, true), "PITR restore")
+	}
+
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) error {
@@ -78,8 +86,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBC
 	return r.createJob(job)
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec) error {
-	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster)
+func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec, pitr bool) error {
+	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster, pitr)
 	if err != nil {
 		return err
 	}

@@ -67,7 +67,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 						Name:            "xtrabackup",
 						Image:           bcp.image,
 						SecurityContext: cluster.Backup.Storages[spec.StorageName].ContainerSecurityContext,
-						ImagePullPolicy: corev1.PullAlways,
+						ImagePullPolicy: bcp.imagePullPolicy,
 						Command:         []string{"bash", "/usr/bin/backup.sh"},
 						Env: []corev1.EnvVar{
 							{
@@ -79,9 +79,9 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 								Value: spec.PXCCluster + "-pxc",
 							},
 							{
-								Name: "MYSQL_ROOT_PASSWORD",
+								Name: "PXC_PASS",
 								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, "root"),
+									SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, "xtrabackup"),
 								},
 							},
 						},

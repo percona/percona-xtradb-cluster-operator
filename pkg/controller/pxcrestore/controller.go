@@ -199,6 +199,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 		return rr, err
 	}
 
+	err = r.pitr(cr, bcp, cluster.Spec)
+	if err != nil {
+		err = errors.Wrap(err, "run pitr")
+		return rr, err
+	}
+
 	lgr.Info(returnMsg)
 
 	return rr, err

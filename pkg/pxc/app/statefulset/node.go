@@ -136,12 +136,6 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 				},
 			},
-			{
-				Name: "CLUSTERCHECK_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "clustercheck"),
-				},
-			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}
@@ -154,19 +148,32 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			Value: "%",
 		}
 	}
-
-	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
-		logEnvs := []corev1.EnvVar{
-			{
-				Name:  "LOG_DATA_DIR",
-				Value: "/var/lib/mysql",
+	if cr.CompareVersionWith("1.7.0") < 0 {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name: "CLUSTERCHECK_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "clustercheck"),
 			},
-			{
-				Name:  "IS_LOGCOLLECTOR",
-				Value: "yes",
-			},
+		})
+	}
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "mysql-users-secret-file",
+			MountPath: "/etc/mysql/mysql-users-secret",
+		})
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled {
+			logEnvs := []corev1.EnvVar{
+				{
+					Name:  "LOG_DATA_DIR",
+					Value: "/var/lib/mysql",
+				},
+				{
+					Name:  "IS_LOGCOLLECTOR",
+					Value: "yes",
+				},
+			}
+			appc.Env = append(appc.Env, logEnvs...)
 		}
-		appc.Env = append(appc.Env, logEnvs...)
 	}
 
 	if cr.CompareVersionWith("1.3.0") >= 0 {
@@ -322,7 +329,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 }
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0)
+	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -369,6 +376,31 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 		}
 		ct.Resources = res
 	}
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		for k, v := range ct.Env {
+			if v.Name == "DB_PORT" {
+				ct.Env[k].Value = "33062"
+				break
+			}
+		}
+		PmmPxcParams := ""
+		if spec.PxcParams != "" {
+			PmmPxcParams = spec.PxcParams
+		}
+		clusterPmmEnvs := []corev1.EnvVar{
+			{
+				Name:  "CLUSTER_NAME",
+				Value: cr.Name,
+			},
+			{
+				Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+				Value: PmmPxcParams,
+			},
+		}
+		ct.Env = append(ct.Env, clusterPmmEnvs...)
+		pmmAgentScriptEnv := app.PMMAgentScript("mysql")
+		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
+	}
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{
@@ -399,9 +431,13 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api
 			vol.Volumes,
 			app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true))
 	}
-	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" && cr.CompareVersionWith("1.7.0") >= 0 {
-		vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("logcollector-config", ls["app.kubernetes.io/instance"]+"-logcollector"))
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false))
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
+			vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("logcollector-config", ls["app.kubernetes.io/instance"]+"-logcollector"))
+		}
 	}
+
 	return vol, nil
 }
 

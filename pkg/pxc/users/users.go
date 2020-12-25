@@ -279,7 +279,7 @@ func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
 		return errors.Wrap(err, "create xtrabackup user")
 	}
 
-	_, err = tx.Exec("GRANT RELOAD,PROCESS,LOCK TABLES,REPLICATION CLIENT, REPLICATION SLAVE, REPLICATION_APPLIER, SYSTEM_VARIABLES_ADMIN, DROP, SELECT, DELETE, CREATE, INSERT, UPDATE ON *.* TO 'xtrabackup'@'%'")
+	_, err = tx.Exec("GRANT ALL ON *.* TO 'xtrabackup'@'%'")
 	if err != nil {
 		return errors.Wrapf(err, "grant privileges to user xtrabackup")
 	}

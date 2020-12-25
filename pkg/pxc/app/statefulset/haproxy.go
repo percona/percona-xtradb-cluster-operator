@@ -86,14 +86,17 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 				Name:  "PXC_SERVICE",
 				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
 			},
-			{
-				Name: "MONITOR_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
-				},
-			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
+	}
+
+	if cr.CompareVersionWith("1.7.0") < 0 {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+			},
+		})
 	}
 
 	if cr.CompareVersionWith("1.6.0") >= 0 {
@@ -118,6 +121,11 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 	}
 
 	if cr.CompareVersionWith("1.7.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "mysql-users-secret-file",
+			MountPath: "/etc/mysql/mysql-users-secret",
+		})
+
 		livenessDelay := int32(60)
 		if spec.LivenessInitialDelaySeconds != nil {
 			livenessDelay = *spec.LivenessInitialDelaySeconds
@@ -170,12 +178,6 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 				Name:  "PXC_SERVICE",
 				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
 			},
-			{
-				Name: "MONITOR_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
-				},
-			},
 		},
 		Resources: res,
 		VolumeMounts: []corev1.VolumeMount{
@@ -201,7 +203,20 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			Value: "yes",
 		})
 	}
-
+	if cr.CompareVersionWith("1.7.0") < 0 {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+			},
+		})
+	}
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      "mysql-users-secret-file",
+			MountPath: "/etc/mysql/mysql-users-secret",
+		})
+	}
 	return []corev1.Container{container}, nil
 }
 
@@ -220,6 +235,10 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*
 		app.GetConfigVolumes("haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy"),
 		app.GetTmpVolume("haproxy-auto"),
 	)
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false))
+	}
+
 	return vol, nil
 }
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient"
 	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient/models"
 	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient/version_service"
@@ -14,7 +15,7 @@ import (
 
 const productName = "pxc-operator"
 
-func (vs VersionServiceClient) GetExactVersion(endpoint string, vm versionMeta) (DepVersion, error) {
+func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta) (DepVersion, error) {
 	if strings.Contains(endpoint, "https://check.percona.com/versions") {
 		endpoint = "https://check.percona.com"
 	}
@@ -30,18 +31,21 @@ func (vs VersionServiceClient) GetExactVersion(endpoint string, vm versionMeta) 
 	})
 
 	applyParams := &version_service.VersionServiceApplyParams{
-		Apply:             vm.Apply,
-		BackupVersion:     &vm.BackupVersion,
-		CustomResourceUID: &vm.CRUID,
-		DatabaseVersion:   &vm.PXCVersion,
-		KubeVersion:       &vm.KubeVersion,
-		OperatorVersion:   vs.OpVersion,
-		Platform:          &vm.Platform,
-		PmmVersion:        &vm.PMMVersion,
-		ProxysqlVersion:   &vm.ProxySQLVersion,
-		HaproxyVersion:    &vm.HAProxyVersion,
-		Product:           productName,
-		HTTPClient:        &http.Client{Timeout: 10 * time.Second},
+		Apply:               vm.Apply,
+		BackupVersion:       &vm.BackupVersion,
+		CustomResourceUID:   &vm.CRUID,
+		DatabaseVersion:     &vm.PXCVersion,
+		HaproxyVersion:      &vm.HAProxyVersion,
+		KubeVersion:         &vm.KubeVersion,
+		LogCollectorVersion: &vm.LogCollectorVersion,
+		NamespaceUID:        new(string),
+		OperatorVersion:     vs.OpVersion,
+		Platform:            &vm.Platform,
+		PmmVersion:          &vm.PMMVersion,
+		Product:             productName,
+		ProxysqlVersion:     &vm.ProxySQLVersion,
+		Context:             nil,
+		HTTPClient:          &http.Client{Timeout: 10 * time.Second},
 	}
 	applyParams = applyParams.WithTimeout(10 * time.Second)
 
@@ -80,7 +84,7 @@ func (vs VersionServiceClient) GetExactVersion(endpoint string, vm versionMeta) 
 		return DepVersion{}, err
 	}
 
-	return DepVersion{
+	dv := DepVersion{
 		PXCImage:        resp.Payload.Versions[0].Matrix.Pxc[pxcVersion].ImagePath,
 		PXCVersion:      pxcVersion,
 		BackupImage:     resp.Payload.Versions[0].Matrix.Backup[backupVersion].ImagePath,
@@ -91,7 +95,20 @@ func (vs VersionServiceClient) GetExactVersion(endpoint string, vm versionMeta) 
 		PMMVersion:      pmmVersion,
 		HAProxyImage:    resp.Payload.Versions[0].Matrix.Haproxy[haproxyVersion].ImagePath,
 		HAProxyVersion:  haproxyVersion,
-	}, nil
+	}
+
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		logCollectorVersion, err := getVersion(resp.Payload.Versions[0].Matrix.LogCollector)
+		if err != nil {
+			return DepVersion{}, err
+		}
+
+		dv.LogCollectorVersion = logCollectorVersion
+		dv.LogCollectorImage = resp.Payload.Versions[0].Matrix.LogCollector[logCollectorVersion].ImagePath
+
+	}
+
+	return dv, nil
 }
 
 func getVersion(versions map[string]models.VersionVersion) (string, error) {
@@ -106,20 +123,22 @@ func getVersion(versions map[string]models.VersionVersion) (string, error) {
 }
 
 type DepVersion struct {
-	PXCImage        string `json:"pxcImage,omitempty"`
-	PXCVersion      string `json:"pxcVersion,omitempty"`
-	BackupImage     string `json:"backupImage,omitempty"`
-	BackupVersion   string `json:"backupVersion,omitempty"`
-	ProxySqlImage   string `json:"proxySqlImage,omitempty"`
-	ProxySqlVersion string `json:"proxySqlVersion,omitempty"`
-	HAProxyImage    string `json:"haproxyImage,omitempty"`
-	HAProxyVersion  string `json:"haproxyVersion,omitempty"`
-	PMMImage        string `json:"pmmImage,omitempty"`
-	PMMVersion      string `json:"pmmVersion,omitempty"`
+	PXCImage            string `json:"pxcImage,omitempty"`
+	PXCVersion          string `json:"pxcVersion,omitempty"`
+	BackupImage         string `json:"backupImage,omitempty"`
+	BackupVersion       string `json:"backupVersion,omitempty"`
+	ProxySqlImage       string `json:"proxySqlImage,omitempty"`
+	ProxySqlVersion     string `json:"proxySqlVersion,omitempty"`
+	HAProxyImage        string `json:"haproxyImage,omitempty"`
+	HAProxyVersion      string `json:"haproxyVersion,omitempty"`
+	PMMImage            string `json:"pmmImage,omitempty"`
+	PMMVersion          string `json:"pmmVersion,omitempty"`
+	LogCollectorVersion string `json:"logCollectorVersion,omitempty"`
+	LogCollectorImage   string `json:"LogCollectorImage,omitempty"`
 }
 
 type VersionService interface {
-	GetExactVersion(endpoint string, vm versionMeta) (DepVersion, error)
+	GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta) (DepVersion, error)
 }
 
 type VersionServiceClient struct {
@@ -127,13 +146,14 @@ type VersionServiceClient struct {
 }
 
 type versionMeta struct {
-	Apply           string
-	PXCVersion      string
-	KubeVersion     string
-	Platform        string
-	PMMVersion      string
-	BackupVersion   string
-	ProxySQLVersion string
-	HAProxyVersion  string
-	CRUID           string
+	Apply               string
+	PXCVersion          string
+	KubeVersion         string
+	Platform            string
+	PMMVersion          string
+	BackupVersion       string
+	ProxySQLVersion     string
+	HAProxyVersion      string
+	LogCollectorVersion string
+	CRUID               string
 }

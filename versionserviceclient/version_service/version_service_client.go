@@ -27,6 +27,10 @@ type Client struct {
 type ClientService interface {
 	VersionServiceApply(params *VersionServiceApplyParams) (*VersionServiceApplyOK, error)
 
+	VersionServiceOperator(params *VersionServiceOperatorParams) (*VersionServiceOperatorOK, error)
+
+	VersionServiceProduct(params *VersionServiceProductParams) (*VersionServiceProductOK, error)
+
 	SetTransport(transport runtime.ClientTransport)
 }
 
@@ -62,6 +66,76 @@ func (a *Client) VersionServiceApply(params *VersionServiceApplyParams) (*Versio
 	}
 	// unexpected success response
 	unexpectedSuccess := result.(*VersionServiceApplyDefault)
+	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
+}
+
+/*
+  VersionServiceOperator products versions for specific operator version
+
+  Return product versions for specific operator
+*/
+func (a *Client) VersionServiceOperator(params *VersionServiceOperatorParams) (*VersionServiceOperatorOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewVersionServiceOperatorParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "VersionService_Operator",
+		Method:             "GET",
+		PathPattern:        "/versions/v1/{product}/{operatorVersion}",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http", "https"},
+		Params:             params,
+		Reader:             &VersionServiceOperatorReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*VersionServiceOperatorOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	unexpectedSuccess := result.(*VersionServiceOperatorDefault)
+	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
+}
+
+/*
+  VersionServiceProduct products versions for all operator version
+
+  Return product versions for all operator
+*/
+func (a *Client) VersionServiceProduct(params *VersionServiceProductParams) (*VersionServiceProductOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewVersionServiceProductParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "VersionService_Product",
+		Method:             "GET",
+		PathPattern:        "/versions/v1/{product}",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http", "https"},
+		Params:             params,
+		Reader:             &VersionServiceProductReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*VersionServiceProductOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	unexpectedSuccess := result.(*VersionServiceProductDefault)
 	return nil, runtime.NewAPIError("unexpected success response: content available as default response in error", unexpectedSuccess, unexpectedSuccess.Code())
 }
 

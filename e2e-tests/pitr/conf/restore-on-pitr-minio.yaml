@@ -6,7 +6,6 @@ spec:
   pxcCluster: pitr
   backupName: on-pitr-minio
   backupSource:
-      storageName: "minio"
       destination: <destination>
       s3:
         bucket: operator-testing

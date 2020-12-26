@@ -153,9 +153,11 @@ if [ -f "$vault_secret" ]; then
 	fi
 fi
 
-sed -i '/\[mysqld\]/a plugin_load="binlog_utils_udf=binlog_utils_udf.so"' $CFG
-sed -i "/\[mysqld\]/a gtid-mode=ON" $CFG
-sed -i "/\[mysqld\]/a enforce-gtid-consistency" $CFG
+if [ -f "/usr/lib64/mysql/plugin/binlog_utils_udf.so" ]; then
+    sed -i '/\[mysqld\]/a plugin_load="binlog_utils_udf=binlog_utils_udf.so"' $CFG
+    sed -i "/\[mysqld\]/a gtid-mode=ON" $CFG
+    sed -i "/\[mysqld\]/a enforce-gtid-consistency" $CFG
+fi
 
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
@@ -329,7 +331,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			GRANT ALL ON *.* TO 'operator'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 
 			CREATE USER 'xtrabackup'@'%' IDENTIFIED BY '${XTRABACKUP_PASSWORD}';
-			GRANT RELOAD,PROCESS,LOCK TABLES,REPLICATION CLIENT, REPLICATION SLAVE, REPLICATION_APPLIER, SYSTEM_VARIABLES_ADMIN, DROP, SELECT, DELETE, CREATE, INSERT, UPDATE ON *.* TO 'xtrabackup'@'%';
+			GRANT ALL ON *.* TO 'xtrabackup'@'%';
 
 			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '${MONITOR_PASSWORD}' WITH MAX_USER_CONNECTIONS 100;
 			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';

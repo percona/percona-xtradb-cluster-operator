@@ -161,7 +161,7 @@ fi
 
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
-grep -q "^[sst]" "$CFG" || printf '[sst]\n' >> "$CFG"
+grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >> "$CFG"
 grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$' "$CFG" 1<> "$CFG"
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup'

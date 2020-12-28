@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"os"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -163,19 +162,11 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
 	}
 
-	if pxcIMG := os.Getenv("RELATED_IMAGE_PXC"); len(pxcIMG) > 0 {
-		c.PXC.Image = pxcIMG
-	}
-
 	if c.PXC.Image == "" {
 		return errors.New("pxc.Image can't be empty")
 	}
 
 	if c.PMM != nil && c.PMM.Enabled {
-		if pmmIMG := os.Getenv("RELATED_IMAGE_PMM"); len(pmmIMG) > 0 {
-			c.PMM.Image = pmmIMG
-		}
-
 		if c.PMM.Image == "" {
 			return errors.New("pmm.Image can't be empty")
 		}
@@ -195,20 +186,12 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	}
 
 	if c.HAProxy != nil && c.HAProxy.Enabled {
-		if haproxyIMG := os.Getenv("RELATED_IMAGE_HAPROXY"); len(haproxyIMG) > 0 {
-			c.HAProxy.Image = haproxyIMG
-		}
-
 		if c.HAProxy.Image == "" {
 			return errors.New("haproxy.Image can't be empty")
 		}
 	}
 
 	if c.ProxySQL != nil && c.ProxySQL.Enabled {
-		if proxysqlIMG := os.Getenv("RELATED_IMAGE_PROXYSQL"); len(proxysqlIMG) > 0 {
-			c.ProxySQL.Image = proxysqlIMG
-		}
-
 		if c.ProxySQL.Image == "" {
 			return errors.New("proxysql.Image can't be empty")
 		}
@@ -222,10 +205,6 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	}
 
 	if c.Backup != nil {
-		if backupIMG := os.Getenv("RELATED_IMAGE_BACKUP"); len(backupIMG) > 0 {
-			c.Backup.Image = backupIMG
-		}
-
 		if c.Backup.Image == "" {
 			return errors.New("backup.Image can't be empty")
 		}

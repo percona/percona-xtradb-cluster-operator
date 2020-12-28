@@ -20,27 +20,32 @@ main subsystems of the cluster:
      - Description
 
    * - upgradeOptions
-     - subdoc
+     - :ref:`subdoc<operator.upgradeoptions-section>`
      -
      - Percona XtraDB Cluster upgrade options section
 
    * - pxc
-     - subdoc
+     - :ref:`subdoc<operator.pxc-section>`
      -
      - Percona XtraDB Cluster general section
 
+   * - haproxy
+     - :ref:`subdoc<operator.haproxy-section>`
+     -
+     - HAProxy section
+
    * - proxysql
-     - subdoc
+     - :ref:`subdoc<operator.proxysql-section>`
      -
      - ProxySQL section
 
    * - pmm
-     - subdoc
+     - :ref:`subdoc<operator.pmm-section>`
      -
      - Percona Monitoring and Management section
 
    * - backup
-     - subdoc
+     - :ref:`subdoc<operator.backup-section>`
      -
      - Percona XtraDB Cluster backups section
 
@@ -96,7 +101,7 @@ The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percon
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``https://check.percona.com``                                                    |
+| **Example**     | ``https://check.percona.com``                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The Version Service URL used to check versions compatibility for upgrade                  |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -112,9 +117,9 @@ The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percon
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | Specifies how :ref:`updates are processed<operator-update-smartupdates>` by the Operator. |
 |                 | ``Never`` or ``Disabled`` will completely disable automatic upgrades, otherwise it can be |
-|                 | set to ``Latest`` or ``Recommended`` or to a specific version string of PXC (e.g.         |
-|                 | ``8.0.19-10.1``) that is wished to be version-locked (so that the user can control the    |
-|                 | version running, but use automatic upgrades to move between them).                        |
+|                 | set to ``Latest`` or ``Recommended`` or to a specific version string of Percona XtraDB    |
+|                 | Cluster (e.g. ``8.0.19-10.1``) that is wished to be version-locked (so that the user can  |
+|                 | control the version running, but use automatic upgrades to move between them).            |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -162,8 +167,9 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``percona/percona-xtradb-cluster:{{{pxc80recommended}}}``                                            |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | The Docker image of the Percona cluster used (actual image names for PXC 8.0 and PXC 5.7  |
-|                 | can be found :ref:`in the list of certified images<custom-registry-images>`)              |
+| **Description** | The Docker image of the Percona cluster used (actual image names for Percona XtraDB       |
+|                 | Cluster 8.0 and Percona XtraDB Cluster 5.7 can be found                                   |
+|                 | :ref:`in the list of certified images<custom-registry-images>`)                           |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -301,7 +307,7 @@ configuration options for the Percona XtraDB Cluster.
 | **Description** | The `Kubernetes memory requests                                                           |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
 |                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
-|                 | for a PXC container                                                                       |
+|                 | for a Percona XtraDB Cluster container                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -315,7 +321,8 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes CPU requests                                                                  |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PXC container                 |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a Percona XtraDB Cluster        |
+|                 | container                                                                                 |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -329,7 +336,8 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes memory limits                                                                 |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PXC container                 |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a Percona XtraDB Cluster        |
+|                 | container                                                                                 |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -428,7 +436,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes emptyDir volume                                                           |
 |                 | <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created   |
-|                 | on a node and accessible to the PXC Pod containers                                        |
+|                 | on a node and accessible to the Percona XtraDB Cluster Pod containers                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -469,9 +477,9 @@ configuration options for the Percona XtraDB Cluster.
 | **Example**     | ``standard``                                                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | Set the `Kubernetes storage class                                                         |
-|                 | <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC      |
-|                 | `PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/   |
-|                 | #persistentvolumeclaims>`_                                                                |
+|                 | <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the Percona  |
+|                 | XtraDB Cluster `PersistentVolumeClaim                                                     |
+|                 | <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_|
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -549,7 +557,7 @@ configuration options for the Percona XtraDB Cluster.
 
 .. _operator.haproxy-section:
 
-`HAProxy Section <operator.html#operator-proxysql-section>`_
+`HAProxy Section <operator.html#operator-haproxy-section>`_
 --------------------------------------------------------------------------------
 
 The ``haproxy`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains
@@ -1306,7 +1314,7 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes emptyDir volume                                                           |
 |                 | <https://kubernetes.io/docs/concepts/storage/volumes/#emptydir>`_ The directory created   |
-|                 | on a node and accessible to the PXC Pod containers                                        |
+|                 | on a node and accessible to the Percona XtraDB Cluster Pod containers                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1347,9 +1355,9 @@ configuration options for the ProxySQL daemon.
 | **Example**     | ``standard``                                                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | Set the `Kubernetes storage class                                                         |
-|                 | <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC      |
-|                 | `PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/   |
-|                 | #persistentvolumeclaims>`_                                                                |
+|                 | <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the Percona  |
+|                 | XtraDB Cluster `PersistentVolumeClaim                                                     |
+|                 | <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_|
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1685,8 +1693,8 @@ Percona XtraDB Cluster backups.
 | **Example**     | ``standard``                                                                              |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | Set the `Kubernetes Storage Class                                                         |
-|                 | <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the PXC      |
-|                 | backups `PersistentVolumeClaims                                                           |
+|                 | <https://kubernetes.io/docs/concepts/storage/storage-classes/>`_ to use with the Percona  |
+|                 | XtraDB Cluster backups `PersistentVolumeClaims                                            |
 |                 | <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims>`_|
 |                 | for the ``filesystem`` storage type                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1757,7 +1765,7 @@ Percona XtraDB Cluster backups.
 | **Description** | The `Kubernetes memory requests                                                           |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
 |                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
-|                 | for a PXC container                                                                       |
+|                 | for a Percona XtraDB Cluster container                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1772,7 +1780,8 @@ Percona XtraDB Cluster backups.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes CPU requests                                                                  |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PXC container                 |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a Percona XtraDB Cluster        |
+|                 | container                                                                                 |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1787,7 +1796,8 @@ Percona XtraDB Cluster backups.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes memory limits                                                                 |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PXC container                 |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a Percona XtraDB Cluster        |
+|                 | container                                                                                 |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

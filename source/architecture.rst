@@ -25,10 +25,9 @@ from MySQL clients and forwards it to backend MySQL servers.
    load balancers which are not SQL-aware, including built-in ones of the
    cloud providers, or the Kubernetes NGINX Ingress Controller.
 
-To provide high availability operator uses `node
-affinity <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity>`__
-to run PXC instances on separate worker nodes if possible. If some node
-fails, the pod with it is automatically re-created on another node.
+To provide high availability operator uses `node affinity <https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity>`_
+to run Percona XtraDB Cluster instances on separate worker nodes if possible. If
+some node fails, the pod with it is automatically re-created on another node.
 
 .. image:: ./assets/images/operator.png
    :align: center
@@ -43,9 +42,9 @@ respectively).
 
 The Operator functionality extends the Kubernetes API with
 *PerconaXtraDBCluster* object, and it is implemented as a golang
-application. Each *PerconaXtraDBCluster* object maps to one separate PXC
-setup. The Operator listens to all events on the created objects. When a
-new PerconaXtraDBCluster object is created, or an existing one undergoes
+application. Each *PerconaXtraDBCluster* object maps to one separate Percona
+XtraDB Cluster setup. The Operator listens to all events on the created objects.
+When a new PerconaXtraDBCluster object is created, or an existing one undergoes
 some changes or deletion, the operator automatically
 creates/changes/deletes all needed Kubernetes objects with the
-appropriate settings to provide a properly PXC operating.
+appropriate settings to provide a proper Percona XtraDB Cluster operation.

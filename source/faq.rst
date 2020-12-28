@@ -52,7 +52,7 @@ Generally, rely on the quickstart guide if you are a beginner user of the
 specific platform and/or you are new to the Percona XtraDB Cluster Operator as
 a whole.
 
-Which versions of MySQL PXC Operator supports?
+Which versions of MySQL Percona XtraDB Cluster Operator supports?
 ================================================================================
 
 Percona XtraDB Cluster Operator provides a ready-to-use installation of the

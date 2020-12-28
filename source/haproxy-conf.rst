@@ -28,22 +28,22 @@ Use the following command to enable HAProxy:
 The resulting HAPproxy setup will contain two services:
 
 * ``cluster1-haproxy`` service listening on ports 3306 (MySQL) and 3309 (the `proxy protocol <https://www.haproxy.com/blog/haproxy/proxy-protocol/>`_).
-  This service is pointing to the number zero PXC member (``cluster1-pxc-0``) by
-  default when this member is available. If a zero member is not available,
-  members are selected in descending order of their numbers (e.g.
-  ``cluster1-pxc-2``, then ``cluster1-pxc-1``, etc.). This service can be used
-  for both read and write load, or it can also be used just for write load
-  (single writer mode) in setups with split write and read loads.
+  This service is pointing to the number zero Percona XtraDB Cluster member
+  (``cluster1-pxc-0``) by default when this member is available. If a zero
+  member is not available, members are selected in descending order of their
+  numbers (e.g. ``cluster1-pxc-2``, then ``cluster1-pxc-1``, etc.). This service
+  can be used for both read and write load, or it can also be used just for
+  write load (single writer mode) in setups with split write and read loads.
 
 * ``cluster1-haproxy-replicas`` listening on port 3306 (MySQL).
-  This service selects PXC members to serve queries following the Round Robin
-  load balancing algorithm.
+  This service selects Percona XtraDB Cluster members to serve queries following
+  the Round Robin load balancing algorithm.
 
 When the cluster with HAProxy is upgraded, the following steps
 take place. First, reader members are upgraded one by one: the Operator waits
-until the upgraded PXC member becomes synced, and then
+until the upgraded Percona XtraDB Cluster member becomes synced, and then
 proceeds to upgrade the next member. When the upgrade is finished for all 
-the readers, then the writer PXC member is finally upgraded.
+the readers, then the writer Percona XtraDB Cluster member is finally upgraded.
 
 .. _haproxy-conf-custom:
 

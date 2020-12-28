@@ -7,7 +7,8 @@ MySQL user accounts within the Cluster can be divided into two different groups:
 
 * *application-level users*: the unprivileged user accounts,
 * *system-level users*: the accounts needed to automate the cluster deployment
-  and management tasks, such as PXC Health checks or ProxySQL integration.
+  and management tasks, such as Percona XtraDB Cluster Health checks or ProxySQL
+  integration.
 
 As these two groups of user accounts serve different purposes, they are
 considered separately in the following sections.
@@ -48,12 +49,13 @@ permissions have been successfully granted.
 -------------------------------------------
 
 To automate the deployment and management of the cluster components,
-the Operator requires system-level PXC users.
+the Operator requires system-level Percona XtraDB Cluster users.
 
 Credentials for these users are stored as a `Kubernetes Secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_ object.
-The Operator requires to be deployed before the PXC Cluster is started. The name
-of the required secrets (``my-cluster-secrets`` by default) should be set in
-in the ``spec.secretsName`` option of the ``deploy/cr.yaml`` configuration file.
+The Operator requires to be deployed before the Percona XtraDB Cluster is
+started. The name of the required secrets (``my-cluster-secrets`` by default)
+should be set in in the ``spec.secretsName`` option of the ``deploy/cr.yaml``
+configuration file.
 
 The following table shows system users' names and purposes.
 
@@ -166,7 +168,7 @@ for more details.
 --------------------------------------------------
 
 To make development and testing easier, ``deploy/secrets.yaml`` secrets
-file contains default passwords for PXC system users.
+file contains default passwords for Percona XtraDB Cluster system users.
 
 These development mode credentials from ``deploy/secrets.yaml`` are:
 
@@ -183,4 +185,5 @@ pmmserver    ``supa|^|pazz``
 operator     ``operatoradmin``
 ============ ========================
 
-.. warning:: Do not use the default PXC user passwords in production!
+.. warning:: Do not use the default Percona XtraDB Cluster user passwords in
+   production!

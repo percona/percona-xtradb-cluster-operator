@@ -2,7 +2,6 @@ package pxc
 
 import (
 	"database/sql"
-	"log"
 	"os/exec"
 	"sort"
 	"strings"

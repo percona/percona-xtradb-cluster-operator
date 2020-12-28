@@ -61,7 +61,7 @@ main() {
     kubectl_bin apply -f "$test_dir/conf/pumba.yml"
 
     desc 'start cluster'
-    spinup_pxc "$cluster" "$test_пdir/conf/$cluster.yml"
+    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
     desc 'delete all PXC pods and check full crash'
     crash_cluster_with_kubectl

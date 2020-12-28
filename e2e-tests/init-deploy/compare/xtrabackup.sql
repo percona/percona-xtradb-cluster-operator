@@ -1,1 +1,1 @@
-GRANT RELOAD, PROCESS, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'xtrabackup'@'localhost'
+GRANT ALL PRIVILEGES ON *.* TO 'xtrabackup'@'%'

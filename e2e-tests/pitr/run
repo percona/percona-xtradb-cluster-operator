@@ -85,7 +85,9 @@ main() {
     run_backup "$cluster" "on-pitr-minio"
 
     write_test_data "$cluster"
-    time_now=$(date -u +'%Y-%m-%d %H:%M:%S')
+ 
+    proxy=$(get_proxy "$cluster")
+    time_now=$(run_mysql "SELECT now();" "-h $proxy -uroot -proot_password")
 
     sleep 60
     write_more_data "$cluster"

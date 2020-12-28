@@ -154,9 +154,9 @@ if [ -f "$vault_secret" ]; then
 fi
 
 if [ -f "/usr/lib64/mysql/plugin/binlog_utils_udf.so" ]; then
-    sed -i '/\[mysqld\]/a plugin_load="binlog_utils_udf=binlog_utils_udf.so"' $CFG
-    sed -i "/\[mysqld\]/a gtid-mode=ON" $CFG
-    sed -i "/\[mysqld\]/a enforce-gtid-consistency" $CFG
+	sed -i '/\[mysqld\]/a plugin_load="binlog_utils_udf=binlog_utils_udf.so"' $CFG
+	sed -i "/\[mysqld\]/a gtid-mode=ON" $CFG
+	sed -i "/\[mysqld\]/a enforce-gtid-consistency" $CFG
 fi
 
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
@@ -455,6 +455,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	if [ -s "$grastate_loc" -a -d "$DATADIR/mysql" ]; then
 		uuid=$(grep 'uuid:' "$grastate_loc" | cut -d: -f2 | tr -d ' ' || :)
 		seqno=$(grep 'seqno:' "$grastate_loc" | cut -d: -f2 | tr -d ' ' || :)
+		safe_to_bootstrap=$(grep 'safe_to_bootstrap:' "$grastate_loc" | cut -d: -f2 | tr -d ' ' || :)
 
 		# If sequence number is not equal to -1, wsrep-recover co-ordinates aren't used.
 		# lp:1112724
@@ -478,6 +479,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 					| sed 's/^[ \t]*//'
 			)"
 			wsrep_start_position_opt="--wsrep_start_position=$start_pos"
+			seqno=$(echo "$start_pos" | awk -F':' '{print $NF}' || :)
 		else
 			# The server prints "..skipping position recovery.." if started without wsrep.
 			if grep 'skipping position recovery' "$wsrep_verbose_logfile"; then
@@ -489,57 +491,55 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 		rm "$wsrep_verbose_logfile"
 	fi
-fi
+	if [ -n "$PXC_SERVICE" ]; then
+		function get_primary() {
+			peer-list -on-start=/usr/bin/get-pxc-state -service="$PXC_SERVICE" 2>&1 \
+				| grep wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary \
+				| sort \
+				| tail -1 \
+				|| true
+		}
+		function node_recovery() {
+			set -o xtrace
+			echo "Recovery is in progress, please wait...."
+			sed -i 's/wsrep_cluster_address=.*/wsrep_cluster_address=gcomm:\/\//g' /etc/mysql/node.cnf
+			rm -f /tmp/recovery-case
+			if [ -s "$grastate_loc" ]; then
+				sed -i 's/safe_to_bootstrap: 0/safe_to_bootstrap: 1/g' "$grastate_loc"
+			fi
+			echo "Recovery was finished."
+			exec "$@" $wsrep_start_position_opt
+		}
 
-function get_primary() {
-    peer-list -on-start=/usr/bin/get-pxc-state -service=$PXC_SERVICE 2>&1 \
-        | grep wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary \
-        | sort \
-        | tail -1 || true
-}
+		is_primary_exists=$(get_primary)
+		if [[ -z "$is_primary_exists" && $safe_to_bootstrap != 1 ]] || [[ -z "$is_primary_exists" && -f "${DATADIR}/gvwstate.dat" ]]; then
+			trap node_recovery USR1
+			touch /tmp/recovery-case
+			if [[ -z ${seqno} ]]; then
+				seqno="-1"
+			fi
 
-IS_PRIMARY_EXISTS=$(get_primary)
-if [ -f ${DATADIR}/grastate.dat ]; then
-    NOT_SAVE_BOOTSTRAP=$(cat ${DATADIR}/grastate.dat | grep 'safe_to_bootstrap: 0' || true)
-fi
+			set +o xtrace
+			sleep 3
 
-function node_recovery() {
-    set -o xtrace
-    echo "Recovery is in progress, please wait...."
-    sed -i 's/safe_to_bootstrap: 0/safe_to_bootstrap: 1/g' ${DATADIR}/grastate.dat
-    sed -i 's/wsrep_cluster_address=.*/wsrep_cluster_address=gcomm:\/\//g' /etc/mysql/node.cnf
-    rm -f /tmp/recovery-case
-    echo "Recovery was finished."
-    exec mysqld
-}
+			echo '#####################################################FULL_PXC_CLUSTER_CRASH#####################################################'
+			echo 'You have the situation of a full PXC cluster crash. In order to restore your PXC cluster, please check the log'
+			echo 'from all pods/nodes to find the node with the most recent data (the one with the highest sequence number (seqno).'
+			echo "It is $NODE_NAME node with sequence number (seqno): $seqno"
+			echo 'If you want to recover from this node you need to execute the following command:'
+			echo "kubectl exec $(hostname) -c pxc -- sh -c 'kill -s USR1 1'"
+			echo '#####################################################FULL_PXC_CLUSTER_CRASH#####################################################'
 
-if [[ -z "$IS_PRIMARY_EXISTS" && -n "$NOT_SAVE_BOOTSTRAP" ]] || [[ -z "$IS_PRIMARY_EXISTS" && -f "${DATADIR}/gvwstate.dat" ]]; then
-    trap node_recovery USR1
-    touch /tmp/recovery-case
-
-    if [[ -z ${seqno} ]] ||  [[ ${seqno} == '-1' ]]; then
-        seqno=$(mysqld --wsrep_recover 2>&1 | grep 'Recovered position' | awk -F':' '{print $NF}' || true)
-    fi
-
-    set +o xtrace
-    sleep 3
-
-    echo '#####################################################FULL_PXC_CLUSTER_CRASH#####################################################'
-    echo 'You have the situation of a full PXC cluster crash. In order to restore your PXC cluster, please check the log'
-    echo 'from all pods/nodes to find the node with the most recent data (the one with the highest sequence number (seqno).'
-    echo "It is $NODE_NAME node with sequence number (seqno): $seqno"
-    echo 'If you want to recover from this node you need to execute the following command:'
-    echo "kubectl exec $(hostname) -c pxc -- sh -c 'kill -s USR1 1'"
-    echo '#####################################################FULL_PXC_CLUSTER_CRASH#####################################################'
-
-    for (( ; ; )) do
-        IS_PRIMARY_EXISTS=$(get_primary)
-        if [ -n "$IS_PRIMARY_EXISTS" ]; then
-            rm -f /tmp/recovery-case
-            exit 0
-        fi
-    done
-    set -o xtrace
+			for (( ; ; )) do
+				is_primary_exists=$(get_primary)
+				if [ -n "$is_primary_exists" ]; then
+					rm -f /tmp/recovery-case
+					exit 0
+				fi
+			done
+			set -o xtrace
+		fi
+	fi
 fi
 
 exec "$@" $wsrep_start_position_opt

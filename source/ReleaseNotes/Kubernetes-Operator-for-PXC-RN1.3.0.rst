@@ -1,4 +1,4 @@
- 	.. rn:: 1.3.0
+.. rn:: 1.3.0
 
 *Percona Kubernetes Operator for Percona XtraDB Cluster* 1.3.0
 ==============================================================

@@ -1,13 +1,13 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: percona-xtradb-cluster-operator.v1.6.0-1
+  name: percona-xtradb-cluster-operator.v1.6.0-2
   namespace: default
   annotations:
     alm-examples: >-
       [{"apiVersion":"pxc.percona.com/v1-6-0","kind":"PerconaXtraDBCluster","metadata":{"name":"cluster1","finalizers":["delete-pxc-pods-in-order"]},"spec":{"crVersion":"1.6.0","secretsName":"my-cluster-secrets","vaultSecretName":"keyring-secret-vault","sslSecretName":"my-cluster-ssl","sslInternalSecretName":"my-cluster-ssl-internal","allowUnsafeConfigurations":false,"updateStrategy":"SmartUpdate","upgradeOptions":{"versionServiceEndpoint":"https://check.percona.com","apply":"disabled","schedule":"0
       4 * *
-      *"},"pxc":{"podSecurityContext":{"fsGroup":1001,"runAsUser":1001},"size":3,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pxc8.0","resources":{"requests":{"memory":"1G","cpu":"600m"}},"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"podDisruptionBudget":{"maxUnavailable":1},"volumeSpec":{"persistentVolumeClaim":{"resources":{"requests":{"storage":"6Gi"}}}},"gracePeriod":600},"haproxy":{"enabled":true,"size":3,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-haproxy","resources":{"requests":{"memory":"1G","cpu":"600m"}},"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"podDisruptionBudget":{"maxUnavailable":1},"gracePeriod":30},"proxysql":{"enabled":false,"size":3,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-proxysql","resources":{"requests":{"memory":"1G","cpu":"600m"}},"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"volumeSpec":{"persistentVolumeClaim":{"resources":{"requests":{"storage":"2Gi"}}}},"podDisruptionBudget":{"maxUnavailable":1},"gracePeriod":30},"pmm":{"enabled":false,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pmm","serverHost":"monitoring-service","serverUser":"pmm"},"backup":{"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pxc8.0-backup","serviceAccountName":"percona-xtradb-cluster-operator","storages":{"s3-us-west":{"type":"s3","s3":{"bucket":"S3-BACKUP-BUCKET-NAME-HERE","credentialsSecret":"my-cluster-name-backup-s3","region":"us-west-2"}},"fs-pvc":{"type":"filesystem","volume":{"persistentVolumeClaim":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"6Gi"}}}}}},"schedule":[{"name":"sat-night-backup","schedule":"0
+      *"},"pxc":{"size":3,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pxc8.0","resources":{"requests":{"memory":"1G","cpu":"600m"}},"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"podDisruptionBudget":{"maxUnavailable":1},"volumeSpec":{"persistentVolumeClaim":{"resources":{"requests":{"storage":"6Gi"}}}},"gracePeriod":600},"haproxy":{"enabled":true,"size":3,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-haproxy","resources":{"requests":{"memory":"1G","cpu":"600m"}},"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"podDisruptionBudget":{"maxUnavailable":1},"gracePeriod":30},"proxysql":{"enabled":false,"size":3,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-proxysql","resources":{"requests":{"memory":"1G","cpu":"600m"}},"affinity":{"antiAffinityTopologyKey":"kubernetes.io/hostname"},"volumeSpec":{"persistentVolumeClaim":{"resources":{"requests":{"storage":"2Gi"}}}},"podDisruptionBudget":{"maxUnavailable":1},"gracePeriod":30},"pmm":{"enabled":false,"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pmm","serverHost":"monitoring-service","serverUser":"pmm"},"backup":{"image":"registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pxc8.0-backup","serviceAccountName":"percona-xtradb-cluster-operator","storages":{"s3-us-west":{"type":"s3","s3":{"bucket":"S3-BACKUP-BUCKET-NAME-HERE","credentialsSecret":"my-cluster-name-backup-s3","region":"us-west-2"}},"fs-pvc":{"type":"filesystem","volume":{"persistentVolumeClaim":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"6Gi"}}}}}},"schedule":[{"name":"sat-night-backup","schedule":"0
       0 * *
       6","keep":3,"storageName":"s3-us-west"},{"name":"daily-backup","schedule":"0
       0 * *
@@ -176,9 +176,10 @@ spec:
 
 
   maturity: stable
-  version: 1.6.0-1
+  version: 1.6.0-2
   skips:
     - percona-xtradb-cluster-operator.v1.6.0
+    - percona-xtradb-cluster-operator.v1.6.0-1
   minKubeVersion: ''
   keywords:
     - mysql
@@ -446,6 +447,22 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.name
+                      - name: RELATED_IMAGE_PXC_57
+                        value: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pxc5.7
+                      - name: RELATED_IMAGE_PXC_57_BACKUP
+                        value: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pxc5.7-backup
+                      - name: RELATED_IMAGE_PXC_80
+                        value: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pxc8.0
+                      - name: RELATED_IMAGE_PXC_80_BACKUP
+                        value: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pxc8.0-backup
+                      - name: RELATED_IMAGE_OPERATOR
+                        value: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator:1.6.0
+                      - name: RELATED_IMAGE_HAPROXY
+                        value: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-haproxy
+                      - name: RELATED_IMAGE_PROXYSQL
+                        value: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-proxysql
+                      - name: RELATED_IMAGE_PMM_CLIENT
+                        value: registry.connect.redhat.com/percona/percona-xtradb-cluster-operator-containers:1.6.0-pmm
                       - name: OPERATOR_NAME
                         value: percona-xtradb-cluster-operator
       strategy: deployment

@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"io"
-	"log"
 	"strings"
 
 	"github.com/minio/minio-go/v7"
@@ -46,7 +45,6 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region st
 
 // GetObject return content by given object name
 func (s *S3) GetObject(objectName string) (io.Reader, error) {
-	log.Println(s.prefix + objectName)
 	oldObj, err := s.minioClient.GetObject(s.ctx, s.bucketName, s.prefix+objectName, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, errors.Wrap(err, "get object")

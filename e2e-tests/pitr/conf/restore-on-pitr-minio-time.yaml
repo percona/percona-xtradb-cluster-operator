@@ -1,0 +1,13 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: on-pitr-minio
+spec:
+  pxcCluster: pitr
+  backupName: on-pitr-minio
+  pitr:
+    type: date
+    date: "<datetime>"
+    backupSource:
+      storageName: "minio-binlogs"
+

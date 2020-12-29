@@ -318,6 +318,7 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('scheduled-backup', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
+                        runTest('pitr', 'backups')
                         ShutdownCluster('backups')
                     }
                 }

@@ -1,0 +1,108 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+
+run_recovery_check_pitr() {
+    local cluster=$1
+    local restore=$2
+    local backup=$3
+    local compare=$4
+
+    desc 'recover backup' $restore
+    kubectl_bin apply -f "$test_dir/conf/${restore}.yaml"
+    wait_backup_restore ${backup}
+    kubectl_bin logs job/restore-job-${backup}-${cluster}
+    kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
+    wait_for_running "$cluster-proxysql" 1
+    wait_for_running "$cluster-pxc" 3
+    sleep 35
+    desc 'check data after backup' $restore
+    compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+    compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+
+}
+
+
+
+write_test_data() {
+    local cluster=$1
+    local config=$2
+    local size="${3:-3}"
+    local sleep="${4:-10}"
+    local secretsFile="${5:-$conf_dir/secrets.yml}"
+    local pxcClientFile="${6:-$conf_dir/client.yml}"
+
+    local proxy=$(get_proxy "$cluster")
+
+    desc 'write data'
+    if [[ "$IMAGE_PXC" =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+        encrypt='ENCRYPTION=\"Y\"'
+    fi
+    run_mysql \
+        "CREATE DATABASE IF NOT EXISTS test; use test; CREATE TABLE IF NOT EXISTS test (id int PRIMARY KEY) $encrypt;" \
+        "-h $proxy -uroot -proot_password"
+    run_mysql \
+        'INSERT test.test (id) VALUES (100500); INSERT test.test (id) VALUES (100501); INSERT test.test (id) VALUES (100502);' \
+        "-h $proxy -uroot -proot_password"
+    sleep 30
+    for i in $(seq 0 $(($size - 1))); do
+        compare_mysql_cmd "select-3" "SELECT * from test.test;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+    done
+
+    if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
+        table_must_be_encrypted "$cluster" "test"
+    fi
+
+}
+
+write_more_data() {
+    local cluster=$1
+    local proxy=$(get_proxy "$cluster")
+
+    run_mysql \
+        'INSERT test.test (id) VALUES (100503); INSERT test.test (id) VALUES (100504); INSERT test.test (id) VALUES (100505);' \
+        "-h $proxy -uroot -proot_password"
+}
+
+
+main() {
+    create_infra $namespace
+
+    kubectl_bin apply \
+        -f $conf_dir/minio-secret.yml \
+        -f $conf_dir/cloud-secret.yml
+    start_minio
+
+    cluster="pitr"
+    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+    run_backup "$cluster" "on-pitr-minio"
+
+    write_test_data "$cluster"
+ 
+    proxy=$(get_proxy "$cluster")
+    time_now=$(run_mysql "SELECT now();" "-h $proxy -uroot -proot_password")
+
+    sleep 60
+    write_more_data "$cluster"
+    sleep 80 # need to wait while collector catch new data
+    kubectl patch pxc pitr --type=merge -p "{\"spec\":{\"backup\":{\"pitr\":{\"enabled\":false}}}}"
+    $sed -i "s/<datetime>/${time_now}/g" "$test_dir/conf/restore-on-pitr-minio-time.yaml"
+    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3"
+    echo "done date type"
+
+    dest=$(sed 's,/,\\/,g' <<< $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.destination}'))
+    $sed -i "s/<destination>/${dest}/g" "$test_dir/conf/restore-on-pitr-minio.yaml"
+    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4"
+    echo "done latest type"
+    
+    destroy $namespace
+}
+
+main

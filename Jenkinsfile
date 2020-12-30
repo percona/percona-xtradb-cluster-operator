@@ -255,7 +255,7 @@ pipeline {
                 }
             }
             options {
-                timeout(time: 4, unit: 'HOURS')
+                timeout(time: 3, unit: 'HOURS')
             }
             parallel {
                 stage('E2E Upgrade') {

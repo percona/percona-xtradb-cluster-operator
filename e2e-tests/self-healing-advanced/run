@@ -15,14 +15,8 @@ crash_cluster_with_kubectl() {
 
     sleep 60
 
-    wait_for_running $cluster-pxc 3
-
     for i in $(seq 0 2);do
-        local logs=$(kubectl_bin logs --tail=1 self-healing-advanced-pxc-$i pxc)
-        if [ "${logs}" != '#####################################################FULL_PXC_CLUSTER_CRASH#####################################################' ];then
-            echo "cluster not in crash"
-            exit 1
-        fi
+        wait_crash_pod self-healing-advanced-pxc-$i
     done
 }
 
@@ -36,16 +30,9 @@ pumba_all_pods() {
 
     sleep 60
 
-    wait_for_running $cluster-pxc 3
-
     for i in $(seq 0 2);do
-        local logs=$(kubectl_bin logs --tail=1 self-healing-advanced-pxc-$i pxc)
-        if [ "${logs}" != '#####################################################FULL_PXC_CLUSTER_CRASH#####################################################' ];then
-            echo "cluster not in crash"
-            exit 1
-        fi
+        wait_crash_pod self-healing-advanced-pxc-$i
     done
-
 }
 
 check_if_cluster_restored(){

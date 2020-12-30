@@ -115,6 +115,35 @@ wait_pod() {
     set -o xtrace
 }
 
+wait_crash_pod() {
+    local pod=$1
+    local max_retry="${2:-480}"
+    local ns=$3
+    local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
+
+    set +o xtrace
+    retry=0
+    echo -n $pod
+    #until kubectl_bin get pod/$pod -o jsonpath='{.status.phase}' 2>/dev/null | grep 'Running'; do
+    until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
+        && kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
+        && kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q FULL_PXC_CLUSTER_CRASH; do
+        sleep 1
+        echo -n .
+        let retry+=1
+        if [[ $retry -ge $max_retry ]]; then
+            kubectl_bin describe pod/$pod
+            kubectl_bin logs $pod
+            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
+            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+            exit 1
+        fi
+    done
+    echo ".Ok"
+    set -o xtrace
+}
+
+
 wait_backup() {
     local backup=$1
 

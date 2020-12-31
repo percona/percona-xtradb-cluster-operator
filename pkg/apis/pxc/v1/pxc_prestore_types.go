@@ -58,6 +58,7 @@ const (
 	RestoreStopCluster                   = "Stopping Cluster"
 	RestoreRestore                       = "Restoring"
 	RestoreStartCluster                  = "Starting Cluster"
+	RestorePITR                          = "Point-in-time recovering"
 	RestoreFailed                        = "Failed"
 	RestoreSucceeded                     = "Succeeded"
 )

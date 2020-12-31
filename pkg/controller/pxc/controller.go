@@ -1073,7 +1073,7 @@ func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.Perco
 	}
 	go func() {
 		err := r.syncPXCUsersWithProxySQL(cr)
-		if err != nil {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			log.Error(err, "sync users")
 		}
 		atomic.StoreInt32(&r.syncUsersState, stateFree)

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -23,6 +22,10 @@ var sequenceRegexp = regexp.MustCompile(`node with sequence number [(]seqno[)]: 
 const crashBorder = `#####################################################FULL_PXC_CLUSTER_CRASH#####################################################`
 
 func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.PerconaXtraDBCluster) error {
+
+	if cr.Spec.PXC.Size <= 0 {
+		return nil
+	}
 
 	err := r.checkIfPodsRunning(cr)
 	if err != nil {
@@ -52,39 +55,53 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.P
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace string, pxcSize int) error {
-	maxSeq := int64(-100)
-	maxSeqPod := ""
+func (r *ReconcilePerconaXtraDBCluster) isPodWaitingForRecovery(namespace, podName string) (bool, int64, error) {
 	logLinesRequired := int64(7)
 	logOpts := &corev1.PodLogOptions{
 		Container: "pxc",
 		TailLines: &logLinesRequired,
 	}
+	logs, err := r.clientcmd.PodLogs(namespace, podName, logOpts)
+	if err != nil {
+		return false, -1, errors.Wrapf(err, "get logs from %s pod", podName)
+	}
+
+	if len(logs) != 7 {
+		return false, -1, nil
+	}
+
+	if logs[0] != crashBorder || logs[6] != crashBorder {
+		return false, -1, nil
+	}
+
+	seqStrSplit := sequenceRegexp.FindStringSubmatch(logs[3])
+	if len(seqStrSplit) != 2 {
+		return true, -1, errors.Wrapf(err, "get sequence number from %s pod, seqSTR: %s", podName, seqStrSplit)
+	}
+
+	seq, err := strconv.ParseInt(seqStrSplit[1], 10, 64)
+	if err != nil {
+		return true, -1, errors.Wrapf(err, "parse sequence %s", seqStrSplit[1])
+	}
+
+	return true, seq, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace string, pxcSize int) error {
+	maxSeq := int64(-100)
+	maxSeqPod := ""
 
 	for i := 0; i < pxcSize; i++ {
 		podName := fmt.Sprintf("%s-pxc-%d", crName, i)
-		logs, err := r.clientcmd.PodLogs(namespace, podName, logOpts)
+		isPodWaitingForRecovery, seq, err := r.isPodWaitingForRecovery(namespace, podName)
 		if err != nil {
-			return errors.Wrapf(err, "get logs from %s pod", podName)
+			return errors.Wrapf(err, "parse %s pod logs", podName)
 		}
 
-		if len(logs) != 7 {
+		if !isPodWaitingForRecovery {
 			return nil
 		}
 
-		if logs[0] != crashBorder || logs[6] != crashBorder {
-			return nil
-		}
-
-		seqStrSplit := sequenceRegexp.FindStringSubmatch(logs[3])
-		if len(seqStrSplit) != 2 {
-			return errors.Wrapf(err, "get sequence number from %s pod, seqSTR: %s", podName, seqStrSplit)
-		}
-
-		seq, err := strconv.ParseInt(strings.TrimSpace(seqStrSplit[1]), 10, 64)
-		if err != nil {
-			return errors.Wrapf(err, "parse sequence %s", seqStrSplit[1])
-		}
 		if seq > maxSeq {
 			maxSeq = seq
 			maxSeqPod = podName

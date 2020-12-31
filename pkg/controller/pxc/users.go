@@ -369,7 +369,9 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 		},
 		&pod,
 	)
-	if err != nil {
+	if err != nil && k8serrors.IsNotFound(err) {
+		return err
+	} else if err != nil {
 		return errors.Wrap(err, "get proxysql pod")
 	}
 	var errb, outb bytes.Buffer

@@ -199,10 +199,18 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 		return rr, err
 	}
 
-	err = r.pitr(cr, bcp, cluster.Spec)
-	if err != nil {
-		err = errors.Wrap(err, "run pitr")
-		return rr, err
+	if cr.Spec.PITR != nil {
+		lgr.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
+		err = r.setStatus(cr, api.RestorePITR, "")
+		if err != nil {
+			err = errors.Wrap(err, "set status")
+			return rr, err
+		}
+		err = r.pitr(cr, bcp, cluster.Spec)
+		if err != nil {
+			err = errors.Wrap(err, "run pitr")
+			return rr, err
+		}
 	}
 
 	lgr.Info(returnMsg)
@@ -325,8 +333,27 @@ func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraD
 		err = errors.Wrap(uerr, "update cluster")
 		time.Sleep(time.Second * 1)
 	}
+	if err != nil {
+		return err
+	}
 
-	return err
+	waitLimit := 2 * 60 * 60 // 2 hours
+	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
+		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)
+	}
+	for i := 0; i < waitLimit; i++ {
+		current := &api.PerconaXtraDBCluster{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
+		if err != nil {
+			return errors.Wrap(err, "get cluster")
+		}
+		if current.Status.ObservedGeneration == current.Generation && current.Status.PXC.Ready >= cr.Spec.PXC.Size {
+			return nil
+		}
+		time.Sleep(time.Second * 1)
+	}
+
+	return errors.Errorf("exceeded wait limit")
 }
 
 const waitLimitSec int64 = 300

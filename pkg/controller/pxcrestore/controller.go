@@ -337,6 +337,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraD
 		return err
 	}
 
+	// give time for process new state
+	time.Sleep(10 * time.Second)
+
 	waitLimit := 2 * 60 * 60 // 2 hours
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)

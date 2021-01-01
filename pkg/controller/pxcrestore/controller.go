@@ -328,7 +328,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraD
 
 		uerr := r.client.Update(context.TODO(), current)
 		if uerr == nil {
-			return nil
+			break
 		}
 		err = errors.Wrap(uerr, "update cluster")
 		time.Sleep(time.Second * 1)
@@ -350,7 +350,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraD
 		if err != nil {
 			return errors.Wrap(err, "get cluster")
 		}
-		if current.Status.ObservedGeneration == current.Generation && current.Status.PXC.Ready >= cr.Spec.PXC.Size {
+		if current.Status.ObservedGeneration == current.Generation && current.Status.PXC.Status == api.AppStateReady {
 			return nil
 		}
 		time.Sleep(time.Second * 1)

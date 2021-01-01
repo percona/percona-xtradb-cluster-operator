@@ -294,17 +294,22 @@ func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBC
 	return sfsObj.Status.Replicas > sfsObj.Status.UpdatedReplicas, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) appStatus(sfs api.StatefulApp, podSpec *api.PodSpec, namespace string) (api.AppStatus, error) {
+func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, podSpec *api.PodSpec, namespace string) (api.AppStatus, error) {
 	list := corev1.PodList{}
 	err := r.client.List(context.TODO(),
 		&list,
 		&client.ListOptions{
 			Namespace:     namespace,
-			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+			LabelSelector: labels.SelectorFromSet(app.Labels()),
 		},
 	)
 	if err != nil {
 		return api.AppStatus{}, fmt.Errorf("get list: %v", err)
+	}
+	sfs := app.StatefulSet()
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: sfs.Name, Namespace: sfs.Namespace}, sfs)
+	if err != nil {
+		return api.AppStatus{}, fmt.Errorf("get statefulset: %v", err)
 	}
 
 	status := api.AppStatus{
@@ -316,8 +321,8 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(sfs api.StatefulApp, podSpec *
 		for _, cond := range pod.Status.Conditions {
 			switch cond.Type {
 			case corev1.ContainersReady:
-				if cond.Status == corev1.ConditionTrue && pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.StatefulSet().Status.UpdateRevision {
-					if !isPXC(sfs) {
+				if cond.Status == corev1.ConditionTrue && pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
+					if !isPXC(app) {
 						status.Ready++
 					} else {
 						isPodWaitingForRecovery, _, err := r.isPodWaitingForRecovery(namespace, pod.Name)

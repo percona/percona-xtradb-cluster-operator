@@ -339,11 +339,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraD
 	// give time for process new state
 	time.Sleep(10 * time.Second)
 
-	waitLimit := 2 * 60 * 60 // 2 hours
+	var waitLimit int32 = 2 * 60 * 60 // 2 hours
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
-		waitLimit = int(*cr.Spec.PXC.LivenessInitialDelaySeconds)
+		waitLimit = *cr.Spec.PXC.LivenessInitialDelaySeconds * cr.Spec.PXC.Size
 	}
-	for i := 0; i < waitLimit; i++ {
+
+	for i := int32(0); i < waitLimit; i++ {
 		current := &api.PerconaXtraDBCluster{}
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
 		if err != nil {

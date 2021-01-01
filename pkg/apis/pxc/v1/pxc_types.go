@@ -410,7 +410,6 @@ type StatefulApp interface {
 const clusterNameMaxLen = 22
 
 var defaultPXCGracePeriodSec int64 = 600
-var livenessInitialDelaySeconds int32 = 300
 
 func (cr *PerconaXtraDBCluster) setSecurityContext() {
 	var fsgroup *int64
@@ -507,10 +506,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		if c.PXC.TerminationGracePeriodSeconds == nil {
 			c.PXC.TerminationGracePeriodSeconds = &defaultPXCGracePeriodSec
-		}
-
-		if c.PXC.LivenessInitialDelaySeconds == nil {
-			c.PXC.LivenessInitialDelaySeconds = &livenessInitialDelaySeconds
 		}
 
 		if len(c.PXC.ServiceAccountName) == 0 {

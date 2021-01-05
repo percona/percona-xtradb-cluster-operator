@@ -512,7 +512,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		}
 
 		is_primary_exists=$(get_primary)
-		if [[ -z "$is_primary_exists" && -n "$safe_to_bootstrap" && $safe_to_bootstrap != 1 ]] || [[ -z "$is_primary_exists" && -f "${DATADIR}/gvwstate.dat" ]]; then
+		if [[ -z "$is_primary_exists" && -f "$grastate_loc" && $safe_to_bootstrap != 1 ]] || [[ -z "$is_primary_exists" && -f "${DATADIR}/gvwstate.dat" ]]; then
 			trap "{ node_recovery \"\$@\" ; }" USR1
 			touch /tmp/recovery-case
 			if [[ -z ${seqno} ]]; then

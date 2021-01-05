@@ -3,7 +3,6 @@ kind: Pod
 metadata:
   annotations:
     openshift.io/scc: privileged
-  deletionGracePeriodSeconds: 30
   labels:
     name: restore-src-restore-pvc-sec-context
   name: restore-src-restore-pvc-sec-context

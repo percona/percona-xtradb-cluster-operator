@@ -297,7 +297,6 @@ pipeline {
                         runTest('scaling', 'scaling')
                         runTest('scaling-proxysql', 'scaling')
                         runTest('security-context', 'scaling')
-                        runTest('pitr', 'backups')
                         ShutdownCluster('scaling')
                     }
                 }
@@ -308,7 +307,6 @@ pipeline {
                         runTest('self-healing', 'selfhealing')
                         runTest('self-healing-advanced', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
-                        runTest('demand-backup-encrypted-with-tls', 'backups')
                         ShutdownCluster('selfhealing')
                     }
                 }
@@ -318,6 +316,8 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('restore-to-encrypted-cluster', 'backups')
                         runTest('demand-backup', 'backups')
+                        runTest('pitr', 'backups')
+                        runTest('demand-backup-encrypted-with-tls', 'backups')
                         runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
                     }

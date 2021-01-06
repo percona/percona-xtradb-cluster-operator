@@ -910,9 +910,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 	return r.client.Update(context.TODO(), cpdb)
 }
 
-// ErrWaitingForDeletingPods indicating that the stateful set have more than a one pods left
-var ErrWaitingForDeletingPods = fmt.Errorf("waiting for pods to be deleted")
-
 func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(cr *api.PerconaXtraDBCluster) error {
 	sfs := statefulset.NewNode(cr)
 	err := r.deleteStatefulSetPods(cr.Namespace, sfs)
@@ -961,7 +958,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 		return fmt.Errorf("downscale StatefulSet: %v", err)
 	}
 
-	return ErrWaitingForDeletingPods
+	return errors.New("waiting for pods to be deleted")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {

@@ -56,19 +56,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			}
 		}
 		if !cr.Spec.Backup.PITR.Enabled || cr.Spec.Pause {
-			collectorDeployment := appsv1.Deployment{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deployment.GetBinlogCollectorDeploymentName(cr),
-					Namespace: cr.Namespace,
-				},
-			}
-			err = r.client.Delete(context.TODO(), &collectorDeployment)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return errors.Wrap(err, "remove pitr deployment")
+			err = r.deletePITR(cr)
+			if err != nil {
+				return errors.Wrap(err, "delete pitr")
 			}
 		}
 
@@ -226,7 +216,7 @@ func (r *ReconcilePerconaXtraDBCluster) deletePITR(cr *api.PerconaXtraDBCluster)
 	}
 	err := r.client.Delete(context.TODO(), &collectorDeployment)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		errors.Wrap(err, "remove pitr deployment")
+		return errors.Wrap(err, "delete pitr deployment")
 	}
 
 	return nil

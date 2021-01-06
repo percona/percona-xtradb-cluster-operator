@@ -79,6 +79,10 @@ main subsystems of the cluster:
      - ``SmartUpdate``
      - A strategy the Operator uses for :ref:`upgrades<operator-update>`
 
+   * - autoPXCRecovery
+     - boolean
+     - ``true``
+
 .. _operator.upgradeoptions-section:
 
 `Upgrade Options Section <operator.html#operator-upgradeoptions-section>`_

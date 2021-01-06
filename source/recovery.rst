@@ -19,35 +19,30 @@ continuously restarting, and generates the following errors in the log::
 The Percona Operator for Percona XtraDB Cluster provides two ways of recovery
 after a full cluster crash.
 
-* The automated :ref:`recovery-bootstrap` is the simplest one, but it
-  may cause loss of several recent transactions.
-* The manual :ref:`recovery-object-surgery` includes a lot of operations, but
-  it allows to restore all the data.
+The Operator is able to provide automatic crash recovery starting from version
+``1.7``. For previous Operator versions, crash recovery can be done
+:ref:`manually<recovery-object-surgery>`.
 
-.. _recovery-bootstrap:
+.. _recovery-auto:
 
-Bootstrap Crash Recovery method
--------------------------------
+Automatic Crash Recovery
+------------------------
 
-In this case recovery is done automatically. The recovery is triggered by the
-``pxc.forceUnsafeBootstrap`` option set to ``true`` in the ``deploy/cr.yaml``
-file::
+Recovery is done automatically if the ``spec.autoPXCRecovery`` option set to
+``true`` in the ``deploy/cr.yaml`` configuration file.
 
-     pxc:
-       ...
-       forceUnsafeBootstrap: true
+If this option is set to ``false``, automatic crash recovery is not done,
+but manual crash recovery is still possible.
 
-Applying this option forces the cluster to start. However, there may exist data
-inconsistency in the cluster, and several last transactions may be lost.
-If such data loss is undesirable, experienced users may choose the more advanced
-manual method described in the next chapter.
+Automatic crash recovery is turned on by default.
 
 .. _recovery-object-surgery:
 
-Object Surgery Crash Recovery method
-------------------------------------
+Manual Crash Recovery
+---------------------
 
-.. warning:: This method is intended for advanced users only!
+.. warning:: This method includes a lot of operations, and therefore, it is
+   intended for advanced users only!
 
 This method involves the following steps:
 

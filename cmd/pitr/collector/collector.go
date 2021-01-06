@@ -67,10 +67,9 @@ func New(c Config) (*Collector, error) {
 	}
 
 	return &Collector{
-		storage: s3,
-		lastSet: string(lastSet),
-		pxcUser: c.PXCUser,
-		//pxcPass:        c.PXCPass,
+		storage:        s3,
+		lastSet:        string(lastSet),
+		pxcUser:        c.PXCUser,
 		pxcServiceName: c.PXCServiceName,
 	}, nil
 }

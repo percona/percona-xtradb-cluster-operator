@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
-  name: some-name-pxc
+  generation: 2
+  name: upgrade-haproxy-pxc
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: some-name
+      name: upgrade-haproxy
 spec:
   podManagementPolicy: OrderedReady
   replicas: 3
@@ -14,17 +14,17 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: pxc
-      app.kubernetes.io/instance: some-name
+      app.kubernetes.io/instance: upgrade-haproxy
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: some-name-pxc
+  serviceName: upgrade-haproxy-pxc
   template:
     metadata:
       annotations: {}
       labels:
         app.kubernetes.io/component: pxc
-        app.kubernetes.io/instance: some-name
+        app.kubernetes.io/instance: upgrade-haproxy
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -35,100 +35,41 @@ spec:
             - labelSelector:
                 matchLabels:
                   app.kubernetes.io/component: pxc
-                  app.kubernetes.io/instance: some-name
+                  app.kubernetes.io/instance: upgrade-haproxy
                   app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
                   app.kubernetes.io/name: percona-xtradb-cluster
                   app.kubernetes.io/part-of: percona-xtradb-cluster
               topologyKey: kubernetes.io/hostname
       containers:
-        - env:
-            - name: LOG_DATA_DIR
-              value: /var/lib/mysql
-            - name: POD_NAMESPASE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-          envFrom:
-            - secretRef:
-                name: some-name-log-collector
-                optional: true
-          imagePullPolicy: Always
-          name: logs
-          resources:
-            limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /var/lib/mysql
-              name: datadir
-        - args:
-            - logrotate
-          env:
-            - name: SERVICE_TYPE
-              value: mysql
-            - name: MONITOR_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: monitor
-                  name: internal-some-name
-          imagePullPolicy: Always
-          name: logrotate
-          resources:
-            limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /var/lib/mysql
-              name: datadir
         - args:
             - mysqld
           command:
             - /var/lib/mysql/pxc-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: some-name-pxc-unready
+              value: upgrade-haproxy-pxc-unready
             - name: MONITOR_HOST
               value: '%'
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: root
-                  name: internal-some-name
+                  name: internal-upgrade-haproxy
             - name: XTRABACKUP_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: xtrabackup
-                  name: internal-some-name
+                  name: internal-upgrade-haproxy
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-some-name
-            - name: LOG_DATA_DIR
-              value: /var/lib/mysql
-            - name: IS_LOGCOLLECTOR
-              value: "yes"
+                  name: internal-upgrade-haproxy
             - name: OPERATOR_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-some-name
+                  name: internal-upgrade-haproxy
           imagePullPolicy: Always
           livenessProbe:
             exec:
@@ -166,12 +107,9 @@ spec:
             successThreshold: 1
             timeoutSeconds: 15
           resources:
-            limits:
-              cpu: "1"
-              memory: 1G
             requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 600m
+              memory: 1G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -198,12 +136,9 @@ spec:
           imagePullPolicy: Always
           name: pxc-init
           resources:
-            limits:
-              cpu: "1"
-              memory: 1G
             requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 600m
+              memory: 1G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -222,7 +157,7 @@ spec:
           name: tmp
         - configMap:
             defaultMode: 420
-            name: some-name-pxc
+            name: upgrade-haproxy-pxc
             optional: true
           name: config
         - name: ssl-internal
@@ -237,7 +172,7 @@ spec:
             secretName: some-name-ssl
         - configMap:
             defaultMode: 420
-            name: auto-some-name-pxc
+            name: auto-upgrade-haproxy-pxc
             optional: true
           name: auto-config
         - name: vault-keyring-secret
@@ -249,11 +184,9 @@ spec:
           secret:
             defaultMode: 420
             optional: false
-            secretName: internal-some-name
+            secretName: internal-upgrade-haproxy
   updateStrategy:
-    rollingUpdate:
-      partition: 0
-    type: RollingUpdate
+    type: OnDelete
   volumeClaimTemplates:
     - metadata:
         name: datadir
@@ -262,6 +195,6 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 2Gi
+            storage: 6Gi
       status:
         phase: Pending

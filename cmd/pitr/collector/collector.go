@@ -24,14 +24,12 @@ type Collector struct {
 	lastSet        string // last uploaded binary logs set
 	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
 	pxcUser        string // user for connection to PXC
-	pxcPass        string // password for connection to PXC
 	bufferSize     int64  // size of uploading buffer
 }
 
 type Config struct {
 	PXCServiceName string `env:"PXC_SERVICE,required"`
 	PXCUser        string `env:"PXC_USER,required"`
-	PXCPass        string `env:"PXC_PASS,required"`
 	S3Endpoint     string `env:"ENDPOINT,required"`
 	S3AccessKeyID  string `env:"ACCESS_KEY_ID,required"`
 	S3AccessKey    string `env:"SECRET_ACCESS_KEY,required"`
@@ -69,10 +67,10 @@ func New(c Config) (*Collector, error) {
 	}
 
 	return &Collector{
-		storage:        s3,
-		lastSet:        string(lastSet),
-		pxcUser:        c.PXCUser,
-		pxcPass:        c.PXCPass,
+		storage: s3,
+		lastSet: string(lastSet),
+		pxcUser: c.PXCUser,
+		//pxcPass:        c.PXCPass,
 		pxcServiceName: c.PXCServiceName,
 	}, nil
 }
@@ -97,10 +95,17 @@ func (c *Collector) newDB() error {
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
-	c.db, err = pxc.NewPXC(host, c.pxcUser, c.pxcPass)
+
+	file, err := os.Open("/etc/mysql/mysql-users-secret/xtrabackup")
+	if err != nil {
+		return errors.Wrap(err, "open file")
+	}
+	var passBuf bytes.Buffer
+	passBuf.ReadFrom(file)
+
+	c.db, err = pxc.NewPXC(host, c.pxcUser, passBuf.String())
 	if err != nil {
 		return errors.Wrapf(err, "new manager with host %s", host)
-
 	}
 
 	return nil

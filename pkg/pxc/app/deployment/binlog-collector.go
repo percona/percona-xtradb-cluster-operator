@@ -94,6 +94,12 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 		SecurityContext: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].ContainerSecurityContext,
 		Command:         []string{"pitr"},
 		Resources:       res,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "mysql-users-secret-file",
+				MountPath: "/etc/mysql/mysql-users-secret",
+			},
+		},
 	}
 	replicas := int32(1)
 
@@ -128,6 +134,9 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 					NodeSelector:       cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].NodeSelector,
 					SchedulerName:      cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].SchedulerName,
 					PriorityClassName:  cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].PriorityClassName,
+					Volumes: []corev1.Volume{
+						app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
+					},
 				},
 			},
 		},

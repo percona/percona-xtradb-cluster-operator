@@ -24,6 +24,7 @@ type Collector struct {
 	lastSet        string // last uploaded binary logs set
 	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
 	pxcUser        string // user for connection to PXC
+	pxcPass        string // password for connection to PXC
 	bufferSize     int64  // size of uploading buffer
 }
 
@@ -99,10 +100,13 @@ func (c *Collector) newDB() error {
 	if err != nil {
 		return errors.Wrap(err, "open file")
 	}
-	var passBuf bytes.Buffer
-	passBuf.ReadFrom(file)
+	pxcPass, err := ioutil.ReadAll(file)
+	if err != nil {
+		return errors.Wrap(err, "read password")
+	}
+	c.pxcPass = string(pxcPass)
 
-	c.db, err = pxc.NewPXC(host, c.pxcUser, passBuf.String())
+	c.db, err = pxc.NewPXC(host, c.pxcUser, c.pxcPass)
 	if err != nil {
 		return errors.Wrapf(err, "new manager with host %s", host)
 	}
@@ -226,7 +230,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 			return
 		}
 	}()
-	err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))
+	err = os.Setenv("MYSQL_PWD", c.pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "set mysql pwd env var")
 	}

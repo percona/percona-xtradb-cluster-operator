@@ -1,4 +1,4 @@
-.. _K8SPXC-1.5.0:
+.. rn:: 1.5.0:
 
 ================================================================================
 *Percona Kubernetes Operator for Percona XtraDB Cluster* 1.5.0

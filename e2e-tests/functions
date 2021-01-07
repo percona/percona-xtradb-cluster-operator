@@ -296,6 +296,7 @@ compare_kubectl() {
         | yq d - 'spec.volumeClaimTemplates.*.kind' \
         | yq d - 'metadata.ownerReferences.*.apiVersion' \
         | yq d - '**.controller-uid' \
+        | yq d - '**.preemptionPolicy' \
         | sed 's/namespace\:.*name/name/' \
         > ${new_result}
         # last sed is needed for backup cronjob content

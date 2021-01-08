@@ -266,8 +266,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
 			case "delete-pxc-pods-in-order":
-				sfs = statefulset.NewNode(o)
-				err = r.deleteStatefulSetPods(o.Namespace, sfs)
+				err = r.deletePXCPods(o)
 			}
 			if err != nil {
 				finalizers = append(finalizers, fnlz)
@@ -911,8 +910,18 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 	return r.client.Update(context.TODO(), cpdb)
 }
 
-// ErrWaitingForDeletingPods indicating that the stateful set have more than a one pods left
-var ErrWaitingForDeletingPods = fmt.Errorf("waiting for pods to be deleted")
+func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(cr *api.PerconaXtraDBCluster) error {
+	sfs := statefulset.NewNode(cr)
+	err := r.deleteStatefulSetPods(cr.Namespace, sfs)
+	if err != nil {
+		return errors.Wrap(err, "delete statefulset pods")
+	}
+	if cr.Spec.Backup != nil && cr.Spec.Backup.PITR.Enabled {
+		return errors.Wrap(r.deletePITR(cr), "delete pitr pod")
+	}
+
+	return nil
+}
 
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, sfs api.StatefulApp) error {
 	list := corev1.PodList{}
@@ -949,7 +958,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 		return fmt.Errorf("downscale StatefulSet: %v", err)
 	}
 
-	return ErrWaitingForDeletingPods
+	return errors.New("waiting for pods to be deleted")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {

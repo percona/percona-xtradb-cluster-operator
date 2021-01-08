@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc
-	github.com/caarlos0/env v3.5.0+incompatible // indirect
+	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/go-ini/ini v1.25.4
 	github.com/go-openapi/errors v0.19.6
 	github.com/go-openapi/runtime v0.19.20

@@ -321,7 +321,7 @@ Scale up/down Percona XtraDB Cluster
 
    pxc
 
-   1. size (Int or String, Defaults: 3): ``Specifiy the sie of the Percona XtraDB Cluster to scale up or down to``
+   1. size (Int or String, Defaults: 3): ``Specifiy the size of the Percona XtraDB Cluster to scale up or down to``
 
 **Response:**
 
@@ -411,7 +411,7 @@ Pass custom my.cnf during the creation of Percona XtraDB Cluster
 .. code-block:: bash
 
    Create a custom config map containing the contents of the file my.cnf to be
-   passed on to the Percona XtraDB Cluster containers we they are created
+   passed on to the Percona XtraDB Cluster containers when they are created
 
 
 **Kubectl Command:**

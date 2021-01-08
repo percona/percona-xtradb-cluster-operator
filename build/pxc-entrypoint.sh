@@ -528,7 +528,8 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			echo "It is $NODE_NAME node with sequence number (seqno): $seqno"
 			echo 'If you want to recover from this node you need to execute the following command:'
 			echo "kubectl exec $(hostname) -c pxc -- sh -c 'kill -s USR1 1'"
-			echo '#####################################################FULL_PXC_CLUSTER_CRASH#####################################################'
+			#DO NOT CHANGE THE LINE BELOW. OUR AUTO-RECOVERY IS USING IT TO DETECT SEQNO OF CURRENT NODE. See K8SPXC-564
+			echo "#####################################################LAST_LINE:$NODE_NAME:$seqno:#####################################################"
 
 			for (( ; ; )) do
 				is_primary_exists=$(get_primary)

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -15,14 +15,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var ErrNotAllPXCPodsRunning = errors.New("not all pxc pods are running")
+var (
+	ErrNotAllPXCPodsRunning = errors.New("not all pxc pods are running")
+	logLinesRequired        = int64(1)
+)
 
-var sequenceRegexp = regexp.MustCompile(`node with sequence number [(]seqno[)]: ([-]?\d+)`)
-
-const crashBorder = `#####################################################FULL_PXC_CLUSTER_CRASH#####################################################`
+const logPrefix = `#####################################################LAST_LINE`
 
 func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.PerconaXtraDBCluster) error {
-
 	if cr.Spec.PXC.Size <= 0 {
 		return nil
 	}
@@ -35,7 +35,6 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.P
 		return err
 	}
 
-	logLinesRequired := int64(7)
 	logOpts := &corev1.PodLogOptions{
 		Container: "pxc",
 		TailLines: &logLinesRequired,
@@ -45,18 +44,17 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.P
 		return errors.Wrap(err, "get logs from pxc 0 pod")
 	}
 
-	if len(logs) != 7 {
+	if len(logs) != 1 {
 		return nil
 	}
 
-	if logs[0] == crashBorder && logs[6] == crashBorder {
+	if strings.HasPrefix(logs[0], logPrefix) {
 		return r.doFullCrashRecovery(cr.Name, cr.Namespace, int(cr.Spec.PXC.Size))
 	}
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isPodWaitingForRecovery(namespace, podName string) (bool, int64, error) {
-	logLinesRequired := int64(7)
 	logOpts := &corev1.PodLogOptions{
 		Container: "pxc",
 		TailLines: &logLinesRequired,
@@ -66,22 +64,22 @@ func (r *ReconcilePerconaXtraDBCluster) isPodWaitingForRecovery(namespace, podNa
 		return false, -1, errors.Wrapf(err, "get logs from %s pod", podName)
 	}
 
-	if len(logs) != 7 {
+	if len(logs) != 1 {
 		return false, -1, nil
 	}
 
-	if logs[0] != crashBorder || logs[6] != crashBorder {
+	if !strings.HasPrefix(logs[0], logPrefix) {
 		return false, -1, nil
 	}
 
-	seqStrSplit := sequenceRegexp.FindStringSubmatch(logs[3])
-	if len(seqStrSplit) != 2 {
-		return true, -1, errors.Wrapf(err, "get sequence number from %s pod, seqSTR: %s", podName, seqStrSplit)
+	logsSplitted := strings.Split(logs[0], ":")
+	if len(logsSplitted) != 4 {
+		return false, -1, nil
 	}
 
-	seq, err := strconv.ParseInt(seqStrSplit[1], 10, 64)
+	seq, err := strconv.ParseInt(logsSplitted[2], 10, 64)
 	if err != nil {
-		return true, -1, errors.Wrapf(err, "parse sequence %s", seqStrSplit[1])
+		return true, -1, errors.Wrapf(err, "parse sequence %s", logsSplitted[2])
 	}
 
 	return true, seq, nil
@@ -131,7 +129,7 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace st
 
 	// sleep there a little to start script and do not send
 	// a lot of signals to the same pod
-	time.Sleep(10 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	return nil
 }

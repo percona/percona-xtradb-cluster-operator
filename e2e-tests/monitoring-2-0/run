@@ -14,8 +14,6 @@ deploy_helm $namespace
 desc 'install PMM Server'
 platform=kubernetes
 helm del --purge monitoring || :
-helm repo remove stable || :
-helm repo add stable https://charts.helm.sh/stable
 if [ ! -z "$OPENSHIFT" ]; then
     platform=openshift
     oc adm policy add-scc-to-user privileged -z percona-xtradb-cluster-operator

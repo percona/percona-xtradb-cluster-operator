@@ -592,7 +592,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, inits)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get pxc statefulset")
 	}
 
 	// TODO: code duplication with updatePod function

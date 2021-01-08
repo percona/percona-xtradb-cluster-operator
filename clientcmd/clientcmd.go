@@ -49,7 +49,7 @@ func NewClient() (*Client, error) {
 func (c *Client) PodLogs(namespace, podName string, opts *corev1.PodLogOptions) ([]string, error) {
 	logs, err := c.client.Pods(namespace).GetLogs(podName, opts).Stream(context.TODO())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "get pod logs stream")
 	}
 	defer logs.Close()
 

@@ -161,7 +161,7 @@ under the ``backup`` section of the `deploy/cr.yaml <https://github.com/percona/
 * ``timeBetweenUploads`` key specifies the number of seconds between running the
   binlog uploader.
 
-Following example shows how ``pitr`` subsection looks like:
+Following example shows how the ``pitr`` subsection looks like:
 
 .. code:: yaml
 
@@ -375,11 +375,11 @@ The resulting ``restore.yaml`` file may look as follows:
        type: date
        date: "2020-12-31 09:37:13"
        backupSource:
-         destination: s3://S3-BUCKET-NAME/BACKUP-NAME
          s3:
+           bucket: S3-BUCKET-NAME
            credentialsSecret: my-cluster-name-backup-s3
-           region: us-west-2
            endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+           region: us-west-2
 
 The actual restoration process can be started as follows:
 

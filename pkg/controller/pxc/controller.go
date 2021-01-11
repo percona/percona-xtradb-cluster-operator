@@ -178,7 +178,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	l := r.lockers.LoadOrCreate(request.NamespacedName.String())
 
 	// Fetch the PerconaXtraDBCluster instance
-	// PerconaXtraDBCluster object is also accessed and changed by a version service's corn job (that run concurrently)
+	// PerconaXtraDBCluster object is also accessed and changed by a version service's cron job (that run concurrently)
 	l.statusMutex.Lock()
 	defer l.statusMutex.Unlock()
 	// we have to be sure the reconcile loop will be run at least once

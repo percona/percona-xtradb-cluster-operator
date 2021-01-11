@@ -344,7 +344,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		}
 
 		if len(bucket) == 0 {
-			return nil, errors.New("no backet in storage")
+			return nil, errors.New("no bucket in storage")
 		}
 
 		command = []string{"pitr", "recover"}

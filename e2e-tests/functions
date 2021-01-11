@@ -96,10 +96,9 @@ wait_pod() {
     set +o xtrace
     retry=0
     echo -n $pod
-    #until kubectl_bin get pod/$pod -o jsonpath='{.status.phase}' 2>/dev/null | grep 'Running'; do
     until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
         && kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
-        && ! kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q FULL_PXC_CLUSTER_CRASH; do
+        && ! kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q LAST_LINE; do
         sleep 1
         echo -n .
         let retry+=1
@@ -126,7 +125,7 @@ wait_crash_pod() {
     echo -n $pod
     until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
         && kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
-        && kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q FULL_PXC_CLUSTER_CRASH; do
+        && kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q LAST_LINE; do
         sleep 1
         echo -n .
         let retry+=1

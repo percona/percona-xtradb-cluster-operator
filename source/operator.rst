@@ -79,6 +79,11 @@ main subsystems of the cluster:
      - ``my-cluster-ssl-internal``
      - A secret with TLS certificate generated for *internal* communications, see :ref:`tls` for details
 
+   * - logCollectorSecretName
+     - string
+     - ``my-log-collector-secrets``
+     - A secret for the `Fluent Bit Log Collector <https://fluentbit.io>`_
+
    * - updateStrategy
      - string
      - ``SmartUpdate``
@@ -1475,6 +1480,84 @@ configuration options for the ProxySQL daemon.
 |                 | for the ProxySQL Pod                                                                      |
 +-----------------+-------------------------------------------------------------------------------------------+
 
+.. _operator.logcollector-section:
+
+`Log Collector Section <operator.html#operator-logcollector-section>`_
+--------------------------------------------------------------------------------
+
+The ``logcollector`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ 
+file contains configuration options for `Fluent Bit Log Collector <https://fluentbit.io/>`_.
+
+.. tabularcolumns:: |p{2cm}|p{13.6cm}|
+
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _logcollector-enabled:                                                                 |
+|                 |                                                                                           |
+| **Key**         | `logcollector.enabled <operator.html#logcollector-enabled>`_                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | boolean                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``true``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Enables or disables :ref:`cluster-level logging with Fluent Bit<debug-images-logs>`       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _logcollector-image:                                                                   |
+|                 |                                                                                           |
+| **Key**         | `logcollector.image <operator.html#logcollector-image>`_                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``percona/percona-xtradb-cluster-operator:1.6.0-logcollector``                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Log Collector Docker image to use                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _logcollector-configuration:                                                           |
+|                 |                                                                                           |
+| **Key**         | `logcollector.configuration <operator.html#logcollector-configuration>`_                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       |  subdoc                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     |                                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Additional configuration options (see `Fluent Bit official documentation                  |
+|                 | <https://docs.fluentbit.io/manual/administration/configuring-fluent-bit/                  |
+|                 | configuration-file>`_ for details)                                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _logcollector-resources-requests-memory:                                               |
+|                 |                                                                                           |
+| **Key**         | `logcollector.resources.requests.memory                                                   |
+|                 | <operator.html#logcollector-resources-requests-memory>`_                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``200M``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes memory requests                                                           |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
+|                 | for a Log Collector container                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _logcollector-resources-requests-cpu:                                                  |
+|                 |                                                                                           |
+| **Key**         | `logcollector.resources.requests.cpu <operator.html#logcollector-resources-requests-cpu>`_|
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``500m``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes CPU requests                                                                  |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a Log collector container       |
++-----------------+-------------------------------------------------------------------------------------------+
+
 .. _operator.pmm-section:
 
 `PMM Section <operator.html#operator-pmm-section>`_
@@ -1564,6 +1647,7 @@ options for Percona Monitoring and Management.
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
 |                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PMM container                 |
 +-----------------+-------------------------------------------------------------------------------------------+
+
 .. _operator.backup-section:
 
 `Backup Section <operator.html#operator-backup-section>`_

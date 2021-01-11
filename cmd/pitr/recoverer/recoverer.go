@@ -43,7 +43,7 @@ type Config struct {
 }
 
 type BackupS3 struct {
-	Endpoint    string `env:"ENDPOINT,required"`
+	Endpoint    string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
 	AccessKeyID string `env:"ACCESS_KEY_ID,required"`
 	AccessKey   string `env:"SECRET_ACCESS_KEY,required"`
 	Region      string `env:"DEFAULT_REGION,required"`

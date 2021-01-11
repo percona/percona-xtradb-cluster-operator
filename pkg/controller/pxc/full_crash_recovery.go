@@ -17,7 +17,7 @@ import (
 
 var (
 	ErrNotAllPXCPodsRunning = errors.New("not all pxc pods are running")
-	logLinesRequired        = int64(1)
+	logLinesRequired        = int64(8)
 )
 
 const logPrefix = `#####################################################LAST_LINE`
@@ -39,18 +39,17 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.P
 		Container: "pxc",
 		TailLines: &logLinesRequired,
 	}
-	logs, err := r.clientcmd.PodLogs(cr.Namespace, cr.Name+"-pxc-0", logOpts)
+	logLines, err := r.clientcmd.PodLogs(cr.Namespace, cr.Name+"-pxc-0", logOpts)
 	if err != nil {
 		return errors.Wrap(err, "get logs from pxc 0 pod")
 	}
 
-	if len(logs) != 1 {
-		return nil
+	for _, log := range logLines {
+		if strings.HasPrefix(log, logPrefix) {
+			return r.doFullCrashRecovery(cr.Name, cr.Namespace, int(cr.Spec.PXC.Size))
+		}
 	}
 
-	if strings.HasPrefix(logs[0], logPrefix) {
-		return r.doFullCrashRecovery(cr.Name, cr.Namespace, int(cr.Spec.PXC.Size))
-	}
 	return nil
 }
 
@@ -59,20 +58,22 @@ func (r *ReconcilePerconaXtraDBCluster) isPodWaitingForRecovery(namespace, podNa
 		Container: "pxc",
 		TailLines: &logLinesRequired,
 	}
-	logs, err := r.clientcmd.PodLogs(namespace, podName, logOpts)
+	logLines, err := r.clientcmd.PodLogs(namespace, podName, logOpts)
 	if err != nil {
 		return false, -1, errors.Wrapf(err, "get logs from %s pod", podName)
 	}
 
-	if len(logs) != 1 {
-		return false, -1, nil
+	for _, log := range logLines {
+		if strings.HasPrefix(log, logPrefix) {
+			return parseSequence(log)
+		}
 	}
 
-	if !strings.HasPrefix(logs[0], logPrefix) {
-		return false, -1, nil
-	}
+	return false, -1, nil
+}
 
-	logsSplitted := strings.Split(logs[0], ":")
+func parseSequence(log string) (bool, int64, error) {
+	logsSplitted := strings.Split(log, ":")
 	if len(logsSplitted) != 4 {
 		return false, -1, nil
 	}

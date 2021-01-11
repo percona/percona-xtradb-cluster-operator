@@ -1,5 +1,5 @@
-PXC API Documentation
-=====================
+Percona XtraDB Cluster Operator API Documentation
+=================================================
 
 .. raw:: html
 
@@ -62,14 +62,14 @@ Prerequisites
       kubectl apply -f deploy/crd.yaml -f deploy/rbac.yaml -n default
       KUBE_TOKEN=$(kubectl get secret $(kubectl get serviceaccount percona-xtradb-cluster-operator -o jsonpath='{.secrets[0].name}' -n default) -o jsonpath='{.data.token}' -n default | base64 --decode )
 
-Create new PXC cluster
-----------------------
+Create new Percona XtraDB Cluster
+---------------------------------
 
 **Description:**
 
 .. code-block:: bash
 
-   The command to create a new PXC cluster creating all of its resources and it depends on the pxc operator
+   The command to create a new Percona XtraDB Cluster with all its resources
 
 **Kubectl Command:**
 
@@ -126,10 +126,10 @@ Create new PXC cluster
 
   pxc:
   
-  1. Size (Int , min-value: 1, default, 3) : ``number of pxc nodes to create``
-  2. Image (String, min-length: 1) : ``contains image name to use for pxc nodes``
-  3. volumeSpec : storage (SizeString, default: “6Gi”) : ``contains the size for the storage volume of pxc nodes``
-  4. gracePeriod (Int, default: 600, min-value: 0 ) : ``contains the time to wait for pxc node to shutdown in milliseconds``
+  1. Size (Int , min-value: 1, default, 3) : ``number of Percona XtraDB Cluster nodes to create``
+  2. Image (String, min-length: 1) : ``contains image name to use for Percona XtraDB Cluster nodes``
+  3. volumeSpec : storage (SizeString, default: “6Gi”) : ``contains the size for the storage volume of Percona XtraDB Cluster nodes``
+  4. gracePeriod (Int, default: 600, min-value: 0 ) : ``contains the time to wait for Percona XtraDB Cluster node to shutdown in milliseconds``
 
   proxysql:
   
@@ -161,14 +161,14 @@ Create new PXC cluster
 
    .. include:: ./assets/code/api-create-cluster-response-json.txt
 
-List PXC cluster
-----------------
+List Percona XtraDB Clusters
+----------------------------
 
 **Description:**
 
 .. code-block:: bash
 
-   Lists all pxc clusters that exist in your kubernetes cluster
+   Lists all Percona XtraDB Clusters that exist in your kubernetes cluster
 
 **Kubectl Command:**
 
@@ -212,14 +212,14 @@ List PXC cluster
 
    .. include:: ./assets/code/api-list-cluster-response-json.txt
 
-Get status of PXC cluster
--------------------------
+Get status of Percona XtraDB Cluster
+------------------------------------
 
 **Description:**
 
 .. code-block:: bash
 
-   Gets all information about specified pxc cluster
+   Gets all information about the specified Percona XtraDB Cluster
 
 **Kubectl Command:**
 
@@ -263,14 +263,15 @@ Get status of PXC cluster
 
    .. include:: ./assets/code/api-get-status-of-cluster-response-json.txt
 
-Scale up/down PXC cluster
--------------------------
+Scale up/down Percona XtraDB Cluster
+------------------------------------
 
 **Description:**
 
 .. code-block:: bash
 
-   Increase or decrease the size of the PXC cluster nodes to fit the current high availability needs
+   Increase or decrease the size of the Percona XtraDB Cluster nodes to fit the
+   current high availability needs
 
 **Kubectl Command:**
 
@@ -320,7 +321,7 @@ Scale up/down PXC cluster
 
    pxc
 
-   1. size (Int or String, Defaults: 3): ``Specifiy the sie of the pxc cluster to scale up or down to``
+   1. size (Int or String, Defaults: 3): ``Specifiy the size of the Percona XtraDB Cluster to scale up or down to``
 
 **Response:**
 
@@ -332,14 +333,14 @@ Scale up/down PXC cluster
 
    .. include:: ./assets/code/api-scale-cluster-response-json.txt
 
-Update PXC cluster image
-------------------------
+Update Percona XtraDB Cluster image
+-----------------------------------
 
 **Description:**
 
 .. code-block:: bash
 
-   Change the image of pxc containers inside the cluster
+   Change the image of Percona XtraDB Cluster containers inside the cluster
 
 **Kubectl Command:**
 
@@ -390,7 +391,7 @@ Update PXC cluster image
   
   pxc:
   
-  1. image (String, min-length: 1) : ``name of the image to update for pxc``
+  1. image (String, min-length: 1) : ``name of the image to update for Percona XtraDB Cluster``
 
 **Response:**
 
@@ -402,14 +403,15 @@ Update PXC cluster image
 
    .. include:: ./assets/code/api-update-cluster-image-response-json.txt
 
-Pass custom my.cnf during the creation of PXC cluster
------------------------------------------------------
+Pass custom my.cnf during the creation of Percona XtraDB Cluster
+----------------------------------------------------------------
 
 **Description:**
 
 .. code-block:: bash
 
-   Create a custom config map containing the contents of the file my.cnf to be passed on to the pxc containers we they are created
+   Create a custom config map containing the contents of the file my.cnf to be
+   passed on to the Percona XtraDB Cluster containers when they are created
 
 
 **Kubectl Command:**
@@ -476,14 +478,15 @@ Pass custom my.cnf during the creation of PXC cluster
 
    .. include:: ./assets/code/api-pass-config-to-cluster-response-json.txt
 
-Backup PXC cluster
-------------------
+Backup Percona XtraDB Cluster
+-----------------------------
 
 **Description:**
 
 .. code-block:: bash
 
-   Takes a backup of the pxc cluster containers data to be able to recover from disasters or make a roll-back later
+   Takes a backup of the Percona XtraDB Cluster containers data to be able to
+   recover from disasters or make a roll-back later
 
 
 **Kubectl Command:**
@@ -534,7 +537,7 @@ Backup PXC cluster
 
 2. **spec**:
   
-     1. pxcCluster(String, min-length:1) : ``name of pxc cluster``
+     1. pxcCluster(String, min-length:1) : ``name of Percona XtraDB Cluster``
      2. storageName(String, min-length:1) : ``name of storage claim to use``
 
 **Response:**
@@ -547,14 +550,15 @@ Backup PXC cluster
 
    .. include:: ./assets/code/api-backup-cluster-response-json.txt
 
-Restore PXC cluster
--------------------
+Restore Percona XtraDB Cluster
+------------------------------
 
 **Description:**
 
 .. code-block:: bash
 
-   Restores pxc cluster data to an earlier version to recover from a problem or to make a roll-back
+   Restores Percona XtraDB Cluster data to an earlier version to recover from a
+   problem or to make a roll-back
 
 
 **Kubectl Command:**
@@ -605,7 +609,7 @@ Restore PXC cluster
 
 2. **spec**:
 
-     1. pxcCluster(String, min-length:1) : ``name of pxc cluster``
+     1. pxcCluster(String, min-length:1) : ``name of Percona XtraDB Cluster``
      2. backupName(String, min-length:1) : ``name of backup to restore from``
 
 **Response:**

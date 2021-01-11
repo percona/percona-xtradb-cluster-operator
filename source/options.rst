@@ -103,7 +103,8 @@ Options which can be set automatically are the following ones:
 * ``innodb_buffer_pool_size``
 * ``max_connections``
 
-If PXC Pod limits are defined, then limits values are used to calculate these
-options. If PXC Pod limits are not defined, Operator looks for PXC Pod requests
-as the basis for calculations. if neither PXC Pod limits nor PXC Pod requests are
-defined, auto-tuning is not done.
+If Percona XtraDB Cluster Pod limits are defined, then limits values are used to
+calculate these options. If Percona XtraDB Cluster Pod limits are not defined,
+Operator looks for Percona XtraDB Cluster Pod requests as the basis for
+calculations. if neither Percona XtraDB Cluster Pod limits nor Percona XtraDB
+Cluster Pod requests are defined, auto-tuning is not done.

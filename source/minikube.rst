@@ -3,16 +3,20 @@
 Install Percona XtraDB Cluster on Minikube
 ============================================
 
-Installing the PXC Operator on `minikube <https://github.com/kubernetes/minikube>`_
+Installing the Percona XtraDB Cluster Operator on `minikube <https://github.com/kubernetes/minikube>`_
 is the easiest way to try it locally without a cloud provider. Minikube runs
 Kubernetes on GNU/Linux, Windows, or macOS system using a system-wide
 hypervisor, such as VirtualBox, KVM/QEMU, VMware Fusion or Hyper-V. Using it is
 a popular way to test the Kubernetes application locally prior to deploying it
 on a cloud.
 
-The following steps are needed to run PXC Operator on Minikube:
+The following steps are needed to run Percona XtraDB Cluster Operator on
+Minikube:
 
-#. `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_, using a way recommended for your system. This includes the installation of the following three components:
+#. `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_,
+   using a way recommended for your system. This includes the installation of
+   the following three components:
+
    #. kubectl tool,
    #. a hypervisor, if it is not already installed,
    #. actual Minikube package

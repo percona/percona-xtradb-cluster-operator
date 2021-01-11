@@ -1,9 +1,9 @@
 .. _encryption:
 
-Data-at-Rest Encryption
+Data at Rest Encryption
 ************************
 
-`Full data-at-rest encryption in Percona XtraDB Cluster <https://www.percona.com/doc/percona-xtradb-cluster/LATEST/management/data_at_rest_encryption.html>`_ is supported by the Operator since version 1.4.0.
+`Full data at rest encryption in Percona XtraDB Cluster <https://www.percona.com/doc/percona-xtradb-cluster/LATEST/management/data_at_rest_encryption.html>`_ is supported by the Operator since version 1.4.0.
 
 .. note:: `Data at rest <https://en.wikipedia.org/wiki/Data_at_rest>`_ means inactive data stored as files, database records, etc.
 
@@ -53,10 +53,11 @@ Configuring Vault
 -----------------
 
 1. First, you should enable secrets within Vault. For this you will need a `Vault token <https://www.vaultproject.io/docs/concepts/tokens>`_.
-   PXC can use any regular token which allows all operations inside the secrets
-   mount point. In the following example we are using the *root token* to be
-   sure the permissions requirement is met, but actually there is no need in
-   root permissions. We don't recommend using the root token on the production system.
+   Percona XtraDB Cluster can use any regular token which allows all operations
+   inside the secrets mount point. In the following example we are using the
+   *root token* to be sure the permissions requirement is met, but actually
+   there is no need in root permissions. We don't recommend using the root token
+   on the production system.
 
    .. code:: bash
 

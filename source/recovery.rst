@@ -51,17 +51,19 @@ Object Surgery Crash Recovery method
 
 This method involves the following steps:
 
-* swap the original PXC image with the :ref:`debug image<debug-images>`, which
-  does not reboot after the crash, and force all Pods to run it,
-* find the Pod with the most recent PXC data, run recovery on it, start
-  ``mysqld``, and allow the cluster to be restarted,
+* swap the original Percona XtraDB Cluster image with the
+  :ref:`debug image<debug-images>`, which does not reboot after the crash, and
+  force all Pods to run it,
+* find the Pod with the most recent Percona XtraDB Cluster data, run recovery
+  on it, start ``mysqld``, and allow the cluster to be restarted,
 * revert all temporary substitutions.
 
 Let's assume that a full crash did occur for the cluster named ``cluster1``,
-which is based on three PXC Pods.
+which is based on three Percona XtraDB Cluster Pods.
 
-.. note:: The following commands are written for PXC 8.0. The same steps are
-   also for PXC 5.7 unless specifically indicated otherwise.
+.. note:: The following commands are written for Percona XtraDB Cluster 8.0.
+   The same steps are also for Percona XtraDB Cluster 5.7 unless specifically
+   indicated otherwise.
 
 #. Check the current Update Strategy with the following command to make sure
    :ref:`Smart Updates<operator-update-smartupdates>` are turned off during the
@@ -84,7 +86,7 @@ which is based on three PXC Pods.
 
       $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster:{{{pxc80recommended}}}-debug"}}}'
 
-   .. note:: For PXC 5.7 this command should be as follows:
+   .. note:: For Percona XtraDB Cluster 5.7 this command should be as follows:
 
       .. code-block:: bash
 
@@ -103,14 +105,16 @@ which is based on three PXC Pods.
 
       $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do until [[ $(kubectl get pod cluster1-pxc-$i -o jsonpath='{.status.phase}') == 'Running' ]]; do sleep 10; done; kubectl exec cluster1-pxc-$i -- touch /tmp/recovery-case; done
 
-#. Wait for all PXC Pods to start, and execute the following code to make sure no mysqld processes are running:
+#. Wait for all Percona XtraDB Cluster Pods to start, and execute the following
+   code to make sure no mysqld processes are running:
 
    .. code-block:: bash
 
       $ for i in $(seq $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do pid=$(kubectl exec cluster1-pxc-$i -- ps -C mysqld-ps -o pid=); if [[ -n "$pid" ]]; then kubectl exec cluster1-pxc-$i -- kill -9 $pid; fi;  done
 
-#. Wait for all PXC Pods to start, then find the PXC instance with the most
-   recent data - i.e. the one with the highest `sequence number (seqno) <https://www.percona.com/blog/2017/12/14/sequence-numbers-seqno-percona-xtradb-cluster/>`_:
+#. Wait for all Percona XtraDB Cluster Pods to start, then find the Percona
+   XtraDB Cluster instance with the most recent data - i.e. the one with the
+   highest `sequence number (seqno) <https://www.percona.com/blog/2017/12/14/sequence-numbers-seqno-percona-xtradb-cluster/>`_:
 
    .. code-block:: bash
 
@@ -153,14 +157,14 @@ which is based on three PXC Pods.
    The ``mysqld`` process will initialize the database once again, and it will
    be available for the incoming connections.
 
-#. Go back *to the previous shell* and return the original PXC image because the
-   debug image is no longer needed:
+#. Go back *to the previous shell* and return the original Percona XtraDB
+   Cluster image because the debug image is no longer needed:
 
    .. code-block:: bash
 
       $ kubectl patch pxc cluster1 --type="merge" -p '{"spec":{"pxc":{"image":"percona/percona-xtradb-cluster:{{{pxc80recommended}}}"}}}'
 
-   .. note:: For PXC 5.7 this command should be as follows:
+   .. note:: For Percona XtraDB Cluster 5.7 this command should be as follows:
 
       .. code-block:: bash
 

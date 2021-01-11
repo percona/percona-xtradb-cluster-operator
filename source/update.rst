@@ -198,18 +198,18 @@ updates:
 
    * ``Recommended`` - automatic upgrades will choose the most recent version
      of software flagged as Recommended (for clusters created from scratch,
-     the PXC 8.0 version will be selected instead of the PCX 5.7 one regardless
-     of the image path; for already existing clusters, the 8.0 vs. 5.7 branch
-     choice will be preserved),
+     the Percona XtraDB Cluster 8.0 version will be selected instead of the
+     Percona XtraDB Cluster 5.7 one regardless of the image path; for already
+     existing clusters, the 8.0 vs. 5.7 branch choice will be preserved),
    * ``Latest`` - automatic upgrades will choose the most recent version of
      the software available (for clusters created from scratch,
-     the PXC 8.0 version will be selected instead of the PCX 5.7 one regardless
-     of the image path; for already existing clusters, the 8.0 vs. 5.7 branch
-     choice will be preserved),
-   * *specific version number* - will apply an upgrade if the running PXC
-     version doesn't match the explicit version number with no future upgrades
-     (version numbers are specified as ``5.7.26-31.37``, ``5.7.27-31.39``,
-     ``5.7.28-31.41.2``, ``5.7.29-31.43``, etc.),
+     the Percona XtraDB Cluster 8.0 version will be selected instead of the
+     Percona XtraDB Cluster 5.7 one regardless of the image path; for already
+     existing clusters, the 8.0 vs. 5.7 branch choice will be preserved),
+   * *specific version number* - will apply an upgrade if the running Percona
+     XtraDB Cluster version doesn't match the explicit version number with no
+     future upgrades (version numbers are specified as ``5.7.26-31.37``,
+     ``5.7.27-31.39``, ``5.7.28-31.41.2``, ``5.7.29-31.43``, etc.),
    * ``Never`` or ``Disabled`` - disable automatic upgrades
 
      .. note:: When automatic upgrades are disabled by the ``apply`` option, 

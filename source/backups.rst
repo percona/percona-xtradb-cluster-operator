@@ -112,7 +112,7 @@ with ``kubectl`` command, use *a special backup configuration YAML file* with
 the following contents:
 
 * **backup name** in the ``metadata.name`` key,
-* **PXC Cluster name** in the ``spec.pxcCluster`` key,
+* **Percona XtraDB Cluster name** in the ``spec.pxcCluster`` key,
 * **storage name** from ``deploy/cr.yaml`` in the ``spec.storageName`` key.
 
 The example of the backup configuration file is `deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`_.
@@ -177,7 +177,8 @@ There is a possibility to enable
 `LZ4 compression <https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)>`_
 for backups.
 
-.. note:: This feature is available only with PXC 8.0 and not PXC 5.7.
+.. note:: This feature is available only with Percona XtraDB Cluster 8.0 and not
+   Percona XtraDB Cluster 5.7.
 
 To enable compression, use :ref:`pxc-configuration` key in the
 ``deploy/cr.yaml`` configuration file to supply Percona XtraDB Cluster nodes

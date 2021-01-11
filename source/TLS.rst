@@ -3,10 +3,11 @@
 Transport Layer Security (TLS)
 ******************************
 
-The Percona Kubernetes Operator for PXC uses Transport Layer Security (TLS) cryptographic protocol for the following types of communication:
+The Percona Kubernetes Operator for Percona XtraDB Cluster uses Transport Layer
+Security (TLS) cryptographic protocol for the following types of communication:
 
-* Internal - communication between PXC instances in the cluster
-* External - communication between the client application and ProxySQL
+* Internal - communication between Percona XtraDB Cluster instances,
+* External - communication between the client application and ProxySQL.
 
 The internal certificate is also used as an authorization method.
 
@@ -28,16 +29,24 @@ Operator yourself, as well as how to temporarily disable it if needed.
 .. contents:: :local:
 
 Install and use the *cert-manager*
-====================================
+==================================
 
 About the *cert-manager*
 ------------------------
 
-A *cert-manager* is a Kubernetes certificate management controller which widely used to automate the management and issuance of TLS certificates. It is community-driven, and open source. 
+A *cert-manager* is a Kubernetes certificate management controller which widely
+used to automate the management and issuance of TLS certificates. It is
+community-driven, and open source. 
 
-When you have already installed *cert-manager* and deploy the operator, the operator requests a certificate from the *cert-manager*. The *cert-manager* acts as a self-signed issuer and generates certificates. The Percona Operator self-signed issuer is local to the operator namespace. This self-signed issuer is created because PXC requires all certificates are issued by the same CA.
+When you have already installed *cert-manager* and deploy the operator, the
+operator requests a certificate from the *cert-manager*. The *cert-manager* acts
+as a self-signed issuer and generates certificates. The Percona Operator
+self-signed issuer is local to the operator namespace. This self-signed issuer
+is created because Percona XtraDB Cluster requires all certificates are issued
+by the same CA.
 
-The creation of the self-signed issuer allows you to deploy and use the Percona Operator without creating a clusterissuer separately.
+The creation of the self-signed issuer allows you to deploy and use the Percona
+Operator without creating a clusterissuer separately.
 
 Installation of the *cert-manager*
 ----------------------------------
@@ -71,7 +80,8 @@ To generate certificates manually, follow these steps:
 
 1. Provision a Certificate Authority (CA) to generate TLS certificates
 2. Generate a CA key and certificate file with the server details
-3. Create the server TLS certificates using the CA keys, certs, and server details
+3. Create the server TLS certificates using the CA keys, certs, and server
+   details
 
 The set of commands generate certificates with the following attributes:
 
@@ -79,7 +89,10 @@ The set of commands generate certificates with the following attributes:
 *  ``Server-key.pem`` - the private key
 *  ``ca.pem`` - Certificate Authority
 
-You should generate certificates twice: one set is for external communications, and another set is for internal ones. A secret created for the external use must be added to ``cr.yaml/spec/secretsName``. A certificate generated for internal communications must be added to the ``cr.yaml/spec/sslInternalSecretName``.
+You should generate certificates twice: one set is for external communications,
+and another set is for internal ones. A secret created for the external use must
+be added to ``cr.yaml/spec/secretsName``. A certificate generated for internal
+communications must be added to the ``cr.yaml/spec/sslInternalSecretName``.
 
 ::
 
@@ -112,9 +125,12 @@ You should generate certificates twice: one set is for external communications, 
   from-file=tls.key=server-key.pem --from-file=ca.crt=ca.pem --
   type=kubernetes.io/tls
 
-Run PXC without TLS
-==========================
+Run Percona XtraDB Cluster without TLS
+======================================
 
-Omitting TLS is also possible, but we recommend that you run your cluster with the TLS protocol enabled. 
+Omitting TLS is also possible, but we recommend that you run your cluster with
+the TLS protocol enabled. 
 
-To disable TLS protocol (e.g. for demonstration purposes) edit the ``cr.yaml/spec/allowUnstafeConfigurations`` setting to ``true`` and make sure that there are no certificate secrets available.
+To disable TLS protocol (e.g. for demonstration purposes) edit the
+``cr.yaml/spec/allowUnstafeConfigurations`` setting to ``true`` and make sure
+that there are no certificate secrets available.

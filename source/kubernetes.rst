@@ -13,8 +13,8 @@ Install Percona XtraDB Cluster on Kubernetes
    .. note:: It is crucial to specify the right branch with ``-b``
       option while cloning the code on this step. Please be careful.
 
-#. Now Custom Resource Definition for PXC should be created from the
-   ``deploy/crd.yaml`` file. Custom Resource Definition extends the
+#. Now Custom Resource Definition for Percona XtraDB Cluster should be created
+   from the ``deploy/crd.yaml`` file. Custom Resource Definition extends the
    standard set of resources which Kubernetes “knows” about with the new
    items (in our case ones which are the core of the operator).
 
@@ -33,8 +33,8 @@ Install Percona XtraDB Cluster on Kubernetes
       $ kubectl create namespace pxc
       $ kubectl config set-context $(kubectl config current-context) --namespace=pxc
 
-#. Now RBAC (role-based access control) for PXC should be set up from
-   the ``deploy/rbac.yaml`` file. Briefly speaking, role-based access is
+#. Now RBAC (role-based access control) for Percona XtraDB Cluster should be set
+   up from the ``deploy/rbac.yaml`` file. Briefly speaking, role-based access is
    based on specifically defined roles and actions corresponding to
    them, allowed to be done on specific Kubernetes resources (details
    about users and roles can be found in `Kubernetes
@@ -55,11 +55,10 @@ Install Percona XtraDB Cluster on Kubernetes
 
       $ kubectl apply -f deploy/operator.yaml
 
-#. Now that’s time to add the PXC Users secrets to Kubernetes. They
-   should be placed in the data section of the ``deploy/secrets.yaml``
-   file as logins and plaintext passwords for the user accounts
-   (see `Kubernetes
-   documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`_
+#. Now that’s time to add the Percona XtraDB Cluster Users secrets to
+   Kubernetes. They should be placed in the data section of the
+   ``deploy/secrets.yaml`` file as logins and plaintext passwords for the user
+   accounts (see `Kubernetes documentation <https://kubernetes.io/docs/concepts/configuration/secret/>`_
    for details).
 
    After editing is finished, users secrets should be created using the

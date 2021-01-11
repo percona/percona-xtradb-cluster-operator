@@ -3,6 +3,38 @@
 Debug
 =================
 
+.. _debug-images-logs:
+
+Cluster-level logging
+---------------------
+
+Cluster-level logging involves collecting logs from all components of the
+cluster to a separate storage. This storage provides logs a lifecycle
+independent of nodes, pods, or containers. Particularly, it ensures Pod logs
+from previous failures can be reviewed later.
+
+Log collector is turned on by the ``logcollector.enabled`` key in the
+``deploy/cr.yaml`` configuration file (``true`` by default).
+
+Operator collects logs using `Fluent Bit Log Processor <https://fluentbit.io/>`_,
+which supports a lot of output plugins and has wide forwarding capabilities.
+If necessary, Fluent Bit filtering and advanced features can be configured via
+the ``logcollector.configuration`` key in the ``deploy/cr.yaml`` configuration
+file.
+
+Logs are stored for 7 days and then rotated.
+
+Collected logs can be examined using the following command:
+
+   .. code:: bash
+
+   kubectl logs -c pxc-logcollector
+
+.. _debug-images-images:
+
+Special debug images
+--------------------
+
 For the cases when Pods are failing for some reason or just show abnormal
 behavior, the Operator can be used with a special *debug images*. Percona XtraDB
 Cluster debug image has the following specifics:

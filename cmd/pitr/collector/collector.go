@@ -72,7 +72,6 @@ func New(c Config) (*Collector, error) {
 		storage:        s3,
 		lastSet:        string(lastSet),
 		pxcUser:        c.PXCUser,
-		pxcPass:        c.PXCPass,
 		pxcServiceName: c.PXCServiceName,
 	}, nil
 }
@@ -97,10 +96,20 @@ func (c *Collector) newDB() error {
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
+
+	file, err := os.Open("/etc/mysql/mysql-users-secret/xtrabackup")
+	if err != nil {
+		return errors.Wrap(err, "open file")
+	}
+	pxcPass, err := ioutil.ReadAll(file)
+	if err != nil {
+		return errors.Wrap(err, "read password")
+	}
+	c.pxcPass = string(pxcPass)
+
 	c.db, err = pxc.NewPXC(host, c.pxcUser, c.pxcPass)
 	if err != nil {
 		return errors.Wrapf(err, "new manager with host %s", host)
-
 	}
 
 	return nil
@@ -222,7 +231,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 			return
 		}
 	}()
-	err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))
+	err = os.Setenv("MYSQL_PWD", c.pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "set mysql pwd env var")
 	}

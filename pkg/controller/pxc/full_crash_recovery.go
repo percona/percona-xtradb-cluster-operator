@@ -35,19 +35,13 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.P
 		return err
 	}
 
-	logOpts := &corev1.PodLogOptions{
-		Container: "pxc",
-		TailLines: &logLinesRequired,
-	}
-	logLines, err := r.clientcmd.PodLogs(cr.Namespace, cr.Name+"-pxc-0", logOpts)
+	isWaiting, _, err := r.isPodWaitingForRecovery(cr.Namespace, cr.Name+"-pxc-0")
 	if err != nil {
-		return errors.Wrap(err, "get logs from pxc 0 pod")
+		return errors.Wrap(err, "failed to check if pxc pod 0 is waiting for recovery")
 	}
 
-	for _, log := range logLines {
-		if strings.HasPrefix(log, logPrefix) {
-			return r.doFullCrashRecovery(cr.Name, cr.Namespace, int(cr.Spec.PXC.Size))
-		}
+	if isWaiting {
+		return r.doFullCrashRecovery(cr.Name, cr.Namespace, int(cr.Spec.PXC.Size))
 	}
 
 	return nil
@@ -63,27 +57,28 @@ func (r *ReconcilePerconaXtraDBCluster) isPodWaitingForRecovery(namespace, podNa
 		return false, -1, errors.Wrapf(err, "get logs from %s pod", podName)
 	}
 
-	for _, log := range logLines {
-		if strings.HasPrefix(log, logPrefix) {
-			return parseSequence(log)
+	for i := len(logLines) - 1; i >= 0; i-- {
+		if strings.HasPrefix(logLines[i], logPrefix) {
+			seq, err := parseSequence(logLines[i])
+			return true, seq, err
 		}
 	}
 
 	return false, -1, nil
 }
 
-func parseSequence(log string) (bool, int64, error) {
+func parseSequence(log string) (int64, error) {
 	logsSplitted := strings.Split(log, ":")
 	if len(logsSplitted) != 4 {
-		return false, -1, nil
+		return -1, errors.New("invalid log format. Log: " + log)
 	}
 
 	seq, err := strconv.ParseInt(logsSplitted[2], 10, 64)
 	if err != nil {
-		return true, -1, errors.Wrapf(err, "parse sequence %s", logsSplitted[2])
+		return -1, errors.Wrapf(err, "parse sequence %s", logsSplitted[2])
 	}
 
-	return true, seq, nil
+	return seq, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace string, pxcSize int) error {

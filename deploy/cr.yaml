@@ -342,6 +342,10 @@ spec:
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials
+    pitr:
+      enabled: false
+      storageName: STORAGE-NAME-HERE
+      timeBetweenUploads: 60
     storages:
       s3-us-west:
         type: s3

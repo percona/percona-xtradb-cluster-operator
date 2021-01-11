@@ -5,3 +5,14 @@ metadata:
 spec:
   pxcCluster: cluster1
   backupName: backup1
+#  pitr:
+#    type: latest
+#    date: "yyyy-mm-dd hh:mm:ss"
+#    gtidSet: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:nnn"
+#    backupSource:
+#      storageName: "STORAGE-NAME-HERE"
+#      s3:
+#        bucket: S3-BINLOG-BACKUP-BUCKET-NAME-HERE
+#        credentialsSecret: my-cluster-name-backup-s3
+#        endpointUrl: https://s3.us-west-2.amazonaws.com/
+#        region: us-west-2

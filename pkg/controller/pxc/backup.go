@@ -32,7 +32,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 	if cr.Spec.Backup != nil {
 		bcpObj := backup.New(cr)
 
-		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled {
+		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause {
 			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
 			if err != nil {
 				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
@@ -55,20 +55,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				}
 			}
 		}
-		if !cr.Spec.Backup.PITR.Enabled {
-			collectorDeployment := appsv1.Deployment{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      deployment.GetBinlogCollectorDeploymentName(cr),
-					Namespace: cr.Namespace,
-				},
-			}
-			err = r.client.Delete(context.TODO(), &collectorDeployment)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				errors.Wrap(err, "remove pitr deployment")
+		if !cr.Spec.Backup.PITR.Enabled || cr.Spec.Pause {
+			err = r.deletePITR(cr)
+			if err != nil {
+				return errors.Wrap(err, "delete pitr")
 			}
 		}
 
@@ -211,4 +201,23 @@ func (h *minHeap) Pop() interface{} {
 	x := old[n-1]
 	*h = old[0 : n-1]
 	return x
+}
+
+func (r *ReconcilePerconaXtraDBCluster) deletePITR(cr *api.PerconaXtraDBCluster) error {
+	collectorDeployment := appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      deployment.GetBinlogCollectorDeploymentName(cr),
+			Namespace: cr.Namespace,
+		},
+	}
+	err := r.client.Delete(context.TODO(), &collectorDeployment)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "delete pitr deployment")
+	}
+
+	return nil
 }

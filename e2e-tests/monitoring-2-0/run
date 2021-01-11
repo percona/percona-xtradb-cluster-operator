@@ -13,11 +13,15 @@ deploy_helm $namespace
 
 desc 'install PMM Server'
 platform=kubernetes
+helm del --purge monitoring || :
 if [ ! -z "$OPENSHIFT" ]; then
     platform=openshift
+    oc adm policy add-scc-to-user privileged -z percona-xtradb-cluster-operator
+    oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
+    retry 10 60 helm install monitoring --set platform=$platform --set sa=percona-xtradb-cluster-operator --set supresshttp2=false https://percona-charts.storage.googleapis.com/pmm-server-2.12.3.tgz
+else
+    helm install monitoring percona/pmm-server --set platform=$platform --version 2.12.3
 fi
-helm del monitoring || :
-helm install monitoring percona/pmm-server --set platform=$platform --version 2.12.0
 
 desc 'create PXC cluster'
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
@@ -37,6 +41,8 @@ sleep 90
 
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 admin:admin
-
+if [[ -n "${OPENSHIFT}" ]]; then
+    oc adm policy remove-scc-from-user privileged -z percona-xtradb-cluster-operator
+fi
 helm delete monitoring
 destroy $namespace

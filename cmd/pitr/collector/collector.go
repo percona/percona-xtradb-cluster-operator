@@ -31,7 +31,8 @@ type Collector struct {
 type Config struct {
 	PXCServiceName string `env:"PXC_SERVICE,required"`
 	PXCUser        string `env:"PXC_USER,required"`
-	S3Endpoint     string `env:"ENDPOINT,required"`
+	PXCPass        string `env:"PXC_PASS,required"`
+	S3Endpoint     string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
 	S3AccessKeyID  string `env:"ACCESS_KEY_ID,required"`
 	S3AccessKey    string `env:"SECRET_ACCESS_KEY,required"`
 	S3BucketURL    string `env:"S3_BUCKET_URL,required"`

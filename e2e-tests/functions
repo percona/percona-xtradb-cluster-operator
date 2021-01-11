@@ -296,6 +296,7 @@ compare_kubectl() {
         | yq d - 'spec.volumeClaimTemplates.*.kind' \
         | yq d - 'metadata.ownerReferences.*.apiVersion' \
         | yq d - '**.controller-uid' \
+        | yq d - '**.preemptionPolicy' \
         | sed 's/namespace\:.*name/name/' \
         > ${new_result}
         # last sed is needed for backup cronjob content
@@ -1102,7 +1103,12 @@ function deploy_operator_gh() {
     local git_tag="$1"
 
     desc 'start operator'
-    kubectl_bin apply -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/crd.yaml" > "${tmp_dir}/crd_${git_tag}.yaml"
+    if [[ -n $(kubectl_bin get crds -o jsonpath='{.items[?(@.metadata.name == "perconaxtradbclusters.pxc.percona.com")].metadata.name}') ]]\
+       && [[ -n $(kubectl_bin get crd/perconaxtradbclusters.pxc.percona.com -o jsonpath='{.spec.versions[?(@.name == "'"${git_tag//\./-}"'")].name}') ]]; then
+       echo "Target CRD for ${git_tag} is in place"
+    else
+        kubectl_bin apply -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/crd.yaml" > "${tmp_dir}/crd_${git_tag}.yaml"
+    fi
 
     local rbac_yaml="rbac"
     local operator_yaml="operator.yaml"

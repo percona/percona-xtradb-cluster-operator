@@ -1,0 +1,176 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  generation: 2
+  name: upgrade-proxysql-proxysql
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: upgrade-proxysql
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: proxysql
+      app.kubernetes.io/instance: upgrade-proxysql
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
+  serviceName: upgrade-proxysql-proxysql-unready
+  template:
+    metadata:
+      annotations: {}
+      labels:
+        app.kubernetes.io/component: proxysql
+        app.kubernetes.io/instance: upgrade-proxysql
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: proxysql
+                  app.kubernetes.io/instance: upgrade-proxysql
+                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                  app.kubernetes.io/name: percona-xtradb-cluster
+                  app.kubernetes.io/part-of: percona-xtradb-cluster
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - env:
+            - name: PXC_SERVICE
+              value: upgrade-proxysql-pxc
+            - name: OPERATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-upgrade-proxysql
+            - name: PROXY_ADMIN_USER
+              value: proxyadmin
+            - name: PROXY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: proxyadmin
+                  name: internal-upgrade-proxysql
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-upgrade-proxysql
+          imagePullPolicy: Always
+          name: proxysql
+          ports:
+            - containerPort: 3306
+              name: mysql
+              protocol: TCP
+            - containerPort: 6032
+              name: proxyadm
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 600m
+              memory: 1G
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/proxysql
+              name: proxydata
+            - mountPath: /etc/proxysql/ssl
+              name: ssl
+            - mountPath: /etc/proxysql/ssl-internal
+              name: ssl-internal
+        - args:
+            - /usr/bin/peer-list
+            - -on-change=/usr/bin/add_pxc_nodes.sh
+            - -service=$(PXC_SERVICE)
+          env:
+            - name: PXC_SERVICE
+              value: upgrade-proxysql-pxc
+            - name: OPERATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-upgrade-proxysql
+            - name: PROXY_ADMIN_USER
+              value: proxyadmin
+            - name: PROXY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: proxyadmin
+                  name: internal-upgrade-proxysql
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-upgrade-proxysql
+          imagePullPolicy: Always
+          name: pxc-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        - args:
+            - /usr/bin/peer-list
+            - -on-change=/usr/bin/add_proxysql_nodes.sh
+            - -service=$(PROXYSQL_SERVICE)
+          env:
+            - name: PROXYSQL_SERVICE
+              value: upgrade-proxysql-proxysql-unready
+            - name: OPERATOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-upgrade-proxysql
+            - name: PROXY_ADMIN_USER
+              value: proxyadmin
+            - name: PROXY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: proxyadmin
+                  name: internal-upgrade-proxysql
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-upgrade-proxysql
+          imagePullPolicy: Always
+          name: proxysql-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        supplementalGroups:
+          - 1001
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: ssl-internal
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-ssl-internal
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: some-name-ssl
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+    - metadata:
+        name: proxydata
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+      status:
+        phase: Pending

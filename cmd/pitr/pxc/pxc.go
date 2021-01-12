@@ -75,32 +75,40 @@ func (p *PXC) GetGTIDSet(binlogName string) (string, error) {
 	return binlogSet, nil
 }
 
+type Binlog struct {
+	Name      string
+	Size      int64
+	Encrypted string
+}
+
 // GetBinLogList return binary log files list
-func (p *PXC) GetBinLogList() ([]string, error) {
+func (p *PXC) GetBinLogList() ([]string, []Binlog, error) {
 	var binlogList []string
 	rows, err := p.db.Query("SHOW BINARY LOGS")
 	if err != nil {
-		return nil, errors.Wrap(err, "show binary logs")
+		return nil, nil, errors.Wrap(err, "show binary logs")
 	}
 	type binlog struct {
 		Name      string
 		Size      int64
 		Encrypted string
 	}
+	var binlogs []Binlog
 	for rows.Next() {
-		var b binlog
+		var b Binlog
 		if err := rows.Scan(&b.Name, &b.Size, &b.Encrypted); err != nil {
-			return nil, errors.Wrap(err, "scan binlogs")
+			return nil, nil, errors.Wrap(err, "scan binlogs")
 		}
 		binlogList = append(binlogList, b.Name)
+		binlogs = append(binlogs, b)
 	}
 
 	_, err = p.db.Exec("FLUSH BINARY LOGS")
 	if err != nil {
-		return nil, errors.Wrap(err, "flush binary logs")
+		return nil, nil, errors.Wrap(err, "flush binary logs")
 	}
 
-	return binlogList, nil
+	return binlogList, binlogs, nil
 }
 
 // GetBinLogName returns name of the binary log file by given GTID set

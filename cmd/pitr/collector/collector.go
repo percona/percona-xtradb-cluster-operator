@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -111,7 +112,7 @@ func (c *Collector) closeDB() error {
 }
 
 func (c *Collector) CollectBinLogs() error {
-	list, err := c.db.GetBinLogList()
+	_, list, err := c.db.GetBinLogList()
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
@@ -131,8 +132,8 @@ func (c *Collector) CollectBinLogs() error {
 	for _, binlog := range list {
 		binlogSet := ""
 		// this check is for uploading starting from needed file
-		if binlog == binlogName {
-			binlogSet, err = c.db.GetGTIDSet(binlog)
+		if binlog.Name == binlogName {
+			binlogSet, err = c.db.GetGTIDSet(binlog.Name)
 			if err != nil {
 				return errors.Wrap(err, "get binlog gtid set")
 			}
@@ -155,6 +156,26 @@ func (c *Collector) CollectBinLogs() error {
 	return nil
 }
 
+type pipeReader struct {
+	f   *os.File
+	buf *bytes.Buffer
+}
+
+func (p *pipeReader) ReadToBuf() {
+	for {
+		b := make([]byte, 4)
+		n, err := p.f.Read(b)
+		if err == io.EOF {
+			fmt.Println("EOF")
+			break
+		}
+		if n == 0 {
+			continue
+		}
+		p.buf.Write(b)
+	}
+}
+
 // minio.PutObject method would check if data implements `os.File` and handle it respectively.
 // So we have to restrain it to `io.Reader` only.
 type reader struct {
@@ -175,8 +196,8 @@ func mergeErrors(a, b error) error {
 
 	return b
 }
-func (c *Collector) manageBinlog(binlog string) (err error) {
-	set, err := c.db.GetGTIDSet(binlog)
+func (c *Collector) manageBinlog(binlog pxc.Binlog /*binlog string*/) (err error) {
+	set, err := c.db.GetGTIDSet(binlog.Name)
 	if err != nil {
 		return errors.Wrap(err, "get GTID set")
 	}
@@ -184,7 +205,7 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 		return nil
 	}
 
-	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(binlog)
+	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(binlog.Name)
 	if err != nil {
 		return errors.Wrapf(err, "get first timestamp for %s", binlog)
 	}
@@ -196,54 +217,79 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 
 	tmpDir := os.TempDir() + "/"
 
-	err = os.Remove(tmpDir + binlog)
+	err = os.Remove(tmpDir + binlog.Name)
 	if err != nil && !os.IsNotExist(err) {
 		return errors.Wrap(err, "remove temp file")
 	}
+	/*
+		file, err := os.Create(tmpDir + binlog.Name)
+		if err != nil {
+			return errors.Wrap(err, "make named pipe file error")
+		}
+	*/
 
-	err = syscall.Mkfifo(tmpDir+binlog, 0666)
+	err = syscall.Mkfifo(tmpDir+binlog.Name, 0666)
 	if err != nil {
 		return errors.Wrap(err, "make named pipe file error")
 	}
 
-	file, err := os.OpenFile(tmpDir+binlog, syscall.O_NONBLOCK, os.ModeNamedPipe)
-	if err != nil {
-		return errors.Wrap(err, "open named pipe file error")
-	}
-	defer func() {
-		errC := file.Close()
-		if errC != nil {
-			err = mergeErrors(err, errors.Wrapf(errC, "close tmp file for %s", binlog))
-			return
-		}
-		errR := os.Remove(tmpDir + binlog)
-		if errR != nil {
-			err = mergeErrors(err, errors.Wrapf(errR, "remove tmp file for %s", binlog))
-			return
-		}
-	}()
 	err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))
 	if err != nil {
 		return errors.Wrap(err, "set mysql pwd env var")
 	}
 
-	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "--result-file="+tmpDir, binlog)
+	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "--result-file="+tmpDir, binlog.Name)
 
 	errOut, err := cmd.StderrPipe()
 	if err != nil {
 		return errors.Wrap(err, "get mysqlbinlog stderr pipe")
 	}
 
+	file, err := os.OpenFile(tmpDir+binlog.Name, os.O_RDWR, os.ModeNamedPipe)
+	if err != nil {
+		return errors.Wrap(err, "open named pipe file error")
+	}
+
+	defer func() {
+		errC := file.Close()
+		if errC != nil {
+			err = mergeErrors(err, errors.Wrapf(errC, "close tmp file for %s", binlog))
+			return
+		}
+		errR := os.Remove(tmpDir + binlog.Name)
+		if errR != nil {
+			err = mergeErrors(err, errors.Wrapf(errR, "remove tmp file for %s", binlog))
+			return
+		}
+	}()
+
+	pipeBuf := bytes.NewBuffer([]byte{})
+	pr := pipeReader{
+		f:   file,
+		buf: pipeBuf,
+	}
+	go pr.ReadToBuf()
+	//data := reader{file}
 	err = cmd.Start()
 	if err != nil {
 		return errors.Wrap(err, "run mysqlbinlog command")
 	}
-
-	data := reader{file}
-	err = c.storage.PutObject(binlogName, &data)
+	log.Println(binlog.Name, "size:", binlog.Size)
+	for {
+		if pipeBuf.Len() > 0 {
+			break
+		}
+	}
+	log.Println("put")
+	err = c.storage.PutObject(binlogName, pr.buf, -1)
 	if err != nil {
 		return errors.Wrapf(err, "put %s object", binlog)
 	}
+	/*
+		if c.storage.GetObjectSize(binlogName) <= 0 {
+			return errors.Errorf("Uploaded file %s is empty", binlogName)
+		}
+	*/
 	stdErr, err := ioutil.ReadAll(errOut)
 	if err != nil {
 		return errors.Wrap(err, "read mysqlbinlog error output")
@@ -255,13 +301,13 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 		return errors.Errorf("mysqlbinlog: %s", stdErr)
 	}
 
-	err = c.storage.PutObject(binlogName+gtidPostfix, &setBuffer)
+	err = c.storage.PutObject(binlogName+gtidPostfix, &setBuffer, -1)
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
 
 	setBuffer.WriteString(set)
-	err = c.storage.PutObject(lastSetFileName, &setBuffer)
+	err = c.storage.PutObject(lastSetFileName, &setBuffer, -1)
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}

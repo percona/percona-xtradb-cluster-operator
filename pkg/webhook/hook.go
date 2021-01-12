@@ -226,7 +226,7 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if cr.Spec.DisableHookValidation {
+	if !*cr.Spec.EnableCRValidationWebhook {
 		err = sendResponse(req.Request.UID, req.TypeMeta, w, nil)
 		if err != nil {
 			log.Log.Error(err, "Can't send validation response")

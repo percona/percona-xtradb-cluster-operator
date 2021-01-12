@@ -38,15 +38,12 @@ Kubernetes-based environment:
    -  set the ``pmm.serverHost`` key to your PMM Server hostname,
    -  check that  the ``serverUser`` key contains your PMM Server user name
       (``pmm`` by default),
-      ``monitoring-service`` by default) is the same as one specified
-      for the ``name`` parameter on the previous step, but with
-      additional ``-service`` suffix.
    -  make sure the ``pmmserver`` key in the 
       `deploy/secrets.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/secrets.yaml>`_
       secrets file contains the password specified for the PMM Server during its
       installation
-      
-            .. note:: You use ``deploy/secrets.yaml`` file to *create* Secrets Object.
+
+      .. note:: You use ``deploy/secrets.yaml`` file to *create* Secrets Object.
          The file contains all values for each key/value pair in a convenient
          plain text format. But the resulting Secrets contain passwords stored
          as base64-encoded strings. If you want to *update* password field,

@@ -56,9 +56,11 @@ kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespa
 desc 'run pvc restore'
 restore="restore-pvc"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
+wait_pod restore-src-$restore-$cluster
+kubectl_bin get -o yaml pod/restore-src-restore-pvc-sec-context
+compare_kubectl pod/restore-src-$restore-$cluster
 wait_backup_restore $restore
 compare_kubectl job.batch/restore-job-$restore-$cluster
-compare_kubectl pod/restore-src-$restore-$cluster
 
 desc 'run s3 backup'
 kubectl_bin apply -f $conf_dir/minio-secret.yml

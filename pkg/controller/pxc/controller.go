@@ -218,6 +218,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}()
 
+	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
+		err = r.recoverFullClusterCrashIfNeeded(o)
+		if err != nil {
+			log.Error(err, "Failed to check if cluster needs to recover")
+		}
+	}
+
 	err = r.reconcileUsersSecret(o)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("reconcile users secret: %v", err)
@@ -312,7 +319,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	pxcSet := statefulset.NewNode(o)
 	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), pxcAnnotations)
-	err = r.updatePod(pxcSet, o.Spec.PXC, o, inits)
+	err = r.updatePod(pxcSet, o.Spec.PXC.PodSpec, o, inits)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
@@ -582,9 +589,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		inits = append(inits, initC)
 	}
 
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, inits)
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, inits)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get pxc statefulset")
 	}
 
 	// TODO: code duplication with updatePod function
@@ -1075,7 +1082,7 @@ func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.Perco
 	}
 	go func() {
 		err := r.syncPXCUsersWithProxySQL(cr)
-		if err != nil {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			log.Error(err, "sync users")
 		}
 		atomic.StoreInt32(&r.syncUsersState, stateFree)

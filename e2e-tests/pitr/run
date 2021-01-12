@@ -12,9 +12,14 @@ run_recovery_check_pitr() {
     local restore=$2
     local backup=$3
     local compare=$4
+    local time_now=$5
+    local dest=$6
 
     desc 'recover backup' $restore
-    kubectl_bin apply -f "$test_dir/conf/${restore}.yaml"
+    cat "$test_dir/conf/${restore}.yaml" \
+        | $sed -e "s/<datetime>/${time_now}/g" \
+        | $sed -e "s/<destination>/${dest}/g" \
+        | kubectl_bin apply -f -
     wait_backup_restore ${backup}
     kubectl_bin logs job/restore-job-${backup}-${cluster}
     kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
@@ -93,13 +98,11 @@ main() {
     write_more_data "$cluster"
     sleep 80 # need to wait while collector catch new data
     kubectl patch pxc pitr --type=merge -p "{\"spec\":{\"backup\":{\"pitr\":{\"enabled\":false}}}}"
-    $sed -i "s/<datetime>/${time_now}/g" "$test_dir/conf/restore-on-pitr-minio-time.yaml"
-    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3"
+    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3" "$time_now" ""
     echo "done date type"
 
     dest=$(sed 's,/,\\/,g' <<< $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.destination}'))
-    $sed -i "s/<destination>/${dest}/g" "$test_dir/conf/restore-on-pitr-minio.yaml"
-    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4"
+    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest"
     echo "done latest type"
     
     destroy $namespace

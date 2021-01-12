@@ -7,6 +7,19 @@ test_dir=$(realpath $(dirname $0))
 . "${test_dir}"/../functions
 cluster="self-healing-advanced"
 
+crash_cluster_with_kubectl() {
+    # run chaos for Pods
+    for _ in $(seq 1 5); do
+        kubectl_bin delete pod self-healing-advanced-pxc-0 self-healing-advanced-pxc-1 self-healing-advanced-pxc-2 --grace-period=0 --force || :
+    done
+
+    sleep 60
+
+    for i in $(seq 0 2);do
+        wait_crash_pod self-healing-advanced-pxc-$i
+    done
+}
+
 pumba_all_pods() {
     local action=$1
 
@@ -15,49 +28,15 @@ pumba_all_pods() {
         run_pumba "$action" "re2:$cluster-pxc-[0-9]+_" || :
     done
 
-    # check if all 3 Pods started
-    wait_for_running $cluster-pxc 3
-    sleep 30
-
-    desc 'check data consistency for chaosed Pod'
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
-}
-
-delete_all_pods() {
-    # run chaos for Pods
-    for _ in $(seq 1 5); do
-        kubectl_bin delete pod self-healing-advanced-pxc-0 self-healing-advanced-pxc-1 self-healing-advanced-pxc-2 --grace-period=0 --force || :
-    done
-
     sleep 60
 
-    retry=1
-    while [ -z "$EC" ] || [ "$retry" -le 5 -a "$EC" -gt 0 ]; do
-        EC=0
-        kubectl_bin get pods \
-            | grep $cluster-pxc- \
-            | grep CrashLoopBackOff || EC=$?
-
-        ((retry ++))
-        sleep 10
+    for i in $(seq 0 2);do
+        wait_crash_pod self-healing-advanced-pxc-$i
     done
+}
 
-    if [ "$EC" -gt 0 ]; then
-        exit $EC
-    fi
-
-    cat_config "$test_dir/conf/$cluster.yml" \
-        | sed -e 's/forceUnsafeBootstrap: false/forceUnsafeBootstrap: true/' \
-        | kubectl_bin apply -f-
-    kubectl_bin delete pod self-healing-advanced-pxc-0 self-healing-advanced-pxc-1 self-healing-advanced-pxc-2 --grace-period=0 --force || :
-
-    # check if all 3 Pods started
-    wait_for_running $cluster-pxc 3
-    sleep 10
-
-    desc 'check data consistency for chaosed Pod'
+check_if_cluster_restored(){
+    desc 'check data consistency'
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
     compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
@@ -71,13 +50,27 @@ main() {
     desc 'start cluster'
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-    if [[ "$IMAGE_PXC" =~ 8\.0 ]]; then
-        desc 'kill all PXC pods'
-        pumba_all_pods kill
-    fi
+    desc 'delete all PXC pods and check full crash'
+    crash_cluster_with_kubectl
 
-    desc 'delete all PXC pods'
-    delete_all_pods
+    cat_config "$test_dir/conf/$cluster.yml" \
+        | sed -e 's/autoRecovery: false/autoRecovery: true/' \
+        | kubectl_bin apply -f-
+
+    wait_for_running $cluster-pxc 3
+    sleep 240
+
+    desc 'check if full cluster crash repaired'
+    check_if_cluster_restored
+
+
+    desc 'chaos pods with pumba'
+    pumba_all_pods kill    
+
+    wait_for_running $cluster-pxc 3
+    sleep 240
+    desc 'check if full cluster crash repaired'
+    check_if_cluster_restored
 
     destroy "$namespace"
 }

@@ -9,7 +9,7 @@ spec:
   pxc:
     size: 3
     image: -pxc
-    forceUnsafeBootstrap: false
+    autoRecovery: false
     volumeSpec:
       persistentVolumeClaim:
         resources:

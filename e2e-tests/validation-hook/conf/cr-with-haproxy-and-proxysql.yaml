@@ -14,7 +14,7 @@ spec:
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
-#  disableHookValidation: true
+  enableCRValidationWebhook: true
 #  tls:
 #    SANs:
 #      - pxc-1.example.com

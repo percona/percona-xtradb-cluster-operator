@@ -18,26 +18,26 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform               version.Platform                     `json:"platform,omitempty"`
-	CRVersion              string                               `json:"crVersion,omitempty"`
-	Pause                  bool                                 `json:"pause,omitempty"`
-	SecretsName            string                               `json:"secretsName,omitempty"`
-	VaultSecretName        string                               `json:"vaultSecretName,omitempty"`
-	SSLSecretName          string                               `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName  string                               `json:"sslInternalSecretName,omitempty"`
-	LogCollectorSecretName string                               `json:"logCollectorSecretName,omitempty"`
-	TLS                    *TLSSpec                             `json:"tls,omitempty"`
-	PXC                    *PXCSpec                             `json:"pxc,omitempty"`
-	ProxySQL               *PodSpec                             `json:"proxysql,omitempty"`
-	HAProxy                *PodSpec                             `json:"haproxy,omitempty"`
-	PMM                    *PMMSpec                             `json:"pmm,omitempty"`
-	LogCollector           *LogCollectorSpec                    `json:"logcollector,omitempty"`
-	Backup                 *PXCScheduledBackup                  `json:"backup,omitempty"`
-	UpdateStrategy         appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
-	UpgradeOptions         UpgradeOptions                       `json:"upgradeOptions,omitempty"`
-	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
-	InitImage              string                               `json:"initImage,omitempty"`
-	DisableHookValidation  bool                                 `json:"disableHookValidation,omitempty"`
+	Platform                  version.Platform                     `json:"platform,omitempty"`
+	CRVersion                 string                               `json:"crVersion,omitempty"`
+	Pause                     bool                                 `json:"pause,omitempty"`
+	SecretsName               string                               `json:"secretsName,omitempty"`
+	VaultSecretName           string                               `json:"vaultSecretName,omitempty"`
+	SSLSecretName             string                               `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName     string                               `json:"sslInternalSecretName,omitempty"`
+	LogCollectorSecretName    string                               `json:"logCollectorSecretName,omitempty"`
+	TLS                       *TLSSpec                             `json:"tls,omitempty"`
+	PXC                       *PXCSpec                             `json:"pxc,omitempty"`
+	ProxySQL                  *PodSpec                             `json:"proxysql,omitempty"`
+	HAProxy                   *PodSpec                             `json:"haproxy,omitempty"`
+	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
+	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
+	Backup                    *PXCScheduledBackup                  `json:"backup,omitempty"`
+	UpdateStrategy            appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
+	UpgradeOptions            UpgradeOptions                       `json:"upgradeOptions,omitempty"`
+	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+	InitImage                 string                               `json:"initImage,omitempty"`
+	EnableCRValidationWebhook *bool                                `json:"enableCRValidationWebhook,omitempty"`
 }
 
 type PXCSpec struct {
@@ -642,6 +642,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	cr.setSecurityContext()
+
+	if cr.Spec.EnableCRValidationWebhook == nil {
+		falseVal := false
+		cr.Spec.EnableCRValidationWebhook = &falseVal
+	}
 
 	return CRVerChanged || changed, nil
 }

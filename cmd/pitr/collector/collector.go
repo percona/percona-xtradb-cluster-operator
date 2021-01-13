@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
@@ -157,33 +157,28 @@ func (c *Collector) CollectBinLogs() error {
 }
 
 type pipeReader struct {
-	f   *os.File
-	buf *bytes.Buffer
+	f        *os.File
+	buf      *bytes.Buffer
+	notEmpty bool
 }
 
 func (p *pipeReader) ReadToBuf() {
+	b := make([]byte, 1024)
 	for {
-		b := make([]byte, 4)
 		n, err := p.f.Read(b)
 		if err == io.EOF {
-			fmt.Println("EOF")
+			if !p.notEmpty {
+				time.Sleep(10 * time.Microsecond)
+				continue
+			}
 			break
 		}
 		if n == 0 {
 			continue
 		}
-		p.buf.Write(b)
+		p.buf.Write(b[:n])
+		p.notEmpty = true
 	}
-}
-
-// minio.PutObject method would check if data implements `os.File` and handle it respectively.
-// So we have to restrain it to `io.Reader` only.
-type reader struct {
-	r io.Reader
-}
-
-func (r *reader) Read(p []byte) (int, error) {
-	return r.r.Read(p)
 }
 
 func mergeErrors(a, b error) error {
@@ -196,7 +191,8 @@ func mergeErrors(a, b error) error {
 
 	return b
 }
-func (c *Collector) manageBinlog(binlog pxc.Binlog /*binlog string*/) (err error) {
+
+func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	set, err := c.db.GetGTIDSet(binlog.Name)
 	if err != nil {
 		return errors.Wrap(err, "get GTID set")
@@ -221,12 +217,6 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog /*binlog string*/) (err error
 	if err != nil && !os.IsNotExist(err) {
 		return errors.Wrap(err, "remove temp file")
 	}
-	/*
-		file, err := os.Create(tmpDir + binlog.Name)
-		if err != nil {
-			return errors.Wrap(err, "make named pipe file error")
-		}
-	*/
 
 	err = syscall.Mkfifo(tmpDir+binlog.Name, 0666)
 	if err != nil {
@@ -269,27 +259,31 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog /*binlog string*/) (err error
 		buf: pipeBuf,
 	}
 	go pr.ReadToBuf()
-	//data := reader{file}
+
 	err = cmd.Start()
 	if err != nil {
 		return errors.Wrap(err, "run mysqlbinlog command")
 	}
-	log.Println(binlog.Name, "size:", binlog.Size)
+
 	for {
-		if pipeBuf.Len() > 0 {
+		time.Sleep(10 * time.Millisecond)
+		if pr.notEmpty {
 			break
 		}
+		stdErr, err := ioutil.ReadAll(errOut)
+		if err != nil {
+			return errors.Wrap(err, "read mysqlbinlog error output")
+		}
+		if stdErr != nil && len(stdErr) != 0 {
+			return errors.Errorf("mysqlbinlog: %s", stdErr)
+		}
 	}
-	log.Println("put")
-	err = c.storage.PutObject(binlogName, pr.buf, -1)
+
+	err = c.storage.PutObject(binlogName, pipeBuf, -1)
 	if err != nil {
 		return errors.Wrapf(err, "put %s object", binlog)
 	}
-	/*
-		if c.storage.GetObjectSize(binlogName) <= 0 {
-			return errors.Errorf("Uploaded file %s is empty", binlogName)
-		}
-	*/
+
 	stdErr, err := ioutil.ReadAll(errOut)
 	if err != nil {
 		return errors.Wrap(err, "read mysqlbinlog error output")

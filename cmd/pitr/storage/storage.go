@@ -14,7 +14,6 @@ type Storage interface {
 	GetObject(objectName string) (io.Reader, error)
 	PutObject(name string, data io.Reader, size int64) error
 	ListObjects(prefix string) ([]string, error)
-	GetObjectSize(name string) int64
 }
 
 // S3 is a type for working with S3 storages
@@ -79,17 +78,4 @@ func (s *S3) ListObjects(prefix string) ([]string, error) {
 	}
 
 	return list, nil
-}
-
-func (s *S3) GetObjectSize(name string) int64 {
-	opts := minio.ListObjectsOptions{
-		UseV1:  true,
-		Prefix: s.prefix + name,
-	}
-
-	for object := range s.minioClient.ListObjects(s.ctx, s.bucketName, opts) {
-		return object.Size
-	}
-
-	return -1
 }

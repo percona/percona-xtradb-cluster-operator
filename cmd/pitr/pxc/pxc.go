@@ -82,33 +82,27 @@ type Binlog struct {
 }
 
 // GetBinLogList return binary log files list
-func (p *PXC) GetBinLogList() ([]string, []Binlog, error) {
-	var binlogList []string
+func (p *PXC) GetBinLogList() ([]Binlog, error) {
 	rows, err := p.db.Query("SHOW BINARY LOGS")
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "show binary logs")
+		return nil, errors.Wrap(err, "show binary logs")
 	}
-	type binlog struct {
-		Name      string
-		Size      int64
-		Encrypted string
-	}
+
 	var binlogs []Binlog
 	for rows.Next() {
 		var b Binlog
 		if err := rows.Scan(&b.Name, &b.Size, &b.Encrypted); err != nil {
-			return nil, nil, errors.Wrap(err, "scan binlogs")
+			return nil, errors.Wrap(err, "scan binlogs")
 		}
-		binlogList = append(binlogList, b.Name)
 		binlogs = append(binlogs, b)
 	}
 
 	_, err = p.db.Exec("FLUSH BINARY LOGS")
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "flush binary logs")
+		return nil, errors.Wrap(err, "flush binary logs")
 	}
 
-	return binlogList, binlogs, nil
+	return binlogs, nil
 }
 
 // GetBinLogName returns name of the binary log file by given GTID set

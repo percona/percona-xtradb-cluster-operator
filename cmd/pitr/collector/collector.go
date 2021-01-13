@@ -26,7 +26,6 @@ type Collector struct {
 	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
 	pxcUser        string // user for connection to PXC
 	pxcPass        string // password for connection to PXC
-	bufferSize     int64  // size of uploading buffer
 }
 
 type Config struct {
@@ -121,7 +120,7 @@ func (c *Collector) closeDB() error {
 }
 
 func (c *Collector) CollectBinLogs() error {
-	_, list, err := c.db.GetBinLogList()
+	list, err := c.db.GetBinLogList()
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
@@ -212,7 +211,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 
 	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(binlog.Name)
 	if err != nil {
-		return errors.Wrapf(err, "get first timestamp for %s", binlog)
+		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
 	}
 
 	binlogName := "binlog_" + binlogTmstmp + "_" + fmt.Sprintf("%x", md5.Sum([]byte(set)))
@@ -252,12 +251,12 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	defer func() {
 		errC := file.Close()
 		if errC != nil {
-			err = mergeErrors(err, errors.Wrapf(errC, "close tmp file for %s", binlog))
+			err = mergeErrors(err, errors.Wrapf(errC, "close tmp file for %s", binlog.Name))
 			return
 		}
 		errR := os.Remove(tmpDir + binlog.Name)
 		if errR != nil {
-			err = mergeErrors(err, errors.Wrapf(errR, "remove tmp file for %s", binlog))
+			err = mergeErrors(err, errors.Wrapf(errR, "remove tmp file for %s", binlog.Name))
 			return
 		}
 	}()
@@ -298,7 +297,10 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		return errors.Wrap(err, "read mysqlbinlog error output")
 	}
 
-	cmd.Wait()
+	err = cmd.Wait()
+	if err != nil {
+		return errors.Wrap(err, "wait mysqlbinlog command")
+	}
 
 	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != pxc.UsingPassErrorMessage && len(stdErr) != 0 {
 		return errors.Errorf("mysqlbinlog: %s", stdErr)

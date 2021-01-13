@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -170,7 +171,7 @@ type pipeReader struct {
 	notEmpty bool
 }
 
-func (p *pipeReader) ReadToBuf() {
+func (p *pipeReader) ReadToBuf(binlog pxc.Binlog) {
 	b := make([]byte, 1024)
 	for {
 		n, err := p.f.Read(b)
@@ -180,6 +181,9 @@ func (p *pipeReader) ReadToBuf() {
 				continue
 			}
 			break
+		}
+		if err != nil {
+			log.Println("Error reading named pipe for", binlog.Name)
 		}
 		if n == 0 {
 			continue
@@ -266,7 +270,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		f:   file,
 		buf: pipeBuf,
 	}
-	go pr.ReadToBuf()
+	go pr.ReadToBuf(binlog)
 
 	err = cmd.Start()
 	if err != nil {
@@ -289,7 +293,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 
 	err = c.storage.PutObject(binlogName, pipeBuf, -1)
 	if err != nil {
-		return errors.Wrapf(err, "put %s object", binlog)
+		return errors.Wrapf(err, "put %s object", binlog.Name)
 	}
 
 	stdErr, err := ioutil.ReadAll(errOut)

@@ -177,10 +177,10 @@ main() {
     if [ -n "$OPERATOR_NS" ]; then
         kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$OPERATOR_NS"
     fi
-    compare_kubectl cronjob/each-min-pvc
-    compare_kubectl cronjob/each-min-aws-s3
-    compare_kubectl cronjob/each-min-minio
-    compare_kubectl cronjob/each-min-gcp-cs
+    compare_kubectl cronjob/f875c-each-min-pvc
+    compare_kubectl cronjob/f875c-each-min-aws-s3
+    compare_kubectl cronjob/f875c-each-min-minio
+    compare_kubectl cronjob/f875c-each-min-gcp-cs
     kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
     sleep 300

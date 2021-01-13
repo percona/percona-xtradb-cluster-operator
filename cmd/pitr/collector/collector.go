@@ -171,7 +171,7 @@ type pipeReader struct {
 	notEmpty bool
 }
 
-func (p *pipeReader) ReadToBuf(binlog pxc.Binlog) {
+func (p *pipeReader) ReadToBuf(binlogName string) {
 	b := make([]byte, 1024)
 	for {
 		n, err := p.f.Read(b)
@@ -183,7 +183,7 @@ func (p *pipeReader) ReadToBuf(binlog pxc.Binlog) {
 			break
 		}
 		if err != nil {
-			log.Println("Error reading named pipe for", binlog.Name)
+			log.Println("Error reading named pipe for", binlogName)
 		}
 		if n == 0 {
 			continue
@@ -270,7 +270,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		f:   file,
 		buf: pipeBuf,
 	}
-	go pr.ReadToBuf(binlog)
+	go pr.ReadToBuf(binlog.Name)
 
 	err = cmd.Start()
 	if err != nil {

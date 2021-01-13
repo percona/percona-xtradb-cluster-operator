@@ -262,7 +262,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		}
 	}()
 
-	pipeBuf := bytes.NewBuffer([]byte{})
+	pipeBuf := &bytes.Buffer{}
 	pr := pipeReader{
 		f:   file,
 		buf: pipeBuf,
@@ -283,7 +283,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		if err != nil {
 			return errors.Wrap(err, "read mysqlbinlog error output")
 		}
-		if stdErr != nil && len(stdErr) != 0 {
+		if len(stdErr) != 0 {
 			return errors.Errorf("mysqlbinlog: %s", stdErr)
 		}
 	}

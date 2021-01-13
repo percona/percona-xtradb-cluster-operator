@@ -27,7 +27,7 @@ type PerconaXtraDBClusterSpec struct {
 	SSLInternalSecretName  string                               `json:"sslInternalSecretName,omitempty"`
 	LogCollectorSecretName string                               `json:"logCollectorSecretName,omitempty"`
 	TLS                    *TLSSpec                             `json:"tls,omitempty"`
-	PXC                    *PodSpec                             `json:"pxc,omitempty"`
+	PXC                    *PXCSpec                             `json:"pxc,omitempty"`
 	ProxySQL               *PodSpec                             `json:"proxysql,omitempty"`
 	HAProxy                *PodSpec                             `json:"haproxy,omitempty"`
 	PMM                    *PMMSpec                             `json:"pmm,omitempty"`
@@ -38,6 +38,11 @@ type PerconaXtraDBClusterSpec struct {
 	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	InitImage              string                               `json:"initImage,omitempty"`
 	DisableHookValidation  bool                                 `json:"disableHookValidation,omitempty"`
+}
+
+type PXCSpec struct {
+	AutoRecovery *bool `json:"autoRecovery,omitempty"`
+	*PodSpec
 }
 
 type TLSSpec struct {
@@ -160,6 +165,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.PXC == nil {
 		return errors.Errorf("spec.pxc section is not specified. Please check %s cluster settings", cr.Name)
+	}
+	if c.PXC.AutoRecovery == nil {
+		boolVar := true
+		c.PXC.AutoRecovery = &boolVar
 	}
 
 	if c.PXC.Image == "" {
@@ -401,7 +410,6 @@ type StatefulApp interface {
 const clusterNameMaxLen = 22
 
 var defaultPXCGracePeriodSec int64 = 600
-var livenessInitialDelaySeconds int32 = 300
 
 func (cr *PerconaXtraDBCluster) setSecurityContext() {
 	var fsgroup *int64
@@ -498,10 +506,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		if c.PXC.TerminationGracePeriodSeconds == nil {
 			c.PXC.TerminationGracePeriodSeconds = &defaultPXCGracePeriodSec
-		}
-
-		if c.PXC.LivenessInitialDelaySeconds == nil {
-			c.PXC.LivenessInitialDelaySeconds = &livenessInitialDelaySeconds
 		}
 
 		if len(c.PXC.ServiceAccountName) == 0 {

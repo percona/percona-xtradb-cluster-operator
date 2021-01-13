@@ -317,9 +317,9 @@ pipeline {
                         runTest('recreate', 'backups')
                         runTest('restore-to-encrypted-cluster', 'backups')
                         runTest('demand-backup', 'backups')
-                        runTest('scheduled-backup', 'backups')
-                        runTest('demand-backup-encrypted-with-tls', 'backups')
                         runTest('pitr', 'backups')
+                        runTest('demand-backup-encrypted-with-tls', 'backups')
+                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
                     }
                 }

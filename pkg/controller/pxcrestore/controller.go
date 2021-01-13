@@ -87,9 +87,6 @@ type ReconcilePerconaXtraDBClusterRestore struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	lgr := log.WithValues("namespace", request.Namespace, "restore", request.Name)
-	lgr.Info("backup restore request")
-
 	rr := reconcile.Result{}
 
 	cr := &api.PerconaXtraDBClusterRestore{}
@@ -105,6 +102,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 	if cr.Status.State != api.RestoreNew {
 		return rr, nil
 	}
+	lgr := log.WithValues("namespace", request.Namespace, "restore", request.Name)
+	lgr.Info("backup restore request")
 
 	err = r.setStatus(cr, api.RestoreStarting, "")
 	if err != nil {
@@ -199,10 +198,18 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 		return rr, err
 	}
 
-	err = r.pitr(cr, bcp, cluster.Spec)
-	if err != nil {
-		err = errors.Wrap(err, "run pitr")
-		return rr, err
+	if cr.Spec.PITR != nil {
+		lgr.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
+		err = r.setStatus(cr, api.RestorePITR, "")
+		if err != nil {
+			err = errors.Wrap(err, "set status")
+			return rr, err
+		}
+		err = r.pitr(cr, bcp, cluster.Spec)
+		if err != nil {
+			err = errors.Wrap(err, "run pitr")
+			return rr, err
+		}
 	}
 
 	lgr.Info(returnMsg)
@@ -320,13 +327,36 @@ func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraD
 
 		uerr := r.client.Update(context.TODO(), current)
 		if uerr == nil {
-			return nil
+			break
 		}
 		err = errors.Wrap(uerr, "update cluster")
 		time.Sleep(time.Second * 1)
 	}
+	if err != nil {
+		return err
+	}
 
-	return err
+	// give time for process new state
+	time.Sleep(10 * time.Second)
+
+	var waitLimit int32 = 2 * 60 * 60 // 2 hours
+	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
+		waitLimit = *cr.Spec.PXC.LivenessInitialDelaySeconds * cr.Spec.PXC.Size
+	}
+
+	for i := int32(0); i < waitLimit; i++ {
+		current := &api.PerconaXtraDBCluster{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
+		if err != nil {
+			return errors.Wrap(err, "get cluster")
+		}
+		if current.Status.ObservedGeneration == current.Generation && current.Status.PXC.Status == api.AppStateReady {
+			return nil
+		}
+		time.Sleep(time.Second * 1)
+	}
+
+	return errors.Errorf("exceeded wait limit")
 }
 
 const waitLimitSec int64 = 300

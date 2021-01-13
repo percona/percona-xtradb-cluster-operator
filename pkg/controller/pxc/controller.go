@@ -178,7 +178,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	l := r.lockers.LoadOrCreate(request.NamespacedName.String())
 
 	// Fetch the PerconaXtraDBCluster instance
-	// PerconaXtraDBCluster object is also accessed and changed by a version service's corn job (that run concurrently)
+	// PerconaXtraDBCluster object is also accessed and changed by a version service's cron job (that run concurrently)
 	l.statusMutex.Lock()
 	defer l.statusMutex.Unlock()
 	// we have to be sure the reconcile loop will be run at least once
@@ -217,6 +217,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			log.Error(uerr, "Update status")
 		}
 	}()
+
+	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
+		err = r.recoverFullClusterCrashIfNeeded(o)
+		if err != nil {
+			log.Error(err, "Failed to check if cluster needs to recover")
+		}
+	}
 
 	err = r.reconcileUsersSecret(o)
 	if err != nil {
@@ -266,8 +273,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
 			case "delete-pxc-pods-in-order":
-				sfs = statefulset.NewNode(o)
-				err = r.deleteStatefulSetPods(o.Namespace, sfs)
+				err = r.deletePXCPods(o)
 			}
 			if err != nil {
 				finalizers = append(finalizers, fnlz)
@@ -313,7 +319,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	pxcSet := statefulset.NewNode(o)
 	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), pxcAnnotations)
-	err = r.updatePod(pxcSet, o.Spec.PXC, o, inits)
+	err = r.updatePod(pxcSet, o.Spec.PXC.PodSpec, o, inits)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
@@ -583,9 +589,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		inits = append(inits, initC)
 	}
 
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC, cr, inits)
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, inits)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "get pxc statefulset")
 	}
 
 	// TODO: code duplication with updatePod function
@@ -911,8 +917,18 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 	return r.client.Update(context.TODO(), cpdb)
 }
 
-// ErrWaitingForDeletingPods indicating that the stateful set have more than a one pods left
-var ErrWaitingForDeletingPods = fmt.Errorf("waiting for pods to be deleted")
+func (r *ReconcilePerconaXtraDBCluster) deletePXCPods(cr *api.PerconaXtraDBCluster) error {
+	sfs := statefulset.NewNode(cr)
+	err := r.deleteStatefulSetPods(cr.Namespace, sfs)
+	if err != nil {
+		return errors.Wrap(err, "delete statefulset pods")
+	}
+	if cr.Spec.Backup != nil && cr.Spec.Backup.PITR.Enabled {
+		return errors.Wrap(r.deletePITR(cr), "delete pitr pod")
+	}
+
+	return nil
+}
 
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, sfs api.StatefulApp) error {
 	list := corev1.PodList{}
@@ -949,7 +965,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 		return fmt.Errorf("downscale StatefulSet: %v", err)
 	}
 
-	return ErrWaitingForDeletingPods
+	return errors.New("waiting for pods to be deleted")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs api.StatefulApp, deletePVC bool) error {
@@ -1066,7 +1082,7 @@ func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.Perco
 	}
 	go func() {
 		err := r.syncPXCUsersWithProxySQL(cr)
-		if err != nil {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			log.Error(err, "sync users")
 		}
 		atomic.StoreInt32(&r.syncUsersState, stateFree)

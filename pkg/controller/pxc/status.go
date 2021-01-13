@@ -47,7 +47,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 	cr.Status.Messages = cr.Status.Messages[:0]
 
-	pxcStatus, err := r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC, cr.Namespace)
+	pxcStatus, err := r.appStatus(statefulset.NewNode(cr), cr.Spec.PXC.PodSpec, cr.Namespace, cr.CompareVersionWith("1.7.0") >= 0)
 	if err != nil {
 		return fmt.Errorf("get pxc status: %v", err)
 	}
@@ -82,7 +82,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	inProgres := false
 
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
-		haProxyStatus, err := r.appStatus(statefulset.NewHAProxy(cr), cr.Spec.HAProxy, cr.Namespace)
+		haProxyStatus, err := r.appStatus(statefulset.NewHAProxy(cr), cr.Spec.HAProxy, cr.Namespace, cr.CompareVersionWith("1.7.0") >= 0)
 		if err != nil {
 			return fmt.Errorf("get haproxy status: %v", err)
 		}
@@ -140,7 +140,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		proxyStatus, err := r.appStatus(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr.Namespace)
+		proxyStatus, err := r.appStatus(statefulset.NewProxy(cr), cr.Spec.ProxySQL, cr.Namespace, cr.CompareVersionWith("1.7.0") >= 0)
 		if err != nil {
 			return fmt.Errorf("get proxysql status: %v", err)
 		}
@@ -294,7 +294,7 @@ func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBC
 	return sfsObj.Status.Replicas > sfsObj.Status.UpdatedReplicas, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.App, podSpec *api.PodSpec, namespace string) (api.AppStatus, error) {
+func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, podSpec *api.PodSpec, namespace string, cr170OrGreater bool) (api.AppStatus, error) {
 	list := corev1.PodList{}
 	err := r.client.List(context.TODO(),
 		&list,
@@ -305,6 +305,11 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.App, podSpec *api.PodS
 	)
 	if err != nil {
 		return api.AppStatus{}, fmt.Errorf("get list: %v", err)
+	}
+	sfs := app.StatefulSet()
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: sfs.Name, Namespace: sfs.Namespace}, sfs)
+	if err != nil {
+		return api.AppStatus{}, fmt.Errorf("get statefulset: %v", err)
 	}
 
 	status := api.AppStatus{
@@ -317,7 +322,23 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.App, podSpec *api.PodS
 			switch cond.Type {
 			case corev1.ContainersReady:
 				if cond.Status == corev1.ConditionTrue {
-					status.Ready++
+					if !isPXC(app) {
+						status.Ready++
+					} else {
+						isPodWaitingForRecovery, _, err := r.isPodWaitingForRecovery(namespace, pod.Name)
+						if err != nil {
+							return api.AppStatus{}, fmt.Errorf("parse %s pod logs: %v", pod.Name, err)
+						}
+
+						isPodReady := !isPodWaitingForRecovery
+						if cr170OrGreater {
+							isPodReady = isPodReady && pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision
+						}
+
+						if isPodReady {
+							status.Ready++
+						}
+					}
 				} else if cond.Status == corev1.ConditionFalse {
 					for _, cntr := range pod.Status.ContainerStatuses {
 						if cntr.State.Waiting != nil && cntr.State.Waiting.Message != "" {

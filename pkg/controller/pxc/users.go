@@ -358,7 +358,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 		return nil
 	}
 	// sync users if ProxySql enabled
-	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled {
+	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled || cr.Status.ObservedGeneration != cr.Generation || cr.Status.PXC.Ready < 1 {
 		return nil
 	}
 	pod := corev1.Pod{}
@@ -369,7 +369,9 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 		},
 		&pod,
 	)
-	if err != nil {
+	if err != nil && k8serrors.IsNotFound(err) {
+		return err
+	} else if err != nil {
 		return errors.Wrap(err, "get proxysql pod")
 	}
 	var errb, outb bytes.Buffer

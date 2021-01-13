@@ -19,11 +19,11 @@ func getAutoTuneParams(memory string) (string, error) {
 	paramValue := "\n" + "innodb_buffer_pool_size" + " = " + poolSizeVal
 	autotuneParams += paramValue
 
-	devider := int64(12582880)
-	if q.Value() < devider {
-		return "", errors.New("not enough memory")
+	divider := int64(12582880)
+	if q.Value() < divider {
+		return "", errors.New("Not enough memory set in requests. Must be >= 12Mi.")
 	}
-	maxConnSize := q.Value() / devider
+	maxConnSize := q.Value() / divider
 	maxConnSizeVal := strconv.FormatInt(maxConnSize, 10)
 	paramValue = "\n" + "max_connections" + " = " + maxConnSizeVal
 	autotuneParams += paramValue

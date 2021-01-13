@@ -166,30 +166,31 @@ func (c *Collector) CollectBinLogs() error {
 }
 
 type pipeReader struct {
-	f        *os.File
-	buf      *bytes.Buffer
-	notEmpty bool
+	f     *os.File
+	buf   *bytes.Buffer
+	empty bool
 }
 
 func (p *pipeReader) ReadToBuf(binlogName string) {
 	b := make([]byte, 1024)
+	p.empty = true
 	for {
 		n, err := p.f.Read(b)
 		if err == io.EOF {
-			if !p.notEmpty {
+			if p.empty {
 				time.Sleep(10 * time.Microsecond)
 				continue
 			}
 			break
 		}
-		if err != nil {
-			log.Println("Error reading named pipe for", binlogName)
+		if err != nil && !strings.Contains(err.Error(), "file already closed") {
+			log.Printf("Error: reading named pipe for %s: %v", binlogName, err)
 		}
 		if n == 0 {
 			continue
 		}
 		p.buf.Write(b[:n])
-		p.notEmpty = true
+		p.empty = false
 	}
 }
 
@@ -267,8 +268,9 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 
 	pipeBuf := &bytes.Buffer{}
 	pr := pipeReader{
-		f:   file,
-		buf: pipeBuf,
+		f:     file,
+		buf:   pipeBuf,
+		empty: true,
 	}
 	go pr.ReadToBuf(binlog.Name)
 
@@ -279,7 +281,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 
 	for {
 		time.Sleep(10 * time.Millisecond)
-		if pr.notEmpty {
+		if !pr.empty {
 			break
 		}
 		stdErr, err := ioutil.ReadAll(errOut)

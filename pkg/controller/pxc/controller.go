@@ -2,7 +2,6 @@ package pxc
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
 	"reflect"
 	"strings"
@@ -589,13 +588,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	// TODO: code duplication with updatePod function
-	configString := cr.Spec.PXC.Configuration
-	configHash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
 	if nodeSet.Spec.Template.Annotations == nil {
 		nodeSet.Spec.Template.Annotations = make(map[string]string)
 	}
 	if cr.CompareVersionWith("1.1.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
+		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = r.getConfigHash(cr, stsApp)
 	}
 
 	err = r.reconsileSSL(cr)
@@ -674,12 +671,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if haProxySet.Spec.Template.Annotations == nil {
 			haProxySet.Spec.Template.Annotations = make(map[string]string)
 		}
-		haProxyConfigString := cr.Spec.HAProxy.Configuration
-		haProxyConfigHash := fmt.Sprintf("%x", md5.Sum([]byte(haProxyConfigString)))
 		if nodeSet.Spec.Template.Annotations == nil {
 			nodeSet.Spec.Template.Annotations = make(map[string]string)
 		}
-		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = haProxyConfigHash
+		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = r.getConfigHash(cr, sfsHAProxy)
 		if cr.CompareVersionWith("1.5.0") == 0 {
 			if sslHash != "" {
 				haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
@@ -732,13 +727,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if proxySet.Spec.Template.Annotations == nil {
 			proxySet.Spec.Template.Annotations = make(map[string]string)
 		}
-		proxyConfigString := cr.Spec.ProxySQL.Configuration
-		proxyConfigHash := fmt.Sprintf("%x", md5.Sum([]byte(proxyConfigString)))
 		if nodeSet.Spec.Template.Annotations == nil {
 			nodeSet.Spec.Template.Annotations = make(map[string]string)
 		}
 		if cr.CompareVersionWith("1.1.0") >= 0 {
-			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = proxyConfigHash
+			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = r.getConfigHash(cr, sfsProxy)
 			if sslHash != "" {
 				proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 			}

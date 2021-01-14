@@ -140,7 +140,7 @@ When the backup destination is configured and applied with `kubectl apply -f dep
 
 .. _backups-pitr-binlog:
 
-Backing up binary logs for point-in-time recovery
+Storing binary logs for point-in-time recovery
 --------------------------------------------------
 
 Point-in-time recovery functionality allows users to roll back the cluster to a

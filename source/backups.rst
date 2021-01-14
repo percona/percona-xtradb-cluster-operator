@@ -358,7 +358,25 @@ you can put additional restoration parameters to the ``restore.yaml`` file
   * ``latest`` - recover to the latest possible transaction,
 * ``date`` key is used with ``type=date`` option - it contains value in
   datetime format,
-* ``gtidSet`` key is used with ``type=skip`` option - it contain exact GTID.
+* ``gtidSet`` key is used with ``type=skip`` option - it contain exact GTID,
+* if you have necessary backup storage mentioned in the ``backup.storages``
+  subsection of the ``deploy/cr.yaml``  configuration file, you can just set
+  ``backupSource.storageName`` key in the ``deploy/backup/restore.yaml`` file to
+  the name of the appropriate storage,
+* if there is no necessary backup storage in ``deploy/cr.yaml``, set  your
+  storage details in the ``backupSource.s3`` subsection instead of using the
+  ``backupSource.storageName`` field:
+
+  .. code-block:: yaml
+
+     ...
+     backupSource:
+       s3:
+         bucket: S3-BUCKET-NAME
+         credentialsSecret: my-cluster-name-backup-s3
+         endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+         region: us-west-2
+    ...
 
 The resulting ``restore.yaml`` file may look as follows:
 
@@ -375,11 +393,7 @@ The resulting ``restore.yaml`` file may look as follows:
        type: date
        date: "2020-12-31 09:37:13"
        backupSource:
-         s3:
-           bucket: S3-BUCKET-NAME
-           credentialsSecret: my-cluster-name-backup-s3
-           endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
-           region: us-west-2
+         storageName: "s3-us-west"
 
 The actual restoration process can be started as follows:
 
@@ -404,11 +418,7 @@ The actual restoration process can be started as follows:
           type: date
           date: "2020-12-31 09:37:13"
           backupSource:
-            destination: s3://S3-BUCKET-NAME/BACKUP-NAME
-            s3:
-              credentialsSecret: my-cluster-name-backup-s3
-              region: us-west-2
-              endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+            storageName: "s3-us-west"
       EOF
 
 .. _backups-delete:

@@ -12,7 +12,7 @@ import (
 
 type Storage interface {
 	GetObject(objectName string) (io.Reader, error)
-	PutObject(name string, data io.Reader) error
+	PutObject(name string, data io.Reader, size int64) error
 	ListObjects(prefix string) ([]string, error)
 }
 
@@ -54,8 +54,8 @@ func (s *S3) GetObject(objectName string) (io.Reader, error) {
 }
 
 // PutObject puts new object to storage with given name and content
-func (s *S3) PutObject(name string, data io.Reader) error {
-	_, err := s.minioClient.PutObject(s.ctx, s.bucketName, s.prefix+name, data, -1, minio.PutObjectOptions{})
+func (s *S3) PutObject(name string, data io.Reader, size int64) error {
+	_, err := s.minioClient.PutObject(s.ctx, s.bucketName, s.prefix+name, data, size, minio.PutObjectOptions{})
 	if err != nil {
 		return errors.Wrap(err, "put object")
 	}

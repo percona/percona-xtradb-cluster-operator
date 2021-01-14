@@ -57,11 +57,11 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	sv, err := version.Server()
 	if err != nil {
-		return nil, fmt.Errorf("get version: %v", err)
+		return nil, errors.Wrap(err, "get version")
 	}
 	cli, err := clientcmd.NewClient()
 	if err != nil {
-		return nil, fmt.Errorf("create clientcmd: %v", err)
+		return nil, errors.Wrap(err, "create clientcmd")
 	}
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
@@ -207,8 +207,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	changed, err := o.CheckNSetDefaults(r.serverVersion)
 	if err != nil {
-		err = fmt.Errorf("wrong PXC options: %v", err)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
 	}
 
 	defer func() {
@@ -227,7 +226,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	err = r.reconcileUsersSecret(o)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("reconcile users secret: %v", err)
+		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
 	}
 	var pxcAnnotations, proxysqlAnnotations map[string]string
 	if o.CompareVersionWith("1.5.0") >= 0 {
@@ -243,8 +242,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if changed {
 		err = r.client.Update(context.TODO(), o)
 		if err != nil {
-			err = fmt.Errorf("update PXC CR: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
 		}
 	}
 
@@ -403,8 +401,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
-			err = fmt.Errorf("HAProxy service upgrade error: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "HAProxy service upgrade error")
 		}
 
 		haProxyServiceReplicas := pxc.NewServiceHAProxyReplicas(o)
@@ -464,15 +461,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
 		if err != nil {
-			err = fmt.Errorf("ProxySQL upgrade error: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
 
 		currentService := &corev1.Service{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: proxysqlService.Name, Namespace: proxysqlService.Namespace}, currentService)
 		if err != nil {
-			err = fmt.Errorf("failed to get sate: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "failed to get current proxysql service sate")
 		}
 
 		ports := []corev1.ServicePort{
@@ -514,8 +509,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 		err = r.client.Update(context.TODO(), currentService)
 		if err != nil {
-			err = fmt.Errorf("ProxySQL service upgrade error: %v", err)
-			return reconcile.Result{}, err
+			return reconcile.Result{}, errors.Wrap(err, "ProxySQL service upgrade error")
 		}
 	} else {
 		// check if there is need to delete pvc
@@ -551,7 +545,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		OpVersion: o.Version().String(),
 	})
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to ensure version: %v", err)
+		return reconcile.Result{}, errors.Wrap(err, "failed to ensure version")
 	}
 
 	return rr, nil
@@ -606,12 +600,13 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.reconsileSSL(cr)
 	if err != nil {
-		return fmt.Errorf(`TLS secrets handler: "%v". Please create your TLS secret `+cr.Spec.PXC.SSLSecretName+` and `+cr.Spec.PXC.SSLInternalSecretName+` manually or setup cert-manager correctly`, err)
+		return errors.Wrapf(err, "failed to reconcile SSL.Please create your TLS secret %s and %s manually or setup cert-manager correctly",
+			cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)
 	}
 
 	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil {
-		return fmt.Errorf("get secret hash error: %v", err)
+		return errors.Wrap(err, "get secret hash")
 	}
 	if sslHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
@@ -619,7 +614,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("get internal secret hash error: %v", err)
+		return errors.Wrap(err, "get internal secret hash")
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
@@ -627,7 +622,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
 	if err != nil {
-		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
+		return errors.Wrap(err, "get vault config hash")
 	}
 	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
@@ -640,7 +635,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	err = r.client.Create(context.TODO(), nodeSet)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return fmt.Errorf("create newStatefulSetNode: %v", err)
+		return errors.Wrap(err, "create newStatefulSetNode")
 	}
 
 	err = r.createService(cr, pxc.NewServicePXCUnready(cr))
@@ -657,10 +652,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err == nil {
 		err := r.reconcilePDB(cr.Spec.PXC.PodDisruptionBudget, stsApp, cr.Namespace, nodeSet)
 		if err != nil {
-			return fmt.Errorf("PodDisruptionBudget for %s: %v", nodeSet.Name, err)
+			return errors.Wrapf(err, "PodDisruptionBudget for %s", nodeSet.Name)
 		}
 	} else if !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("get PXC stateful set: %v", err)
+		return errors.Wrap(err, "get PXC stateful set")
 	}
 
 	// HAProxy StatefulSet
@@ -668,7 +663,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		sfsHAProxy := statefulset.NewHAProxy(cr)
 		haProxySet, err := pxc.StatefulSet(sfsHAProxy, cr.Spec.HAProxy, cr, nil)
 		if err != nil {
-			return fmt.Errorf("create HAProxy StatefulSet: %v", err)
+			return errors.Wrap(err, "create HAProxy StatefulSet")
 		}
 		err = setControllerReference(cr, haProxySet, r.scheme)
 		if err != nil {
@@ -695,7 +690,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 		err = r.client.Create(context.TODO(), haProxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
-			return fmt.Errorf("create newStatefulSetHAProxy: %v", err)
+			return errors.Wrap(err, "create newStatefulSetHAProxy")
 		}
 
 		//HAProxy Service
@@ -715,10 +710,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if err == nil {
 			err := r.reconcilePDB(cr.Spec.HAProxy.PodDisruptionBudget, sfsHAProxy, cr.Namespace, haProxySet)
 			if err != nil {
-				return fmt.Errorf("PodDisruptionBudget for %s: %v", haProxySet.Name, err)
+				return errors.Wrapf(err, "PodDisruptionBudget for %s", haProxySet.Name)
 			}
 		} else if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("get HAProxy stateful set: %v", err)
+			return errors.Wrap(err, "get HAProxy stateful set")
 		}
 	}
 
@@ -726,7 +721,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		sfsProxy := statefulset.NewProxy(cr)
 		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, nil)
 		if err != nil {
-			return fmt.Errorf("create ProxySQL Service: %v", err)
+			return errors.Wrap(err, "create ProxySQL Service")
 		}
 		err = setControllerReference(cr, proxySet, r.scheme)
 		if err != nil {
@@ -754,7 +749,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
-			return fmt.Errorf("create newStatefulSetProxySQL: %v", err)
+			return errors.Wrap(err, "create newStatefulSetProxySQL")
 		}
 
 		// ProxySQL Service
@@ -774,10 +769,10 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if err == nil {
 			err := r.reconcilePDB(cr.Spec.ProxySQL.PodDisruptionBudget, sfsProxy, cr.Namespace, proxySet)
 			if err != nil {
-				return fmt.Errorf("PodDisruptionBudget for %s: %v", proxySet.Name, err)
+				return errors.Wrapf(err, "PodDisruptionBudget for %s", proxySet.Name)
 			}
 		} else if !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("get ProxySQL stateful set: %v", err)
+			return errors.Wrap(err, "get ProxySQL stateful set")
 		}
 	}
 
@@ -902,7 +897,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 	pdb := pxc.PodDisruptionBudget(spec, sfs, namespace)
 	err := setControllerReference(owner, pdb, r.scheme)
 	if err != nil {
-		return fmt.Errorf("set owner reference: %v", err)
+		return errors.Wrap(err, "set owner reference")
 	}
 
 	cpdb := &policyv1beta1.PodDisruptionBudget{}
@@ -910,7 +905,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 	if err != nil && k8serrors.IsNotFound(err) {
 		return r.client.Create(context.TODO(), pdb)
 	} else if err != nil {
-		return fmt.Errorf("get: %v", err)
+		return errors.Wrap(err, "reconcile PDB")
 	}
 
 	cpdb.Spec = pdb.Spec
@@ -941,7 +936,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("get list: %v", err)
+		return errors.Wrap(err, "get pod list")
 	}
 
 	// the last pod left - we can leave it for the stateful set
@@ -955,14 +950,14 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	cSet := sfs.StatefulSet()
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cSet.Name, Namespace: cSet.Namespace}, cSet)
 	if err != nil {
-		return fmt.Errorf("get StatefulSet: %v", err)
+		return errors.Wrap(err, "get StatefulSet")
 	}
 
 	dscaleTo := int32(1)
 	cSet.Spec.Replicas = &dscaleTo
 	err = r.client.Update(context.TODO(), cSet)
 	if err != nil {
-		return fmt.Errorf("downscale StatefulSet: %v", err)
+		return errors.Wrap(err, "downscale StatefulSet")
 	}
 
 	return errors.New("waiting for pods to be deleted")
@@ -1027,13 +1022,13 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("get list: %v", err)
+		return errors.Wrap(err, "get PVC list")
 	}
 
 	for _, pvc := range list.Items {
 		err := r.client.Delete(context.TODO(), &pvc)
 		if err != nil {
-			return fmt.Errorf("delete: %v", err)
+			return errors.Wrapf(err, "delete PVC %s", pvc.Name)
 		}
 	}
 

@@ -11,8 +11,8 @@ New Features
 ================================================================================
 
 * :jirabug:`K8SPXC-530`: :ref:`Backing up binary logs for point-in-time recovery<backups-pitr-binlog>`
+* :jirabug:`K8SPXC-564`: Automatic full cluster crash recovery
 * :jirabug:`K8SPXC-529`: Wait until PXC database removal on operator termination
-
 * :jirabug:`K8SPXC-497`: Official support for :ref:`Percona Monitoring and Management (PMM) v.2<operator.monitoring>`
 
   .. note:: Monitoring with PMM v.1 configured according to the `unofficial instruction <https://www.percona.com/blog/2020/07/23/using-percona-kubernetes-operators-with-percona-monitoring-and-management/>`_
@@ -27,8 +27,6 @@ Improvements
 * :jirabug:`K8SPXC-553`: Change default configuration of ProxySQL to WRITERS_ARE_READERS=yes to let cluster continue operating with a single node left
 * :jirabug:`K8SPXC-548`: Add ability to pass custom PMM client parameters from CR
 * :jirabug:`K8SPXC-512`: Allow to specify namespaces for cluster-wide operator to limit the scope (Thanks to user mgar for contribution)
-* :jirabug:`K8SPXC-472`: Update k8s-vault-issuer to load Vault token from file (Thanks to user john.schaeffer for reporting this issue)
-* :jirabug:`K8SPXC-564`: Automatic full cluster crash recovery
 * :jirabug:`K8SPXC-503`: Add possibility of specifying pxc init docker images in CR
 * :jirabug:`K8SPXC-490`: Improve error message when not enough memory is set for auto-tuning
 *(?)* :jirabug:`K8SPXC-447`: Commit version service directory

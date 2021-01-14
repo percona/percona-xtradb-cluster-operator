@@ -26,7 +26,7 @@ Improvements
 * :jirabug:`K8SPXC-546`: Reduce number of ConfigMap object updates from the Operator to improve performance of the cluster
 * :jirabug:`K8SPXC-553`: Change default configuration of ProxySQL to WRITERS_ARE_READERS=yes to let cluster continue operating with a single node left
 * :jirabug:`K8SPXC-548`: Add ability to pass custom PMM client parameters from CR
-* :jirabug:`K8SPXC-512`: Allow to specify namespaces for cluster-wide operator to limit the scope (Thanks to user JIRAUSER15637 for reporting this issue)
+* :jirabug:`K8SPXC-512`: Allow to specify namespaces for cluster-wide operator to limit the scope (Thanks to user mgar for contribution)
 * :jirabug:`K8SPXC-472`: Update k8s-vault-issuer to load Vault token from file (Thanks to user john.schaeffer for reporting this issue)
 * :jirabug:`K8SPXC-564`: Automatic full cluster crash recovery
 * :jirabug:`K8SPXC-503`: Add possibility of specifying pxc init docker images in CR

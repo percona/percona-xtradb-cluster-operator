@@ -10,9 +10,11 @@ import (
 	"github.com/pkg/errors"
 	admission "k8s.io/api/admission/v1"
 	admissionregistration "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/cert"
@@ -31,33 +33,54 @@ var hookPath = "/validate-percona-xtradbcluster"
 
 type hook struct {
 	cl        client.Client
+	scheme    *runtime.Scheme
 	caBunlde  []byte
 	namespace string
 }
 
 func (h *hook) Start(i <-chan struct{}) error {
-	err := h.createService()
+	err := h.setup()
 	if err != nil {
-		log.Log.Info("Can't create service", "err", err.Error())
-	}
-	err = h.createWebhook()
-	if err != nil {
-		log.Log.Info("Can't create webhook", "error", err.Error())
+		log.Log.Info("failed to setup webhook", "err", err.Error())
 	}
 	<-i
 	return nil
 }
 
-func (h *hook) createService() error {
+func (h *hook) setup() error {
+	operatorDeployment, err := h.operatorDeployment()
+	if err != nil {
+		return errors.Wrap(err, "failed to get operator deployment")
+	}
+
+	ref, err := k8s.OwnerRef(operatorDeployment, h.scheme)
+	if err != nil {
+		return errors.Wrap(err, "failed to get deployment owner ref")
+	}
+
+	err = h.createService(ref)
+	if err != nil {
+		return errors.Wrap(err, "Can't create service")
+	}
+
+	err = h.createWebhook(ref)
+	if err != nil {
+		return errors.Wrap(err, "can't create webhook")
+	}
+	return nil
+}
+
+func (h *hook) createService(ownerRef metav1.OwnerReference) error {
 	opPod, err := k8s.OperatorPod(h.cl)
 	if err != nil {
 		return errors.Wrap(err, "get operator pod")
 	}
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "percona-xtradb-cluster-operator",
-			Namespace: h.namespace,
-			Labels:    map[string]string{"name": "percona-xtradb-cluster-operator"},
+			Name:            "percona-xtradb-cluster-operator",
+			Namespace:       h.namespace,
+			Labels:          map[string]string{"name": "percona-xtradb-cluster-operator"},
+			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports:    []corev1.ServicePort{{Port: 443, TargetPort: intstr.FromInt(9443)}},
@@ -77,6 +100,7 @@ func (h *hook) createService() error {
 			}
 
 			service.Spec.Selector = opPod.Labels
+			service.ObjectMeta.OwnerReferences = []metav1.OwnerReference{ownerRef}
 			return h.cl.Update(context.TODO(), service)
 		}
 		return err
@@ -84,12 +108,13 @@ func (h *hook) createService() error {
 	return nil
 }
 
-func (h *hook) createWebhook() error {
+func (h *hook) createWebhook(ownerRef metav1.OwnerReference) error {
 	failPolicy := admissionregistration.Fail
 	sideEffects := admissionregistration.SideEffectClassNone
 	hook := &admissionregistration.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "percona-xtradbcluster-webhook",
+			Name:            "percona-xtradbcluster-webhook",
+			OwnerReferences: []metav1.OwnerReference{ownerRef},
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{
 			{
@@ -118,7 +143,12 @@ func (h *hook) createWebhook() error {
 			},
 		},
 	}
+
 	err := h.cl.Create(context.TODO(), hook)
+	if k8serrors.IsForbidden(err) {
+		return nil
+	}
+
 	if err != nil && k8serrors.IsAlreadyExists(err) {
 		hook := &admissionregistration.ValidatingWebhookConfiguration{}
 		err := h.cl.Get(context.TODO(), types.NamespacedName{
@@ -129,6 +159,7 @@ func (h *hook) createWebhook() error {
 		}
 
 		hook.Webhooks[0].ClientConfig.CABundle = h.caBunlde
+		hook.ObjectMeta.OwnerReferences = []metav1.OwnerReference{ownerRef}
 		return h.cl.Update(context.TODO(), hook)
 	}
 	return err
@@ -152,7 +183,12 @@ func SetupWebhook(mgr manager.Manager) error {
 		return errors.Wrap(err, "prepare hook tls certs")
 	}
 
-	h := &hook{cl: mgr.GetClient(), caBunlde: ca, namespace: namespace}
+	h := &hook{
+		cl:        mgr.GetClient(),
+		scheme:    mgr.GetScheme(),
+		caBunlde:  ca,
+		namespace: namespace,
+	}
 
 	srv := mgr.GetWebhookServer()
 	srv.Port = 9443
@@ -265,4 +301,13 @@ func sendResponse(uid types.UID, meta metav1.TypeMeta, w http.ResponseWriter, er
 		return errors.Wrap(err, "write response")
 	}
 	return nil
+}
+
+func (h *hook) operatorDeployment() (*appsv1.Deployment, error) {
+	deployment := &appsv1.Deployment{}
+	err := h.cl.Get(context.TODO(), types.NamespacedName{
+		Name:      "percona-xtradb-cluster-operator",
+		Namespace: h.namespace,
+	}, deployment)
+	return deployment, err
 }

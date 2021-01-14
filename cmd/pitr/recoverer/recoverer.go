@@ -51,16 +51,26 @@ type BackupS3 struct {
 }
 
 type BinlogS3 struct {
-	Endpoint    string `env:"BINLOG_S3_ENDPOINT,required"`
+	Endpoint    string `env:"BINLOG_S3_ENDPOINT" envDefault:"s3.amazonaws.com"`
 	AccessKeyID string `env:"BINLOG_ACCESS_KEY_ID,required"`
 	AccessKey   string `env:"BINLOG_SECRET_ACCESS_KEY,required"`
 	Region      string `env:"BINLOG_S3_REGION,required"`
 	BucketURL   string `env:"BINLOG_S3_BUCKET_URL,required"`
 }
 
+func (c *Config) Verify() {
+	if len(c.BackupStorage.Endpoint) == 0 {
+		c.BackupStorage.Endpoint = "s3.amazonaws.com"
+	}
+	if len(c.BinlogStorage.Endpoint) == 0 {
+		c.BinlogStorage.Endpoint = "s3.amazonaws.com"
+	}
+}
+
 type RecoverType string
 
 func New(c Config) (*Recoverer, error) {
+	c.Verify()
 	bucket, prefix, err := getBucketAndPrefix(c.BinlogStorage.BucketURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "get bucket and prefix")

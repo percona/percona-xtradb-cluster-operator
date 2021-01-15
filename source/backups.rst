@@ -2,10 +2,19 @@ Providing Backups
 =================
 
 The Operator usually stores Percona XtraDB Cluster backups on `Amazon S3 or S3-compatible
-storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`_ outside the Kubernetes cluster.
-But storing backups on `Persistent Volumes <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_ inside the Kubernetes cluster is also possible.
+storage <https://en.wikipedia.org/wiki/Amazon_S3#S3_API_and_competing_services>`_ outside the Kubernetes cluster:
 
-The Operator allows doing backup in two ways. 
+.. figure:: assets/images/backup-s3.png
+   :align: center
+   :alt: Backup on S3-compatible storage
+
+But storing backups on `Persistent Volumes <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_ inside the Kubernetes cluster is also possible:
+
+.. figure:: assets/images/backup-pv.png
+   :align: center
+   :alt: Backup on Persistent Volume
+
+The Operator allows doing backups in two ways.
 *Scheduled backups* are configured in the
 `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
 file to be executed automatically in proper time. *On-demand backups*
@@ -74,7 +83,6 @@ Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb
      schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"
-        keep: 3
         storageName: s3-us-west
      ...
 
@@ -140,7 +148,7 @@ When the backup destination is configured and applied with `kubectl apply -f dep
 
 .. _backups-private-volume:
 
-Storing backup on a private volume
+Storing backup on ‎Persistent Volume
 -----------------------------------
 
 Here is an example of the ``deploy/cr.yaml`` backup section fragment, which

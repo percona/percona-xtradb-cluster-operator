@@ -70,6 +70,7 @@ Management
    pause
    update
    scaling
+   monitoring
    recovery
    debug
 

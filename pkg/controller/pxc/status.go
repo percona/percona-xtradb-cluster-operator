@@ -325,13 +325,12 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, podSpec *
 					if !isPXC(app) {
 						status.Ready++
 					} else {
-						isPodWaitingForRecovery, _, err := r.isPodWaitingForRecovery(namespace, pod.Name)
-						if err != nil {
-							return api.AppStatus{}, fmt.Errorf("parse %s pod logs: %v", pod.Name, err)
-						}
-
-						isPodReady := !isPodWaitingForRecovery
+						isPodReady := true
 						if cr170OrGreater {
+							isPodReady, _, err := r.isPodWaitingForRecovery(namespace, pod.Name)
+							if err != nil {
+								return api.AppStatus{}, fmt.Errorf("parse %s pod logs: %v", pod.Name, err)
+							}
 							isPodReady = isPodReady && pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision
 						}
 

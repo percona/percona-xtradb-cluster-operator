@@ -152,7 +152,7 @@ wait_backup() {
         sleep 1
         echo -n .
         let retry+=1
-        if [ $retry -ge 60 ]; then
+        if [ $retry -ge 120 ]; then
             kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
@@ -212,6 +212,7 @@ deploy_operator() {
     sleep 10
 
     wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
+    sleep 3
 }
 
 deploy_helm() {

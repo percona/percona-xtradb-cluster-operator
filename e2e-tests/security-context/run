@@ -50,7 +50,7 @@ compare_kubectl job.batch/xb-$backup
 if [ -n "$OPERATOR_NS" ]; then
     kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$OPERATOR_NS"
 fi
-compare_kubectl cronjob/each-hour-pvc
+compare_kubectl cronjob/adc5a-each-hour-pvc
 kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
 desc 'run pvc restore'

@@ -86,3 +86,38 @@ object-relational mapping), performance requirements, advanced routing and
 caching needs with one or another project, components already in use in the
 current infrastructure, and any other specific needs of the application.
 
+How to get core dumps for support in case of the Percona XtraDB Cluster crash
+================================================================================
+
+In the Percona XtraDB Cluster crash case, gathering all possible information for
+enhanced diagnostics to be shared with Percona Support helps to solve an issue
+faster. One of such helpful artifacts is `core dump <https://en.wikipedia.org/wiki/Core_dump>`_.
+
+Percona XtraDB Cluster can create core dumps on crush `using libcoredumper <https://www.percona.com/doc/percona-server/5.7/diagnostics/libcoredumper.html>`_. The Operator has this feature turned on by default. 
+Core dumps are saved to  ``DATADIR`` (``var/lib/mysql/``). You can find
+appropriate core files in the following way (substitute ``some-name-pxc-1`` with
+the name of your Pod):
+
+.. code:: bash
+
+   kubectl exec some-name-pxc-1 -c pxc -it -- sh -c 'ls -alh /var/lib/mysql/ | grep core'
+   -rw------- 1 mysql mysql 1.3G Jan 15 09:30 core.20210015093005 
+
+When identified, the appropriate core dump can be downloaded as follows:
+
+.. code:: bash
+
+   kubectl cp some-name-pxc-1:/var/lib/mysql/core.20210015093005  /tmp/core.20210015093005
+
+.. note:: It is useful to provide Build ID и Server Version in addition to core
+   dump when Creating a support ticket. Both can be found from logs:
+   
+   .. code:: bash
+   
+      kubectl logs some-name-pxc-1 -c logs 
+
+      [1] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259356066, {"log"=>"09:19:54 UTC - mysqld got signal 11 ;"}]
+      [2] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259356829, {"log"=>"Most likely, you have hit a bug, but this error can also be caused by malfunctioning hardware."}]
+      [3] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259457282, {"log"=>"Build ID: 5a2199b1784b967a713a3bde8d996dc517c41adb"}]
+      [4] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259465692, {"log"=>"Server Version: 8.0.21-12.1 Percona XtraDB Cluster (GPL), Release rel12, Revision 4d973e2, WSREP version 26.4.3, wsrep_26.4.3"}]
+      .....

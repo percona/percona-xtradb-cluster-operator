@@ -183,6 +183,7 @@ func GetPXCLastHost(pxcServiceName string) (string, error) {
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
 			nodeArr := strings.Split(node, ":")
 			lastHost = nodeArr[0]
+			break
 		}
 	}
 	if len(lastHost) == 0 {

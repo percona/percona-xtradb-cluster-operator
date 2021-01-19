@@ -198,20 +198,6 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _pxc-forceunsafebootstrap:                                                             |
-|                 |                                                                                           |
-| **Key**         | `pxc.forceUnsafeBootstrap <operator.html#pxc-forceunsafebootstrap>`_                      |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | boolean                                                                                   |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``false``                                                                                 |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | The setting can be reset in case of a sudden crash when all nodes may be considered       |
-|                 | unsafe to bootstrap from. The setting lets a node be selected and set to                  |
-|                 | ``safe_to_bootstrap`` and provides data recovery                                          |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _pxc-configuration:                                                                    |
 |                 |                                                                                           |
 | **Key**         | `pxc.configuration <operator.html#pxc-configuration>`_                                    |

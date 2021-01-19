@@ -86,7 +86,7 @@ object-relational mapping), performance requirements, advanced routing and
 caching needs with one or another project, components already in use in the
 current infrastructure, and any other specific needs of the application.
 
-How to get core dumps for support in case of the Percona XtraDB Cluster crash
+How to get core dumps in case of the Percona XtraDB Cluster crash
 ================================================================================
 
 In the Percona XtraDB Cluster crash case, gathering all possible information for

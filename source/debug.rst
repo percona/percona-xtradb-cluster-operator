@@ -27,7 +27,7 @@ Logs are stored for 7 days and then rotated.
 
 Collected logs can be examined using the following command:
 
-   .. code:: bash
+.. code:: bash
 
    kubectl logs cluster1-pxc-1 -c logs
 

@@ -1,4 +1,3 @@
-.. _operator.custom-resource-options:
 
 `Custom Resource options <operator.html#operator-custom-resource-options>`_
 ===============================================================================
@@ -78,10 +77,6 @@ main subsystems of the cluster:
      - string
      - ``SmartUpdate``
      - A strategy the Operator uses for :ref:`upgrades<operator-update>`
-
-   * - autoPXCRecovery
-     - boolean
-     - ``true``
 
 .. _operator.upgradeoptions-section:
 
@@ -168,6 +163,18 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The Docker image of the Percona cluster used (actual image names for PXC 8.0 and PXC 5.7  |
 |                 | can be found :ref:`in the list of certified images<custom-registry-images>`)              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-autorecovery:                                                                     |
+|                 |                                                                                           |
+| **Key**         | `pxc.autoRecovery <operator.html#pxc-autorecovery>`_                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | boolean                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``true``                                                                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Turns :ref:`recovery-auto` on or off                                                      |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

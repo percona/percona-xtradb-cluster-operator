@@ -28,13 +28,14 @@ The Operator is able to provide automatic crash recovery starting from version
 Automatic Crash Recovery
 ------------------------
 
-Recovery is done automatically if the ``spec.autoPXCRecovery`` option set to
-``true`` in the ``deploy/cr.yaml`` configuration file.
+Crash recovery can be done automatically. This b behavior is controlled by the
+ ``pxc.autoRecovery`` option in the ``deploy/cr.yaml`` configuration file.
+
+The default value for this option is ``true``, which means that automatic
+recovery is turned on.
 
 If this option is set to ``false``, automatic crash recovery is not done,
 but manual crash recovery is still possible.
-
-Automatic crash recovery is turned on by default.
 
 .. _recovery-object-surgery:
 

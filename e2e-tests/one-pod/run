@@ -20,7 +20,7 @@ spinup_pxc() {
 
     desc 'check if all 3 Pods started'
     wait_for_running "$cluster-pxc" "$size"
-    sleep 10
+    sleep 15
 
     desc 'write data'
     run_mysql \

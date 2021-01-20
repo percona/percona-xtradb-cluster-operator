@@ -54,6 +54,12 @@ main subsystems of the cluster:
      - ``false``
      - Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes, with even number of nodes, or without TLS/SSL certificates (if ``true``, unsafe parameters will be automatically changed to safe defaults)
 
+   * - pause
+     - boolean
+     - ``false``
+     - Pause/resume: setting it to ``true`` gracefully stops the cluster, and
+       setting it to ``false`` after shut down starts the cluster back.
+
    * - secretsName
      - string
      - ``my-cluster-secrets``
@@ -317,6 +323,23 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-resources-requests-ephemeral-storage:                                             |
+|                 |                                                                                           |
+| **Key**         | `pxc.resources.requests.ephemeral-storage                                                 |
+|                 | <operator.html#pxc-resources-requests-ephemeral-storage>`_                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1Gi``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Kubernetes `Ephemeral Storage                                                             |
+|                 | <https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/>`_ `requests              |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a Percona XtraDB Cluster        |
+|                 | container                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _pxc-resources-limits-memory:                                                          |
 |                 |                                                                                           |
 | **Key**         | `pxc.resources.limits.memory <operator.html#pxc-resources-limits-memory>`_                |
@@ -326,6 +349,38 @@ configuration options for the Percona XtraDB Cluster.
 | **Example**     | ``1G``                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes memory limits                                                                 |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a Percona XtraDB Cluster        |
+|                 | container                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-resources-limits-cpu:                                                             |
+|                 |                                                                                           |
+| **Key**         | `pxc.resources.limits.cpu <operator.html#pxc-resources-limits-cpu>`_                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | `Kubernetes CPU limits                                                                    |
+|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
+|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a Percona XtraDB Cluster        |
+|                 | container                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-resources-limits-ephemeral-storage:                                               |
+|                 |                                                                                           |
+| **Key**         | `pxc.resources.limits.ephemeral-storage                                                   |
+|                 | <operator.html#pxc-resources-limits-ephemeral-storage>`_                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1Gi``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Kubernetes `Ephemeral Storage                                                             |
+|                 | <https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/>`_ `limits                |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
 |                 | #resource-requests-and-limits-of-pod-and-container>`_ for a Percona XtraDB Cluster        |
 |                 | container                                                                                 |
@@ -545,6 +600,34 @@ configuration options for the Percona XtraDB Cluster.
 |                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
 |                 | instead of the default one                                                                |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-serviceaccountname:                                                               |
+|                 |                                                                                           |
+| **Key**         | `pxc.serviceAccountName <operator.html#pxc-serviceaccountname>`_                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``percona-xtradb-cluster-operator-workload``                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `Kubernetes Service Account                                                           |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>`_   |
+|                 | for Percona XtraDB Cluster Pods                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-imagepullpolicy:                                                                  |
+|                 |                                                                                           |
+| **Key**         | `pxc.imagePullPolicy <operator.html#_pxc-imagepullpolicy>`_                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Always``                                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `policy used to update images <https://kubernetes.io/docs/concepts/containers/images/ |
+|                 | #updating-images>`_                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+
 
 .. _operator.haproxy-section:
 
@@ -593,6 +676,19 @@ configuration options for the HAProxy service.
 | **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy``                                 |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | HAProxy Docker image to use                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-imagepullpolicy:                                                              |
+|                 |                                                                                           |
+| **Key**         | `haproxy.imagePullPolicy <operator.html#haproxy-imagepullpolicy>`_                        |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Always``                                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `policy used to update images <https://kubernetes.io/docs/concepts/containers/images/ |
+|                 | #updating-images>`_                                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -651,7 +747,7 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _haproxy-servicetype:                                                                  |
 |                 |                                                                                           |
-| **Key**         | `haproxy.servicetype <operator.html#haproxy-servicetype>`_                                |
+| **Key**         | `haproxy.serviceType <operator.html#haproxy-servicetype>`_                                |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -659,7 +755,7 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | Specifies the type of `Kubernetes Service                                                 |
 |                 | <https://kubernetes.io/docs/concepts/services-networking/service/                         |
-|                 | #publishing-services-service-types>`_ to be used                                          |
+|                 | #publishing-services-service-types>`_ to be used for HAProxy                              |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -671,8 +767,39 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``Cluster``                                                                               |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | Specifies whether Service should `route external traffic to cluster-wide or node-local    |
-|                 | endpoints <https://kubernetes.io/docs/tasks/access-application-cluster/                   |
+| **Description** | Specifies whether Service for HAProxy should `route external traffic to cluster-wide or   |
+|                 | to node-local endpoints <https://kubernetes.io/docs/tasks/access-application-cluster/     |
+|                 | create-external-load-balancer/#preserving-the-client-source-ip>`_ (it can influence the   |
+|                 | load balancing effectiveness)                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-replicasservicetype:                                                          |
+|                 |                                                                                           |
+| **Key**         | `haproxy.replicasServiceType <operator.html#haproxy-replicasservicetype>`_                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``ClusterIP``                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Specifies the type of `Kubernetes Service                                                 |
+|                 | <https://kubernetes.io/docs/concepts/services-networking/service/                         |
+|                 | #publishing-services-service-types>`_ to be used for HAProxy replicas                     |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-replicasexternaltrafficpolicy:                                                |
+|                 |                                                                                           |
+| **Key**         | `haproxy.replicasExternalTrafficPolicy                                                    |
+|                 | <operator.html#haproxy-replicasexternaltrafficpolicy>`_                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Cluster``                                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Specifies whether Service for HAProxy replicas should `route external traffic to          |
+|                 | cluster-wide or to node-local endpoints                                                   |
+|                 | <https://kubernetes.io/docs/tasks/access-application-cluster/                             |
 |                 | create-external-load-balancer/#preserving-the-client-source-ip>`_ (it can influence the   |
 |                 | load balancing effectiveness)                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1010,6 +1137,19 @@ configuration options for the ProxySQL daemon.
 | **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql``                                |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | ProxySQL Docker image to use                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _proxysql-imagepullpolicy:                                                             |
+|                 |                                                                                           |
+| **Key**         | `proxysql.imagePullPolicy <operator.html#_proxysql-imagepullpolicy>`_                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Always``                                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The `policy used to update images <https://kubernetes.io/docs/concepts/containers/images/ |
+|                 | #updating-images>`_                                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1633,6 +1773,34 @@ options for Percona Monitoring and Management.
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
 |                 | #resource-requests-and-limits-of-pod-and-container>`_ for a PMM container                 |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pmm-pxcparams:                                                                        |
+|                 |                                                                                           |
+| **Key**         | `pmm.pxcParams <operator.html#pmm-pxcparams>`_                                            |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``--disable-tablestats-limit=2000``                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Additional parameters which will be passed to the `pmm-admin add mysql                    |
+|                 | <https://www.percona.com/doc/percona-monitoring-and-management/2.x/setting-up/client/     |
+|                 | mysql.html#adding-mysql-service-monitoring>`_ command for ``pxc`` Pods                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pmm-proxysqlparams:                                                                   |
+|                 |                                                                                           |
+| **Key**         | `pmm.proxysqlParams <operator.html#pmm-proxysqlparams>`_                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``--custom-labels=CUSTOM-LABELS``                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Additional parameters which will be passed to the `pmm-admin add mysql                    |
+|                 | <https://www.percona.com/doc/percona-monitoring-and-management/2.x/setting-up/client/     |
+|                 | mysql.html#adding-mysql-service-monitoring>`_ command for ``proxysql`` Pods               |
++-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.backup-section:
 
@@ -1753,10 +1921,10 @@ Percona XtraDB Cluster backups.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _backup-storages-persistentvolumeclaim-storageclassname:                               |
+|                 | .. _backup-storages-volume-persistentvolumeclaim-storageclassname:                        |
 |                 |                                                                                           |
 | **Key**         | `backup.storages.<storage-name>.persistentVolumeClaim.storageClassName                    |
-|                 | <operator.html#backup-storages-persistentvolumeclaim-storageclassname>`_                  |
+|                 | <operator.html#backup-storages-volume-persistentvolumeclaim-storageclassname>`_           |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1770,10 +1938,10 @@ Percona XtraDB Cluster backups.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _backup-storages-persistentvolumeclaim-accessmodes:                                    |
+|                 | .. _backup-storages-volume-persistentvolumeclaim-accessmodes:                             |
 |                 |                                                                                           |
-| **Key**         | `backup.storages.<storage-name>.persistentVolumeClaim.accessModes                         |
-|                 | <operator.html#backup-storages-persistentvolumeclaim-accessmodes>`_                       |
+| **Key**         | `backup.storages.<storage-name>.volume.persistentVolumeClaim.accessModes                  |
+|                 | <operator.html#backup-storages-volume-persistentvolumeclaim-accessmodes>`_                |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | array                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1784,10 +1952,10 @@ Percona XtraDB Cluster backups.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _backup-storages-persistentvolumeclaim-storage:                                        |
+|                 | .. _backup-storages-volume-persistentvolumeclaim-resources-requests-storage:              |
 |                 |                                                                                           |
-| **Key**         | `backup.storages.<storage-name>.persistentVolumeClaim.storage                             |
-|                 | <operator.html#backup-storages-persistentvolumeclaim-storage>`_                           |
+| **Key**         | `backup.storages.<storage-name>.volume.persistentVolumeClaim.resources.requests.storage   |
+|                 | <operator.html#backup-storages-volume-persistentvolumeclaim-resources-requests-storage>`_ |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+

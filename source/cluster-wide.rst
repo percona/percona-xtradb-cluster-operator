@@ -7,14 +7,20 @@ By default, Percona XtraDB Cluster Operator functions in a specific Kubernetes
 namespace. You can create one during installation (like it is shown in the 
 :ref:`installation instructions<install-kubernetes>`) or just use the ``default``
 namespace. This approach allows several Operators to co-exist in one
-Kubernetes-based environment, being separated in different namespaces.
+Kubernetes-based environment, being separated in different namespaces:
+
+.. image:: ./assets/images/cluster-wide-1.png
+   :align: center
 
 Still, sometimes it is more convenient to have one Operator watching for
 Percona XtraDB Cluster custom resources in several namespaces.
 
 We recommend running Percona XtraDB Cluster Operator in a traditional way,
 limited to a specific namespace. But it is possible to run it in so-called
-*cluster-wide* mode, one Operator watching several namespaces, if needed.
+*cluster-wide* mode, one Operator watching several namespaces, if needed:
+
+.. image:: ./assets/images/cluster-wide-2.png
+   :align: center
 
 .. note:: Please take into account that if several Operators are configured to
    watch the same namespace, it is entirely unpredictable which one will get
@@ -25,17 +31,21 @@ different set of configuration YAML files, which are available in the ``deploy``
 folder and have filenames with a special ``cw-`` prefix: e.g.
 ``deploy/cw-bundle.yaml``.
 
-.. only:: comment
+While using this cluster-wide versions of configuration files, you should set
+the following information there:
 
-   While using this cluster-wide versions of configuration files, you should set
-   the following information there:
-
-   * ``subjects.namespace`` option should contain the namespace which will host
-     the Operator,
-   * ``WATCH_NAMESPACE`` key-value pair in the ``env`` section should have
-     ``value`` equal to a  comma-separated list of the namespaces to be watched by
-     the Operator (or just a blank string to make the Operator deal with *all
-     namespaces* in a Kubernetes cluster).
+* ``subjects.namespace`` option should contain the namespace which will host
+  the Operator,
+* ``WATCH_NAMESPACE`` key-value pair in the ``env`` section should have
+  ``value`` equal to a  comma-separated list of the namespaces to be watched by
+  the Operator, *and* the namespace in which the Operator resides (or just a
+  blank string to make the Operator deal with *all namespaces* in a Kubernetes
+  cluster).
+  
+  .. note:: The list of namespaces to watch is fully supported by Percona XtraDB
+     Cluster Operator starting from the version 1.7. In version 1.6 you can only
+     use cluster-wide mode with empty ``WATCH_NAMESPACE`` key to watch all
+     namespaces.
 
 The following simple example shows how to install Operator cluster-wide on
 Kubernetes.

@@ -43,7 +43,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-570`: Fix a bug making Minio client in backup image not mounting S3-compatible storage (Thanks to user JIRAUSER16002 for reporting this issue)
 * :jirabug:`K8SPXC-517`: Fix a bug causing Operator crash if Custom Resource backup section is missing (Thanks to user JIRAUSER15641 for reporting this issue)
 *(make private?)* :jirabug:`K8SPXC-253`: Fix a bug preventing rolling out Custom Resource changes (Thanks to user bitsbeats for reporting this issue)
-* :jirabug:`K8SPXC-552`: Fix a bug preventing correct update/sync of secrets in case of HAProxy deployment
+* :jirabug:`K8SPXC-552`: Fix a bug when HAProxy secrets cannot be updated by the user
 * :jirabug:`K8SPXC-551`: Fix a bug due to which cluster was not initialized correctly with a line end in secret.yaml passwords
 *(remove?)* :jirabug:`K8SPXC-537`: validationwebhook denied the request unknown field "accessModes"
 * :jirabug:`K8SPXC-526`: Fix a bug due to which not all clusters managed by the Operator were upgraded by the automatic update

@@ -43,7 +43,6 @@ Bugs Fixed
 * :jirabug:`K8SPXC-570`: Fix a bug making Minio client in backup image not mounting S3-compatible storage (Thanks to user JIRAUSER16002 for reporting this issue)
 * :jirabug:`K8SPXC-517`: Fix a bug causing Operator crash if Custom Resource backup section is missing (Thanks to user JIRAUSER15641 for reporting this issue)
 *(make private?)* :jirabug:`K8SPXC-253`: Fix a bug preventing rolling out Custom Resource changes (Thanks to user bitsbeats for reporting this issue)
-* :jirabug:`K8SPXC-499`: Fix a bug in the primary Pod detection in cluster-wide mode with HAProxy enabled
 * :jirabug:`K8SPXC-552`: Fix a bug preventing correct update/sync of secrets in case of HAProxy deployment
 * :jirabug:`K8SPXC-551`: Fix a bug due to which cluster was not initialized correctly with a line end in secret.yaml passwords
 *(remove?)* :jirabug:`K8SPXC-537`: validationwebhook denied the request unknown field "accessModes"
@@ -52,7 +51,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-521`: Fix automatic upgrade job repeatedly looking for an already removed cluster
 * :jirabug:`K8SPXC-520`: Fix Smart update in cluster-wide mode adding version service check job repeatedly instead of doing it only once
 * :jirabug:`K8SPXC-463`: Fix a bug due to which wsrep_recovery log was unavailable after the Pod restart
-(?)* :jirabug:`K8SPXC-424`: Fix a bug due to which HAProxy could spawn check_pxc.sh more than once making logs unreadable
+(?)* :jirabug:`K8SPXC-424`: Fix a bug due to which HAProxy health-check spammed in logs, making them unreadable
 * :jirabug:`K8SPXC-371`: Fix a bug making Percona XtraDB Cluster debug images not reacting on failed recovery attempt due to no sleep after the ``mysqld`` exit
 * :jirabug:`K8SPXC-379`: Fix a bug due to which the Operator user credentials were not added into internal secrets when upgrading from 1.4.0 (Thanks to user pservit for reporting this issue)
 

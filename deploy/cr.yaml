@@ -151,7 +151,6 @@ spec:
 #    externalTrafficPolicy: Cluster
 #    replicasServiceType: ClusterIP
 #    replicasExternalTrafficPolicy: Cluster
-#    schedulerName: "default"
     resources:
       requests:
         memory: 1G
@@ -257,7 +256,6 @@ spec:
 #      rack: rack-22
 #    serviceType: ClusterIP
 #    externalTrafficPolicy: Cluster
-#    schedulerName: "default"
     resources:
       requests:
         memory: 1G

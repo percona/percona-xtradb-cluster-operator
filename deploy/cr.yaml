@@ -35,7 +35,7 @@ spec:
   pxc:
     size: 3
     image: percona/percona-xtradb-cluster:8.0.21-12.1
-#    autoRecovery: false
+    autoRecovery: true
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600

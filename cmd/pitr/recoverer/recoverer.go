@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -136,16 +137,34 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "new storage manager")
 	}
-
-	infoObj, err := s3.GetObject("xtrabackup_info.00000000000000000000") //TODO: work with compressed file
+	listInfo, err := s3.ListObjects("xtrabackup_info")
 	if err != nil {
-		return "", errors.Wrapf(err, "get %s info", prefix)
+		return "", errors.Wrapf(err, "list %s info fies", prefix)
+	}
+	sort.Strings(listInfo)
+
+	var lastGTID string
+	for _, fileName := range listInfo {
+		format := "txt"
+		infoObj, err := s3.GetObject(fileName)
+		if err != nil {
+			return "", errors.Wrapf(err, "get %s info", prefix)
+		}
+
+		if strings.Contains(fileName, "lz4") {
+			format = "lz4"
+		}
+		if strings.Contains(fileName, "qp") {
+			format = "qp"
+		}
+
+		lastGTID, err = getLastBackupGTID(infoObj, format)
+		if err != nil {
+			return "", errors.Wrap(err, "get last backup gtid")
+		}
+		break
 	}
 
-	lastGTID, err := getLastBackupGTID(infoObj)
-	if err != nil {
-		return "", errors.Wrap(err, "get last backup gtid")
-	}
 	return lastGTID, nil
 }
 
@@ -247,14 +266,17 @@ func (r *Recoverer) recover() (err error) {
 	return nil
 }
 
-func getLastBackupGTID(infoObj io.Reader) (string, error) {
-	sep := []byte("GTID of the last")
-
-	content, err := ioutil.ReadAll(infoObj)
+func getLastBackupGTID(infoObj io.Reader, format string) (string, error) {
+	content, err := getDecompressedContent(infoObj, format)
 	if err != nil {
 		return "", errors.Wrap(err, "read object")
 	}
 
+	return getGTIDFromContent(content)
+}
+
+func getGTIDFromContent(content []byte) (string, error) {
+	sep := []byte("GTID of the last")
 	startIndex := bytes.Index(content, sep)
 	if startIndex == -1 {
 		return "", errors.New("no gtid data in backup")
@@ -270,6 +292,47 @@ func getLastBackupGTID(infoObj io.Reader) (string, error) {
 	set := newOut[se+1 : e]
 
 	return string(set), nil
+}
+
+func getDecompressedContent(infoObj io.Reader, format string) ([]byte, error) {
+	tmpDir := os.TempDir()
+	fileName := "backup_info." + format
+	tmpFile, err := os.Create(tmpDir + "/" + fileName)
+	if err != nil {
+		return nil, errors.Wrap(err, "create temp info file")
+	}
+	defer func() {
+		tmpFile.Close()
+	}()
+
+	content, err := ioutil.ReadAll(infoObj)
+	if err != nil {
+		return nil, errors.Wrap(err, "read object")
+	}
+	_, err = tmpFile.Write(content)
+	if err != nil {
+		return nil, errors.Wrap(err, "write content to temp file")
+	}
+
+	cmdString := "cd " + tmpDir + " && xbstream -x --decompress < " + fileName
+	cmd := exec.Command("sh", "-c", cmdString)
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+	err = cmd.Run()
+	if err != nil {
+		return nil, errors.Wrapf(err, "xbsream cmd run. stderr: %s, stdout: %s", errb.String(), outb.String())
+	}
+	if errb.Len() > 0 {
+		return nil, errors.Errorf("run xbstream error: %s", &errb)
+	}
+
+	decContent, err := ioutil.ReadFile(tmpDir + "/xtrabackup_info")
+	if err != nil {
+		return nil, errors.Wrap(err, "read xtrabackup_info file")
+	}
+
+	return decContent, nil
 }
 
 func (r *Recoverer) setBinlogs() error {

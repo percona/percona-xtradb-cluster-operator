@@ -10,7 +10,7 @@
 New Features
 ================================================================================
 
-* :jirabug:`K8SPXC-530`: :ref:`Add support for point-in-time recovery<backups-pitr-binlog>`
+* :jirabug:`K8SPXC-530`: Add support for :ref:`point-in-time recovery<backups-pitr-binlog>`
 * :jirabug:`K8SPXC-564`: PXC cluster will now recover automatically from a full crash when Pods are stuck in CrashLoopBackOff status
 * :jirabug:`K8SPXC-497`: Official support for :ref:`Percona Monitoring and Management (PMM) v.2<operator.monitoring>`
 

@@ -269,7 +269,7 @@ func (r *Recoverer) recover() (err error) {
 func getLastBackupGTID(infoObj io.Reader, format string) (string, error) {
 	content, err := getDecompressedContent(infoObj, format)
 	if err != nil {
-		return "", errors.Wrap(err, "read object")
+		return "", errors.Wrap(err, "get content")
 	}
 
 	return getGTIDFromContent(content)
@@ -307,7 +307,7 @@ func getDecompressedContent(infoObj io.Reader, format string) ([]byte, error) {
 
 	content, err := ioutil.ReadAll(infoObj)
 	if err != nil {
-		return nil, errors.Wrap(err, "read object")
+		return nil, errors.Wrap(err, "read info object")
 	}
 	_, err = tmpFile.Write(content)
 	if err != nil {

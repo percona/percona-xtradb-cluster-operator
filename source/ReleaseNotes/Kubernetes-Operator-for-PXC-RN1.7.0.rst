@@ -48,8 +48,3 @@ Bugs Fixed
 * :jirabug:`K8SPXC-463`: Fix a bug due to which wsrep_recovery log was unavailable after the Pod restart
 * :jirabug:`K8SPXC-424`: Fix a bug due to which HAProxy health-check spammed in logs, making them hardly unreadable
 * :jirabug:`K8SPXC-379`: Fix a bug due to which the Operator user credentials were not added into internal secrets when upgrading from 1.4.0 (Thanks to user pservit for reporting this issue)
-
-
-
-
-

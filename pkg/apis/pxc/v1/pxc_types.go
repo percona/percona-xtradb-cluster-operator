@@ -291,6 +291,7 @@ type PodSpec struct {
 	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
 	ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
+	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -315,6 +316,7 @@ type LogCollectorSpec struct {
 	Configuration            string                  `json:"configuration,omitempty"`
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
+	RuntimeClassName         *string                 `json:"runtimeClassName,omitempty"`
 }
 
 type PMMSpec struct {
@@ -327,6 +329,7 @@ type PMMSpec struct {
 	Resources                *PodResources           `json:"resources,omitempty"`
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
+	RuntimeClassName         *string                 `json:"runtimeClassName,omitempty"`
 }
 
 type ResourcesList struct {
@@ -349,6 +352,7 @@ type BackupStorageSpec struct {
 	PriorityClassName        string                     `json:"priorityClassName,omitempty"`
 	PodSecurityContext       *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
+	RuntimeClassName         *string                    `json:"runtimeClassName,omitempty"`
 }
 
 type BackupStorageType string

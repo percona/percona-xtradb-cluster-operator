@@ -108,6 +108,7 @@ spec:
               name: mysql-users-secret-file
       dnsPolicy: ClusterFirst
       restartPolicy: Always
+      runtimeClassName: docker-rc
       schedulerName: default-scheduler
       securityContext: {}
       serviceAccount: default

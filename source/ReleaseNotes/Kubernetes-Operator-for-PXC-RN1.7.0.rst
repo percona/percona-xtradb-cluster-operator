@@ -50,7 +50,6 @@ Bugs Fixed
 * :jirabug:`K8SPXC-379`: Fix a bug due to which the Operator user credentials were not added into internal secrets when upgrading from 1.4.0 (Thanks to user pservit for reporting this issue)
 
 
-Deprecation
-============
 
-* The 'serviceAccountName: percona-xtradb-cluster-operator' key was removed from ``deploy/cr.yaml`` (:jirabug:`K8SPXC-500`).
+
+

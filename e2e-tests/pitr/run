@@ -6,6 +6,10 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+if [[ "$IMAGE_PXC" =~ 5\.7 ]]; then
+    echo "Skipping PITR test because 5.7 doesn't support it!"
+    exit 1
+fi
 
 run_recovery_check_pitr() {
     local cluster=$1

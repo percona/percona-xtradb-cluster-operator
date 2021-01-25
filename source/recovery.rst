@@ -28,7 +28,7 @@ The Operator is able to provide automatic crash recovery starting from version
 Automatic Crash Recovery
 ------------------------
 
-Crash recovery can be done automatically. This b behavior is controlled by the
+Crash recovery can be done automatically. This behavior is controlled by the
  ``pxc.autoRecovery`` option in the ``deploy/cr.yaml`` configuration file.
 
 The default value for this option is ``true``, which means that automatic

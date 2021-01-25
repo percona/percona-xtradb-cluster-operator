@@ -260,7 +260,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``default-scheduler``                                                                     |
+| **Example**     | ``mycustom-scheduler``                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes Scheduler                                                                 |
 |                 | <https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers>`_     |
@@ -330,7 +330,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``1Gi``                                                                                   |
+| **Example**     | ``1G``                                                                                   |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | Kubernetes `Ephemeral Storage                                                             |
 |                 | <https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/>`_ `requests              |
@@ -377,7 +377,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``1Gi``                                                                                   |
+| **Example**     | ``1G``                                                                                   |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | Kubernetes `Ephemeral Storage                                                             |
 |                 | <https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/>`_ `limits                |
@@ -943,7 +943,7 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``default-scheduler``                                                                     |
+| **Example**     | ``mycustom-scheduler``                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes Scheduler                                                                 |
 |                 | <https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers>`_     |
@@ -1373,7 +1373,7 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``default-scheduler``                                                                     |
+| **Example**     | ``mycustom-scheduler``                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes Scheduler                                                                 |
 |                 | <https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers>`_     |
@@ -2103,7 +2103,7 @@ Percona XtraDB Cluster backups.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``default-scheduler``                                                                     |
+| **Example**     | ``mycustom-scheduler``                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes Scheduler                                                                 |
 |                 | <https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers>`_     |

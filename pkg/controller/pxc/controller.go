@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -38,8 +38,6 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
-
-var log = logf.Log.WithName("controller_perconaxtradbcluster")
 
 // Add creates a new PerconaXtraDBCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -102,6 +100,11 @@ type ReconcilePerconaXtraDBCluster struct {
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
+}
+
+func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
+	return log.NewDelegatingLogger(log.NullLogger{}).WithName("controller_perconaxtradbcluster").
+		WithValues("cluster name", name, "namespace", namespace)
 }
 
 type lockStore struct {
@@ -195,7 +198,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	reqLogger := log.WithValues("cluster name", o.Name, "namespace", o.Namespace)
+	reqLogger := r.logger(o.Name, o.Namespace)
 
 	// wait untill token issued to run PXC in data encrypted mode.
 	if o.ShouldWaitForTokenIssue() {
@@ -216,7 +219,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}()
 
 	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
-		err = r.recoverFullClusterCrashIfNeeded(o, reqLogger)
+		err = r.recoverFullClusterCrashIfNeeded(o)
 		if err != nil {
 			reqLogger.Error(err, "Failed to check if cluster needs to recover")
 		}
@@ -234,7 +237,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	r.resyncPXCUsersWithProxySQL(o, reqLogger)
+	r.resyncPXCUsersWithProxySQL(o)
 
 	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
 	if changed {
@@ -245,9 +248,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
-		err := r.ensurePXCVersion(o, VersionServiceClient{
-			OpVersion: o.Version().String(),
-		}, reqLogger)
+		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
 		if err != nil {
 			reqLogger.Info("failed to ensure version, running with default", "error", err)
 		}
@@ -315,7 +316,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	pxcSet := statefulset.NewNode(o)
 	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), pxcAnnotations)
-	err = r.updatePod(pxcSet, o.Spec.PXC.PodSpec, o, inits, reqLogger)
+	err = r.updatePod(pxcSet, o.Spec.PXC.PodSpec, o, inits)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
@@ -343,7 +344,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	haProxyService := pxc.NewServiceHAProxy(o)
 
 	if o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled {
-		err = r.updatePod(haProxySet, o.Spec.HAProxy, o, nil, reqLogger)
+		err = r.updatePod(haProxySet, o.Spec.HAProxy, o, nil)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "HAProxy upgrade error")
 		}
@@ -457,7 +458,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	proxysqlService := pxc.NewServiceProxySQL(o)
 
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
-		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil, reqLogger)
+		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
@@ -535,13 +536,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
-	if err := r.fetchVersionFromPXC(o, pxcSet, reqLogger); err != nil {
+	if err := r.fetchVersionFromPXC(o, pxcSet); err != nil {
 		return rr, errors.Wrap(err, "update CR version")
 	}
 
-	err = r.sheduleEnsurePXCVersion(o, VersionServiceClient{
-		OpVersion: o.Version().String(),
-	}, reqLogger)
+	err = r.sheduleEnsurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to ensure version")
 	}
@@ -1060,7 +1059,7 @@ func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference,
 }
 
 // resyncPXCUsersWithProxySQL calls the method of synchronizing users and makes sure that only one Goroutine works at a time
-func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster, logger logr.Logger) {
+func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) {
 	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled {
 		return
 	}
@@ -1070,7 +1069,7 @@ func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.Perco
 	go func() {
 		err := r.syncPXCUsersWithProxySQL(cr)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			logger.Error(err, "sync users")
+			r.logger(cr.Name, cr.Namespace).Error(err, "sync users")
 		}
 		atomic.StoreInt32(&r.syncUsersState, stateFree)
 	}()

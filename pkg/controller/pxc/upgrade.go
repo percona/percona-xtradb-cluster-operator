@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
 	currentSet := sfs.StatefulSet()
 	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
@@ -179,10 +179,10 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return nil
 	}
 
-	return r.smartUpdate(sfs, cr, logger)
+	return r.smartUpdate(sfs, cr)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api.PerconaXtraDBCluster, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {
 	if !isPXC(sfs) {
 		return nil
 	}
@@ -190,6 +190,8 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	if sfs.StatefulSet().Status.UpdatedReplicas >= sfs.StatefulSet().Status.Replicas {
 		return nil
 	}
+
+	logger := r.logger(cr.Name, cr.Namespace)
 
 	logger.Info("statefulSet was changed, run smart update")
 
@@ -248,14 +250,14 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 			primaryPod = pod
 		} else {
 			logger.Info("apply changes to secondary pod", "pod name", pod.Name)
-			if err := r.applyNWait(cr, sfs.StatefulSet(), &pod, waitLimit, logger); err != nil {
+			if err := r.applyNWait(cr, sfs.StatefulSet(), &pod, waitLimit); err != nil {
 				return errors.Wrap(err, "failed to apply changes")
 			}
 		}
 	}
 
 	logger.Info("apply changes to primary pod", "pod name", primaryPod.Name)
-	if err := r.applyNWait(cr, sfs.StatefulSet(), &primaryPod, waitLimit, logger); err != nil {
+	if err := r.applyNWait(cr, sfs.StatefulSet(), &primaryPod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to apply changes")
 	}
 
@@ -264,7 +266,9 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster, sfs *appsv1.StatefulSet, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster, sfs *appsv1.StatefulSet, pod *corev1.Pod, waitLimit int) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	if pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
 		logger.Info("pod is already updated", "pod name", pod.Name)
 	} else {

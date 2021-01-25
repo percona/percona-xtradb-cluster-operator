@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-logr/logr"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
@@ -28,7 +27,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
 	delete(r.crons.jobs, jobName)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
 	jn := jobName(cr)
 	schedule, ok := r.crons.jobs[jn]
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
@@ -44,6 +43,8 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 	if ok && schedule.CronShedule == cr.Spec.UpgradeOptions.Schedule {
 		return nil
 	}
+
+	logger := r.logger(cr.Name, cr.Namespace)
 
 	if ok {
 		logger.Info("remove job because of new", "old", schedule.CronShedule, "new", cr.Spec.UpgradeOptions.Schedule)
@@ -90,7 +91,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 			return
 		}
 
-		err = r.ensurePXCVersion(localCr, vs, logger)
+		err = r.ensurePXCVersion(localCr, vs)
 		if err != nil {
 			logger.Error(err, "failed to ensure version")
 		}
@@ -118,7 +119,7 @@ func jobName(cr *api.PerconaXtraDBCluster) string {
 	return fmt.Sprintf("%s/%s", jobName, nn.String())
 }
 
-func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
 		cr.Spec.UpgradeOptions.Schedule == "" ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
@@ -143,8 +144,10 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 		CRUID:               string(cr.GetUID()),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to check version: %v", err)
+		return errors.Wrap(err, "failed to check version")
 	}
+
+	logger := r.logger(cr.Name, cr.Namespace)
 
 	if cr.Spec.PXC != nil && cr.Spec.PXC.Image != newVersion.PXCImage {
 		if cr.Status.PXC.Version == "" {
@@ -230,7 +233,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) error {
 	if cr.Status.PXC.Status != api.AppStateReady {
 		return nil
 	}
@@ -267,6 +270,8 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		port = int32(33062)
 	}
+
+	logger := r.logger(cr.Name, cr.Namespace)
 
 	for _, pod := range list.Items {
 		database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)

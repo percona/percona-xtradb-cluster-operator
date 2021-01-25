@@ -34,15 +34,16 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Percona Kubernetes Operator for PXC'
-copyright = u'Percona LLC and/or its affiliates 2009 - 2020'
+copyright = u'Percona LLC and/or its affiliates 2009 - 2021'
 
 # the short X.Y version
-version = '1.6.0'
+version = '1.7.0'
 # the full version including alpha/beta/rc tags.
-release = '1.6.0'
+release = '1.7.0'
 # the PXC 5.7 and PXC 8.0 recommended versions to be used in docs
-pxc57recommended = '5.7.31-31.45'
-pxc80recommended = '8.0.20-11.1'
+pxc57recommended = '5.7.32-31.47'
+pxc80recommended = '8.0.21-12.1'
+pmm2recommended = '2.12.0'
 
 
 # List of patterns, relative to source directory, that match files and
@@ -227,7 +228,7 @@ htmlhelp_basename = 'pxcoperatorpxc'
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'percona-kubernetes-operator-for-pxc.tex', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
-     u'Percona LLC and/or its affiliates 2009-2020', 'manual'),
+     u'Percona LLC and/or its affiliates 2009-2021', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -264,7 +265,7 @@ latex_elements = {
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
-     [u'Percona LLC and/or its affiliates 2009-2020'], 1)
+     [u'Percona LLC and/or its affiliates 2009-2021'], 1)
 ]
 
 def ultimateReplace(app, docname, source):
@@ -277,7 +278,8 @@ ultimate_replacements = {
     "{{{release}}}" : release,
     "{{{apiversion}}}" : release.replace(".", "-", 2),
     "{{{pxc57recommended}}}" : pxc57recommended,
-    "{{{pxc80recommended}}}" : pxc80recommended
+    "{{{pxc80recommended}}}" : pxc80recommended,
+    "{{{pmm2recommended}}}" : pmm2recommended
 }
 
 def setup(app):

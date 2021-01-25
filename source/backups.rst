@@ -354,11 +354,9 @@ you can put additional restoration parameters to the ``restore.yaml`` file
   keys, same as in ``deploy/cr.yaml`` file: ``s3://S3-BUCKET-NAME/BACKUP-NAME``,
 * ``type`` key can be equal to one of the following options,
   * ``date`` - roll back to specific date,
-  * ``skip`` - roll back, skip the transaction, roll over,
   * ``latest`` - recover to the latest possible transaction,
 * ``date`` key is used with ``type=date`` option - it contains value in
   datetime format,
-* ``gtidSet`` key is used with ``type=skip`` option - it contain exact GTIDSet,
 * if you have necessary backup storage mentioned in the ``backup.storages``
   subsection of the ``deploy/cr.yaml``  configuration file, you can just set
   ``backupSource.storageName`` key in the ``deploy/backup/restore.yaml`` file to

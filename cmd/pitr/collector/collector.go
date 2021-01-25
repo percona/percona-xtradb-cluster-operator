@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
@@ -25,7 +27,6 @@ type Collector struct {
 	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
 	pxcUser        string // user for connection to PXC
 	pxcPass        string // password for connection to PXC
-	bufferSize     int64  // size of uploading buffer
 }
 
 type Config struct {
@@ -140,8 +141,8 @@ func (c *Collector) CollectBinLogs() error {
 	for _, binlog := range list {
 		binlogSet := ""
 		// this check is for uploading starting from needed file
-		if binlog == binlogName {
-			binlogSet, err = c.db.GetGTIDSet(binlog)
+		if binlog.Name == binlogName {
+			binlogSet, err = c.db.GetGTIDSet(binlog.Name)
 			if err != nil {
 				return errors.Wrap(err, "get binlog gtid set")
 			}
@@ -164,14 +165,33 @@ func (c *Collector) CollectBinLogs() error {
 	return nil
 }
 
-// minio.PutObject method would check if data implements `os.File` and handle it respectively.
-// So we have to restrain it to `io.Reader` only.
-type reader struct {
-	r io.Reader
+type pipeReader struct {
+	f     *os.File
+	buf   *bytes.Buffer
+	empty bool
 }
 
-func (r *reader) Read(p []byte) (int, error) {
-	return r.r.Read(p)
+func (p *pipeReader) ReadToBuf(binlogName string) {
+	b := make([]byte, 1024)
+	p.empty = true
+	for {
+		n, err := p.f.Read(b)
+		if err == io.EOF {
+			if p.empty {
+				time.Sleep(10 * time.Microsecond)
+				continue
+			}
+			break
+		}
+		if err != nil && !strings.Contains(err.Error(), "file already closed") {
+			log.Printf("Error: reading named pipe for %s: %v", binlogName, err)
+		}
+		if n == 0 {
+			continue
+		}
+		p.buf.Write(b[:n])
+		p.empty = false
+	}
 }
 
 func mergeErrors(a, b error) error {
@@ -184,8 +204,9 @@ func mergeErrors(a, b error) error {
 
 	return b
 }
-func (c *Collector) manageBinlog(binlog string) (err error) {
-	set, err := c.db.GetGTIDSet(binlog)
+
+func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
+	set, err := c.db.GetGTIDSet(binlog.Name)
 	if err != nil {
 		return errors.Wrap(err, "get GTID set")
 	}
@@ -193,9 +214,9 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 		return nil
 	}
 
-	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(binlog)
+	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(binlog.Name)
 	if err != nil {
-		return errors.Wrapf(err, "get first timestamp for %s", binlog)
+		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
 	}
 
 	binlogName := "binlog_" + binlogTmstmp + "_" + fmt.Sprintf("%x", md5.Sum([]byte(set)))
@@ -205,72 +226,99 @@ func (c *Collector) manageBinlog(binlog string) (err error) {
 
 	tmpDir := os.TempDir() + "/"
 
-	err = os.Remove(tmpDir + binlog)
+	err = os.Remove(tmpDir + binlog.Name)
 	if err != nil && !os.IsNotExist(err) {
 		return errors.Wrap(err, "remove temp file")
 	}
 
-	err = syscall.Mkfifo(tmpDir+binlog, 0666)
+	err = syscall.Mkfifo(tmpDir+binlog.Name, 0666)
 	if err != nil {
 		return errors.Wrap(err, "make named pipe file error")
 	}
 
-	file, err := os.OpenFile(tmpDir+binlog, syscall.O_NONBLOCK, os.ModeNamedPipe)
-	if err != nil {
-		return errors.Wrap(err, "open named pipe file error")
-	}
-	defer func() {
-		errC := file.Close()
-		if errC != nil {
-			err = mergeErrors(err, errors.Wrapf(errC, "close tmp file for %s", binlog))
-			return
-		}
-		errR := os.Remove(tmpDir + binlog)
-		if errR != nil {
-			err = mergeErrors(err, errors.Wrapf(errR, "remove tmp file for %s", binlog))
-			return
-		}
-	}()
-	err = os.Setenv("MYSQL_PWD", c.pxcPass)
+	err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))
 	if err != nil {
 		return errors.Wrap(err, "set mysql pwd env var")
 	}
 
-	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "--result-file="+tmpDir, binlog)
+	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "--result-file="+tmpDir, binlog.Name)
 
 	errOut, err := cmd.StderrPipe()
 	if err != nil {
 		return errors.Wrap(err, "get mysqlbinlog stderr pipe")
 	}
 
+	file, err := os.OpenFile(tmpDir+binlog.Name, os.O_RDWR, os.ModeNamedPipe)
+	if err != nil {
+		return errors.Wrap(err, "open named pipe file error")
+	}
+
+	defer func() {
+		errC := file.Close()
+		if errC != nil {
+			err = mergeErrors(err, errors.Wrapf(errC, "close tmp file for %s", binlog.Name))
+			return
+		}
+		errR := os.Remove(tmpDir + binlog.Name)
+		if errR != nil {
+			err = mergeErrors(err, errors.Wrapf(errR, "remove tmp file for %s", binlog.Name))
+			return
+		}
+	}()
+
+	pipeBuf := &bytes.Buffer{}
+	pr := pipeReader{
+		f:     file,
+		buf:   pipeBuf,
+		empty: true,
+	}
+	go pr.ReadToBuf(binlog.Name)
+
 	err = cmd.Start()
 	if err != nil {
 		return errors.Wrap(err, "run mysqlbinlog command")
 	}
 
-	data := reader{file}
-	err = c.storage.PutObject(binlogName, &data)
-	if err != nil {
-		return errors.Wrapf(err, "put %s object", binlog)
+	for {
+		time.Sleep(10 * time.Millisecond)
+		if !pr.empty {
+			break
+		}
+		stdErr, err := ioutil.ReadAll(errOut)
+		if err != nil {
+			return errors.Wrap(err, "read mysqlbinlog error output")
+		}
+		if len(stdErr) != 0 {
+			return errors.Errorf("mysqlbinlog: %s", stdErr)
+		}
 	}
+
+	err = c.storage.PutObject(binlogName, pipeBuf, -1)
+	if err != nil {
+		return errors.Wrapf(err, "put %s object", binlog.Name)
+	}
+
 	stdErr, err := ioutil.ReadAll(errOut)
 	if err != nil {
 		return errors.Wrap(err, "read mysqlbinlog error output")
 	}
 
-	cmd.Wait()
+	err = cmd.Wait()
+	if err != nil {
+		return errors.Wrap(err, "wait mysqlbinlog command")
+	}
 
 	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != pxc.UsingPassErrorMessage && len(stdErr) != 0 {
 		return errors.Errorf("mysqlbinlog: %s", stdErr)
 	}
 
-	err = c.storage.PutObject(binlogName+gtidPostfix, &setBuffer)
+	err = c.storage.PutObject(binlogName+gtidPostfix, &setBuffer, -1)
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
 
 	setBuffer.WriteString(set)
-	err = c.storage.PutObject(lastSetFileName, &setBuffer)
+	err = c.storage.PutObject(lastSetFileName, &setBuffer, -1)
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}

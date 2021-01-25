@@ -75,24 +75,26 @@ func (p *PXC) GetGTIDSet(binlogName string) (string, error) {
 	return binlogSet, nil
 }
 
+type Binlog struct {
+	Name      string
+	Size      int64
+	Encrypted string
+}
+
 // GetBinLogList return binary log files list
-func (p *PXC) GetBinLogList() ([]string, error) {
-	var binlogList []string
+func (p *PXC) GetBinLogList() ([]Binlog, error) {
 	rows, err := p.db.Query("SHOW BINARY LOGS")
 	if err != nil {
 		return nil, errors.Wrap(err, "show binary logs")
 	}
-	type binlog struct {
-		Name      string
-		Size      int64
-		Encrypted string
-	}
+
+	var binlogs []Binlog
 	for rows.Next() {
-		var b binlog
+		var b Binlog
 		if err := rows.Scan(&b.Name, &b.Size, &b.Encrypted); err != nil {
 			return nil, errors.Wrap(err, "scan binlogs")
 		}
-		binlogList = append(binlogList, b.Name)
+		binlogs = append(binlogs, b)
 	}
 
 	_, err = p.db.Exec("FLUSH BINARY LOGS")
@@ -100,7 +102,7 @@ func (p *PXC) GetBinLogList() ([]string, error) {
 		return nil, errors.Wrap(err, "flush binary logs")
 	}
 
-	return binlogList, nil
+	return binlogs, nil
 }
 
 // GetBinLogName returns name of the binary log file by given GTID set
@@ -181,6 +183,7 @@ func GetPXCLastHost(pxcServiceName string) (string, error) {
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
 			nodeArr := strings.Split(node, ":")
 			lastHost = nodeArr[0]
+			break
 		}
 	}
 	if len(lastHost) == 0 {

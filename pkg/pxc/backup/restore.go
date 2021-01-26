@@ -126,7 +126,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			SchedulerName:      cluster.Backup.Storages[bcpStorageName].SchedulerName,
 			PriorityClassName:  cluster.Backup.Storages[bcpStorageName].PriorityClassName,
 			ServiceAccountName: cluster.PXC.ServiceAccountName,
-			RuntimeClassName:   cluster.PXC.RuntimeClassName,
+			RuntimeClassName:   cluster.Backup.Storages[bcpStorageName].RuntimeClassName,
 		},
 	}, nil
 }

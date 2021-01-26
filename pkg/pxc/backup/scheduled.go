@@ -24,7 +24,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 	labels["cluster"] = bcp.cluster
 	labels["schedule"] = genScheduleLabel(spec.Schedule)
 
-	cjts, err := bcp.scheduledJob(spec, strg, labels, operatorPod.Spec.ServiceAccountName, operatorPod.Spec.RuntimeClassName)
+	cjts, err := bcp.scheduledJob(spec, strg, labels, operatorPod.Spec.ServiceAccountName)
 	if err != nil {
 		return nil, fmt.Errorf("scheduled job: %w", err)
 	}
@@ -62,7 +62,7 @@ func (bcp *Backup) Scheduled(spec *api.PXCScheduledBackupSchedule, strg *api.Bac
 	return jb, nil
 }
 
-func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, labels map[string]string, serviceAccountName string, runtimeClassName *string) (batchv1.JobSpec, error) {
+func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.BackupStorageSpec, labels map[string]string, serviceAccountName string) (batchv1.JobSpec, error) {
 	resources, err := app.CreateResources(strg.Resources)
 	if err != nil {
 		return batchv1.JobSpec{}, fmt.Errorf("cannot parse backup resources: %w", err)
@@ -122,7 +122,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 				Tolerations:       strg.Tolerations,
 				SchedulerName:     strg.SchedulerName,
 				PriorityClassName: strg.PriorityClassName,
-				RuntimeClassName:  runtimeClassName,
+				RuntimeClassName:  strg.RuntimeClassName,
 			},
 		},
 	}, nil

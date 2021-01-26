@@ -37,7 +37,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-500`: Fix a bug that prevented creating a backup in cluster-wide mode if default cr.yaml is used (Thanks to user michael.lin1 for reporting this issue)
 * :jirabug:`K8SPXC-491`: Fix a bug due to which compressed backups didn’t work with the Operator (Thanks to user dejw for reporting this issue)
 * :jirabug:`K8SPXC-570`: Fix a bug causing backups to fail with some S3-compatible storages (Thanks to user dimitrij for reporting this issue)
-* :jirabug:`K8SPXC-517`: FFix a bug causing Operator crash if Custom Resource backup section is missing (Thanks to user deamonmv for reporting this issue)
+* :jirabug:`K8SPXC-517`: Fix a bug causing Operator crash if Custom Resource backup section is missing (Thanks to user deamonmv for reporting this issue)
 * :jirabug:`K8SPXC-253`: Fix a bug preventing rolling out Custom Resource changes (Thanks to user bitsbeats for reporting this issue)
 * :jirabug:`K8SPXC-552`: Fix a bug when HAProxy secrets cannot be updated by the user
 * :jirabug:`K8SPXC-551`: Fix a bug due to which cluster was not initialized when the password had an end of line symbol in ``secret.yaml``

@@ -11,13 +11,14 @@ XtraDB Cluster 5.7 and 8.0 are configured with
 Officially supported platforms
 --------------------------------
 
-The following platforms are supported:
+The following platforms were tested and are officially supported by the Operator
+{{{release}}}:
 
 * OpenShift 3.11
-* OpenShift 4.5
+* OpenShift 4.6
 * Google Kubernetes Engine (GKE) 1.15 - 1.17
 * Amazon Elastic Kubernetes Service (EKS) 1.15
-* Minikube 1.10
+* Minikube 1.16
 
 Other Kubernetes platforms may also work but have not been tested.
 

@@ -10,7 +10,7 @@ Pre-requisites
 
 Install Helm following its `official installation instructions <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-.. note:: At least ``2.4.0`` version of Helm is needed to run the following steps.
+.. note:: Helm v3 is needed to run the following steps.
 
 
 Installation

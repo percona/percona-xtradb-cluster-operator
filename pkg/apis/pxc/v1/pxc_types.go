@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -14,7 +15,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var log = logf.Log.WithName("defaults_perconaxtradbcluster")
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
@@ -487,15 +491,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}
 
-		// pxc replicas shouldn't be less than 3 for safe configuration
-		if c.PXC.Size < 3 && !c.AllowUnsafeConfig {
-			c.PXC.Size = 3
-		}
-
-		// number of pxc replicas should be an odd
-		if c.PXC.Size%2 == 0 && !c.AllowUnsafeConfig {
-			c.PXC.Size++
-		}
+		setSafeDefaults(c)
 
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-PXC.
 		// It's a description of the number of pods from that set that can be unavailable after the eviction.
@@ -649,6 +645,27 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	return CRVerChanged || changed, nil
+}
+
+func setSafeDefaults(spec *PerconaXtraDBClusterSpec) {
+	if spec.AllowUnsafeConfig {
+		return
+	}
+
+	loginfo := func(msg string, args ...interface{}) {
+		log.Info(fmt.Sprintf(msg, args...))
+		log.Info("Set allowUnsafeConfigurations=true to disable safe configuration")
+	}
+
+	if spec.PXC.Size < 3 {
+		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, 3)
+		spec.PXC.Size = 3
+	}
+
+	if spec.PXC.Size%2 == 0 {
+		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, spec.PXC.Size+1)
+		spec.PXC.Size++
+	}
 }
 
 // setVersion sets the API version of a PXC resource.

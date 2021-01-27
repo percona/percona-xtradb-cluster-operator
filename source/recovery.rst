@@ -19,35 +19,31 @@ continuously restarting, and generates the following errors in the log::
 The Percona Operator for Percona XtraDB Cluster provides two ways of recovery
 after a full cluster crash.
 
-* The automated :ref:`recovery-bootstrap` is the simplest one, but it
-  may cause loss of several recent transactions.
-* The manual :ref:`recovery-object-surgery` includes a lot of operations, but
-  it allows to restore all the data.
+The Operator is able to provide automatic crash recovery starting from version
+``1.7``. For previous Operator versions, crash recovery can be done
+:ref:`manually<recovery-object-surgery>`.
 
-.. _recovery-bootstrap:
+.. _recovery-auto:
 
-Bootstrap Crash Recovery method
--------------------------------
+Automatic Crash Recovery
+------------------------
 
-In this case recovery is done automatically. The recovery is triggered by the
-``pxc.forceUnsafeBootstrap`` option set to ``true`` in the ``deploy/cr.yaml``
-file::
+Crash recovery can be done automatically. This behavior is controlled by the
+ ``pxc.autoRecovery`` option in the ``deploy/cr.yaml`` configuration file.
 
-     pxc:
-       ...
-       forceUnsafeBootstrap: true
+The default value for this option is ``true``, which means that automatic
+recovery is turned on.
 
-Applying this option forces the cluster to start. However, there may exist data
-inconsistency in the cluster, and several last transactions may be lost.
-If such data loss is undesirable, experienced users may choose the more advanced
-manual method described in the next chapter.
+If this option is set to ``false``, automatic crash recovery is not done,
+but manual crash recovery is still possible.
 
 .. _recovery-object-surgery:
 
-Object Surgery Crash Recovery method
-------------------------------------
+Manual Crash Recovery
+---------------------
 
-.. warning:: This method is intended for advanced users only!
+.. warning:: This method includes a lot of operations, and therefore, it is
+   intended for advanced users only!
 
 This method involves the following steps:
 
@@ -103,7 +99,7 @@ which is based on three Percona XtraDB Cluster Pods.
 
    .. code-block:: bash
 
-      $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do until [[ $(kubectl get pod cluster1-pxc-$i -o jsonpath='{.status.phase}') == 'Running' ]]; do sleep 10; done; kubectl exec cluster1-pxc-$i -- touch /tmp/recovery-case; done
+      $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do until [[ $(kubectl get pod cluster1-pxc-$i -o jsonpath='{.status.phase}') == 'Running' ]]; do sleep 10; done; kubectl exec cluster1-pxc-$i -- touch /var/lib/mysql/sst_in_progress; done
 
 #. Wait for all Percona XtraDB Cluster Pods to start, and execute the following
    code to make sure no mysqld processes are running:
@@ -174,7 +170,7 @@ which is based on three Percona XtraDB Cluster Pods.
 
    .. code-block:: bash
 
-      $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do until [[ $(kubectl get pod cluster1-pxc-$i -o jsonpath='{.status.phase}') == 'Running' ]]; do sleep 10; done; kubectl exec cluster1-pxc-$i -- rm /tmp/recovery-case; done
+      $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do until [[ $(kubectl get pod cluster1-pxc-$i -o jsonpath='{.status.phase}') == 'Running' ]]; do sleep 10; done; kubectl exec cluster1-pxc-$i -- rm /var/lib/mysql/sst_in_progress; done
       $ kubectl delete pods --force --grace-period=0 cluster1-pxc-0 cluster1-pxc-1
 
 #. Wait for the successful startup of the Pods which were deleted during the

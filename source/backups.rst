@@ -146,6 +146,44 @@ When the backup destination is configured and applied with `kubectl apply -f dep
         storageName: s3-us-west
       EOF
 
+.. _backups-pitr-binlog:
+
+Storing binary logs for point-in-time recovery
+--------------------------------------------------
+
+Point-in-time recovery functionality allows users to roll back the cluster to a
+specific transaction, time (or even skip a transaction in some cases).
+Technically, this feature involves continuously saving binary log updates to the
+backup storage. Point-in-time recovery is off by default.
+
+.. note:: Point-in-time recovery is supported by the Operator only with Percona
+   XtraDB Cluster versions starting from 8.0.21-12.1.
+
+To be used, it requires setting a number of keys in the ``pitr`` subsection
+under the ``backup`` section of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file:
+
+* ``enabled`` key should be set to ``true``,
+* ``storageName`` key should point to the name of the storage already configured
+  in the ``storages`` subsection (currently, only s3-compatible storages are
+  supported),
+* ``timeBetweenUploads`` key specifies the number of seconds between running the
+  binlog uploader.
+
+Following example shows how the ``pitr`` subsection looks like:
+
+.. code:: yaml
+
+   backup:
+     ...
+     pitr:
+       enabled: true
+       storageName: s3-us-west
+       timeBetweenUploads: 60
+
+.. note:: It is recommended to have empty bucket/directory which holds binlogs
+   (with no binlogs or files from previous attempts or other clusters) when
+   you enable point-in-time recovery.
+
 .. _backups-private-volume:
 
 Storing backup on ‎Persistent Volume
@@ -216,32 +254,38 @@ Backup can be restored not only on the Kubernetes cluster where it was made, but
 also on any Kubernetes-based environment with the installed Operator.
 
 .. note:: When restoring to a new Kubernetes-based environment, make sure it
-   has a Secrets object with the same user passwords as in the original cluster.
    More details about secrets can be found in :ref:`users.system-users`.
 
-Following steps are needed to restore a previously saved backup:
+Following things are needed to restore a previously saved backup:
 
-1. First of all make sure that the cluster is running.
+* Make sure that the cluster is running.
 
-2. Now find out correct names for the **backup** and the **cluster**. Available
-   backups can be listed with the following command:
+* Find out correct names for the **backup** and the **cluster**. Available
+  backups can be listed with the following command:
 
-   .. code:: bash
+  .. code:: bash
 
-      kubectl get pxc-backup
+     kubectl get pxc-backup
 
-   .. note:: Obviously, you can make this check only on the same cluster on
-      which you have previously made the backup.
+  .. note:: Obviously, you can make this check only on the same cluster on
+     which you have previously made the backup.
 
-   And the following command will list existing Percona XtraDB Cluster names in
-   the current Kubernetes-based environment:
+  And the following command will list existing Percona XtraDB Cluster names in
+  the current Kubernetes-based environment:
 
-   .. code:: bash
+  .. code:: bash
 
-      kubectl get pxc
+     kubectl get pxc
 
-3. When both correct names are known, it is needed to set appropriate keys
-   in the ``deploy/backup/restore.yaml`` file.
+.. _backups-no-pitr-restore:
+
+Restoring without point-in-time recovery
+****************************************
+
+When the correct names for the backup and the cluster are known, backup
+restoration can be done in the following way. 
+
+1. Set appropriate keys in the ``deploy/backup/restore.yaml`` file.
 
    * set ``spec.pxcCluster`` key to the name of the target cluster to restore
      the backup on,
@@ -280,7 +324,7 @@ Following steps are needed to restore a previously saved backup:
                endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
            ...
 
-   After that, the actual restoration process can be started as follows:
+2. After that, the actual restoration process can be started as follows:
 
    .. code:: bash
 
@@ -299,6 +343,89 @@ Following steps are needed to restore a previously saved backup:
       spec:
         pxcCluster: "cluster1"
         backupName: "backup1"
+      EOF
+
+.. _backups-pitr-restore:
+
+Restoring backup with point-in-time recovery
+********************************************
+
+.. note:: Disable the point-in-time functionality on the existing cluster before
+          restoring a backup on it, regardless of whether the backup was made
+          with point-in-time recovery or without it.
+
+If the point-in-time recovery feature :ref:`was enabled<backups-pitr-binlog>`,
+you can put additional restoration parameters to the ``restore.yaml`` file
+``pitr`` section for the most fine-grained restoration.
+
+* ``backupSource`` key should contain ``destination`` key equal to the s3 bucket
+  with a special ``s3://`` prefix, followed by the necessary S3 configuration
+  keys, same as in ``deploy/cr.yaml`` file: ``s3://S3-BUCKET-NAME/BACKUP-NAME``,
+* ``type`` key can be equal to one of the following options,
+  * ``date`` - roll back to specific date,
+  * ``latest`` - recover to the latest possible transaction,
+* ``date`` key is used with ``type=date`` option - it contains value in
+  datetime format,
+* if you have necessary backup storage mentioned in the ``backup.storages``
+  subsection of the ``deploy/cr.yaml``  configuration file, you can just set
+  ``backupSource.storageName`` key in the ``deploy/backup/restore.yaml`` file to
+  the name of the appropriate storage,
+* if there is no necessary backup storage in ``deploy/cr.yaml``, set  your
+  storage details in the ``backupSource.s3`` subsection instead of using the
+  ``backupSource.storageName`` field:
+
+  .. code-block:: yaml
+
+     ...
+     backupSource:
+       s3:
+         bucket: S3-BUCKET-NAME
+         credentialsSecret: my-cluster-name-backup-s3
+         endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+         region: us-west-2
+    ...
+
+The resulting ``restore.yaml`` file may look as follows:
+
+.. code-block:: yaml
+
+   apiVersion: pxc.percona.com/v1
+   kind: PerconaXtraDBClusterRestore
+   metadata:
+     name: restore1
+   spec:
+     pxcCluster: cluster1
+     backupName: backup1
+     pitr:
+       type: date
+       date: "2020-12-31 09:37:13"
+       backupSource:
+         storageName: "s3-us-west"
+
+The actual restoration process can be started as follows:
+
+   .. code:: bash
+
+      kubectl apply -f deploy/backup/restore.yaml
+
+.. note:: Storing backup settings in a separate file can be replaced by passing
+   its content to the ``kubectl apply`` command as follows:
+
+   .. code:: bash
+
+      cat <<EOF | kubectl apply -f-
+      apiVersion: "pxc.percona.com/v1"
+      kind: "PerconaXtraDBClusterRestore"
+      metadata:
+        name: "restore1"
+      spec:
+        pxcCluster: "cluster1"
+        backupName: "backup1"
+        pitr:
+          type: date
+          date: "2020-12-31 09:37:13"
+          backupSource:
+            storageName: "s3-us-west"
       EOF
 
 .. _backups-delete:

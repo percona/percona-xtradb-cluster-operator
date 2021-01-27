@@ -41,6 +41,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// change the pod size
 	currentSet.Spec.Replicas = &podSpec.Size
 	currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext
+	currentSet.Spec.Template.Spec.ImagePullSecrets = podSpec.ImagePullSecrets
 
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function

@@ -39,7 +39,7 @@ func runCollector() {
 	if err != nil {
 		log.Fatalln("ERROR: new controller:", err)
 	}
-	log.Println("run collector")
+	log.Println("run binlog collector")
 	for {
 		err := c.Run()
 		if err != nil {

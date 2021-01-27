@@ -589,7 +589,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		inits = append(inits, initC)
 	}
 
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, inits)
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, inits, log)
 	if err != nil {
 		return errors.Wrap(err, "get pxc statefulset")
 	}
@@ -666,7 +666,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	// HAProxy StatefulSet
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(sfsHAProxy, cr.Spec.HAProxy, cr, nil)
+		haProxySet, err := pxc.StatefulSet(sfsHAProxy, cr.Spec.HAProxy, cr, nil, log)
 		if err != nil {
 			return fmt.Errorf("create HAProxy StatefulSet: %v", err)
 		}
@@ -724,7 +724,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, nil)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, nil, log)
 		if err != nil {
 			return fmt.Errorf("create ProxySQL Service: %v", err)
 		}

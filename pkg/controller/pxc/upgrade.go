@@ -157,6 +157,8 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 	newContainers = append(newContainers, sideC...)
 
+	newContainers = api.AddSidecarContainers(log, newContainers, podSpec.Sidecars)
+
 	// volumes
 	sfsVolume, err := sfs.Volumes(podSpec, cr)
 	if err != nil {

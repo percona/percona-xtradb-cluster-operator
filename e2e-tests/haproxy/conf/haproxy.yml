@@ -40,6 +40,13 @@ spec:
       tolerationSeconds: 6000
     podDisruptionBudget:
       maxUnavailable: 2
+    sidecars:
+    - image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
+      name: my-sidecar-1
+    - image: busybox
+      name: haproxy
   proxysql:
     enabled: false
     size: 1

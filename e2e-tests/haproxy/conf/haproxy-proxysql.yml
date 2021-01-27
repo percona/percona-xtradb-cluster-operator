@@ -60,6 +60,15 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
     podDisruptionBudget:
       maxUnavailable: 1
+    sidecars:
+    - image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
+      name: my-sidecar-1
+    - image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
+      name: my-sidecar-2
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1

@@ -307,5 +307,11 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 		pipe.Write(b[:n])
 		isEmpty = false
 	}
+	// in case of any errors from mysqlbinlog it sends EOF to pipe
+	// to prevent this, need to check error buffer before closing pipe without error
+	if errBuf.Len() != 0 {
+		pipe.CloseWithError(errors.New("mysqlbinlog error:" + errBuf.String()))
+		return
+	}
 	pipe.Close()
 }

@@ -287,7 +287,8 @@ func (r *Recoverer) setBinlogs() error {
 
 		infoObj, err := r.storage.GetObject(binlog + "-gtid-set")
 		if err != nil {
-			return errors.Wrapf(err, "get %s object with gtid set", binlog)
+			log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
+			continue
 		}
 		content, err := ioutil.ReadAll(infoObj)
 		if err != nil {

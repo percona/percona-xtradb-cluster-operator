@@ -205,7 +205,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 
 	err = r.client.Update(context.Background(), cr)
 	if err != nil {
-		return fmt.Errorf("failed to update CR: %v", err)
+		return errors.Wrap(err, "failed to update CR")
 	}
 
 	time.Sleep(1 * time.Second) // based on experiments operator just need it.
@@ -225,7 +225,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 
 	err = r.client.Status().Update(context.Background(), cr)
 	if err != nil {
-		return fmt.Errorf("failed to update CR status: %v", err)
+		return errors.Wrap(err, "failed to update CR status")
 	}
 
 	time.Sleep(1 * time.Second)
@@ -248,7 +248,7 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 
 	upgradeInProgress, err := r.upgradeInProgress(cr, "pxc")
 	if err != nil {
-		return fmt.Errorf("check pxc upgrade progress: %v", err)
+		return errors.Wrap(err, "check pxc upgrade progress")
 	}
 	if upgradeInProgress {
 		return nil
@@ -262,7 +262,7 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
 	); err != nil {
-		return fmt.Errorf("get pod list: %v", err)
+		return errors.Wrap(err, "get pod list")
 	}
 
 	user := "root"
@@ -288,7 +288,7 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraD
 			continue
 		}
 
-		logger.Info(fmt.Sprintf("update PXC version to %v (fetched from db)", version))
+		logger.Info("update PXC version (fetched from db)", "new version", version)
 		cr.Status.PXC.Version = version
 		cr.Status.PXC.Image = cr.Spec.PXC.Image
 		err = r.client.Status().Update(context.Background(), cr)

@@ -10,7 +10,7 @@ Pre-requisites
 
 Install Helm following its `official installation instructions <https://docs.helm.sh/using_helm/#installing-helm>`_.
 
-.. note:: At least ``2.4.0`` version of Helm is needed to run the following steps.
+.. note:: Helm v3 is needed to run the following steps.
 
 
 Installation
@@ -31,8 +31,8 @@ Installation
       helm install my-op percona/pxc-operator
 
    The ``my-op`` parameter in the above example is the name of `a new release object <https://helm.sh/docs/intro/using_helm/#three-big-concepts>`_ 
-   which is created for the Operator when you install its Helm chart. Use any
-   arbitrary name with Helm 3.x or omit it with Helm 2.x.
+   which is created for the Operator when you install its Helm chart (use any
+   name you like).
 
    .. note:: If nothing explicitly specified, ``helm install`` command will work
       with ``default`` namespace. To use different namespace, provide it with
@@ -46,7 +46,7 @@ Installation
 
    The ``my-db`` parameter in the above example is the name of `a new release object <https://helm.sh/docs/intro/using_helm/#three-big-concepts>`_ 
    which is created for the Percona XtraDB Cluster when you install its Helm
-   chart. Use any arbitrary name with Helm 3.x or omit it with Helm 2.x.
+   chart (use any name you like).
 
 Installing Percona XtraDB Cluster with customized parameters
 ----------------------------------------------------------------

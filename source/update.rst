@@ -59,9 +59,10 @@ Semi-automatic upgrade
                 "crVersion":"{{{release}}}",
                 "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
-                "haproxy": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
+                "haproxy":  { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-backup" },
-                "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
+                "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
+                "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
             }}'
 
    B. For Percona XtraDB Cluster 8.0 run the following:
@@ -76,9 +77,10 @@ Semi-automatic upgrade
                 "crVersion":"{{{release}}}",
                 "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
-                "haproxy": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
+                "haproxy":  { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-backup" },
-                "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
+                "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
+                "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
             }}'
 
 #. The deployment rollout will be automatically triggered by the applied patch.
@@ -128,9 +130,10 @@ Manual update
                 "crVersion":"{{{release}}}",
                 "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
-                "haproxy": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
+                "haproxy":  { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-backup" },
-                "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
+                "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
+                "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
             }}'
 
    B. For Percona XtraDB Cluster 8.0 run the following:
@@ -145,9 +148,10 @@ Manual update
                 "crVersion":"{{{release}}}",
                 "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
-                "haproxy": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
+                "haproxy":  { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-backup" },
-                "pmm":      { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pmm" }
+                "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
+                "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
             }}'
 
 #. The Pod with the newer Percona XtraDB Cluster image will start after you

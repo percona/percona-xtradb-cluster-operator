@@ -252,7 +252,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		return errors.Wrapf(err, "put %s object", binlog.Name)
 	}
 
-	log.Println("Successfully writen binlog to s3 with name", binlog.Name)
+	log.Println("Successfully written binlog file", binlog.Name, "to s3 with name", binlogName)
 
 	err = cmd.Wait()
 	if err != nil {

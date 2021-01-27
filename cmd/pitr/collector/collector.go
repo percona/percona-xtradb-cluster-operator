@@ -183,8 +183,8 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "get GTID set")
 	}
-	// if binlog don't have gtid we do not upload it
-	// because it's empty and don't have any information
+	// we don't upload binlog without gtid
+	// because it is empty and doesn't have any information
 	if len(set) == 0 {
 		return nil
 	}
@@ -242,7 +242,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		}
 	}()
 
-	// create pipe to transfer data from binlog pipe to s3
+	// create a pipe to transfer data from the binlog pipe to s3
 	pr, pw := io.Pipe()
 
 	go readBinlog(file, pw, errBuf, binlog.Name)
@@ -256,7 +256,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 
 	err = cmd.Wait()
 	if err != nil {
-		return errors.Wrap(err, "wait mysqlbinlog command")
+		return errors.Wrap(err, "wait mysqlbinlog command error:"+errBuf.String())
 	}
 
 	err = c.storage.PutObject(binlogName+gtidPostfix, &setBuffer, int64(setBuffer.Len()))
@@ -277,9 +277,8 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlogName string) {
 	b := make([]byte, 10485760) //alloc buffer for 10mb
 
-	// we need this because if binlog slow and didn't write anything
-	// to file yet, we have to skip this error and try to read again
-	// untill some data appears
+	// in case of binlog is slow and hasn't written anything to the file yet
+	// we have to skip this error and try to read again until some data appears
 	isEmpty := true
 	for {
 		if errBuf.Len() != 0 {
@@ -289,9 +288,8 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 		}
 		n, err := file.Read(b)
 		if err == io.EOF {
-			// if we receive EOF immediatly after starting to read file
-			// we have to skip it, since data is not appeared yet
-			// if we got something already and receive EOF error - then exit
+			// If we got EOF immediately after starting to read a file we should skip it since
+			// data has not appeared yet. If we receive EOF error after already got some data - then exit.
 			if isEmpty {
 				time.Sleep(10 * time.Millisecond)
 				continue
@@ -309,7 +307,5 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 		pipe.Write(b[:n])
 		isEmpty = false
 	}
-	// we need to close pipe with io.EOF because it's common way
-	// to indicate that we reached file end and it's not a error
-	pipe.CloseWithError(io.EOF)
+	pipe.Close()
 }

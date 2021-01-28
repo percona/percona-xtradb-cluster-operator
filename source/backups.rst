@@ -87,7 +87,7 @@ Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb
      ...
 
 if you use some S3-compatible storage instead of the original
-Amazon S3, the `endpointURL <https://docs.min.io/docs/aws-cli-with-minio.html>`_ is needed in the `s3` subsection which points to the actual cloud used for backups and
+Amazon S3, the `endpointUrl <https://docs.min.io/docs/aws-cli-with-minio.html>`_ is needed in the `s3` subsection which points to the actual cloud used for backups and
 is specific to the cloud provider. For example, using `Google Cloud <https://cloud.google.com>`_ involves the `following <https://storage.googleapis.com>`_ endpointUrl:
 
 .. code:: yaml
@@ -321,7 +321,7 @@ restoration can be done in the following way.
              s3:
                credentialsSecret: my-cluster-name-backup-s3
                region: us-west-2
-               endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+               endpointUrl: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
            ...
 
 2. After that, the actual restoration process can be started as follows:
@@ -381,7 +381,7 @@ you can put additional restoration parameters to the ``restore.yaml`` file
        s3:
          bucket: S3-BUCKET-NAME
          credentialsSecret: my-cluster-name-backup-s3
-         endpointURL: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
+         endpointUrl: https://URL-OF-THE-S3-COMPATIBLE-STORAGE
          region: us-west-2
     ...
 

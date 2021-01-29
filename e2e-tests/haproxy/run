@@ -19,6 +19,10 @@ check_haproxy_writer() {
 main() {
   create_infra $namespace
 
+  if [[ "$OPENSHIFT" != "3.11" ]]; then
+    apply_config "$test_dir/conf/docker-rc.yaml"
+  fi
+
   desc 'create first PXC cluster with HAProxy'
   cluster="haproxy"
   spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10

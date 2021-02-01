@@ -224,7 +224,8 @@ There is a possibility to enable
 for backups.
 
 .. note:: This feature is available only with Percona XtraDB Cluster 8.0 and not
-   Percona XtraDB Cluster 5.7.
+   Percona XtraDB Cluster 5.7. Also, it can not be used simultaneously with the
+   :ref:`point-in-time recovery<backups-pitr-binlog>` feature.
 
 To enable compression, use :ref:`pxc-configuration` key in the
 ``deploy/cr.yaml`` configuration file to supply Percona XtraDB Cluster nodes

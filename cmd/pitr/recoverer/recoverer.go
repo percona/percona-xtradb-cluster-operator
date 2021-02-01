@@ -144,25 +144,18 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 	sort.Strings(listInfo)
 
 	var lastGTID string
-	for _, fileName := range listInfo {
-		format := "txt"
-		infoObj, err := s3.GetObject(fileName)
-		if err != nil {
-			return "", errors.Wrapf(err, "get %s info", prefix)
-		}
+	if len(listInfo) == 0 {
+		return "", errors.New("no info files in backup")
+	}
 
-		if strings.Contains(fileName, "lz4") {
-			format = "lz4"
-		}
-		if strings.Contains(fileName, "qp") {
-			format = "qp"
-		}
+	infoObj, err := s3.GetObject(listInfo[0])
+	if err != nil {
+		return "", errors.Wrapf(err, "get %s info", prefix)
+	}
 
-		lastGTID, err = getLastBackupGTID(infoObj, format)
-		if err != nil {
-			return "", errors.Wrap(err, "get last backup gtid")
-		}
-		break
+	lastGTID, err = getLastBackupGTID(infoObj)
+	if err != nil {
+		return "", errors.Wrap(err, "get last backup gtid")
 	}
 
 	return lastGTID, nil
@@ -266,8 +259,8 @@ func (r *Recoverer) recover() (err error) {
 	return nil
 }
 
-func getLastBackupGTID(infoObj io.Reader, format string) (string, error) {
-	content, err := getDecompressedContent(infoObj, format)
+func getLastBackupGTID(infoObj io.Reader) (string, error) {
+	content, err := getDecompressedContent(infoObj)
 	if err != nil {
 		return "", errors.Wrap(err, "get content")
 	}
@@ -294,32 +287,16 @@ func getGTIDFromContent(content []byte) (string, error) {
 	return string(set), nil
 }
 
-func getDecompressedContent(infoObj io.Reader, format string) ([]byte, error) {
+func getDecompressedContent(infoObj io.Reader) ([]byte, error) {
 	tmpDir := os.TempDir()
-	fileName := "backup_info." + format
-	tmpFile, err := os.Create(tmpDir + "/" + fileName)
-	if err != nil {
-		return nil, errors.Wrap(err, "create temp info file")
-	}
-	defer func() {
-		tmpFile.Close()
-	}()
 
-	content, err := ioutil.ReadAll(infoObj)
-	if err != nil {
-		return nil, errors.Wrap(err, "read info object")
-	}
-	_, err = tmpFile.Write(content)
-	if err != nil {
-		return nil, errors.Wrap(err, "write content to temp file")
-	}
-
-	cmdString := "cd " + tmpDir + " && xbstream -x --decompress < " + fileName
-	cmd := exec.Command("sh", "-c", cmdString)
+	cmd := exec.Command("xbstream", "-x", "--decompress")
+	cmd.Dir = tmpDir
+	cmd.Stdin = infoObj
 	var outb, errb bytes.Buffer
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		return nil, errors.Wrapf(err, "xbsream cmd run. stderr: %s, stdout: %s", errb.String(), outb.String())
 	}

@@ -8,7 +8,7 @@ The operator is configured via the spec section of the
 file. This file contains the following spec sections to configure three
 main subsystems of the cluster:
 
-.. tabularcolumns:: |p{37mm}|p{10mm}|p{47mm}|p{47mm}|
+.. tabularcolumns:: |p{40mm}|p{10mm}|p{49mm}|p{47mm}|
 
 .. list-table::
    :widths: 25 9 31 35

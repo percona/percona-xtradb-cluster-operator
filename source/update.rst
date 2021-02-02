@@ -1,4 +1,4 @@
-.. _operator-update:
+.. _operator-upgrade:
 
 Upgrade Percona XtraDB Cluster
 ======================================

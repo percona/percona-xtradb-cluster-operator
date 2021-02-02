@@ -186,7 +186,7 @@ Following example shows how the ``pitr`` subsection looks like:
 
 .. _backups-private-volume:
 
-Storing backup on ‎Persistent Volume
+Storing backup on Persistent Volume
 -----------------------------------
 
 Here is an example of the ``deploy/cr.yaml`` backup section fragment, which
@@ -227,7 +227,7 @@ for backups.
    Percona XtraDB Cluster 5.7. Also, it can not be used simultaneously with the
    :ref:`point-in-time recovery<backups-pitr-binlog>` feature.
 
-To enable compression, use :ref:`pxc-configuration` key in the
+To enable compression, use :ref:`pxc.configuration<pxc-configuration>` key in the
 ``deploy/cr.yaml`` configuration file to supply Percona XtraDB Cluster nodes
 with two additional ``my.cnf`` options under its ``[sst]`` and ``[xtrabackup]``
 sections as follows:

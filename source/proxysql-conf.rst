@@ -1,4 +1,4 @@
-.. proxysql-conf::
+.. _proxysql-conf:
 
 Configuring Load Balancing with ProxySQL
 ========================================
@@ -38,7 +38,7 @@ the readers, then the writer Percona XtraDB Cluster member is finally upgraded.
 .. note:: when both ProxySQL and Percona XtraDB Cluster are upgraded, they are
    upgraded in parallel.
 
-.. proxysql-conf-custom::
+.. _proxysql-conf-custom:
 
 Passing custom configuration options to ProxySQL
 ------------------------------------------------
@@ -109,7 +109,7 @@ Here is an example of ProxySQL configuration passed through ``deploy/cr.yaml``:
        }
    ...
 
-.. proxysql-conf-admin::
+.. _proxysql-conf-admin:
 
 Accessing the ProxySQL Admin Interface
 --------------------------------------

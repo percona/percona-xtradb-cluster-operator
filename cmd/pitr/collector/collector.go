@@ -82,7 +82,7 @@ func (c *Collector) Run() error {
 	if err != nil {
 		return errors.Wrap(err, "new db connection")
 	}
-	defer c.closeDB()
+	defer c.close()
 
 	err = c.CollectBinLogs()
 	if err != nil {
@@ -108,6 +108,8 @@ func (c *Collector) newDB() error {
 	}
 	c.pxcPass = string(pxcPass)
 
+	log.Println("Reading binlogs from pxc with hostname=", host)
+
 	c.db, err = pxc.NewPXC(host, c.pxcUser, c.pxcPass)
 	if err != nil {
 		return errors.Wrapf(err, "new manager with host %s", host)
@@ -116,7 +118,7 @@ func (c *Collector) newDB() error {
 	return nil
 }
 
-func (c *Collector) closeDB() error {
+func (c *Collector) close() error {
 	return c.db.Close()
 }
 
@@ -127,21 +129,21 @@ func (c *Collector) CollectBinLogs() error {
 	}
 
 	// get last uploaded binlog file name
-	binlogName, err := c.db.GetBinLogName(c.lastSet)
+	lastUploadedBinlogName, err := c.db.GetBinLogName(c.lastSet)
 	if err != nil {
 		return errors.Wrap(err, "get latst uploaded binlog name by set")
 	}
 
 	upload := false
 	// if there are no uploaded files we going to upload every binlog file
-	if len(binlogName) == 0 {
+	if len(lastUploadedBinlogName) == 0 {
 		upload = true
 	}
 
 	for _, binlog := range list {
 		binlogSet := ""
 		// this check is for uploading starting from needed file
-		if binlog.Name == binlogName {
+		if binlog.Name == lastUploadedBinlogName {
 			binlogSet, err = c.db.GetGTIDSet(binlog.Name)
 			if err != nil {
 				return errors.Wrap(err, "get binlog gtid set")
@@ -165,35 +167,6 @@ func (c *Collector) CollectBinLogs() error {
 	return nil
 }
 
-type pipeReader struct {
-	f     *os.File
-	buf   *bytes.Buffer
-	empty bool
-}
-
-func (p *pipeReader) ReadToBuf(binlogName string) {
-	b := make([]byte, 1024)
-	p.empty = true
-	for {
-		n, err := p.f.Read(b)
-		if err == io.EOF {
-			if p.empty {
-				time.Sleep(10 * time.Microsecond)
-				continue
-			}
-			break
-		}
-		if err != nil && !strings.Contains(err.Error(), "file already closed") {
-			log.Printf("Error: reading named pipe for %s: %v", binlogName, err)
-		}
-		if n == 0 {
-			continue
-		}
-		p.buf.Write(b[:n])
-		p.empty = false
-	}
-}
-
 func mergeErrors(a, b error) error {
 	if a != nil && b != nil {
 		return errors.New(a.Error() + "; " + b.Error())
@@ -210,6 +183,8 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "get GTID set")
 	}
+	// we don't upload binlog without gtid
+	// because it is empty and doesn't have any information
 	if len(set) == 0 {
 		return nil
 	}
@@ -219,7 +194,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
 	}
 
-	binlogName := "binlog_" + binlogTmstmp + "_" + fmt.Sprintf("%x", md5.Sum([]byte(set)))
+	binlogName := fmt.Sprintf("binlog_%s_%x", binlogTmstmp, md5.Sum([]byte(set)))
 
 	var setBuffer bytes.Buffer
 	setBuffer.WriteString(set)
@@ -236,19 +211,20 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		return errors.Wrap(err, "make named pipe file error")
 	}
 
-	err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))
+	errBuf := &bytes.Buffer{}
+	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, binlog.Name)
+	cmd.Env = append(cmd.Env, "MYSQL_PWD="+c.pxcPass)
+	cmd.Dir = os.TempDir()
+	cmd.Stderr = errBuf
+
+	err = cmd.Start()
 	if err != nil {
-		return errors.Wrap(err, "set mysql pwd env var")
+		return errors.Wrap(err, "run mysqlbinlog command")
 	}
 
-	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, "--result-file="+tmpDir, binlog.Name)
+	log.Println("Starting to process binlog with name", binlog.Name)
 
-	errOut, err := cmd.StderrPipe()
-	if err != nil {
-		return errors.Wrap(err, "get mysqlbinlog stderr pipe")
-	}
-
-	file, err := os.OpenFile(tmpDir+binlog.Name, os.O_RDWR, os.ModeNamedPipe)
+	file, err := os.OpenFile(tmpDir+binlog.Name, os.O_RDONLY, os.ModeNamedPipe)
 	if err != nil {
 		return errors.Wrap(err, "open named pipe file error")
 	}
@@ -266,63 +242,76 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		}
 	}()
 
-	pipeBuf := &bytes.Buffer{}
-	pr := pipeReader{
-		f:     file,
-		buf:   pipeBuf,
-		empty: true,
-	}
-	go pr.ReadToBuf(binlog.Name)
+	// create a pipe to transfer data from the binlog pipe to s3
+	pr, pw := io.Pipe()
 
-	err = cmd.Start()
-	if err != nil {
-		return errors.Wrap(err, "run mysqlbinlog command")
-	}
+	go readBinlog(file, pw, errBuf, binlog.Name)
 
-	for {
-		time.Sleep(10 * time.Millisecond)
-		if !pr.empty {
-			break
-		}
-		stdErr, err := ioutil.ReadAll(errOut)
-		if err != nil {
-			return errors.Wrap(err, "read mysqlbinlog error output")
-		}
-		if len(stdErr) != 0 {
-			return errors.Errorf("mysqlbinlog: %s", stdErr)
-		}
-	}
-
-	err = c.storage.PutObject(binlogName, pipeBuf, -1)
+	err = c.storage.PutObject(binlogName, pr, -1)
 	if err != nil {
 		return errors.Wrapf(err, "put %s object", binlog.Name)
 	}
 
-	stdErr, err := ioutil.ReadAll(errOut)
-	if err != nil {
-		return errors.Wrap(err, "read mysqlbinlog error output")
-	}
+	log.Println("Successfully written binlog file", binlog.Name, "to s3 with name", binlogName)
 
 	err = cmd.Wait()
 	if err != nil {
-		return errors.Wrap(err, "wait mysqlbinlog command")
+		return errors.Wrap(err, "wait mysqlbinlog command error:"+errBuf.String())
 	}
 
-	if stdErr != nil && string(bytes.TrimRight(stdErr, "\n")) != pxc.UsingPassErrorMessage && len(stdErr) != 0 {
-		return errors.Errorf("mysqlbinlog: %s", stdErr)
-	}
-
-	err = c.storage.PutObject(binlogName+gtidPostfix, &setBuffer, -1)
+	err = c.storage.PutObject(binlogName+gtidPostfix, &setBuffer, int64(setBuffer.Len()))
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
 
 	setBuffer.WriteString(set)
-	err = c.storage.PutObject(lastSetFileName, &setBuffer, -1)
+	err = c.storage.PutObject(lastSetFileName, &setBuffer, int64(setBuffer.Len()))
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}
 	c.lastSet = set
 
 	return nil
+}
+
+func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlogName string) {
+	b := make([]byte, 10485760) //alloc buffer for 10mb
+
+	// in case of binlog is slow and hasn't written anything to the file yet
+	// we have to skip this error and try to read again until some data appears
+	isEmpty := true
+	for {
+		if errBuf.Len() != 0 {
+			// stop reading since we receive error from binlog command in stderr
+			pipe.CloseWithError(errors.Errorf("Error: mysqlbinlog %s", errBuf.String()))
+			return
+		}
+		n, err := file.Read(b)
+		if err == io.EOF {
+			// If we got EOF immediately after starting to read a file we should skip it since
+			// data has not appeared yet. If we receive EOF error after already got some data - then exit.
+			if isEmpty {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+			break
+		}
+		if err != nil && !strings.Contains(err.Error(), "file already closed") {
+			pipe.CloseWithError(errors.Wrapf(err, "Error: reading named pipe for %s", binlogName))
+			return
+		}
+		if n == 0 {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		pipe.Write(b[:n])
+		isEmpty = false
+	}
+	// in case of any errors from mysqlbinlog it sends EOF to pipe
+	// to prevent this, need to check error buffer before closing pipe without error
+	if errBuf.Len() != 0 {
+		pipe.CloseWithError(errors.New("mysqlbinlog error:" + errBuf.String()))
+		return
+	}
+	pipe.Close()
 }

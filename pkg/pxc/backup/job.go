@@ -93,6 +93,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 				NodeSelector:      cluster.Backup.Storages[spec.StorageName].NodeSelector,
 				SchedulerName:     cluster.Backup.Storages[spec.StorageName].SchedulerName,
 				PriorityClassName: cluster.Backup.Storages[spec.StorageName].PriorityClassName,
+				RuntimeClassName:  cluster.Backup.Storages[spec.StorageName].RuntimeClassName,
 			},
 		},
 	}, nil

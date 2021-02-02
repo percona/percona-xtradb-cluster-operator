@@ -100,6 +100,11 @@ func (in *BackupStorageSpec) DeepCopyInto(out *BackupStorageSpec) {
 		*out = new(corev1.SecurityContext)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.RuntimeClassName != nil {
+		in, out := &in.RuntimeClassName, &out.RuntimeClassName
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -142,6 +147,11 @@ func (in *LogCollectorSpec) DeepCopyInto(out *LogCollectorSpec) {
 		in, out := &in.ContainerSecurityContext, &out.ContainerSecurityContext
 		*out = new(corev1.SecurityContext)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.RuntimeClassName != nil {
+		in, out := &in.RuntimeClassName, &out.RuntimeClassName
+		*out = new(string)
+		**out = **in
 	}
 	return
 }
@@ -210,6 +220,11 @@ func (in *PMMSpec) DeepCopyInto(out *PMMSpec) {
 		in, out := &in.ContainerSecurityContext, &out.ContainerSecurityContext
 		*out = new(corev1.SecurityContext)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.RuntimeClassName != nil {
+		in, out := &in.RuntimeClassName, &out.RuntimeClassName
+		*out = new(string)
+		**out = **in
 	}
 	return
 }
@@ -866,6 +881,10 @@ func (in *PodSpec) DeepCopyInto(out *PodSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	if in.RuntimeClassName != nil {
+		in, out := &in.RuntimeClassName, &out.RuntimeClassName
+		*out = new(string)
+		**out = **in
 	}
 	return
 }

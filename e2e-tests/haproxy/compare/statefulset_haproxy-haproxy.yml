@@ -118,6 +118,7 @@ spec:
           terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       restartPolicy: Always
+      runtimeClassName: docker-rc
       schedulerName: default-scheduler
       securityContext: {}
       serviceAccount: default

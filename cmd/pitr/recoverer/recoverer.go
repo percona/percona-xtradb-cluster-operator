@@ -141,19 +141,17 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "list %s info fies", prefix)
 	}
-	sort.Strings(listInfo)
-
-	var lastGTID string
 	if len(listInfo) == 0 {
 		return "", errors.New("no info files in backup")
 	}
+	sort.Strings(listInfo)
 
 	infoObj, err := s3.GetObject(listInfo[0])
 	if err != nil {
 		return "", errors.Wrapf(err, "get %s info", prefix)
 	}
 
-	lastGTID, err = getLastBackupGTID(infoObj)
+	lastGTID, err := getLastBackupGTID(infoObj)
 	if err != nil {
 		return "", errors.Wrap(err, "get last backup gtid")
 	}
@@ -298,7 +296,7 @@ func getDecompressedContent(infoObj io.Reader) ([]byte, error) {
 	cmd.Stderr = &errb
 	err := cmd.Run()
 	if err != nil {
-		return nil, errors.Wrapf(err, "xbsream cmd run. stderr: %s, stdout: %s", errb.String(), outb.String())
+		return nil, errors.Wrapf(err, "xbsream cmd run. stderr: %s, stdout: %s", errb, outb)
 	}
 	if errb.Len() > 0 {
 		return nil, errors.Errorf("run xbstream error: %s", &errb)

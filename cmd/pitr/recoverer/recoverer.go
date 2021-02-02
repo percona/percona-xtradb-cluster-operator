@@ -296,7 +296,7 @@ func getDecompressedContent(infoObj io.Reader) ([]byte, error) {
 	cmd.Stderr = &errb
 	err := cmd.Run()
 	if err != nil {
-		return nil, errors.Wrapf(err, "xbsream cmd run. stderr: %s, stdout: %s", errb, outb)
+		return nil, errors.Wrapf(err, "xbsream cmd run. stderr: %s, stdout: %s", &errb, &outb)
 	}
 	if errb.Len() > 0 {
 		return nil, errors.Errorf("run xbstream error: %s", &errb)

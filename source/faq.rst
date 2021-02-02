@@ -109,7 +109,7 @@ When identified, the appropriate core dump can be downloaded as follows:
 
    kubectl cp some-name-pxc-1:/var/lib/mysql/core.20210015093005  /tmp/core.20210015093005
 
-.. note:: It is useful to provide Build ID и Server Version in addition to core
+.. note:: It is useful to provide Build ID and Server Version in addition to core
    dump when Creating a support ticket. Both can be found from logs:
    
    .. code:: bash

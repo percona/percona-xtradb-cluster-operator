@@ -1,3 +1,4 @@
+.. _operator.custom-resource-options:
 
 `Custom Resource options <operator.html#operator-custom-resource-options>`_
 ===============================================================================
@@ -341,7 +342,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``1G``                                                                                   |
+| **Example**     | ``1G``                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | Kubernetes `Ephemeral Storage                                                             |
 |                 | <https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/>`_ `requests              |
@@ -388,7 +389,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``1G``                                                                                   |
+| **Example**     | ``1G``                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | Kubernetes `Ephemeral Storage                                                             |
 |                 | <https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/>`_ `limits                |
@@ -674,7 +675,7 @@ configuration options for the HAProxy service.
 | **Example**     | ``3``                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The number of the HAProxy Pods `to provide load balancing                                 |
-|                 | <https://www.percona.com/doc/percona-xtradb-cluster/8.0/howtos/haproxy.html>`_            |
+|                 | <https://www.percona.com/doc/percona-xtradb-cluster/8.0/howtos/haproxy.html>`__           |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1134,7 +1135,7 @@ configuration options for the ProxySQL daemon.
 | **Example**     | ``1``                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The number of the ProxySQL daemons `to provide load balancing                             |
-|                 | <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`_           |
+|                 | <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`__          |
 |                 | must be = 1 in current release                                                            |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
@@ -1623,7 +1624,7 @@ configuration options for the ProxySQL daemon.
 --------------------------------------------------------------------------------
 
 The ``logcollector`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ 
-file contains configuration options for `Fluent Bit Log Collector <https://fluentbit.io/>`_.
+file contains configuration options for `Fluent Bit Log Collector <https://fluentbit.io>`_.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
 

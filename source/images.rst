@@ -20,9 +20,9 @@ Percona XtraDB Cluster Operator:
          * - percona/percona-xtradb-cluster-operator:1.7.0-proxysql
            - caaaa398c2093b4491f75848356d042ffd96d449ed9fc07a1a8202231ac0fa4d
          * - percona/percona-xtradb-cluster-operator:1.7.0-pxc8.0-backup
-           - 3ab6bdc68c440fdd445baf3654081a0ab5c9deba146db3dd31de34fd3ea3bc19
+           - 2c49d5693836c1226ea0fe775111dcfc78cd51ec557f8f3ea79cf30b674ef8cf
          * - percona/percona-xtradb-cluster-operator:1.7.0-pxc5.7-backup
-           - bba24798031ee76a7d01bf87319c58853f625373b97615c5ff610c8d11c800d7
+           - 15d6318f401bd024fcdab4c04448d162aac59a04c7162c61c43b88f63af08676
          * - percona/percona-xtradb-cluster-operator:1.7.0-logcollector
            - 8f73b854b69d7ab2819df254bdb40037162de4453fcd9bb85ac8ea8a4916e1fe
          * - percona/pmm-client:2.12.0

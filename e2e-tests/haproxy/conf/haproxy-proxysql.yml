@@ -27,6 +27,7 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
     podDisruptionBudget:
       maxUnavailable: 1
+    runtimeClassName: docker-rc
   haproxy:
     enabled: false
     size: 3
@@ -40,6 +41,7 @@ spec:
       tolerationSeconds: 6000
     podDisruptionBudget:
       maxUnavailable: 1
+    runtimeClassName: docker-rc
   proxysql:
     enabled: true
     size: 1
@@ -60,11 +62,13 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
     podDisruptionBudget:
       maxUnavailable: 1
+    runtimeClassName: docker-rc
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1
     serverHost: monitoring-service
     serverUser: pmm
+    runtimeClassName: docker-rc
   backup:
     image: -backup
     serviceAccountName: default
@@ -77,6 +81,7 @@ spec:
             resources:
               requests:
                 storage: 1Gi
+        runtimeClassName: docker-rc
       aws-s3:
         type: s3
         s3:

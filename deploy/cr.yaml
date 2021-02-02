@@ -70,11 +70,11 @@ spec:
       requests:
         memory: 1G
         cpu: 600m
-#        ephemeral-storage: 1Gi
+#        ephemeral-storage: 1G
 #      limits:
 #        memory: 1G
 #        cpu: "1"
-#        ephemeral-storage: 1Gi
+#        ephemeral-storage: 1G
 #    nodeSelector:
 #      disktype: ssd
     affinity:
@@ -107,7 +107,7 @@ spec:
 #        accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: 6Gi
+            storage: 6G
     gracePeriod: 600
   haproxy:
     enabled: true
@@ -151,7 +151,6 @@ spec:
 #    externalTrafficPolicy: Cluster
 #    replicasServiceType: ClusterIP
 #    replicasExternalTrafficPolicy: Cluster
-#    schedulerName: "default"
     resources:
       requests:
         memory: 1G
@@ -257,7 +256,6 @@ spec:
 #      rack: rack-22
 #    serviceType: ClusterIP
 #    externalTrafficPolicy: Cluster
-#    schedulerName: "default"
     resources:
       requests:
         memory: 1G
@@ -303,7 +301,7 @@ spec:
 #        accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: 2Gi
+            storage: 2G
     podDisruptionBudget:
       maxUnavailable: 1
 #      minAvailable: 0
@@ -426,7 +424,7 @@ spec:
             accessModes: [ "ReadWriteOnce" ]
             resources:
               requests:
-                storage: 6Gi
+                storage: 6G
     schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"

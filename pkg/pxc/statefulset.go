@@ -24,6 +24,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		PriorityClassName:             podSpec.PriorityClassName,
 		ImagePullSecrets:              podSpec.ImagePullSecrets,
 		TerminationGracePeriodSeconds: podSpec.TerminationGracePeriodSeconds,
+		RuntimeClassName:              podSpec.RuntimeClassName,
 	}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		pod.ServiceAccountName = podSpec.ServiceAccountName

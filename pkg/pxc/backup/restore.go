@@ -126,6 +126,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			SchedulerName:      cluster.Backup.Storages[bcpStorageName].SchedulerName,
 			PriorityClassName:  cluster.Backup.Storages[bcpStorageName].PriorityClassName,
 			ServiceAccountName: cluster.PXC.ServiceAccountName,
+			RuntimeClassName:   cluster.Backup.Storages[bcpStorageName].RuntimeClassName,
 		},
 	}, nil
 }
@@ -212,6 +213,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 					SchedulerName:      cluster.PXC.SchedulerName,
 					PriorityClassName:  cluster.PXC.PriorityClassName,
 					ServiceAccountName: cluster.PXC.ServiceAccountName,
+					RuntimeClassName:   cluster.PXC.RuntimeClassName,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
@@ -438,6 +440,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 					SchedulerName:      cluster.PXC.SchedulerName,
 					PriorityClassName:  cluster.PXC.PriorityClassName,
 					ServiceAccountName: cluster.PXC.ServiceAccountName,
+					RuntimeClassName:   cluster.PXC.RuntimeClassName,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),

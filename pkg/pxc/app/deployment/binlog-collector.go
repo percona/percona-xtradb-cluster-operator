@@ -139,6 +139,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 					Volumes: []corev1.Volume{
 						app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
 					},
+					RuntimeClassName: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].RuntimeClassName,
 				},
 			},
 		},

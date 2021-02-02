@@ -122,6 +122,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 				Tolerations:       strg.Tolerations,
 				SchedulerName:     strg.SchedulerName,
 				PriorityClassName: strg.PriorityClassName,
+				RuntimeClassName:  strg.RuntimeClassName,
 			},
 		},
 	}, nil

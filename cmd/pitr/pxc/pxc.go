@@ -2,8 +2,10 @@ package pxc
 
 import (
 	"database/sql"
+	"log"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
@@ -105,6 +107,25 @@ func (p *PXC) GetBinLogList() ([]Binlog, error) {
 	return binlogs, nil
 }
 
+// GetBinLogList return binary log files list
+func (p *PXC) GetBinLogNamesList() ([]string, error) {
+	rows, err := p.db.Query("SHOW BINARY LOGS")
+	if err != nil {
+		return nil, errors.Wrap(err, "show binary logs")
+	}
+
+	var binlogs []string
+	for rows.Next() {
+		var b Binlog
+		if err := rows.Scan(&b.Name, &b.Size, &b.Encrypted); err != nil {
+			return nil, errors.Wrap(err, "scan binlogs")
+		}
+		binlogs = append(binlogs, b.Name)
+	}
+
+	return binlogs, nil
+}
+
 // GetBinLogName returns name of the binary log file by given GTID set
 func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
 	if len(gtidSet) == 0 {
@@ -174,7 +195,7 @@ func GetPXCLastHost(pxcServiceName string) (string, error) {
 	cmd := exec.Command("peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", errors.Wrap(err, "get output")
+		return "", errors.Wrap(err, "get peer-list output")
 	}
 	nodes := strings.Split(string(out), "node:")
 	sort.Strings(nodes)
@@ -187,10 +208,78 @@ func GetPXCLastHost(pxcServiceName string) (string, error) {
 		}
 	}
 	if len(lastHost) == 0 {
-		return "", errors.New("cant find host")
+		return "", errors.New("can't find host")
 	}
 
 	return lastHost, nil
+}
+
+func GetPXCOldestBinlogHost(pxcServiceName, user, pass string) (string, error) {
+	cmd := exec.Command("peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", errors.Wrap(err, "get peer-list output")
+	}
+	nodes := strings.Split(string(out), "node:")
+
+	var oldestHost string
+	var oldestTS int64
+	for _, node := range nodes {
+		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
+			nodeArr := strings.Split(node, ":")
+			db, err := NewPXC(nodeArr[0], user, pass)
+			if err != nil {
+				log.Printf("ERROR: creating connection for host %s: %v", nodeArr[0], err)
+				continue
+			}
+			list, err := db.GetBinLogNamesList()
+			if err != nil {
+				log.Printf("ERROR: get binlog list for host %s: %v", nodeArr[0], err)
+				db.Close()
+				continue
+			}
+			if len(list) == 0 {
+				log.Printf("ERROR: get binlog list for host %s: no binlogs found", nodeArr[0])
+				db.Close()
+				continue
+			}
+			var binlogTime int64
+			for _, binlogName := range list {
+				ts, err := db.GetBinLogFirstTimestamp(binlogName)
+				if err != nil {
+					log.Printf("ERROR: get binlog first timestamp for binlog %s host %s: %v", binlogName, nodeArr[0], err)
+					continue
+				}
+				binlogTime, err = strconv.ParseInt(ts, 10, 64)
+				if err != nil {
+					log.Printf("ERROR: parse timestamp for binlog %s host %s: %v", binlogName, nodeArr[0], err)
+					continue
+				}
+			}
+			if binlogTime == 0 {
+				log.Printf("ERROR: get binlog oldest timestamp for host %s: no binlogs timestamp found", nodeArr[0])
+				db.Close()
+				continue
+			}
+
+			if oldestTS > 0 && binlogTime < oldestTS {
+				oldestHost = nodeArr[0]
+				oldestTS = binlogTime
+			}
+
+			if len(oldestHost) == 0 {
+				oldestHost = nodeArr[0]
+				oldestTS = binlogTime
+			}
+			db.Close()
+		}
+	}
+
+	if len(oldestHost) == 0 {
+		return "", errors.New("can't find host")
+	}
+
+	return oldestHost, nil
 }
 
 func (p *PXC) DropCollectorFunctions() error {

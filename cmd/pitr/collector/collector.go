@@ -122,10 +122,6 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
-func ChoosePodWithOlderLogs() (string, error) {
-	return "", nil
-}
-
 func (c *Collector) CollectBinLogs() error {
 	list, err := c.db.GetBinLogList()
 	if err != nil {

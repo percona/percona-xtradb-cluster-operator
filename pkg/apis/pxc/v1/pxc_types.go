@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-logr/logr"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -295,6 +296,7 @@ type PodSpec struct {
 	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
 	ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
+	Sidecars                      []corev1.Container                      `json:"sidecars,omitempty"`
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
 }
 
@@ -788,4 +790,26 @@ func (v *VolumeSpec) validate() error {
 		}
 	}
 	return nil
+}
+
+func AddSidecarContainers(log logr.Logger, existing, sidecars []corev1.Container) []corev1.Container {
+	if len(sidecars) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, c := range existing {
+		names[c.Name] = struct{}{}
+	}
+
+	for _, c := range sidecars {
+		if _, ok := names[c.Name]; ok {
+			log.Info(fmt.Sprintf("Sidecar container name cannot be %s. It's skipped", c.Name))
+			continue
+		}
+
+		existing = append(existing, c)
+	}
+
+	return existing
 }

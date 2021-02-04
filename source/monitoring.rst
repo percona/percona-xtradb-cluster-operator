@@ -37,7 +37,7 @@ Kubernetes-based environment:
    -  set ``pmm.enabled=true``
    -  set the ``pmm.serverHost`` key to your PMM Server hostname,
    -  check that  the ``serverUser`` key contains your PMM Server user name
-      (``pmm`` by default),
+      (``admin`` by default),
    -  make sure the ``pmmserver`` key in the 
       `deploy/secrets.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/secrets.yaml>`_
       secrets file contains the password specified for the PMM Server during its
@@ -55,7 +55,7 @@ Kubernetes-based environment:
 
          .. code:: bash
 
-            kubectl patch secret/my-cluster-name-secrets -p '{"data":{"PMM_SERVER_PASSWORD": '$(echo -n new_password | base64)'}}'
+            kubectl patch secret/my-cluster-name-secrets -p '{"data":{"pmmserver": '$(echo -n new_password | base64)'}}'
 
    -  you can also use ``pmm.pxcParams`` and ``pmm.proxysqlParams`` keys to
       specify additional parameters for `pmm-admin add mysql <https://www.percona.com/doc/percona-monitoring-and-management/2.x/setting-up/client/mysql.html#adding-mysql-service-monitoring>`_ and

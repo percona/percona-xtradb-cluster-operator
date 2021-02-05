@@ -277,7 +277,6 @@ func getGTIDFromContent(content []byte) (string, error) {
 	if e == -1 {
 		return "", errors.New("can't find gtid data in backup")
 	}
-	content = content[:e]
 
 	se := bytes.Index(newOut, []byte("'"))
 	set := newOut[se+1 : e]

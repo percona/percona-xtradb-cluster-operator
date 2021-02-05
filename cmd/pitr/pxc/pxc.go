@@ -191,13 +191,20 @@ func (p *PXC) IsGTIDSubset(subSet, gtidSet string) (bool, error) {
 	return isSubset, nil
 }
 
-func GetPXCLastHost(pxcServiceName string) (string, error) {
+func getNodesByServiceName(pxcServiceName string) ([]string, error) {
 	cmd := exec.Command("peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", errors.Wrap(err, "get peer-list output")
+		return nil, errors.Wrap(err, "get peer-list output")
 	}
-	nodes := strings.Split(string(out), "node:")
+	return strings.Split(string(out), "node:"), nil
+}
+
+func GetPXCLastHost(pxcServiceName string) (string, error) {
+	nodes, err := getNodesByServiceName(pxcServiceName)
+	if err != nil {
+		return "", errors.Wrap(err, "get nodes by service name")
+	}
 	sort.Strings(nodes)
 	lastHost := ""
 	for _, node := range nodes {
@@ -215,12 +222,10 @@ func GetPXCLastHost(pxcServiceName string) (string, error) {
 }
 
 func GetPXCOldestBinlogHost(pxcServiceName, user, pass string) (string, error) {
-	cmd := exec.Command("peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
-	out, err := cmd.CombinedOutput()
+	nodes, err := getNodesByServiceName(pxcServiceName)
 	if err != nil {
-		return "", errors.Wrap(err, "get peer-list output")
+		return "", errors.Wrap(err, "get nodes by service name")
 	}
-	nodes := strings.Split(string(out), "node:")
 
 	var oldestHost string
 	var oldestTS int64

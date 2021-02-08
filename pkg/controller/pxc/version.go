@@ -85,7 +85,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 			return
 		}
 
-		_, err = localCr.CheckNSetDefaults(r.serverVersion)
+		_, err = localCr.CheckNSetDefaults(r.serverVersion, r.logger(cr.Name, cr.Namespace))
 		if err != nil {
 			logger.Error(err, "failed to set defaults for CR")
 			return

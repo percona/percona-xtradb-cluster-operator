@@ -28,9 +28,10 @@ if [[ -n "$MYSQL_USERNAME" ]]; then
     EXTRA_ARGS="$EXTRA_ARGS --user=${MYSQL_USERNAME}"
 fi
 if [[ -r $DEFAULTS_EXTRA_FILE ]];then
-    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE ${EXTRA_ARGS}"
+    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE \
+        --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 else
-    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql -nNE ${EXTRA_ARGS}"
+    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 fi
 
 STATUS=$(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE -e 'select 1;' | sed -n -e '2p' | tr '\n' ' ')

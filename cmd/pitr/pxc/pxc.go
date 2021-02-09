@@ -200,7 +200,7 @@ func getNodesByServiceName(pxcServiceName string) ([]string, error) {
 	return strings.Split(string(out), "node:"), nil
 }
 
-func GetPXCLastHost(pxcServiceName string) (string, error) {
+func GetPXCFirstHost(pxcServiceName string) (string, error) {
 	nodes, err := getNodesByServiceName(pxcServiceName)
 	if err != nil {
 		return "", errors.Wrap(err, "get nodes by service name")
@@ -231,13 +231,14 @@ func GetPXCOldestBinlogHost(pxcServiceName, user, pass string) (string, error) {
 	var oldestTS int64
 	for _, node := range nodes {
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
-			host, binlogTime, err := getHostAndBinlogTime(node, user, pass)
+			nodeArr := strings.Split(node, ":")
+			binlogTime, err := getBinlogTime(nodeArr[0], user, pass)
 			if err != nil {
-				log.Printf("ERROR: get host and binlog time %v", err)
+				log.Printf("ERROR: get binlog time %v", err)
 				continue
 			}
 			if len(oldestHost) == 0 || oldestTS > 0 && binlogTime < oldestTS {
-				oldestHost = host
+				oldestHost = nodeArr[0]
 				oldestTS = binlogTime
 			}
 
@@ -251,25 +252,24 @@ func GetPXCOldestBinlogHost(pxcServiceName, user, pass string) (string, error) {
 	return oldestHost, nil
 }
 
-func getHostAndBinlogTime(node, user, pass string) (string, int64, error) {
-	nodeArr := strings.Split(node, ":")
-	db, err := NewPXC(nodeArr[0], user, pass)
+func getBinlogTime(host, user, pass string) (int64, error) {
+	db, err := NewPXC(host, user, pass)
 	if err != nil {
-		return "", 0, errors.Errorf("creating connection for host %s: %v", nodeArr[0], err)
+		return 0, errors.Errorf("creating connection for host %s: %v", host, err)
 	}
 	defer db.Close()
 	list, err := db.GetBinLogNamesList()
 	if err != nil {
-		return "", 0, errors.Errorf("get binlog list for host %s: %v", nodeArr[0], err)
+		return 0, errors.Errorf("get binlog list for host %s: %v", host, err)
 	}
 	if len(list) == 0 {
-		return "", 0, errors.Errorf("get binlog list for host %s: no binlogs found", nodeArr[0])
+		return 0, errors.Errorf("get binlog list for host %s: no binlogs found", host)
 	}
 	var binlogTime int64
 	for _, binlogName := range list {
 		binlogTime, err = getBinlogTimeByName(db, binlogName)
 		if err != nil {
-			log.Printf("ERROR: get binlog timestamp for binlog %s host %s: %v", binlogName, nodeArr[0], err)
+			log.Printf("ERROR: get binlog timestamp for binlog %s host %s: %v", binlogName, host, err)
 			continue
 		}
 		if binlogTime > 0 {
@@ -277,10 +277,10 @@ func getHostAndBinlogTime(node, user, pass string) (string, int64, error) {
 		}
 	}
 	if binlogTime == 0 {
-		return "", 0, errors.Errorf("get binlog oldest timestamp for host %s: no binlogs timestamp found", nodeArr[0])
+		return 0, errors.Errorf("get binlog oldest timestamp for host %s: no binlogs timestamp found", host)
 	}
 
-	return nodeArr[0], binlogTime, nil
+	return binlogTime, nil
 }
 
 func getBinlogTimeByName(db *PXC, binlogName string) (int64, error) {

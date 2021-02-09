@@ -157,7 +157,7 @@ const (
 )
 
 func (r *Recoverer) Run() error {
-	host, err := pxc.GetPXCLastHost(r.pxcServiceName)
+	host, err := pxc.GetPXCFirstHost(r.pxcServiceName)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}

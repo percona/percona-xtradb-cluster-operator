@@ -324,7 +324,7 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 	}
 	err := pipe.Close()
 	if err != nil {
-		pipe.CloseWithError(errors.Wrapf(err, "Error: write to pipe for %s", binlogName))
+		pipe.CloseWithError(errors.Wrapf(err, "Error: close pipe for %s", binlogName))
 		return
 	}
 }

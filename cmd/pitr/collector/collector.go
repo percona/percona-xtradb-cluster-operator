@@ -197,8 +197,10 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	binlogName := fmt.Sprintf("binlog_%s_%x", binlogTmstmp, md5.Sum([]byte(set)))
 
 	var setBuffer bytes.Buffer
-	setBuffer.WriteString(set)
-
+	_, err = setBuffer.WriteString(set)
+	if err != nil {
+		return errors.Wrapf(err, "write string to gtid-set file buffer %s", binlog.Name)
+	}
 	tmpDir := os.TempDir() + "/"
 
 	err = os.Remove(tmpDir + binlog.Name)
@@ -264,7 +266,10 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		return errors.Wrap(err, "put gtid-set object")
 	}
 
-	setBuffer.WriteString(set)
+	_, err = setBuffer.WriteString(set)
+	if err != nil {
+		return errors.Wrapf(err, "write string to last-set file buffer %s", binlog.Name)
+	}
 	err = c.storage.PutObject(lastSetFileName, &setBuffer, int64(setBuffer.Len()))
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
@@ -304,7 +309,11 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 			time.Sleep(10 * time.Millisecond)
 			continue
 		}
-		pipe.Write(b[:n])
+		_, err = pipe.Write(b[:n])
+		if err != nil {
+			pipe.CloseWithError(errors.Wrapf(err, "Error: write to pipe for %s", binlogName))
+			return
+		}
 		isEmpty = false
 	}
 	// in case of any errors from mysqlbinlog it sends EOF to pipe
@@ -313,5 +322,9 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 		pipe.CloseWithError(errors.New("mysqlbinlog error:" + errBuf.String()))
 		return
 	}
-	pipe.Close()
+	err := pipe.Close()
+	if err != nil {
+		pipe.CloseWithError(errors.Wrapf(err, "Error: write to pipe for %s", binlogName))
+		return
+	}
 }

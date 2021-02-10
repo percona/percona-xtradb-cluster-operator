@@ -113,6 +113,7 @@ func (p *PXC) GetBinLogNamesList() ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "show binary logs")
 	}
+	defer rows.Close()
 
 	var binlogs []string
 	for rows.Next() {

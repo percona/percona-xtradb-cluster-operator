@@ -17,7 +17,7 @@ if [[ "${TARGET_IMAGE_PXC}" == *"percona-xtradb-cluster-operator"* ]]; then
 else
     PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*:([0-9]+\.[0-9]+).*$/\1/')
 fi
-TARGET_IMAGE_PXC_VS="perconalab/percona-xtradb-cluster-operator:master-pxc${PXC_VER}"
+TARGET_IMAGE_PXC_VS="perconalab/percona-xtradb-cluster-operator:main-pxc${PXC_VER}"
 VS_URL="http://version-service"
 VS_PORT="11000"
 VS_ENDPOINT="${VS_URL}:${VS_PORT}"

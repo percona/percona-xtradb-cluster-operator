@@ -141,7 +141,7 @@ main() {
 
     # test 1.8.0
     API="pxc.percona.com/v1-8-0"
-    kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/master/deploy/rbac.yaml
+    kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/rbac.yaml
     kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.8.0"}
     }'

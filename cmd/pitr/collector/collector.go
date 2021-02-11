@@ -93,11 +93,6 @@ func (c *Collector) Run() error {
 }
 
 func (c *Collector) newDB() error {
-	host, err := pxc.GetPXCLastHost(c.pxcServiceName)
-	if err != nil {
-		return errors.Wrap(err, "get host")
-	}
-
 	file, err := os.Open("/etc/mysql/mysql-users-secret/xtrabackup")
 	if err != nil {
 		return errors.Wrap(err, "open file")
@@ -107,6 +102,11 @@ func (c *Collector) newDB() error {
 		return errors.Wrap(err, "read password")
 	}
 	c.pxcPass = string(pxcPass)
+
+	host, err := pxc.GetPXCOldestBinlogHost(c.pxcServiceName, c.pxcUser, c.pxcPass)
+	if err != nil {
+		return errors.Wrap(err, "get host")
+	}
 
 	log.Println("Reading binlogs from pxc with hostname=", host)
 

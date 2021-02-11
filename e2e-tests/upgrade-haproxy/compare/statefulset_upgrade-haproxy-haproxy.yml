@@ -115,7 +115,6 @@ spec:
       securityContext: {}
       serviceAccount: default
       serviceAccountName: default
-      shareProcessNamespace: true
       terminationGracePeriodSeconds: 30
       volumes:
         - configMap:

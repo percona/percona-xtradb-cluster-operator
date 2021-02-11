@@ -24,6 +24,11 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: none
+    sidecars:
+    - image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
+      name: my-sidecar-1
   proxysql:
     enabled: false
   pmm:

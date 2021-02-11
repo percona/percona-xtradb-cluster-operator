@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-6-0
+apiVersion: pxc.percona.com/v1-7-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -9,7 +9,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.6.0
+  crVersion: 1.7.0
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
@@ -34,8 +34,8 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.20-11.1
-#    autoRecovery: false
+    image: percona/percona-xtradb-cluster:8.0.21-12.1
+    autoRecovery: true
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600
@@ -112,7 +112,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.6.0-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.7.0-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |
@@ -197,7 +197,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.6.0-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.7.0-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -312,7 +312,7 @@ spec:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.6.0-logcollector
+    image: percona/percona-xtradb-cluster-operator:1.7.0-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -329,7 +329,7 @@ spec:
     enabled: false
     image: percona/pmm-client:2.12.0
     serverHost: monitoring-service
-    serverUser: pmm
+    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
 #    resources:
@@ -337,7 +337,7 @@ spec:
 #        memory: 200M
 #        cpu: 500m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.6.0-pxc8.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.7.0-pxc8.0-backup
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

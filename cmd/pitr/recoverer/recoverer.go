@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -136,8 +137,16 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "new storage manager")
 	}
+	listInfo, err := s3.ListObjects("xtrabackup_info")
+	if err != nil {
+		return "", errors.Wrapf(err, "list %s info fies", prefix)
+	}
+	if len(listInfo) == 0 {
+		return "", errors.New("no info files in backup")
+	}
+	sort.Strings(listInfo)
 
-	infoObj, err := s3.GetObject("xtrabackup_info.00000000000000000000") //TODO: work with compressed file
+	infoObj, err := s3.GetObject(listInfo[0])
 	if err != nil {
 		return "", errors.Wrapf(err, "get %s info", prefix)
 	}
@@ -146,6 +155,7 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "get last backup gtid")
 	}
+
 	return lastGTID, nil
 }
 
@@ -248,13 +258,16 @@ func (r *Recoverer) recover() (err error) {
 }
 
 func getLastBackupGTID(infoObj io.Reader) (string, error) {
-	sep := []byte("GTID of the last")
-
-	content, err := ioutil.ReadAll(infoObj)
+	content, err := getDecompressedContent(infoObj)
 	if err != nil {
-		return "", errors.Wrap(err, "read object")
+		return "", errors.Wrap(err, "get content")
 	}
 
+	return getGTIDFromContent(content)
+}
+
+func getGTIDFromContent(content []byte) (string, error) {
+	sep := []byte("GTID of the last")
 	startIndex := bytes.Index(content, sep)
 	if startIndex == -1 {
 		return "", errors.New("no gtid data in backup")
@@ -264,12 +277,36 @@ func getLastBackupGTID(infoObj io.Reader) (string, error) {
 	if e == -1 {
 		return "", errors.New("can't find gtid data in backup")
 	}
-	content = content[:e]
 
 	se := bytes.Index(newOut, []byte("'"))
 	set := newOut[se+1 : e]
 
 	return string(set), nil
+}
+
+func getDecompressedContent(infoObj io.Reader) ([]byte, error) {
+	tmpDir := os.TempDir()
+
+	cmd := exec.Command("xbstream", "-x", "--decompress")
+	cmd.Dir = tmpDir
+	cmd.Stdin = infoObj
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+	err := cmd.Run()
+	if err != nil {
+		return nil, errors.Wrapf(err, "xbsream cmd run. stderr: %s, stdout: %s", &errb, &outb)
+	}
+	if errb.Len() > 0 {
+		return nil, errors.Errorf("run xbstream error: %s", &errb)
+	}
+
+	decContent, err := ioutil.ReadFile(tmpDir + "/xtrabackup_info")
+	if err != nil {
+		return nil, errors.Wrap(err, "read xtrabackup_info file")
+	}
+
+	return decContent, nil
 }
 
 func (r *Recoverer) setBinlogs() error {

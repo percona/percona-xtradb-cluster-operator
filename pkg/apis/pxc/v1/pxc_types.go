@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-ini/ini"
+	"github.com/go-logr/logr"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 
@@ -15,10 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var log = logf.Log.WithName("defaults_perconaxtradbcluster")
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
@@ -295,6 +293,7 @@ type PodSpec struct {
 	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
 	ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
+	Sidecars                      []corev1.Container                      `json:"sidecars,omitempty"`
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
 }
 
@@ -453,7 +452,7 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
-func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion) (changed bool, err error) {
+func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion, logger logr.Logger) (changed bool, err error) {
 	workloadSA := "percona-xtradb-cluster-operator-workload"
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		workloadSA = WorkloadSA
@@ -495,7 +494,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}
 
-		setSafeDefaults(c)
+		setSafeDefaults(c, logger)
 
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-PXC.
 		// It's a description of the number of pods from that set that can be unavailable after the eviction.
@@ -651,7 +650,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	return CRVerChanged || changed, nil
 }
 
-func setSafeDefaults(spec *PerconaXtraDBClusterSpec) {
+func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.AllowUnsafeConfig {
 		return
 	}
@@ -788,4 +787,26 @@ func (v *VolumeSpec) validate() error {
 		}
 	}
 	return nil
+}
+
+func AddSidecarContainers(logger logr.Logger, existing, sidecars []corev1.Container) []corev1.Container {
+	if len(sidecars) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, c := range existing {
+		names[c.Name] = struct{}{}
+	}
+
+	for _, c := range sidecars {
+		if _, ok := names[c.Name]; ok {
+			logger.Info(fmt.Sprintf("Sidecar container name cannot be %s. It's skipped", c.Name))
+			continue
+		}
+
+		existing = append(existing, c)
+	}
+
+	return existing
 }

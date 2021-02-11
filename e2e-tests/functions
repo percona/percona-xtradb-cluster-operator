@@ -5,7 +5,7 @@ BASH_XTRACEFD="5"
 
 GIT_COMMIT=$(git rev-parse HEAD)
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-API="pxc.percona.com/v1-7-0"
+API="pxc.percona.com/v1-8-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/pmm-client:dev-latest"}
@@ -152,7 +152,7 @@ wait_backup() {
         sleep 1
         echo -n .
         let retry+=1
-        if [ $retry -ge 60 ]; then
+        if [ $retry -ge 120 ]; then
             kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
             echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
             exit 1
@@ -212,6 +212,7 @@ deploy_operator() {
     sleep 10
 
     wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
+    sleep 3
 }
 
 deploy_helm() {
@@ -522,6 +523,9 @@ destroy() {
         oc delete --grace-period=0 --force=true project "$namespace" &
         if [ -n "$OPERATOR_NS" ]; then
             oc delete --grace-period=0 --force=true project "$OPERATOR_NS" &
+            if [ "${OPENSHIFT}" == "3.11" ]; then
+                wait_for_delete "project/$OPERATOR_NS"     # 3.11 Does not delete namespace immediately, let's wait at least 120 seconds till the next step
+            fi
         fi
     else
         kubectl_bin delete --grace-period=0 --force=true namespace "$namespace" &

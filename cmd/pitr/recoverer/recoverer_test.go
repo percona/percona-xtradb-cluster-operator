@@ -1,7 +1,6 @@
 package recoverer
 
 import (
-	"bytes"
 	"testing"
 )
 
@@ -61,11 +60,11 @@ func TestGetBucketAndPrefix(t *testing.T) {
 	}
 }
 
-func TestGetLastBackupGTID(t *testing.T) {
-	s := `sometext GTID of the last set 'test_set:1-10'
-	`
-	buf := bytes.NewBuffer([]byte(s))
-	set, err := getLastBackupGTID(buf)
+func TestGetGTIDFromContent(t *testing.T) {
+	c := []byte(`sometext GTID of the last set 'test_set:1-10'
+	`)
+
+	set, err := getGTIDFromContent(c)
 	if err != nil {
 		t.Error("get last gtid set", err.Error())
 	}

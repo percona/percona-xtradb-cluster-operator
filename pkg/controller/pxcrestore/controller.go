@@ -157,7 +157,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 		return rr, err
 	}
 
-	_, err = cluster.CheckNSetDefaults(r.serverVersion)
+	_, err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
 	}

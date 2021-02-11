@@ -8,7 +8,7 @@ metadata:
     cluster: scheduled-backup
     schedule: N_N_N_N_N
     type: cron
-  name: each-min-aws-s3
+  name: f875c-each-min-pvc
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
@@ -21,7 +21,7 @@ spec:
       ownerReferences:
         - apiVersion: batch/v1beta1
           kind: CronJob
-          name: each-min-aws-s3
+          name: f875c-each-min-pvc
     spec:
       template:
         metadata:
@@ -46,7 +46,7 @@ spec:
             - args:
                 - sh
                 - -c
-                - "\n\t\t\t\t\t\t\tcat <<-EOF | kubectl apply -f -\n\t\t\t\t\t\t\t\t\tapiVersion: pxc.percona.com/v1\n\t\t\t\t\t\t\t\t\tkind: PerconaXtraDBClusterBackup\n\t\t\t\t\t\t\t\t\tmetadata:\n\t\t\t\t\t\t\t\t\t  name: \"cron-${pxcCluster:0:16}-aws-s3-$(date -u \"+%Y%m%d%H%M%S\")-${suffix}\"\n\t\t\t\t\t\t\t\t\t  labels:\n\t\t\t\t\t\t\t\t\t    ancestor: \"each-min-aws-s3\"\n\t\t\t\t\t\t\t\t\t    cluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t    type: \"cron\"\n\t\t\t\t\t\t\t\t\tspec:\n\t\t\t\t\t\t\t\t\t  pxcCluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  storageName: \"aws-s3\"\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
+                - "\n\t\t\t\t\t\t\tcat <<-EOF | kubectl apply -f -\n\t\t\t\t\t\t\t\t\tapiVersion: pxc.percona.com/v1\n\t\t\t\t\t\t\t\t\tkind: PerconaXtraDBClusterBackup\n\t\t\t\t\t\t\t\t\tmetadata:\n\t\t\t\t\t\t\t\t\t  name: \"cron-${pxcCluster:0:16}-pvc-$(date -u \"+%Y%m%d%H%M%S\")-${suffix}\"\n\t\t\t\t\t\t\t\t\t  labels:\n\t\t\t\t\t\t\t\t\t    ancestor: \"f875c-each-min-pvc\"\n\t\t\t\t\t\t\t\t\t    cluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t    type: \"cron\"\n\t\t\t\t\t\t\t\t\tspec:\n\t\t\t\t\t\t\t\t\t  pxcCluster: \"${pxcCluster}\"\n\t\t\t\t\t\t\t\t\t  storageName: \"pvc\"\n\t\t\t\t\t\t\tEOF\n\t\t\t\t\t\t\t"
               env:
                 - name: pxcCluster
                   value: scheduled-backup
@@ -65,6 +65,7 @@ spec:
           restartPolicy: Never
           schedulerName: default-scheduler
           securityContext:
+            fsGroup: 1001
             supplementalGroups:
               - 1001
           serviceAccount: percona-xtradb-cluster-operator

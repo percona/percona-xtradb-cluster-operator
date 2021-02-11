@@ -2,6 +2,7 @@ package pxc
 
 import (
 	"fmt"
+	"github.com/go-logr/logr"
 	"strings"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -15,7 +16,9 @@ import (
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) (*appsv1.StatefulSet, error) {
+func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster,
+	initContainers []corev1.Container, log logr.Logger) (*appsv1.StatefulSet, error) {
+
 	pod := corev1.PodSpec{
 		SecurityContext:               podSpec.PodSecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,
@@ -98,6 +101,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 	pod.Containers = append(pod.Containers, appC)
 	pod.Containers = append(pod.Containers, sideC...)
+	pod.Containers = api.AddSidecarContainers(log, pod.Containers, podSpec.Sidecars)
 
 	ls := sfs.Labels()
 	for k, v := range podSpec.Labels {

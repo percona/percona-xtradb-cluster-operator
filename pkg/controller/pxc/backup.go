@@ -3,6 +3,8 @@ package pxc
 import (
 	"container/heap"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"reflect"
 
@@ -31,6 +33,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 
 	if cr.Spec.Backup != nil {
 		bcpObj := backup.New(cr)
+		backupNamePrefix := backupJobClusterPrefix(cr.Name)
 
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause {
 			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
@@ -63,6 +66,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 		}
 
 		for _, bcp := range cr.Spec.Backup.Schedule {
+			bcp.Name = backupNamePrefix + "-" + bcp.Name
 			backups[bcp.Name] = bcp
 			strg, ok := cr.Spec.Backup.Storages[bcp.StorageName]
 			if !ok {
@@ -136,6 +140,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 	}
 
 	return nil
+}
+
+func backupJobClusterPrefix(clusterName string) string {
+	h := sha1.New()
+	h.Write([]byte(clusterName))
+	return hex.EncodeToString(h.Sum(nil))[:5]
 }
 
 // oldScheduledBackups returns list of the most old pxc-bakups that execeed `keep` limit

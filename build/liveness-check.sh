@@ -21,17 +21,17 @@ ERR_FILE="${ERR_FILE:-/var/log/mysql/clustercheck.log}"
 DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
 
 #Timeout exists for instances where mysqld may be hung
-TIMEOUT=10
+TIMEOUT=5
 
 EXTRA_ARGS=""
 if [[ -n "$MYSQL_USERNAME" ]]; then
     EXTRA_ARGS="$EXTRA_ARGS --user=${MYSQL_USERNAME}"
 fi
 if [[ -r $DEFAULTS_EXTRA_FILE ]];then
-    MYSQL_CMDLINE="mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE --connect-timeout=$TIMEOUT \
-                    ${EXTRA_ARGS}"
+    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE \
+        --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 else
-    MYSQL_CMDLINE="mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
+    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 fi
 
 STATUS=$(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE -e 'select 1;' | sed -n -e '2p' | tr '\n' ' ')

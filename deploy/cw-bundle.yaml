@@ -33,6 +33,9 @@ spec:
       storage: false
       served: true
     - name: v1-6-0
+      storage: false
+      served: true
+    - name: v1-7-0
       storage: true
       served: true
     - name: v1alpha1
@@ -212,6 +215,18 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - ""
   resources:
   - pods
@@ -339,7 +354,7 @@ spec:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: percona-xtradb-cluster-operator
-        image: percona/percona-xtradb-cluster-operator:1.6.0
+        image: percona/percona-xtradb-cluster-operator:1.7.0
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

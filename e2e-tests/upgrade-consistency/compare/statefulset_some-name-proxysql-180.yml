@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
-  name: haproxy-proxysql
+  generation: 4
+  name: some-name-proxysql
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: haproxy
+      name: some-name
 spec:
   podManagementPolicy: OrderedReady
   replicas: 1
@@ -14,17 +14,17 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: proxysql
-      app.kubernetes.io/instance: haproxy
+      app.kubernetes.io/instance: some-name
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: haproxy-proxysql-unready
+  serviceName: some-name-proxysql-unready
   template:
     metadata:
       annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
-        app.kubernetes.io/instance: haproxy
+        app.kubernetes.io/instance: some-name
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -35,7 +35,7 @@ spec:
             - labelSelector:
                 matchLabels:
                   app.kubernetes.io/component: proxysql
-                  app.kubernetes.io/instance: haproxy
+                  app.kubernetes.io/instance: some-name
                   app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
                   app.kubernetes.io/name: percona-xtradb-cluster
                   app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -43,24 +43,24 @@ spec:
       containers:
         - env:
             - name: PXC_SERVICE
-              value: haproxy-pxc
+              value: some-name-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-haproxy
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-haproxy
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-haproxy
+                  name: internal-some-name
           imagePullPolicy: Always
           name: proxysql
           ports:
@@ -92,24 +92,24 @@ spec:
             - -service=$(PXC_SERVICE)
           env:
             - name: PXC_SERVICE
-              value: haproxy-pxc
+              value: some-name-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-haproxy
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-haproxy
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-haproxy
+                  name: internal-some-name
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -121,71 +121,50 @@ spec:
             - -service=$(PROXYSQL_SERVICE)
           env:
             - name: PROXYSQL_SERVICE
-              value: haproxy-proxysql-unready
+              value: some-name-proxysql-unready
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-haproxy
+                  name: internal-some-name
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-haproxy
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-haproxy
+                  name: internal-some-name
           imagePullPolicy: Always
           name: proxysql-monit
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
-        - args:
-            - -c
-            - while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;
-          command:
-            - /bin/sh
-          imagePullPolicy: Always
-          name: my-sidecar-1
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        - args:
-            - -c
-            - while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;
-          command:
-            - /bin/sh
-          imagePullPolicy: Always
-          name: my-sidecar-2
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       restartPolicy: Always
-      runtimeClassName: docker-rc
       schedulerName: default-scheduler
       securityContext:
         fsGroup: 1001
         supplementalGroups:
           - 1001
-      serviceAccount: default
-      serviceAccountName: default
+      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 30
       volumes:
         - name: ssl-internal
           secret:
             defaultMode: 420
             optional: true
-            secretName: haproxy-ssl-internal
+            secretName: some-name-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
             optional: false
-            secretName: haproxy-ssl
+            secretName: some-name-ssl
   updateStrategy:
     rollingUpdate:
       partition: 0

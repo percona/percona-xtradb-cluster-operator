@@ -88,6 +88,7 @@ mysql-max_allowed_packet	67108864
 mysql-max_connections	2048
 mysql-max_stmts_cache	10000
 mysql-max_stmts_per_connection	20
+mysql-max_transaction_idle_time	14400000
 mysql-max_transaction_time	14400000
 mysql-min_num_servers_lantency_awareness	1000
 mysql-mirror_max_concurrency	16
@@ -142,7 +143,7 @@ mysql-query_processor_iterations	0
 mysql-query_retries_on_failure	1
 mysql-reset_connection_algorithm	2
 mysql-server_capabilities	571947
-mysql-server_version	5.7.31
+mysql-server_version	5.7.32
 mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true

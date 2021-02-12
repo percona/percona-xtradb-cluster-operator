@@ -138,12 +138,13 @@ type ClusterCondition struct {
 }
 
 type AppStatus struct {
-	Size    int32    `json:"size,omitempty"`
-	Ready   int32    `json:"ready,omitempty"`
-	Status  AppState `json:"status,omitempty"`
-	Message string   `json:"message,omitempty"`
-	Version string   `json:"version,omitempty"`
-	Image   string   `json:"image,omitempty"`
+	Size              int32    `json:"size,omitempty"`
+	Ready             int32    `json:"ready,omitempty"`
+	Status            AppState `json:"status,omitempty"`
+	Message           string   `json:"message,omitempty"`
+	Version           string   `json:"version,omitempty"`
+	Image             string   `json:"image,omitempty"`
+	LabelSelectorPath string   `json:"labelSelectorPath,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

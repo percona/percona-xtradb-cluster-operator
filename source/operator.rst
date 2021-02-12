@@ -52,7 +52,7 @@ main subsystems of the cluster:
    * - allowUnsafeConfigurations
      - boolean
      - ``false``
-     - Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes, with even number of nodes, or without TLS/SSL certificates (if ``true``, unsafe parameters will be automatically changed to safe defaults)
+     - Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes, with even number of nodes, or without TLS/SSL certificates (if ``false``, unsafe parameters will be automatically changed to safe defaults)
 
    * - enableCRValidationWebhook
      - boolean

@@ -173,7 +173,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
 	}
 
-	err = r.client.Update(context.TODO(), currentSet)
+	err = r.createOrUpdate(currentSet)
 	if err != nil {
 		return errors.Wrap(err, "update error")
 	}

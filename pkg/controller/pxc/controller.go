@@ -323,19 +323,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	for _, pxcService := range []*corev1.Service{pxc.NewServicePXC(o), pxc.NewServicePXCUnready(o)} {
-		currentService := &corev1.Service{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pxcService.Name, Namespace: pxcService.Namespace}, currentService)
+		err := setControllerReference(o, pxcService, r.scheme)
 		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to get current PXC service")
+			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
 		}
 
-		if reflect.DeepEqual(currentService.Spec.Ports, pxcService.Spec.Ports) {
-			continue
-		}
-
-		currentService.Spec.Ports = pxcService.Spec.Ports
-
-		err = r.client.Update(context.TODO(), currentService)
+		err = r.createOrUpdate(pxcService)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
 		}
@@ -348,6 +341,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 
 		haProxyService := pxc.NewServiceHAProxy(o)
+		err = setControllerReference(o, haProxyService, r.scheme)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
+		}
 
 		ports := []corev1.ServicePort{
 			{
@@ -392,6 +389,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 
 		haProxyServiceReplicas := pxc.NewServiceHAProxyReplicas(o)
+
+		err = setControllerReference(o, haProxyServiceReplicas, r.scheme)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
+		}
 
 		replicaPorts := []corev1.ServicePort{
 			{
@@ -1078,6 +1080,8 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		metaAccessor.GetObjectMeta().SetAnnotations(make(map[string]string))
 	}
 
+	delete(metaAccessor.GetObjectMeta().GetAnnotations(), "percona.com/last_config_hash")
+
 	hash, err := getObjectHash(obj)
 	if err != nil {
 		return errors.Wrap(err, "calculate object hash")
@@ -1106,14 +1110,23 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
 		}
-		// log.Log.Info("UPDATING OBJECT", "NAME", metaAccessor.GetObjectMeta().GetName(), "KIND", obj.DeepCopyObject().GetObjectKind().GroupVersionKind().Kind)
+		log.Log.Info("UPDATING OBJECT", "NAME", metaAccessor.GetObjectMeta().GetName(), "KIND", obj.DeepCopyObject().GetObjectKind().GroupVersionKind().Kind)
 		return r.client.Update(context.TODO(), obj)
 	}
 	return nil
 }
 
 func getObjectHash(obj runtime.Object) (string, error) {
-	data, err := json.Marshal(obj)
+	var dataToMarshall interface{}
+	switch object := obj.(type) {
+	case *appsv1.StatefulSet:
+		dataToMarshall = object.Spec
+	case *appsv1.Deployment:
+		dataToMarshall = object.Spec
+	default:
+		dataToMarshall = obj
+	}
+	data, err := json.Marshal(dataToMarshall)
 	if err != nil {
 		return "", err
 	}

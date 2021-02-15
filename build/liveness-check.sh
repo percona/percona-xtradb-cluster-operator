@@ -34,10 +34,10 @@ else
     MYSQL_CMDLINE="mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 fi
 
-STATUS=$(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE -e 'select 1;' | sed -n -e '2p' | tr '\n' ' ')
+STATUS=$(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE -e 'SHOW GLOBAL STATUS LIKE "wsrep_cluster_status";' | sed -n -e '3p')
 set -x
 
-if [[ "${STATUS}" -eq 1 ]]; then
+if [[ -n "${STATUS}" && "${STATUS}" == 'Primary' ]]; then
     exit 0
 fi
 

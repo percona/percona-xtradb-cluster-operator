@@ -50,13 +50,13 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '| Test name  | Status |\\r\\n| ------------- | ------------- |'
+TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
 testsReportMap  = [:]
 testsResultsMap = [:]
 
 void makeReport() {
     for ( test in testsReportMap ) {
-        TestsReport = TestsReport + "\\r\\n| ${test.key} | ${test.value} |"
+        TestsReport = TestsReport + "\r\n| ${test.key} | ${test.value} |"
     }
 }
 
@@ -280,18 +280,6 @@ pipeline {
             script {
                 setTestsresults()
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    if (env.CHANGE_URL) {
-                        unstash 'IMAGE'
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                            sh """
-                                curl -v -X POST \
-                                    -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                    -d "{\\"body\\":\\"PXC operator docker - ${IMAGE}\\"}" \
-                                    "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
-                            """
-                        }
-                    }
                 }
                 else {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
@@ -301,16 +289,18 @@ pipeline {
                 if (env.CHANGE_ID) {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         makeReport()
-                        pullRequest.comment(TestsReport)
-                        println('all')
                         count = 0
                         for (comment in pullRequest.comments) {
                             println("Author: ${comment.user}, Comment: ${comment.body}")
                             if (comment.user.equals('JNKPercona')) {
-                                println('user JNKPercona found')
                                 count++
+                                if (count == 1) {
+                                    println("change comment body")
+                                    comment.body = TestsReport
+                                }
                                 if (count > 1) {
-                                    println('delete comment?')
+                                    println("delete comment")
+                                    comment.delete()
                                 }
                             }
                         }

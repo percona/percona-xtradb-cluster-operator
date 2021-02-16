@@ -303,12 +303,16 @@ pipeline {
                         makeReport()
                         pullRequest.comment(TestsReport)
                         println('all')
-                        println(pullRequest.comments)
+                        count = 0
                         for (comment in pullRequest.comments) {
                             println("Author: ${comment.user}, Comment: ${comment.body}")
-                            sh '''
-                                echo ${comment.user}
-                            '''
+                            if (comment.user.equals('JNKPercona')) {
+                                println('user JNKPercona found')
+                                count++
+                                if (count > 1) {
+                                    println('delete comment?')
+                                }
+                            }
                         }
                     }
 

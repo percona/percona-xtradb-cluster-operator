@@ -295,6 +295,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
 	}
 
+	crOwnerRef, err := OwnerRef(o, r.scheme)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "get cr owner reference")
+	}
+
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
 		imageName := operatorPod.Spec.Containers[0].Image
@@ -340,12 +345,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, errors.Wrap(err, "HAProxy upgrade error")
 		}
 
-		haProxyService := pxc.NewServiceHAProxy(o)
-		err = setControllerReference(o, haProxyService, r.scheme)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
-		}
-
+		haProxyService := pxc.NewServiceHAProxy(o, crOwnerRef)
 		ports := []corev1.ServicePort{
 			{
 				Port:       3306,
@@ -388,12 +388,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, errors.Wrap(err, "failed to create or update haproxy service")
 		}
 
-		haProxyServiceReplicas := pxc.NewServiceHAProxyReplicas(o)
-
-		err = setControllerReference(o, haProxyServiceReplicas, r.scheme)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
-		}
+		haProxyServiceReplicas := pxc.NewServiceHAProxyReplicas(o, crOwnerRef)
 
 		replicaPorts := []corev1.ServicePort{
 			{
@@ -430,7 +425,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "delete HAProxy stateful set")
 		}
-		err = r.deleteServices([]*corev1.Service{pxc.NewServiceHAProxy(o), pxc.NewServiceHAProxyReplicas(o)})
+		err = r.deleteServices(pxc.NewServiceHAProxy(o), pxc.NewServiceHAProxyReplicas(o))
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "delete HAProxy replica service")
 		}
@@ -508,7 +503,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 		proxysqlUnreadyService := pxc.NewServiceProxySQLUnready(o)
-		err = r.deleteServices([]*corev1.Service{proxysqlService, proxysqlUnreadyService})
+		err = r.deleteServices(proxysqlService, proxysqlUnreadyService)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -955,7 +950,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(namespace string, sfs 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs []*corev1.Service) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs ...*corev1.Service) error {
 	for _, s := range svcs {
 		err := r.client.Get(context.TODO(), types.NamespacedName{
 			Name:      s.Name,
@@ -1076,11 +1071,13 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		return errors.New("Can't convert object to ObjectMetaAccessor")
 	}
 
-	if metaAccessor.GetObjectMeta().GetAnnotations() == nil {
-		metaAccessor.GetObjectMeta().SetAnnotations(make(map[string]string))
+	objectMeta := metaAccessor.GetObjectMeta()
+
+	if objectMeta.GetAnnotations() == nil {
+		objectMeta.SetAnnotations(make(map[string]string))
 	}
 
-	delete(metaAccessor.GetObjectMeta().GetAnnotations(), "percona.com/last_config_hash")
+	delete(objectMeta.GetAnnotations(), "percona.com/last_config_hash")
 
 	hash, err := getObjectHash(obj)
 	if err != nil {
@@ -1090,14 +1087,14 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 	oldObject := obj.DeepCopyObject()
 
 	err = r.client.Get(context.Background(), types.NamespacedName{
-		Name:      metaAccessor.GetObjectMeta().GetName(),
-		Namespace: metaAccessor.GetObjectMeta().GetNamespace(),
+		Name:      objectMeta.GetName(),
+		Namespace: objectMeta.GetNamespace(),
 	}, oldObject)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrap(err, "get object")
 	}
 
-	metaAccessor.GetObjectMeta().GetAnnotations()["percona.com/last_config_hash"] = hash
+	objectMeta.GetAnnotations()["percona.com/last_config_hash"] = hash
 
 	if k8serrors.IsNotFound(err) {
 		return r.client.Create(context.TODO(), obj)
@@ -1105,12 +1102,11 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 
 	oldHash := oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta().GetAnnotations()["percona.com/last_config_hash"]
 	if oldHash != hash {
-		metaAccessor.GetObjectMeta().SetResourceVersion(oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta().GetResourceVersion())
+		objectMeta.SetResourceVersion(oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta().GetResourceVersion())
 		switch object := obj.(type) {
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
 		}
-		log.Log.Info("UPDATING OBJECT", "NAME", metaAccessor.GetObjectMeta().GetName(), "KIND", obj.DeepCopyObject().GetObjectKind().GroupVersionKind().Kind)
 		return r.client.Update(context.TODO(), obj)
 	}
 	return nil

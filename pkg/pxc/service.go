@@ -222,7 +222,7 @@ func ProxySQLServiceNamespacedName(cr *api.PerconaXtraDBCluster) types.Namespace
 	}
 }
 
-func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
+func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerReference) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
 	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ServiceType) > 0 {
 		svcType = cr.Spec.HAProxy.ServiceType
@@ -248,7 +248,8 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			},
-			Annotations: serviceAnnotations,
+			Annotations:     serviceAnnotations,
+			OwnerReferences: owners,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: svcType,
@@ -303,7 +304,7 @@ func HaproxyServiceNamespacedName(cr *api.PerconaXtraDBCluster) types.Namespaced
 	}
 }
 
-func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
+func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerReference) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
 	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ReplicasServiceType) > 0 {
 		svcType = cr.Spec.HAProxy.ReplicasServiceType
@@ -329,7 +330,8 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
 			},
-			Annotations: serviceAnnotations,
+			Annotations:     serviceAnnotations,
+			OwnerReferences: owners,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: svcType,

@@ -142,9 +142,15 @@ pipeline {
                     if ( AUTHOR_NAME == 'null' )  {
                         AUTHOR_NAME = sh(script: "git show -s --pretty=%ae | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
                     }
+                    for (comment in pullRequest.comments) {
+                        println("Author: ${comment.user}, Comment: ${comment.body}")
+                        if (comment.user.equals('JNKPercona')) {
+                            println("delete comment")
+                            comment.delete()
+                        }
+                    }
                 }
                 sh '''
-                    env
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
                         curl https://sdk.cloud.google.com | bash
@@ -288,21 +294,7 @@ pipeline {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
-                    count = 0
-                    for (comment in pullRequest.comments) {
-                        println("Author: ${comment.user}, Comment: ${comment.body}")
-                        if (comment.user.equals('JNKPercona')) {
-                            count++
-                            if (count == 1) {
-                                println("change comment body")
-                                comment.body = TestsReport
-                            }
-                            if (count > 1) {
-                                println("delete comment")
-                                comment.delete()
-                            }
-                        }
-                    }
+                    pullRequest.comment(TestsReport)
 
                     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                         sh '''

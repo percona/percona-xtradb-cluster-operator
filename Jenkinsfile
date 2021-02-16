@@ -283,24 +283,22 @@ pipeline {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                 }
                 if (env.CHANGE_URL) {
+                    makeReport()
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: ${IMAGE}"
-                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                        makeReport()
-                        count = 0
-                        for (comment in pullRequest.comments) {
-                            println("Author: ${comment.user}, Comment: ${comment.body}")
-                            if (comment.user.equals('JNKPercona')) {
-                                count++
-                                if (count == 1) {
-                                    println("change comment body")
-                                    comment.body = TestsReport
-                                }
-                                if (count > 1) {
-                                    println("delete comment")
-                                    comment.delete()
-                                }
+                    TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
+                    count = 0
+                    for (comment in pullRequest.comments) {
+                        println("Author: ${comment.user}, Comment: ${comment.body}")
+                        if (comment.user.equals('JNKPercona')) {
+                            count++
+                            if (count == 1) {
+                                println("change comment body")
+                                comment.body = TestsReport
+                            }
+                            if (count > 1) {
+                                println("delete comment")
+                                comment.delete()
                             }
                         }
                     }

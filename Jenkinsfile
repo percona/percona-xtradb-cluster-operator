@@ -263,70 +263,13 @@ pipeline {
                         CreateCluster('upgrade')
                         runTest('upgrade-haproxy', 'upgrade')
                         ShutdownCluster('upgrade')
-                        CreateCluster('upgrade')
-                        runTest('upgrade-proxysql', 'upgrade')
-                        ShutdownCluster('upgrade')
-                        CreateCluster('upgrade')
-                        runTest('smart-update', 'upgrade')
-                        runTest('upgrade-consistency', 'upgrade')
-                        ShutdownCluster('upgrade')
                     }
                 }
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
                         runTest('haproxy', 'basic')
-                        runTest('init-deploy', 'basic')
-                        runTest('limits', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('affinity', 'basic')
-                        runTest('one-pod', 'basic')
-                        runTest('auto-tuning', 'basic')
-                        runTest('proxysql-sidecar-res-limits', 'basic')
-                        runTest('users', 'basic')
-                        runTest('tls-issue-self','basic')
-                        runTest('tls-issue-cert-manager','basic')
-                        runTest('tls-issue-cert-manager-ref','basic')
-                        runTest('validation-hook','basic')
                         ShutdownCluster('basic')
-                    }
-                }
-                stage('E2E Scaling') {
-                    steps {
-                        CreateCluster('scaling')
-                        runTest('scaling', 'scaling')
-                        runTest('scaling-proxysql', 'scaling')
-                        runTest('security-context', 'scaling')
-                        ShutdownCluster('scaling')
-                    }
-                }
-                stage('E2E SelfHealing') {
-                    steps {
-                        CreateCluster('selfhealing')
-                        runTest('storage', 'selfhealing')
-                        runTest('self-healing', 'selfhealing')
-                        runTest('self-healing-advanced', 'selfhealing')
-                        runTest('operator-self-healing', 'selfhealing')
-                        ShutdownCluster('selfhealing')
-                    }
-                }
-                stage('E2E Backups') {
-                    steps {
-                        CreateCluster('backups')
-                        runTest('recreate', 'backups')
-                        runTest('restore-to-encrypted-cluster', 'backups')
-                        runTest('demand-backup', 'backups')
-                        runTest('pitr', 'backups')
-                        runTest('demand-backup-encrypted-with-tls', 'backups')
-                        runTest('scheduled-backup', 'backups')
-                        ShutdownCluster('backups')
-                    }
-                }
-                stage('E2E BigData') {
-                    steps {
-                        CreateCluster('bigdata')
-                        runTest('big-data', 'bigdata')
-                        ShutdownCluster('bigdata')
                     }
                 }
             }
@@ -358,12 +301,10 @@ pipeline {
                 if (env.CHANGE_URL) {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         makeReport()
-                        sh """
-                            curl -v -X POST \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -d "{\\"body\\":\\"${TestsReport}\\"}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
-                        """
+                        pullRequest.addLabel('tests')
+                        for (comment in pullRequest.comments) {
+                            echo "Author: ${comment.user}, Comment: ${comment.body}"
+                        }
                     }
 
                     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {

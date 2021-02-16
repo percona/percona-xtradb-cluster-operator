@@ -301,7 +301,7 @@ pipeline {
                 if (env.CHANGE_URL) {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         makeReport()
-                        pullRequest.addLabel('tests')
+                        pullRequest.comment("${TestsReport}")
                         for (comment in pullRequest.comments) {
                             echo "Author: ${comment.user}, Comment: ${comment.body}"
                         }

@@ -111,7 +111,7 @@ void installRpms() {
 }
 
 def skipBranchBulds = true
-if ( env.CHANGE_ID ) {
+if ( env.CHANGE_URL ) {
     skipBranchBulds = false
 }
 
@@ -279,14 +279,13 @@ pipeline {
         always {
             script {
                 setTestsresults()
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                }
-                else {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                 }
-            }
-            script {
-                if (env.CHANGE_ID) {
+                if (env.CHANGE_URL) {
+                    unstash 'IMAGE'
+                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                    TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: ${IMAGE}"
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         makeReport()
                         count = 0

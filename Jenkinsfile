@@ -290,6 +290,13 @@ pipeline {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                 }
                 if (env.CHANGE_URL) {
+                    for (comment in pullRequest.comments) {
+                        println("Author: ${comment.user}, Comment: ${comment.body}")
+                        if (comment.user.equals('JNKPercona')) {
+                            println("delete comment")
+                            comment.delete()
+                        }
+                    }
                     makeReport()
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()

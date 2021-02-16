@@ -111,7 +111,7 @@ void installRpms() {
 }
 
 def skipBranchBulds = true
-if ( env.CHANGE_URL ) {
+if ( env.CHANGE_ID ) {
     skipBranchBulds = false
 }
 
@@ -298,12 +298,17 @@ pipeline {
                 }
             }
             script {
-                if (env.CHANGE_URL) {
+                if (env.CHANGE_ID) {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         makeReport()
                         pullRequest.comment(TestsReport)
+                        println('all')
+                        println(pullRequest.comments)
                         for (comment in pullRequest.comments) {
                             println("Author: ${comment.user}, Comment: ${comment.body}")
+                            sh '''
+                                echo ${comment.user}
+                            '''
                         }
                     }
 

@@ -2,7 +2,7 @@
 
 ## Requirements
 
-You should install a number of dependencies on your system to build the Operator and/or run its automated tests.
+You need to install a number of software packages on your system to satisfy the build dependencies for building the Operator and/or to run its automated tests.
 
 ### CentOS
 
@@ -25,7 +25,7 @@ curl https://sdk.cloud.google.com | bash
 
 ## Building and testing the Operator with DockerHub
 
-The following script builds the image:
+Use the following script to build the image:
 
 ```
 ./e2e-tests/build
@@ -37,7 +37,7 @@ You can also build the image and run your cluster in one command:
 ./e2e-tests/build-and-run
 ```
 
-Tests can be executed one-by-one, with the following scripts (their self-explanatory names make no needs in additional explanations):
+Tests can be executed one-by-one, usingthe following scripts (their names  should be self-explanatory):
 
 
 ```
@@ -71,7 +71,7 @@ Now you can use the following script to builds the image:
 
 **Note:** there is no need to build an image if you are going to test some already-released version.
 
-Tests can be executed one-by-one, with the following scripts (their self-explanatory names make no needs in additional explanations):
+Tests can be executed one-by-one, using the following scripts (theirnames should be self-explanatory):
 
 ```
 ./e2e-tests/init-deploy/run

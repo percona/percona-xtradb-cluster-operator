@@ -14,18 +14,17 @@ if [[ -f '/var/lib/mysql/sst_in_progress' ]] || [[ -f '/var/lib/mysql/wsrep_reco
 fi
 
 { set +x; } 2>/dev/null
-MYSQL_USERNAME="${MYSQL_USERNAME:-clustercheck}"
-mysql_pass=$(cat /etc/mysql/mysql-users-secret/clustercheck || :)
-MYSQL_PASSWORD="${mysql_pass:-$CLUSTERCHECK_PASSWORD}"
-ERR_FILE="${ERR_FILE:-/var/log/mysql/clustercheck.log}"
+MYSQL_USERNAME="${MYSQL_USERNAME:-monitor}"
+mysql_pass=$(cat /etc/mysql/mysql-users-secret/monitor || :)
+MYSQL_PASSWORD="${mysql_pass:-$MONITOR_PASSWORD}"
 DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
-
+DB_HOST=${HOSTNAME:-localhost}
 #Timeout exists for instances where mysqld may be hung
 TIMEOUT=5
 
 EXTRA_ARGS=""
 if [[ -n "$MYSQL_USERNAME" ]]; then
-    EXTRA_ARGS="$EXTRA_ARGS --user=${MYSQL_USERNAME}"
+    EXTRA_ARGS="$EXTRA_ARGS -P 33062 -h${DB_HOST} --user=${MYSQL_USERNAME}"
 fi
 if [[ -r $DEFAULTS_EXTRA_FILE ]];then
     MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE \

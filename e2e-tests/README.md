@@ -52,6 +52,7 @@ Tests can be executed one-by-one, with the following scripts (their self-explana
 ./e2e-tests/storage/run
 ./e2e-tests/self-healing/run
 ./e2e-tests/operator-self-healing/run
+....
 ```
 
 ## Building and testing the Operator without DockerHub

@@ -1,4 +1,4 @@
-# Building and testing the operator
+# Building and testing the Operator
 
 ## Requirements
 

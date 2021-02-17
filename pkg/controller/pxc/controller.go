@@ -397,16 +397,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 				Name:       "mysql-replicas",
 			},
 		}
+
+		haProxyServiceReplicas.Spec.Ports = replicaPorts
+		haProxyServiceReplicas.Spec.Type = corev1.ServiceTypeClusterIP
+
 		if len(o.Spec.HAProxy.ReplicasServiceType) > 0 {
-			//Upgrading service only if something is changed
-			if haProxyServiceReplicas.Spec.Type != o.Spec.HAProxy.ReplicasServiceType {
-				haProxyServiceReplicas.Spec.Ports = replicaPorts
-				haProxyServiceReplicas.Spec.Type = o.Spec.HAProxy.ReplicasServiceType
-			}
-			//Checking default ServiceType
-		} else if haProxyServiceReplicas.Spec.Type != corev1.ServiceTypeClusterIP {
-			haProxyServiceReplicas.Spec.Ports = replicaPorts
-			haProxyServiceReplicas.Spec.Type = corev1.ServiceTypeClusterIP
+			haProxyServiceReplicas.Spec.Type = o.Spec.HAProxy.ReplicasServiceType
 		}
 
 		if haProxyServiceReplicas.Spec.Type == corev1.ServiceTypeLoadBalancer || haProxyServiceReplicas.Spec.Type == corev1.ServiceTypeNodePort {

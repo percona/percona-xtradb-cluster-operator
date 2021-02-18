@@ -85,6 +85,7 @@ Tests can be executed one-by-one, using the following scripts (theirnames should
 ./e2e-tests/storage/run
 ./e2e-tests/self-healing/run
 ./e2e-tests/operator-self-healing/run
+....
 ```
 
 If the test failed, rerun it at least 3 times.

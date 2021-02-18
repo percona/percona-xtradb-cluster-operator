@@ -1113,6 +1113,8 @@ func getObjectHash(obj runtime.Object) (string, error) {
 		dataToMarshall = object.Spec
 	case *appsv1.Deployment:
 		dataToMarshall = object.Spec
+	case *corev1.Service:
+		dataToMarshall = object.Spec
 	default:
 		dataToMarshall = obj
 	}

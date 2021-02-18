@@ -72,33 +72,3 @@ func TestGetGTIDFromContent(t *testing.T) {
 		t.Error("set not test_set:1-10 but", set)
 	}
 }
-
-func TestGetLastGTIDFromSet(t *testing.T) {
-	type testCase struct {
-		gtidSet      string
-		expectedGTID string
-	}
-
-	cases := []testCase{
-		{
-			gtidSet:      "f2c837be-7069-11eb-900d-bb9b8c763e5b:1-17",
-			expectedGTID: "f2c837be-7069-11eb-900d-bb9b8c763e5b:17",
-		},
-		{
-			gtidSet:      "f2c837be-7069-11eb-900d-bb9b8c763e5b:1",
-			expectedGTID: "f2c837be-7069-11eb-900d-bb9b8c763e5b:1",
-		},
-		{
-			gtidSet:      "f2c837be-7069-11eb-900d-bb9b8c763e5b:17",
-			expectedGTID: "f2c837be-7069-11eb-900d-bb9b8c763e5b:17",
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.gtidSet, func(t *testing.T) {
-			set := getLastGTIDFromSet(c.gtidSet)
-			if set != c.expectedGTID {
-				t.Errorf("expect '%s', got '%s'", c.expectedGTID, set)
-			}
-		})
-	}
-}

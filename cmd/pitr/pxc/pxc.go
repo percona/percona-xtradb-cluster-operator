@@ -180,16 +180,15 @@ func (p *PXC) GetBinLogFirstTimestamp(binlog string) (string, error) {
 	return timestamp, nil
 }
 
-func (p *PXC) IsGTIDSubset(subSet, gtidSet string) (bool, error) {
-	var isSubset bool
-	row := p.db.QueryRow("SELECT GTID_SUBSET(?,?)", subSet, gtidSet)
-
-	err := row.Scan(&isSubset)
+func (p *PXC) SubtractGTIDSet(set, subSet string) (string, error) {
+	var result string
+	row := p.db.QueryRow("SELECT GTID_SUBTRACT(?,?)", set, subSet)
+	err := row.Scan(&result)
 	if err != nil {
-		return false, errors.Wrap(err, "scan binlog timestamp")
+		return "", errors.Wrap(err, "scan gtid subtract result")
 	}
 
-	return isSubset, nil
+	return result, nil
 }
 
 func getNodesByServiceName(pxcServiceName string) ([]string, error) {

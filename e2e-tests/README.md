@@ -71,7 +71,7 @@ Now you can use the following script to builds the image:
 
 **Note:** there is no need to build an image if you are going to test some already-released version.
 
-Tests can be executed one-by-one, using the following scripts (theirnames should be self-explanatory):
+Tests can be executed one-by-one, using the following scripts (their names should be self-explanatory):
 
 ```
 ./e2e-tests/init-deploy/run

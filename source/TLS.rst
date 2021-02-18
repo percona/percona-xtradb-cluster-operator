@@ -132,5 +132,5 @@ Omitting TLS is also possible, but we recommend that you run your cluster with
 the TLS protocol enabled. 
 
 To disable TLS protocol (e.g. for demonstration purposes) edit the
-``cr.yaml/spec/allowUnstafeConfigurations`` setting to ``true`` and make sure
+``cr.yaml/spec/allowUnsafeConfigurations`` setting to ``true`` and make sure
 that there are no certificate secrets available.

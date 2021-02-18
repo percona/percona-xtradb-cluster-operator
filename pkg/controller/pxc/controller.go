@@ -1094,9 +1094,12 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		return r.client.Create(context.TODO(), obj)
 	}
 
-	oldHash := oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta().GetAnnotations()["percona.com/last_config_hash"]
-	if oldHash != hash {
-		objectMeta.SetResourceVersion(oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta().GetResourceVersion())
+	oldObjectMeta := oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta()
+
+	if oldObjectMeta.GetAnnotations()["percona.com/last_config_hash"] != hash ||
+		!isObjectMetaEqual(objectMeta, oldObjectMeta) {
+
+		objectMeta.SetResourceVersion(oldObjectMeta.GetResourceVersion())
 		switch object := obj.(type) {
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
@@ -1123,4 +1126,9 @@ func getObjectHash(obj runtime.Object) (string, error) {
 		return "", err
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
+}
+
+func isObjectMetaEqual(old, new metav1.Object) bool {
+	return reflect.DeepEqual(old.GetAnnotations(), new.GetAnnotations()) &&
+		reflect.DeepEqual(old.GetLabels(), new.GetLabels())
 }

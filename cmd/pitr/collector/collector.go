@@ -197,6 +197,8 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	binlogName := fmt.Sprintf("binlog_%s_%x", binlogTmstmp, md5.Sum([]byte(set)))
 
 	var setBuffer bytes.Buffer
+	// no error handling because WriteString() always return nil error
+	// nolint:errcheck
 	setBuffer.WriteString(set)
 
 	tmpDir := os.TempDir() + "/"
@@ -263,8 +265,10 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
-
+	// no error handling because WriteString() always return nil error
+	// nolint:errcheck
 	setBuffer.WriteString(set)
+
 	err = c.storage.PutObject(lastSetFileName, &setBuffer, int64(setBuffer.Len()))
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
@@ -283,6 +287,8 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 	for {
 		if errBuf.Len() != 0 {
 			// stop reading since we receive error from binlog command in stderr
+			// no error handling because CloseWithError() always return nil error
+			// nolint:errcheck
 			pipe.CloseWithError(errors.Errorf("Error: mysqlbinlog %s", errBuf.String()))
 			return
 		}
@@ -297,6 +303,8 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 			break
 		}
 		if err != nil && !strings.Contains(err.Error(), "file already closed") {
+			// no error handling because CloseWithError() always return nil error
+			// nolint:errcheck
 			pipe.CloseWithError(errors.Wrapf(err, "Error: reading named pipe for %s", binlogName))
 			return
 		}
@@ -304,14 +312,24 @@ func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlog
 			time.Sleep(10 * time.Millisecond)
 			continue
 		}
-		pipe.Write(b[:n])
+		_, err = pipe.Write(b[:n])
+		if err != nil {
+			// no error handling because CloseWithError() always return nil error
+			// nolint:errcheck
+			pipe.CloseWithError(errors.Wrapf(err, "Error: write to pipe for %s", binlogName))
+			return
+		}
 		isEmpty = false
 	}
 	// in case of any errors from mysqlbinlog it sends EOF to pipe
 	// to prevent this, need to check error buffer before closing pipe without error
 	if errBuf.Len() != 0 {
+		// no error handling because CloseWithError() always return nil error
+		// nolint:errcheck
 		pipe.CloseWithError(errors.New("mysqlbinlog error:" + errBuf.String()))
 		return
 	}
+	// no error handling because Close() always return nil error
+	// nolint:errcheck
 	pipe.Close()
 }

@@ -241,6 +241,7 @@ create_infra() {
         create_namespace $ns
         deploy_operator
     fi
+    apply_secrets
 }
 
 wait_for_running() {
@@ -651,9 +652,27 @@ cat_config() {
         | $sed -e "s#apply:.*#apply: Never#"
 }
 
+apply_secrets() {
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        kubectl_bin apply \
+            -f $conf_dir/minio-secret.yml \
+            -f $conf_dir/cloud-secret.yml
+    else
+        kubectl_bin apply \
+            -f $conf_dir/minio-secret.yml
+    fi
+}
+
 apply_config() {
-    cat_config "$1" \
-        | kubectl_bin apply -f -
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        cat_config "$1" \
+            | kubectl_bin apply -f -
+    else
+        cat_config "$1" \
+            | yq d - 'spec.backup.schedule.[1]' \
+            | yq d - 'spec.backup.schedule.[2]' \
+            | kubectl_bin apply -f -
+    fi
 }
 
 get_proxy() {
@@ -1172,6 +1191,7 @@ function create_infra_gh() {
         create_namespace "${ns}"
         deploy_operator_gh "${git_tag}"
     fi
+    apply_secrets
 }
 
 function prepare_cr_yaml() {

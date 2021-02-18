@@ -8,7 +8,6 @@ test_dir=$(realpath $(dirname $0))
 
 main() {
     create_infra $namespace
-    kubectl_bin apply -f $conf_dir/cloud-secret.yml
 
     cluster="some-name"
     spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
@@ -16,7 +15,9 @@ main() {
     table_must_not_be_encrypted "$cluster" "myApp"
 
     run_backup         "$cluster" "on-demand-backup-pvc"
-    run_backup         "$cluster" "on-demand-backup-aws-s3"
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        run_backup         "$cluster" "on-demand-backup-aws-s3"
+    fi
 
     vault1="vault-service-1-${RANDOM}"
     start_vault $vault1
@@ -25,9 +26,11 @@ main() {
     keyring_plugin_must_be_in_use "$cluster"
     table_must_not_be_encrypted "$cluster" "myApp"
 
-    run_recovery_check "$cluster" "on-demand-backup-aws-s3"
-    keyring_plugin_must_be_in_use "$cluster"
-    table_must_not_be_encrypted "$cluster" "myApp"
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+        keyring_plugin_must_be_in_use "$cluster"
+        table_must_not_be_encrypted "$cluster" "myApp"
+    fi
 
     helm delete $vault1 || :
     kubectl_bin delete --grace-period=0 --force=true namespace $vault1 &

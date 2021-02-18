@@ -8,14 +8,17 @@ test_dir=$(realpath $(dirname $0))
 
 
 main() {
+    if [ -n "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        echo 'Skip big-data test.'
+        exit 0
+    fi
+
     create_infra $namespace
     deploy_cert_manager
 
     desc 'create first PXC cluster'
     cluster="some-name"
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
-
-    kubectl_bin apply -f "${conf_dir}/cloud-secret.yml" 
 
     kubectl_bin apply -f "${test_dir}/conf/crd_backup.yml"
 

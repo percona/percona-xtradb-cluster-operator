@@ -84,8 +84,6 @@ run_recovery_check() {
 
 main() {
     create_infra $namespace
-    kubectl_bin apply \
-        -f $conf_dir/cloud-secret.yml
 
     cluster="one-pod"
     spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "1"
@@ -94,8 +92,10 @@ main() {
     run_recovery_check "$cluster" "on-demand-backup-pvc"
     check_pvc_md5
 
-    run_backup         "$cluster" "on-demand-backup-aws-s3"
-    run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        run_backup         "$cluster" "on-demand-backup-aws-s3"
+        run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    fi
 
     destroy $namespace
 }

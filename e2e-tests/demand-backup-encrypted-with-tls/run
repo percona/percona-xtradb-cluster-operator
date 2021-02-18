@@ -13,7 +13,6 @@ function jq_filter() {
 
 main() {
     create_infra $namespace
-    kubectl_bin apply -f $conf_dir/cloud-secret.yml
 
     vault1="vault-service-1-${RANDOM}"
     protocol="https"
@@ -31,11 +30,13 @@ main() {
     check_pvc_md5
     table_must_be_encrypted "$cluster" "myApp"
     keyring_plugin_must_be_in_use "$cluster"
-    
-    run_backup         "$cluster" "on-demand-backup-aws-s3"
-    run_recovery_check "$cluster" "on-demand-backup-aws-s3"
-    table_must_be_encrypted "$cluster" "myApp"
-    keyring_plugin_must_be_in_use "$cluster"
+
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        run_backup         "$cluster" "on-demand-backup-aws-s3"
+        run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+        table_must_be_encrypted "$cluster" "myApp"
+        keyring_plugin_must_be_in_use "$cluster"
+    fi
     
     mountpt=$(kubectl_bin get -f "$conf_dir/vault-secret.yaml" -o json | egrep -o "secret_mount_point = \w+" | awk -F "=[ ]*" '{print $2}')
     transition_keys=$(kubectl_bin exec --namespace="$vault1" -it $vault1-0 -- sh -c "
@@ -64,9 +65,11 @@ secrets = [ $transition_keys ]
     table_must_be_encrypted "$cluster" "myApp"
     keyring_plugin_must_be_in_use "$cluster"
 
-    run_recovery_check "$cluster" "on-demand-backup-aws-s3"
-    table_must_be_encrypted "$cluster" "myApp"
-    keyring_plugin_must_be_in_use "$cluster"
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+        table_must_be_encrypted "$cluster" "myApp"
+        keyring_plugin_must_be_in_use "$cluster"
+    fi
 
     for i in $vault1 $vault2; do
         helm delete $i || :

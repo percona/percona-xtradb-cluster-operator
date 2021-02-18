@@ -281,7 +281,7 @@ func getGTIDFromContent(content []byte) (string, error) {
 	se := bytes.Index(newOut, []byte("'"))
 	set := newOut[se+1 : e]
 
-	return string(set), nil
+	return getLastGTIDFromSet(string(set)), nil
 }
 
 func getDecompressedContent(infoObj io.Reader) ([]byte, error) {
@@ -320,8 +320,6 @@ func (r *Recoverer) setBinlogs() error {
 		if strings.Contains(binlog, "-gtid-set") {
 			continue
 		}
-		binlogs = append(binlogs, binlog)
-
 		infoObj, err := r.storage.GetObject(binlog + "-gtid-set")
 		if err != nil {
 			log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
@@ -331,12 +329,12 @@ func (r *Recoverer) setBinlogs() error {
 		if err != nil {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
-
-		isSubset, err := r.db.IsGTIDSubset(r.startGTID, string(content))
+		binlogGTIDSet := string(content)
+		binlogs = append(binlogs, binlog)
+		isSubset, err := r.db.IsGTIDSubset(r.startGTID, binlogGTIDSet)
 		if err != nil {
-			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, string(content))
+			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
 		}
-
 		if isSubset {
 			break
 		}
@@ -355,4 +353,16 @@ func reverse(list []string) {
 		opp := len(list) - 1 - i
 		list[i], list[opp] = list[opp], list[i]
 	}
+}
+
+func getLastGTIDFromSet(set string) string {
+	a := strings.Split(set, ":")
+	if len(a) < 2 {
+		return set
+	}
+	i := strings.Split(a[1], "-")
+	if len(i) < 2 {
+		return set
+	}
+	return a[0] + ":" + i[1]
 }

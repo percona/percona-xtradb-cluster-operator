@@ -1062,7 +1062,7 @@ func createOrUpdateConfigmap(cl client.Client, configMap *corev1.ConfigMap) erro
 func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error {
 	metaAccessor, ok := obj.(metav1.ObjectMetaAccessor)
 	if !ok {
-		return errors.New("Can't convert object to ObjectMetaAccessor")
+		return errors.New("can't convert object to ObjectMetaAccessor")
 	}
 
 	objectMeta := metaAccessor.GetObjectMeta()
@@ -1073,19 +1073,19 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 
 	delete(objectMeta.GetAnnotations(), "percona.com/last_config_hash")
 
-	hash, err := getObjectHash(obj)
-	if err != nil {
-		return errors.Wrap(err, "calculate object hash")
-	}
-
 	oldObject := obj.DeepCopyObject()
 
-	err = r.client.Get(context.Background(), types.NamespacedName{
+	err := r.client.Get(context.Background(), types.NamespacedName{
 		Name:      objectMeta.GetName(),
 		Namespace: objectMeta.GetNamespace(),
 	}, oldObject)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrap(err, "get object")
+	}
+
+	hash, err := getObjectHash(obj)
+	if err != nil {
+		return errors.Wrap(err, "calculate object hash")
 	}
 
 	objectMeta.GetAnnotations()["percona.com/last_config_hash"] = hash
@@ -1129,6 +1129,21 @@ func getObjectHash(obj runtime.Object) (string, error) {
 }
 
 func isObjectMetaEqual(old, new metav1.Object) bool {
-	return reflect.DeepEqual(old.GetAnnotations(), new.GetAnnotations()) &&
-		reflect.DeepEqual(old.GetLabels(), new.GetLabels())
+	return compareMaps(old.GetAnnotations(), new.GetAnnotations()) &&
+		compareMaps(old.GetLabels(), new.GetLabels())
+}
+
+func compareMaps(x, y map[string]string) bool {
+	if len(x) != len(y) {
+		return false
+	}
+
+	for k, v := range x {
+		yVal, ok := y[k]
+		if !ok || yVal != v {
+			return false
+		}
+	}
+
+	return true
 }

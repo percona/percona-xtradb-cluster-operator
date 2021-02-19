@@ -320,8 +320,6 @@ func (r *Recoverer) setBinlogs() error {
 		if strings.Contains(binlog, "-gtid-set") {
 			continue
 		}
-		binlogs = append(binlogs, binlog)
-
 		infoObj, err := r.storage.GetObject(binlog + "-gtid-set")
 		if err != nil {
 			log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
@@ -331,13 +329,13 @@ func (r *Recoverer) setBinlogs() error {
 		if err != nil {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
-
-		isSubset, err := r.db.IsGTIDSubset(r.startGTID, string(content))
+		binlogGTIDSet := string(content)
+		binlogs = append(binlogs, binlog)
+		subResult, err := r.db.SubtractGTIDSet(r.startGTID, binlogGTIDSet)
 		if err != nil {
-			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, string(content))
+			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
 		}
-
-		if isSubset {
+		if subResult != r.startGTID {
 			break
 		}
 	}

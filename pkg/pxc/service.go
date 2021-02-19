@@ -3,7 +3,6 @@ package pxc
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -103,7 +102,7 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ProxySQLUnreadyServiceNamespacedName(cr).Name,
+			Name:      cr.ProxySQLUnreadyServiceNamespacedName().Name,
 			Namespace: cr.Namespace,
 			Annotations: map[string]string{
 				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
@@ -145,13 +144,6 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	return obj
 }
 
-func ProxySQLUnreadyServiceNamespacedName(cr *api.PerconaXtraDBCluster) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      cr.Name + "-proxysql-unready",
-		Namespace: cr.Namespace,
-	}
-}
-
 func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
 	if cr.Spec.ProxySQL != nil && len(cr.Spec.ProxySQL.ServiceType) > 0 {
@@ -169,7 +161,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ProxySQLServiceNamespacedName(cr).Name,
+			Name:      cr.ProxySQLServiceNamespacedName().Name,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
 				"app.kubernetes.io/name":     "percona-xtradb-cluster",
@@ -215,13 +207,6 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	return obj
 }
 
-func ProxySQLServiceNamespacedName(cr *api.PerconaXtraDBCluster) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      cr.Name + "-proxysql",
-		Namespace: cr.Namespace,
-	}
-}
-
 func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerReference) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
 	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ServiceType) > 0 {
@@ -239,7 +224,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      HaproxyServiceNamespacedName(cr).Name,
+			Name:      cr.HaproxyServiceNamespacedName().Name,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
 				"app.kubernetes.io/name":       "percona-xtradb-cluster",
@@ -297,13 +282,6 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 	return obj
 }
 
-func HaproxyServiceNamespacedName(cr *api.PerconaXtraDBCluster) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      cr.Name + "-haproxy",
-		Namespace: cr.Namespace,
-	}
-}
-
 func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerReference) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
 	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ReplicasServiceType) > 0 {
@@ -321,7 +299,7 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster, owners ...metav1.Ow
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      HAProxyReplicasNamespacedName(cr).Name,
+			Name:      cr.HAProxyReplicasNamespacedName().Name,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
 				"app.kubernetes.io/name":       "percona-xtradb-cluster",
@@ -361,11 +339,4 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster, owners ...metav1.Ow
 	}
 
 	return obj
-}
-
-func HAProxyReplicasNamespacedName(cr *api.PerconaXtraDBCluster) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      cr.Name + "-haproxy-replicas",
-		Namespace: cr.Namespace,
-	}
 }

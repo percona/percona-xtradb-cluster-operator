@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -810,4 +811,32 @@ func AddSidecarContainers(logger logr.Logger, existing, sidecars []corev1.Contai
 	}
 
 	return existing
+}
+
+func (cr *PerconaXtraDBCluster) ProxySQLUnreadyServiceNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-proxysql-unready",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) ProxySQLServiceNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-proxysql",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) HaproxyServiceNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-haproxy",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) HAProxyReplicasNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-haproxy-replicas",
+		Namespace: cr.Namespace,
+	}
 }

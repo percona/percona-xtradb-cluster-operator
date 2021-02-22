@@ -1075,16 +1075,6 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 	delete(objAnnotations, "percona.com/last-config-hash")
 	objectMeta.SetAnnotations(objAnnotations)
 
-	oldObject := obj.DeepCopyObject()
-
-	err := r.client.Get(context.Background(), types.NamespacedName{
-		Name:      objectMeta.GetName(),
-		Namespace: objectMeta.GetNamespace(),
-	}, oldObject)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "get object")
-	}
-
 	hash, err := getObjectHash(obj)
 	if err != nil {
 		return errors.Wrap(err, "calculate object hash")
@@ -1093,6 +1083,16 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 	objAnnotations = objectMeta.GetAnnotations()
 	objAnnotations["percona.com/last-config-hash"] = hash
 	objectMeta.SetAnnotations(objAnnotations)
+
+	oldObject := obj.DeepCopyObject()
+	err = r.client.Get(context.Background(), types.NamespacedName{
+		Name:      objectMeta.GetName(),
+		Namespace: objectMeta.GetNamespace(),
+	}, oldObject)
+
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "get object")
+	}
 
 	if k8serrors.IsNotFound(err) {
 		return r.client.Create(context.TODO(), obj)

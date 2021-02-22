@@ -131,7 +131,7 @@ func (c *Collector) CollectBinLogs() error {
 	// get last uploaded binlog file name
 	lastUploadedBinlogName, err := c.db.GetBinLogName(c.lastSet)
 	if err != nil {
-		return errors.Wrap(err, "get latst uploaded binlog name by set")
+		return errors.Wrap(err, "get last uploaded binlog name by gtid set")
 	}
 
 	upload := false

@@ -1,4 +1,4 @@
-GKERegion='us-central1'
+GKERegion='us-central1-a'
 
 void CreateCluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {

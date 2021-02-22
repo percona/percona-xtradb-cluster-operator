@@ -48,7 +48,7 @@ You can also build the image and run your cluster in one command:
 ./e2e-tests/build-and-run
 ```
 
-Tests can be executed one-by-one, usingthe following scripts (their names  should be self-explanatory):
+Tests can be executed one-by-one, using the following scripts (their names  should be self-explanatory):
 
 
 ```
@@ -119,5 +119,5 @@ Tests can be executed one-by-one, using the following scripts (their names shoul
 
 If the test failed, rerun it at least 3 times.
 
-**Note:** Each test creates its own namespace and doesn't clean up objects in case of failure.
+**Note:** Each test creates its own namespace and doesn't clean up objects in case of failure. But if you run tests on a separate cluster, you can use a special environment variable to **delete all namespaces** except default and system ones: `export CLEAN_NAMESPACE=1`.
 

@@ -1071,7 +1071,9 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		objectMeta.SetAnnotations(make(map[string]string))
 	}
 
-	delete(objectMeta.GetAnnotations(), "percona.com/last_config_hash")
+	objAnnotations := objectMeta.GetAnnotations()
+	delete(objAnnotations, "percona.com/last_config_hash")
+	objectMeta.SetAnnotations(objAnnotations)
 
 	oldObject := obj.DeepCopyObject()
 
@@ -1088,7 +1090,9 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		return errors.Wrap(err, "calculate object hash")
 	}
 
-	objectMeta.GetAnnotations()["percona.com/last_config_hash"] = hash
+	objAnnotations = objectMeta.GetAnnotations()
+	objAnnotations["percona.com/last_config_hash"] = hash
+	objectMeta.SetAnnotations(objAnnotations)
 
 	if k8serrors.IsNotFound(err) {
 		return r.client.Create(context.TODO(), obj)

@@ -82,10 +82,6 @@ write_more_data() {
 
 main() {
     create_infra $namespace
-
-    kubectl_bin apply \
-        -f $conf_dir/minio-secret.yml \
-        -f $conf_dir/cloud-secret.yml
     start_minio
 
     cluster="pitr"

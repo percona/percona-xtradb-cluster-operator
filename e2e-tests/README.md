@@ -25,6 +25,17 @@ curl https://sdk.cloud.google.com | bash
 
 ## Building and testing the Operator with DockerHub
 
+There are scripts which build the image and run tests. As building so testing
+needs some repository for the newly created docker image. If nothing
+specified, scripts use Percona's experimental repository `perconalab`, which
+obviously requires descent access rights to make a push.
+
+To specify your own repository, you can use IMAGE environment variable:
+
+```
+export IMAGE=bob/my_repository_for_test_images :K8SPXC-622-fix-feature-X
+```
+
 Use the following script to build the image:
 
 ```
@@ -53,6 +64,24 @@ Tests can be executed one-by-one, usingthe following scripts (their names  shoul
 ./e2e-tests/self-healing/run
 ./e2e-tests/operator-self-healing/run
 ....
+```
+
+You can use environment variables to re-declare all default images used for testing. The
+full list of variables is the following one:
+
+```
+IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0"}
+IMAGE_PMM=${IMAGE_PMM:-"perconalab/pmm-client:dev-latest"}
+IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-proxysql"}
+IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
+IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup"}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
+```
+
+Also, you can run the Operator for the tests in a [cluster-wide mode](https://www.percona.com/doc/kubernetes-operator-for-pxc/cluster-wide.html) if needed. This feature is turned on if the following variable is declared:
+
+```
+export OPERATOR_NS=pxc-operator
 ```
 
 ## Building and testing the Operator without DockerHub

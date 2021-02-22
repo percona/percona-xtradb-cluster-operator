@@ -12,13 +12,14 @@ Before you can contribute, we kindly ask you to sign our [Contributor License Ag
 
 ### 2. Code of Conduct
 
-Please make sure to read and observe the Contribution Policy <code-of-conduct.md>.
+Please make sure to read and observe the [Contribution Policy](code-of-conduct.md).
 
 ## Submitting a pull request
 
-Improvement and bugfix tasks for the Operator are tracked in [Jira](https://Jira.percona.com/projects/K8SPXC/issues), Although not mandatory, it is a good practice to examine already open Jira issues before submitting a pull request. For bigger contributions, we suggest creating a Jira issue first and discussing it with the engineering team and community before proposing any code changes. 
+Improvement and bugfix tasks for the Operator are tracked in [Jira](https://Jira.percona.com/projects/K8SPXC/issues). Although not mandatory, it is a good practice to examine already open Jira issues before submitting a pull request. For bigger contributions, we suggest creating a Jira issue first and discussing it with the engineering team and community before proposing any code changes.
 
-Another good place to discuss Percona Kubernetes Operator for Percona XtraDB Cluster with developers and other community members is the [community forum](https://forums.percona.com/categories/kubernetes-operator-percona-xtradb-cluster). 
+Another good place to discuss Percona Kubernetes Operator for Percona XtraDB Cluster with developers and other community members is the [community forum](https://forums.percona.com/categories/kubernetes-operator-percona-xtradb-cluster).
+
 ### 1. Contributing to the source tree
 
 Contributions to the source tree should follow the workflow described below:

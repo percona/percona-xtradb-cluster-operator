@@ -1072,7 +1072,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 	}
 
 	objAnnotations := objectMeta.GetAnnotations()
-	delete(objAnnotations, "percona.com/last_config_hash")
+	delete(objAnnotations, "percona.com/last-config-hash")
 	objectMeta.SetAnnotations(objAnnotations)
 
 	oldObject := obj.DeepCopyObject()
@@ -1091,7 +1091,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 	}
 
 	objAnnotations = objectMeta.GetAnnotations()
-	objAnnotations["percona.com/last_config_hash"] = hash
+	objAnnotations["percona.com/last-config-hash"] = hash
 	objectMeta.SetAnnotations(objAnnotations)
 
 	if k8serrors.IsNotFound(err) {
@@ -1100,7 +1100,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 
 	oldObjectMeta := oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta()
 
-	if oldObjectMeta.GetAnnotations()["percona.com/last_config_hash"] != hash ||
+	if oldObjectMeta.GetAnnotations()["percona.com/last-config-hash"] != hash ||
 		!isObjectMetaEqual(objectMeta, oldObjectMeta) {
 
 		objectMeta.SetResourceVersion(oldObjectMeta.GetResourceVersion())

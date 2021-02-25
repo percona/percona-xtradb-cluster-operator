@@ -28,7 +28,7 @@ Also, you need a Kubernetes platform of [supported version](https://www.percona.
 ## Building and testing the Operator with DockerHub
 
 There are scripts which build the image and run tests. Both building and testing
-need some repository for the newly created docker images. If nothing
+needs some repository for the newly created docker images. If nothing is
 specified, scripts use Percona's experimental repository `perconalab/percona-xtradb-cluster-operator`, which
 obviously requires decent access rights to make a push.
 

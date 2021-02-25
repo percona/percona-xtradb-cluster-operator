@@ -81,6 +81,7 @@ type Binlog struct {
 	Name      string
 	Size      int64
 	Encrypted string
+	GTIDSet   string
 }
 
 // GetBinLogList return binary log files list
@@ -144,7 +145,7 @@ func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
 			return "", errors.Wrap(err, "create function")
 		}
 	}
-	var binlog string
+	var binlog sql.NullString
 	row := p.db.QueryRow("SELECT get_binlog_by_gtid_set(?)", gtidSet)
 
 	err = row.Scan(&binlog)
@@ -152,7 +153,7 @@ func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
 		return "", errors.Wrap(err, "scan binlog")
 	}
 
-	return strings.TrimPrefix(binlog, "./"), nil
+	return strings.TrimPrefix(binlog.String, "./"), nil
 }
 
 // GetBinLogFirstTimestamp return binary log file first timestamp

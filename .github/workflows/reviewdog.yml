@@ -37,12 +37,30 @@ jobs:
         run: |
           reviewdog -conf=./.reviewdog.yml -reporter=github-pr-check -runners=go-consistent -fail-on-error
 
-      - name: gofmt -s with reviewdog
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gofmt -s -d $(find . -not -path "*/vendor/*" -name "*.go") \
-            | reviewdog -name="gofmt" -f=diff -f.diff.strip=0 -reporter=github-pr-check
+  gofmt:
+    name: runner / suggester / gofmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: gofmt -w -s $(find . -not -path "*/vendor/*" -name "*.go")
+      - uses: reviewdog/action-suggester@v1
+        with:
+          tool_name: gofmt
+
+  shfmt:
+    name: runner / suggester / shfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - run: echo ::add-path::$(go env GOPATH)/bin
+      - run: GO111MODULE=on go get mvdan.cc/sh/v3/cmd/shfmt
+
+      - run: shfmt -i 2 -ci -w .
+      - name: suggester / shfmt
+        uses: reviewdog/action-suggester@v1
+        with:
+          tool_name: shfmt
 
   shellcheck:
     if: github.event_name == 'pull_request'

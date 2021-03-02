@@ -160,8 +160,16 @@ func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]p
 	if startIndex == logsLen {
 		return nil, nil
 	}
-	log.Println("INDEX TO UPLOAD", startIndex)
-	log.Println("LOGS TO UPLOAD", logs[startIndex:])
+
+	set, err := c.db.GetGTIDSet(logs[startIndex].Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "get gtid set of last uploaded binlog")
+	}
+	// we don't need to reupload last file
+	// if gtid set is not changed
+	if set == c.lastSet {
+		startIndex++
+	}
 
 	return c.removeEmptyBinlogs(logs[startIndex:])
 }
@@ -184,8 +192,6 @@ func (c *Collector) CollectBinLogs() error {
 
 	lastUploadedBinlogName := ""
 
-	log.Println("LAST SET IS", c.lastSet)
-
 	if c.lastSet != "" {
 		// get last uploaded binlog file name
 		lastUploadedBinlogName, err = c.db.GetBinLogName(c.lastSet)
@@ -197,8 +203,6 @@ func (c *Collector) CollectBinLogs() error {
 			log.Println("Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
 		}
 	}
-
-	log.Println("LAST UPLOADED BINLOG NAME IS",lastUploadedBinlogName)
 
 	list, err = c.filterBinLogs(list, lastUploadedBinlogName)
 	if err != nil {

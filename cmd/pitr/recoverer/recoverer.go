@@ -174,7 +174,6 @@ func (r *Recoverer) Run() error {
 	r.db, err = pxc.NewPXC(host, r.pxcUser, r.pxcPass)
 	if err != nil {
 		return errors.Wrapf(err, "new manager with host %s", host)
-
 	}
 
 	err = r.setBinlogs()

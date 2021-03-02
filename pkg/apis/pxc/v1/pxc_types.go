@@ -627,7 +627,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			strg := c.Backup.Storages[sch.StorageName]
 			switch strg.Type {
 			case BackupStorageS3:
-				//TODO what should we check here?
+				// TODO what should we check here?
 			case BackupStorageFilesystem:
 				changed = strg.Volume.reconcileOpts()
 			}

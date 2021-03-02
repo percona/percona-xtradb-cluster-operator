@@ -27,5 +27,4 @@ func PodDisruptionBudget(spec *api.PodDisruptionBudgetSpec, app api.StatefulApp,
 			},
 		},
 	}
-
 }

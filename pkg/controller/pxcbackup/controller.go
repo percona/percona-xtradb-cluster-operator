@@ -41,7 +41,7 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	sv, err := version.Server()
 	if err != nil {
-		return nil, fmt.Errorf("get version: %v", err)
+		return nil, fmt.Errorf("get version: %w", err)
 	}
 
 	return &ReconcilePerconaXtraDBClusterBackup{
@@ -114,12 +114,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 	cluster, err := r.getClusterConfig(instance)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("invalid backup cluster: %v", err)
+		return reconcile.Result{}, fmt.Errorf("invalid backup cluster: %w", err)
 	}
 
 	_, err = cluster.CheckNSetDefaults(r.serverVersion, reqLogger)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
+		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %w", err)
 	}
 
 	if cluster.Spec.Backup == nil {
@@ -224,7 +224,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXt
 		availableClusters = append(availableClusters, cluster.Name)
 	}
 
-	return nil, fmt.Errorf("wrong cluster name: %q. Clusters avaliable: %q", cr.Spec.PXCCluster, availableClusters)
+	return nil, fmt.Errorf("wrong cluster name: %q. Clusters `available: %q", cr.Spec.PXCCluster, availableClusters)
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job, destination, storageName string, s3 *api.BackupStorageS3Spec) error {

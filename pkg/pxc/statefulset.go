@@ -2,8 +2,9 @@ package pxc
 
 import (
 	"fmt"
-	"github.com/go-logr/logr"
 	"strings"
+
+	"github.com/go-logr/logr"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 
@@ -11,8 +12,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec

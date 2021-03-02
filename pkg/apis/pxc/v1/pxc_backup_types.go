@@ -43,10 +43,10 @@ type PXCBackupState string
 
 const (
 	BackupNew       PXCBackupState = ""
-	BackupStarting                 = "Starting"
-	BackupRunning                  = "Running"
-	BackupFailed                   = "Failed"
-	BackupSucceeded                = "Succeeded"
+	BackupStarting  PXCBackupState = "Starting"
+	BackupRunning   PXCBackupState = "Running"
+	BackupFailed    PXCBackupState = "Failed"
+	BackupSucceeded PXCBackupState = "Succeeded"
 )
 
 // OwnerRef returns OwnerReference to object

@@ -316,6 +316,7 @@ func (r *Recoverer) setBinlogs() error {
 	}
 	reverse(list)
 	binlogs := []string{}
+	startGTID := strings.Split(r.startGTID, ":")[0]
 	for _, binlog := range list {
 		if strings.Contains(binlog, "-gtid-set") {
 			continue
@@ -330,7 +331,7 @@ func (r *Recoverer) setBinlogs() error {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
 		binlogGTIDSet := string(content)
-		if r.startGTID != strings.Split(binlogGTIDSet, ":")[0] {
+		if startGTID != strings.Split(binlogGTIDSet, ":")[0] {
 			continue
 		}
 		binlogs = append(binlogs, binlog)

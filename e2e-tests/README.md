@@ -115,7 +115,7 @@ Tests can be executed one-by-one also, using the appropriate scripts (their name
 
 If the test failed, rerun it at least 3 times.
 
-## Using environment variables to customize the building and testing process
+## Using environment variables to customize the testing process
 
 ### Re-declaring default image names
 
@@ -161,4 +161,3 @@ SKIP_BACKUPS_TO_AWS_GCP=1
 
 The backups tests will use only [MinIO](https://min.io/) if this variable is declared,
 which is enough for local testing.
-

@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
       - run: GO111MODULE=on go get mvdan.cc/sh/v3/cmd/shfmt
-      - run: $(go env GOPATH)/bin/shfmt -i 2 -ci -w .
+      - run: $(go env GOPATH)/bin/shfmt -bn -ci -s -w .
       - name: suggester / shfmt
         uses: reviewdog/action-suggester@v1
         with:

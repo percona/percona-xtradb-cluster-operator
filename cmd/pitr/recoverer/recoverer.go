@@ -330,7 +330,7 @@ func (r *Recoverer) setBinlogs() error {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
 		binlogGTIDSet := string(content)
-		if r.gtidSet != strings.Split(binlogGTIDSet, ":")[0] {
+		if r.startGTID != strings.Split(binlogGTIDSet, ":")[0] {
 			continue
 		}
 		binlogs = append(binlogs, binlog)
@@ -343,7 +343,7 @@ func (r *Recoverer) setBinlogs() error {
 		}
 	}
 	if len(binlogs) == 0 {
-		return errors.Errorf("no objects for prefix binlog_ or with gtid %s", r.gtidSet)
+		return errors.Errorf("no objects for prefix binlog_ or with gtid %s", r.startGTID)
 	}
 	reverse(binlogs)
 	r.binlogs = binlogs

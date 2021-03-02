@@ -14,10 +14,7 @@ jobs:
       - name: Install linters
         run: |
           cd .github/linters
-          go get golang.org/x/lint/golint
-          go get github.com/securego/gosec/v2/cmd/gosec
-          go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.37.1
-          go get github.com/quasilyte/go-consistent
+          go get golang.org/x/lint/golint github.com/securego/gosec/v2/cmd/gosec github.com/golangci/golangci-lint/cmd/golangci-lint@v1.37.1 github.com/quasilyte/go-consistent
 
       - uses: reviewdog/action-setup@v1
         with:

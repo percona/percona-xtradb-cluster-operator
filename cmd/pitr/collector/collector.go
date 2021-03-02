@@ -43,8 +43,8 @@ type Config struct {
 }
 
 const (
-	lastSetPrefix string = "last-binlog-set-" // name for object where the last binlog set will stored
-	gtidPostfix   string = "-gtid-set"        // filename postfix for files with GTID set
+	lastSetFilePrefix string = "last-binlog-set-" // filename prefix for object where the last binlog set will stored
+	gtidPostfix       string = "-gtid-set"        // filename postfix for files with GTID set
 )
 
 func New(c Config) (*Collector, error) {
@@ -73,10 +73,10 @@ func (c *Collector) Run() error {
 	}
 	defer c.close()
 
-	// remove last set because we always 
+	// remove last set because we always
 	// read it from aws file
 	c.lastSet = ""
-	
+
 	err = c.CollectBinLogs()
 	if err != nil {
 		return errors.Wrap(err, "collect binlog files")
@@ -85,9 +85,9 @@ func (c *Collector) Run() error {
 	return nil
 }
 
-func (c *Collector) lastGTIDSet(gtid string) (string, error) {
+func (c *Collector) lastGTIDSet(sourceID string) (string, error) {
 	// get last binlog set stored on S3
-	lastSetObject, err := c.storage.GetObject(lastSetPrefix + gtid)
+	lastSetObject, err := c.storage.GetObject(lastSetFilePrefix + sourceID)
 	if err != nil {
 		return "", errors.Wrap(err, "get last set content")
 	}
@@ -128,7 +128,7 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
-func (c *Collector) filterBinLogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {
+func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	result := make([]pxc.Binlog, 0)
 	for _, v := range logs {
 		set, err := c.db.GetGTIDSet(v.Name)
@@ -145,20 +145,31 @@ func (c *Collector) filterBinLogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	return result, nil
 }
 
+func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]pxc.Binlog, error) {
+	if lastBinlogName == "" {
+		return c.removeEmptyBinlogs(logs)
+	}
+
+	logsLen := len(logs)
+
+	startIndex := 0
+	for logs[startIndex].Name != lastBinlogName && startIndex < logsLen {
+		startIndex++
+	}
+
+	if startIndex == logsLen {
+		return nil, nil
+	}
+	fmt.Println("INDEX TO UPLOAD", startIndex)
+	fmt.Println("LOGS TO UPLOAD", logs[startIndex:])
+
+	return c.removeEmptyBinlogs(logs[startIndex:])
+}
+
 func (c *Collector) CollectBinLogs() error {
 	list, err := c.db.GetBinLogList()
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
-	}
-
-	list, err = c.filterBinLogs(list)
-	if err != nil {
-		return errors.Wrap(err, "filter empty binlogs")
-	}
-
-	if len(list) == 0 {
-		log.Println("No binlogs to upload")
-		return nil
 	}
 
 	c.lastSet, err = c.lastGTIDSet(strings.Split(list[0].GTIDSet, ":")[0])
@@ -166,14 +177,28 @@ func (c *Collector) CollectBinLogs() error {
 		return errors.Wrap(err, "get last uploaded gtid set")
 	}
 
-	// get last uploaded binlog file name
-	lastUploadedBinlogName, err := c.db.GetBinLogName(c.lastSet)
-	if err != nil {
-		return errors.Wrap(err, "get last uploaded binlog name by gtid set")
+	lastUploadedBinlogName := ""
+
+	if c.lastSet != "" {
+		// get last uploaded binlog file name
+		lastUploadedBinlogName, err = c.db.GetBinLogName(c.lastSet)
+		if err != nil {
+			return errors.Wrap(err, "get last uploaded binlog name by gtid set")
+		}
+
+		if lastUploadedBinlogName == "" {
+			log.Println("Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+		}
 	}
 
-	if c.lastSet != "" && lastUploadedBinlogName == "" {
-		log.Println("Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+	list, err = c.filterBinLogs(list, lastUploadedBinlogName)
+	if err != nil {
+		return errors.Wrap(err, "filter empty binlogs")
+	}
+
+	if len(list) == 0 {
+		log.Println("No binlogs to upload")
+		return nil
 	}
 
 	upload := false
@@ -297,7 +322,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	// nolint:errcheck
 	setBuffer.WriteString(binlog.GTIDSet)
 
-	err = c.storage.PutObject(lastSetPrefix+strings.Split(binlog.GTIDSet, ":")[0], &setBuffer, int64(setBuffer.Len()))
+	err = c.storage.PutObject(lastSetFilePrefix+strings.Split(binlog.GTIDSet, ":")[0], &setBuffer, int64(setBuffer.Len()))
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}

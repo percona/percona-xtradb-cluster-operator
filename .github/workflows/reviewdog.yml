@@ -1,0 +1,125 @@
+name: reviewdog
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  reviewdog-pr:
+    if: github.event_name == 'pull_request'
+    name: reviewdog on Pull Request
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - uses: actions/checkout@v2
+
+      # https://github.com/actions/cache/blob/master/examples.md#go---modules
+      - name: Cache Go Modules
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download Go Modules
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: go mod download
+
+      - name: Setup reviewdog
+        # use: reviewdog/action-setup@v1
+        run: |
+          go install ./cmd/reviewdog
+
+      - name: Run reviewdog (github-pr-check)
+        continue-on-error: true
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          reviewdog -reporter=github-pr-check -runners=go-consistent,golangci-lint,golint,gosec,govet -fail-on-error
+
+      - name: gofmt -s with reviewdog
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gofmt -s -d . | \
+            reviewdog -name="gofmt" -f=diff -f.diff.strip=0 -reporter=github-pr-review
+
+  golangci-lint:
+    if: github.event_name == 'pull_request'
+    name: runner / golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-golangci-lint@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          golangci_lint_flags: "--enable-all --exclude-use-default=false -D wsl -D testpackage"
+          level: "warning"
+          reporter: github-pr-check
+
+  staticcheck:
+    if: github.event_name == 'pull_request'
+    name: runner / staticcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-staticcheck@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review
+          filter_mode: nofilter
+          fail_on_error: true
+          # workdir: ./_testdata/
+
+  misspell:
+    name: runner / misspell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-misspell@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          locale: "US"
+          reporter: github-check
+
+  languagetool:
+    name: runner / languagetool
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-languagetool@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-check
+          level: info
+          patterns: |
+            **/*.md
+            !**/testdata/**
+
+  shellcheck:
+    if: github.event_name == 'pull_request'
+    name: runner / shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-shellcheck@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review
+
+  alex:
+    name: runner / alex
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-alex@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-check
+          level: info

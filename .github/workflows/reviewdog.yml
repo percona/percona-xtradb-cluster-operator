@@ -5,6 +5,8 @@ jobs:
     name: reviewdog
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+
       - uses: reviewdog/action-setup@v1
         with:
           reviewdog_version: latest # Optional. [latest,nightly,v.X.Y.Z]
@@ -13,7 +15,9 @@ jobs:
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          reviewdog -reporter=github-pr-check -runners=go-consistent,golangci-lint,golint,gosec,govet,staticcheck -fail-on-error
+          ls -la
+          pwd
+          reviewdog -conf=./.reviewdog.yml -reporter=github-pr-check -runners=go-consistent,golangci-lint,golint,gosec,govet,staticcheck -fail-on-error
 
       - name: gofmt -s with reviewdog
         env:

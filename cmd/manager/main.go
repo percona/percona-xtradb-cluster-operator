@@ -32,6 +32,7 @@ var (
 	GitCommit string
 	GitBranch string
 	log       = logf.Log.WithName("cmd")
+	action3 string
 )
 
 func printVersion() {

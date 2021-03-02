@@ -201,31 +201,12 @@ func (c *Collector) CollectBinLogs() error {
 		return nil
 	}
 
-	upload := false
-	// if there are no uploaded files we going to upload every binlog file
-	if len(lastUploadedBinlogName) == 0 {
-		upload = true
-	}
-
 	for _, binlog := range list {
-		// this check is for uploading starting from needed file
-		if binlog.Name == lastUploadedBinlogName {
-			if c.lastSet != binlog.GTIDSet {
-				upload = true
-			}
-		}
-		if upload {
-			err = c.manageBinlog(binlog)
-			if err != nil {
-				return errors.Wrap(err, "manage binlog")
-			}
-		}
-		// need this for start uploading files that goes after current
-		if c.lastSet == binlog.GTIDSet {
-			upload = true
+		err = c.manageBinlog(binlog)
+		if err != nil {
+			return errors.Wrap(err, "manage binlog")
 		}
 	}
-
 	return nil
 }
 

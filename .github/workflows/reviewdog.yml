@@ -41,8 +41,7 @@ jobs:
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          find . -not -path "./vendor/*" -name "*.go" \
-            | gofmt -s -d \
+          gofmt -s -d $(find . -not -path "*/vendor/*" -name "*.go") \
             | reviewdog -name="gofmt" -f=diff -f.diff.strip=0 -reporter=github-pr-check
 
   shellcheck:

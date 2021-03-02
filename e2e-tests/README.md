@@ -23,7 +23,11 @@ brew install coreutils gnu-sed jq kubernetes-cli openshift-cli kubernetes-helm p
 curl https://sdk.cloud.google.com | bash
 ```
 
+### Runtime requirements
+
 Also, you need a Kubernetes platform of [supported version](https://www.percona.com/doc/kubernetes-operator-for-pxc/System-Requirements.html#officially-supported-platforms), available via [EKS](https://www.percona.com/doc/kubernetes-operator-for-pxc/eks.html), [GKE](https://www.percona.com/doc/kubernetes-operator-for-pxc/gke.html), [OpenShift](https://www.percona.com/doc/kubernetes-operator-for-pxc/openshift.html) or [minikube](https://www.percona.com/doc/kubernetes-operator-for-pxc/minikube.html) to run the Operator.
+
+**Note:** there is no need to build an image if you are going to test some already-released version.
 
 ## Building and testing the Operator with DockerHub
 
@@ -55,6 +59,8 @@ Running all tests at once can be done with the following command:
 ```
 ./e2e-tests/run
 ```
+
+(see how to configure the testing infrastructure [here](#using-environment-variables-to-customize-the-testing-process)).
 
 Tests can be executed one-by-one also, using the appropriate scripts (their names should be self-explanatory):
 
@@ -88,8 +94,6 @@ Now you can use the following script to builds the image:
 ./e2e-tests/build
 ```
 
-**Note:** there is no need to build an image if you are going to test some already-released version.
-
 Running all tests at once can be done with the following command:
 
 ```
@@ -113,23 +117,19 @@ Tests can be executed one-by-one also, using the appropriate scripts (their name
 ....
 ```
 
-If the test failed, rerun it at least 3 times.
-
 ## Using environment variables to customize the testing process
 
 ### Re-declaring default image names
 
-You can use environment variables to re-declare all default images used for testing. The
+You can use environment variables to re-declare all default docker images used for testing. The
 full list of variables is the following one:
 
-```
-IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0"}
-IMAGE_PMM=${IMAGE_PMM:-"perconalab/pmm-client:dev-latest"}
-IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-proxysql"}
-IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
-IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup"}
-IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
-```
+* `IMAGE_PXC` - Percona XtraDB Cluster, `perconalab/percona-xtradb-cluster-operator:main-pxc8.0` by default,
+* `IMAGE_PMM` - Percona Monitoring and Management (PMM) client, `perconalab/pmm-client:dev-latest` by default,
+* `IMAGE_PROXY` - ProxySQL, `perconalab/percona-xtradb-cluster-operator:main-proxysql` by default,
+* `IMAGE_HAPROXY` - HA Proxy, `perconalab/percona-xtradb-cluster-operator:main-haproxy` by default,
+* `IMAGE_BACKUP` - backups, `perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup` by default,
+* `IMAGE_LOGCOLLECTOR` - Log Collector, `perconalab/percona-xtradb-cluster-operator:main-logcollector` by default,
 
 ### Running the Operator cluster-wide
 

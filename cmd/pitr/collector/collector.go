@@ -160,8 +160,8 @@ func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]p
 	if startIndex == logsLen {
 		return nil, nil
 	}
-	fmt.Println("INDEX TO UPLOAD", startIndex)
-	fmt.Println("LOGS TO UPLOAD", logs[startIndex:])
+	log.Println("INDEX TO UPLOAD", startIndex)
+	log.Println("LOGS TO UPLOAD", logs[startIndex:])
 
 	return c.removeEmptyBinlogs(logs[startIndex:])
 }
@@ -172,12 +172,19 @@ func (c *Collector) CollectBinLogs() error {
 		return errors.Wrap(err, "get binlog list")
 	}
 
-	c.lastSet, err = c.lastGTIDSet(strings.Split(list[0].GTIDSet, ":")[0])
+	sourceID, err := c.db.CurrentSourceID()
+	if err != nil {
+		return errors.Wrap(err, "get current source id")
+	}
+
+	c.lastSet, err = c.lastGTIDSet(sourceID)
 	if err != nil {
 		return errors.Wrap(err, "get last uploaded gtid set")
 	}
 
 	lastUploadedBinlogName := ""
+
+	log.Println("LAST SET IS", c.lastSet)
 
 	if c.lastSet != "" {
 		// get last uploaded binlog file name
@@ -191,6 +198,8 @@ func (c *Collector) CollectBinLogs() error {
 		}
 	}
 
+	log.Println("LAST UPLOADED BINLOG NAME IS",lastUploadedBinlogName)
+
 	list, err = c.filterBinLogs(list, lastUploadedBinlogName)
 	if err != nil {
 		return errors.Wrap(err, "filter empty binlogs")
@@ -201,31 +210,12 @@ func (c *Collector) CollectBinLogs() error {
 		return nil
 	}
 
-	upload := false
-	// if there are no uploaded files we going to upload every binlog file
-	if len(lastUploadedBinlogName) == 0 {
-		upload = true
-	}
-
 	for _, binlog := range list {
-		// this check is for uploading starting from needed file
-		if binlog.Name == lastUploadedBinlogName {
-			if c.lastSet != binlog.GTIDSet {
-				upload = true
-			}
-		}
-		if upload {
-			err = c.manageBinlog(binlog)
-			if err != nil {
-				return errors.Wrap(err, "manage binlog")
-			}
-		}
-		// need this for start uploading files that goes after current
-		if c.lastSet == binlog.GTIDSet {
-			upload = true
+		err = c.manageBinlog(binlog)
+		if err != nil {
+			return errors.Wrap(err, "manage binlog")
 		}
 	}
-
 	return nil
 }
 

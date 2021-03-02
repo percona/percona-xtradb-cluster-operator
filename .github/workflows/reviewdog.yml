@@ -1,26 +1,15 @@
 name: reviewdog
-on:
-  pull_request:
-
+on: [pull_request]
 jobs:
-  reviewdog-pr:
-    if: github.event_name == 'pull_request'
-    name: reviewdog on Pull Request
+  reviewdog:
+    name: reviewdog
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v2
+      - uses: reviewdog/action-setup@v1
         with:
-          go-version: 1.16
+          reviewdog_version: latest # Optional. [latest,nightly,v.X.Y.Z]
 
-      - uses: actions/checkout@v2
-
-      - name: Setup reviewdog
-        # use: reviewdog/action-setup@v1
-        run: |
-          go install ./cmd/reviewdog
-
-      - name: Run reviewdog (github-pr-check)
-        continue-on-error: true
+      - name: Run reviewdog
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

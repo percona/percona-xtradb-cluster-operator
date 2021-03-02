@@ -1,13 +1,24 @@
 name: reviewdog
 on: [pull_request]
 jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: latest
+          only-new-issues: true
+
   reviewdog:
     name: reviewdog
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v2
         with:
-          go-version: 1.14
+          go-version: 1.16
 
       - uses: actions/checkout@v2
 
@@ -18,33 +29,20 @@ jobs:
       - name: Install linters
         run: |
           cd .github/linters
-          go get golang.org/x/lint/golint github.com/securego/gosec/v2/cmd/gosec github.com/golangci/golangci-lint/cmd/golangci-lint@v1.37.1 github.com/quasilyte/go-consistent
+          go get github.com/quasilyte/go-consistent
 
       - name: Run reviewdog
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ls -la
-          pwd
-          reviewdog -conf=./.reviewdog.yml -reporter=github-pr-check -runners=go-consistent,golangci-lint,golint,gosec,govet,staticcheck -fail-on-error
+          reviewdog -conf=./.reviewdog.yml -reporter=github-pr-check -runners=go-consistent -fail-on-error
 
       - name: gofmt -s with reviewdog
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gofmt -s -d . | \
-            reviewdog -name="gofmt" -f=diff -f.diff.strip=0 -reporter=github-pr-review
-
-  misspell:
-    name: runner / misspell
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: reviewdog/action-misspell@v1
-        with:
-          github_token: ${{ secrets.github_token }}
-          locale: "US"
-          reporter: github-pr-review
+            reviewdog -name="gofmt" -f=diff -f.diff.strip=0 -reporter=github-pr-check
 
   shellcheck:
     if: github.event_name == 'pull_request'
@@ -55,7 +53,18 @@ jobs:
       - uses: reviewdog/action-shellcheck@v1
         with:
           github_token: ${{ secrets.github_token }}
-          reporter: github-pr-review
+          reporter: github-pr-check
+
+  misspell:
+    name: runner / misspell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-misspell@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          locale: "US"
+          reporter: github-pr-check
 
   alex:
     name: runner / alex
@@ -65,5 +74,5 @@ jobs:
       - uses: reviewdog/action-alex@v1
         with:
           github_token: ${{ secrets.github_token }}
-          reporter: github-pr-review
+          reporter: github-pr-check
           level: info

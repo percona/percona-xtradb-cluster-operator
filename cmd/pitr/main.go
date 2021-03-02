@@ -13,6 +13,7 @@ import (
 )
 
 var action string
+var action2 string
 
 func main() {
 	command := "collect"

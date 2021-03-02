@@ -224,7 +224,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXt
 		availableClusters = append(availableClusters, cluster.Name)
 	}
 
-	return nil, fmt.Errorf("wrong cluster name: %q. Clusters `available: %q", cr.Spec.PXCCluster, availableClusters)
+	return nil, fmt.Errorf("wrong cluster name: %q. Clusters available: %q", cr.Spec.PXCCluster, availableClusters)
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job, destination, storageName string, s3 *api.BackupStorageS3Spec) error {

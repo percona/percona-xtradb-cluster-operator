@@ -1,0 +1,94 @@
+name: reviewdog
+on: [pull_request]
+jobs:
+  golangci-lint:
+    name: runner / suggester / golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: latest
+          only-new-issues: true
+
+  go-consistent:
+    name: runner / go-consistent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
+
+      - uses: actions/checkout@v2
+
+      - uses: reviewdog/action-setup@v1
+        with:
+          reviewdog_version: latest # Optional. [latest,nightly,v.X.Y.Z]
+
+      - name: Install linters
+        run: |
+          cd .github/linters
+          go get github.com/quasilyte/go-consistent
+
+      - name: Run reviewdog
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          reviewdog -conf=./.reviewdog.yml -reporter=github-pr-check -runners=go-consistent -fail-on-error
+
+  gofmt:
+    name: runner / suggester / gofmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: gofmt -w -s $(find . -not -path "*/vendor/*" -name "*.go")
+      - uses: reviewdog/action-suggester@v1
+        with:
+          tool_name: gofmt
+
+  shfmt:
+    name: runner / suggester / shfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - run: GO111MODULE=on go get mvdan.cc/sh/v3/cmd/shfmt
+      - run: $(go env GOPATH)/bin/shfmt -bn -ci -s -w .
+      - name: suggester / shfmt
+        uses: reviewdog/action-suggester@v1
+        with:
+          tool_name: shfmt
+
+  shellcheck:
+    if: github.event_name == 'pull_request'
+    name: runner / shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-shellcheck@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-check
+
+  misspell:
+    name: runner / misspell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-misspell@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          locale: "US"
+          reporter: github-pr-check
+
+  alex:
+    name: runner / alex
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: reviewdog/action-alex@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-check
+          level: info

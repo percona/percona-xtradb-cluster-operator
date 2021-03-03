@@ -128,16 +128,20 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
-func (c *Collector) CurrentSourceID(logs []pxc.Binlog) (gtidSet string, err error) {
-	i := 0
+func (c *Collector) CurrentSourceID(logs []pxc.Binlog) (string, error) {
+	var (
+		gtidSet string
+		i       int
+		err     error
+	)
 	for gtidSet == "" && i < len(logs) {
 		gtidSet, err = c.db.GetGTIDSet(logs[i].Name)
 		if err != nil {
-			return
+			return gtidSet, err
 		}
 		i++
 	}
-	return
+	return strings.Split(gtidSet, ":")[0], nil
 }
 
 func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {

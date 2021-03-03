@@ -55,7 +55,7 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 func (p *Database) Status(host, ip string) ([]string, error) {
 	rows, err := p.db.Query("select status from mysql_servers where hostname like ? or hostname = ?;", host+"%", ip)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
 		return nil, err
@@ -80,7 +80,7 @@ func (p *Database) PrimaryHost() (string, error) {
 	var host string
 	err := p.db.QueryRow("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ?", writerID).Scan(&host)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
 		}
 		return "", err
@@ -93,7 +93,7 @@ func (p *Database) Hostname() (string, error) {
 	var hostname string
 	err := p.db.QueryRow("SELECT @@hostname hostname").Scan(&hostname)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
 		}
 		return "", err

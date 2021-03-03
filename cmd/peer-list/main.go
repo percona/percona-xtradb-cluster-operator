@@ -114,7 +114,6 @@ func main() {
 			}
 		}
 		log.Printf("Determined Domain to be %s", domainName)
-
 	} else {
 		domainName = strings.Join([]string{ns, "svc", *domain}, ".")
 	}

@@ -181,12 +181,6 @@ func (p *PXC) GetBinLogFirstTimestamp(binlog string) (string, error) {
 	return timestamp, nil
 }
 
-func (p *PXC) CurrentSourceID() (string, error) {
-	var name, value string
-	err := p.db.QueryRow(`SHOW GLOBAL VARIABLES LIKE 'wsrep_start_position'`).Scan(&name, &value)
-	return strings.Split(value, ":")[0], err
-}
-
 func (p *PXC) SubtractGTIDSet(set, subSet string) (string, error) {
 	var result string
 	row := p.db.QueryRow("SELECT GTID_SUBTRACT(?,?)", set, subSet)

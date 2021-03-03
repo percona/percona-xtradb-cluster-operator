@@ -128,6 +128,18 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
+func (c *Collector) CurrentSourceID(logs []pxc.Binlog) (gtidSet string, err error) {
+	i := 0
+	for gtidSet == "" && i < len(logs) {
+		gtidSet, err = c.db.GetGTIDSet(logs[i].Name)
+		if err != nil {
+			return
+		}
+		i++
+	}
+	return
+}
+
 func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	result := make([]pxc.Binlog, 0)
 	for _, v := range logs {
@@ -180,9 +192,14 @@ func (c *Collector) CollectBinLogs() error {
 		return errors.Wrap(err, "get binlog list")
 	}
 
-	sourceID, err := c.db.CurrentSourceID()
+	sourceID, err := c.CurrentSourceID(list)
 	if err != nil {
 		return errors.Wrap(err, "get current source id")
+	}
+
+	if sourceID == "" {
+		log.Println("No binlogs to upload")
+		return nil
 	}
 
 	c.lastSet, err = c.lastGTIDSet(sourceID)

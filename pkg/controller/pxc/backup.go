@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"reflect"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -14,7 +13,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -38,26 +36,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause {
 			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
 			if err != nil {
-				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
+				return errors.Wrapf(err, "get binlog collector deployment for cluster '%s'", cr.Name)
 			}
-			binlogCollectorName := deployment.GetBinlogCollectorDeploymentName(cr)
-			currentCollector := appsv1.Deployment{}
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, &currentCollector)
-			if err != nil && k8serrors.IsNotFound(err) {
-				err = r.client.Create(context.TODO(), &binlogCollector)
-				if err != nil && !k8serrors.IsAlreadyExists(err) {
-					return fmt.Errorf("create binlog collector deployment for cluster '%s': %v", cr.Name, err)
-				}
-			} else if err != nil {
-				return fmt.Errorf("get binlogCollector '%s': %v", binlogCollectorName, err)
-			} else {
-				currentCollector.Spec = binlogCollector.Spec
-				err = r.client.Update(context.TODO(), &currentCollector)
-				if err != nil {
-					return fmt.Errorf("update binlogCollector '%s': %v", binlogCollectorName, err)
-				}
+			err = r.createOrUpdate(&binlogCollector)
+			if err != nil {
+				return errors.Wrap(err, "create or update binlog collector deployment")
 			}
 		}
+
 		if !cr.Spec.Backup.PITR.Enabled || cr.Spec.Pause {
 			err = r.deletePITR(cr)
 			if err != nil {
@@ -82,26 +68,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				return fmt.Errorf("set owner ref to backup %s: %v", bcp.Name, err)
 			}
 
-			// Check if this Job already exists
-			currentBcpJob := new(batchv1beta1.CronJob)
-			err = r.client.Get(context.TODO(), types.NamespacedName{
-				Name:      bcpjob.Name,
-				Namespace: bcpjob.Namespace,
-			}, currentBcpJob)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return errors.Wrapf(err, "create scheduled backup %s", bcp.Name)
-			}
-
-			if k8serrors.IsNotFound(err) {
-				err = r.client.Create(context.TODO(), bcpjob)
-				if err != nil {
-					return errors.Wrapf(err, "create scheduled backup %s", bcp.Name)
-				}
-			} else if !reflect.DeepEqual(currentBcpJob.Spec, bcpjob.Spec) {
-				err = r.client.Update(context.TODO(), bcpjob)
-				if err != nil {
-					return errors.Wrapf(err, "update backup schedule %s", bcp.Name)
-				}
+			err = r.createOrUpdate(bcpjob)
+			if err != nil {
+				return errors.Wrap(err, "create or update backup job")
 			}
 		}
 	}

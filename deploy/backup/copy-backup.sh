@@ -135,7 +135,7 @@ spec:
   volumes:
   - name: backup
     persistentVolumeClaim:
-      claimName: ${backup_pvc#pvc/}" | tee /tmp/nm | $ctrl apply -f -
+      claimName: ${backup_pvc#pvc/}" | $ctrl apply -f -
     else
       $ctrl delete pod/backup-access 2>/dev/null || echo "apiVersion: v1
 kind: Pod
@@ -152,7 +152,7 @@ spec:
   volumes:
   - name: backup
     persistentVolumeClaim:
-      claimName: ${backup_pvc#pvc/}" | tee /tmp/nm | $ctrl apply -f -
+      claimName: ${backup_pvc#pvc/}" | $ctrl apply -f -
     fi
 
     echo -n Starting pod.
@@ -201,7 +201,7 @@ main() {
     check_input_namespace "$namespace"
     get_backup_dest "$backup"
     backup_dest=$(get_backup_dest "$backup")
-    check_input_destination "$backup_dest" "$dest_dir" "$namespace"
+    check_input_destination "$backup_dest" "$dest_dir"
 
     if [ "${backup_dest:0:4}" = "pvc/" ]; then
         start_tmp_pod "$backup_dest"

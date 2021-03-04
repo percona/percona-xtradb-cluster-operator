@@ -296,6 +296,37 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
+	if o.ObjectMeta.DeletionTimestamp != nil {
+		finalizers := []string{}
+		for _, fnlz := range o.GetFinalizers() {
+			var sfs api.StatefulApp
+			switch fnlz {
+			case "delete-proxysql-pvc":
+				sfs = statefulset.NewProxy(o)
+				// deletePVC is always true on this stage
+				// because we never reach this point without finalizers
+				err = r.deleteStatefulSet(o, sfs, true)
+			case "delete-pxc-pvc":
+				sfs = statefulset.NewNode(o)
+				err = r.deleteStatefulSet(o, sfs, true)
+			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
+			// until than finalizer won't be deleted
+			case "delete-pxc-pods-in-order":
+				err = r.deletePXCPods(o)
+			}
+			if err != nil {
+				finalizers = append(finalizers, fnlz)
+			}
+		}
+		if !reflect.DeepEqual(finalizers, o.GetFinalizers()) {
+			o.SetFinalizers(finalizers)
+			err = r.client.Update(context.TODO(), o)
+		}
+
+		// object is being deleted, no need in further actions
+		return rr, err
+	}
+
 	err = r.deploy(o)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -436,20 +467,14 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	proxysqlSet := statefulset.NewProxy(o)
-	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), proxysqlAnnotations)
-	proxysqlService := pxc.NewServiceProxySQL(o)
-
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
+		proxysqlSet := statefulset.NewProxy(o)
+		pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), proxysqlAnnotations)
+		proxysqlService := pxc.NewServiceProxySQL(o)
+
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
-		}
-
-		currentService := &corev1.Service{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: proxysqlService.Name, Namespace: proxysqlService.Namespace}, currentService)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to get current proxysql service sate")
 		}
 
 		ports := []corev1.ServicePort{
@@ -459,28 +484,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			},
 		}
 
+		proxysqlService.Spec.Ports = ports
+		proxysqlService.Spec.Type = corev1.ServiceTypeClusterIP
+
 		if len(o.Spec.ProxySQL.ServiceType) > 0 {
-			//Upgrading service only if something is changed
-			if currentService.Spec.Type != o.Spec.ProxySQL.ServiceType {
-				currentService.Spec.Ports = ports
-				currentService.Spec.Type = o.Spec.ProxySQL.ServiceType
-			}
-			//Checking default ServiceType
-		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
-			currentService.Spec.Ports = ports
-			currentService.Spec.Type = corev1.ServiceTypeClusterIP
+			proxysqlService.Spec.Type = o.Spec.ProxySQL.ServiceType
 		}
 
-		if currentService.Spec.Type == corev1.ServiceTypeLoadBalancer || currentService.Spec.Type == corev1.ServiceTypeNodePort {
+		if proxysqlService.Spec.Type == corev1.ServiceTypeLoadBalancer || proxysqlService.Spec.Type == corev1.ServiceTypeNodePort {
+			proxysqlService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
 			if len(o.Spec.ProxySQL.ExternalTrafficPolicy) > 0 {
-				currentService.Spec.ExternalTrafficPolicy = o.Spec.ProxySQL.ExternalTrafficPolicy
-			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.ProxySQL.ExternalTrafficPolicy {
-				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+				proxysqlService.Spec.ExternalTrafficPolicy = o.Spec.ProxySQL.ExternalTrafficPolicy
 			}
 		}
 
 		if o.CompareVersionWith("1.6.0") >= 0 {
-			currentService.Spec.Ports = append(
+			proxysqlService.Spec.Ports = append(
 				ports,
 				corev1.ServicePort{
 					Port: 33062,
@@ -489,9 +508,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			)
 		}
 
-		err = r.client.Update(context.TODO(), currentService)
+		err = r.createOrUpdate(proxysqlService)
 		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "ProxySQL service upgrade error")
+			return reconcile.Result{}, errors.Wrap(err, "create or update ProxySQL service")
 		}
 	} else {
 		// check if there is need to delete pvc
@@ -503,12 +522,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			}
 		}
 
-		err = r.deleteStatefulSet(o, proxysqlSet, deletePVC)
+		err = r.deleteStatefulSet(o, statefulset.NewProxy(o), deletePVC)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		proxysqlUnreadyService := pxc.NewServiceProxySQLUnready(o)
-		err = r.deleteServices(proxysqlService, proxysqlUnreadyService)
+		err = r.deleteServices(pxc.NewServiceProxySQL(o), pxc.NewServiceProxySQLUnready(o))
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -896,7 +914,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 		return nil
 	}
 
-	pdb := pxc.PodDisruptionBudget(spec, sfs, namespace)
+	pdb := pxc.PodDisruptionBudget(spec, sfs.Labels(), namespace)
 	err := setControllerReference(owner, pdb, r.scheme)
 	if err != nil {
 		return errors.Wrap(err, "set owner reference")

@@ -6,9 +6,11 @@ You need to install a number of software packages on your system to satisfy the 
 
 ### CentOS
 
+Run the following commands to install the required components:
+
 ```
 sudo yum -y install epel-release https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-sudo yum -y install coreutils sed jq curl percona-xtrabackup-24 yq
+sudo yum -y install coreutils sed jq curl docker percona-xtrabackup-24 yq
 curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
     | tar -C /usr/bin --strip-components 1 --wildcards -zxvpf - '*/oc' '*/kubectl'
 curl -s https://get.helm.sh/helm-v3.2.4-linux-amd64.tar.gz \
@@ -18,8 +20,12 @@ curl https://sdk.cloud.google.com | bash
 
 ### MacOS
 
+Install [Docker](https://docs.docker.com/docker-for-mac/install/), and run the following commands for the other required components:
+
 ```
-brew install coreutils gnu-sed jq kubernetes-cli openshift-cli kubernetes-helm percona-xtrabackup yq
+brew install coreutils gnu-sed jq kubernetes-cli openshift-cli kubernetes-helm percona-xtrabackup
+brew install yq@3
+brew link yq@3
 curl https://sdk.cloud.google.com | bash
 ```
 
@@ -29,7 +35,7 @@ Also, you need a Kubernetes platform of [supported version](https://www.percona.
 
 **Note:** there is no need to build an image if you are going to test some already-released version.
 
-## Building and testing the Operator with DockerHub
+## Building and testing the Operator
 
 There are scripts which build the image and run tests. Both building and testing
 needs some repository for the newly created docker images. If nothing is
@@ -64,43 +70,6 @@ Running all tests at once can be done with the following command:
 
 Tests can be executed one-by-one also, using the appropriate scripts (their names should be self-explanatory):
 
-
-```
-./e2e-tests/init-deploy/run
-./e2e-tests/recreate/run
-./e2e-tests/limits/run
-./e2e-tests/scaling/run
-./e2e-tests/monitoring/run
-./e2e-tests/affinity/run
-./e2e-tests/demand-backup/run
-./e2e-tests/scheduled-backup/run
-./e2e-tests/storage/run
-./e2e-tests/self-healing/run
-./e2e-tests/operator-self-healing/run
-....
-```
-
-## Building and testing the Operator without DockerHub
-
-The first thing you need to do is fixing image names, to use your custom Docker registry. For example, if your custom registry has the `172.30.162.173:5000` address, you can proceed with the following command:
-
-```
-export IMAGE=172.30.162.173:5000/namespace/repo:tag
-```
-
-Now you can use the following script to builds the image:
-
-```
-./e2e-tests/build
-```
-
-Running all tests at once can be done with the following command:
-
-```
-./e2e-tests/run
-```
-
-Tests can be executed one-by-one also, using the appropriate scripts (their names should be self-explanatory):
 
 ```
 ./e2e-tests/init-deploy/run
@@ -153,7 +122,7 @@ export CLEAN_NAMESPACE=1
 
 ### Skipping backup tests on S3-compatible storage
 
-Making backups [on S3-compatible storage](https://www.percona.com/doc/kubernetes-operator-for-pxc/backups.html#making-scheduled-backups) needs creating Secrets to have the access to the S3 buckets. There is an environment variable which allows to skip all tests which require such Secrets.
+Making backups [on S3-compatible storage](https://www.percona.com/doc/kubernetes-operator-for-pxc/backups.html#making-scheduled-backups) needs creating Secrets to have the access to the S3 buckets. There is an environment variable enabled by default, which skips all tests requiring such Secrets:
 
 ```
 SKIP_BACKUPS_TO_AWS_GCP=1

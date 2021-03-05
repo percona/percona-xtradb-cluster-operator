@@ -42,7 +42,7 @@ Also, you need a Kubernetes platform of [supported version](https://www.percona.
 There are scripts which build the image and run tests. Both building and testing
 needs some repository for the newly created docker images. If nothing is
 specified, scripts use Percona's experimental repository `perconalab/percona-xtradb-cluster-operator`, which
-obviously requires decent access rights to make a push.
+requires decent access rights to make a push.
 
 To specify your own repository for the Percona XtraDB Cluster Operator docker image, you can use IMAGE environment variable:
 
@@ -70,8 +70,7 @@ Running all tests at once can be done with the following command:
 
 (see how to configure the testing infrastructure [here](#using-environment-variables-to-customize-the-testing-process)).
 
-Tests can be executed one-by-one also, using the appropriate scripts (their names should be self-explanatory):
-
+Tests can also be run one-by-one using the appropriate scripts (their names should be self-explanatory):
 
 ```
 ./e2e-tests/init-deploy/run
@@ -95,6 +94,7 @@ Tests can be executed one-by-one also, using the appropriate scripts (their name
 You can use environment variables to re-declare all default docker images used for testing. The
 full list of variables is the following one:
 
+* `IMAGE` - Percona XtraDB Cluster Operator, `perconalab/percona-xtradb-cluster-operator:main` by default,
 * `IMAGE_PXC` - Percona XtraDB Cluster, `perconalab/percona-xtradb-cluster-operator:main-pxc8.0` by default,
 * `IMAGE_PMM` - Percona Monitoring and Management (PMM) client, `perconalab/pmm-client:dev-latest` by default,
 * `IMAGE_PROXY` - ProxySQL, `perconalab/percona-xtradb-cluster-operator:main-proxysql` by default,

@@ -315,6 +315,7 @@ func (r *Recoverer) setBinlogs() error {
 	}
 	reverse(list)
 	binlogs := []string{}
+	sourceID := strings.Split(r.startGTID, ":")[0]
 	for _, binlog := range list {
 		if strings.Contains(binlog, "-gtid-set") {
 			continue
@@ -329,6 +330,9 @@ func (r *Recoverer) setBinlogs() error {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
 		binlogGTIDSet := string(content)
+		if sourceID != strings.Split(binlogGTIDSet, ":")[0] {
+			continue
+		}
 		binlogs = append(binlogs, binlog)
 		subResult, err := r.db.SubtractGTIDSet(r.startGTID, binlogGTIDSet)
 		if err != nil {
@@ -339,7 +343,7 @@ func (r *Recoverer) setBinlogs() error {
 		}
 	}
 	if len(binlogs) == 0 {
-		return errors.Errorf("no objects for prefix %s", "binlog_")
+		return errors.Errorf("no objects for prefix binlog_ or with source_id=%s", sourceID)
 	}
 	reverse(binlogs)
 	r.binlogs = binlogs

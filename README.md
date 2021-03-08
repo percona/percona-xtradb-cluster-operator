@@ -2,10 +2,15 @@
 
 A Kubernetes operator for [Percona XtraDB Cluster](https://www.percona.com/software/mysql-database/percona-xtradb-cluster) based on the [Operator SDK](https://github.com/operator-framework/operator-sdk).
 
-# Documentation
+## Installation
 See the [Official Documentation](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html) for more information.
 
 [![Official Documentation](https://via.placeholder.com/260x60/419bdc/FFFFFF/?text=Documentation)](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html)
+
+## Contributing to the Operator
+Percona welcomes and encourages community contributions to help improve Percona Kubernetes Operator for Percona XtraDB Cluster.
+
+See the [Contribution Guide](https://github.com/percona/percona-xtradb-cluster-operator/blob/main/CONTRIBUTING.md) and [Building and Testing Guide](https://github.com/percona/percona-xtradb-cluster-operator/blob/main/e2e-tests/README.md) for more information.
 
 ## Submitting Bug Reports
 

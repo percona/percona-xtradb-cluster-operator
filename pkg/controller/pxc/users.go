@@ -394,21 +394,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUsers(proxyUsers []users.SysU
 		return nil
 	}
 	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
-		pod := corev1.Pod{}
-		err := r.client.Get(context.TODO(),
-			types.NamespacedName{
-				Namespace: cr.Namespace,
-				Name:      cr.Name + "-proxysql-" + strconv.Itoa(i),
-			},
-			&pod,
-		)
-		if err != nil && k8serrors.IsNotFound(err) {
-			return err
-		} else if err != nil {
-			return errors.Wrap(err, "get proxysql pod")
-		}
-
-		um, err := users.NewManager(pod.Status.PodIP+":6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]))
+		um, err := users.NewManager(cr.Name+"-proxysql-"+strconv.Itoa(i)+"."+cr.Name+"-proxysql-unready."+cr.Namespace+":6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]))
 		if err != nil {
 			return errors.Wrap(err, "new users manager")
 		}

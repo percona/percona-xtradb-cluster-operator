@@ -594,7 +594,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
 	}
-
+	nodeSet.Spec.Template.Spec.Tolerations = cr.Spec.PXC.Tolerations
 	err = setControllerReference(cr, nodeSet, r.scheme)
 	if err != nil {
 		return err

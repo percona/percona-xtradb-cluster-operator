@@ -1,6 +1,6 @@
 # Percona Kubernetes Operator for Percona XtraDB Cluster Code of Conduct
 
-Like Kubernetes itself, Percona Kubernetes Operator for Percona XtraDB Cluster follows the [Cloud Native Computing Foundation (CNCF) Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md).
+All Percona Products follow the [Percona Community Code of Conduct](https://github.com/percona/community/blob/main/content/contribute/coc.md).
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting <community-team@percona.com>.
+If you notice any unacceptable behavior, let us know as soon as possible by writing to <community-team@percona.com>. We will respond within 48 hours.
 

@@ -2,7 +2,6 @@ package pxcbackup
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -10,8 +9,9 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
+	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,7 +41,7 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	sv, err := version.Server()
 	if err != nil {
-		return nil, fmt.Errorf("get version: %w", err)
+		return nil, errors.Wrap(err, "get version")
 	}
 
 	return &ReconcilePerconaXtraDBClusterBackup{
@@ -97,7 +97,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 	instance := &api.PerconaXtraDBClusterBackup{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -114,32 +114,32 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 	cluster, err := r.getClusterConfig(instance)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("invalid backup cluster: %w", err)
+		return reconcile.Result{}, errors.Wrap(err, "invalid backup cluster")
 	}
 
 	_, err = cluster.CheckNSetDefaults(r.serverVersion, reqLogger)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %w", err)
+		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
 	}
 
 	if cluster.Spec.Backup == nil {
-		return reconcile.Result{}, fmt.Errorf("a backup image should be set in the PXC config")
+		return reconcile.Result{}, errors.Wrap(err, "a backup image should be set in the PXC config")
 	}
 
 	if cluster.Status.PXC.Status != api.AppStateReady {
-		return reconcile.Result{}, fmt.Errorf("failed to run backup on cluster with status %s", cluster.Status.Status)
+		return reconcile.Result{}, errors.Wrapf(err, "failed to run backup on cluster with status %s", cluster.Status.Status)
 	}
 
 	bcpStorage, ok := cluster.Spec.Backup.Storages[instance.Spec.StorageName]
 	if !ok {
-		return reconcile.Result{}, fmt.Errorf("bcpStorage %s doesn't exist", instance.Spec.StorageName)
+		return reconcile.Result{}, errors.Wrapf(err, "bcpStorage %s doesn't exist", instance.Spec.StorageName)
 	}
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(instance, cluster)
 	job.Spec, err = bcp.JobSpec(instance.Spec, cluster.Spec, job)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("can't create job spec: %w", err)
+		return reconcile.Result{}, errors.Wrap(err, "can't create job spec")
 	}
 
 	var destination string
@@ -154,24 +154,24 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 		// Set PerconaXtraDBClusterBackup instance as the owner and controller
 		if err := setControllerReference(instance, pvc, r.scheme); err != nil {
-			return reconcile.Result{}, fmt.Errorf("setControllerReference: %v", err)
+			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
 		}
 
 		// Check if this PVC already exists
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
-		if err != nil && errors.IsNotFound(err) {
+		if err != nil && k8sErrors.IsNotFound(err) {
 			reqLogger.Info("Creating a new volume for backup", "Namespace", pvc.Namespace, "Name", pvc.Name)
 			err = r.client.Create(context.TODO(), pvc)
 			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("create backup pvc: %v", err)
+				return reconcile.Result{}, errors.Wrap(err, "create backup pvc")
 			}
 		} else if err != nil {
-			return reconcile.Result{}, fmt.Errorf("get backup pvc: %v", err)
+			return reconcile.Result{}, errors.Wrap(err, "get backup pvc")
 		}
 
 		err := bcp.SetStoragePVC(&job.Spec, cluster, pvc.Name)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
+			return reconcile.Result{}, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageS3:
 		destination = bcpStorage.S3.Bucket + "/" + instance.Spec.PXCCluster + "-" + instance.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
@@ -180,7 +180,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		}
 		err := bcp.SetStorageS3(&job.Spec, cluster, bcpStorage.S3, destination)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("set storage FS: %v", err)
+			return reconcile.Result{}, errors.Wrap(err, "set storage FS")
 		}
 
 		s3status = &bcpStorage.S3
@@ -188,12 +188,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 	// Set PerconaXtraDBClusterBackup instance as the owner and controller
 	if err := setControllerReference(instance, job, r.scheme); err != nil {
-		return reconcile.Result{}, fmt.Errorf("job/setControllerReference: %v", err)
+		return reconcile.Result{}, errors.Wrap(err, "job/setControllerReference")
 	}
 
 	err = r.client.Create(context.TODO(), job)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return reconcile.Result{}, fmt.Errorf("create backup job: %v", err)
+	if err != nil && !k8sErrors.IsAlreadyExists(err) {
+		return reconcile.Result{}, errors.Wrap(err, "create backup job")
 	} else if err == nil {
 		reqLogger.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	}
@@ -213,29 +213,27 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXt
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("get clusters list: %v", err)
+		return nil, errors.Wrap(err, "get clusters list")
 	}
 
-	availableClusters := make([]string, 0)
 	for _, cluster := range clusterList.Items {
 		if cluster.Name == cr.Spec.PXCCluster {
 			return &cluster, nil
 		}
-		availableClusters = append(availableClusters, cluster.Name)
 	}
 
-	return nil, fmt.Errorf("wrong cluster name: %q. Clusters available: %q", cr.Spec.PXCCluster, availableClusters)
+	return nil, errors.Wrap(err, "wrong cluster name")
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job, destination, storageName string, s3 *api.BackupStorageS3Spec) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8sErrors.IsNotFound(err) {
 			return nil
 		}
 
-		return fmt.Errorf("get backup status: %v", err)
+		return errors.Wrap(err, "get backup status")
 	}
 
 	status := api.PXCBackupStatus{
@@ -268,7 +266,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 		// so try to update whole CR
 		err := r.client.Update(context.TODO(), bcp)
 		if err != nil {
-			return fmt.Errorf("send update: %v", err)
+			return errors.Wrap(err, "send update")
 		}
 	}
 

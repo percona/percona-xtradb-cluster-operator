@@ -1,10 +1,11 @@
-![Percona Kubernetes Operator for Percona Server for MongoDB](operator.png)
+![Percona Kubernetes Operator for Percona XtraDB Cluster](operator.png)
 
-[Percona XtraDB Cluster](https://www.percona.com/software/mongodb/percona-server-for-mongodb) (PXC) is an open-source enterprise MySQL solution that helps you to ensure data availability for your applications while improving security and simplifying the development of new applications in the most demanding public, private, and hybrid cloud environments.
+[Percona XtraDB Cluster](https://www.percona.com/software/mysql-database/percona-xtradb-cluster) (PXC) is an open-source enterprise MySQL solution that helps you to ensure data availability for your applications while improving security and simplifying the development of new applications in the most demanding public, private, and hybrid cloud environments.
 
 Based on our best practices for deployment and configuration, [Percona Kubernetes Operator for PXC](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html) contains everything you need to quickly and consistently deploy and scale Percona XtraDB Cluster instances in a Kubernetes-based environment on-premises or in the cloud. It provides the following capabilities:
 
 * Easy deployment with no single point of failure
+* Load balancing and proxy service with either HA Proxy or ProxySQL
 * Scheduled and manual backups
 * Integrated monitoring with [Percona Monitoring and Management](https://www.percona.com/software/database-tools/percona-monitoring-and-management)
 * Smart Update to keep your database software up to date automatically

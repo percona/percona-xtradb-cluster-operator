@@ -164,16 +164,22 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 	if len(job.Template.Spec.Containers) == 0 {
 		return errors.New("no containers in job spec")
 	}
+
 	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
 		{
 			Name:      pvc.Name,
 			MountPath: "/backup",
 		},
 	}
+
 	job.Template.Spec.Volumes = []corev1.Volume{
 		pvc,
 	}
-	appendStorageSecret(job, cr)
+
+	err := appendStorageSecret(job, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to append storage secret")
+	}
 
 	return nil
 }
@@ -222,7 +228,11 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 	// add SSL volumes
 	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
 	job.Template.Spec.Volumes = []corev1.Volume{}
-	appendStorageSecret(job, cr)
+
+	err = appendStorageSecret(job, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to append storage secrets")
+	}
 
 	return nil
 }

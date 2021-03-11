@@ -367,6 +367,10 @@ const (
 	BackupStorageS3         BackupStorageType = "s3"
 )
 
+const (
+	FinalizerDeleteS3Backup string = "delete-s3-backup"
+)
+
 type BackupStorageS3Spec struct {
 	Bucket            string `json:"bucket"`
 	CredentialsSecret string `json:"credentialsSecret"`

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"strconv"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -68,6 +69,11 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 		return batchv1.JobSpec{}, fmt.Errorf("cannot parse backup resources: %w", err)
 	}
 
+	fins := []string{}
+	if strg.Type == api.BackupStorageS3 {
+		fins = append(fins, api.FinalizerDeleteS3Backup)
+	}
+
 	return batchv1.JobSpec{
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
@@ -101,6 +107,7 @@ func (bcp *Backup) scheduledJob(spec *api.PXCScheduledBackupSchedule, strg *api.
 									apiVersion: pxc.percona.com/v1
 									kind: PerconaXtraDBClusterBackup
 									metadata:
+									  finalizers: [` + strings.Join(fins, ",") + ` ]
 									  namespace: "` + bcp.namespace + `"
 									  name: "cron-${pxcCluster:0:16}-` + trimNameRight(spec.StorageName, 16) + `-$(date -u "+%Y%m%d%H%M%S")-${suffix}"
 									  labels:

@@ -309,11 +309,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) removeBackup(bucket, backup string
 			return errors.Wrap(v.Err, "failed to list objects")
 		}
 
-		// log.Info("removing object", "obj", v.Key)
-
 		err := s3cli.RemoveObject(context.Background(), bucket, v.Key, minio.RemoveObjectOptions{})
 		if err != nil {
-			//&& minio.ToErrorResponse(err).StatusCode != http.StatusNotFound
 			return errors.Wrapf(err, "failed to remove object %s", v.Key)
 		}
 	}

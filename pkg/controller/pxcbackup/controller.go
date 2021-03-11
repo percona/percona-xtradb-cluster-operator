@@ -130,7 +130,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 	}
 
 	switch {
-	case cr.Status.State == api.BackupSucceeded && cr.Status.S3 != nil:
+	case cr.Status.State == api.BackupSucceeded:
 		r.tryRunS3BackupFinalizerJob(cr)
 		return rr, nil
 	case cr.Status.State == api.BackupFailed:

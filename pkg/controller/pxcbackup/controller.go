@@ -278,10 +278,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 			spl := strings.Split(cr.Status.Destination, "/")
 			backup := spl[len(spl)-1]
 
-			err := r.removeBackup(cr.Status.S3.Bucket, backup, s3cli)
-			if err != nil {
-				log.Error(err, "failed to delete backup", "name", cr.Name)
-				finalizers = append(finalizers, f)
+			for _, bcp := range []string{backup + ".md5", backup + "sst_info", backup} {
+				err := r.removeBackup(cr.Status.S3.Bucket, bcp, s3cli)
+				if err != nil {
+					log.Error(err, "failed to delete backup", "name", cr.Name)
+					finalizers = append(finalizers, f)
+					break
+				}
 			}
 		} else {
 			finalizers = append(finalizers, f)

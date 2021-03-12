@@ -52,28 +52,26 @@ func checkClusters(cl client.Client, namespaces []string) (bool, error) {
 
 		clusterList := &api.PerconaXtraDBClusterList{}
 
-		err := cl.List(context.TODO(), clusterList, &client.ListOptions{
-			Namespace: ns,
-		})
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				continue
-			}
+		err := cl.List(context.TODO(), clusterList, &client.ListOptions{Namespace: ns})
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, errors.Wrapf(err, "list clusters in namespace: %s", ns)
 		}
 
-		if !isClustersReadyToDelete(clusterList.Items) {
+		if clusterList.HasUnfinishedFinalizers() {
+			return false, nil
+		}
+
+		bcpList := api.PerconaXtraDBClusterBackupList{}
+
+		err = cl.List(context.TODO(), &bcpList, &client.ListOptions{Namespace: ns})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return false, errors.Wrap(err, "failed to get backup object")
+		}
+
+		if bcpList.HasUnfinishedFinalizers() {
 			return false, nil
 		}
 	}
-	return true, nil
-}
 
-func isClustersReadyToDelete(list []api.PerconaXtraDBCluster) bool {
-	for _, v := range list {
-		if v.ObjectMeta.DeletionTimestamp != nil && len(v.Finalizers) != 0 {
-			return false
-		}
-	}
-	return true
+	return true, nil
 }

@@ -261,6 +261,16 @@ type PerconaXtraDBClusterList struct {
 	Items           []PerconaXtraDBCluster `json:"items"`
 }
 
+func (list *PerconaXtraDBClusterList) HasUnfinishedFinalizers() bool {
+	for _, v := range list.Items {
+		if v.ObjectMeta.DeletionTimestamp != nil && len(v.Finalizers) != 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 type PodSpec struct {
 	Enabled                       bool                                    `json:"enabled,omitempty"`
 	Size                          int32                                   `json:"size,omitempty"`
@@ -365,6 +375,10 @@ type BackupStorageType string
 const (
 	BackupStorageFilesystem BackupStorageType = "filesystem"
 	BackupStorageS3         BackupStorageType = "s3"
+)
+
+const (
+	FinalizerDeleteS3Backup string = "delete-s3-backup"
 )
 
 type BackupStorageS3Spec struct {

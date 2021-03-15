@@ -362,7 +362,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 		return nil
 	}
 
-	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
+	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
 		pod := corev1.Pod{}
 		err := r.client.Get(context.TODO(),
 			types.NamespacedName{

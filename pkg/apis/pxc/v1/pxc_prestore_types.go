@@ -27,6 +27,7 @@ type PITR struct {
 	Type         string           `json:"type"`
 	Date         string           `json:"date"`
 	GTIDSet      string           `json:"gtidSet"`
+	GTID         string           `json:"gtid"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

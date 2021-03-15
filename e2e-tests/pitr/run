@@ -18,11 +18,13 @@ run_recovery_check_pitr() {
     local compare=$4
     local time_now=$5
     local dest=$6
+    local gtid=$7
 
     desc 'recover backup' $restore
     cat "$test_dir/conf/${restore}.yaml" \
         | $sed -e "s/<datetime>/${time_now}/g" \
         | $sed -e "s/<destination>/${dest}/g" \
+        | $sed -e "s/<gtid>/${gtid}/g" \
         | kubectl_bin apply -f -
     wait_backup_restore ${backup}
     kubectl_bin logs job/restore-job-${backup}-${cluster}
@@ -93,16 +95,21 @@ main() {
  
     proxy=$(get_proxy "$cluster")
     time_now=$(run_mysql "SELECT now();" "-h $proxy -uroot -proot_password")
+    gtid=$(run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password" | grep Gtid | tail -c 43)
 
     sleep 60
     write_more_data "$cluster"
     sleep 80 # need to wait while collector catch new data
     kubectl patch pxc pitr --type=merge -p "{\"spec\":{\"backup\":{\"pitr\":{\"enabled\":false}}}}"
-    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3" "$time_now" ""
+
+    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-gtid" "on-pitr-minio" "select-2" "" "" "$gtid"
+    echo "done gtid type"
+
+    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3" "$time_now" "" ""
     echo "done date type"
 
     dest=$(sed 's,/,\\/,g' <<< $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.destination}'))
-    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest"
+    run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" ""
     echo "done latest type"
     
     destroy $namespace

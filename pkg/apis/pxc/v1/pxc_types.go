@@ -160,6 +160,10 @@ type PerconaXtraDBCluster struct {
 	Status PerconaXtraDBClusterStatus `json:"status,omitempty"`
 }
 
+const (
+	minSafeProxySQLSize = 2
+)
+
 func (cr *PerconaXtraDBCluster) Validate() error {
 	if len(cr.Name) > clusterNameMaxLen {
 		return errors.Errorf("cluster name (%s) too long, must be no more than %d characters", cr.Name, clusterNameMaxLen)
@@ -214,6 +218,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 		if err := c.ProxySQL.VolumeSpec.validate(); err != nil {
 			return errors.Wrap(err, "ProxySQL: validate volume spec")
+		}
+
+		if c.ProxySQL.Size < minSafeProxySQLSize && !c.AllowUnsafeConfig {
+			c.ProxySQL.Size = minSafeProxySQLSize
 		}
 	}
 

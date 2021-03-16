@@ -1084,7 +1084,12 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 	objAnnotations["percona.com/last-config-hash"] = hash
 	objectMeta.SetAnnotations(objAnnotations)
 
-	oldObject := obj.DeepCopyObject()
+	val := reflect.ValueOf(obj)
+	if val.Kind() == reflect.Ptr {
+		val = reflect.Indirect(val)
+	}
+	oldObject := reflect.New(val.Type()).Interface().(runtime.Object)
+
 	err = r.client.Get(context.Background(), types.NamespacedName{
 		Name:      objectMeta.GetName(),
 		Namespace: objectMeta.GetNamespace(),
@@ -1108,8 +1113,10 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
 		}
+
 		return r.client.Update(context.TODO(), obj)
 	}
+
 	return nil
 }
 

@@ -690,8 +690,10 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 		spec.PXC.Size++
 	}
 
-	if spec.ProxySQL.Size < minSafeProxySQLSize {
-		spec.ProxySQL.Size = minSafeProxySQLSize
+	if spec.ProxySQL != nil {
+		if spec.ProxySQL.Size < minSafeProxySQLSize {
+			spec.ProxySQL.Size = minSafeProxySQLSize
+		}
 	}
 }
 

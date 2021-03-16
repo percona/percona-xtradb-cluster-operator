@@ -160,10 +160,6 @@ type PerconaXtraDBCluster struct {
 	Status PerconaXtraDBClusterStatus `json:"status,omitempty"`
 }
 
-const (
-	minSafeProxySQLSize = 2
-)
-
 func (cr *PerconaXtraDBCluster) Validate() error {
 	if len(cr.Name) > clusterNameMaxLen {
 		return errors.Errorf("cluster name (%s) too long, must be no more than %d characters", cr.Name, clusterNameMaxLen)
@@ -218,10 +214,6 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 		if err := c.ProxySQL.VolumeSpec.validate(); err != nil {
 			return errors.Wrap(err, "ProxySQL: validate volume spec")
-		}
-
-		if c.ProxySQL.Size < minSafeProxySQLSize && !c.AllowUnsafeConfig {
-			c.ProxySQL.Size = minSafeProxySQLSize
 		}
 	}
 
@@ -674,6 +666,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	return CRVerChanged || changed, nil
 }
 
+const (
+	minSafeProxySQLSize = 2
+)
+
 func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.AllowUnsafeConfig {
 		return
@@ -692,6 +688,10 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.PXC.Size%2 == 0 {
 		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, spec.PXC.Size+1)
 		spec.PXC.Size++
+	}
+
+	if spec.ProxySQL.Size < minSafeProxySQLSize {
+		spec.ProxySQL.Size = minSafeProxySQLSize
 	}
 }
 

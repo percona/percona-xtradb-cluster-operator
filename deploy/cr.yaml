@@ -83,6 +83,13 @@ spec:
 #        ephemeral-storage: 1G
 #    nodeSelector:
 #      disktype: ssd
+#    sidecarResources:
+#      requests:
+#        memory: 1G
+#        cpu: 500m
+#      limits:
+#        memory: 2G
+#        cpu: 600m
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -268,6 +275,12 @@ spec:
 #      rack: rack-22
 #    serviceType: ClusterIP
 #    externalTrafficPolicy: Cluster
+#    runtimeClassName: image-rc
+#    sidecars:
+#    - image: busybox
+#      command: ["/bin/sh"]
+#      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
+#      name: my-sidecar-1
     resources:
       requests:
         memory: 1G

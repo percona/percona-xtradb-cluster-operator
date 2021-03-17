@@ -700,9 +700,7 @@ func (cr *PerconaXtraDBCluster) setVersion() bool {
 		err := json.Unmarshal([]byte(lastCR), &newCR)
 		if err != nil {
 			log.Printf("failed to unmarshal cr: %v", err)
-		}
-
-		if len(newCR.APIVersion) > 0 {
+		} else if len(newCR.APIVersion) > 0 {
 			apiVersion = strings.Replace(strings.TrimPrefix(newCR.APIVersion, "pxc.percona.com/v"), "-", ".", -1)
 		}
 	}

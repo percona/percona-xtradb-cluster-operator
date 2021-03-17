@@ -716,16 +716,18 @@ func (cr *PerconaXtraDBCluster) Version() *v.Version {
 }
 
 // CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
-func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
+func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 	if len(cr.Spec.CRVersion) == 0 {
 		_, err := cr.setVersion()
 		if err != nil {
-			log.Fatalf("failed to set version: %v", err)
+			opv := version.Version
+			log.Printf("failed to set version: %v, using operator version %s", err, opv)
+			return v.Must(v.NewVersion(opv)).Compare(v.Must(v.NewVersion(ver)))
 		}
 	}
 
 	//using Must because "version" must be right format
-	return cr.Version().Compare(v.Must(v.NewVersion(version)))
+	return cr.Version().Compare(v.Must(v.NewVersion(ver)))
 }
 
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section

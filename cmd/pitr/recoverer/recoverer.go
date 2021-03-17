@@ -32,7 +32,7 @@ type Recoverer struct {
 	startGTID      string
 	recoverFlag    string
 	recoverEndTime time.Time
-	endGTID        string
+	gtid           string
 }
 
 type Config struct {
@@ -42,7 +42,6 @@ type Config struct {
 	BackupStorage  BackupS3
 	RecoverTime    string `env:"PITR_DATE"`
 	RecoverType    string `env:"PITR_RECOVERY_TYPE,required"`
-	GTIDSet        string `env:"PITR_GTID_SET"`
 	GTID           string `env:"PITR_GTID"`
 	BinlogStorage  BinlogS3
 }
@@ -99,8 +98,7 @@ func New(c Config) (*Recoverer, error) {
 		pxcServiceName: c.PXCServiceName,
 		recoverType:    RecoverType(c.RecoverType),
 		startGTID:      startGTID,
-		gtidSet:        c.GTIDSet,
-		endGTID:        c.GTID,
+		gtid:           c.GTID,
 	}, nil
 }
 
@@ -188,7 +186,7 @@ func (r *Recoverer) Run() error {
 
 	switch r.recoverType {
 	case Skip:
-		r.recoverFlag = " --exclude-gtids=" + r.gtidSet
+		r.recoverFlag = " --exclude-gtids=" + r.gtid
 	case Transaction:
 		r.recoverFlag = " --exclude-gtids=" + r.gtidSet
 	case Date:
@@ -334,14 +332,17 @@ func (r *Recoverer) setBinlogs() error {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
 		binlogGTIDSet := string(content)
+		if sourceID != strings.Split(binlogGTIDSet, ":")[0] {
+			continue
+		}
 
-		if len(r.endGTID) > 0 {
-			subResult, err := r.db.SubtractGTIDSet(binlogGTIDSet, r.endGTID)
+		if len(r.gtid) > 0 && r.recoverType == Transaction {
+			subResult, err := r.db.SubtractGTIDSet(binlogGTIDSet, r.gtid)
 			if err != nil {
-				return errors.Wrapf(err, "check if '%s' is a subset of '%s", binlogGTIDSet, r.endGTID)
+				return errors.Wrapf(err, "check if '%s' is a subset of '%s", binlogGTIDSet, r.gtid)
 			}
 			if subResult != binlogGTIDSet {
-				set, err := getExtendGTIDSet(binlogGTIDSet, r.endGTID)
+				set, err := getExtendGTIDSet(binlogGTIDSet, r.gtid)
 				if err != nil {
 					return errors.Wrap(err, "get gtid set for extend")
 				}
@@ -350,10 +351,6 @@ func (r *Recoverer) setBinlogs() error {
 			if len(r.gtidSet) == 0 {
 				continue
 			}
-		}
-
-		if sourceID != strings.Split(binlogGTIDSet, ":")[0] {
-			continue
 		}
 
 		binlogs = append(binlogs, binlog)

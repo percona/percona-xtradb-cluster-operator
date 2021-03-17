@@ -26,7 +26,6 @@ type PITR struct {
 	BackupSource *PXCBackupStatus `json:"backupSource"`
 	Type         string           `json:"type"`
 	Date         string           `json:"date"`
-	GTIDSet      string           `json:"gtidSet"`
 	GTID         string           `json:"gtid"`
 }
 

@@ -390,10 +390,6 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			Value: bucket,
 		})
 		envs = append(envs, corev1.EnvVar{
-			Name:  "PITR_GTID_SET",
-			Value: cr.Spec.PITR.GTIDSet,
-		})
-		envs = append(envs, corev1.EnvVar{
 			Name:  "PITR_GTID",
 			Value: cr.Spec.PITR.GTID,
 		})

@@ -605,7 +605,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return errors.Wrap(err, "create newStatefulSetNode")
 	} else if k8serrors.IsAlreadyExists(err) {
-		err := r.client.Update(context.TODO(), nodeSet)
+		err := r.createOrUpdate(nodeSet)
 		if err != nil {
 			return errors.Wrapf(err, "failed to update statefulset %s", nodeSet.Name)
 		}

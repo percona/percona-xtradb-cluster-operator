@@ -601,8 +601,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	err = r.client.Create(context.TODO(), nodeSet)
-	err := r.createOrUpdate(nodeSet)
+	err = r.createOrUpdate(nodeSet)
 	if err != nil {
 		return errors.Wrap(err, "create newStatefulSetNode")
 	}

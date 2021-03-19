@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 
 	"github.com/pkg/errors"
@@ -29,7 +30,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
 	if err != nil {
-		return fmt.Errorf("failed to get sate: %v", err)
+		return errors.Wrap(err, "failed to get sate")
 	}
 
 	currentSet.Spec.UpdateStrategy = sfs.UpdateStrategy(cr)
@@ -60,13 +61,13 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	err = r.reconcileConfigMap(cr)
 	if err != nil {
-		return fmt.Errorf("upgradePod/updateApp error: update db config error: %v", err)
+		return errors.Wrap(err, "upgradePod/updateApp error: update db config error")
 	}
 
 	// change TLS secret configuration
 	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil {
-		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
+		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 	}
 	if sslHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
@@ -74,7 +75,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
+		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
@@ -82,7 +83,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
 	if err != nil {
-		return fmt.Errorf("upgradePod/updateApp error: update secret error: %v", err)
+		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 	}
 	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 && !isHAproxy(sfs) {
 		currentSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
@@ -105,7 +106,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secrets, cr)
 		if err != nil {
-			return fmt.Errorf("pmm container error: %v", err)
+			return errors.Wrap(err, "pmm container error")
 		}
 		if pmmC != nil {
 			newContainers = append(newContainers, *pmmC)
@@ -116,7 +117,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
 		logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, secrets, cr)
 		if err != nil {
-			return fmt.Errorf("logcollector container error: %v", err)
+			return errors.Wrap(err, "logcollector container error")
 		}
 		if logCollectorC != nil {
 			newContainers = append(newContainers, logCollectorC...)
@@ -126,7 +127,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// application container
 	appC, err := sfs.AppContainer(podSpec, secrets, cr)
 	if err != nil {
-		return fmt.Errorf("app container error: %v", err)
+		return errors.Wrap(err, "app container error")
 	}
 
 	newContainers = append(newContainers, appC)
@@ -152,14 +153,14 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	// sidecars
 	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)
 	if err != nil {
-		return fmt.Errorf("sidecar container error: %v", err)
+		return errors.Wrap(err, "sidecar container error")
 	}
 	newContainers = append(newContainers, sideC...)
 
 	// volumes
 	sfsVolume, err := sfs.Volumes(podSpec, cr)
 	if err != nil {
-		return fmt.Errorf("volumes error: %v", err)
+		return errors.Wrap(err, "volumes error")
 	}
 
 	currentSet.Spec.Template.Spec.Containers = newContainers
@@ -169,9 +170,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
 	}
 
-	err = r.client.Update(context.TODO(), currentSet)
+	err = r.createOrUpdate(currentSet)
 	if err != nil {
-		return fmt.Errorf("update error: %v", err)
+		return errors.Wrap(err, "update error")
 	}
 
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType {
@@ -190,20 +191,22 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	log.Info("statefulSet was changed, run smart update")
+	logger := r.logger(cr.Name, cr.Namespace)
+
+	logger.Info("statefulSet was changed, run smart update")
 
 	running, err := r.isBackupRunning(cr)
 	if err != nil {
-		log.Error(err, "can't start 'SmartUpdate'")
+		logger.Error(err, "can't start 'SmartUpdate'")
 		return nil
 	}
 	if running {
-		log.Info("can't start/continue 'SmartUpdate': backup is running")
+		logger.Info("can't start/continue 'SmartUpdate': backup is running")
 		return nil
 	}
 
 	if sfs.StatefulSet().Status.ReadyReplicas < sfs.StatefulSet().Status.Replicas {
-		log.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
+		logger.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
 		return nil
 	}
 
@@ -215,12 +218,12 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
 	); err != nil {
-		return fmt.Errorf("get pod list: %v", err)
+		return errors.Wrap(err, "get pod list")
 	}
 
 	primary, err := r.getPrimaryPod(cr)
 	if err != nil {
-		return fmt.Errorf("get primary pod: %v", err)
+		return errors.Wrap(err, "get primary pod")
 	}
 	for _, pod := range list.Items {
 		if pod.Status.PodIP == primary || pod.Name == primary {
@@ -229,7 +232,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		}
 	}
 
-	log.Info(fmt.Sprintf("primary pod is %s", primary))
+	logger.Info("primary pod", "pod name", primary)
 
 	waitLimit := 2 * 60 * 60 // 2 hours
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
@@ -246,48 +249,50 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)) {
 			primaryPod = pod
 		} else {
-			log.Info(fmt.Sprintf("apply changes to secondary pod %s", pod.Name))
+			logger.Info("apply changes to secondary pod", "pod name", pod.Name)
 			if err := r.applyNWait(cr, sfs.StatefulSet(), &pod, waitLimit); err != nil {
-				return fmt.Errorf("failed to apply changes: %v", err)
+				return errors.Wrap(err, "failed to apply changes")
 			}
 		}
 	}
 
-	log.Info(fmt.Sprintf("apply changes to primary pod %s", primaryPod.Name))
+	logger.Info("apply changes to primary pod", "pod name", primaryPod.Name)
 	if err := r.applyNWait(cr, sfs.StatefulSet(), &primaryPod, waitLimit); err != nil {
-		return fmt.Errorf("failed to apply changes: %v", err)
+		return errors.Wrap(err, "failed to apply changes")
 	}
 
-	log.Info("smart update finished")
+	logger.Info("smart update finished")
 
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster, sfs *appsv1.StatefulSet, pod *corev1.Pod, waitLimit int) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	if pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
-		log.Info(fmt.Sprintf("pod %s is already updated", pod.Name))
+		logger.Info("pod is already updated", "pod name", pod.Name)
 	} else {
 		if err := r.client.Delete(context.TODO(), pod); err != nil {
-			return fmt.Errorf("failed to delete pod: %v", err)
+			return errors.Wrap(err, "failed to delete pod")
 		}
 	}
 
-	if err := r.waitPodRestart(sfs.Status.UpdateRevision, pod, waitLimit); err != nil {
-		return fmt.Errorf("failed to wait pod: %v", err)
+	if err := r.waitPodRestart(sfs.Status.UpdateRevision, pod, waitLimit, logger); err != nil {
+		return errors.Wrap(err, "failed to wait pod")
 	}
 
 	if err := r.waitPXCSynced(cr, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, waitLimit); err != nil {
-		return fmt.Errorf("failed to wait pxc sync: %v", err)
+		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
-	if err := r.waitUntilOnline(cr, sfs.Name, pod, waitLimit); err != nil {
-		return fmt.Errorf("failed to wait pxc status: %v", err)
+	if err := r.waitUntilOnline(cr, sfs.Name, pod, waitLimit, logger); err != nil {
+		return errors.Wrap(err, "failed to wait pxc status")
 	}
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int) error {
+func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		time.Sleep(5 * time.Second)
 		return nil
@@ -295,7 +300,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 
 	database, err := r.proxyDB(cr)
 	if err != nil {
-		return fmt.Errorf("failed to get proxySQL db: %v", err)
+		return errors.Wrap(err, "failed to get proxySQL db")
 	}
 
 	defer database.Close()
@@ -306,7 +311,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 		func() (bool, error) {
 			statuses, err := database.Status(podNamePrefix, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 			if err != nil && err != queries.ErrNotFound {
-				return false, fmt.Errorf("failed to get status: %v", err)
+				return false, errors.Wrap(err, "failed to get status")
 			}
 
 			for _, status := range statuses {
@@ -315,7 +320,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 				}
 			}
 
-			log.Info(fmt.Sprintf("pod %s is online", pod.Name))
+			logger.Info("pod is online", "pod name", pod.Name)
 			return true, nil
 		})
 }
@@ -340,7 +345,7 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 	for {
 		select {
 		case <-done.C:
-			return fmt.Errorf("reach pod wait limit")
+			return errors.New("reach pod wait limit")
 		case <-tk.C:
 			fdone, err := f()
 			if err != nil {
@@ -403,7 +408,7 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
 	database, err := r.proxyDB(cr)
 	if err != nil {
-		return "", fmt.Errorf("failed to get proxySQL db: %v", err)
+		return "", errors.Wrap(err, "failed to get proxySQL db")
 	}
 
 	defer database.Close()
@@ -431,7 +436,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 
 	database, err := queries.New(r.client, cr.Namespace, secrets, user, host, port)
 	if err != nil {
-		return fmt.Errorf("failed to access PXC database: %v", err)
+		return errors.Wrap(err, "failed to access PXC database")
 	}
 
 	defer database.Close()
@@ -440,7 +445,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		func() (bool, error) {
 			state, err := database.WsrepLocalStateComment()
 			if err != nil {
-				return false, fmt.Errorf("failed to get wsrep local state: %v", err)
+				return false, errors.Wrap(err, "failed to get wsrep local state")
 			}
 
 			if state == "Synced" {
@@ -451,7 +456,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		})
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, pod *corev1.Pod, waitLimit int) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
 			err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
@@ -471,7 +476,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, po
 			}
 
 			if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
-				log.Info(fmt.Sprintf("pod %s is running", pod.Name))
+				logger.Info("pod is running", "pod name", pod.Name)
 				return true, nil
 			}
 
@@ -493,7 +498,7 @@ func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBClu
 		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to get backup object: %v", err)
+		return false, errors.Wrap(err, "failed to get backup object")
 	}
 
 	for _, bcp := range bcpList.Items {

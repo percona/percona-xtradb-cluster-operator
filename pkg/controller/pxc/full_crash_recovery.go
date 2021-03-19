@@ -101,8 +101,9 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace st
 			maxSeqPod = podName
 		}
 	}
-	log.Info("We are in full cluster crash, starting recovery")
-	log.Info("Results of scanning sequences", "pod", maxSeqPod, "maxSeq", maxSeq)
+	logger := r.logger(crName, namespace)
+	logger.Info("We are in full cluster crash, starting recovery")
+	logger.Info("Results of scanning sequences", "pod", maxSeqPod, "maxSeq", maxSeq)
 
 	pod := &corev1.Pod{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{

@@ -2,9 +2,11 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/go-ini/ini"
+	"github.com/go-logr/logr"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 
@@ -13,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -445,7 +448,7 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
-func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion) (changed bool, err error) {
+func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion, logger logr.Logger) (changed bool, err error) {
 	workloadSA := "percona-xtradb-cluster-operator-workload"
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		workloadSA = WorkloadSA
@@ -487,15 +490,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}
 
-		// pxc replicas shouldn't be less than 3 for safe configuration
-		if c.PXC.Size < 3 && !c.AllowUnsafeConfig {
-			c.PXC.Size = 3
-		}
-
-		// number of pxc replicas should be an odd
-		if c.PXC.Size%2 == 0 && !c.AllowUnsafeConfig {
-			c.PXC.Size++
-		}
+		setSafeDefaults(c, logger)
 
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-PXC.
 		// It's a description of the number of pods from that set that can be unavailable after the eviction.
@@ -651,6 +646,27 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	return CRVerChanged || changed, nil
 }
 
+func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
+	if spec.AllowUnsafeConfig {
+		return
+	}
+
+	loginfo := func(msg string, args ...interface{}) {
+		log.Info(fmt.Sprintf(msg, args...))
+		log.Info("Set allowUnsafeConfigurations=true to disable safe configuration")
+	}
+
+	if spec.PXC.Size < 3 {
+		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, 3)
+		spec.PXC.Size = 3
+	}
+
+	if spec.PXC.Size%2 == 0 {
+		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, spec.PXC.Size+1)
+		spec.PXC.Size++
+	}
+}
+
 // setVersion sets the API version of a PXC resource.
 // The new (semver-matching) version is determined either by the CR's API version or an API version specified via the CR's fields.
 // If the CR's API version is an empty string and last-applied-configuration from k8s is empty, it returns current operator version.
@@ -767,4 +783,31 @@ func (v *VolumeSpec) validate() error {
 		}
 	}
 	return nil
+}
+func (cr *PerconaXtraDBCluster) ProxySQLUnreadyServiceNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-proxysql-unready",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) ProxySQLServiceNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-proxysql",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) HaproxyServiceNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-haproxy",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) HAProxyReplicasNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-haproxy-replicas",
+		Namespace: cr.Namespace,
+	}
 }

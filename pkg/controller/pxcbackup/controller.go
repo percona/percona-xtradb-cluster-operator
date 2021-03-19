@@ -18,9 +18,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -117,7 +117,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		return reconcile.Result{}, fmt.Errorf("invalid backup cluster: %v", err)
 	}
 
-	_, err = cluster.CheckNSetDefaults(r.serverVersion)
+	_, err = cluster.CheckNSetDefaults(r.serverVersion, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
 	}

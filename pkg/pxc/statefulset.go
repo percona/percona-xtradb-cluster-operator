@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
+
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,7 +17,9 @@ import (
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) (*appsv1.StatefulSet, error) {
+func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster,
+	initContainers []corev1.Container, log logr.Logger) (*appsv1.StatefulSet, error) {
+
 	pod := corev1.PodSpec{
 		SecurityContext:               podSpec.PodSecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,

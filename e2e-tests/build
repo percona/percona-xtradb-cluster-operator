@@ -9,30 +9,31 @@ src_dir="$(realpath ${test_dir}/..)"
 IMAGE=$(echo "$IMAGE" | sed -e 's#percona/#perconalab/#')
 
 build_operator() {
-    if [ "${RELEASE:-1}" = 0 ]; then
-        GO_LDFLAGS="-race"
-    fi
+	if [ "${RELEASE:-1}" = 0 ]; then
+		GO_LDFLAGS="-race"
+	fi
 
-    export IMAGE
-    export GO_LDFLAGS="-w -s -trimpath $GO_LDFLAGS"
-    pushd ${src_dir}
-        docker build \
-            --build-arg GIT_COMMIT=$GIT_COMMIT \
-            --build-arg GIT_BRANCH=$GIT_BRANCH \
-            --build-arg GO_LDFLAGS="$GO_LDFLAGS" \
-            --squash \
-            --no-cache \
-            -t "${IMAGE}" -f build/Dockerfile .
-    popd
-    docker push ${IMAGE}
+	export IMAGE
+	export GO_LDFLAGS="-w -s -trimpath $GO_LDFLAGS"
+	pushd ${src_dir}
+	docker build \
+		--build-arg GIT_COMMIT=$GIT_COMMIT \
+		--build-arg GIT_BRANCH=$GIT_BRANCH \
+		--build-arg BUILD_TIME=$BUILD_TIME \
+		--build-arg GO_LDFLAGS="$GO_LDFLAGS" \
+		--squash \
+		--no-cache \
+		-t "${IMAGE}" -f build/Dockerfile .
+	popd
+	docker push ${IMAGE}
 }
 
-if [[ $BUILD = "0" ]]; then
-    exit 0
+if [[ $BUILD == "0" ]]; then
+	exit 0
 fi
 
-until docker ps;
-    do sleep 1;
+until docker ps; do
+	sleep 1
 done
 
 build_operator

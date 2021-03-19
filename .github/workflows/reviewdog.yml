@@ -11,6 +11,8 @@ jobs:
         with:
           version: latest
           only-new-issues: true
+          args: --timeout 5m
+
 
   gofmt:
     name: runner / suggester / gofmt

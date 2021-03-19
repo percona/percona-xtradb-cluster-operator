@@ -5,16 +5,12 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/pkg/errors"
-
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
@@ -106,9 +102,15 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	pod.Containers = api.AddSidecarContainers(log, pod.Containers, podSpec.Sidecars)
 
 	ls := sfs.Labels()
+
+	customLabels := make(map[string]string, len(ls))
+	for k, v := range ls {
+		customLabels[k] = v
+	}
+
 	for k, v := range podSpec.Labels {
-		if _, ok := ls[k]; !ok {
-			ls[k] = v
+		if _, ok := customLabels[k]; !ok {
+			customLabels[k] = v
 		}
 	}
 
@@ -121,7 +123,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		ServiceName: sfs.Service(),
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels:      ls,
+				Labels:      customLabels,
 				Annotations: podSpec.Annotations,
 			},
 			Spec: pod,

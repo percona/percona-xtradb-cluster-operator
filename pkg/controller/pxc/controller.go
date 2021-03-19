@@ -531,6 +531,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil {
 		return errors.Wrap(err, "get operator deployment")
 	}
+
 	logger := r.logger(cr.Name, cr.Namespace)
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
@@ -600,8 +601,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	err = r.client.Create(context.TODO(), nodeSet)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	err = r.createOrUpdate(nodeSet)
+	if err != nil {
 		return errors.Wrap(err, "create newStatefulSetNode")
 	}
 

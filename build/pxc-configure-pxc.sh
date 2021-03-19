@@ -88,7 +88,8 @@ sed -r "s|^[#]?wsrep_sst_donor=.*$|wsrep_sst_donor=${DONOR_ADDRESS}|" ${CFG} 1<>
 sed -r "s|^[#]?wsrep_cluster_address=.*$|wsrep_cluster_address=gcomm://${WSREP_CLUSTER_ADDRESS}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?wsrep_node_incoming_address=.*$|wsrep_node_incoming_address=${NODE_NAME}:${NODE_PORT}|" ${CFG} 1<> ${CFG}
 { set +x; } 2>/dev/null
-sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:$XTRABACKUP_PASSWORD'|" ${CFG} 1<> ${CFG}
+ESCAPED_XTRABACKUP_PASSWORD=$(printf '%s\n' "$XTRABACKUP_PASSWORD" | sed -e 's/[]\|\&\!$*.^[]/\\&/g')
+sed -r "s|^[#]?wsrep_sst_auth=.*$|wsrep_sst_auth='xtrabackup:$ESCAPED_XTRABACKUP_PASSWORD'|" ${CFG} 1<> ${CFG}
 set -x
 sed -r "s|^[#]?admin-address=.*$|admin-address=${NODE_IP}|" ${CFG} 1<> ${CFG}
 sed -r "s|^[#]?extra_max_connections=.*$|extra_max_connections=100|" ${CFG} 1<> ${CFG}

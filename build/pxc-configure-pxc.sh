@@ -75,7 +75,7 @@ else
 fi
 
 if [ "$IS_LOGCOLLECTOR" == 'yes' ]; then
-    grep -E -q "^[#]?log-error" "$CFG" || sed "/^\[mysqld\]/a log-error=$LOG_DATA_DIR/mysqld-error.log\n" ${CFG} 1<>${CFG}
+	grep -E -q "^[#]?log-error" "$CFG" || sed "/^\[mysqld\]/a log-error=$LOG_DATA_DIR/mysqld-error.log\n" ${CFG} 1<>${CFG}
 fi
 grep -E -q "^[#]?wsrep_sst_donor" "$CFG" || sed '/^\[mysqld\]/a wsrep_sst_donor=\n' ${CFG} 1<>${CFG}
 grep -E -q "^[#]?wsrep_node_incoming_address" "$CFG" || sed '/^\[mysqld\]/a wsrep_node_incoming_address=\n' ${CFG} 1<>${CFG}

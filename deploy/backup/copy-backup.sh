@@ -7,14 +7,7 @@ ACCESS_KEY_ID=${ACCESS_KEY_ID:-}
 SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY:-}
 ENDPOINT=${ENDPOINT:-}
 DEFAULT_REGION=${DEFAULT_REGION:-us-east-1}
-
-# it is needed to have full path to xbcloud on some platforms
-if ! xbcloud=$(which xbcloud); then
-  echo "No xtrabackup binaries found, please install them:"
-  echo "https://www.percona.com/downloads/Percona-XtraBackup-LATEST"
-  echo "https://formulae.brew.sh/formula/percona-xtrabackup"
-  exit 1
-fi
+xbcloud=$(which xbcloud) # it is needed to have full path to xbcloud on some platforms
 
 check_ctrl() {
     if [ -x "$(command -v kubectl)" ]; then
@@ -35,7 +28,6 @@ usage() {
 		    <backup-name>  the backup name
 		                   it can be obtained with the "$ctrl get pxc-backup" command
 		    <local/dir>    the name of destination directory on local machine
-		    <namespace>    optionally specify a namespace
 	EOF
     exit 1
 }
@@ -76,90 +68,58 @@ enable_logging() {
     fi
 }
 
-check_input_namespace() {
-    local namespace=${1}
+check_input() {
+    local backup_dest=$1
+    local dest_dir=$2
 
-    if [ -n "$namespace" ]; then
-        ctrl="$ctrl -n $namespace"
+    echo
+    if [ -z "$backup_dest" ] || [ -z "$dest_dir" ]; then
+        usage
     fi
-}
 
-check_input_destination() {
-  local backup_dest=$1
-  local dest_dir=$2
+    if [ ! -e "$dest_dir" ]; then
+        mkdir -p "$dest_dir"
+    fi
 
-  if [ -z "$backup_dest" ] || [ -z "$dest_dir" ]; then
-      usage
-  fi
+    if [ "${backup_dest:0:4}" = "pvc/" ]; then
+        if ! $ctrl get "$backup_dest" 1>/dev/null; then
+            printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_dest"
+            usage
+        fi
+    elif [ "${backup_dest:0:5}" = "s3://" ]; then
+        env -i $CREDENTIALS $xbcloud get ${backup_dest} xtrabackup_info 1>/dev/null
+    else
+        usage
+    fi
 
-  if [ ! -e "$dest_dir" ]; then
-      mkdir -p "$dest_dir"
-  fi
-
-  if [ "${backup_dest:0:4}" = "pvc/" ]; then
-      if ! $ctrl get "$backup_dest" 1>/dev/null; then
-          printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_dest"
-          usage
-      fi
-  elif [ "${backup_dest:0:5}" = "s3://" ]; then
-      env -i $CREDENTIALS $xbcloud get ${backup_dest} xtrabackup_info 1>/dev/null
-  else
-      echo "Can't find $backup_dest backup"
-      usage
-  fi
-
-  if [ ! -d "$dest_dir" ]; then
-      printf "[ERROR] '%s' is not local directory.\n\n" "$dest_dir"
-      usage
-  fi
-
+    if [ ! -d "$dest_dir" ]; then
+        printf "[ERROR] '%s' is not local directory.\n\n" "$dest_dir"
+        usage
+    fi
 }
 
 start_tmp_pod() {
     local backup_pvc=$1
 
     $ctrl delete pod/backup-access 2>/dev/null || :
-
-    if [ -n "$namespace" ]; then
-      cat - <<-EOF | $ctrl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: backup-access
-  namespace: $namespace
-spec:
-  containers:
-  - name: xtrabackup
-    image: percona/percona-xtradb-cluster-operator:0.3.0-backup
-    volumeMounts:
-    - name: backup
-      mountPath: /backup
-  restartPolicy: Never
-  volumes:
-  - name: backup
-    persistentVolumeClaim:
-      claimName: ${backup_pvc#pvc/}
-EOF
-    else
-      cat - <<-EOF | $ctrl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: backup-access
-spec:
-  containers:
-  - name: xtrabackup
-    image: percona/percona-xtradb-cluster-operator:0.3.0-backup
-    volumeMounts:
-    - name: backup
-      mountPath: /backup
-  restartPolicy: Never
-  volumes:
-  - name: backup
-    persistentVolumeClaim:
-      claimName: ${backup_pvc#pvc/}
-EOF
-    fi
+    cat - <<-EOF | $ctrl apply -f -
+		apiVersion: v1
+		kind: Pod
+		metadata:
+		  name: backup-access
+		spec:
+		      containers:
+		      - name: xtrabackup
+		        image: percona/percona-xtradb-cluster-operator:0.3.0-backup
+		        volumeMounts:
+		        - name: backup
+		          mountPath: /backup
+		      restartPolicy: Never
+		      volumes:
+		      - name: backup
+		        persistentVolumeClaim:
+		          claimName: ${backup_pvc#pvc/}
+	EOF
 
     echo -n Starting pod.
     until $ctrl get pod/backup-access -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null | grep -q 'true'; do
@@ -199,15 +159,13 @@ stop_tmp_pod() {
 main() {
     local backup=$1
     local dest_dir=$2
-    local namespace=$3
     local backup_dest
 
     check_ctrl
     enable_logging
-    check_input_namespace "$namespace"
     get_backup_dest "$backup"
     backup_dest=$(get_backup_dest "$backup")
-    check_input_destination "$backup_dest" "$dest_dir"
+    check_input "$backup_dest" "$dest_dir"
 
     if [ "${backup_dest:0:4}" = "pvc/" ]; then
         start_tmp_pod "$backup_dest"

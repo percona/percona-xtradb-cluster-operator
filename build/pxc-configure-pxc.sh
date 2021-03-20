@@ -37,6 +37,22 @@ function mysql_root_exec() {
   set -x
 }
 
+function resolve_hostname_from_ip() {
+  local ip="$1"
+  local cluster_name="$2"
+
+  { set +x; } 2>/dev/null
+  if ! which host >/dev/null 2>&1; then
+    >&2 echo "ERROR: bind-utils is not installed"
+    set -x
+    return
+  fi
+
+  timeout 30 host $ip | grep ' domain name pointer ' | awk -F ' ' '{print $NF}' | awk -F '.' '{print $1}' | grep "^$cluster_name" | tail -n 1 | grep -E '[a-zA-Z0-9]' || >&2 echo "WARNING: failed to resolve hostname from $ip"
+
+  set -x
+}
+
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
 CLUSTER_NAME="$(hostname -f | cut -d'.' -f2)"
 SERVER_ID=${HOSTNAME/$CLUSTER_NAME-}
@@ -52,7 +68,12 @@ while read -ra LINE; do
             PEERS=("${PEERS[@]}" $LINE_HOST)
             PEERS_FULL=("${PEERS_FULL[@]}" "$LINE_HOST.$CLUSTER_NAME")
         else
-            PEERS_FULL=("${PEERS_FULL[@]}" $LINE_IP)
+            LINE_HOST_RESOLVED=$(resolve_hostname_from_ip $LINE_IP $CLUSTER_NAME || :)
+            if [ -n "$LINE_HOST_RESOLVED" ]; then
+                PEERS_FULL=("${PEERS_FULL[@]}" "$LINE_HOST_RESOLVED.$CLUSTER_NAME")
+            else
+                PEERS_FULL=("${PEERS_FULL[@]}" $LINE_IP)
+            fi
         fi
     fi
 done

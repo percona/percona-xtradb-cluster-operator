@@ -118,8 +118,11 @@ check_input_destination() {
 start_tmp_pod() {
     local backup_pvc=$1
 
+    $ctrl delete pod/backup-access 2>/dev/null || :
+
     if [ -n "$namespace" ]; then
-      $ctrl delete pod/backup-access 2>/dev/null || echo "apiVersion: v1
+      cat - <<-EOF | $ctrl apply -f -
+apiVersion: v1
 kind: Pod
 metadata:
   name: backup-access
@@ -135,9 +138,11 @@ spec:
   volumes:
   - name: backup
     persistentVolumeClaim:
-      claimName: ${backup_pvc#pvc/}" | $ctrl apply -f -
+      claimName: ${backup_pvc#pvc/}
+EOF
     else
-      $ctrl delete pod/backup-access 2>/dev/null || echo "apiVersion: v1
+      cat - <<-EOF | $ctrl apply -f -
+apiVersion: v1
 kind: Pod
 metadata:
   name: backup-access
@@ -152,7 +157,8 @@ spec:
   volumes:
   - name: backup
     persistentVolumeClaim:
-      claimName: ${backup_pvc#pvc/}" | $ctrl apply -f -
+      claimName: ${backup_pvc#pvc/}
+EOF
     fi
 
     echo -n Starting pod.

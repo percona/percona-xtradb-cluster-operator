@@ -340,7 +340,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXt
 		}
 	}
 
-	return nil, errors.Wrap(err, "wrong cluster name")
+	return nil, errors.New("wrong cluster name")
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBClusterBackup) (*minio.Client, error) {

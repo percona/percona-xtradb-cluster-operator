@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -109,14 +110,18 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	log                 logr.Logger
 }
 
+func (r *ReconcilePerconaXtraDBClusterBackup) logger(name, namespace string) logr.Logger {
+	return log.NewDelegatingLogger(r.log).WithValues("controller", "perconaxtradbclusterbackup",
+		"cluster", name, "namespace", namespace)
+}
+
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read
 // and what is in the PerconaXtraDBClusterBackup.Spec
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	// reqLogger.Info("Reconciling PerconaXtraDBClusterBackup")
+	reqLogger := r.logger(request.Name, request.Namespace)
 
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,

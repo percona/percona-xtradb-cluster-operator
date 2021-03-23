@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -88,6 +89,11 @@ type ReconcilePerconaXtraDBClusterRestore struct {
 	log           logr.Logger
 }
 
+func (r *ReconcilePerconaXtraDBClusterRestore) logger(name, namespace string) logr.Logger {
+	return log.NewDelegatingLogger(r.log).WithValues("controller", "perconaxtradbclusterrestore",
+		"cluster", name, "namespace", namespace)
+}
+
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterRestore object and makes changes based on the state read
 // and what is in the PerconaXtraDBClusterRestore.Spec
 // Note:
@@ -109,7 +115,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 	if cr.Status.State != api.RestoreNew {
 		return rr, nil
 	}
-	lgr := r.log.WithValues("namespace", request.Namespace, "restore", request.Name)
+
+	lgr := r.logger(request.Name, request.Namespace)
 	lgr.Info("backup restore request")
 
 	err = r.setStatus(cr, api.RestoreStarting, "")

@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,10 +59,17 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get version")
 	}
+
 	cli, err := clientcmd.NewClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "create clientcmd")
 	}
+
+	zapLog, err := zap.NewProduction()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create logger")
+	}
+
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
@@ -68,6 +77,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		serverVersion: sv,
 		clientcmd:     cli,
 		lockers:       newLockStore(),
+		log:           zapr.NewLogger(zapLog),
 	}, nil
 }
 
@@ -101,11 +111,11 @@ type ReconcilePerconaXtraDBCluster struct {
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
+	log            logr.Logger
 }
 
 func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
-	return log.NewDelegatingLogger(log.NullLogger{}).WithName("controller_perconaxtradbcluster").
-		WithValues("cluster name", name, "namespace", namespace)
+	return log.NewDelegatingLogger(r.log).WithValues("cluster name", name, "namespace", namespace)
 }
 
 type lockStore struct {

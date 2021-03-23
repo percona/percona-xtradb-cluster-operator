@@ -115,7 +115,7 @@ type ReconcilePerconaXtraDBCluster struct {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
-	return log.NewDelegatingLogger(r.log).WithValues("cluster name", name, "namespace", namespace)
+	return log.NewDelegatingLogger(r.log).WithValues("controller", "perconaxtradbcluster", "cluster name", name, "namespace", namespace)
 }
 
 type lockStore struct {

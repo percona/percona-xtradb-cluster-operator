@@ -111,8 +111,8 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) logger(name, namespace string) logr.Logger {
-	return log.NewDelegatingLogger(r.log).WithValues("controller", "perconaxtradbclusterbackup",
-		"backup", name, "namespace", namespace)
+	return log.NewDelegatingLogger(r.log).WithName("perconaxtradbclusterbackup").
+		WithValues("backup", name, "namespace", namespace)
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read

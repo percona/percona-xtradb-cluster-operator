@@ -120,28 +120,7 @@ start_tmp_pod() {
 
     $ctrl delete pod/backup-access 2>/dev/null || :
 
-    if [ -n "$namespace" ]; then
-      cat - <<-EOF | $ctrl apply -f -
-apiVersion: v1
-kind: Pod
-metadata:
-  name: backup-access
-  namespace: $namespace
-spec:
-  containers:
-  - name: xtrabackup
-    image: percona/percona-xtradb-cluster-operator:0.3.0-backup
-    volumeMounts:
-    - name: backup
-      mountPath: /backup
-  restartPolicy: Never
-  volumes:
-  - name: backup
-    persistentVolumeClaim:
-      claimName: ${backup_pvc#pvc/}
-EOF
-    else
-      cat - <<-EOF | $ctrl apply -f -
+    cat - <<-EOF | $ctrl apply -f -
 apiVersion: v1
 kind: Pod
 metadata:
@@ -159,7 +138,6 @@ spec:
     persistentVolumeClaim:
       claimName: ${backup_pvc#pvc/}
 EOF
-    fi
 
     echo -n Starting pod.
     until $ctrl get pod/backup-access -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null | grep -q 'true'; do

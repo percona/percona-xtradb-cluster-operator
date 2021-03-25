@@ -154,10 +154,8 @@ Storing binary logs for point-in-time recovery
 Point-in-time recovery functionality allows users to roll back the cluster to a
 specific transaction, time (or even skip a transaction in some cases).
 Technically, this feature involves continuously saving binary log updates to the
-backup storage. Point-in-time recovery is off by default.
-
-.. note:: Point-in-time recovery is supported by the Operator only with Percona
-   XtraDB Cluster versions starting from 8.0.21-12.1.
+backup storage. Point-in-time recovery is off by default and is supported by the
+Operator only with Percona XtraDB Cluster versions starting from 8.0.21-12.1.
 
 To be used, it requires setting a number of keys in the ``pitr`` subsection
 under the ``backup`` section of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file:
@@ -183,6 +181,9 @@ Following example shows how the ``pitr`` subsection looks like:
 .. note:: It is recommended to have empty bucket/directory which holds binlogs
    (with no binlogs or files from previous attempts or other clusters) when
    you enable point-in-time recovery.
+
+.. note:: `Purging binlogs <https://dev.mysql.com/doc/refman/8.0/en/purge-binary-logs.html>`_
+   before they are transferred to backup storage will break point-in-time recovery.
 
 .. _backups-private-volume:
 

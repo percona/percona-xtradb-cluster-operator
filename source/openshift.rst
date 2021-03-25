@@ -1,15 +1,15 @@
 Install Percona XtraDB Cluster on OpenShift
 ===========================================
 
-Installing Percona Server for MongoDB on OpenShift includes two steps:
+Installing Percona XtraDB Cluster on OpenShift includes two steps:
 
-* Installing the Percona Operator for Percona Server for MongoDB,
-* Install Percona Server for MongoDB using the Operator.
+* Installing the Percona Operator for Percona XtraDB Cluster,
+* Install Percona XtraDB Cluster using the Operator.
 
 Install the Operator
 --------------------
 
-You can install Percona Operator for Percona Server for MongoDB on OpenShift using the `Red Hat Marketplace <https://marketplace.redhat.com>`_ web interface or using the command line interface.
+You can install Percona Operator for Percona XtraDB Cluster on OpenShift using the `Red Hat Marketplace <https://marketplace.redhat.com>`_ web interface or using the command line interface.
 
 Install the Operator via the Red Hat Marketplace
 ************************************************

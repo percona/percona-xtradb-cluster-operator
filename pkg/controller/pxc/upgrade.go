@@ -90,6 +90,21 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
 	}
 
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
+		if isHAproxy(sfs) {
+			envVarsHash, err = r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
+		} else if isProxySQL(sfs) {
+			envVarsHash, err = r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
+		}
+		if err != nil {
+			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		}
+		if envVarsHash != "" {
+			currentSet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+		}
+	}
+
 	if isHAproxy(sfs) && cr.CompareVersionWith("1.6.0") >= 0 {
 		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
 		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-hash")
@@ -493,6 +508,10 @@ func isPXC(sfs api.StatefulApp) bool {
 
 func isHAproxy(sfs api.StatefulApp) bool {
 	return sfs.Labels()["app.kubernetes.io/component"] == "haproxy"
+}
+
+func isProxySQL(sfs api.StatefulApp) bool {
+	return sfs.Labels()["app.kubernetes.io/component"] == "proxysql"
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBCluster) (bool, error) {

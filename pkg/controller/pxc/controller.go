@@ -599,6 +599,16 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
+		if err != nil {
+			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		}
+		if envVarsHash != "" {
+			nodeSet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+		}
+	}
+
 	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
 	if err != nil {
 		return errors.Wrap(err, "get vault config hash")
@@ -665,6 +675,15 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 			}
 		}
+		if cr.CompareVersionWith("1.9.0") >= 0 {
+			envVarsHash, err := r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
+			if err != nil {
+				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			}
+			if envVarsHash != "" {
+				haProxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+			}
+		}
 		err = r.client.Create(context.TODO(), haProxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return errors.Wrap(err, "create newStatefulSetHAProxy")
@@ -721,7 +740,15 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 			}
 		}
-
+		if cr.CompareVersionWith("1.9.0") >= 0 {
+			envVarsHash, err := r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
+			if err != nil {
+				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			}
+			if envVarsHash != "" {
+				proxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+			}
+		}
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return errors.Wrap(err, "create newStatefulSetProxySQL")

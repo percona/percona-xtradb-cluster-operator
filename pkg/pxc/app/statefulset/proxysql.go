@@ -106,7 +106,20 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		appc.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
 
+	}
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "config",
@@ -217,7 +230,19 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
-
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		envFrom := corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+				},
+				Optional: &fvar,
+			},
+		}
+		pxcMonit.EnvFrom = append(pxcMonit.EnvFrom, envFrom)
+		proxysqlMonit.EnvFrom = append(proxysqlMonit.EnvFrom, envFrom)
+	}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		operEnv := corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
@@ -298,6 +323,20 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 		ct.Resources = res
 	} else {
 		ct.Env = append(ct.Env, dbArgsEnv...)
+	}
+
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		ct.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
 	}
 
 	if cr.CompareVersionWith("1.7.0") >= 0 {

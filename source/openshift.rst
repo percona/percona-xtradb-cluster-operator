@@ -98,8 +98,8 @@ Install the Operator via the command-line interface
 
       $ oc apply -f deploy/operator.yaml
 
-Install Percona Server for MongoDB
-----------------------------------
+Install Percona XtraDB Cluster
+------------------------------
 
 #. Now that’s time to add the Percona XtraDB Cluster Users secrets to OpenShift.
    They should be placed in the data section of the ``deploy/secrets.yaml``

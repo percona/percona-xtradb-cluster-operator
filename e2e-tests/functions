@@ -235,9 +235,9 @@ create_infra() {
 			| grep -v 'NAMESPACE' \
 			| xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
 			|| :
-		kubectl_bin delete pxc --all --all-namespaces || :
-		kubectl_bin delete pxc-backup --all --all-namespaces || :
-		kubectl_bin delete pxc-restore --all --all-namespaces || :
+		# kubectl_bin delete pxc --all --all-namespaces || :
+		# kubectl_bin delete pxc-backup --all --all-namespaces || :
+		# kubectl_bin delete pxc-restore --all --all-namespaces || :
 
 		create_namespace $OPERATOR_NS
 		deploy_operator

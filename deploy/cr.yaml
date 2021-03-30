@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-7-0
+apiVersion: pxc.percona.com/v1-8-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -30,7 +30,7 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com
-    apply: recommended
+    apply: Never
     schedule: "0 4 * * *"
   pxc:
     size: 3
@@ -126,7 +126,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.7.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:1.8.0-k8spxc-688-custom
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |
@@ -171,7 +171,7 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
-#    envVarsSecret: my-env-var-secrets
+    envVarsSecret: my-env-var-secrets
     resources:
       requests:
         memory: 1G
@@ -365,7 +365,7 @@ spec:
 #        memory: 200M
 #        cpu: 500m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.7.0-pxc8.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

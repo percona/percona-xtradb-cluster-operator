@@ -599,7 +599,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
 		if err != nil {
 			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
@@ -675,7 +675,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 			}
 		}
-		if cr.CompareVersionWith("1.9.0") >= 0 {
+		if cr.CompareVersionWith("1.8.0") >= 0 {
 			envVarsHash, err := r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
 			if err != nil {
 				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
@@ -740,7 +740,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 			}
 		}
-		if cr.CompareVersionWith("1.9.0") >= 0 {
+		if cr.CompareVersionWith("1.8.0") >= 0 {
 			envVarsHash, err := r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
 			if err != nil {
 				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")

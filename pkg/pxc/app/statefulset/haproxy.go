@@ -137,7 +137,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			FailureThreshold:    4,
 		}, "/usr/local/bin/readiness-check.sh")
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		fvar := true
 		appc.EnvFrom = []corev1.EnvFromSource{
 			{
@@ -233,7 +233,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			MountPath: "/etc/mysql/mysql-users-secret",
 		})
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		fvar := true
 		container.EnvFrom = []corev1.EnvFromSource{
 			{
@@ -271,7 +271,7 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*
 	if cr.CompareVersionWith("1.7.0") >= 0 {
 		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false))
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes(cr.Spec.HAProxy.EnvVarsSecretName, cr.Spec.HAProxy.EnvVarsSecretName, true))
 	}
 

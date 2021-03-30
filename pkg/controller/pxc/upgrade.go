@@ -90,7 +90,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
 	}
 
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
 		if isHAproxy(sfs) {
 			envVarsHash, err = r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)

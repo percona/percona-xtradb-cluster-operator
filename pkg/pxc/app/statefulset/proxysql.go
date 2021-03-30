@@ -106,7 +106,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		fvar := true
 		appc.EnvFrom = []corev1.EnvFromSource{
 			{
@@ -230,7 +230,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		fvar := true
 		envFrom := corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
@@ -325,7 +325,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 		ct.Env = append(ct.Env, dbArgsEnv...)
 	}
 
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		fvar := true
 		ct.EnvFrom = []corev1.EnvFromSource{
 			{

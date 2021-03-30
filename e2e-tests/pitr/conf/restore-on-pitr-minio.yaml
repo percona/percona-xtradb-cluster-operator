@@ -4,14 +4,13 @@ metadata:
   name: on-pitr-minio
 spec:
   pxcCluster: pitr
-  backupName: on-pitr-minio
   backupSource:
-      destination: <destination>
-      s3:
-        bucket: operator-testing
-        credentialsSecret: minio-secret
-        endpointUrl: http://minio-service:9000
-        region: us-east-1
+    destination: <destination>
+    s3:
+      bucket: operator-testing
+      credentialsSecret: minio-secret
+      endpointUrl: http://minio-service:9000
+      region: us-east-1
   pitr:
     type: latest
     backupSource:

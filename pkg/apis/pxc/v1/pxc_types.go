@@ -226,6 +226,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 			if len(cr.Spec.Backup.PITR.StorageName) == 0 {
 				return errors.Errorf("backup.PITR.StorageName can't be empty")
 			}
+			_, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
+			if !ok {
+				return errors.Errorf("pitr storage %s doesn't exist", cr.Spec.Backup.PITR.StorageName)
+			}
 		}
 		for _, sch := range c.Backup.Schedule {
 			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]

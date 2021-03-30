@@ -129,7 +129,7 @@ How to chouse between HAProxy and ProxySQL when configuring the cluster?
 You can configure the Operator to use one of two different proxies, HAProxy
 (the default choice) and ProxySQL. Both solutions are fully supported by the
 Operator, but they have some differences in the architecture, which can make one
-of them more sutiable then the other one in some use cases.
+of them more suitable then the other one in some use cases.
 
 The main difference is that HAProxy operates in TCP mode as an `OSI level 4 proxy <https://www.haproxy.com/blog/layer-4-and-layer-7-proxy-mode/>`_,
 while ProxySQL implements OSI level 7 proxy, and thus can provide some additional
@@ -140,4 +140,4 @@ and getting use of the ProxySQL level 7 specifics requires good understanding of
 Kubernetes and ProxySQL.
 
 See more detailed functionality and performance comparison of using the Operator
-with both solutions in `this blog post <>`_
+with both solutions in `this blog post <https://www.percona.com/blog/2021/01/11/percona-kubernetes-operator-for-percona-xtradb-cluster-haproxy-or-proxysql/>`_.

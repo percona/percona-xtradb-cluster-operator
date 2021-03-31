@@ -45,7 +45,8 @@ type PerconaXtraDBClusterSpec struct {
 }
 
 type PXCSpec struct {
-	AutoRecovery *bool `json:"autoRecovery,omitempty"`
+	AutoRecovery    *bool `json:"autoRecovery,omitempty"`
+	HighCompression *bool `json:"highCompression,omitempty"`
 	*PodSpec
 }
 
@@ -174,6 +175,11 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	if c.PXC.AutoRecovery == nil {
 		boolVar := true
 		c.PXC.AutoRecovery = &boolVar
+	}
+
+	if c.PXC.HighCompression == nil {
+		boolVar := true
+		c.PXC.HighCompression = &boolVar
 	}
 
 	if c.PXC.Image == "" {

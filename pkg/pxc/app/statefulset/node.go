@@ -156,6 +156,14 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			},
 		})
 	}
+
+	if cr.CompareVersionWith("1.8.0") >= 0 && *cr.Spec.PXC.HighCompression {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "HIGH_COMPRESSION",
+			Value: "yes",
+		})
+	}
+
 	if cr.CompareVersionWith("1.7.0") >= 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "mysql-users-secret-file",

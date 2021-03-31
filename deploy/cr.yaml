@@ -36,12 +36,14 @@ spec:
     size: 3
     image: percona/percona-xtradb-cluster:8.0.21-12.1
     autoRecovery: true
+    highCompression: true
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600
 #    forceUnsafeBootstrap: false
-#    configuration: |
-#      [mysqld]
+    configuration: |
+      [mysqld]
+      default_storage_engine=BLACKHOLE
 #      wsrep_debug=ON
 #      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
 #      [sst]

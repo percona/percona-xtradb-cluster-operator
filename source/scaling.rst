@@ -2,8 +2,8 @@ Scale Percona XtraDB Cluster on Kubernetes and OpenShift
 ========================================================
 
 One of the great advantages brought by Kubernetes and the OpenShift
-platform is the ease of an application scaling. Scaling a Deployment up
-or down ensures new Pods are created and set to available Kubernetes
+platform is the ease of an application scaling. Scaling a Deployment in
+or out ensures new Pods are created and set to available Kubernetes
 nodes.
 
 Size of the cluster is controlled by a :ref:`size key<pxc-size>` in the :ref:`operator.custom-resource-options` configuration. That’s why scaling the cluster needs
@@ -13,15 +13,11 @@ on the fly, using the following command:
 
 .. code:: bash
 
-   $ kubectl patch pxc cluster1 --type='json' -p='[{"op": "replace", "path": "/spec/pxc/size", "value": 5 }]'
+   $ kubectl scale --replicas=5 pxc/cluster1
+
 
 In this example we have changed the size of the Percona XtraDB Cluster
-to ``5`` nodes.
-
-.. warning:: Using ``kubectl scale StatefulSet_name`` command to rescale
-   Percona XtraDB Cluster is not recommended, as it makes ``size``
-   configuration option out of sync, and the next config change may result
-   in reverting the previous number of nodes.
+to ``5`` instances.
 
 Increase the Persistent Volume Claim size
 -----------------------------------------

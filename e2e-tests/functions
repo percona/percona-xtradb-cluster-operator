@@ -35,6 +35,9 @@ if oc get projects; then
 		*) OPENSHIFT=4 ;;
 	esac
 fi
+
+KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor')
+
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
 	HELM_ARGS="--name"

@@ -19,8 +19,12 @@ check_haproxy_writer() {
 main() {
   create_infra $namespace
 
-  if [[ "$OPENSHIFT" != "3.11" ]]; then
-    apply_config "$test_dir/conf/docker-rc.yaml"
+  if [[ "${OPENSHIFT}" == 4 ]]; then
+    apply_config "$test_dir/conf/container-rc.yaml"
+  elif [[ -z "${OPENSHIFT}" ]] && [[ $(echo "$KUBE_VERSION >= 1.20" | bc -l) -eq 1 ]]; then
+    apply_config "$conf_dir/conf/container-rc.yaml"
+  else
+    apply_config "$conf_dir/conf/docker-rc.yaml"
   fi
 
   desc 'create first PXC cluster with HAProxy'

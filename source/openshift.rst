@@ -1,7 +1,41 @@
 Install Percona XtraDB Cluster on OpenShift
 ===========================================
 
-#. First of all, clone the percona-xtradb-cluster-operator repository:
+Installing Percona XtraDB Cluster on OpenShift includes two steps:
+
+* Installing the Percona Operator for Percona XtraDB Cluster,
+* Install Percona XtraDB Cluster using the Operator.
+
+Install the Operator
+--------------------
+
+You can install Percona Operator for Percona XtraDB Cluster on OpenShift using the `Red Hat Marketplace <https://marketplace.redhat.com>`_ web interface or using the command line interface.
+
+Install the Operator via the Red Hat Marketplace
+************************************************
+
+1. login to the Red Hat Marketplace and register your cluster `following the official instructions <https://marketplace.redhat.com/en-us/workspace/clusters/add/register>`_.
+
+2. Go to the `Kubernetes Operator for Percona XtraDB Cluster <https://marketplace.redhat.com/en-us/products/percona-kubernetes-operator-for-percona-server-for-xtradb-cluster>`_ page and click the `Free trial` button:
+
+   .. image:: img/marketplace-operator-page.png
+      :align: center
+      :alt: Percona Percona XtraDB Cluster Operator on Red Hat Marketplace
+
+   Here you can "start trial" of the Operator for 0.0 USD.
+
+3. When finished, chose ``Workspace->Software`` in the system menu on the top and choose the Operator:
+
+   .. image:: img/marketplace-operator-install.png
+      :align: center
+      :alt: Percona Percona XtraDB Cluster Operator install button
+
+   Click the ``Install Operator`` button.
+
+Install the Operator via the command-line interface
+***************************************************
+
+#. Clone the percona-xtradb-cluster-operator repository:
 
    .. code:: bash
 
@@ -63,6 +97,9 @@ Install Percona XtraDB Cluster on OpenShift
    .. code:: bash
 
       $ oc apply -f deploy/operator.yaml
+
+Install Percona XtraDB Cluster
+------------------------------
 
 #. Now that’s time to add the Percona XtraDB Cluster Users secrets to OpenShift.
    They should be placed in the data section of the ``deploy/secrets.yaml``

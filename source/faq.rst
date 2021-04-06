@@ -86,6 +86,31 @@ object-relational mapping), performance requirements, advanced routing and
 caching needs with one or another project, components already in use in the
 current infrastructure, and any other specific needs of the application.
 
+How can I add custom sidecar containers to my cluster?
+================================================================================
+
+The Operator allows you to deploy additional (so-called *sidecar*) containers to
+the Pod. You can use this feature to run debugging tools, some specific
+monitoring solutions, etc. Add such sidecar container to the ``deploy/cr.yaml``
+configuration file, specifying its name and image, and possibly a command to
+run:
+
+.. code:: yaml
+   spec:
+     pxc:
+       ....
+       sidecars:
+       - image: busybox
+         command: ["/bin/sh"]
+         args: ["-c", "while true; do echo echo $(date -u) 'test' >> /dev/null; sleep 5; done"]
+         name: my-sidecar-1
+       ....
+You can add ``sidecars`` subsection to ``pxc``, ``haproxy``, and ``proxysql``
+sections.
+
+.. note::  Custom sidecar containers `can easily access other components of your cluster <https://kubernetes.io/docs/concepts/workloads/pods/#resource-sharing-and-communication>`_. 
+   Therefore they should be used carefully and by experienced users only.
+
 How to get core dumps in case of the Percona XtraDB Cluster crash
 ================================================================================
 

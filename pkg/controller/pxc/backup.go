@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"reflect"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -82,26 +81,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				return fmt.Errorf("set owner ref to backup %s: %v", bcp.Name, err)
 			}
 
-			// Check if this Job already exists
-			currentBcpJob := new(batchv1beta1.CronJob)
-			err = r.client.Get(context.TODO(), types.NamespacedName{
-				Name:      bcpjob.Name,
-				Namespace: bcpjob.Namespace,
-			}, currentBcpJob)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return errors.Wrapf(err, "create scheduled backup %s", bcp.Name)
-			}
-
-			if k8serrors.IsNotFound(err) {
-				err = r.client.Create(context.TODO(), bcpjob)
-				if err != nil {
-					return errors.Wrapf(err, "create scheduled backup %s", bcp.Name)
-				}
-			} else if !reflect.DeepEqual(currentBcpJob.Spec, bcpjob.Spec) {
-				err = r.client.Update(context.TODO(), bcpjob)
-				if err != nil {
-					return errors.Wrapf(err, "update backup schedule %s", bcp.Name)
-				}
+			err = r.createOrUpdate(bcpjob)
+			if err != nil {
+				return errors.Wrap(err, "failed to create or update backup job")
 			}
 		}
 	}

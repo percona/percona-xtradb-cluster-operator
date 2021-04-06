@@ -16,6 +16,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -1140,6 +1141,8 @@ func getObjectHash(obj runtime.Object) (string, error) {
 	case *appsv1.Deployment:
 		dataToMarshall = object.Spec
 	case *corev1.Service:
+		dataToMarshall = object.Spec
+	case *batchv1beta1.CronJob:
 		dataToMarshall = object.Spec
 	default:
 		dataToMarshall = obj

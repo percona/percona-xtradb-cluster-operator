@@ -5,6 +5,7 @@ COPY . .
 
 ARG GIT_COMMIT
 ARG GIT_BRANCH
+ARG BUILD_TIME
 ARG GO_LDFLAGS
 ARG GOOS=linux
 ARG GOARCH=amd64
@@ -12,7 +13,7 @@ ARG CGO_ENABLED=0
 
 RUN mkdir -p build/_output/bin \
     && GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
-       go build -mod=vendor -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH" \
+       go build -mod=vendor -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH -X main.BuildTime=$BUILD_TIME" \
            -o build/_output/bin/percona-xtradb-cluster-operator \
                cmd/manager/main.go \
     && cp -r build/_output/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator

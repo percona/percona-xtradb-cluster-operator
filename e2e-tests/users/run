@@ -24,12 +24,20 @@ compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uroot -p$newp
 
 
 desc 'test proxyadmin'
+kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":3}}}"
+sleep 15
+wait_cluster_consistency "$cluster" 3 3
 patch_secret "my-cluster-secrets" "proxyadmin" "$newpassencrypted"
 sleep 15
-wait_cluster_consistency "$cluster" 3 1
-compare_mysql_cmd "select-2" "SHOW TABLES;" "-h $cluster-proxysql-unready -P6032 -uproxyadmin -p$newpass"
+wait_cluster_consistency "$cluster" 3 3
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-0" "" -c'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-1" "" -c'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-2" "" -c'proxysql'
+
+
 
 desc 'test xtrabackup'
+kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":1}}}"
 patch_secret "my-cluster-secrets" "xtrabackup" "$newpassencrypted"
 sleep 30
 wait_cluster_consistency "$cluster" 3 1

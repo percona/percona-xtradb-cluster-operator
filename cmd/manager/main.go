@@ -31,11 +31,12 @@ import (
 var (
 	GitCommit string
 	GitBranch string
+	BuildTime string
 	log       = logf.Log.WithName("cmd")
 )
 
 func printVersion() {
-	log.Info(fmt.Sprintf("Git commit: %s Git branch: %s", GitCommit, GitBranch))
+	log.Info(fmt.Sprintf("Git commit: %s Git branch: %s Build time: %s", GitCommit, GitBranch, BuildTime))
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("operator-sdk Version: %v", sdkVersion.Version))

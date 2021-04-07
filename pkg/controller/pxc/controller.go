@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,10 +59,17 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get version")
 	}
+
 	cli, err := clientcmd.NewClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "create clientcmd")
 	}
+
+	zapLog, err := zap.NewProduction()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create logger")
+	}
+
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
@@ -68,6 +77,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		serverVersion: sv,
 		clientcmd:     cli,
 		lockers:       newLockStore(),
+		log:           zapr.NewLogger(zapLog),
 	}, nil
 }
 
@@ -101,11 +111,12 @@ type ReconcilePerconaXtraDBCluster struct {
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
+	log            logr.Logger
 }
 
 func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
-	return log.NewDelegatingLogger(log.NullLogger{}).WithName("controller_perconaxtradbcluster").
-		WithValues("cluster name", name, "namespace", namespace)
+	return log.NewDelegatingLogger(r.log).WithName("perconaxtradbcluster").
+		WithValues("cluster", name, "namespace", namespace)
 }
 
 type lockStore struct {
@@ -531,6 +542,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil {
 		return errors.Wrap(err, "get operator deployment")
 	}
+
 	logger := r.logger(cr.Name, cr.Namespace)
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
@@ -600,8 +612,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	err = r.client.Create(context.TODO(), nodeSet)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	err = r.createOrUpdate(nodeSet)
+	if err != nil {
 		return errors.Wrap(err, "create newStatefulSetNode")
 	}
 
@@ -1084,7 +1096,12 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 	objAnnotations["percona.com/last-config-hash"] = hash
 	objectMeta.SetAnnotations(objAnnotations)
 
-	oldObject := obj.DeepCopyObject()
+	val := reflect.ValueOf(obj)
+	if val.Kind() == reflect.Ptr {
+		val = reflect.Indirect(val)
+	}
+	oldObject := reflect.New(val.Type()).Interface().(runtime.Object)
+
 	err = r.client.Get(context.Background(), types.NamespacedName{
 		Name:      objectMeta.GetName(),
 		Namespace: objectMeta.GetNamespace(),
@@ -1108,8 +1125,10 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
 		}
+
 		return r.client.Update(context.TODO(), obj)
 	}
+
 	return nil
 }
 

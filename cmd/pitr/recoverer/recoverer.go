@@ -30,6 +30,9 @@ type Recoverer struct {
 	binlogs        []string
 	gtidSet        string
 	startGTID      string
+	recoverFlag    string
+	recoverEndTime time.Time
+	gtid           string
 }
 
 type Config struct {
@@ -39,7 +42,7 @@ type Config struct {
 	BackupStorage  BackupS3
 	RecoverTime    string `env:"PITR_DATE"`
 	RecoverType    string `env:"PITR_RECOVERY_TYPE,required"`
-	GTIDSet        string `env:"PITR_GTID_SET"`
+	GTID           string `env:"PITR_GTID"`
 	BinlogStorage  BinlogS3
 }
 
@@ -95,7 +98,7 @@ func New(c Config) (*Recoverer, error) {
 		pxcServiceName: c.PXCServiceName,
 		recoverType:    RecoverType(c.RecoverType),
 		startGTID:      startGTID,
-		gtidSet:        c.GTIDSet,
+		gtid:           c.GTID,
 	}, nil
 }
 
@@ -181,6 +184,25 @@ func (r *Recoverer) Run() error {
 		return errors.Wrap(err, "get binlog list")
 	}
 
+	switch r.recoverType {
+	case Skip:
+		r.recoverFlag = " --exclude-gtids=" + r.gtid
+	case Transaction:
+		r.recoverFlag = " --exclude-gtids=" + r.gtidSet
+	case Date:
+		r.recoverFlag = ` --stop-datetime="` + r.recoverTime + `"`
+
+		const format = "2006-01-02 15:04:05"
+		endTime, err := time.Parse(format, r.recoverTime)
+		if err != nil {
+			return errors.Wrap(err, "parse date")
+		}
+		r.recoverEndTime = endTime
+	case Latest:
+	default:
+		return errors.New("wrong recover type")
+	}
+
 	err = r.recover()
 	if err != nil {
 		return errors.Wrap(err, "recover")
@@ -194,26 +216,6 @@ func (r *Recoverer) recover() (err error) {
 	if err != nil {
 		return errors.Wrap(err, "drop collector funcs")
 	}
-	flags := ""
-	endTime := time.Time{}
-	// TODO: add logic for all types
-	switch r.recoverType {
-	case Skip:
-		flags = " --exclude-gtids=" + r.gtidSet
-	case Transaction:
-	case Date:
-		flags = ` --stop-datetime="` + r.recoverTime + `"`
-
-		const format = "2006-01-02 15:04:05"
-		endTime, err = time.Parse(format, r.recoverTime)
-		if err != nil {
-			return errors.Wrap(err, "parse date")
-		}
-	case Latest:
-	default:
-		return errors.New("wrong recover type")
-	}
-
 	for _, binlog := range r.binlogs {
 		log.Println("working with", binlog)
 		if r.recoverType == Date {
@@ -225,7 +227,7 @@ func (r *Recoverer) recover() (err error) {
 			if err != nil {
 				return errors.Wrap(err, "get binlog time")
 			}
-			if binlogTime > endTime.Unix() {
+			if binlogTime > r.recoverEndTime.Unix() {
 				return nil
 			}
 		}
@@ -240,7 +242,7 @@ func (r *Recoverer) recover() (err error) {
 			return errors.Wrap(err, "set mysql pwd env var")
 		}
 
-		cmdString := "mysqlbinlog" + flags + " - | mysql -h" + r.db.GetHost() + " -u" + r.pxcUser
+		cmdString := "mysqlbinlog" + r.recoverFlag + " - | mysql -h" + r.db.GetHost() + " -u" + r.pxcUser
 		cmd := exec.Command("sh", "-c", cmdString)
 
 		cmd.Stdin = binlogObj
@@ -333,6 +335,24 @@ func (r *Recoverer) setBinlogs() error {
 		if sourceID != strings.Split(binlogGTIDSet, ":")[0] {
 			continue
 		}
+
+		if len(r.gtid) > 0 && r.recoverType == Transaction {
+			subResult, err := r.db.SubtractGTIDSet(binlogGTIDSet, r.gtid)
+			if err != nil {
+				return errors.Wrapf(err, "check if '%s' is a subset of '%s", binlogGTIDSet, r.gtid)
+			}
+			if subResult != binlogGTIDSet {
+				set, err := getExtendGTIDSet(binlogGTIDSet, r.gtid)
+				if err != nil {
+					return errors.Wrap(err, "get gtid set for extend")
+				}
+				r.gtidSet = set
+			}
+			if len(r.gtidSet) == 0 {
+				continue
+			}
+		}
+
 		binlogs = append(binlogs, binlog)
 		subResult, err := r.db.SubtractGTIDSet(r.startGTID, binlogGTIDSet)
 		if err != nil {
@@ -349,6 +369,25 @@ func (r *Recoverer) setBinlogs() error {
 	r.binlogs = binlogs
 
 	return nil
+}
+
+func getExtendGTIDSet(gtidSet, gtid string) (string, error) {
+	s := strings.Split(gtidSet, ":")
+	if len(s) < 2 {
+		return "", errors.Errorf("incorrect source in gtid set %s", gtidSet)
+	}
+
+	e := strings.Split(s[1], "-")
+	if len(e) < 2 {
+		return "", errors.Errorf("incorrect id range in %s", gtidSet)
+	}
+	gs := strings.Split(gtid, ":")
+	if len(gs) < 2 {
+		return "", errors.Errorf("incorrect source in gtid set %s", gtid)
+	}
+	es := strings.Split(gs[1], "-")
+
+	return gs[0] + ":" + es[0] + "-" + e[1], nil
 }
 
 func reverse(list []string) {

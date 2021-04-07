@@ -4,6 +4,7 @@ exec 5>&2
 BASH_XTRACEFD="5"
 
 GIT_COMMIT=$(git rev-parse HEAD)
+BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
 API="pxc.percona.com/v1-8-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
@@ -652,6 +653,7 @@ cat_config() {
 		| $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
 		| $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
 		| $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
+		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
 		| $sed -e "s#apply:.*#apply: Never#"
 }
 

@@ -4,14 +4,21 @@ void CreateCluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             NODES_NUM=3
-            if [ ${CLUSTER_PREFIX} == 'backups' ]; then
+            if [ ${CLUSTER_PREFIX} == 'backups' || ${CLUSTER_NAME} == 'scheduled-backup']; then
                 NODES_NUM=4
             fi
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters create --zone=${GKERegion} $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.18 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
+            gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone=${GKERegion}
+            if [ $? -eq 0 ]
+            then
+                echo "EXISTS"
+                exit 0
+            else
+                gcloud container clusters create --zone=${GKERegion} $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.18 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
+            fi
             kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
         """
    }
@@ -82,7 +89,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                     else
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                         source $HOME/google-cloud-sdk/path.bash.inc
-                        ./e2e-tests/$TEST_NAME/run
+                        time bash ./e2e-tests/$TEST_NAME/run
                     fi
                 """
             }
@@ -338,10 +345,16 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('pitr', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
-                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('scheduled-backups')
+                        runTest('scheduled-backup', 'scheduled-backup')
+                        ShutdownCluster('scheduled-backup')
+                    }
+                }                
                 stage('E2E BigData') {
                     steps {
                         CreateCluster('bigdata')
@@ -378,19 +391,23 @@ pipeline {
                             source $HOME/google-cloud-sdk/path.bash.inc
                             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                             gcloud config set project $GCP_PROJECT
-                            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata $CLUSTER_NAME-upgrade || true
-                            sudo docker rmi -f \$(sudo docker images -q) || true
-
+                            gcloud container clusters list --filter $CLUSTER_NAME | grep -v NAME | awk '{print $1}' | xargs gcloud container clusters delete --zone $GKERegion --quiet
+                            sudo docker system prune -fa
                             sudo rm -rf $HOME/google-cloud-sdk
                         '''
                     }
                 }
             }
-            sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf ./*
-                sudo rm -rf $HOME/google-cloud-sdk
-            '''
+            withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+                sh '''
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+                    gcloud config set project $GCP_PROJECT
+                    gcloud container clusters list --filter $CLUSTER_NAME | grep -v NAME | awk '{print $1}' | xargs gcloud container clusters delete --zone $GKERegion --quiet
+                    sudo docker system prune -fa
+                    sudo rm -rf ./*
+                    sudo rm -rf $HOME/google-cloud-sdk
+                '''
             deleteDir()
         }
     }

@@ -22,9 +22,9 @@ main() {
   if [[ "${OPENSHIFT}" == 4 ]]; then
     apply_config "$test_dir/conf/container-rc.yaml"
   elif [[ -z "${OPENSHIFT}" ]] && [[ $(echo "$KUBE_VERSION >= 1.20" | bc -l) -eq 1 ]]; then
-    apply_config "$conf_dir/conf/container-rc.yaml"
+    apply_config "$test_dir/conf/container-rc.yaml"
   else
-    apply_config "$conf_dir/conf/docker-rc.yaml"
+    apply_config "$test_dir/conf/docker-rc.yaml"
   fi
 
   desc 'create first PXC cluster with HAProxy'

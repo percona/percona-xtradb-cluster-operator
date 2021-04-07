@@ -14,8 +14,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
             gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone=${GKERegion}
             if [ $? -eq 0 ]
             then
-                echo "EXISTS"
-                exit 0
+                gcloud container clusters delete --zone $GKERegion --quiet $CLUSTER_NAME-${CLUSTER_PREFIX}
             else
                 gcloud container clusters create --zone=${GKERegion} $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.18 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
             fi

@@ -149,13 +149,14 @@ const (
 )
 
 type CronRegistry struct {
-	crons *cron.Cron
-	jobs  map[string]Shedule
+	crons             *cron.Cron
+	ensureVersionJobs map[string]Schedule
+	backupJobs        *sync.Map
 }
 
-type Shedule struct {
-	ID          int
-	CronShedule string
+type Schedule struct {
+	ID           int
+	CronSchedule string
 }
 
 const (
@@ -165,8 +166,9 @@ const (
 
 func NewCronRegistry() CronRegistry {
 	c := CronRegistry{
-		crons: cron.New(),
-		jobs:  make(map[string]Shedule),
+		crons:             cron.New(),
+		ensureVersionJobs: make(map[string]Schedule),
+		backupJobs:        new(sync.Map),
 	}
 
 	c.crons.Start()

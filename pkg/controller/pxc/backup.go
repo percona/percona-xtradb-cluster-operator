@@ -6,11 +6,14 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"reflect"
+	"hash/crc32"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,21 +22,19 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
+
+type BackupScheduleJob struct {
+	api.PXCScheduledBackupSchedule
+	JobID cron.EntryID
+}
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCluster) error {
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
-	operatorPod, err := k8s.OperatorPod(r.client)
-	if err != nil {
-		return errors.Wrap(err, "get operator deployment")
-	}
+	backupNamePrefix := backupJobClusterPrefix(cr.Name)
 
 	if cr.Spec.Backup != nil {
-		bcpObj := backup.New(cr)
-		backupNamePrefix := backupJobClusterPrefix(cr.Name)
 
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause {
 			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
@@ -59,7 +60,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			}
 		}
 		if !cr.Spec.Backup.PITR.Enabled || cr.Spec.Pause {
-			err = r.deletePITR(cr)
+			err := r.deletePITR(cr)
 			if err != nil {
 				return errors.Wrap(err, "delete pitr")
 			}
@@ -73,61 +74,45 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				return fmt.Errorf("storage %s doesn't exist", bcp.StorageName)
 			}
 
-			bcpjob, err := bcpObj.Scheduled(&bcp, strg, operatorPod)
-			if err != nil {
-				return fmt.Errorf("unable to schedule backup: %w", err)
-			}
-			err = setControllerReference(cr, bcpjob, r.scheme)
-			if err != nil {
-				return fmt.Errorf("set owner ref to backup %s: %v", bcp.Name, err)
-			}
-
-			// Check if this Job already exists
-			currentBcpJob := new(batchv1beta1.CronJob)
-			err = r.client.Get(context.TODO(), types.NamespacedName{
-				Name:      bcpjob.Name,
-				Namespace: bcpjob.Namespace,
-			}, currentBcpJob)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return errors.Wrapf(err, "create scheduled backup %s", bcp.Name)
-			}
-
-			if k8serrors.IsNotFound(err) {
-				err = r.client.Create(context.TODO(), bcpjob)
+			schRaw, ok := r.crons.backupJobs.Load(bcp.Name)
+			if !ok {
+				r.log.Info("Creating new backup job", "name", bcp.Name, "schedule", bcp.Schedule)
+				jobID, err := r.crons.crons.AddFunc(bcp.Schedule, r.createBackupJob(cr, bcp, strg.Type))
 				if err != nil {
-					return errors.Wrapf(err, "create scheduled backup %s", bcp.Name)
+					return errors.Wrap(err, "failed to add backup cron job")
 				}
-			} else if !reflect.DeepEqual(currentBcpJob.Spec, bcpjob.Spec) {
-				err = r.client.Update(context.TODO(), bcpjob)
+				r.crons.backupJobs.Store(bcp.Name, BackupScheduleJob{
+					PXCScheduledBackupSchedule: bcp,
+					JobID:                      jobID,
+				})
+			} else if sch := schRaw.(BackupScheduleJob); sch.PXCScheduledBackupSchedule.Schedule != bcp.Schedule ||
+				sch.PXCScheduledBackupSchedule.StorageName != bcp.StorageName {
+				r.log.Info("Backups are not equal, recreating job", "old", sch.PXCScheduledBackupSchedule, "new", bcp)
+				r.deleteBackupJob(sch.Name)
+				jobID, err := r.crons.crons.AddFunc(bcp.Schedule, r.createBackupJob(cr, bcp, strg.Type))
 				if err != nil {
-					return errors.Wrapf(err, "update backup schedule %s", bcp.Name)
+					return errors.Wrap(err, "failed to add backup cron job")
 				}
+				r.crons.backupJobs.Store(bcp.Name, BackupScheduleJob{
+					PXCScheduledBackupSchedule: bcp,
+					JobID:                      jobID,
+				})
 			}
 		}
 	}
+	var err error
 
-	// Reconcile backups list
-	bcpList := batchv1beta1.CronJobList{}
-	err = r.client.List(context.TODO(),
-		&bcpList,
-		&client.ListOptions{
-			Namespace: operatorPod.ObjectMeta.Namespace,
-			LabelSelector: labels.SelectorFromSet(map[string]string{
-				"cluster": cr.Name,
-				"type":    "cron",
-			}),
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("get backups list: %v", err)
-	}
-
-	for _, item := range bcpList.Items {
+	r.crons.backupJobs.Range(func(k, v interface{}) bool {
+		item := v.(BackupScheduleJob)
+		if !strings.HasPrefix(item.Name, backupNamePrefix) {
+			return true
+		}
 		if spec, ok := backups[item.Name]; ok {
 			if spec.Keep > 0 {
 				oldjobs, err := r.oldScheduledBackups(cr, item.Name, spec.Keep)
 				if err != nil {
-					return fmt.Errorf("remove old backups: %v", err)
+					err = errors.Wrap(err, "remove old backup")
+					return false
 				}
 
 				for _, todel := range oldjobs {
@@ -135,11 +120,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				}
 			}
 		} else {
-			_ = r.client.Delete(context.TODO(), &item)
+			r.log.Info("deleting outdated backup job", "name", item.Name)
+			r.deleteBackupJob(item.Name)
 		}
-	}
+		return true
+	})
 
-	return nil
+	return err
 }
 
 func backupJobClusterPrefix(clusterName string) string {
@@ -190,6 +177,81 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraD
 	}
 
 	return ret, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) createBackupJob(cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, storageType api.BackupStorageType) func() {
+	fins := []string{}
+	if storageType == api.BackupStorageS3 {
+		fins = append(fins, api.FinalizerDeleteS3Backup)
+	}
+
+	return func() {
+		localCr := &api.PerconaXtraDBCluster{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		if k8serrors.IsNotFound(err) {
+			r.log.Info("cluster is not found, deleting the job",
+				"job name", jobName, "cluster", cr.Name, "namespace", cr.Namespace)
+			r.deleteBackupJob(backupJob.Name)
+			return
+		}
+
+		bcp := &api.PerconaXtraDBClusterBackup{
+			ObjectMeta: metav1.ObjectMeta{
+				Finalizers: fins,
+				Namespace:  cr.Namespace,
+				Name:       generateBackupName(cr, backupJob.StorageName) + "-" + strconv.FormatUint(uint64(crc32.ChecksumIEEE([]byte(backupJob.Schedule))), 32)[:5],
+				Labels: map[string]string{
+					"ancestor": backupJob.Name,
+					"cluster":  cr.Name,
+					"type":     "cron",
+				},
+			},
+			Spec: api.PXCBackupSpec{
+				PXCCluster:  cr.Name,
+				StorageName: backupJob.StorageName,
+			},
+		}
+		err = r.client.Create(context.TODO(), bcp)
+		if err != nil {
+			r.log.Error(err, "failed to create backup")
+		}
+	}
+}
+
+func (r *ReconcilePerconaXtraDBCluster) deleteBackupJob(name string) {
+	job, ok := r.crons.backupJobs.LoadAndDelete(name)
+	if !ok {
+		return
+	}
+	r.crons.crons.Remove(job.(BackupScheduleJob).JobID)
+}
+
+func generateBackupName(cr *api.PerconaXtraDBCluster, storageName string) string {
+	result := "cron-"
+	if len(cr.Name) > 16 {
+		result += cr.Name[:16]
+	} else {
+		result += cr.Name
+	}
+	result += "-" + trimNameRight(storageName, 16) + "-"
+	tnow := time.Now()
+	result += fmt.Sprintf("%d%d%d%d%d%d", tnow.Year(), tnow.Month(), tnow.Day(), tnow.Hour(), tnow.Minute(), tnow.Second())
+	return result
+}
+
+func trimNameRight(name string, ln int) string {
+	if len(name) <= ln {
+		ln = len(name)
+	}
+
+	for ; ln > 0; ln-- {
+		if name[ln-1] >= 'a' && name[ln-1] <= 'z' ||
+			name[ln-1] >= '0' && name[ln-1] <= '9' {
+			break
+		}
+	}
+
+	return name[:ln]
 }
 
 // A minHeap is a min-heap of backup jobs.

@@ -407,6 +407,7 @@ pipeline {
                     sudo rm -rf ./*
                     sudo rm -rf $HOME/google-cloud-sdk
                 '''
+            }
             deleteDir()
         }
     }

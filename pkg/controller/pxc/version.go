@@ -23,13 +23,13 @@ const never = "never"
 const disabled = "disabled"
 
 func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
-	r.crons.crons.Remove(cron.EntryID(r.crons.jobs[jobName].ID))
-	delete(r.crons.jobs, jobName)
+	r.crons.crons.Remove(cron.EntryID(r.crons.ensureVersionJobs[jobName].ID))
+	delete(r.crons.ensureVersionJobs, jobName)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
 	jn := jobName(cr)
-	schedule, ok := r.crons.jobs[jn]
+	schedule, ok := r.crons.ensureVersionJobs[jn]
 	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
 		cr.Spec.UpgradeOptions.Schedule == "" ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
@@ -40,14 +40,14 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 		return nil
 	}
 
-	if ok && schedule.CronShedule == cr.Spec.UpgradeOptions.Schedule {
+	if ok && schedule.CronSchedule == cr.Spec.UpgradeOptions.Schedule {
 		return nil
 	}
 
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	if ok {
-		logger.Info("remove job because of new", "old", schedule.CronShedule, "new", cr.Spec.UpgradeOptions.Schedule)
+		logger.Info("remove job because of new", "old", schedule.CronSchedule, "new", cr.Spec.UpgradeOptions.Schedule)
 		r.deleteEnsureVersion(jn)
 	}
 
@@ -102,9 +102,9 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 
 	logger.Info("add new job", "name", jn, "schedule", cr.Spec.UpgradeOptions.Schedule)
 
-	r.crons.jobs[jn] = Shedule{
+	r.crons.ensureVersionJobs[jn] = Schedule{
 		ID:          int(id),
-		CronShedule: cr.Spec.UpgradeOptions.Schedule,
+		CronSchedule: cr.Spec.UpgradeOptions.Schedule,
 	}
 
 	return nil

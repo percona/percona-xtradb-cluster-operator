@@ -379,7 +379,7 @@ pipeline {
                             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                             gcloud config set project $GCP_PROJECT
                             gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata $CLUSTER_NAME-upgrade || true
-                            sudo docker rmi -f \$(sudo docker images -q) || true
+                            sudo docker system prune -fa
 
                             sudo rm -rf $HOME/google-cloud-sdk
                         '''
@@ -387,7 +387,7 @@ pipeline {
                 }
             }
             sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
+                sudo docker system prune -fa
                 sudo rm -rf ./*
                 sudo rm -rf $HOME/google-cloud-sdk
             '''

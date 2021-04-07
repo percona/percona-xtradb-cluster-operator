@@ -11,7 +11,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone ${GKERegion}
+            gcloud container clusters list --filter \$CLUSTER_NAME-${CLUSTER_PREFIX} --zone ${GKERegion}
             if [ $? -eq 0 ]
             then
                 gcloud container clusters delete --zone $GKERegion --quiet $CLUSTER_NAME-${CLUSTER_PREFIX}

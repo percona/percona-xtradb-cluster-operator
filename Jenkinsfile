@@ -347,7 +347,7 @@ pipeline {
                         ShutdownCluster('backups')
                     }
                 }
-                stage('E2E Backups') {
+                stage('E2E Scheduled-backups') {
                     steps {
                         CreateCluster('scheduled-backups')
                         runTest('scheduled-backup', 'scheduled-backup')

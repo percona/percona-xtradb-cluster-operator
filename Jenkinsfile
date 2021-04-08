@@ -1,3 +1,4 @@
+
 GKERegion='us-central1-a'
 
 void CreateCluster(String CLUSTER_PREFIX) {
@@ -178,33 +179,6 @@ pipeline {
                 }
             }
         }
-        stage('Build docker image') {
-            when {
-                expression {
-                    !skipBranchBulds
-                }
-            }
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
-                        DOCKER_TAG=perconalab/percona-xtradb-cluster-operator:$VERSION
-                        docker_tag_file='./results/docker/TAG'
-                        mkdir -p $(dirname ${docker_tag_file})
-                        echo ${DOCKER_TAG} > "${docker_tag_file}"
-                            sg docker -c "
-                                docker login -u '${USER}' -p '${PASS}'
-                                export RELEASE=0
-                                export IMAGE=\$DOCKER_TAG
-                                ./e2e-tests/build
-                                docker logout
-                            "
-                        sudo rm -rf ./build
-                    '''
-                }
-                stash includes: 'results/docker/TAG', name: 'IMAGE'
-                archiveArtifacts 'results/docker/TAG'
-            }
-        }
         stage('GoLicenseDetector test') {
             when {
                 expression {
@@ -214,6 +188,7 @@ pipeline {
             steps {
                 sh """
                     mkdir -p $WORKSPACE/src/github.com/percona
+                    sleep 900
                     ln -s $WORKSPACE $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator
                     sg docker -c "
                         docker run \
@@ -224,10 +199,7 @@ pipeline {
                             golang:1.16 sh -c '
                                 go get github.com/google/go-licenses;
                                 git checkout go.mod go.sum;
-                                /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
-                                    | cut -d , -f 3 \
-                                    | sort -u \
-                                    > go-licenses-new || :
+                                /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager --logtostderr -v 1\
                             '
                     "
                     diff -u e2e-tests/license/compare/go-licenses go-licenses-new
@@ -264,6 +236,7 @@ pipeline {
                             > golicense-new || true
 
                         diff -u e2e-tests/license/compare/golicense golicense-new
+                        exit 1
                     """
                 }
                 unstash 'vendorFILES'

@@ -225,8 +225,7 @@ There is a possibility to enable
 for backups.
 
 .. note:: This feature is available only with Percona XtraDB Cluster 8.0 and not
-   Percona XtraDB Cluster 5.7. Also, it can not be used simultaneously with the
-   :ref:`point-in-time recovery<backups-pitr-binlog>` feature.
+   Percona XtraDB Cluster 5.7.
 
 To enable compression, use :ref:`pxc.configuration<pxc-configuration>` key in the
 ``deploy/cr.yaml`` configuration file to supply Percona XtraDB Cluster nodes
@@ -366,9 +365,12 @@ you can put additional restoration parameters to the ``restore.yaml`` file
   keys, same as in ``deploy/cr.yaml`` file: ``s3://S3-BUCKET-NAME/BACKUP-NAME``,
 * ``type`` key can be equal to one of the following options,
   * ``date`` - roll back to specific date,
+  * ``transaction`` - roll back to specific transaction,
   * ``latest`` - recover to the latest possible transaction,
 * ``date`` key is used with ``type=date`` option - it contains value in
   datetime format,
+* ``gtidSet`` key is used with ``type=transaction`` option - it contains exact
+  GTID or GTIDSet, 
 * if you have necessary backup storage mentioned in the ``backup.storages``
   subsection of the ``deploy/cr.yaml``  configuration file, you can just set
   ``backupSource.storageName`` key in the ``deploy/backup/restore.yaml`` file to

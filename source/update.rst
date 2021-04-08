@@ -205,15 +205,17 @@ updates:
      the Percona XtraDB Cluster 8.0 version will be selected instead of the
      Percona XtraDB Cluster 5.7 one regardless of the image path; for already
      existing clusters, the 8.0 vs. 5.7 branch choice will be preserved),
+   * ``8.0-recommended``, ``5.7-recommended`` - same as above, but preserves
+     specific major Percona XtraDB Cluster version for newly provisioned
+     clusters (ex. 8.0 will not be automatically used instead of 5.7),
    * ``Latest`` - automatic upgrades will choose the most recent version of
-     the software available (for clusters created from scratch,
-     the Percona XtraDB Cluster 8.0 version will be selected instead of the
-     Percona XtraDB Cluster 5.7 one regardless of the image path; for already
-     existing clusters, the 8.0 vs. 5.7 branch choice will be preserved),
-   * *specific version number* - will apply an upgrade if the running Percona
-     XtraDB Cluster version doesn't match the explicit version number with no
-     future upgrades (version numbers are specified as ``5.7.26-31.37``,
-     ``5.7.27-31.39``, ``5.7.28-31.41.2``, ``5.7.29-31.43``, etc.),
+     the software available,
+   * ``8.0-latest``, ``5.7-latest`` - same as above, but preserves specific
+     major Percona XtraDB Cluster version for newly provisioned
+     clusters (ex. 8.0 will not be automatically used instead of 5.7),
+   * *version number* - specify the desired version explicitly
+     (version numbers are specified as ``{{{pxc80recommended}}}``,
+     ``{{{pxc57recommended}}}``, etc.),
    * ``Never`` or ``Disabled`` - disable automatic upgrades
 
      .. note:: When automatic upgrades are disabled by the ``apply`` option, 

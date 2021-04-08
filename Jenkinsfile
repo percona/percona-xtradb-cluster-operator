@@ -222,9 +222,8 @@ pipeline {
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
                             golang:1.16 sh -c '
-                                cd ..;
                                 go get github.com/google/go-licenses;
-                                cd -;
+                                git checkout go.mod go.sum;
                                 /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
                                     | cut -d , -f 3 \
                                     | sort -u \

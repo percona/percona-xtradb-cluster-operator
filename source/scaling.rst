@@ -1,3 +1,5 @@
+.. _operator-scale:
+
 Scale Percona XtraDB Cluster on Kubernetes and OpenShift
 ========================================================
 

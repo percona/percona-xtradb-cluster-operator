@@ -146,3 +146,23 @@ When identified, the appropriate core dump can be downloaded as follows:
       [3] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259457282, {"log"=>"Build ID: 5a2199b1784b967a713a3bde8d996dc517c41adb"}]
       [4] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259465692, {"log"=>"Server Version: 8.0.21-12.1 Percona XtraDB Cluster (GPL), Release rel12, Revision 4d973e2, WSREP version 26.4.3, wsrep_26.4.3"}]
       .....
+
+
+How to chouse between HAProxy and ProxySQL when configuring the cluster?
+================================================================================
+
+You can configure the Operator to use one of two different proxies, HAProxy
+(the default choice) and ProxySQL. Both solutions are fully supported by the
+Operator, but they have some differences in the architecture, which can make one
+of them more suitable then the other one in some use cases.
+
+The main difference is that HAProxy operates in TCP mode as an `OSI level 4 proxy <https://www.haproxy.com/blog/layer-4-and-layer-7-proxy-mode/>`_,
+while ProxySQL implements OSI level 7 proxy, and thus can provide some additional
+functionality like read/write split, firewalling and caching.
+
+From the other side, utilizing HAProxy for the service is the easier way to go,
+and getting use of the ProxySQL level 7 specifics requires good understanding of
+Kubernetes and ProxySQL.
+
+See more detailed functionality and performance comparison of using the Operator
+with both solutions in `this blog post <https://www.percona.com/blog/2021/01/11/percona-kubernetes-operator-for-percona-xtradb-cluster-haproxy-or-proxysql/>`_.

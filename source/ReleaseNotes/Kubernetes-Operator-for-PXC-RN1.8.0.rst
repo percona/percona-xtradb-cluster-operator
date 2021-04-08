@@ -62,6 +62,12 @@ Improvements
 * K8SPXC-519, K8SPXC-558, and K8SPXC-637: Improve various log messages for better
   clearness and more precise description
 
+Known Issues and Limitations
+================================================================================
+
+* Scheduled backups are not compatible with the Kubernetes 1.20 in cluster-wide
+  mode.
+
 Bugs Fixed
 ================================================================================
 

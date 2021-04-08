@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var log = logf.Log.WithName("leader")
@@ -47,7 +47,7 @@ func Become(ctx context.Context, lockName string) error {
 
 	ns, err := k8sutil.GetOperatorNamespace()
 	if err != nil {
-		if err == k8sutil.ErrNoNamespace || err == k8sutil.ErrRunLocal {
+		if err == k8sutil.ErrNoNamespace {
 			log.Info("Skipping leader election; not running in a cluster.")
 			return nil
 		}
@@ -70,7 +70,12 @@ func Become(ctx context.Context, lockName string) error {
 	}
 
 	// check for existing lock from this pod, in case we got restarted
-	existing := &corev1.ConfigMap{}
+	existing := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+	}
 	key := crclient.ObjectKey{Namespace: ns, Name: lockName}
 	err = client.Get(ctx, key, existing)
 
@@ -81,8 +86,9 @@ func Become(ctx context.Context, lockName string) error {
 				log.Info("Found existing lock with my name. I was likely restarted.")
 				log.Info("Continuing as the leader.")
 				return nil
+			} else {
+				log.Info("Found existing lock", "LockOwner", existingOwner.Name)
 			}
-			log.Info("Found existing lock", "LockOwner", existingOwner.Name)
 		}
 	case apierrors.IsNotFound(err):
 		log.Info("No pre-existing lock was found.")
@@ -92,6 +98,10 @@ func Become(ctx context.Context, lockName string) error {
 	}
 
 	cm := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            lockName,
 			Namespace:       ns,
@@ -108,35 +118,7 @@ func Become(ctx context.Context, lockName string) error {
 			log.Info("Became the leader.")
 			return nil
 		case apierrors.IsAlreadyExists(err):
-			existingOwners := existing.GetOwnerReferences()
-			switch {
-			case len(existingOwners) != 1:
-				log.Info("Leader lock configmap must have exactly one owner reference.", "ConfigMap", existing)
-			case existingOwners[0].Kind != "Pod":
-				log.Info("Leader lock configmap owner reference must be a pod.", "OwnerReference", existingOwners[0])
-			default:
-				leaderPod := &corev1.Pod{}
-				key = crclient.ObjectKey{Namespace: ns, Name: existingOwners[0].Name}
-				err = client.Get(ctx, key, leaderPod)
-				switch {
-				case apierrors.IsNotFound(err):
-					log.Info("Leader pod has been deleted, waiting for garbage collection do remove the lock.")
-				case err != nil:
-					return err
-				case isPodEvicted(*leaderPod) && leaderPod.GetDeletionTimestamp() == nil:
-					log.Info("Operator pod with leader lock has been evicted.", "leader", leaderPod.Name)
-					log.Info("Deleting evicted leader.")
-					// Pod may not delete immediately, continue with backoff
-					err := client.Delete(ctx, leaderPod)
-					if err != nil {
-						log.Error(err, "Leader pod could not be deleted.")
-					}
-
-				default:
-					log.Info("Not the leader. Waiting.")
-				}
-			}
-
+			log.Info("Not the leader. Waiting.")
 			select {
 			case <-time.After(wait.Jitter(backoff, .2)):
 				if backoff < maxBackoffInterval {
@@ -169,10 +151,4 @@ func myOwnerRef(ctx context.Context, client crclient.Client, ns string) (*metav1
 		UID:        myPod.ObjectMeta.UID,
 	}
 	return owner, nil
-}
-
-func isPodEvicted(pod corev1.Pod) bool {
-	podFailed := pod.Status.Phase == corev1.PodFailed
-	podEvicted := pod.Status.Reason == "Evicted"
-	return podFailed && podEvicted
 }

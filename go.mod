@@ -15,13 +15,16 @@ require (
 	github.com/go-openapi/validate v0.19.10
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/google/go-cmp v0.5.4 // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20191106031601-ce3c9ade29de // indirect
 	github.com/hashicorp/go-version v1.1.0
 	github.com/jetstack/cert-manager v0.15.1
 	github.com/minio/minio-go/v7 v7.0.6
-	github.com/operator-framework/operator-sdk v0.17.1
+	github.com/operator-framework/operator-sdk v0.8.2
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.5.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/sqs/goreturns v0.0.0-20181028201513-538ac6014518
+	github.com/smartystreets/assertions v1.0.1 // indirect
+	github.com/smartystreets/goconvey v1.6.4 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/mod v0.4.0 // indirect
@@ -32,7 +35,7 @@ require (
 	honnef.co/go/tools v0.0.1-2020.1.6 // indirect
 	k8s.io/api v0.20.5
 	k8s.io/apimachinery v0.20.5
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.20.5
 	sigs.k8s.io/controller-runtime v0.6.2
 
 )

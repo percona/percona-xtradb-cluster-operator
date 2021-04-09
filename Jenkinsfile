@@ -220,9 +220,9 @@ pipeline {
                             --rm \
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            -e GO111MODULE=off \
+                            -e GO111MODULE=on \
                             golang:1.16 sh -c '
-                                go get github.com/google/go-licenses;
+                                GO111MODULE=off go get github.com/google/go-licenses;
                                 /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
                                     | cut -d , -f 3 \
                                     | sort -u \

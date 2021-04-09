@@ -15,6 +15,7 @@ require (
 	github.com/go-openapi/validate v0.19.10
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/google/go-cmp v0.5.4 // indirect
+	github.com/googleapis/gnostic v0.5.4 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20191106031601-ce3c9ade29de // indirect
 	github.com/hashicorp/go-version v1.1.0
 	github.com/jetstack/cert-manager v0.15.1

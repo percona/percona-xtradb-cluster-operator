@@ -10,8 +10,7 @@ API='pxc.percona.com/v9-9-9'
 TARGET_IMAGE_PXC=${IMAGE_PXC}
 CLUSTER="smart-update"
 CLUSTER_SIZE=3
-PROXYSQL_SIZE=2
-HAPROXY_SIZE=1
+PROXY_SIZE=2
 
 if [[ "${TARGET_IMAGE_PXC}" == *"percona-xtradb-cluster-operator"* ]]; then
     PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*([0-9].[0-9])$/\1/')
@@ -92,7 +91,7 @@ function main() {
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
     check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
-    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXYSQL_SIZE}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
     for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
@@ -111,7 +110,7 @@ function main() {
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
     check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
-    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${HAPROXY_SIZE}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
     for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
@@ -130,7 +129,7 @@ function main() {
     sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
     check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
-    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${HAPROXY_SIZE}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
     for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
@@ -144,7 +143,7 @@ function main() {
     yq w -i "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml" "spec.initImage" "${IMAGE}"
     spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 
-    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${HAPROXY_SIZE}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
     if [[ "$(kubectl_bin get pxc/${CLUSTER} -o jsonpath='{.spec.pxc.image}')" != "${IMAGE_PXC}" ]]; then
         echo "ERROR: PXC image has been changed. Exiting..."
         exit 1
@@ -159,7 +158,7 @@ function main() {
     sleep 55
 
     check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC_VS}"
-    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${HAPROXY_SIZE}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
     for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
@@ -177,7 +176,7 @@ function main() {
     sleep 55
 
     check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC_VS}"
-    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${HAPROXY_SIZE}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
     for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done
@@ -195,7 +194,7 @@ function main() {
     sleep 55
 
     check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "percona/percona-xtradb-cluster:${vs_image}"
-    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${HAPROXY_SIZE}"
+    wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
     for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
         compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
     done

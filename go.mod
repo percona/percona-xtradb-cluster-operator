@@ -40,4 +40,8 @@ require (
 
 )
 
-replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
+replace (
+	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
+	k8s.io/api => k8s.io/api v0.20.5
+	k8s.io/apimachinery => k8s.io/apimachinery v0.20.5
+)

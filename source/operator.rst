@@ -4,9 +4,24 @@
 ===============================================================================
 
 The operator is configured via the spec section of the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
-file. This file contains the following spec sections to configure three
-main subsystems of the cluster:
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_
+file.
+
+The metadata part of this file contains the following keys:
+
+* ``name`` (``my-cluster-name`` by default) sets the name of your Percona
+  XtraDB Cluster,
+* .. _finalizers-order:
+
+  ``finalizers.delete-pods-in-order`` if present, activates the `Finalizer <https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#finalizers>`_ which controls the proper Pods deletion order in case of the cluster deletion event (on by default).
+* .. _finalizers-pxc:
+
+  ``finalizers.delete-pxc-pvc``, ``delete-proxysql-pvc`` if present, activates the `Finalizer <https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#finalizers>`_ which deletes `Persistent Volume Claims <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_ for Percona XtraDB Cluster Pods after the cluster deletion event (off by default).
+* .. _finalizers-proxysql:
+
+  ``delete-proxysql-pvc`` if present, activates the `Finalizer <https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#finalizers>`_ which deletes `Persistent Volume Claim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_ for ProxySQL Pod after the cluster deletion event (off by default).
+
+The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/cr.yaml>`_ file contains the following sections:
 
 .. tabularcolumns:: |p{40mm}|p{10mm}|p{49mm}|p{47mm}|
 
@@ -105,7 +120,7 @@ main subsystems of the cluster:
 `Upgrade Options Section <operator.html#operator-upgradeoptions-section>`_
 --------------------------------------------------------------------------------
 
-The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains various configuration options to control Percona XtraDB Cluster upgrades.
+The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ file contains various configuration options to control Percona XtraDB Cluster upgrades.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
 
@@ -156,7 +171,7 @@ The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percon
 `PXC Section <operator.html#operator-pxc-section>`_
 --------------------------------------------------------------------------------
 
-The ``pxc`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains general
+The ``pxc`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ file contains general
 configuration options for the Percona XtraDB Cluster.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -644,6 +659,81 @@ configuration options for the Percona XtraDB Cluster.
 | **Description** | The `policy used to update images <https://kubernetes.io/docs/concepts/containers/images/ |
 |                 | #updating-images>`_                                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-runtimeclassname:                                                                 |
+|                 |                                                                                           |
+| **Key**         | `pxc.runtimeClassName                                                                     |
+|                 | <operator.html#pxc-runtimeclassname>`_                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``image-rc``                                                                              |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Name of the `Kubernetes Runtime Class                                                     |
+|                 | <https://kubernetes.io/docs/concepts/containers/runtime-class/>`_                         |
+|                 | for Percona XtraDB Cluster Pods                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-sidecars-image:                                                                   |
+|                 |                                                                                           |
+| **Key**         | `pxc.sidecars.image                                                                       |
+|                 | <operator.html#pxc-sidecars-image>`_                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``busybox``                                                                               |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Image for the                                                                             |
+|                 | :ref:`custom sidecar container<faq-sidecar>`                                              |
+|                 | for Percona XtraDB Cluster Pods                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-sidecars-command:                                                                 |
+|                 |                                                                                           |
+| **Key**         | `pxc.sidecars.command                                                                     |
+|                 | <operator.html#pxc-sidecars-command>`_                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | array                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``["/bin/sh"]``                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Command for the                                                                           |
+|                 | :ref:`custom sidecar container<faq-sidecar>`                                              |
+|                 | for Percona XtraDB Cluster Pods                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-sidecars-args:                                                                    |
+|                 |                                                                                           |
+| **Key**         | `pxc.sidecars.args                                                                        |
+|                 | <operator.html#pxc-sidecars-args>`_                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | array                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]``          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Command arguments for the                                                                 |
+|                 | :ref:`custom sidecar container<faq-sidecar>`                                              |
+|                 | for Percona XtraDB Cluster Pods                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-sidecars-name:                                                                    |
+|                 |                                                                                           |
+| **Key**         | `pxc.sidecars.name                                                                        |
+|                 | <operator.html#pxc-sidecars-name>`_                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``my-sidecar-1``                                                                          |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Name of the                                                                               |
+|                 | :ref:`custom sidecar container<faq-sidecar>`                                              |
+|                 | for Percona XtraDB Cluster Pods                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
 
 
 .. _operator.haproxy-section:
@@ -651,7 +741,7 @@ configuration options for the Percona XtraDB Cluster.
 `HAProxy Section <operator.html#operator-haproxy-section>`_
 --------------------------------------------------------------------------------
 
-The ``haproxy`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains
+The ``haproxy`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ file contains
 configuration options for the HAProxy service.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -1111,7 +1201,7 @@ configuration options for the HAProxy service.
 `ProxySQL Section <operator.html#operator-proxysql-section>`_
 --------------------------------------------------------------------------------
 
-The ``proxysql`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file contains
+The ``proxysql`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ file contains
 configuration options for the ProxySQL daemon.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -1628,7 +1718,7 @@ configuration options for the ProxySQL daemon.
 `Log Collector Section <operator.html#operator-logcollector-section>`_
 --------------------------------------------------------------------------------
 
-The ``logcollector`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ 
+The ``logcollector`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ 
 file contains configuration options for `Fluent Bit Log Collector <https://fluentbit.io>`_.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -1706,7 +1796,7 @@ file contains configuration options for `Fluent Bit Log Collector <https://fluen
 `PMM Section <operator.html#operator-pmm-section>`_
 --------------------------------------------------------------------------------
 
-The ``pmm`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_  file contains configuration
+The ``pmm`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_  file contains configuration
 options for Percona Monitoring and Management.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -1755,7 +1845,7 @@ options for Percona Monitoring and Management.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``pmm``                                                                                   |
+| **Example**     | ``admin``                                                                                 |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `PMM Serve_User                                                                       |
 |                 | <https://www.percona.com/doc/percona-monitoring-and-management/glossary.option.html>`_.   |
@@ -1825,7 +1915,7 @@ options for Percona Monitoring and Management.
 --------------------------------------------------------------------------------
 
 The ``backup`` section in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_
 file contains the following configuration options for the regular
 Percona XtraDB Cluster backups.
 

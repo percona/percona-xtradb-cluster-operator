@@ -83,6 +83,7 @@ Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb
      schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"
+        keep: 3
         storageName: s3-us-west
      ...
 
@@ -438,7 +439,13 @@ The actual restoration process can be started as follows:
 Delete the unneeded backup
 --------------------------
 
-Deleting a previously saved backup requires not more than the backup
+The maximum amount of stored backups is controlled by the
+:ref:`backup.schedule.keep<backup-schedule-keep>` option (only successful
+backups are counted). Older backups are automatically deleted, so that amount of
+stored backups do not exceed this number. Setting ``keep=0`` or removing this
+option from ``deploy/cr.yaml`` disables automatic deletion of backups.
+
+Manual deleting of a previously saved backup requires not more than the backup
 name. This name can be taken from the list of available backups returned
 by the following command:
 

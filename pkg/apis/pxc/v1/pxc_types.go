@@ -668,6 +668,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	return CRVerChanged || changed, nil
 }
 
+const (
+	maxSafePXCSize = 5
+)
+
 func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.AllowUnsafeConfig {
 		return
@@ -681,6 +685,9 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.PXC.Size < 3 {
 		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, 3)
 		spec.PXC.Size = 3
+	} else if spec.PXC.Size > maxSafePXCSize {
+		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, maxSafePXCSize)
+		spec.PXC.Size = maxSafePXCSize
 	}
 
 	if spec.PXC.Size%2 == 0 {

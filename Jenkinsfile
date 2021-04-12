@@ -3,23 +3,12 @@ GKERegion='us-central1-a'
 void CreateCluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
-            NODES_NUM=3
-            if [ ${CLUSTER_PREFIX} == 'backups' || ${CLUSTER_NAME} == 'scheduled-backup']; then
-                NODES_NUM=4
-            fi
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            CLUSTERS=`gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone ${GKERegion}`
-            echo \$CLUSTERS
-            if [[ -z \$CLUSTERS ]]
-            then
-                gcloud container clusters create --zone ${GKERegion} $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.18 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
-            else
-                gcloud container clusters delete --zone $GKERegion --quiet $CLUSTER_NAME-${CLUSTER_PREFIX}
-                gcloud container clusters create --zone ${GKERegion} $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.18 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
-            fi
+            gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone ${GKERegion} --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet
+            gcloud container clusters create --zone ${GKERegion} $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.18 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
             kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
         """
    }
@@ -392,7 +381,7 @@ pipeline {
                             source $HOME/google-cloud-sdk/path.bash.inc
                             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                             gcloud config set project $GCP_PROJECT
-                            gcloud container clusters list --filter $CLUSTER_NAME | grep -v NAME | awk '{print $1}' | xargs gcloud container clusters delete --zone $GKERegion --quiet
+                            gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet
                             sudo docker system prune -fa
                             sudo rm -rf $HOME/google-cloud-sdk
                         '''
@@ -404,7 +393,7 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                     gcloud config set project $GCP_PROJECT
-                    gcloud container clusters list --filter $CLUSTER_NAME | grep -v NAME | awk '{print $1}' | xargs gcloud container clusters delete --zone $GKERegion --quiet
+                    gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet
                     sudo docker system prune -fa
                     sudo rm -rf ./*
                     sudo rm -rf $HOME/google-cloud-sdk

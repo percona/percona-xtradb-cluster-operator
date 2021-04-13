@@ -166,7 +166,7 @@ func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]p
 		return c.removeEmptyBinlogs(logs)
 	}
 
-	logsLen := len(logs)
+	logsLen := len(logs) - 1
 
 	startIndex := 0
 	for logs[startIndex].Name != lastBinlogName && startIndex < logsLen {
@@ -222,6 +222,8 @@ func (c *Collector) CollectBinLogs() error {
 
 		if lastUploadedBinlogName == "" {
 			log.Println("Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+		} else {
+			log.Println("Last set=", c.lastSet, "binlog name=", lastUploadedBinlogName)
 		}
 	}
 

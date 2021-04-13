@@ -736,10 +736,10 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _pxc-sidecarResources-requests-memory:                                                 |
+|                 | .. _pxc-sidecarresources-requests-memory:                                                 |
 |                 |                                                                                           |
 | **Key**         | `pxc.sidecarResources.requests.memory <operator.html#                                     |
-|                 | pxc-sidecarResources-requests-memory>`_                                                   |
+|                 | pxc-sidecarresources-requests-memory>`_                                                   |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -752,9 +752,9 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _pxc-sidecarResources-requests-cpu:                                                    |
+|                 | .. _pxc-sidecarresources-requests-cpu:                                                    |
 |                 |                                                                                           |
-| **Key**         | `pxc.sidecarResources.requests.cpu <operator.html#pxc-sidecarResources-requests-cpu>`_    |
+| **Key**         | `pxc.sidecarResources.requests.cpu <operator.html#pxc-sidecarresources-requests-cpu>`_    |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -767,9 +767,9 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _pxc-sidecarResources-limits-memory:                                                   |
+|                 | .. _pxc-sidecarresources-limits-memory:                                                   |
 |                 |                                                                                           |
-| **Key**         | `pxc.sidecarResources.limits.memory <operator.html#pxc-sidecarResources-limits-memory>`_  |
+| **Key**         | `pxc.sidecarResources.limits.memory <operator.html#pxc-sidecarresources-limits-memory>`_  |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -782,9 +782,9 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _pxc-sidecarResources-limits-cpu:                                                      |
+|                 | .. _pxc-sidecarresources-limits-cpu:                                                      |
 |                 |                                                                                           |
-| **Key**         | `pxc.sidecarResources.limits.cpu <operator.html#pxc-sidecarResources-limits-cpu>`_        |
+| **Key**         | `pxc.sidecarResources.limits.cpu <operator.html#pxc-sidecarresources-limits-cpu>`_        |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1329,69 +1329,6 @@ configuration options for the HAProxy service.
 | **Description** | Name of the                                                                               |
 |                 | :ref:`custom sidecar container<faq-sidecar>`                                              |
 |                 | for the HAProxy Pod                                                                       |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _haproxy-sidecarResources-requests-memory:                                             |
-|                 |                                                                                           |
-| **Key**         | `haproxy.sidecarResources.requests.memory <operator.html#                                 |
-|                 | haproxy-sidecarResources-requests-memory>`_                                               |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | string                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``1G``                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | The `Kubernetes memory requests                                                           |
-|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
-|                 | for a HAProxy sidecar container                                                           |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _haproxy-sidecarResources-requests-cpu:                                                |
-|                 |                                                                                           |
-| **Key**         | `haproxy.sidecarResources.requests.cpu <operator.html#                                    |
-|                 | haproxy-sidecarResources-requests-cpu>`_                                                  |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | string                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``500m``                                                                                  |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | `Kubernetes CPU requests                                                                  |
-|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a HAProxy                       |
-|                 | sidecar container                                                                         |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _haproxy-sidecarResources-limits-memory:                                               |
-|                 |                                                                                           |
-| **Key**         | `haproxy.sidecarResources.limits.memory <operator.html#                                   |
-|                 | haproxy-sidecarResources-limits-memory>`_                                                 |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | string                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``2G``                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | `Kubernetes memory limits                                                                 |
-|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a HAProxy                       |
-|                 | sidecar container                                                                         |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _haproxy-sidecarResources-limits-cpu:                                                  |
-|                 |                                                                                           |
-| **Key**         | `haproxy.sidecarResources.limits.cpu <operator.html#haproxy-sidecarResources-limits-cpu>`_|
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | string                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``600m``                                                                                  |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | `Kubernetes CPU limits                                                                    |
-|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a HAProxy                       |
-|                 | sidecar container                                                                         |
 +-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.proxysql-section:
@@ -1986,68 +1923,6 @@ configuration options for the ProxySQL daemon.
 |                 | for the ProxySQL Pod                                                                      |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _proxysql-sidecarResources-requests-memory:                                            |
-|                 |                                                                                           |
-| **Key**         | `proxysql.sidecarResources.requests.memory <operator.html#                                |
-|                 | proxysql-sidecarResources-requests-memory>`_                                              |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | string                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``1G``                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | The `Kubernetes memory requests                                                           |
-|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_                                     |
-|                 | for a ProxySQL sidecar container                                                          |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _proxysql-sidecarResources-requests-cpu:                                               |
-|                 |                                                                                           |
-| **Key**         | `proxysql.sidecarResources.requests.cpu <operator.html#                                   |
-|                 | proxysql-sidecarResources-requests-cpu>`_                                                 |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | string                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``500m``                                                                                  |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | `Kubernetes CPU requests                                                                  |
-|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL                      |
-|                 | sidecar container                                                                         |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _proxysql-sidecarResources-limits-memory:                                              |
-|                 |                                                                                           |
-| **Key**         | `proxysql.sidecarResources.limits.memory <operator.html#                                  |
-|                 | proxysql-sidecarResources-limits-memory>`_                                                |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | string                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``2G``                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | `Kubernetes memory limits                                                                 |
-|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL                      |
-|                 | sidecar container                                                                         |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                                                                                                             |
-+-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _proxysql-sidecarResources-limits-cpu:                                                 |
-|                 |                                                                                           |
-| **Key**         | `proxysql.sidecarResources.limits.cpu <operator.html#                                     |
-|                 | proxysql-sidecarResources-limits-cpu>`_                                                   |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Value**       | string                                                                                    |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``600m``                                                                                  |
-+-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | `Kubernetes CPU limits                                                                    |
-|                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
-|                 | #resource-requests-and-limits-of-pod-and-container>`_ for a ProxySQL                      |
-|                 | sidecar container                                                                         |
 +-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.logcollector-section:

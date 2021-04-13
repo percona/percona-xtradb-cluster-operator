@@ -86,6 +86,8 @@ object-relational mapping), performance requirements, advanced routing and
 caching needs with one or another project, components already in use in the
 current infrastructure, and any other specific needs of the application.
 
+.. _faq-sidecar:
+
 How can I add custom sidecar containers to my cluster?
 ================================================================================
 
@@ -96,6 +98,7 @@ configuration file, specifying its name and image, and possibly a command to
 run:
 
 .. code:: yaml
+
    spec:
      pxc:
        ....
@@ -105,6 +108,7 @@ run:
          args: ["-c", "while true; do echo echo $(date -u) 'test' >> /dev/null; sleep 5; done"]
          name: my-sidecar-1
        ....
+
 You can add ``sidecars`` subsection to ``pxc``, ``haproxy``, and ``proxysql``
 sections.
 
@@ -147,7 +151,6 @@ When identified, the appropriate core dump can be downloaded as follows:
       [4] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259465692, {"log"=>"Server Version: 8.0.21-12.1 Percona XtraDB Cluster (GPL), Release rel12, Revision 4d973e2, WSREP version 26.4.3, wsrep_26.4.3"}]
       .....
 
-
 How to chouse between HAProxy and ProxySQL when configuring the cluster?
 ================================================================================
 
@@ -165,4 +168,5 @@ and getting use of the ProxySQL level 7 specifics requires good understanding of
 Kubernetes and ProxySQL.
 
 See more detailed functionality and performance comparison of using the Operator
-with both solutions in `this blog post <https://www.percona.com/blog/2021/01/11/percona-kubernetes-operator-for-percona-xtradb-cluster-haproxy-or-proxysql/>`_.
+with both solutions in `this blog post <https://www.percona.com/blog/2021/01/11/percona-kubernetes-operator-for-percona-xtradb-cluster-haproxy-or-proxysql/>`__.
+

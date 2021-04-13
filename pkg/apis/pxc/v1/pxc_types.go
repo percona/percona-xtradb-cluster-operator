@@ -668,6 +668,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	return CRVerChanged || changed, nil
 }
 
+const (
+	minSafeProxySize = 2
+)
+
 func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.AllowUnsafeConfig {
 		return
@@ -686,6 +690,20 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.PXC.Size%2 == 0 {
 		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, spec.PXC.Size+1)
 		spec.PXC.Size++
+	}
+
+	if spec.ProxySQL != nil && spec.ProxySQL.Enabled {
+		if spec.ProxySQL.Size < minSafeProxySize {
+			loginfo("ProxySQL size will be changed from %d to %d due to safe config", spec.ProxySQL.Size, minSafeProxySize)
+			spec.ProxySQL.Size = minSafeProxySize
+		}
+	}
+
+	if spec.HAProxy != nil && spec.HAProxy.Enabled {
+		if spec.HAProxy.Size < minSafeProxySize {
+			loginfo("HAProxy size will be changed from %d to %d due to safe config", spec.HAProxy.Size, minSafeProxySize)
+			spec.HAProxy.Size = minSafeProxySize
+		}
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func EntrypointInitContainer(initImageName string, resources *api.PodResources, securityContext *corev1.SecurityContext) (corev1.Container, error) {
+func EntrypointInitContainer(initImageName string, resources *api.PodResources, securityContext *corev1.SecurityContext, pullPolicy corev1.PullPolicy) (corev1.Container, error) {
 	c := corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -16,7 +16,7 @@ func EntrypointInitContainer(initImageName string, resources *api.PodResources, 
 			},
 		},
 		Image:           initImageName,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: pullPolicy,
 		Name:            "pxc-init",
 		Command:         []string{"/pxc-init-entrypoint.sh"},
 		SecurityContext: securityContext,

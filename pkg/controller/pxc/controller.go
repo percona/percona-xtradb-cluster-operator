@@ -237,35 +237,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	err = r.reconcileUsersSecret(o)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
-	}
-	var pxcAnnotations, proxysqlAnnotations map[string]string
-	if o.CompareVersionWith("1.5.0") >= 0 {
-		pxcAnnotations, proxysqlAnnotations, err = r.reconcileUsers(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "reconcileUsers")
-		}
-	}
-
-	r.resyncPXCUsersWithProxySQL(o)
-
-	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
-	if changed {
-		err = r.client.Update(context.TODO(), o)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
-		}
-	}
-
-	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
-		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
-		if err != nil {
-			reqLogger.Info("failed to ensure version, running with default", "error", err)
-		}
-	}
-
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
 		for _, fnlz := range o.GetFinalizers() {
@@ -294,6 +265,35 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 		// object is being deleted, no need in further actions
 		return rr, err
+	}
+
+	err = r.reconcileUsersSecret(o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
+	}
+	var pxcAnnotations, proxysqlAnnotations map[string]string
+	if o.CompareVersionWith("1.5.0") >= 0 {
+		pxcAnnotations, proxysqlAnnotations, err = r.reconcileUsers(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "reconcileUsers")
+		}
+	}
+
+	r.resyncPXCUsersWithProxySQL(o)
+
+	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
+	if changed {
+		err = r.client.Update(context.TODO(), o)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
+		}
+	}
+
+	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
+		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
+		if err != nil {
+			reqLogger.Info("failed to ensure version, running with default", "error", err)
+		}
 	}
 
 	err = r.deploy(o)

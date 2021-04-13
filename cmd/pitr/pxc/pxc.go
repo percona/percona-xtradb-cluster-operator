@@ -100,12 +100,20 @@ func (p *PXC) GetBinLogList() ([]Binlog, error) {
 		binlogs = append(binlogs, b)
 	}
 
-	_, err = p.db.Exec("FLUSH BINARY LOGS")
+	err = p.FlushBinlogs()
 	if err != nil {
-		return nil, errors.Wrap(err, "flush binary logs")
+		return nil, err
 	}
 
 	return binlogs, nil
+}
+
+func (p *PXC) FlushBinlogs() error {
+	_, err := p.db.Exec("FLUSH BINARY LOGS")
+	if err != nil {
+		return errors.Wrap(err, "flush binary logs")
+	}
+	return nil
 }
 
 // GetBinLogList return binary log files list

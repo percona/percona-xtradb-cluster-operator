@@ -255,7 +255,7 @@ func (r *Recoverer) recover() (err error) {
 		}
 	}
 
-	return nil
+	return r.db.FlushBinlogs()
 }
 
 func getLastBackupGTID(infoObj io.Reader) (string, error) {

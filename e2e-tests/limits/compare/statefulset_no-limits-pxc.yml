@@ -248,7 +248,7 @@ spec:
       initContainers:
         - command:
             - /pxc-init-entrypoint.sh
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           name: pxc-init
           resources:
             requests:

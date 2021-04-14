@@ -220,6 +220,8 @@ func (c *Collector) CollectBinLogs() error {
 
 		if lastUploadedBinlogName == "" {
 			log.Println("Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+		} else {
+			log.Println("Last gtid and binlog name was found. Last set=", c.lastSet, "binlog name=", lastUploadedBinlogName)
 		}
 	}
 

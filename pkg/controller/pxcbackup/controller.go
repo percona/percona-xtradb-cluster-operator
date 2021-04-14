@@ -266,7 +266,7 @@ func removeS3Finalizer(cr *api.PerconaXtraDBClusterBackup) {
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) tryRunS3BackupFinalizerJob(cr *api.PerconaXtraDBClusterBackup) error {
-		if cr.ObjectMeta.DeletionTimestamp == nil {
+	if cr.ObjectMeta.DeletionTimestamp == nil {
 		return nil
 	}
 

@@ -3,8 +3,8 @@
 `Custom Resource options <operator.html#operator-custom-resource-options>`_
 ===============================================================================
 
-The operator is configured via the spec section of the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_
+Percona XtraDB Cluster managed by the Operator configured via the spec section
+of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_
 file.
 
 The metadata part of this file contains the following keys:

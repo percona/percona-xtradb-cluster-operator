@@ -22,7 +22,7 @@ func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraD
 	}
 	labels["type"] = "xtrabackup"
 	labels["cluster"] = cr.Spec.PXCCluster
-	labels["job-name"] = genName63(cr)
+	labels["job-name"] = GenName63(cr)
 
 	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{

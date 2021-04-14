@@ -384,7 +384,6 @@ pipeline {
                             gcloud config set project $GCP_PROJECT
                             gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
                             sudo docker system prune -fa
-                            sudo rm -rf $HOME/google-cloud-sdk
                         '''
                     }
                 }

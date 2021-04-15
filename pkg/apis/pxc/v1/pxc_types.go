@@ -295,6 +295,7 @@ type PodSpec struct {
 	VaultSecretName               string                                  `json:"vaultSecretName,omitempty"`
 	SSLSecretName                 string                                  `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName         string                                  `json:"sslInternalSecretName,omitempty"`
+	EnvVarsSecretName             string                                  `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                                  `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                                    `json:"forceUnsafeBootstrap,omitempty"`
 	ServiceType                   corev1.ServiceType                      `json:"serviceType,omitempty"`
@@ -529,6 +530,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.ServiceAccountName = workloadSA
 		}
 
+		if len(c.PXC.EnvVarsSecretName) == 0 {
+			c.PXC.EnvVarsSecretName = cr.Name + "-env-vars-pxc"
+		}
+
 		c.PXC.reconcileAffinityOpts()
 
 		if c.Pause {
@@ -580,6 +585,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.HAProxy.ServiceAccountName = workloadSA
 		}
 
+		if len(c.HAProxy.EnvVarsSecretName) == 0 {
+			c.HAProxy.EnvVarsSecretName = cr.Name + "-env-vars-haproxy"
+		}
+
 		c.HAProxy.reconcileAffinityOpts()
 
 		if c.Pause {
@@ -615,6 +624,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if c.ProxySQL.TerminationGracePeriodSeconds == nil {
 			graceSec := int64(30)
 			c.ProxySQL.TerminationGracePeriodSeconds = &graceSec
+		}
+
+		if len(c.ProxySQL.EnvVarsSecretName) == 0 {
+			c.ProxySQL.EnvVarsSecretName = cr.Name + "-env-vars-proxysql"
 		}
 
 		if len(c.ProxySQL.ServiceAccountName) == 0 {

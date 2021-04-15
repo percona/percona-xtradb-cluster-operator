@@ -43,6 +43,14 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext
 	currentSet.Spec.Template.Spec.ImagePullSecrets = podSpec.ImagePullSecrets
 
+	if currentSet.Spec.Template.Labels == nil {
+		currentSet.Spec.Template.Labels = make(map[string]string)
+	}
+
+	for k, v := range podSpec.Labels {
+		currentSet.Spec.Template.Labels[k] = v
+	}
+
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function
 	configHash := r.getConfigHash(cr, sfs)

@@ -200,18 +200,6 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 		return rr, err
 	}
 
-	lgr.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
-	err = r.setStatus(cr, api.RestoreStartCluster, "")
-	if err != nil {
-		err = errors.Wrap(err, "set status")
-		return rr, err
-	}
-	err = r.startCluster(&cluster)
-	if err != nil {
-		err = errors.Wrap(err, "restart cluster")
-		return rr, err
-	}
-
 	if cr.Spec.PITR != nil {
 		lgr.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
 		err = r.setStatus(cr, api.RestorePITR, "")
@@ -224,6 +212,18 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 			err = errors.Wrap(err, "run pitr")
 			return rr, err
 		}
+	}
+
+	lgr.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+	err = r.setStatus(cr, api.RestoreStartCluster, "")
+	if err != nil {
+		err = errors.Wrap(err, "set status")
+		return rr, err
+	}
+	err = r.startCluster(&cluster)
+	if err != nil {
+		err = errors.Wrap(err, "restart cluster")
+		return rr, err
 	}
 
 	lgr.Info(returnMsg)

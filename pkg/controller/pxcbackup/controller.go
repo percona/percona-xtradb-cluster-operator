@@ -427,7 +427,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBCluster
 		ep = "s3.amazonaws.com"
 	}
 
-	ep = strings.TrimPrefix(strings.TrimPrefix(ep, "https://"), "http://")
+	ep = strings.TrimPrefix(ep, "https://")
+	ep = strings.TrimPrefix(ep, "http://")
+	ep = strings.TrimSuffix(ep, "/")
 
 	return minio.New(ep, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),

@@ -187,11 +187,16 @@ func (r *Recoverer) Run() error {
 	switch r.recoverType {
 	case Skip:
 		r.recoverFlag = " --exclude-gtids=" + r.gtid
+		if len(r.gtidSet) > 0 {
+			r.recoverFlag += "," + r.gtidSet
+		}
 	case Transaction:
 		r.recoverFlag = " --exclude-gtids=" + r.gtidSet
 	case Date:
 		r.recoverFlag = ` --stop-datetime="` + r.recoverTime + `"`
-
+		if len(r.gtidSet) > 0 {
+			r.recoverFlag += " --exclude-gtids=" + r.gtidSet
+		}
 		const format = "2006-01-02 15:04:05"
 		endTime, err := time.Parse(format, r.recoverTime)
 		if err != nil {
@@ -199,6 +204,9 @@ func (r *Recoverer) Run() error {
 		}
 		r.recoverEndTime = endTime
 	case Latest:
+		if len(r.gtidSet) > 0 {
+			r.recoverFlag = " --exclude-gtids=" + r.gtidSet
+		}
 	default:
 		return errors.New("wrong recover type")
 	}
@@ -318,7 +326,7 @@ func (r *Recoverer) setBinlogs() error {
 	reverse(list)
 	binlogs := []string{}
 	sourceID := strings.Split(r.startGTID, ":")[0]
-	for _, binlog := range list {
+	for i, binlog := range list {
 		if strings.Contains(binlog, "-gtid-set") {
 			continue
 		}
@@ -359,6 +367,28 @@ func (r *Recoverer) setBinlogs() error {
 			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
 		}
 		if subResult != r.startGTID {
+			binlogName := binlog
+			if len(list)-1 < i+1 {
+				binlogName = list[i+1]
+			}
+			infoObj, err := r.storage.GetObject(binlogName + "-gtid-set")
+			if err != nil {
+				log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
+				continue
+			}
+			content, err := ioutil.ReadAll(infoObj)
+			if err != nil {
+				return errors.Wrapf(err, "read %s gtid-set object", binlog)
+			}
+			set, err := getExtendGTIDSet(string(content), r.startGTID)
+			if err != nil {
+				return errors.Wrap(err, "some shit")
+			}
+			if len(r.gtidSet) > 0 {
+				r.gtidSet += "," + set
+			} else {
+				r.gtidSet = set
+			}
 			break
 		}
 	}

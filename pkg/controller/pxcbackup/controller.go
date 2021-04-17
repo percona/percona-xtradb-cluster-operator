@@ -251,8 +251,27 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 	return rr, err
 }
 
+func removeS3Finalizer(cr *api.PerconaXtraDBClusterBackup) {
+	filteredFins := make([]string, 0)
+
+	for _, f := range cr.GetFinalizers() {
+		if f == api.FinalizerDeleteS3Backup {
+			continue
+		}
+
+		filteredFins = append(filteredFins, f)
+	}
+
+	cr.SetFinalizers(filteredFins)
+}
+
 func (r *ReconcilePerconaXtraDBClusterBackup) tryRunS3BackupFinalizerJob(cr *api.PerconaXtraDBClusterBackup) error {
-	if cr.ObjectMeta.DeletionTimestamp == nil || cr.Status.S3 == nil {
+	if cr.ObjectMeta.DeletionTimestamp == nil {
+		return nil
+	}
+
+	if cr.Status.S3 == nil {
+		removeS3Finalizer(cr)
 		return nil
 	}
 

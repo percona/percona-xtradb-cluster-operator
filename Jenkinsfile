@@ -376,16 +376,6 @@ pipeline {
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
                     pullRequest.comment(TestsReport)
-
-                    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-                        sh '''
-                            source $HOME/google-cloud-sdk/path.bash.inc
-                            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-                            gcloud config set project $GCP_PROJECT
-                            gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-                            sudo docker system prune -fa
-                        '''
-                    }
                 }
             }
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {

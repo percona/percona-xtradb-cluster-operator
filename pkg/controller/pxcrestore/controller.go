@@ -210,6 +210,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 	if cr.Spec.PITR != nil {
 		oldSize := cluster.Spec.PXC.Size
 		cluster.Spec.PXC.Size = 1
+		cluster.Spec.AllowUnsafeConfig = true
 
 		if err := r.startCluster(&cluster); err != nil {
 			return rr, errors.Wrap(err, "restart cluster for pitr")

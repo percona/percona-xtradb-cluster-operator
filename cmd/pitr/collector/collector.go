@@ -131,15 +131,13 @@ func (c *Collector) close() error {
 func (c *Collector) CurrentSourceID(logs []pxc.Binlog) (string, error) {
 	var (
 		gtidSet string
-		i       int
 		err     error
 	)
-	for gtidSet == "" && i < len(logs) {
+	for i := len(logs) - 1; i >= 0 && gtidSet == ""; i-- {
 		gtidSet, err = c.db.GetGTIDSet(logs[i].Name)
 		if err != nil {
 			return gtidSet, err
 		}
-		i++
 	}
 	return strings.Split(gtidSet, ":")[0], nil
 }

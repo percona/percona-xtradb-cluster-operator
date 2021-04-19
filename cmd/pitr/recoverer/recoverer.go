@@ -326,7 +326,7 @@ func (r *Recoverer) setBinlogs() error {
 	reverse(list)
 	binlogs := []string{}
 	sourceID := strings.Split(r.startGTID, ":")[0]
-	for i, binlog := range list {
+	for _, binlog := range list {
 		if strings.Contains(binlog, "-gtid-set") {
 			continue
 		}
@@ -367,28 +367,7 @@ func (r *Recoverer) setBinlogs() error {
 			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
 		}
 		if subResult != r.startGTID {
-			binlogName := binlog
-			if len(list)-1 < i+1 {
-				binlogName = list[i+1]
-			}
-			infoObj, err := r.storage.GetObject(binlogName + "-gtid-set")
-			if err != nil {
-				log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
-				continue
-			}
-			content, err := ioutil.ReadAll(infoObj)
-			if err != nil {
-				return errors.Wrapf(err, "read %s gtid-set object", binlog)
-			}
-			set, err := getExtendGTIDSet(string(content), r.startGTID)
-			if err != nil {
-				return errors.Wrap(err, "some shit")
-			}
-			if len(r.gtidSet) > 0 {
-				r.gtidSet += "," + set
-			} else {
-				r.gtidSet = set
-			}
+			r.gtidSet = subResult
 			break
 		}
 	}

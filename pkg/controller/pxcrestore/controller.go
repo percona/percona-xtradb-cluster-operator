@@ -209,6 +209,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 
 	if cr.Spec.PITR != nil {
 		oldSize := cluster.Spec.PXC.Size
+		oldUnsafe := cluster.Spec.AllowUnsafeConfig
 		cluster.Spec.PXC.Size = 1
 		cluster.Spec.AllowUnsafeConfig = true
 
@@ -228,6 +229,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 		}
 
 		cluster.Spec.PXC.Size = oldSize
+		cluster.Spec.AllowUnsafeConfig = oldUnsafe
 	}
 
 	err = r.startCluster(&cluster)

@@ -89,6 +89,7 @@ func New(c Config) (*Recoverer, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get start GTID")
 	}
+	log.Println("START GTID IS ", startGTID)
 
 	return &Recoverer{
 		storage:        s3,
@@ -355,6 +356,7 @@ func (r *Recoverer) setBinlogs() error {
 
 		binlogs = append(binlogs, binlog)
 		subResult, err := r.db.SubtractGTIDSet(r.startGTID, binlogGTIDSet)
+		log.Println("Checking sub result"," binlog gtid ", binlogGTIDSet, " sub result ", subResult)
 		if err != nil {
 			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
 		}

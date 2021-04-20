@@ -89,7 +89,6 @@ func New(c Config) (*Recoverer, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get start GTID")
 	}
-	log.Println("START GTID IS ", startGTID)
 
 	return &Recoverer{
 		storage:        s3,
@@ -283,7 +282,7 @@ func getGTIDFromContent(content []byte) (string, error) {
 	se := bytes.Index(newOut, []byte("'"))
 	set := newOut[se+1 : e]
 
-	return string(set), nil
+	return strings.Split(string(set), ",")[0], nil
 }
 
 func getDecompressedContent(infoObj io.Reader) ([]byte, error) {

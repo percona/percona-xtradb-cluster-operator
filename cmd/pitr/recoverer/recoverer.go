@@ -134,13 +134,13 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 		return "", errors.New("parsing bucket")
 	}
 
-	prefix := strings.TrimPrefix(c.BackupDest, bucketArr[0]+"/") + "/"
+	prefix := strings.TrimPrefix(c.BackupDest, bucketArr[0]+"/") + ".sst_info/"
 
 	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.Endpoint, "https://"), "http://"), c.AccessKeyID, c.AccessKey, bucketArr[0], prefix, c.Region, strings.HasPrefix(c.Endpoint, "https"))
 	if err != nil {
 		return "", errors.Wrap(err, "new storage manager")
 	}
-	listInfo, err := s3.ListObjects("xtrabackup_info")
+	listInfo, err := s3.ListObjects("sst_info")
 	if err != nil {
 		return "", errors.Wrapf(err, "list %s info fies", prefix)
 	}
@@ -268,21 +268,17 @@ func getLastBackupGTID(infoObj io.Reader) (string, error) {
 }
 
 func getGTIDFromContent(content []byte) (string, error) {
-	sep := []byte("GTID of the last")
+	sep := []byte("galera-gtid=")
 	startIndex := bytes.Index(content, sep)
 	if startIndex == -1 {
 		return "", errors.New("no gtid data in backup")
 	}
 	newOut := content[startIndex+len(sep):]
-	e := bytes.Index(newOut, []byte("'\n"))
+	e := bytes.Index(newOut, []byte("\n"))
 	if e == -1 {
 		return "", errors.New("can't find gtid data in backup")
 	}
-
-	se := bytes.Index(newOut, []byte("'"))
-	set := newOut[se+1 : e]
-
-	return strings.Split(string(set), ",")[0], nil
+	return string(newOut[:e]), nil
 }
 
 func getDecompressedContent(infoObj io.Reader) ([]byte, error) {
@@ -302,7 +298,7 @@ func getDecompressedContent(infoObj io.Reader) ([]byte, error) {
 		return nil, errors.Errorf("run xbstream error: %s", &errb)
 	}
 
-	decContent, err := ioutil.ReadFile(tmpDir + "/xtrabackup_info")
+	decContent, err := ioutil.ReadFile(tmpDir + "/sst_info")
 	if err != nil {
 		return nil, errors.Wrap(err, "read xtrabackup_info file")
 	}

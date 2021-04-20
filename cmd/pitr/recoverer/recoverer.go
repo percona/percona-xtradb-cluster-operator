@@ -319,6 +319,7 @@ func (r *Recoverer) setBinlogs() error {
 	reverse(list)
 	binlogs := []string{}
 	sourceID := strings.Split(r.startGTID, ":")[0]
+	log.Println("current source id is", sourceID)
 	for _, binlog := range list {
 		if strings.Contains(binlog, "-gtid-set") {
 			continue
@@ -333,7 +334,9 @@ func (r *Recoverer) setBinlogs() error {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}
 		binlogGTIDSet := string(content)
+		log.Println("checking current file", " name ", binlog, " gtid ", binlogGTIDSet)
 		if sourceID != strings.Split(binlogGTIDSet, ":")[0] {
+			log.Println("Source id is not equal to binlog source id")
 			continue
 		}
 
@@ -356,7 +359,7 @@ func (r *Recoverer) setBinlogs() error {
 
 		binlogs = append(binlogs, binlog)
 		subResult, err := r.db.SubtractGTIDSet(r.startGTID, binlogGTIDSet)
-		log.Println("Checking sub result"," binlog gtid ", binlogGTIDSet, " sub result ", subResult)
+		log.Println("Checking sub result", " binlog gtid ", binlogGTIDSet, " sub result ", subResult)
 		if err != nil {
 			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)
 		}

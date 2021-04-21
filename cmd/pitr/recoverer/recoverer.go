@@ -135,6 +135,7 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 	}
 
 	prefix := strings.TrimPrefix(c.BackupDest, bucketArr[0]+"/")
+	backupPrefix := prefix + "/"
 	sstPrefix := prefix + ".sst_info/"
 
 	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.Endpoint, "https://"), "http://"), c.AccessKeyID, c.AccessKey, bucketArr[0], sstPrefix, c.Region, strings.HasPrefix(c.Endpoint, "https"))
@@ -146,7 +147,7 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 		return "", errors.Wrapf(err, "list %s info fies", prefix)
 	}
 	if len(sstInfo) == 0 {
-		return "", errors.New("no info files in backup")
+		return "", errors.New("no info files in sst dir")
 	}
 	sort.Strings(sstInfo)
 
@@ -155,7 +156,7 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 		return "", errors.Wrapf(err, "get %s info", prefix)
 	}
 
-	s3.SetPrefix(prefix)
+	s3.SetPrefix(backupPrefix)
 
 	xtrabackupInfo, err := s3.ListObjects("xtrabackup_info")
 	if err != nil {

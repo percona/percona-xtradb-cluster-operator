@@ -6,7 +6,7 @@ The list of organizations that have publicly shared the usage of Percona XtraDB 
 
 | Organization | Description | Success Story |
 | :--- | :--- | :--- |
-| [Example](https://example.com/) | Example company runs PXC on Kubernetes for dev and production for core application | [English](./adopters/Example/README.md) |
+| [Example](https://example.com/) | Example company runs PXC on Kubernetes for dev and production for core application | [English](./adopters/example/README.md) |
 
 The list of users that have publicly shared the usage of Percona XtraDB Cluster Operator. 
 

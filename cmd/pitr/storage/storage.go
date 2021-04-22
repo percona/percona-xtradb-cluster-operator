@@ -43,6 +43,10 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region st
 	}, nil
 }
 
+func (s *S3) SetPrefix(prefix string) {
+	s.prefix = prefix
+}
+
 // GetObject return content by given object name
 func (s *S3) GetObject(objectName string) (io.Reader, error) {
 	oldObj, err := s.minioClient.GetObject(s.ctx, s.bucketName, s.prefix+objectName, minio.GetObjectOptions{})

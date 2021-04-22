@@ -206,24 +206,36 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(request reconcile.Reque
 		err = errors.Wrap(err, "set status")
 		return rr, err
 	}
+
+	if cr.Spec.PITR != nil {
+		oldSize := cluster.Spec.PXC.Size
+		oldUnsafe := cluster.Spec.AllowUnsafeConfig
+		cluster.Spec.PXC.Size = 1
+		cluster.Spec.AllowUnsafeConfig = true
+
+		if err := r.startCluster(&cluster); err != nil {
+			return rr, errors.Wrap(err, "restart cluster for pitr")
+		}
+
+		lgr.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
+		err = r.setStatus(cr, api.RestorePITR, "")
+		if err != nil {
+			return rr, errors.Wrap(err, "set status")
+		}
+
+		err = r.pitr(cr, bcp, cluster.Spec)
+		if err != nil {
+			return rr, errors.Wrap(err, "run pitr")
+		}
+
+		cluster.Spec.PXC.Size = oldSize
+		cluster.Spec.AllowUnsafeConfig = oldUnsafe
+	}
+
 	err = r.startCluster(&cluster)
 	if err != nil {
 		err = errors.Wrap(err, "restart cluster")
 		return rr, err
-	}
-
-	if cr.Spec.PITR != nil {
-		lgr.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
-		err = r.setStatus(cr, api.RestorePITR, "")
-		if err != nil {
-			err = errors.Wrap(err, "set status")
-			return rr, err
-		}
-		err = r.pitr(cr, bcp, cluster.Spec)
-		if err != nil {
-			err = errors.Wrap(err, "run pitr")
-			return rr, err
-		}
 	}
 
 	lgr.Info(returnMsg)

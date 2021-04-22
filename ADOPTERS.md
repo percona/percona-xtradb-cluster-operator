@@ -1,4 +1,4 @@
-# Percona XtraDB Clustger Operator Adopters
+# Percona XtraDB Cluster Operator Adopters
 
 This is the list of organizations and users that publicly shared details of how they are using Percona Operator for running their MySQL databases.  Please send PRs to add or remove organizations/users.
 

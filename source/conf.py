@@ -41,8 +41,8 @@ version = '1.8.0'
 # the full version including alpha/beta/rc tags.
 release = '1.8.0'
 # the PXC 5.7 and PXC 8.0 recommended versions to be used in docs
-pxc57recommended = '5.7.32-31.47'
-pxc80recommended = '8.0.21-12.1'
+pxc57recommended = '5.7.33-31.49'
+pxc80recommended = '8.0.22-13.1'
 pmm2recommended = '2.12.0'
 
 

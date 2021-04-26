@@ -270,7 +270,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunS3BackupFinalizerJob(cr *api
 		return nil
 	}
 
-	if cr.Status.S3 == nil {
+	if cr.Status.S3 == nil || cr.Status.Destination == "" || !strings.HasPrefix(cr.Status.Destination, "s3://") {
 		removeS3Finalizer(cr)
 		return nil
 	}

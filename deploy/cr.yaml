@@ -72,6 +72,7 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
+#    envVarsSecret: my-env-var-secrets
     resources:
       requests:
         memory: 1G
@@ -170,6 +171,7 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
+#    envVarsSecret: my-env-var-secrets
     resources:
       requests:
         memory: 1G
@@ -281,6 +283,7 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
+#    envVarsSecret: my-env-var-secrets
     resources:
       requests:
         memory: 1G

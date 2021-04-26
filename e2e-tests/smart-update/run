@@ -10,7 +10,7 @@ API='pxc.percona.com/v9-9-9'
 TARGET_IMAGE_PXC=${IMAGE_PXC}
 CLUSTER="smart-update"
 CLUSTER_SIZE=3
-PROXY_SIZE=1
+PROXY_SIZE=2
 
 if [[ "${TARGET_IMAGE_PXC}" == *"percona-xtradb-cluster-operator"* ]]; then
     PXC_VER=$(echo -n "${TARGET_IMAGE_PXC}" | $sed -r 's/.*([0-9].[0-9])$/\1/')

@@ -237,35 +237,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	err = r.reconcileUsersSecret(o)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
-	}
-	var pxcAnnotations, proxysqlAnnotations map[string]string
-	if o.CompareVersionWith("1.5.0") >= 0 {
-		pxcAnnotations, proxysqlAnnotations, err = r.reconcileUsers(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "reconcileUsers")
-		}
-	}
-
-	r.resyncPXCUsersWithProxySQL(o)
-
-	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
-	if changed {
-		err = r.client.Update(context.TODO(), o)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
-		}
-	}
-
-	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
-		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
-		if err != nil {
-			reqLogger.Info("failed to ensure version, running with default", "error", err)
-		}
-	}
-
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
 		for _, fnlz := range o.GetFinalizers() {
@@ -296,6 +267,35 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return rr, err
 	}
 
+	err = r.reconcileUsersSecret(o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
+	}
+	var pxcAnnotations, proxysqlAnnotations map[string]string
+	if o.CompareVersionWith("1.5.0") >= 0 {
+		pxcAnnotations, proxysqlAnnotations, err = r.reconcileUsers(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "reconcileUsers")
+		}
+	}
+
+	r.resyncPXCUsersWithProxySQL(o)
+
+	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
+	if changed {
+		err = r.client.Update(context.TODO(), o)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
+		}
+	}
+
+	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
+		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
+		if err != nil {
+			reqLogger.Info("failed to ensure version, running with default", "error", err)
+		}
+	}
+
 	err = r.deploy(o)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -324,7 +324,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if len(o.Spec.InitImage) > 0 {
 			imageName = o.Spec.InitImage
 		}
-		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext)
+		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -557,7 +557,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if len(cr.Spec.InitImage) > 0 {
 			imageName = cr.Spec.InitImage
 		}
-		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext)
+		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
 		if err != nil {
 			return err
 		}
@@ -597,6 +597,16 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+	}
+
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
+		if err != nil {
+			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		}
+		if envVarsHash != "" {
+			nodeSet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+		}
 	}
 
 	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
@@ -665,6 +675,15 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 			}
 		}
+		if cr.CompareVersionWith("1.9.0") >= 0 {
+			envVarsHash, err := r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
+			if err != nil {
+				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			}
+			if envVarsHash != "" {
+				haProxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+			}
+		}
 		err = r.client.Create(context.TODO(), haProxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return errors.Wrap(err, "create newStatefulSetHAProxy")
@@ -721,7 +740,15 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 			}
 		}
-
+		if cr.CompareVersionWith("1.9.0") >= 0 {
+			envVarsHash, err := r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
+			if err != nil {
+				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			}
+			if envVarsHash != "" {
+				proxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+			}
+		}
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return errors.Wrap(err, "create newStatefulSetProxySQL")

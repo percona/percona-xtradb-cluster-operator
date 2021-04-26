@@ -137,7 +137,23 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			FailureThreshold:    4,
 		}, "/usr/local/bin/readiness-check.sh")
 	}
-
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		appc.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.HAProxy.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      cr.Spec.HAProxy.EnvVarsSecretName,
+			MountPath: "/etc/mysql/haproxy-env-secret",
+		})
+	}
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 	if err != nil {
 		return appc, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
@@ -217,6 +233,23 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			MountPath: "/etc/mysql/mysql-users-secret",
 		})
 	}
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		container.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.HAProxy.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      cr.Spec.HAProxy.EnvVarsSecretName,
+			MountPath: "/etc/mysql/haproxy-env-secret",
+		})
+	}
 	return []corev1.Container{container}, nil
 }
 
@@ -237,6 +270,9 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*
 	)
 	if cr.CompareVersionWith("1.7.0") >= 0 {
 		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false))
+	}
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes(cr.Spec.HAProxy.EnvVarsSecretName, cr.Spec.HAProxy.EnvVarsSecretName, true))
 	}
 
 	return vol, nil

@@ -147,7 +147,7 @@ Create new Percona XtraDB Cluster
   2. schedule:
   
      1. name (String, min-length: 1) : ``name of backup job``
-     2. schedule (String, Cron format: "* * * * *") : ``contains cron schedule format for when to run cron jobs``
+     2. schedule (String, Cron format: ``"* * * * *"``) : ``contains cron schedule format for when to run cron jobs``
      3. keep (Int, min-value = 1) : ``number of backups to keep``
      4. storageName (String, min-length: 1) : ``name of storage object to use``
 

@@ -4,7 +4,7 @@
 ===============================================================================
 
 Percona XtraDB Cluster managed by the Operator configured via the spec section
-of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_
+of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file.
 
 The metadata part of this file contains the following keys:
@@ -21,7 +21,7 @@ The metadata part of this file contains the following keys:
 
   ``delete-proxysql-pvc`` if present, activates the `Finalizer <https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#finalizers>`_ which deletes `Persistent Volume Claim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_ for ProxySQL Pod after the cluster deletion event (off by default).
 
-The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/cr.yaml>`_ file contains the following sections:
+The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/cr.yaml>`__ file contains the following sections:
 
 .. tabularcolumns:: |p{40mm}|p{10mm}|p{49mm}|p{47mm}|
 
@@ -120,7 +120,7 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-server-
 `Upgrade Options Section <operator.html#operator-upgradeoptions-section>`_
 --------------------------------------------------------------------------------
 
-The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ file contains various configuration options to control Percona XtraDB Cluster upgrades.
+The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains various configuration options to control Percona XtraDB Cluster upgrades.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
 
@@ -171,7 +171,7 @@ The ``upgradeOptions`` section in the `deploy/cr.yaml <https://github.com/percon
 `PXC Section <operator.html#operator-pxc-section>`_
 --------------------------------------------------------------------------------
 
-The ``pxc`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ file contains general
+The ``pxc`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains general
 configuration options for the Percona XtraDB Cluster.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -801,7 +801,7 @@ configuration options for the Percona XtraDB Cluster.
 `HAProxy Section <operator.html#operator-haproxy-section>`_
 --------------------------------------------------------------------------------
 
-The ``haproxy`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ file contains
+The ``haproxy`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains
 configuration options for the HAProxy service.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -1336,7 +1336,7 @@ configuration options for the HAProxy service.
 `ProxySQL Section <operator.html#operator-proxysql-section>`_
 --------------------------------------------------------------------------------
 
-The ``proxysql`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ file contains
+The ``proxysql`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains
 configuration options for the ProxySQL daemon.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -1930,7 +1930,7 @@ configuration options for the ProxySQL daemon.
 `Log Collector Section <operator.html#operator-logcollector-section>`_
 --------------------------------------------------------------------------------
 
-The ``logcollector`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_ 
+The ``logcollector`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file contains configuration options for `Fluent Bit Log Collector <https://fluentbit.io>`_.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -2008,7 +2008,7 @@ file contains configuration options for `Fluent Bit Log Collector <https://fluen
 `PMM Section <operator.html#operator-pmm-section>`_
 --------------------------------------------------------------------------------
 
-The ``pmm`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_  file contains configuration
+The ``pmm`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains configuration
 options for Percona Monitoring and Management.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
@@ -2127,7 +2127,7 @@ options for Percona Monitoring and Management.
 --------------------------------------------------------------------------------
 
 The ``backup`` section in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file contains the following configuration options for the regular
 Percona XtraDB Cluster backups.
 

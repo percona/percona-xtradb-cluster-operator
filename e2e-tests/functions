@@ -312,6 +312,7 @@ compare_kubectl() {
 		| yq d - '**.creationTimestamp' \
 		| yq d - '**.image' \
 		| yq d - '**.clusterIP' \
+		| yq d - '**.clusterIPs' \
 		| yq d - '**.dataSource' \
 		| yq d - '**.procMount' \
 		| yq d - '**.storageClassName' \

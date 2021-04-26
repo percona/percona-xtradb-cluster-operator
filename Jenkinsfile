@@ -380,10 +380,12 @@ pipeline {
             }
             withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
                 sh '''
-                    source $HOME/google-cloud-sdk/path.bash.inc
-                    gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-                    gcloud config set project $GCP_PROJECT
-                    gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                    if [ -f $HOME/google-cloud-sdk/path.bash.inc ]; then
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+                        gcloud config set project $GCP_PROJECT
+                        gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                    fi
                     sudo docker system prune -fa
                     sudo rm -rf ./*
                     sudo rm -rf $HOME/google-cloud-sdk

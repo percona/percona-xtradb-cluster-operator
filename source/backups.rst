@@ -371,7 +371,8 @@ you can put additional restoration parameters to the ``restore.yaml`` file
 * ``date`` key is used with ``type=date`` option - it contains value in
   datetime format,
 * ``gtidSet`` key is used with ``type=transaction`` option - it contains exact
-  GTID or GTIDSet, 
+  GTID or GTIDSet (the restore will not include the transaction with specified
+  GTID, but the one before it),
 * if you have necessary backup storage mentioned in the ``backup.storages``
   subsection of the ``deploy/cr.yaml``  configuration file, you can just set
   ``backupSource.storageName`` key in the ``deploy/backup/restore.yaml`` file to

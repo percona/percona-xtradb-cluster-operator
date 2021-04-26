@@ -33,19 +33,25 @@ documentation <https://kubernetes.io/docs/concepts/storage/persistent-volumes/#e
 
 The following are the steps to increase the size:
 
-0. Extract and backup the yaml file for the cluster
+#. Extract and backup the yaml file for the cluster
 
    .. code:: bash
 
       kubectl get pxc cluster1 -o yaml --export > CR_backup.yaml
 
-1. Delete the cluster
+#. Now you should delete the cluster.
+
+   .. warning:: Make sure that :ref:`delete-pxc-pvc<finalizers-pxc>` finalizer
+      is not set in your custom resource, **otherwise
+      all cluster data will be lost!**
+
+   You can use the following command to delete the cluster:
 
    .. code:: bash
 
       kubectl delete -f CR_backup.yaml
 
-2. For each node, edit the yaml to resize the PVC object.
+#. For each node, edit the yaml to resize the PVC object.
 
    .. code:: bash
 
@@ -69,14 +75,14 @@ The following are the steps to increase the size:
       kubectl edit pvc datadir-cluster1-pxc-1
       kubectl edit pvc datadir-cluster1-pxc-2
 
-3. In the CR configuration file, use vim or another text editor to edit
+#. In the CR configuration file, use vim or another text editor to edit
    the PVC size.
 
    .. code:: bash
 
       vim CR_backup.yaml
 
-4. Apply the updated configuration to the cluster.
+#. Apply the updated configuration to the cluster.
 
    .. code:: bash
 

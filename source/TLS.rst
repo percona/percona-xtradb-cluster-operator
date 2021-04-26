@@ -21,7 +21,7 @@ available. Other options are the following ones:
 
 You can also use pre-generated certificates available in the
 ``deploy/ssl-secrets.yaml`` file for test purposes, but we strongly recommend
-  avoiding their usage on any production system!
+avoiding their usage on any production system!
 
 The following subsections explain how to configure TLS security with the
 Operator yourself, as well as how to temporarily disable it if needed.

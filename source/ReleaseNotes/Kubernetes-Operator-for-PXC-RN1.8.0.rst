@@ -91,7 +91,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-681`: Fix operator crash which occurred when non-existing
   storage name was specified for point-in-time recovery
 * :jirabug:`K8SPXC-638`: Fix unneeded delay in showing logs with
-   the ``kubectl logs`` command for the logs container
+  the ``kubectl logs`` command for the logs container
 * :jirabug:`K8SPXC-609`: Fix frequent HAProxy service NodePort updates which
   were causing issues with load balancers
 * :jirabug:`K8SPXC-542`: Fix a bug due to which  backups were taken only for one

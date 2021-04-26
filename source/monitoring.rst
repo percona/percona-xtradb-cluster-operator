@@ -58,8 +58,8 @@ Kubernetes-based environment:
             kubectl patch secret/my-cluster-name-secrets -p '{"data":{"pmmserver": '$(echo -n new_password | base64)'}}'
 
    -  you can also use ``pmm.pxcParams`` and ``pmm.proxysqlParams`` keys to
-      specify additional parameters for `pmm-admin add mysql <https://www.percona.com/doc/percona-monitoring-and-management/2.x/setting-up/client/mysql.html#adding-mysql-service-monitoring>`_ and
-      `pmm-admin add mysql <https://www.percona.com/doc/percona-monitoring-and-management/2.x/setting-up/client/proxysql.html>`_
+      specify additional parameters for `pmm-admin add mysql <https://www.percona.com/doc/percona-monitoring-and-management/2.x/setting-up/client/mysql.html#adding-mysql-service-monitoring>`__ and
+      `pmm-admin add mysql <https://www.percona.com/doc/percona-monitoring-and-management/2.x/setting-up/client/proxysql.html>`__
       commands respectively, if needed.
 
       .. note:: Please take into account that Operator automatically manages

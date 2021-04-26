@@ -45,7 +45,7 @@ The following are the steps to increase the size:
 
 #. Now you should delete the cluster.
 
-   .. warning:: Make shure that :ref:`delete-pxc-pvc<finalizers-pxc>` finalizer
+   .. warning:: Make sure that :ref:`delete-pxc-pvc<finalizers-pxc>` finalizer
       is not set in your custom resource, **otherwise
       all cluster data will be lost!**
 

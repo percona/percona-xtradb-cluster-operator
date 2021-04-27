@@ -39,6 +39,9 @@ spec:
       storage: false
       served: true
     - name: v1-8-0
+      storage: false
+      served: true
+    - name: v1-9-0
       storage: true
       served: true
     - name: v1alpha1

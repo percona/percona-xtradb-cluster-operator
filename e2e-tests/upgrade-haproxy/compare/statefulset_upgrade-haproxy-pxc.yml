@@ -124,6 +124,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-upgrade-haproxy
+          envFrom:
+            - secretRef:
+                name: upgrade-haproxy-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:
@@ -250,6 +254,6 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 6Gi
+            storage: 6G
       status:
         phase: Pending

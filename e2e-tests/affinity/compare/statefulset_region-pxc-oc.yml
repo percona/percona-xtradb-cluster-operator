@@ -71,6 +71,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-region
+          envFrom:
+            - secretRef:
+                name: region-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:

@@ -71,6 +71,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-zone
+          envFrom:
+            - secretRef:
+                name: zone-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:

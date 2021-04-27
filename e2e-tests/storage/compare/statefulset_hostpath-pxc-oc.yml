@@ -69,6 +69,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-hostpath
+          envFrom:
+            - secretRef:
+                name: hostpath-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:

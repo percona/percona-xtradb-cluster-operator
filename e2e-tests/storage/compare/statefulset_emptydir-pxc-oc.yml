@@ -71,6 +71,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-emptydir
+          envFrom:
+            - secretRef:
+                name: emptydir-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:

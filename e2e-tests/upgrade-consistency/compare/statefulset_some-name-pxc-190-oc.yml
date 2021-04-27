@@ -130,6 +130,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-some-name
+          envFrom:
+            - secretRef:
+                name: some-name-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:

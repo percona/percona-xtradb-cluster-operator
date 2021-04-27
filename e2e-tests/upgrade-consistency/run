@@ -141,17 +141,25 @@ main() {
 
     # test 1.8.0
     API="pxc.percona.com/v1-8-0"
-    kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/rbac.yaml
+    kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.8.0/deploy/rbac.yaml
     kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.8.0"}
     }'
     wait_cluster_consistency "$cluster" 3 2
     wait_for_sts_generation "$cluster-pxc" "8" "1"
 
-    compare_kubectl service/$cluster-pxc "-180"
-    compare_kubectl service/$cluster-proxysql "-180"
-    compare_kubectl statefulset/$cluster-pxc "-180"
-    compare_kubectl statefulset/$cluster-proxysql "-180"
+    # test 1.9.0
+    API="pxc.percona.com/v1-9-0"
+    kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/rbac.yaml
+    kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "spec": {"crVersion":"1.9.0"}
+    }'
+    wait_cluster_consistency "$cluster" 3 2
+    wait_for_sts_generation "$cluster-pxc" "9" "1"
+    compare_kubectl service/$cluster-pxc "-190"
+    compare_kubectl service/$cluster-proxysql "-190"
+    compare_kubectl statefulset/$cluster-pxc "-190"
+    compare_kubectl statefulset/$cluster-proxysql "-190"
     destroy "${namespace}"
 }
 

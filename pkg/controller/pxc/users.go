@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -276,7 +277,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		requiredUsers = append(requiredUsers, user{
 			name:      "proxyadmin",
 			proxyUser: true,
-			action:    rProxy,
+			action:    rProxy | syncProxyUsers,
 		})
 	}
 
@@ -338,7 +339,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		return false, false, errors.Wrap(err, "update sys users pass")
 	}
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		err = updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
+		err = r.updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
 		if err != nil {
 			return false, false, errors.Wrap(err, "update Proxy users pass")
 		}
@@ -354,54 +355,55 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {
+	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled || cr.Status.PXC.Ready < 1 {
+		return nil
+	}
 	if cr.Status.Status != api.AppStateReady || cr.Status.ProxySQL.Status != api.AppStateReady {
 		return nil
 	}
-	// sync users if ProxySql enabled
-	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled || cr.Status.ObservedGeneration != cr.Generation || cr.Status.PXC.Ready < 1 {
-		return nil
-	}
-	pod := corev1.Pod{}
-	err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      cr.Name + "-proxysql-0",
-		},
-		&pod,
-	)
-	if err != nil && k8serrors.IsNotFound(err) {
-		return err
-	} else if err != nil {
-		return errors.Wrap(err, "get proxysql pod")
-	}
-	var errb, outb bytes.Buffer
-	err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers"}, nil, &outb, &errb, false)
-	if err != nil {
-		return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
-	}
-	if len(errb.Bytes()) > 0 {
-		return errors.New("syncusers: " + errb.String())
+
+	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
+		pod := corev1.Pod{}
+		err := r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      cr.Name + "-proxysql-" + strconv.Itoa(i),
+			},
+			&pod,
+		)
+		if err != nil && k8serrors.IsNotFound(err) {
+			return err
+		} else if err != nil {
+			return errors.Wrap(err, "get proxysql pod")
+		}
+		var errb, outb bytes.Buffer
+		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers"}, nil, &outb, &errb, false)
+		if err != nil {
+			return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
+		}
+		if len(errb.Bytes()) > 0 {
+			return errors.New("syncusers: " + errb.String())
+		}
 	}
 
 	return nil
 }
 
-func updateProxyUsers(proxyUsers []users.SysUser, internalSysSecretObj *corev1.Secret, cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) updateProxyUsers(proxyUsers []users.SysUser, internalSysSecretObj *corev1.Secret, cr *api.PerconaXtraDBCluster) error {
 	if len(proxyUsers) == 0 {
 		return nil
 	}
-
-	um, err := users.NewManager(cr.Name+"-proxysql-unready."+cr.Namespace+":6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]))
-	if err != nil {
-		return errors.Wrap(err, "new users manager")
+	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
+		um, err := users.NewManager(cr.Name+"-proxysql-"+strconv.Itoa(i)+"."+cr.Name+"-proxysql-unready."+cr.Namespace+":6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]))
+		if err != nil {
+			return errors.Wrap(err, "new users manager")
+		}
+		defer um.Close()
+		err = um.UpdateProxyUsers(proxyUsers)
+		if err != nil {
+			return errors.Wrap(err, "update proxy users")
+		}
 	}
-	defer um.Close()
-
-	err = um.UpdateProxyUsers(proxyUsers)
-	if err != nil {
-		return errors.Wrap(err, "update proxy users")
-	}
-
 	return nil
 }
 

@@ -212,12 +212,14 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ServiceType) > 0 {
 		svcType = cr.Spec.HAProxy.ServiceType
 	}
+
 	serviceAnnotations := make(map[string]string)
 	loadBalancerSourceRanges := []string{}
 	if cr.Spec.HAProxy != nil {
 		serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
 		loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
 	}
+
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",

@@ -52,15 +52,11 @@ apply_config $test_dir/conf/$cluster.yml
 
 desc 'check if Pod deleted'
 wait_for_delete pod/$cluster-proxysql-2
-wait_for_delete pod/$cluster-proxysql-1
 
 desc 'check if PVC not deleted'
-compare_kubectl pvc/proxydata-$cluster-proxysql-1
 compare_kubectl pvc/proxydata-$cluster-proxysql-2
 
 desc 'check if Pod deleted from ProxySQL'
-run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | ( grep $pod1 && exit 1 || :)
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
     | ( grep $pod2 && exit 1 || :)
 

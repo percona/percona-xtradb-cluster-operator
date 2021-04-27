@@ -1,4 +1,0 @@
-runner:
-  go-consistent:
-    cmd: go-consistent ./...
-    format: go-consistent

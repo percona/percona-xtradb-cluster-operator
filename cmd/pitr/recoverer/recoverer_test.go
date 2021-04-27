@@ -72,3 +72,34 @@ func TestGetGTIDFromContent(t *testing.T) {
 		t.Error("set not test_set:1-10 but", set)
 	}
 }
+
+func TestGetExtendGTIDSet(t *testing.T) {
+	type testCase struct {
+		gtidSet         string
+		gtid            string
+		expectedGTIDSet string
+	}
+	cases := []testCase{
+		{
+			gtidSet:         "source-id:1-40",
+			gtid:            "source-id:15",
+			expectedGTIDSet: "source-id:15-40",
+		},
+		{
+			gtidSet:         "source-id:1-40",
+			gtid:            "source-id:11-15",
+			expectedGTIDSet: "source-id:11-40",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.gtid, func(t *testing.T) {
+			set, err := getExtendGTIDSet(c.gtidSet, c.gtid)
+			if err != nil {
+				t.Errorf("get from '%s': %s", c.gtid, err.Error())
+			}
+			if set != c.expectedGTIDSet {
+				t.Errorf("%s: expect '%s', got '%s'", c.gtid, c.expectedGTIDSet, set)
+			}
+		})
+	}
+}

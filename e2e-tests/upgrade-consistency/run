@@ -103,7 +103,7 @@ main() {
     kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.5.0", "proxysql": { "image": "percona/percona-xtradb-cluster-operator:1.5.0-proxysql" }}
     }'
-    wait_cluster_consistency "$cluster" 3 1
+    wait_cluster_consistency "$cluster" 3 2
     wait_for_sts_generation "$cluster-pxc" "5" "1"
 
     compare_kubectl service/$cluster-pxc "-150"
@@ -117,7 +117,7 @@ main() {
     kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.6.0"}
     }'
-    wait_cluster_consistency "$cluster" 3 1
+    wait_cluster_consistency "$cluster" 3 2
     wait_for_sts_generation "$cluster-pxc" "6" "1"
 
     compare_kubectl service/$cluster-pxc "-160"
@@ -131,7 +131,7 @@ main() {
     kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.7.0"}
     }'
-    wait_cluster_consistency "$cluster" 3 1
+    wait_cluster_consistency "$cluster" 3 2
     wait_for_sts_generation "$cluster-pxc" "7" "1"
 
     compare_kubectl service/$cluster-pxc "-170"
@@ -145,7 +145,7 @@ main() {
     kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.8.0"}
     }'
-    wait_cluster_consistency "$cluster" 3 1
+    wait_cluster_consistency "$cluster" 3 2
     wait_for_sts_generation "$cluster-pxc" "8" "1"
 
     compare_kubectl service/$cluster-pxc "-180"

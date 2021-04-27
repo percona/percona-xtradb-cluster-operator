@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -225,6 +226,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 			if len(cr.Spec.Backup.PITR.StorageName) == 0 {
 				return errors.Errorf("backup.PITR.StorageName can't be empty")
 			}
+			_, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
+			if !ok {
+				return errors.Errorf("pitr storage %s doesn't exist", cr.Spec.Backup.PITR.StorageName)
+			}
 		}
 		for _, sch := range c.Backup.Schedule {
 			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
@@ -261,6 +266,16 @@ type PerconaXtraDBClusterList struct {
 	Items           []PerconaXtraDBCluster `json:"items"`
 }
 
+func (list *PerconaXtraDBClusterList) HasUnfinishedFinalizers() bool {
+	for _, v := range list.Items {
+		if v.ObjectMeta.DeletionTimestamp != nil && len(v.Finalizers) != 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 type PodSpec struct {
 	Enabled                       bool                                    `json:"enabled,omitempty"`
 	Size                          int32                                   `json:"size,omitempty"`
@@ -280,6 +295,7 @@ type PodSpec struct {
 	VaultSecretName               string                                  `json:"vaultSecretName,omitempty"`
 	SSLSecretName                 string                                  `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName         string                                  `json:"sslInternalSecretName,omitempty"`
+	EnvVarsSecretName             string                                  `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                                  `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                                    `json:"forceUnsafeBootstrap,omitempty"`
 	ServiceType                   corev1.ServiceType                      `json:"serviceType,omitempty"`
@@ -365,6 +381,10 @@ type BackupStorageType string
 const (
 	BackupStorageFilesystem BackupStorageType = "filesystem"
 	BackupStorageS3         BackupStorageType = "s3"
+)
+
+const (
+	FinalizerDeleteS3Backup string = "delete-s3-backup"
 )
 
 type BackupStorageS3Spec struct {
@@ -460,10 +480,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		workloadSA = WorkloadSA
 	}
 
-	CRVerChanged, err := cr.setVersion()
-	if err != nil {
-		return false, errors.Wrap(err, "set version")
-	}
+	CRVerChanged := cr.setVersion()
 
 	err = cr.Validate()
 	if err != nil {
@@ -511,6 +528,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		if len(c.PXC.ServiceAccountName) == 0 {
 			c.PXC.ServiceAccountName = workloadSA
+		}
+
+		if len(c.PXC.EnvVarsSecretName) == 0 {
+			c.PXC.EnvVarsSecretName = cr.Name + "-env-vars-pxc"
 		}
 
 		c.PXC.reconcileAffinityOpts()
@@ -564,6 +585,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.HAProxy.ServiceAccountName = workloadSA
 		}
 
+		if len(c.HAProxy.EnvVarsSecretName) == 0 {
+			c.HAProxy.EnvVarsSecretName = cr.Name + "-env-vars-haproxy"
+		}
+
 		c.HAProxy.reconcileAffinityOpts()
 
 		if c.Pause {
@@ -599,6 +624,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if c.ProxySQL.TerminationGracePeriodSeconds == nil {
 			graceSec := int64(30)
 			c.ProxySQL.TerminationGracePeriodSeconds = &graceSec
+		}
+
+		if len(c.ProxySQL.EnvVarsSecretName) == 0 {
+			c.ProxySQL.EnvVarsSecretName = cr.Name + "-env-vars-proxysql"
 		}
 
 		if len(c.ProxySQL.ServiceAccountName) == 0 {
@@ -652,6 +681,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	return CRVerChanged || changed, nil
 }
 
+const (
+	maxSafePXCSize = 5
+	minSafeProxySize = 2
+)
+
 func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.AllowUnsafeConfig {
 		return
@@ -665,49 +699,67 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.PXC.Size < 3 {
 		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, 3)
 		spec.PXC.Size = 3
+	} else if spec.PXC.Size > maxSafePXCSize {
+		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, maxSafePXCSize)
+		spec.PXC.Size = maxSafePXCSize
 	}
 
 	if spec.PXC.Size%2 == 0 {
 		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, spec.PXC.Size+1)
 		spec.PXC.Size++
 	}
+
+	if spec.ProxySQL != nil && spec.ProxySQL.Enabled {
+		if spec.ProxySQL.Size < minSafeProxySize {
+			loginfo("ProxySQL size will be changed from %d to %d due to safe config", spec.ProxySQL.Size, minSafeProxySize)
+			spec.ProxySQL.Size = minSafeProxySize
+		}
+	}
+
+	if spec.HAProxy != nil && spec.HAProxy.Enabled {
+		if spec.HAProxy.Size < minSafeProxySize {
+			loginfo("HAProxy size will be changed from %d to %d due to safe config", spec.HAProxy.Size, minSafeProxySize)
+			spec.HAProxy.Size = minSafeProxySize
+		}
+	}
 }
 
 // setVersion sets the API version of a PXC resource.
 // The new (semver-matching) version is determined either by the CR's API version or an API version specified via the CR's fields.
 // If the CR's API version is an empty string and last-applied-configuration from k8s is empty, it returns current operator version.
-func (cr *PerconaXtraDBCluster) setVersion() (bool, error) {
+func (cr *PerconaXtraDBCluster) setVersion() bool {
 	if len(cr.Spec.CRVersion) > 0 {
-		return false, nil
+		return false
 	}
+
 	apiVersion := version.Version
+
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
 		err := json.Unmarshal([]byte(lastCR), &newCR)
 		if err != nil {
-			return false, errors.Wrap(err, "unmarshal cr")
-		}
-		if len(newCR.APIVersion) > 0 {
+			log.Printf("failed to unmarshal cr: %v", err)
+		} else if len(newCR.APIVersion) > 0 {
 			apiVersion = strings.Replace(strings.TrimPrefix(newCR.APIVersion, "pxc.percona.com/v"), "-", ".", -1)
 		}
 	}
 
 	cr.Spec.CRVersion = apiVersion
-	return true, nil
+	return true
 }
 
 func (cr *PerconaXtraDBCluster) Version() *v.Version {
 	return v.Must(v.NewVersion(cr.Spec.CRVersion))
 }
 
-// CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
-func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
+// CompareVersionWith compares given version to current version.
+// Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 	if len(cr.Spec.CRVersion) == 0 {
-		cr.setVersion()
+		_ = cr.setVersion()
 	}
 
-	//using Must because "version" must be right format
-	return cr.Version().Compare(v.Must(v.NewVersion(version)))
+	return cr.Version().Compare(v.Must(v.NewVersion(ver)))
 }
 
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section

@@ -26,7 +26,7 @@ type S3 struct {
 
 // NewS3 return new Manager, useSSL using ssl for connection with storage
 func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, useSSL bool) (*S3, error) {
-	minioClient, err := minio.New(endpoint, &minio.Options{
+	minioClient, err := minio.New(strings.TrimRight(endpoint, "/"), &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
 		Region: region,
@@ -41,6 +41,10 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region st
 		bucketName:  bucketName,
 		prefix:      prefix,
 	}, nil
+}
+
+func (s *S3) SetPrefix(prefix string) {
+	s.prefix = prefix
 }
 
 // GetObject return content by given object name

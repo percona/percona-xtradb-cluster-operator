@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,10 +59,17 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "get version")
 	}
+
 	cli, err := clientcmd.NewClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "create clientcmd")
 	}
+
+	zapLog, err := zap.NewProduction()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create logger")
+	}
+
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
@@ -68,6 +77,7 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		serverVersion: sv,
 		clientcmd:     cli,
 		lockers:       newLockStore(),
+		log:           zapr.NewLogger(zapLog),
 	}, nil
 }
 
@@ -101,11 +111,12 @@ type ReconcilePerconaXtraDBCluster struct {
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
+	log            logr.Logger
 }
 
 func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
-	return log.NewDelegatingLogger(log.NullLogger{}).WithName("controller_perconaxtradbcluster").
-		WithValues("cluster name", name, "namespace", namespace)
+	return log.NewDelegatingLogger(r.log).WithName("perconaxtradbcluster").
+		WithValues("cluster", name, "namespace", namespace)
 }
 
 type lockStore struct {
@@ -226,35 +237,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	err = r.reconcileUsersSecret(o)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
-	}
-	var pxcAnnotations, proxysqlAnnotations map[string]string
-	if o.CompareVersionWith("1.5.0") >= 0 {
-		pxcAnnotations, proxysqlAnnotations, err = r.reconcileUsers(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "reconcileUsers")
-		}
-	}
-
-	r.resyncPXCUsersWithProxySQL(o)
-
-	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
-	if changed {
-		err = r.client.Update(context.TODO(), o)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
-		}
-	}
-
-	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
-		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
-		if err != nil {
-			reqLogger.Info("failed to ensure version, running with default", "error", err)
-		}
-	}
-
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
 		for _, fnlz := range o.GetFinalizers() {
@@ -285,6 +267,35 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return rr, err
 	}
 
+	err = r.reconcileUsersSecret(o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
+	}
+	var pxcAnnotations, proxysqlAnnotations map[string]string
+	if o.CompareVersionWith("1.5.0") >= 0 {
+		pxcAnnotations, proxysqlAnnotations, err = r.reconcileUsers(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "reconcileUsers")
+		}
+	}
+
+	r.resyncPXCUsersWithProxySQL(o)
+
+	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
+	if changed {
+		err = r.client.Update(context.TODO(), o)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
+		}
+	}
+
+	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
+		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
+		if err != nil {
+			reqLogger.Info("failed to ensure version, running with default", "error", err)
+		}
+	}
+
 	err = r.deploy(o)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -313,7 +324,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if len(o.Spec.InitImage) > 0 {
 			imageName = o.Spec.InitImage
 		}
-		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext)
+		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -531,6 +542,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil {
 		return errors.Wrap(err, "get operator deployment")
 	}
+
 	logger := r.logger(cr.Name, cr.Namespace)
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
@@ -545,7 +557,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if len(cr.Spec.InitImage) > 0 {
 			imageName = cr.Spec.InitImage
 		}
-		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext)
+		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
 		if err != nil {
 			return err
 		}
@@ -587,6 +599,16 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
+		if err != nil {
+			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+		}
+		if envVarsHash != "" {
+			nodeSet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+		}
+	}
+
 	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
 	if err != nil {
 		return errors.Wrap(err, "get vault config hash")
@@ -594,14 +616,14 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
 		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
 	}
-
+	nodeSet.Spec.Template.Spec.Tolerations = cr.Spec.PXC.Tolerations
 	err = setControllerReference(cr, nodeSet, r.scheme)
 	if err != nil {
 		return err
 	}
 
-	err = r.client.Create(context.TODO(), nodeSet)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	err = r.createOrUpdate(nodeSet)
+	if err != nil {
 		return errors.Wrap(err, "create newStatefulSetNode")
 	}
 
@@ -651,6 +673,15 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			}
 			if sslInternalHash != "" {
 				haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+			}
+		}
+		if cr.CompareVersionWith("1.9.0") >= 0 {
+			envVarsHash, err := r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
+			if err != nil {
+				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			}
+			if envVarsHash != "" {
+				haProxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
 			}
 		}
 		err = r.client.Create(context.TODO(), haProxySet)
@@ -709,7 +740,15 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 			}
 		}
-
+		if cr.CompareVersionWith("1.9.0") >= 0 {
+			envVarsHash, err := r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
+			if err != nil {
+				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
+			}
+			if envVarsHash != "" {
+				proxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+			}
+		}
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return errors.Wrap(err, "create newStatefulSetProxySQL")
@@ -1084,7 +1123,12 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 	objAnnotations["percona.com/last-config-hash"] = hash
 	objectMeta.SetAnnotations(objAnnotations)
 
-	oldObject := obj.DeepCopyObject()
+	val := reflect.ValueOf(obj)
+	if val.Kind() == reflect.Ptr {
+		val = reflect.Indirect(val)
+	}
+	oldObject := reflect.New(val.Type()).Interface().(runtime.Object)
+
 	err = r.client.Get(context.Background(), types.NamespacedName{
 		Name:      objectMeta.GetName(),
 		Namespace: objectMeta.GetNamespace(),
@@ -1108,8 +1152,10 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
 		}
+
 		return r.client.Update(context.TODO(), obj)
 	}
+
 	return nil
 }
 

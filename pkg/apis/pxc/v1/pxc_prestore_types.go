@@ -26,7 +26,7 @@ type PITR struct {
 	BackupSource *PXCBackupStatus `json:"backupSource"`
 	Type         string           `json:"type"`
 	Date         string           `json:"date"`
-	GTIDSet      string           `json:"gtidSet"`
+	GTID         string           `json:"gtid"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -72,6 +72,9 @@ func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
 	}
 	if cr.Spec.BackupName == "" && cr.Spec.BackupSource == nil {
 		return errors.New("backupName and BackupSource can't be empty simultaneously")
+	}
+	if len(cr.Spec.BackupName) > 0 && cr.Spec.BackupSource != nil {
+		return errors.New("backupName and BackupSource can't be specified simultaneously")
 	}
 
 	return nil

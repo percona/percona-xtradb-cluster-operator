@@ -60,6 +60,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-no-proxysql
+          envFrom:
+            - secretRef:
+                name: no-proxysql-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:

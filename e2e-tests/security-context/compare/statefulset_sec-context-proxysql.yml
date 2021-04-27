@@ -51,6 +51,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-sec-context
+          envFrom:
+            - secretRef:
+                name: sec-context-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql
           ports:
@@ -99,6 +103,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-sec-context
+          envFrom:
+            - secretRef:
+                name: sec-context-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -128,6 +136,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-sec-context
+          envFrom:
+            - secretRef:
+                name: sec-context-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql-monit
           resources: {}

@@ -34,6 +34,10 @@ spec:
         - env:
             - name: PXC_SERVICE
               value: monitoring-pxc
+          envFrom:
+            - secretRef:
+                name: monitoring-env-vars-haproxy
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:
@@ -80,6 +84,8 @@ spec:
               name: haproxy-auto
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: monitoring-env-vars-haproxy
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -87,6 +93,10 @@ spec:
           env:
             - name: PXC_SERVICE
               value: monitoring-pxc
+          envFrom:
+            - secretRef:
+                name: monitoring-env-vars-haproxy
+                optional: true
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -99,6 +109,8 @@ spec:
               name: haproxy-auto
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: monitoring-env-vars-haproxy
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -119,6 +131,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-monitoring
+        - name: monitoring-env-vars-haproxy
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: monitoring-env-vars-haproxy
   updateStrategy:
     rollingUpdate:
       partition: 0

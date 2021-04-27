@@ -72,6 +72,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-sec-context
+          envFrom:
+            - secretRef:
+                name: sec-context-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:

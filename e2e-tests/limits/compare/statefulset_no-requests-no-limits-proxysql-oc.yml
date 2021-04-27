@@ -51,6 +51,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
+          envFrom:
+            - secretRef:
+                name: no-requests-no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql
           ports:
@@ -94,6 +98,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
+          envFrom:
+            - secretRef:
+                name: no-requests-no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -123,6 +131,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
+          envFrom:
+            - secretRef:
+                name: no-requests-no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql-monit
           resources: {}

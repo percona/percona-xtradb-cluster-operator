@@ -147,6 +147,10 @@ main() {
     }'
     wait_cluster_consistency "$cluster" 3 2
     wait_for_sts_generation "$cluster-pxc" "8" "1"
+    compare_kubectl service/$cluster-pxc "-180"
+    compare_kubectl service/$cluster-proxysql "-180"
+    compare_kubectl statefulset/$cluster-pxc "-180"
+    compare_kubectl statefulset/$cluster-proxysql "-180"
 
     # test 1.9.0
     API="pxc.percona.com/v1-9-0"

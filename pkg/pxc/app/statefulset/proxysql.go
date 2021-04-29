@@ -48,6 +48,10 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 	}
 }
 
+func (c *Proxy) Name() string {
+	return proxyName
+}
+
 func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            proxyName,

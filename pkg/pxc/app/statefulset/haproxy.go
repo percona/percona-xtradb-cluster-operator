@@ -52,6 +52,10 @@ func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
 	}
 }
 
+func (c *HAProxy) Name() string {
+	return haproxyName
+}
+
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            haproxyName,

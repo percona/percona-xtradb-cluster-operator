@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/go-ini/ini"
 	"github.com/go-logr/logr"
@@ -123,12 +124,9 @@ const (
 type ClusterConditionType string
 
 const (
-	ClusterReady        ClusterConditionType = "Ready"
-	ClusterInit                              = "Initializing"
-	ClusterPXCReady                          = "PXCReady"
-	ClusterProxyReady                        = "ProxySQLReady"
-	ClusterHAProxyReady                      = "HAProxyReady"
-	ClusterError                             = "Error"
+	ClusterReady ClusterConditionType = "Ready"
+	ClusterInit  ClusterConditionType = "Initializing"
+	ClusterError ClusterConditionType = "Error"
 )
 
 type ClusterCondition struct {
@@ -433,6 +431,7 @@ type App interface {
 
 type StatefulApp interface {
 	App
+	Name() string
 	StatefulSet() *appsv1.StatefulSet
 	Service() string
 	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy
@@ -892,5 +891,50 @@ func (cr *PerconaXtraDBCluster) HAProxyReplicasNamespacedName() types.Namespaced
 	return types.NamespacedName{
 		Name:      cr.Name + "-haproxy-replicas",
 		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) HAProxyEnabled() bool {
+	return cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled
+}
+
+func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {
+	return cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled
+}
+
+func (status PerconaXtraDBClusterStatus) ClusterStatus() (AppState, ClusterCondition) {
+	switch {
+	case status.PXC.Status == AppStateError || status.ProxySQL.Status == AppStateError || status.HAProxy.Status == AppStateError:
+		clusterCondition := ClusterCondition{
+			Status:             ConditionTrue,
+			Type:               ClusterError,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+
+		return AppStateError, clusterCondition
+	case status.PXC.Status == AppStateInit || status.ProxySQL.Status == AppStateInit || status.HAProxy.Status == AppStateInit:
+		clusterCondition := ClusterCondition{
+			Status:             ConditionTrue,
+			Type:               ClusterInit,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+
+		return AppStateInit, clusterCondition
+	case status.PXC.Status == AppStateReady:
+		clusterCondition := ClusterCondition{
+			Status:             ConditionTrue,
+			Type:               ClusterReady,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+
+		return AppStateReady, clusterCondition
+	default:
+		clusterCondition := ClusterCondition{
+			Status:             ConditionTrue,
+			Type:               ClusterInit,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+
+		return AppStateUnknown, clusterCondition
 	}
 }

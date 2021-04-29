@@ -91,10 +91,12 @@ type PXCScheduledBackupSchedule struct {
 type AppState string
 
 const (
-	AppStateUnknown AppState = "unknown"
-	AppStateInit    AppState = "initializing"
-	AppStateReady   AppState = "ready"
-	AppStateError   AppState = "error"
+	AppStateUnknown  AppState = "unknown"
+	AppStateInit     AppState = "initializing"
+	AppStatePaused   AppState = "paused"
+	AppStateStopping AppState = "stopping"
+	AppStateReady    AppState = "ready"
+	AppStateError    AppState = "error"
 )
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
@@ -899,6 +901,10 @@ func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress bool) AppState {
 		return AppStateError
 	case inProgress || s.PXC.Status == AppStateInit || s.ProxySQL.Status == AppStateInit || s.HAProxy.Status == AppStateInit:
 		return AppStateInit
+	case s.PXC.Status == AppStateStopping || s.ProxySQL.Status == AppStateStopping || s.HAProxy.Status == AppStateStopping:
+		return AppStateStopping
+	case s.PXC.Status == AppStatePaused && (s.ProxySQL.Status == AppStatePaused || s.HAProxy.Status == AppStatePaused):
+		return AppStatePaused
 	case s.PXC.Status == AppStateReady:
 		return AppStateReady
 	default:

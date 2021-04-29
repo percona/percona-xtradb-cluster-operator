@@ -113,6 +113,18 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			Type:               api.AppStateInit,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
+	case api.AppStateStopping:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.AppStateStopping,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+	case api.AppStatePaused:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.AppStatePaused,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
 	case api.AppStateReady:
 		clusterCondition = api.ClusterCondition{
 			Status:             api.ConditionTrue,
@@ -166,7 +178,7 @@ func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBC
 }
 
 func (r *ReconcilePerconaXtraDBCluster) componentStatus(app api.StatefulApp, cr *api.PerconaXtraDBCluster, podSpec *api.PodSpec, crStatus api.AppStatus) (api.AppStatus, string, error) {
-	status, err := r.appStatus(app, cr.Namespace, podSpec, cr.CompareVersionWith("1.7.0") >= 0)
+	status, err := r.appStatus(app, cr.Namespace, podSpec, cr.Spec.Pause, cr.CompareVersionWith("1.7.0") >= 0)
 	if err != nil {
 		return api.AppStatus{}, "", errors.Wrap(err, "get app status")
 	}
@@ -181,7 +193,7 @@ func (r *ReconcilePerconaXtraDBCluster) componentStatus(app api.StatefulApp, cr 
 	return status, host, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace string, podSpec *api.PodSpec, cr170OrGreater bool) (api.AppStatus, error) {
+func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace string, podSpec *api.PodSpec, paused, cr170OrGreater bool) (api.AppStatus, error) {
 	list := corev1.PodList{}
 	err := r.client.List(context.TODO(),
 		&list,
@@ -247,7 +259,12 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace
 		}
 	}
 
-	if status.Size == status.Ready {
+	switch {
+	case paused && status.Ready > 0:
+		status.Status = api.AppStateStopping
+	case paused:
+		status.Status = api.AppStatePaused
+	case status.Size == status.Ready:
 		status.Status = api.AppStateReady
 	}
 

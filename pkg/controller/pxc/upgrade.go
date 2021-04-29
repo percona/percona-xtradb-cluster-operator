@@ -213,6 +213,10 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
+	if cr.Spec.Pause {
+		return nil
+	}
+
 	if sfs.StatefulSet().Status.UpdatedReplicas >= sfs.StatefulSet().Status.Replicas {
 		return nil
 	}

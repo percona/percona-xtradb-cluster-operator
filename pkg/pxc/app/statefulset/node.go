@@ -49,6 +49,10 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 	}
 }
 
+func (c *Node) Name() string {
+	return app.Name
+}
+
 func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
 	redinessDelay := int32(15)
 	if spec.ReadinessInitialDelaySeconds != nil {

@@ -116,27 +116,16 @@ type ConditionStatus string
 
 const (
 	ConditionTrue    ConditionStatus = "True"
-	ConditionFalse                   = "False"
-	ConditionUnknown                 = "Unknown"
-)
-
-type ClusterConditionType string
-
-const (
-	ClusterReady        ClusterConditionType = "Ready"
-	ClusterInit                              = "Initializing"
-	ClusterPXCReady                          = "PXCReady"
-	ClusterProxyReady                        = "ProxySQLReady"
-	ClusterHAProxyReady                      = "HAProxyReady"
-	ClusterError                             = "Error"
+	ConditionFalse   ConditionStatus = "False"
+	ConditionUnknown ConditionStatus = "Unknown"
 )
 
 type ClusterCondition struct {
-	Status             ConditionStatus      `json:"status,omitempty"`
-	Type               ClusterConditionType `json:"type,omitempty"`
-	LastTransitionTime metav1.Time          `json:"lastTransitionTime,omitempty"`
-	Reason             string               `json:"reason,omitempty"`
-	Message            string               `json:"message,omitempty"`
+	Status             ConditionStatus `json:"status,omitempty"`
+	Type               AppState        `json:"type,omitempty"`
+	LastTransitionTime metav1.Time     `json:"lastTransitionTime,omitempty"`
+	Reason             string          `json:"reason,omitempty"`
+	Message            string          `json:"message,omitempty"`
 }
 
 type AppStatus struct {
@@ -433,6 +422,7 @@ type App interface {
 
 type StatefulApp interface {
 	App
+	Name() string
 	StatefulSet() *appsv1.StatefulSet
 	Service() string
 	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy
@@ -892,5 +882,43 @@ func (cr *PerconaXtraDBCluster) HAProxyReplicasNamespacedName() types.Namespaced
 	return types.NamespacedName{
 		Name:      cr.Name + "-haproxy-replicas",
 		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) HAProxyEnabled() bool {
+	return cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled
+}
+
+func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {
+	return cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled
+}
+
+func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress bool) AppState {
+	switch {
+	case s.PXC.Status == AppStateError || s.ProxySQL.Status == AppStateError || s.HAProxy.Status == AppStateError:
+		return AppStateError
+	case inProgress || s.PXC.Status == AppStateInit || s.ProxySQL.Status == AppStateInit || s.HAProxy.Status == AppStateInit:
+		return AppStateInit
+	case s.PXC.Status == AppStateReady:
+		return AppStateReady
+	default:
+		return AppStateUnknown
+	}
+}
+
+const maxStatusesQuantity = 20
+
+func (s *PerconaXtraDBClusterStatus) AddCondition(c ClusterCondition) {
+	if len(s.Conditions) == 0 {
+		s.Conditions = append(s.Conditions, c)
+		return
+	}
+
+	if s.Conditions[len(s.Conditions)-1].Type != c.Type {
+		s.Conditions = append(s.Conditions, c)
+	}
+
+	if len(s.Conditions) > maxStatusesQuantity {
+		s.Conditions = s.Conditions[len(s.Conditions)-maxStatusesQuantity:]
 	}
 }

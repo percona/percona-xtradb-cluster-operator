@@ -90,6 +90,30 @@ func New(c Config) (*Recoverer, error) {
 		return nil, errors.Wrap(err, "get start GTID")
 	}
 
+	if c.RecoverType == string(Transaction) {
+		gtidSplitted := strings.Split(startGTID, ":")
+		if len(gtidSplitted) != 2 {
+			return nil, errors.New("Invalid start gtidset provided")
+		}
+		lastSetIdx := 1
+		setSplitted := strings.Split(gtidSplitted[1], "-")
+		if len(setSplitted) == 1 {
+			lastSetIdx = 0
+		}
+		lastSet := setSplitted[lastSetIdx]
+		lastSetInt, err := strconv.ParseInt(lastSet, 10, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to cast last set value to in")
+		}
+		transactionNum, err := strconv.ParseInt(strings.Split(c.GTID, ":")[1], 10, 64)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse transaction num to restore")
+		}
+		if transactionNum < lastSetInt {
+			return nil, errors.New("Can't restore to transaction before backup")
+		}
+	}
+
 	return &Recoverer{
 		storage:        s3,
 		recoverTime:    c.RecoverTime,

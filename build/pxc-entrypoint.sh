@@ -531,7 +531,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			echo "It is $NODE_NAME node with sequence number (seqno): $seqno"
 			echo 'Cluster will recover automatically from the crash now.'
 			echo 'If you have set spec.pxc.autoRecovery to false, run the following command to recover manually from this node:'
-			echo "kubectl exec $(hostname) -c pxc -- sh -c 'kill -s USR1 1'"
+			echo "kubectl -n $POD_NAMESPACE exec $(hostname) -c pxc -- sh -c 'kill -s USR1 1'"
 			#DO NOT CHANGE THE LINE BELOW. OUR AUTO-RECOVERY IS USING IT TO DETECT SEQNO OF CURRENT NODE. See K8SPXC-564
 			echo "#####################################################LAST_LINE:$NODE_NAME:$seqno:#####################################################"
 

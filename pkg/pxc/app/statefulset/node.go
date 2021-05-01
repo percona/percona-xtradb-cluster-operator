@@ -136,6 +136,12 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
 				},
 			},
+			{
+				Name: "POD_NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{APIVersion: "v1", FieldPath: "metadata.namespace"},
+				},
+			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}

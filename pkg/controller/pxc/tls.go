@@ -57,6 +57,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	ownerReferences := []metav1.OwnerReference{owner}
 
 	issuerName := cr.Name + "-pxc-ca"
+	selfSignedIssuerName := cr.Name + "-pxc-selfsigned"
 	issuerKind := "Issuer"
 	issuerGroup := ""
 	if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
@@ -64,7 +65,38 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		issuerName = cr.Spec.TLS.IssuerConf.Name
 		issuerGroup = cr.Spec.TLS.IssuerConf.Group
 	} else {
-		if err := r.createIssuer(ownerReferences, cr.Namespace, issuerName); err != nil {
+		if err := r.createSelfSignedIssuer(ownerReferences, cr.Namespace, selfSignedIssuerName); err != nil {
+			return err
+		}
+
+		caCert := &cm.Certificate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            cr.Name + "-ca-cert",
+				Namespace:       cr.Namespace,
+				OwnerReferences: ownerReferences,
+			},
+			Spec: cm.CertificateSpec{
+				SecretName: cr.Name + "-ca-cert",
+				CommonName: cr.Name + "-ca",
+				IsCA:       true,
+				IssuerRef: cmmeta.ObjectReference{
+					Name:  selfSignedIssuerName,
+					Kind:  issuerKind,
+					Group: issuerGroup,
+				},
+			},
+		}
+
+		err = r.client.Create(context.TODO(), caCert)
+		if err != nil && !k8serr.IsAlreadyExists(err) {
+			return fmt.Errorf("create CA certificate: %v", err)
+		}
+
+		if err := r.waitForCerts(cr.Namespace, caCert.Spec.SecretName); err != nil {
+			return err
+		}
+
+		if err := r.createIssuer(ownerReferences, cr.Namespace, issuerName, caCert.Spec.SecretName); err != nil {
 			return err
 		}
 	}
@@ -83,7 +115,6 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				"*." + cr.Name + "-pxc",
 				"*." + cr.Name + "-proxysql",
 			},
-			IsCA: true,
 			IssuerRef: cmmeta.ObjectReference{
 				Name:  issuerName,
 				Kind:  issuerKind,
@@ -117,7 +148,6 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			DNSNames: []string{
 				"*." + cr.Name + "-pxc",
 			},
-			IsCA: true,
 			IssuerRef: cmmeta.ObjectReference{
 				Name:  issuerName,
 				Kind:  issuerKind,
@@ -166,7 +196,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitForCerts(namespace string, secretsLi
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createIssuer(ownRef []metav1.OwnerReference, namespace, issuer string) error {
+func (r *ReconcilePerconaXtraDBCluster) createSelfSignedIssuer(ownRef []metav1.OwnerReference, namespace, issuer string) error {
 	err := r.client.Create(context.TODO(), &cm.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            issuer,
@@ -180,7 +210,26 @@ func (r *ReconcilePerconaXtraDBCluster) createIssuer(ownRef []metav1.OwnerRefere
 		},
 	})
 	if err != nil && !k8serr.IsAlreadyExists(err) {
-		return fmt.Errorf("create issuer: %v", err)
+		return fmt.Errorf("create selfsigned issuer: %v", err)
+	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) createIssuer(ownRef []metav1.OwnerReference, namespace, issuer string, caCertSecret string) error {
+	err := r.client.Create(context.TODO(), &cm.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            issuer,
+			Namespace:       namespace,
+			OwnerReferences: ownRef,
+		},
+		Spec: cm.IssuerSpec{
+			IssuerConfig: cm.IssuerConfig{
+				CA: &cm.CAIssuer{SecretName: caCertSecret},
+			},
+		},
+	})
+	if err != nil && !k8serr.IsAlreadyExists(err) {
+		return fmt.Errorf("create CA issuer: %v", err)
 	}
 	return nil
 }

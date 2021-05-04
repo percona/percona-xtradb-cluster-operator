@@ -445,6 +445,8 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	grep -v wsrep_sst_auth "$CFG"
 fi
 
+POD_NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+
 wsrep_start_position_opt=""
 if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	DATADIR="$(_get_config 'datadir' "$@")"

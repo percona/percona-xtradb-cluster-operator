@@ -27,7 +27,7 @@ if [ ! -z "$OPENSHIFT" ]; then
     fi
     retry 10 60 helm install monitoring --set platform=$platform --set sa=pmm-server --set supresshttp2=false https://percona-charts.storage.googleapis.com/pmm-server-2.16.0.tgz
 else
-    helm install monitoring --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-2.16.0.tgz
+	helm install monitoring --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-2.16.0.tgz
 fi
 
 desc 'create PXC cluster'

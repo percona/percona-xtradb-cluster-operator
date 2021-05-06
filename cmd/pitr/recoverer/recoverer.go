@@ -462,22 +462,29 @@ func (r *Recoverer) setBinlogs() error {
 }
 
 func getExtendGTIDSet(gtidSet, gtid string) (string, error) {
+	if gtidSet == gtid {
+		return gtid, nil
+	}
+
 	s := strings.Split(gtidSet, ":")
 	if len(s) < 2 {
 		return "", errors.Errorf("incorrect source in gtid set %s", gtidSet)
 	}
 
+	eidx := 1
 	e := strings.Split(s[1], "-")
-	if len(e) < 2 {
-		return "", errors.Errorf("incorrect id range in %s", gtidSet)
+	if len(e) == 1 {
+		eidx = 0
 	}
+
 	gs := strings.Split(gtid, ":")
 	if len(gs) < 2 {
 		return "", errors.Errorf("incorrect source in gtid set %s", gtid)
 	}
+
 	es := strings.Split(gs[1], "-")
 
-	return gs[0] + ":" + es[0] + "-" + e[1], nil
+	return gs[0] + ":" + es[0] + "-" + e[eidx], nil
 }
 
 func reverse(list []string) {

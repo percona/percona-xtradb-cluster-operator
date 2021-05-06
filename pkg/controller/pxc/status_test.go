@@ -14,11 +14,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake" // nolint
 )
 
+var podStatusReady = corev1.PodStatus{
+	ContainerStatuses: []corev1.ContainerStatus{
+		corev1.ContainerStatus{Ready: true},
+	},
+	Conditions: []corev1.PodCondition{
+		corev1.PodCondition{
+			Type:   corev1.ContainersReady,
+			Status: corev1.ConditionTrue,
+		},
+	},
+}
+
 func newCR(name, namespace string) *api.PerconaXtraDBCluster {
-	var cr = api.PerconaXtraDBCluster{
+	return &api.PerconaXtraDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -42,8 +54,6 @@ func newCR(name, namespace string) *api.PerconaXtraDBCluster {
 		},
 		Status: api.PerconaXtraDBClusterStatus{},
 	}
-
-	return &cr
 }
 
 func newMockPod(name, namespace string, labels map[string]string, status corev1.PodStatus) *corev1.Pod {
@@ -87,7 +97,7 @@ func TestAppStatusInit(t *testing.T) {
 	}
 }
 
-func TestAppStatusReady(t *testing.T) {
+func TestPXCAppStatusReady(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
 
 	pxc := statefulset.NewNode(cr)
@@ -96,15 +106,7 @@ func TestAppStatusReady(t *testing.T) {
 	objs := []runtime.Object{cr, pxcSfs}
 
 	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
-		podStatus := corev1.PodStatus{
-			Conditions: []corev1.PodCondition{
-				corev1.PodCondition{
-					Type:   corev1.ContainersReady,
-					Status: corev1.ConditionTrue,
-				},
-			},
-		}
-		objs = append(objs, newMockPod(fmt.Sprintf("pxc-mock-%d", i), cr.Namespace, pxc.Labels(), podStatus))
+		objs = append(objs, newMockPod(fmt.Sprintf("pxc-mock-%d", i), cr.Namespace, pxc.Labels(), podStatusReady))
 	}
 
 	r := buildFakeClient(objs)
@@ -116,6 +118,38 @@ func TestAppStatusReady(t *testing.T) {
 
 	if status.Status != api.AppStateReady {
 		t.Errorf("AppStatus.Status got %#v, want %#v", status.Status, api.AppStateReady)
+	}
+
+	if status.Ready != cr.Spec.PXC.Size {
+		t.Errorf("AppStatus.Ready got %#v, want %#v", status.Ready, cr.Spec.PXC.Size)
+	}
+}
+
+func TestHAProxyAppStatusReady(t *testing.T) {
+	cr := newCR("cr-mock", "pxc")
+
+	haproxy := statefulset.NewHAProxy(cr)
+	haproxySfs := haproxy.StatefulSet()
+
+	objs := []runtime.Object{cr, haproxySfs}
+
+	for i := 0; i < int(cr.Spec.HAProxy.Size); i++ {
+		objs = append(objs, newMockPod(fmt.Sprintf("haproxy-mock-%d", i), cr.Namespace, haproxy.Labels(), podStatusReady))
+	}
+
+	r := buildFakeClient(objs)
+
+	status, err := r.appStatus(haproxy, cr.Namespace, cr.Spec.HAProxy, cr.CompareVersionWith("1.7.0") >= 0)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if status.Status != api.AppStateReady {
+		t.Errorf("AppStatus.Status got %#v, want %#v", status.Status, api.AppStateReady)
+	}
+
+	if status.Ready != cr.Spec.HAProxy.Size {
+		t.Errorf("AppStatus.Ready got %#v, want %#v", status.Ready, cr.Spec.HAProxy.Size)
 	}
 }
 
@@ -179,27 +213,11 @@ func TestUpdateStatusReady(t *testing.T) {
 	objs := []runtime.Object{cr, pxcSfs, haproxySfs}
 
 	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
-		podStatus := corev1.PodStatus{
-			Conditions: []corev1.PodCondition{
-				corev1.PodCondition{
-					Type:   corev1.ContainersReady,
-					Status: corev1.ConditionTrue,
-				},
-			},
-		}
-		objs = append(objs, newMockPod(fmt.Sprintf("pxc-mock-%d", i), cr.Namespace, pxc.Labels(), podStatus))
+		objs = append(objs, newMockPod(fmt.Sprintf("pxc-mock-%d", i), cr.Namespace, pxc.Labels(), podStatusReady))
 	}
 
 	for i := 0; i < int(cr.Spec.HAProxy.Size); i++ {
-		podStatus := corev1.PodStatus{
-			Conditions: []corev1.PodCondition{
-				corev1.PodCondition{
-					Type:   corev1.ContainersReady,
-					Status: corev1.ConditionTrue,
-				},
-			},
-		}
-		objs = append(objs, newMockPod(fmt.Sprintf("haproxy-mock-%d", i), cr.Namespace, haproxy.Labels(), podStatus))
+		objs = append(objs, newMockPod(fmt.Sprintf("haproxy-mock-%d", i), cr.Namespace, haproxy.Labels(), podStatusReady))
 	}
 
 	r := buildFakeClient(objs)
@@ -338,5 +356,84 @@ func TestAppHostLoadBalancerWithHostname(t *testing.T) {
 
 	if gotHost != wantHost {
 		t.Errorf("host got %#v, want %#v", gotHost, wantHost)
+	}
+}
+
+func TestClusterStatus(t *testing.T) {
+	tests := map[string]struct {
+		status            api.PerconaXtraDBClusterStatus
+		wantAppState      api.AppState
+		wantConditionType api.ClusterConditionType
+	}{
+		"Unknown": {
+			status:            api.PerconaXtraDBClusterStatus{},
+			wantAppState:      api.AppStateUnknown,
+			wantConditionType: api.ClusterInit,
+		},
+		"PXC error": {
+			status:            api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateError}},
+			wantAppState:      api.AppStateError,
+			wantConditionType: api.ClusterError,
+		},
+		"PXC init": {
+			status:            api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateInit}},
+			wantAppState:      api.AppStateInit,
+			wantConditionType: api.ClusterInit,
+		},
+		"PXC ready": {
+			status:            api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateReady}},
+			wantAppState:      api.AppStateReady,
+			wantConditionType: api.ClusterReady,
+		},
+		"HAProxy error": {
+			status:            api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateError}},
+			wantAppState:      api.AppStateError,
+			wantConditionType: api.ClusterError,
+		},
+		"HAProxy init": {
+			status:            api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateInit}},
+			wantAppState:      api.AppStateInit,
+			wantConditionType: api.ClusterInit,
+		},
+		"HAProxy ready": {
+			status: api.PerconaXtraDBClusterStatus{
+				PXC:     api.AppStatus{Status: api.AppStateReady},
+				HAProxy: api.AppStatus{Status: api.AppStateReady},
+			},
+			wantAppState:      api.AppStateReady,
+			wantConditionType: api.ClusterReady,
+		},
+		"ProxySQL error": {
+			status:            api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateError}},
+			wantAppState:      api.AppStateError,
+			wantConditionType: api.ClusterError,
+		},
+		"ProxySQL init": {
+			status:            api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateInit}},
+			wantAppState:      api.AppStateInit,
+			wantConditionType: api.ClusterInit,
+		},
+		"ProxySQL ready": {
+			status: api.PerconaXtraDBClusterStatus{
+				PXC:      api.AppStatus{Status: api.AppStateReady},
+				ProxySQL: api.AppStatus{Status: api.AppStateReady},
+			},
+			wantAppState:      api.AppStateReady,
+			wantConditionType: api.ClusterReady,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(tt *testing.T) {
+			appState, condition := test.status.ClusterStatus()
+
+			if appState != test.wantAppState {
+				t.Errorf("AppState got %#v, want %#v", appState, test.wantAppState)
+			}
+
+			if condition.Type != test.wantConditionType {
+				t.Errorf("ClusterCondition.Type got %#v, want %#v", condition.Type, test.wantConditionType)
+			}
+		})
 	}
 }

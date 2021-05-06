@@ -194,32 +194,35 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace
 	}
 
 	for _, pod := range list.Items {
+		for _, cntr := range pod.Status.ContainerStatuses {
+			if cntr.State.Waiting != nil && cntr.State.Waiting.Message != "" {
+				status.Message += cntr.Name + ": " + cntr.State.Waiting.Message + "; "
+			}
+
+			if cntr.Ready && !isPXC(app) {
+				status.Ready++
+			}
+		}
+
 		for _, cond := range pod.Status.Conditions {
 			switch cond.Type {
 			case corev1.ContainersReady:
-				if cond.Status == corev1.ConditionTrue {
-					if !isPXC(app) {
-						status.Ready++
-					} else {
-						isPodReady := true
-						if cr170OrGreater {
-							isPodWaitingForRecovery, _, err := r.isPodWaitingForRecovery(namespace, pod.Name)
-							if err != nil {
-								return api.AppStatus{}, errors.Wrapf(err, "parse %s pod logs", pod.Name)
-							}
-							isPodReady = !isPodWaitingForRecovery && pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision
-						}
+				if cond.Status != corev1.ConditionTrue || !isPXC(app) {
+					continue
+				}
 
-						if isPodReady {
-							status.Ready++
-						}
-					}
-				} else if cond.Status == corev1.ConditionFalse {
-					for _, cntr := range pod.Status.ContainerStatuses {
-						if cntr.State.Waiting != nil && cntr.State.Waiting.Message != "" {
-							status.Message += cntr.Name + ": " + cntr.State.Waiting.Message + "; "
-						}
-					}
+				if !cr170OrGreater {
+					status.Ready++
+					continue
+				}
+
+				isPodWaitingForRecovery, _, err := r.isPodWaitingForRecovery(namespace, pod.Name)
+				if err != nil {
+					return api.AppStatus{}, errors.Wrapf(err, "parse %s pod logs", pod.Name)
+				}
+
+				if !isPodWaitingForRecovery && pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
+					status.Ready++
 				}
 			case corev1.PodScheduled:
 				if cond.Reason == corev1.PodReasonUnschedulable &&

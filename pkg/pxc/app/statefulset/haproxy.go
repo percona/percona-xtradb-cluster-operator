@@ -261,11 +261,15 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.Percon
 	return nil, nil
 }
 
-func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
+func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
+	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy")
+	if err != nil {
+		return nil, err
+	}
 	vol.Volumes = append(
 		vol.Volumes,
-		app.GetConfigVolumes("haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy"),
+		configVolume,
 		app.GetTmpVolume("haproxy-auto"),
 	)
 	if cr.CompareVersionWith("1.7.0") >= 0 {

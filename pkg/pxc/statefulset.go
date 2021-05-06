@@ -15,7 +15,7 @@ import (
 
 // StatefulSet returns StatefulSet according for app to podSpec
 func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster,
-	initContainers []corev1.Container, log logr.Logger) (*appsv1.StatefulSet, error) {
+	initContainers []corev1.Container, log logr.Logger, vg api.CustomVolumeGetter) (*appsv1.StatefulSet, error) {
 
 	pod := corev1.PodSpec{
 		SecurityContext:               podSpec.PodSecurityContext,
@@ -41,7 +41,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.ShareProcessNamespace = &t
 	}
 
-	sfsVolume, err := sfs.Volumes(podSpec, cr)
+	sfsVolume, err := sfs.Volumes(podSpec, cr, vg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get volumes %v", err)
 	}

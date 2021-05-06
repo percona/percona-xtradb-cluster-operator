@@ -362,7 +362,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 	return &ct, nil
 }
 
-func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
+func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	ls := c.Labels()
 	vol.Volumes = append(
@@ -371,7 +371,11 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*ap
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig),
 	)
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
-		vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-proxysql"))
+		configVolume, err := vg(cr.Namespace, "config", ls["app.kubernetes.io/instance"]+"-proxysql")
+		if err != nil {
+			return nil, err
+		}
+		vol.Volumes = append(vol.Volumes, configVolume)
 	}
 	return vol, nil
 }

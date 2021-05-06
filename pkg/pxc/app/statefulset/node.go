@@ -438,13 +438,17 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 	return &ct, nil
 }
 
-func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
+func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, DataVolumeName)
 	ls := c.Labels()
+	configVolume, err := vg(cr.Namespace, "config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+	if err != nil {
+		return nil, err
+	}
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetTmpVolume("tmp"),
-		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
+		configVolume,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig))
 	if cr.CompareVersionWith("1.3.0") >= 0 {

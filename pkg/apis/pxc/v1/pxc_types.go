@@ -79,7 +79,7 @@ type PITRSpec struct {
 	Enabled            bool          `json:"enabled"`
 	StorageName        string        `json:"storageName"`
 	Resources          *PodResources `json:"resources,omitempty"`
-	TimeBetweenUploads int64         `json:"timeBetweenUploads,omitempty"`
+	TimeBetweenUploads float64       `json:"timeBetweenUploads,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {

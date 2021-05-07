@@ -175,7 +175,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			appc.Env = append(appc.Env, logEnvs...)
 		}
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		fvar := true
 		appc.EnvFrom = []corev1.EnvFromSource{
 			{
@@ -414,7 +414,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 		pmmAgentScriptEnv := app.PMMAgentScript("mysql")
 		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
+	if cr.CompareVersionWith("1.8.0") >= 0 {
 		fvar := true
 		ct.EnvFrom = []corev1.EnvFromSource{
 			{

@@ -61,7 +61,7 @@ spec:
     pitr:
       enabled: true
       storageName: minio-binlogs
-      timeBetweenUploads: 60
+      timeBetweenUploads: 55
     storages:
       pvc:
         type: filesystem

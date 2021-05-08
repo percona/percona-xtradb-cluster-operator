@@ -198,16 +198,17 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace
 			if cntr.State.Waiting != nil && cntr.State.Waiting.Message != "" {
 				status.Message += cntr.Name + ": " + cntr.State.Waiting.Message + "; "
 			}
-
-			if cntr.Ready && !isPXC(app) {
-				status.Ready++
-			}
 		}
 
 		for _, cond := range pod.Status.Conditions {
 			switch cond.Type {
 			case corev1.ContainersReady:
-				if cond.Status != corev1.ConditionTrue || !isPXC(app) {
+				if cond.Status != corev1.ConditionTrue {
+					continue
+				}
+
+				if !isPXC(app) {
+					status.Ready++
 					continue
 				}
 

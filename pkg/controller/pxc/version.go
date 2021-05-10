@@ -103,7 +103,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 	logger.Info("add new job", "name", jn, "schedule", cr.Spec.UpgradeOptions.Schedule)
 
 	r.crons.ensureVersionJobs[jn] = Schedule{
-		ID:          int(id),
+		ID:           int(id),
 		CronSchedule: cr.Spec.UpgradeOptions.Schedule,
 	}
 

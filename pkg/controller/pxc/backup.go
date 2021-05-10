@@ -74,25 +74,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				return fmt.Errorf("storage %s doesn't exist", bcp.StorageName)
 			}
 
+			sch := BackupScheduleJob{}
 			schRaw, ok := r.crons.backupJobs.Load(bcp.Name)
-			if !ok {
-				r.log.Info("Creating new backup job", "name", bcp.Name, "schedule", bcp.Schedule)
-				jobID, err := r.crons.crons.AddFunc(bcp.Schedule, r.createBackupJob(cr, bcp, strg.Type))
-				if err != nil {
-					return errors.Wrap(err, "failed to add backup cron job")
-				}
-				r.crons.backupJobs.Store(bcp.Name, BackupScheduleJob{
-					PXCScheduledBackupSchedule: bcp,
-					JobID:                      jobID,
-				})
-			} else if sch := schRaw.(BackupScheduleJob); sch.PXCScheduledBackupSchedule.Schedule != bcp.Schedule ||
+			if ok {
+				sch = schRaw.(BackupScheduleJob)
+			}
+
+			if !ok || sch.PXCScheduledBackupSchedule.Schedule != bcp.Schedule ||
 				sch.PXCScheduledBackupSchedule.StorageName != bcp.StorageName {
-				r.log.Info("Backups are not equal, recreating job", "old", sch.PXCScheduledBackupSchedule, "new", bcp)
-				r.deleteBackupJob(sch.Name)
+				r.log.Info("Creating or updating backup job", "name", bcp.Name, "schedule", bcp.Schedule)
+				r.deleteBackupJob(bcp.Name)
 				jobID, err := r.crons.crons.AddFunc(bcp.Schedule, r.createBackupJob(cr, bcp, strg.Type))
 				if err != nil {
 					return errors.Wrap(err, "failed to add backup cron job")
 				}
+
 				r.crons.backupJobs.Store(bcp.Name, BackupScheduleJob{
 					PXCScheduledBackupSchedule: bcp,
 					JobID:                      jobID,
@@ -100,7 +96,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			}
 		}
 	}
-	var err error
+
+	var backupDeleteError error
 
 	r.crons.backupJobs.Range(func(k, v interface{}) bool {
 		item := v.(BackupScheduleJob)
@@ -111,22 +108,24 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			if spec.Keep > 0 {
 				oldjobs, err := r.oldScheduledBackups(cr, item.Name, spec.Keep)
 				if err != nil {
-					err = errors.Wrap(err, "remove old backup")
+					backupDeleteError = errors.Wrap(err, "remove old backup")
 					return false
 				}
 
 				for _, todel := range oldjobs {
 					_ = r.client.Delete(context.TODO(), &todel)
 				}
+
 			}
 		} else {
 			r.log.Info("deleting outdated backup job", "name", item.Name)
 			r.deleteBackupJob(item.Name)
 		}
+
 		return true
 	})
 
-	return err
+	return backupDeleteError
 }
 
 func backupJobClusterPrefix(clusterName string) string {

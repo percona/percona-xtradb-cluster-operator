@@ -6,11 +6,11 @@ The list of organizations that have publicly shared the usage of Percona XtraDB 
 
 | Organization | Description | Success Story |
 | :--- | :--- | :--- |
-| [Example](https://example.com/) | Example company runs PXC on Kubernetes for dev and production for core application | [English](./adopters/example/README.md) |
+| [Leviatan](https://leviatan.com.br/) | Leviatan runs PXC Operator to implement a monolithic application in a Multiple single-tenant (MST) architecture | [Story](./adopters/leviatan/README.md) |
 
 The list of users that have publicly shared the usage of Percona XtraDB Cluster Operator.
 
 | User | Description | Success Story |
 | :--- | :--- | :--- |
-| [Sergey Pronin](https://github.com/spron-in) | Personal tests for MySQL | [English](./adopters/users/spron-in/README.md)  |
-| [Laimis Valatka](https://github.com/laimison) | Running three-sites Kubernetes project where PXC Operator is successfully operating | [more information](./adopters/users/laimison/README.md)  |
+| [Sergey Pronin](https://github.com/spron-in) | Personal tests for MySQL | [Story](./adopters/users/spron-in/README.md)  |
+| [Laimis Valatka](https://github.com/laimison) | Running three-sites Kubernetes project where PXC Operator is successfully operating | [Story](./adopters/users/laimison/README.md)  |

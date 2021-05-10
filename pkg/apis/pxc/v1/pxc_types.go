@@ -117,24 +117,16 @@ type ConditionStatus string
 
 const (
 	ConditionTrue    ConditionStatus = "True"
-	ConditionFalse                   = "False"
-	ConditionUnknown                 = "Unknown"
-)
-
-type ClusterConditionType string
-
-const (
-	ClusterReady ClusterConditionType = "Ready"
-	ClusterInit  ClusterConditionType = "Initializing"
-	ClusterError ClusterConditionType = "Error"
+	ConditionFalse   ConditionStatus = "False"
+	ConditionUnknown ConditionStatus = "Unknown"
 )
 
 type ClusterCondition struct {
-	Status             ConditionStatus      `json:"status,omitempty"`
-	Type               ClusterConditionType `json:"type,omitempty"`
-	LastTransitionTime metav1.Time          `json:"lastTransitionTime,omitempty"`
-	Reason             string               `json:"reason,omitempty"`
-	Message            string               `json:"message,omitempty"`
+	Status             ConditionStatus `json:"status,omitempty"`
+	Type               AppState        `json:"type,omitempty"`
+	LastTransitionTime metav1.Time     `json:"lastTransitionTime,omitempty"`
+	Reason             string          `json:"reason,omitempty"`
+	Message            string          `json:"message,omitempty"`
 }
 
 type AppStatus struct {
@@ -907,7 +899,7 @@ func (status PerconaXtraDBClusterStatus) ClusterStatus() (AppState, ClusterCondi
 	case status.PXC.Status == AppStateError || status.ProxySQL.Status == AppStateError || status.HAProxy.Status == AppStateError:
 		clusterCondition := ClusterCondition{
 			Status:             ConditionTrue,
-			Type:               ClusterError,
+			Type:               AppStateError,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 
@@ -915,7 +907,7 @@ func (status PerconaXtraDBClusterStatus) ClusterStatus() (AppState, ClusterCondi
 	case status.PXC.Status == AppStateInit || status.ProxySQL.Status == AppStateInit || status.HAProxy.Status == AppStateInit:
 		clusterCondition := ClusterCondition{
 			Status:             ConditionTrue,
-			Type:               ClusterInit,
+			Type:               AppStateInit,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 
@@ -923,7 +915,7 @@ func (status PerconaXtraDBClusterStatus) ClusterStatus() (AppState, ClusterCondi
 	case status.PXC.Status == AppStateReady:
 		clusterCondition := ClusterCondition{
 			Status:             ConditionTrue,
-			Type:               ClusterReady,
+			Type:               AppStateReady,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 
@@ -931,7 +923,7 @@ func (status PerconaXtraDBClusterStatus) ClusterStatus() (AppState, ClusterCondi
 	default:
 		clusterCondition := ClusterCondition{
 			Status:             ConditionTrue,
-			Type:               ClusterInit,
+			Type:               AppStateInit,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 		}
 

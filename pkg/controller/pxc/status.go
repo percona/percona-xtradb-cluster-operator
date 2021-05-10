@@ -23,7 +23,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if cr.Status.Status != api.AppStateError {
 			clusterCondition := api.ClusterCondition{
 				Status:             api.ConditionTrue,
-				Type:               api.ClusterError,
+				Type:               api.AppStateError,
 				Message:            reconcileErr.Error(),
 				Reason:             "ErrorReconcile",
 				LastTransitionTime: metav1.NewTime(time.Now()),

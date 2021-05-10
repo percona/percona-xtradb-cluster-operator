@@ -363,37 +363,37 @@ func TestClusterStatus(t *testing.T) {
 	tests := map[string]struct {
 		status            api.PerconaXtraDBClusterStatus
 		wantAppState      api.AppState
-		wantConditionType api.ClusterConditionType
+		wantConditionType api.AppState
 	}{
 		"Unknown": {
 			status:            api.PerconaXtraDBClusterStatus{},
 			wantAppState:      api.AppStateUnknown,
-			wantConditionType: api.ClusterInit,
+			wantConditionType: api.AppStateInit,
 		},
 		"PXC error": {
 			status:            api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateError}},
 			wantAppState:      api.AppStateError,
-			wantConditionType: api.ClusterError,
+			wantConditionType: api.AppStateError,
 		},
 		"PXC init": {
 			status:            api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateInit}},
 			wantAppState:      api.AppStateInit,
-			wantConditionType: api.ClusterInit,
+			wantConditionType: api.AppStateInit,
 		},
 		"PXC ready": {
 			status:            api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateReady}},
 			wantAppState:      api.AppStateReady,
-			wantConditionType: api.ClusterReady,
+			wantConditionType: api.AppStateReady,
 		},
 		"HAProxy error": {
 			status:            api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateError}},
 			wantAppState:      api.AppStateError,
-			wantConditionType: api.ClusterError,
+			wantConditionType: api.AppStateError,
 		},
 		"HAProxy init": {
 			status:            api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateInit}},
 			wantAppState:      api.AppStateInit,
-			wantConditionType: api.ClusterInit,
+			wantConditionType: api.AppStateInit,
 		},
 		"HAProxy ready": {
 			status: api.PerconaXtraDBClusterStatus{
@@ -401,17 +401,17 @@ func TestClusterStatus(t *testing.T) {
 				HAProxy: api.AppStatus{Status: api.AppStateReady},
 			},
 			wantAppState:      api.AppStateReady,
-			wantConditionType: api.ClusterReady,
+			wantConditionType: api.AppStateReady,
 		},
 		"ProxySQL error": {
 			status:            api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateError}},
 			wantAppState:      api.AppStateError,
-			wantConditionType: api.ClusterError,
+			wantConditionType: api.AppStateError,
 		},
 		"ProxySQL init": {
 			status:            api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateInit}},
 			wantAppState:      api.AppStateInit,
-			wantConditionType: api.ClusterInit,
+			wantConditionType: api.AppStateInit,
 		},
 		"ProxySQL ready": {
 			status: api.PerconaXtraDBClusterStatus{
@@ -419,7 +419,7 @@ func TestClusterStatus(t *testing.T) {
 				ProxySQL: api.AppStatus{Status: api.AppStateReady},
 			},
 			wantAppState:      api.AppStateReady,
-			wantConditionType: api.ClusterReady,
+			wantConditionType: api.AppStateReady,
 		},
 	}
 

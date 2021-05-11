@@ -28,7 +28,7 @@ You can configure the settings using the ``gcloud`` tool. You can run it either 
 
 .. code:: bash
 
-   $ gcloud container clusters create my-cluster-1 --project <project name> --zone us-central1-a --cluster-version 1.15 --machine-type n1-standard-4 --num-nodes=3
+   $ gcloud container clusters create my-cluster-1 --project <project name> --zone us-central1-a --cluster-version {{{gkerecommended}}} --machine-type n1-standard-4 --num-nodes=3
 
 .. note:: You must edit the following command and other command-line statements to replace the ``<project name>`` placeholder with your project name. You may also be required to edit the *zone location*, which is set to ``us-central1`` in the above example. Other parameters specify that we are creating a cluster with 3 nodes and with machine type of 4 vCPUs and 45 GB memory.
 

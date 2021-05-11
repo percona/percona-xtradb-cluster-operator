@@ -16,7 +16,7 @@ The following platforms were tested and are officially supported by the Operator
 
 * OpenShift 3.11
 * OpenShift 4.7
-* Google Kubernetes Engine (GKE) 1.16 - 1.20
+* Google Kubernetes Engine (GKE) 1.16 - {{{gkerecommended}}}
 * Amazon Elastic Kubernetes Service (EKS) 1.19
 * Minikube 1.19
 

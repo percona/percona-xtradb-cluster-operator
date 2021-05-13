@@ -935,7 +935,6 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	// after setting the pods for delete we need to downscale statefulset to 1 under,
 	// otherwise it will be trying to deploy the nodes again to reach the desired replicas count
 	cSet := sfs.StatefulSet()
-	r.createOrUpdate(cSet)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cSet.Name, Namespace: cSet.Namespace}, cSet)
 	if err != nil {
 		return errors.Wrap(err, "get StatefulSet")

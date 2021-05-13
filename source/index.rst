@@ -13,6 +13,17 @@ and stateful applications, such as a database. A Kubernetes Operator is a
 special type of controller introduced to simplify complex deployments. The
 Operator extends the Kubernetes API with custom resources.
 
+`Percona XtraDB Cluster <https://www.percona.com/software/mysql-database/percona-xtradb-cluster>`_
+is an open-source enterprise MySQL solution that helps you to ensure data
+availability for your applications while improving security and simplifying the
+development of new applications in the most demanding public, private, and
+hybrid cloud environments.
+
+Based on our best practices for deployment and configuration, `Percona Kubernetes Operator for Percona XtraDB Cluster <https://github.com/percona/percona-xtradb-cluster-operator>`_ 
+contains everything you need to quickly and consistently deploy and scale
+Percona XtraDB Cluster instances in a Kubernetes-based environment on-premises
+or in the cloud.
+
 Requirements
 ============
 

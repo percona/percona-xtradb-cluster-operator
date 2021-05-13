@@ -443,11 +443,11 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	sysUsersSecretObj.Data["operator"] = pass
 	internalSysSecretObj.Data["operator"] = pass
 
-	err = r.client.Update(context.TODO(), sysUsersSecretObj)
+	err = r.createOrUpdate(sysUsersSecretObj)
 	if err != nil {
 		return errors.Wrap(err, "update sys users secret")
 	}
-	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	err = r.createOrUpdate(internalSysSecretObj)
 	if err != nil {
 		return errors.Wrap(err, "update internal users secret")
 	}

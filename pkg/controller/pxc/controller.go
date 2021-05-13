@@ -296,37 +296,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	if o.ObjectMeta.DeletionTimestamp != nil {
-		finalizers := []string{}
-		for _, fnlz := range o.GetFinalizers() {
-			var sfs api.StatefulApp
-			switch fnlz {
-			case "delete-proxysql-pvc":
-				sfs = statefulset.NewProxy(o)
-				// deletePVC is always true on this stage
-				// because we never reach this point without finalizers
-				err = r.deleteStatefulSet(o, sfs, true)
-			case "delete-pxc-pvc":
-				sfs = statefulset.NewNode(o)
-				err = r.deleteStatefulSet(o, sfs, true)
-			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
-			// until than finalizer won't be deleted
-			case "delete-pxc-pods-in-order":
-				err = r.deletePXCPods(o)
-			}
-			if err != nil {
-				finalizers = append(finalizers, fnlz)
-			}
-		}
-		if !reflect.DeepEqual(finalizers, o.GetFinalizers()) {
-			o.SetFinalizers(finalizers)
-			err = r.client.Update(context.TODO(), o)
-		}
-
-		// object is being deleted, no need in further actions
-		return rr, err
-	}
-
 	err = r.deploy(o)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -702,8 +671,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				haProxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
 			}
 		}
-		err = r.client.Create(context.TODO(), haProxySet)
-		if err != nil && !k8serrors.IsAlreadyExists(err) {
+		err = r.createOrUpdate(haProxySet)
+		if err != nil {
 			return errors.Wrap(err, "create newStatefulSetHAProxy")
 		}
 
@@ -767,8 +736,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 				proxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
 			}
 		}
-		err = r.client.Create(context.TODO(), proxySet)
-		if err != nil && !k8serrors.IsAlreadyExists(err) {
+		err = r.createOrUpdate(proxySet)
+		if err != nil {
 			return errors.Wrap(err, "create newStatefulSetProxySQL")
 		}
 
@@ -805,13 +774,12 @@ func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBClust
 		return errors.Wrap(err, "setControllerReference")
 	}
 
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{})
-	if err != nil && k8serrors.IsNotFound(err) {
-		err := r.client.Create(context.TODO(), svc)
-		return errors.WithMessage(err, "create")
+	err = r.createOrUpdate(svc)
+	if err != nil {
+		return errors.WithMessage(err, "create or update service")
 	}
 
-	return errors.WithMessage(err, "check if exists")
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
@@ -895,14 +863,22 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		if err != nil {
 			return errors.Wrap(err, "set controller ref LogCollector")
 		}
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && k8serrors.IsAlreadyExists(err) {
-			err = r.client.Update(context.TODO(), configMap)
-			if err != nil {
-				return errors.Wrap(err, "update ConfigMap LogCollector")
-			}
-		} else if err != nil {
-			return errors.Wrap(err, "create ConfigMap LogCollector")
+
+		currMap := &corev1.ConfigMap{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{
+			Name:      configMap.Name,
+			Namespace: configMap.Namespace,
+		}, currMap)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrap(err, "get current configmap")
+		}
+
+		if k8serrors.IsNotFound(err) {
+			return r.client.Create(context.TODO(), configMap)
+		}
+
+		if currMap.Data["fluentbit_custom.conf"] != configMap.Data["fluentbit_custom.conf"] {
+			return r.client.Update(context.TODO(), configMap)
 		}
 	}
 
@@ -959,16 +935,19 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	// after setting the pods for delete we need to downscale statefulset to 1 under,
 	// otherwise it will be trying to deploy the nodes again to reach the desired replicas count
 	cSet := sfs.StatefulSet()
+	r.createOrUpdate(cSet)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cSet.Name, Namespace: cSet.Namespace}, cSet)
 	if err != nil {
 		return errors.Wrap(err, "get StatefulSet")
 	}
 
-	dscaleTo := int32(1)
-	cSet.Spec.Replicas = &dscaleTo
-	err = r.client.Update(context.TODO(), cSet)
-	if err != nil {
-		return errors.Wrap(err, "downscale StatefulSet")
+	if cSet.Spec.Replicas == nil || *cSet.Spec.Replicas != 1 {
+		dscaleTo := int32(1)
+		cSet.Spec.Replicas = &dscaleTo
+		err = r.client.Update(context.TODO(), cSet)
+		if err != nil {
+			return errors.Wrap(err, "downscale StatefulSet")
+		}
 	}
 
 	return errors.New("waiting for pods to be deleted")

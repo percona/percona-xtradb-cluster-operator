@@ -37,6 +37,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
@@ -564,7 +565,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		inits = append(inits, initC)
 	}
 
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, inits, logger)
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, inits, logger, r.getConfigVolume)
 	if err != nil {
 		return errors.Wrap(err, "get pxc statefulset")
 	}
@@ -650,7 +651,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	// HAProxy StatefulSet
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(sfsHAProxy, cr.Spec.HAProxy, cr, nil, logger)
+		haProxySet, err := pxc.StatefulSet(sfsHAProxy, cr.Spec.HAProxy, cr, nil, logger, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create HAProxy StatefulSet")
 		}
@@ -715,7 +716,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, nil, logger)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, nil, logger, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}
@@ -1228,4 +1229,19 @@ func compareMaps(x, y map[string]string) bool {
 	}
 
 	return true
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName string) (corev1.Volume, error) {
+	if err := r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: nsName,
+			Name:      cmName,
+		},
+		&corev1.Secret{},
+	); err != nil && k8serrors.IsNotFound(err) {
+		return app.GetConfigVolumes(cvName, cmName), nil
+	} else if err != nil {
+		return corev1.Volume{}, err
+	}
+	return app.GetSecretVolumes(cvName, cmName, false), nil
 }

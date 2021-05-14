@@ -39,66 +39,55 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 	cr.Status.Messages = cr.Status.Messages[:0]
 
-	pxc := statefulset.NewNode(cr)
-	pxcStatus, pxcHost, err := r.componentStatus(pxc, cr, cr.Spec.PXC.PodSpec, cr.Status.PXC)
-	if err != nil {
-		return errors.Wrap(err, "get PXC status")
-	}
-	cr.Status.PXC = pxcStatus
-	cr.Status.Host = pxcHost
-
-	if pxcStatus.Message != "" {
-		cr.Status.Messages = append(cr.Status.Messages, pxc.Name()+": "+pxcStatus.Message)
+	type sfsstatus struct {
+		app    api.StatefulApp
+		status *api.AppStatus
+		spec   *api.PodSpec
 	}
 
-	inProgress := false
+	apps := []sfsstatus{
+		{
+			app:    statefulset.NewNode(cr),
+			status: &cr.Status.PXC,
+			spec:   cr.Spec.PXC.PodSpec,
+		},
+	}
 
 	cr.Status.HAProxy = api.AppStatus{}
 	if cr.HAProxyEnabled() {
-		haproxy := statefulset.NewHAProxy(cr)
-
-		haproxyStatus, haproxyHost, err := r.componentStatus(haproxy, cr, cr.Spec.HAProxy, cr.Status.HAProxy)
-		if err != nil {
-			return errors.Wrap(err, "update HAProxy status")
-		}
-		cr.Status.HAProxy = haproxyStatus
-		cr.Status.Host = haproxyHost
-
-		if haproxyStatus.Message != "" {
-			cr.Status.Messages = append(cr.Status.Messages, haproxy.Name()+": "+haproxyStatus.Message)
-		}
-
-		inProgress, err = r.upgradeInProgress(cr, haproxy.Name())
-		if err != nil {
-			return errors.Wrap(err, "check haproxy upgrade progress")
-		}
+		apps = append(apps, sfsstatus{
+			app:    statefulset.NewHAProxy(cr),
+			status: &cr.Status.HAProxy,
+			spec:   cr.Spec.HAProxy,
+		})
 	}
 
 	cr.Status.ProxySQL = api.AppStatus{}
 	if cr.ProxySQLEnabled() {
-		proxy := statefulset.NewProxy(cr)
-
-		proxyStatus, proxyHost, err := r.componentStatus(proxy, cr, cr.Spec.ProxySQL, cr.Status.ProxySQL)
-		if err != nil {
-			return errors.Wrap(err, "update ProxySQL status")
-		}
-		cr.Status.ProxySQL = proxyStatus
-		cr.Status.Host = proxyHost
-
-		if proxyStatus.Message != "" {
-			cr.Status.Messages = append(cr.Status.Messages, proxy.Name()+": "+proxyStatus.Message)
-		}
-
-		inProgress, err = r.upgradeInProgress(cr, proxy.Name())
-		if err != nil {
-			return errors.Wrap(err, "check proxysql upgrade progress")
-		}
+		apps = append(apps, sfsstatus{
+			app:    statefulset.NewProxy(cr),
+			status: &cr.Status.ProxySQL,
+			spec:   cr.Spec.ProxySQL,
+		})
 	}
 
-	if !inProgress {
-		inProgress, err = r.upgradeInProgress(cr, pxc.Name())
+	inProgress := false
+
+	for _, a := range apps {
+		*a.status, cr.Status.Host, err = r.componentStatus(a.app, cr, a.spec, *a.status)
 		if err != nil {
-			return errors.Wrap(err, "check pxc upgrade progress")
+			return errors.Wrapf(err, "get %s status", a.app.Name())
+		}
+
+		if a.status.Message != "" {
+			cr.Status.Messages = append(cr.Status.Messages, a.app.Name()+": "+a.status.Message)
+		}
+
+		if !inProgress {
+			inProgress, err = r.upgradeInProgress(cr, a.app.Name())
+			if err != nil {
+				return errors.Wrapf(err, "check %s upgrade progress", a.app.Name())
+			}
 		}
 	}
 

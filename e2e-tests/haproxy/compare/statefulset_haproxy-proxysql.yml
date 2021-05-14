@@ -91,6 +91,8 @@ spec:
               name: ssl
             - mountPath: /etc/proxysql/ssl-internal
               name: ssl-internal
+            - mountPath: /etc/proxysql/
+              name: config
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -199,6 +201,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: haproxy-ssl
+        - configMap:
+            defaultMode: 420
+            name: haproxy-proxysql
+            optional: true
+          name: config
   updateStrategy:
     rollingUpdate:
       partition: 0

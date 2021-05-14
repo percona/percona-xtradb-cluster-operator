@@ -48,12 +48,20 @@ main() {
   compare_kubectl statefulset/$cluster-proxysql
   compare_kubectl service/$cluster-proxysql
 
+  apply_config "$test_dir/conf/config-secret-proxysql.yaml"
+  sleep 50
+  compare_kubectl statefulset/$cluster-proxysql "-secret"
+
   desc 're-enable haproxy'
   apply_config "$test_dir/conf/$cluster.yml"
   sleep 50
   compare_kubectl statefulset/$cluster-haproxy
   compare_kubectl service/$cluster-haproxy
     compare_kubectl pdb/$cluster-haproxy
+
+  apply_config "$test_dir/conf/config-secret-haproxy.yaml"
+  sleep 50
+  compare_kubectl statefulset/$cluster-haproxy "-secret"
   desc 'clean up'
   destroy $namespace
 }

@@ -4,7 +4,7 @@ metadata:
   name: cluster1
   finalizers:
     - delete-pxc-pods-in-order
-#    - delete-proxysql-pvc
+    - delete-proxysql-pvc
 #    - delete-pxc-pvc
 #  annotations:
 #    percona.com/issue-vault-token: "true"
@@ -25,15 +25,15 @@ spec:
 #      name: special-selfsigned-issuer
 #      kind: ClusterIssuer
 #      group: cert-manager.io
-  allowUnsafeConfigurations: false
+  allowUnsafeConfigurations: true
 #  pause: false
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com
-    apply: 8.0-recommended
+    apply: never
     schedule: "0 4 * * *"
   pxc:
-    size: 3
+    size: 1
     image: percona/percona-xtradb-cluster:8.0.22-13.1
     autoRecovery: true
 #    schedulerName: mycustom-scheduler
@@ -75,7 +75,7 @@ spec:
     resources:
       requests:
         memory: 1G
-        cpu: 600m
+        cpu: 500m
 #        ephemeral-storage: 1G
 #      limits:
 #        memory: 1G
@@ -91,7 +91,7 @@ spec:
 #        memory: 2G
 #        cpu: 600m
     affinity:
-      antiAffinityTopologyKey: "kubernetes.io/hostname"
+      antiAffinityTopologyKey: none
 #      advanced:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:
@@ -120,11 +120,11 @@ spec:
 #        accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: 6G
+            storage: 1G
     gracePeriod: 600
   haproxy:
     enabled: true
-    size: 3
+    size: 1
     image: percona/percona-xtradb-cluster-operator:1.8.0-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
@@ -172,8 +172,8 @@ spec:
 #      name: my-sidecar-1
     resources:
       requests:
-        memory: 1G
-        cpu: 600m
+        memory: 500Mi
+        cpu: 100m
 #      limits:
 #        memory: 1G
 #        cpu: 700m
@@ -189,7 +189,7 @@ spec:
 #        cpu: 600m
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
     affinity:
-      antiAffinityTopologyKey: "kubernetes.io/hostname"
+      antiAffinityTopologyKey: none
 #      advanced:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:
@@ -283,8 +283,8 @@ spec:
 #      name: my-sidecar-1
     resources:
       requests:
-        memory: 1G
-        cpu: 600m
+        memory: 500Mi
+        cpu: 100m
 #      limits:
 #        memory: 1G
 #        cpu: 700m
@@ -300,7 +300,7 @@ spec:
 #        cpu: 600m
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
     affinity:
-      antiAffinityTopologyKey: "kubernetes.io/hostname"
+      antiAffinityTopologyKey: none
 #      advanced:
 #        nodeAffinity:
 #          requiredDuringSchedulingIgnoredDuringExecution:
@@ -346,10 +346,10 @@ spec:
 #           Port  9200
 #           Index my_index
 #           Type  my_type
-#    resources:
-#      requests:
-#        memory: 200M
-#        cpu: 500m
+    resources:
+      requests:
+        memory: 100M
+        cpu: 100m
   pmm:
     enabled: false
     image: percona/pmm-client:2.12.0
@@ -449,7 +449,7 @@ spec:
             accessModes: [ "ReadWriteOnce" ]
             resources:
               requests:
-                storage: 6G
+                storage: 1G
     schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"

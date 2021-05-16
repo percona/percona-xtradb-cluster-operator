@@ -975,8 +975,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 		return nil
 	}
 
-	uid := sfsWithOwner.UID
-	err = r.client.Delete(context.TODO(), sfs.StatefulSet(), &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &uid}})
+	err = r.client.Delete(context.TODO(), &sfsWithOwner, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &sfsWithOwner.UID}})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrapf(err, "delete statefulset: %s", sfs.StatefulSet().Name)
 	}

@@ -19,10 +19,10 @@ import (
 
 var podStatusReady = corev1.PodStatus{
 	ContainerStatuses: []corev1.ContainerStatus{
-		corev1.ContainerStatus{Ready: true},
+		{Ready: true},
 	},
 	Conditions: []corev1.PodCondition{
-		corev1.PodCondition{
+		{
 			Type:   corev1.ContainersReady,
 			Status: corev1.ConditionTrue,
 		},
@@ -161,7 +161,7 @@ func TestAppStatusError(t *testing.T) {
 
 	podStatus := corev1.PodStatus{
 		Conditions: []corev1.PodCondition{
-			corev1.PodCondition{
+			{
 				Type:               corev1.PodScheduled,
 				Reason:             corev1.PodReasonUnschedulable,
 				LastTransitionTime: metav1.NewTime(time.Now().Add(-5 * time.Minute)),
@@ -361,78 +361,63 @@ func TestAppHostLoadBalancerWithHostname(t *testing.T) {
 
 func TestClusterStatus(t *testing.T) {
 	tests := map[string]struct {
-		status            api.PerconaXtraDBClusterStatus
-		wantAppState      api.AppState
-		wantConditionType api.AppState
+		status api.PerconaXtraDBClusterStatus
+		want   api.AppState
 	}{
 		"Unknown": {
-			status:            api.PerconaXtraDBClusterStatus{},
-			wantAppState:      api.AppStateUnknown,
-			wantConditionType: api.AppStateInit,
+			status: api.PerconaXtraDBClusterStatus{},
+			want:   api.AppStateUnknown,
 		},
 		"PXC error": {
-			status:            api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateError}},
-			wantAppState:      api.AppStateError,
-			wantConditionType: api.AppStateError,
+			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateError}},
+			want:   api.AppStateError,
 		},
 		"PXC init": {
-			status:            api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateInit}},
-			wantAppState:      api.AppStateInit,
-			wantConditionType: api.AppStateInit,
+			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateInit}},
+			want:   api.AppStateInit,
 		},
 		"PXC ready": {
-			status:            api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateReady}},
-			wantAppState:      api.AppStateReady,
-			wantConditionType: api.AppStateReady,
+			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateReady}},
+			want:   api.AppStateReady,
 		},
 		"HAProxy error": {
-			status:            api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateError}},
-			wantAppState:      api.AppStateError,
-			wantConditionType: api.AppStateError,
+			status: api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateError}},
+			want:   api.AppStateError,
 		},
 		"HAProxy init": {
-			status:            api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateInit}},
-			wantAppState:      api.AppStateInit,
-			wantConditionType: api.AppStateInit,
+			status: api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateInit}},
+			want:   api.AppStateInit,
 		},
 		"HAProxy ready": {
 			status: api.PerconaXtraDBClusterStatus{
 				PXC:     api.AppStatus{Status: api.AppStateReady},
 				HAProxy: api.AppStatus{Status: api.AppStateReady},
 			},
-			wantAppState:      api.AppStateReady,
-			wantConditionType: api.AppStateReady,
+			want: api.AppStateReady,
 		},
 		"ProxySQL error": {
-			status:            api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateError}},
-			wantAppState:      api.AppStateError,
-			wantConditionType: api.AppStateError,
+			status: api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateError}},
+			want:   api.AppStateError,
 		},
 		"ProxySQL init": {
-			status:            api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateInit}},
-			wantAppState:      api.AppStateInit,
-			wantConditionType: api.AppStateInit,
+			status: api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateInit}},
+			want:   api.AppStateInit,
 		},
 		"ProxySQL ready": {
 			status: api.PerconaXtraDBClusterStatus{
 				PXC:      api.AppStatus{Status: api.AppStateReady},
 				ProxySQL: api.AppStatus{Status: api.AppStateReady},
 			},
-			wantAppState:      api.AppStateReady,
-			wantConditionType: api.AppStateReady,
+			want: api.AppStateReady,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(tt *testing.T) {
-			appState, condition := test.status.ClusterStatus()
+			got := test.status.ClusterStatus(false)
 
-			if appState != test.wantAppState {
-				t.Errorf("AppState got %#v, want %#v", appState, test.wantAppState)
-			}
-
-			if condition.Type != test.wantConditionType {
-				t.Errorf("ClusterCondition.Type got %#v, want %#v", condition.Type, test.wantConditionType)
+			if got != test.want {
+				t.Errorf("AppState got %#v, want %#v", got, test.want)
 			}
 		})
 	}

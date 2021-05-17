@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/go-ini/ini"
 	"github.com/go-logr/logr"
@@ -894,39 +893,15 @@ func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {
 	return cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled
 }
 
-func (status PerconaXtraDBClusterStatus) ClusterStatus() (AppState, ClusterCondition) {
+func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress bool) AppState {
 	switch {
-	case status.PXC.Status == AppStateError || status.ProxySQL.Status == AppStateError || status.HAProxy.Status == AppStateError:
-		clusterCondition := ClusterCondition{
-			Status:             ConditionTrue,
-			Type:               AppStateError,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		}
-
-		return AppStateError, clusterCondition
-	case status.PXC.Status == AppStateInit || status.ProxySQL.Status == AppStateInit || status.HAProxy.Status == AppStateInit:
-		clusterCondition := ClusterCondition{
-			Status:             ConditionTrue,
-			Type:               AppStateInit,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		}
-
-		return AppStateInit, clusterCondition
-	case status.PXC.Status == AppStateReady:
-		clusterCondition := ClusterCondition{
-			Status:             ConditionTrue,
-			Type:               AppStateReady,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		}
-
-		return AppStateReady, clusterCondition
+	case s.PXC.Status == AppStateError || s.ProxySQL.Status == AppStateError || s.HAProxy.Status == AppStateError:
+		return AppStateError
+	case inProgress || s.PXC.Status == AppStateInit || s.ProxySQL.Status == AppStateInit || s.HAProxy.Status == AppStateInit:
+		return AppStateInit
+	case s.PXC.Status == AppStateReady:
+		return AppStateReady
 	default:
-		clusterCondition := ClusterCondition{
-			Status:             ConditionTrue,
-			Type:               AppStateInit,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		}
-
-		return AppStateUnknown, clusterCondition
+		return AppStateUnknown
 	}
 }

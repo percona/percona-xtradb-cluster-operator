@@ -19,6 +19,12 @@ import (
 const maxStatusesQuantity = 20
 
 func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, reconcileErr error) (err error) {
+	clusterCondition := api.ClusterCondition{
+		Status:             api.ConditionTrue,
+		Type:               api.AppStateInit,
+		LastTransitionTime: metav1.NewTime(time.Now()),
+	}
+
 	if reconcileErr != nil {
 		if cr.Status.Status != api.AppStateError {
 			clusterCondition := api.ClusterCondition{
@@ -91,8 +97,29 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		}
 	}
 
-	clusterStatus, clusterCondition := cr.Status.ClusterStatus()
+	clusterStatus := cr.Status.ClusterStatus(inProgress)
 	cr.Status.Status = clusterStatus
+
+	switch cr.Status.Status {
+	case api.AppStateError:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.AppStateError,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+	case api.AppStateInit:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.AppStateInit,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+	case api.AppStateReady:
+		clusterCondition = api.ClusterCondition{
+			Status:             api.ConditionTrue,
+			Type:               api.AppStateReady,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+		}
+	}
 
 	if len(cr.Status.Conditions) == 0 {
 		cr.Status.Conditions = append(cr.Status.Conditions, clusterCondition)
@@ -109,10 +136,6 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 	if len(cr.Status.Conditions) > maxStatusesQuantity {
 		cr.Status.Conditions = cr.Status.Conditions[len(cr.Status.Conditions)-maxStatusesQuantity:]
-	}
-
-	if inProgress {
-		cr.Status.Status = api.AppStateInit
 	}
 
 	cr.Status.ObservedGeneration = cr.ObjectMeta.Generation

@@ -102,7 +102,7 @@ check_input_destination() {
 			usage
 		fi
 	elif [ "${backup_dest:0:5}" = "s3://" ]; then
-		env -i "$CREDENTIALS" "$xbcloud" get "${backup_dest}" xtrabackup_info 1>/dev/null
+		env -i $CREDENTIALS "$xbcloud" get "${backup_dest}" xtrabackup_info 1>/dev/null
 	else
 		echo "Can't find $backup_dest backup"
 		usage
@@ -166,7 +166,7 @@ copy_files_s3() {
 
 	echo ""
 	echo "Downloading started"
-	env -i "$CREDENTIALS" "$xbcloud" get "${backup_path}" --parallel=10 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
+	env -i $CREDENTIALS "$xbcloud" get "${backup_path}" --parallel=10 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
 	echo "Downloading finished"
 }
 

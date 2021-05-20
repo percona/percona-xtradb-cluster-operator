@@ -323,8 +323,11 @@ pipeline {
                         CreateCluster('selfhealing')
                         runTest('storage', 'selfhealing')
                         runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
                         runTest('self-healing-advanced', 'selfhealing')
+                        runTest('self-healing-advanced-chaos', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }

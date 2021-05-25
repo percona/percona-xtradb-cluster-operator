@@ -9,7 +9,7 @@ namespace. You can create one during installation (like it is shown in the
 namespace. This approach allows several Operators to co-exist in one
 Kubernetes-based environment, being separated in different namespaces:
 
-.. image:: ./assets/images/cluster-wide-1.png
+.. image:: ./assets/images/cluster-wide-1.*
    :align: center
 
 Still, sometimes it is more convenient to have one Operator watching for
@@ -19,7 +19,7 @@ We recommend running Percona XtraDB Cluster Operator in a traditional way,
 limited to a specific namespace. But it is possible to run it in so-called
 *cluster-wide* mode, one Operator watching several namespaces, if needed:
 
-.. image:: ./assets/images/cluster-wide-2.png
+.. image:: ./assets/images/cluster-wide-2.*
    :align: center
 
 .. note:: Please take into account that if several Operators are configured to

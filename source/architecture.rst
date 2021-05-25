@@ -9,7 +9,7 @@ The design of the operator is highly bound to the Percona XtraDB Cluster
 high availability implementation, which in its turn can be briefly
 described with the following diagram.
 
-.. image:: ./assets/images/replication.png
+.. image:: ./assets/images/replication.*
    :align: center
 
 Being a regular MySQL Server instance, each node contains the same set
@@ -29,7 +29,7 @@ To provide high availability operator uses `node affinity <https://kubernetes.io
 to run Percona XtraDB Cluster instances on separate worker nodes if possible. If
 some node fails, the pod with it is automatically re-created on another node.
 
-.. image:: ./assets/images/operator.png
+.. image:: ./assets/images/operator.*
    :align: center
 
 To provide data storage for stateful applications, Kubernetes uses

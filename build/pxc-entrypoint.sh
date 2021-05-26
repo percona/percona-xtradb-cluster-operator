@@ -410,7 +410,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	SST_P_FILE=$(_get_cnf_config sst progress "${DATADIR}/sst_in_progress")
 	rm -rvf "${SST_DIR}" "${SST_P_FILE}"
 
-	"$@" --version | tee /tmp/version_info
+	"$@" --version | sed 's/-ps//' | tee /tmp/version_info
 	if [ -f "$DATADIR/version_info" ] && ! diff /tmp/version_info "$DATADIR/version_info"; then
 		SOCKET="$(_get_config 'socket' "$@")"
 		"$@" --skip-networking --socket="${SOCKET}" --wsrep-provider='none' &
@@ -441,7 +441,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			exit 1
 		fi
 	fi
-	"$@" --version > "$DATADIR/version_info"
+	"$@" --version | sed 's/-ps//' >"$DATADIR/version_info"
 	grep -v wsrep_sst_auth "$CFG"
 fi
 

@@ -441,7 +441,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			exit 1
 		fi
 	fi
-	"$@" --version | sed 's/-ps//' > "$DATADIR/version_info"
+	"$@" --version | sed 's/-ps//' >"$DATADIR/version_info"
 	grep -v wsrep_sst_auth "$CFG"
 fi
 

@@ -439,7 +439,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	proxysqlSet := statefulset.NewProxy(o)
 	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), proxysqlAnnotations)
-	proxysqlService := pxc.NewServiceProxySQL(o)
 
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
@@ -448,7 +447,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 
 		currentService := &corev1.Service{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: proxysqlService.Name, Namespace: proxysqlService.Namespace}, currentService)
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: o.ProxySQLServiceNamespacedName().Name, Namespace: o.ProxySQLServiceNamespacedName().Namespace}, currentService)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "failed to get current proxysql service sate")
 		}
@@ -490,7 +489,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			)
 		}
 
-		err = r.client.Update(context.TODO(), currentService)
+		err = r.createOrUpdate(currentService)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL service upgrade error")
 		}
@@ -509,7 +508,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 		proxysqlUnreadyService := pxc.NewServiceProxySQLUnready(o)
-		err = r.deleteServices(proxysqlService, proxysqlUnreadyService)
+		err = r.deleteServices(pxc.NewServiceProxySQL(o), proxysqlUnreadyService)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -878,13 +877,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		if err != nil {
 			return errors.Wrap(err, "set controller ref LogCollector")
 		}
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && k8serrors.IsAlreadyExists(err) {
-			err = r.client.Update(context.TODO(), configMap)
-			if err != nil {
-				return errors.Wrap(err, "update ConfigMap LogCollector")
-			}
-		} else if err != nil {
+		err = createOrUpdateConfigmap(r.client, configMap)
+		if err != nil {
 			return errors.Wrap(err, "create ConfigMap LogCollector")
 		}
 	}
@@ -897,7 +891,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcilePDB(spec *api.PodDisruptionBudg
 		return nil
 	}
 
-	pdb := pxc.PodDisruptionBudget(spec, sfs, namespace)
+	pdb := pxc.PodDisruptionBudget(spec, sfs.Labels(), namespace)
 	err := setControllerReference(owner, pdb, r.scheme)
 	if err != nil {
 		return errors.Wrap(err, "set owner reference")
@@ -947,13 +941,14 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 		return errors.Wrap(err, "get StatefulSet")
 	}
 
-	dscaleTo := int32(1)
-	cSet.Spec.Replicas = &dscaleTo
-	err = r.client.Update(context.TODO(), cSet)
-	if err != nil {
-		return errors.Wrap(err, "downscale StatefulSet")
+	if cSet.Spec.Replicas == nil || *cSet.Spec.Replicas != 1 {
+		dscaleTo := int32(1)
+		cSet.Spec.Replicas = &dscaleTo
+		err = r.client.Update(context.TODO(), cSet)
+		if err != nil {
+			return errors.Wrap(err, "downscale StatefulSet")
+		}
 	}
-
 	return errors.New("waiting for pods to be deleted")
 }
 
@@ -971,7 +966,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 		return nil
 	}
 
-	if !metav1.IsControlledBy(&sfsWithOwner, cr){
+	if !metav1.IsControlledBy(&sfsWithOwner, cr) {
 		return nil
 	}
 

@@ -49,6 +49,39 @@ spec:
     - image: busybox
       name: haproxy
     runtimeClassName: docker-rc
+    configuration: |
+      global
+        maxconn 2048
+        external-check
+        insecure-fork-wanted
+        stats socket /etc/haproxy/pxc/haproxy.sock mode 600 expose-fd listeners level admin
+
+      defaults
+        log global
+        mode tcp
+        retries 13
+        timeout client 28800s
+        timeout connect 100500
+        timeout server 28800s
+
+      frontend galera-in
+        bind *:3309 accept-proxy
+        bind *:3306
+        mode tcp
+        option clitcpka
+        default_backend galera-nodes
+
+      frontend galera-admin-in
+        bind *:33062
+        mode tcp
+        option clitcpka
+        default_backend galera-admin-nodes
+
+      frontend galera-replica-in
+        bind *:3307
+        mode tcp
+        option clitcpka
+        default_backend galera-replica-nodes
   proxysql:
     enabled: false
     size: 1

@@ -833,8 +833,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
+	var pxcConfigName = ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"]
+
 	if cr.Spec.PXC.Configuration != "" {
-		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"], "init.cnf", cr.Spec.PXC.Configuration)
+		configMap := config.NewConfigMap(cr, pxcConfigName, "init.cnf", cr.Spec.PXC.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref")
@@ -844,10 +846,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		if err != nil {
 			return errors.Wrap(err, "pxc config map")
 		}
+	} else {
+		if err := deleteConfigMapIfExists(r.client, cr, pxcConfigName); err != nil {
+			return errors.Wrap(err, "delete pxc config map")
+		}
 	}
 
+	var proxysqlConfigName = ls["app.kubernetes.io/instance"] + "-proxysql"
+
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Configuration != "" {
-		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-proxysql", "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
+		configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref ProxySQL")
@@ -857,10 +865,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		if err != nil {
 			return errors.Wrap(err, "proxysql config map")
 		}
+	} else {
+		if err := deleteConfigMapIfExists(r.client, cr, proxysqlConfigName); err != nil {
+			return errors.Wrap(err, "delete proxySQL config map")
+		}
 	}
 
+	var haproxyConfigName = ls["app.kubernetes.io/instance"] + "-haproxy"
+
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Spec.HAProxy.Configuration != "" {
-		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-haproxy", "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
+		configMap := config.NewConfigMap(cr, haproxyConfigName, "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
 			return errors.Wrap(err, "set controller ref HAProxy")
@@ -870,22 +884,34 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		if err != nil {
 			return errors.Wrap(err, "haproxy config map")
 		}
+	} else {
+		if err := deleteConfigMapIfExists(r.client, cr, haproxyConfigName); err != nil {
+			return errors.Wrap(err, "delete haproxy config map")
+		}
 	}
 
-	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" && cr.CompareVersionWith("1.7.0") >= 0 {
-		configMap := config.NewConfigMap(cr, ls["app.kubernetes.io/instance"]+"-logcollector", "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
-		err := setControllerReference(cr, configMap, r.scheme)
-		if err != nil {
-			return errors.Wrap(err, "set controller ref LogCollector")
-		}
-		err = r.client.Create(context.TODO(), configMap)
-		if err != nil && k8serrors.IsAlreadyExists(err) {
-			err = r.client.Update(context.TODO(), configMap)
+	if cr.CompareVersionWith("1.7.0") >= 0 {
+		var logCollectorConfigName = ls["app.kubernetes.io/instance"] + "-logcollector"
+
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
+			configMap := config.NewConfigMap(cr, logCollectorConfigName, "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
+			err := setControllerReference(cr, configMap, r.scheme)
 			if err != nil {
-				return errors.Wrap(err, "update ConfigMap LogCollector")
+				return errors.Wrap(err, "set controller ref LogCollector")
 			}
-		} else if err != nil {
-			return errors.Wrap(err, "create ConfigMap LogCollector")
+			err = r.client.Create(context.TODO(), configMap)
+			if err != nil && k8serrors.IsAlreadyExists(err) {
+				err = r.client.Update(context.TODO(), configMap)
+				if err != nil {
+					return errors.Wrap(err, "update ConfigMap LogCollector")
+				}
+			} else if err != nil {
+				return errors.Wrap(err, "create ConfigMap LogCollector")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, logCollectorConfigName); err != nil {
+				return errors.Wrap(err, "delete log collector config map")
+			}
 		}
 	}
 
@@ -971,7 +997,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 		return nil
 	}
 
-	if !metav1.IsControlledBy(&sfsWithOwner, cr){
+	if !metav1.IsControlledBy(&sfsWithOwner, cr) {
 		return nil
 	}
 
@@ -1134,6 +1160,28 @@ func createOrUpdateConfigmap(cl client.Client, configMap *corev1.ConfigMap) erro
 	}
 
 	return nil
+}
+
+func deleteConfigMapIfExists(cl client.Client, cr *api.PerconaXtraDBCluster, cmName string) error {
+	var configMap = &corev1.ConfigMap{}
+
+	err := cl.Get(context.TODO(), types.NamespacedName{
+		Namespace: cr.Namespace,
+		Name:      cmName,
+	}, configMap)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "get config map")
+	}
+
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+
+	if !metav1.IsControlledBy(configMap, cr) {
+		return nil
+	}
+
+	return cl.Delete(context.Background(), configMap)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error {

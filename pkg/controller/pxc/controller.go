@@ -833,7 +833,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
-	var pxcConfigName = ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"]
+	pxcConfigName := ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"]
 
 	if cr.Spec.PXC.Configuration != "" {
 		configMap := config.NewConfigMap(cr, pxcConfigName, "init.cnf", cr.Spec.PXC.Configuration)
@@ -852,7 +852,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
-	var proxysqlConfigName = ls["app.kubernetes.io/instance"] + "-proxysql"
+	proxysqlConfigName := ls["app.kubernetes.io/instance"] + "-proxysql"
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Configuration != "" {
 		configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
@@ -871,7 +871,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
-	var haproxyConfigName = ls["app.kubernetes.io/instance"] + "-haproxy"
+	haproxyConfigName := ls["app.kubernetes.io/instance"] + "-haproxy"
 
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Spec.HAProxy.Configuration != "" {
 		configMap := config.NewConfigMap(cr, haproxyConfigName, "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
@@ -891,7 +891,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	}
 
 	if cr.CompareVersionWith("1.7.0") >= 0 {
-		var logCollectorConfigName = ls["app.kubernetes.io/instance"] + "-logcollector"
+		logCollectorConfigName := ls["app.kubernetes.io/instance"] + "-logcollector"
 
 		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
 			configMap := config.NewConfigMap(cr, logCollectorConfigName, "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
@@ -1163,7 +1163,7 @@ func createOrUpdateConfigmap(cl client.Client, configMap *corev1.ConfigMap) erro
 }
 
 func deleteConfigMapIfExists(cl client.Client, cr *api.PerconaXtraDBCluster, cmName string) error {
-	var configMap = &corev1.ConfigMap{}
+	configMap := &corev1.ConfigMap{}
 
 	err := cl.Get(context.TODO(), types.NamespacedName{
 		Namespace: cr.Namespace,

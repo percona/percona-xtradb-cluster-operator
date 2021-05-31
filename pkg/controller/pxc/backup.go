@@ -31,6 +31,7 @@ type BackupScheduleJob struct {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCluster) error {
+	logger := r.logger("backup", cr.Namespace)
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
 	backupNamePrefix := backupJobClusterPrefix(cr.Name)
 
@@ -66,12 +67,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			}
 		}
 
-		for _, bcp := range cr.Spec.Backup.Schedule {
+		for i, bcp := range cr.Spec.Backup.Schedule {
 			bcp.Name = backupNamePrefix + "-" + bcp.Name
 			backups[bcp.Name] = bcp
 			strg, ok := cr.Spec.Backup.Storages[bcp.StorageName]
 			if !ok {
-				return fmt.Errorf("storage %s doesn't exist", bcp.StorageName)
+				logger.Info("invalid storage name for backup", "backup name", cr.Spec.Backup.Schedule[i].Name, "storage name", bcp.StorageName)
+				continue
 			}
 
 			sch := BackupScheduleJob{}
@@ -86,7 +88,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				r.deleteBackupJob(bcp.Name)
 				jobID, err := r.crons.crons.AddFunc(bcp.Schedule, r.createBackupJob(cr, bcp, strg.Type))
 				if err != nil {
-					return errors.Wrap(err, "failed to add backup cron job")
+					logger.Error(err, "can't parse cronjob schedule", "backup name", cr.Spec.Backup.Schedule[i].Name, "schedule", bcp.Schedule)
+					continue
 				}
 
 				r.crons.backupJobs.Store(bcp.Name, BackupScheduleJob{

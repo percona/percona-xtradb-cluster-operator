@@ -79,7 +79,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	}
 
 	inProgress := false
-
+	cr.Status.Size = 0
+	cr.Status.Ready = 0
 	for _, a := range apps {
 		status, err := r.appStatus(a.app, cr.Namespace, a.spec, cr.CompareVersionWith("1.7.0") == -1)
 		if err != nil {
@@ -98,6 +99,9 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if a.status.Message != "" {
 			cr.Status.Messages = append(cr.Status.Messages, a.app.Name()+": "+a.status.Message)
 		}
+
+		cr.Status.Size += status.Size
+		cr.Status.Ready += status.Ready
 
 		if !inProgress {
 			inProgress, err = r.upgradeInProgress(cr, a.app.Name())

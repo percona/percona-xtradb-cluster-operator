@@ -110,6 +110,8 @@ type PerconaXtraDBClusterStatus struct {
 	Status             AppState           `json:"state,omitempty"`
 	Conditions         []ClusterCondition `json:"conditions,omitempty"`
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	Size               int32              `json:"size,omitempty"`
+	Ready              int32              `json:"ready,omitempty"`
 }
 
 type ConditionStatus string

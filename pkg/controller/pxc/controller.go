@@ -503,6 +503,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			)
 		}
 
+		if o.CompareVersionWith("1.9.0") >= 0 {
+			currentService.ObjectMeta.Labels["app.kubernetes.io/component"] = "proxysql"
+			currentService.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
+			currentService.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
+		}
+
 		err = r.createOrUpdate(currentService)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL service upgrade error")

@@ -82,7 +82,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 	cr.Status.Size = 0
 	cr.Status.Ready = 0
 	for _, a := range apps {
-		status, err := r.appStatus(a.app, cr.Namespace, a.spec, cr.CompareVersionWith("1.7.0") == -1)
+		status, err := r.appStatus(a.app, cr.Namespace, a.spec, cr.CompareVersionWith("1.7.0") == -1, cr.Spec.Pause)
 		if err != nil {
 			return errors.Wrapf(err, "get %s status", a.app.Name())
 		}
@@ -111,7 +111,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		}
 	}
 
-	cr.Status.Status = cr.Status.ClusterStatus(inProgress)
+	cr.Status.Status = cr.Status.ClusterStatus(inProgress, cr.ObjectMeta.DeletionTimestamp != nil)
 	clusterCondition.Type = cr.Status.Status
 	cr.Status.AddCondition(clusterCondition)
 	cr.Status.ObservedGeneration = cr.ObjectMeta.Generation
@@ -146,7 +146,7 @@ func (r *ReconcilePerconaXtraDBCluster) upgradeInProgress(cr *api.PerconaXtraDBC
 // If ready pods are equal to the size of the statefulset, we consider them ready.
 // If a pod is in the unschedulable state for more than 1 min, we consider the statefulset in an error state.
 // Otherwise, we consider the statefulset is initializing.
-func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace string, podSpec *api.PodSpec, crLt170 bool) (api.AppStatus, error) {
+func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace string, podSpec *api.PodSpec, crLt170, paused bool) (api.AppStatus, error) {
 	list := corev1.PodList{}
 	err := r.client.List(context.TODO(),
 		&list,
@@ -207,7 +207,12 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace
 		}
 	}
 
-	if status.Size == status.Ready {
+	switch {
+	case paused && status.Ready > 0:
+		status.Status = api.AppStateStopping
+	case paused:
+		status.Status = api.AppStatePaused
+	case status.Size == status.Ready:
 		status.Status = api.AppStateReady
 	}
 

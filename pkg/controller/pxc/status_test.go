@@ -87,7 +87,7 @@ func TestAppStatusInit(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs})
 
-	status, err := r.appStatus(pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1)
+	status, err := r.appStatus(pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -111,7 +111,7 @@ func TestPXCAppStatusReady(t *testing.T) {
 
 	r := buildFakeClient(objs)
 
-	status, err := r.appStatus(pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1)
+	status, err := r.appStatus(pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,7 +139,7 @@ func TestHAProxyAppStatusReady(t *testing.T) {
 
 	r := buildFakeClient(objs)
 
-	status, err := r.appStatus(haproxy, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1)
+	status, err := r.appStatus(haproxy, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -172,7 +172,7 @@ func TestAppStatusError(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, pxcPod})
 
-	status, err := r.appStatus(pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1)
+	status, err := r.appStatus(pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -414,7 +414,7 @@ func TestClusterStatus(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(tt *testing.T) {
-			got := test.status.ClusterStatus(false)
+			got := test.status.ClusterStatus(false, false)
 
 			if got != test.want {
 				t.Errorf("AppState got %#v, want %#v", got, test.want)

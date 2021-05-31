@@ -899,14 +899,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			if err != nil {
 				return errors.Wrap(err, "set controller ref LogCollector")
 			}
-			err = r.client.Create(context.TODO(), configMap)
-			if err != nil && k8serrors.IsAlreadyExists(err) {
-				err = r.client.Update(context.TODO(), configMap)
-				if err != nil {
-					return errors.Wrap(err, "update ConfigMap LogCollector")
-				}
-			} else if err != nil {
-				return errors.Wrap(err, "create ConfigMap LogCollector")
+			err = createOrUpdateConfigmap(r.client, configMap)
+			if err != nil {
+				return errors.Wrap(err, "logcollector config map")
 			}
 		} else {
 			if err := deleteConfigMapIfExists(r.client, cr, logCollectorConfigName); err != nil {

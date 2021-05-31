@@ -100,8 +100,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 		}
 	}
 
-	var backupDeleteError error
-
 	r.crons.backupJobs.Range(func(k, v interface{}) bool {
 		item := v.(BackupScheduleJob)
 		if !strings.HasPrefix(item.Name, backupNamePrefix) {
@@ -111,12 +109,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			if spec.Keep > 0 {
 				oldjobs, err := r.oldScheduledBackups(cr, item.Name, spec.Keep)
 				if err != nil {
-					backupDeleteError = errors.Wrap(err, "remove old backup")
-					return false
+					logger.Error(err, "failed to list old backups", "job name", item.Name)
+					return true
 				}
 
 				for _, todel := range oldjobs {
-					_ = r.client.Delete(context.TODO(), &todel)
+					err = r.client.Delete(context.TODO(), &todel)
+					if err != nil {
+						logger.Error(err, "failed to delete old backup", "backup name", todel.Name)
+					}
 				}
 
 			}
@@ -128,7 +129,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 		return true
 	})
 
-	return backupDeleteError
+	return nil
 }
 
 func backupJobClusterPrefix(clusterName string) string {

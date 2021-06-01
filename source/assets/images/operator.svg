@@ -402,9 +402,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.4"
-     inkscape:cx="241.17766"
-     inkscape:cy="215.48689"
+     inkscape:zoom="0.98994949"
+     inkscape:cx="24.946265"
+     inkscape:cy="280.32834"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      inkscape:document-rotation="0"
@@ -636,18 +636,19 @@
            transform="translate(193.8753,396.4649)">
           <text
              transform="scale(1,-1)"
-             style="font-variant:normal;font-weight:bold;font-size:14px;font-family:DINAlternate;-inkscape-font-specification:DINAlternate-Bold;writing-mode:lr-tb;fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none"
+             style="font-variant:normal;font-weight:bold;font-size:14px;font-family:DINAlternate;-inkscape-font-specification:DINAlternate-Bold;writing-mode:lr-tb;fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none;"
              id="text252"><tspan
                x="0 8.9586 17.637199 21.135799 29.3244 36.463001 43.867599 47.366199"
                y="0"
                sodipodi:role="line"
-               id="tspan250">DB Pod 1</tspan></text>
+               id="tspan250"
+               style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:14px;font-family:Arial;-inkscape-font-specification:'Arial, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal">DB Pod 1</tspan></text>
         </g>
       </g>
     </g>
     <g
        id="g254"
-       transform="matrix(0.35277777,0,0,-0.35277777,-7.2118513,286.41228)">
+       transform="matrix(0.35277777,0,0,-0.35277777,-7.1173573,286.41228)">
       <g
          id="g256"
          clip-path="url(#clipPath260)">
@@ -697,13 +698,14 @@
                x="0 9.4554005 19.1998"
                y="0"
                sodipodi:role="line"
-               id="tspan312">CSI</tspan></text>
+               id="tspan312"
+               style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:17px;font-family:Arial;-inkscape-font-specification:'Arial, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal">CSI</tspan></text>
         </g>
       </g>
     </g>
     <g
        id="g316"
-       transform="matrix(0.35277777,0,0,-0.35277777,-7.2118513,286.41228)">
+       transform="matrix(0.35277777,0,0,-0.35277777,-7.2590984,286.41228)">
       <g
          id="g318"
          clip-path="url(#clipPath322)">
@@ -734,24 +736,26 @@
            transform="translate(287.0389,396.4649)">
           <text
              transform="scale(1,-1)"
-             style="font-variant:normal;font-weight:bold;font-size:14px;font-family:DINAlternate;-inkscape-font-specification:DINAlternate-Bold;writing-mode:lr-tb;fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none"
+             style="font-variant:normal;font-weight:bold;font-size:14px;font-family:DINAlternate;-inkscape-font-specification:DINAlternate-Bold;writing-mode:lr-tb;fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none;"
              id="text358"><tspan
                x="0 8.9586 17.637199 21.135799 29.3244 36.463001 43.867599 47.366199"
                y="0"
                sodipodi:role="line"
-               id="tspan356">DB Pod 2</tspan></text>
+               id="tspan356"
+               style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:14px;font-family:Arial;-inkscape-font-specification:'Arial, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal">DB Pod 2</tspan></text>
         </g>
         <g
            id="g360"
            transform="translate(431.2158,396.4649)">
           <text
              transform="scale(1,-1)"
-             style="font-variant:normal;font-weight:bold;font-size:14px;font-family:DINAlternate;-inkscape-font-specification:DINAlternate-Bold;writing-mode:lr-tb;fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none"
+             style="font-variant:normal;font-weight:bold;font-size:14px;font-family:DINAlternate;-inkscape-font-specification:DINAlternate-Bold;writing-mode:lr-tb;fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none;"
              id="text364"><tspan
                x="0 8.9586 17.637199 21.135799 29.3244 36.463001 43.867599 47.366199"
                y="0"
                sodipodi:role="line"
-               id="tspan362">DB Pod N</tspan></text>
+               id="tspan362"
+               style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:14px;font-family:Arial;-inkscape-font-specification:'Arial, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal">DB Pod N</tspan></text>
         </g>
         <g
            id="g366"

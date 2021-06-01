@@ -170,15 +170,6 @@ main() {
     label_node
     sleep 20
 
-    if [ -n "$OPERATOR_NS" ]; then
-        kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$OPERATOR_NS"
-    fi
-    compare_kubectl cronjob/f875c-each-min-pvc
-    compare_kubectl cronjob/f875c-each-min-minio
-    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-        compare_kubectl cronjob/f875c-each-min-aws-s3
-        compare_kubectl cronjob/f875c-each-min-gcp-cs
-    fi
     kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
     sleep 300
@@ -201,20 +192,6 @@ main() {
         FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1| cut -d: -f1)
         JOB_GCP_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_GCP_BACKUP} | awk '{print $1}')
         POD_GCP_BACKUP=$(kubectl_bin get pods | grep ${JOB_GCP_BACKUP%-*}  | awk '{print $1}')
-    fi
-
-    compare_extrafields job ${JOB_PVC_BACKUP}
-    compare_extrafields pod ${POD_PVC_BACKUP}
-
-    compare_extrafields job ${JOB_MINIO_BACKUP}
-    compare_extrafields pod ${POD_MINIO_BACKUP}
-
-    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-        compare_extrafields job ${JOB_AWS_BACKUP}
-        compare_extrafields pod ${POD_AWS_BACKUP}
-
-        compare_extrafields job ${JOB_GCP_BACKUP}
-        compare_extrafields pod ${POD_GCP_BACKUP}
     fi
 
     backup_name_pvc=$(get_backup_name "pvc")

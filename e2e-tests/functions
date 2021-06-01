@@ -1105,9 +1105,9 @@ deploy_chaos_mesh() {
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
 	kubectl_bin create ns chaos-testing
 	if version_gt "1.20"; then
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=chaos-testing --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false
+		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=chaos-testing --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 0.5.1
 	else
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=chaos-testing --set dashboard.create=false
+		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=chaos-testing --set dashboard.create=false --version 0.5.1
 	fi
 	sleep 10
 }

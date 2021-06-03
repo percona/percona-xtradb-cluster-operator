@@ -45,8 +45,15 @@ type PerconaXtraDBClusterSpec struct {
 }
 
 type PXCSpec struct {
-	AutoRecovery *bool `json:"autoRecovery,omitempty"`
+	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
+	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	*PodSpec
+}
+
+type ReplicationChannel struct {
+	Name       string `json:"name,omitempty"`
+	IsSource   bool   `json:"isSource,omitempty"`
+	SecretName string `json:"secretName,omitempty"`
 }
 
 type TLSSpec struct {
@@ -178,6 +185,15 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.PXC.Image == "" {
 		return errors.New("pxc.Image can't be empty")
+	}
+
+	for _, v := range c.PXC.ReplicationChannels {
+		if v.Name == "" {
+			return errors.New("pxc.replicationChannels.Name can't be empty")
+		}
+		if v.SecretName == "" {
+			return errors.New("pxc.replicationChannels.SecretName can't be empty")
+		}
 	}
 
 	if c.PMM != nil && c.PMM.Enabled {

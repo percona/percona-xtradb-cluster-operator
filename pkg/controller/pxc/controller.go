@@ -353,6 +353,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
+	if len(o.Spec.PXC.ReplicationChannels) != 0 {
+		err = r.ensurePxcPodServices(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "create replication services")
+		}
+		err = r.removeOutdatedServices(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "failed to remove outdated services")
+		}
+	} else {
+		err = r.removePxcPodServices(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "remove pxc pod services")
+		}
+	}
+
 	if o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled {
 		err = r.updatePod(statefulset.NewHAProxy(o), o.Spec.HAProxy, o, nil)
 		if err != nil {

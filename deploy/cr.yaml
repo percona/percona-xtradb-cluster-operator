@@ -36,6 +36,10 @@ spec:
     size: 3
     image: percona/percona-xtradb-cluster:8.0.22-13.1
     autoRecovery: true
+#    replicationChannels:
+#    - name: pxc1_to_pxc2
+#      isSource: true
+#      secretName: my-cluster-name-replication
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600

@@ -21,7 +21,7 @@ main() {
 
 	if [[ ${OPENSHIFT} == 4 ]]; then
 		apply_config "$test_dir/conf/container-rc.yaml"
-	elif [[ -z ${OPENSHIFT} ]] && [[ $(echo "$KUBE_VERSION >= 1.20" | bc -l) -eq 1 ]]; then
+	elif [[ -z ${OPENSHIFT} ]] && [[ $(echo "$KUBE_VERSION >= 1.19" | bc -l) -eq 1 ]]; then
 		apply_config "$test_dir/conf/container-rc.yaml"
 	else
 		apply_config "$test_dir/conf/docker-rc.yaml"

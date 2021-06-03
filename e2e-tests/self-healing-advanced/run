@@ -7,8 +7,8 @@ test_dir=$(realpath $(dirname $0))
 . "${test_dir}"/../functions
 cluster="self-healing-advanced"
 
-if version_gt "1.20"; then
-	echo "Kubernetes version is 1.20+ so skipping this test because of pumba support."
+if version_gt "1.19"; then
+	echo "Kubernetes version is 1.19+ so skipping this test because of pumba support."
 	exit 0
 fi
 

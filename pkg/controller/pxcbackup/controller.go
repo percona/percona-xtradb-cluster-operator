@@ -161,32 +161,32 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 	cluster, err := r.getClusterConfig(cr)
 	if err != nil {
 		logger.Error(err, "invalid backup cluster")
-		return reconcile.Result{}, nil
+		return rr, nil
 	}
 
 	_, err = cluster.CheckNSetDefaults(r.serverVersion, logger)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
+		return rr, errors.Wrap(err, "wrong PXC options")
 	}
 
 	if cluster.Spec.Backup == nil {
-		return reconcile.Result{}, errors.Wrap(err, "a backup image should be set in the PXC config")
+		return rr, errors.New("a backup image should be set in the PXC config")
 	}
 
 	if cluster.Status.PXC.Status != api.AppStateReady {
-		return reconcile.Result{}, errors.Wrapf(err, "failed to run backup on cluster with status %s", cluster.Status.Status)
+		return rr, errors.Errorf("failed to run backup on cluster with status %s", cluster.Status.Status)
 	}
 
 	bcpStorage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
 	if !ok {
-		return reconcile.Result{}, errors.Wrapf(err, "bcpStorage %s doesn't exist", cr.Spec.StorageName)
+		return rr, errors.Errorf("bcpStorage %s doesn't exist", cr.Spec.StorageName)
 	}
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(cr, cluster)
 	job.Spec, err = bcp.JobSpec(cr.Spec, cluster.Spec, job)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "can't create job spec")
+		return rr, errors.Wrap(err, "can't create job spec")
 	}
 
 	var destination string
@@ -201,7 +201,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 		// Set PerconaXtraDBClusterBackup instance as the owner and controller
 		if err := setControllerReference(cr, pvc, r.scheme); err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
+			return rr, errors.Wrap(err, "setControllerReference")
 		}
 
 		// Check if this PVC already exists
@@ -210,15 +210,15 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 			logger.Info("Creating a new volume for backup", "Namespace", pvc.Namespace, "Name", pvc.Name)
 			err = r.client.Create(context.TODO(), pvc)
 			if err != nil {
-				return reconcile.Result{}, errors.Wrap(err, "create backup pvc")
+				return rr, errors.Wrap(err, "create backup pvc")
 			}
 		} else if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "get backup pvc")
+			return rr, errors.Wrap(err, "get backup pvc")
 		}
 
 		err := bcp.SetStoragePVC(&job.Spec, cluster, pvc.Name)
 		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "set storage FS")
+			return rr, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageS3:
 		destination = bcpStorage.S3.Bucket + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
@@ -228,7 +228,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 		err := bcp.SetStorageS3(&job.Spec, cluster, bcpStorage.S3, destination)
 		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "set storage FS")
+			return rr, errors.Wrap(err, "set storage FS")
 		}
 
 		s3status = &bcpStorage.S3
@@ -236,12 +236,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 
 	// Set PerconaXtraDBClusterBackup instance as the owner and controller
 	if err := setControllerReference(cr, job, r.scheme); err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "job/setControllerReference")
+		return rr, errors.Wrap(err, "job/setControllerReference")
 	}
 
 	err = r.client.Create(context.TODO(), job)
 	if err != nil && !k8sErrors.IsAlreadyExists(err) {
-		return reconcile.Result{}, errors.Wrap(err, "create backup job")
+		return rr, errors.Wrap(err, "create backup job")
 	} else if err == nil {
 		logger.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	}

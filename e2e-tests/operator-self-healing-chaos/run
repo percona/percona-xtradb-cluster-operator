@@ -12,7 +12,7 @@ fail_pod() {
 
 	cat $conf_dir/chaos-pod-failure.yml \
 		| yq w - "metadata.name" "chaos-operator-pod-failure-$RANDOM" \
-		| yq w - "metadata.namespace" "chaos-testing" \
+		| yq w - "metadata.namespace" "$test_namespace" \
 		| yq d - "spec.selector.pods.test-namespace" \
 		| yq w - "spec.selector.pods.$test_namespace[0]" "$init_pod" \
 		| kubectl_bin apply -f-
@@ -46,7 +46,7 @@ network_loss() {
 
 	cat $conf_dir/chaos-network-loss.yml \
 		| yq w - "metadata.name" "chaos-operator-network-$RANDOM" \
-		| yq w - "metadata.namespace" "chaos-testing" \
+		| yq w - "metadata.namespace" "$test_namespace" \
 		| yq d - "spec.selector.pods.test-namespace" \
 		| yq w - "spec.selector.pods.$test_namespace[0]" "$init_pod" \
 		| kubectl_bin apply -f-
@@ -74,7 +74,7 @@ kill_pod() {
 
 	cat $conf_dir/chaos-pod-kill.yml \
 		| yq w - "metadata.name" "chaos-operator-pod-kill-$RANDOM" \
-		| yq w - "metadata.namespace" "chaos-testing" \
+		| yq w - "metadata.namespace" "$test_namespace" \
 		| yq d - "spec.selector.pods.test-namespace" \
 		| yq w - "spec.selector.pods.$test_namespace[0]" "$init_pod" \
 		| kubectl_bin apply -f-
@@ -105,7 +105,6 @@ kill_pod() {
 
 main() {
 	create_infra $namespace
-	deploy_chaos_mesh
 
 	test_namespace=$namespace
 	if [ -n "$OPERATOR_NS" ]; then
@@ -113,6 +112,7 @@ main() {
 		kubectl_bin delete validatingwebhookconfigurations.admissionregistration.k8s.io percona-xtradbcluster-webhook
 		test_namespace=$OPERATOR_NS
 	fi
+	deploy_chaos_mesh $test_namespace
 
 	desc 'create PXC cluster'
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
@@ -126,7 +126,7 @@ main() {
 	desc 'emulate bad network for 60s'
 	network_loss
 
-	destroy_chaos_mesh
+	destroy_chaos_mesh $test_namespace
 	destroy $namespace
 }
 

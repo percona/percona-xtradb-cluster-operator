@@ -62,8 +62,8 @@ wait_cluster_consistency() {
 	fi
 
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
-	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" && \
-	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" && \
+	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" &&
+	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
 		echo 'waiting for cluster readyness'
 		sleep 20
@@ -1099,23 +1099,24 @@ start_minio() {
 }
 
 deploy_chaos_mesh() {
+	local chaos_mesh_ns=$1
+
 	desc 'install chaos-mesh'
-	helm del chaos-mesh --namespace chaos-testing || :
-	kubectl_bin delete ns chaos-testing || :
+	helm del chaos-mesh --namespace ${chaos_mesh_ns} || :
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	kubectl_bin create ns chaos-testing
 	if version_gt "1.19"; then
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=chaos-testing --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 0.5.1
+		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 0.5.1 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
 	else
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=chaos-testing --set dashboard.create=false --version 0.5.1
+		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set dashboard.create=false --version 0.5.1 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
 	fi
 	sleep 10
 }
 
 destroy_chaos_mesh() {
+	local chaos_mesh_ns=$1
+
 	desc 'destroy chaos-mesh'
-	helm del chaos-mesh --namespace chaos-testing || :
-	kubectl_bin delete ns chaos-testing || :
+	helm del chaos-mesh --namespace ${chaos_mesh_ns} || :
 }
 
 patch_secret() {

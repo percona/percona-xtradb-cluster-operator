@@ -23,7 +23,7 @@ crash_cluster_with_kubectl() {
 crash_cluster_with_chaos_mesh() {
 	cat $conf_dir/chaos-pod-kill.yml \
 		| yq w - "metadata.name" "chaos-cluster-kill-$RANDOM" \
-		| yq w - "metadata.namespace" "chaos-testing" \
+		| yq w - "metadata.namespace" "$namespace" \
 		| yq w - "spec.mode" "all" \
 		| yq d - "spec.selector.pods.test-namespace" \
 		| yq w - "spec.selector.pods.$namespace[0]" "$cluster-pxc-0" \
@@ -47,7 +47,7 @@ check_if_cluster_restored() {
 
 main() {
 	create_infra $namespace
-	deploy_chaos_mesh
+	deploy_chaos_mesh $namespace
 
 	desc 'start cluster'
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
@@ -73,7 +73,7 @@ main() {
 	desc 'check if full cluster crash repaired'
 	check_if_cluster_restored
 
-	destroy_chaos_mesh
+	destroy_chaos_mesh $namespace
 	destroy "$namespace"
 }
 

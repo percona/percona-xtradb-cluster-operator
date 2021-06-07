@@ -12,7 +12,7 @@ kill_pod() {
 
 	cat $conf_dir/chaos-pod-kill.yml \
 		| yq w - "metadata.name" "chaos-pod-kill-$RANDOM" \
-		| yq w - "metadata.namespace" "chaos-testing" \
+		| yq w - "metadata.namespace" "$namespace" \
 		| yq d - "spec.selector.pods.test-namespace" \
 		| yq w - "spec.selector.pods.$namespace[0]" "$pod" \
 		| kubectl_bin apply -f-
@@ -31,7 +31,7 @@ fail_pod() {
 	# run chaos for Pod
 	cat $conf_dir/chaos-pod-failure.yml \
 		| yq w - "metadata.name" "chaos-pod-failure-$RANDOM" \
-		| yq w - "metadata.namespace" "chaos-testing" \
+		| yq w - "metadata.namespace" "$namespace" \
 		| yq d - "spec.selector.pods.test-namespace" \
 		| yq w - "spec.selector.pods.$namespace[0]" "$pod" \
 		| kubectl_bin apply -f-
@@ -59,7 +59,7 @@ network_loss() {
 	# run chaos for Pod
 	cat $conf_dir/chaos-network-loss.yml \
 		| yq w - "metadata.name" "chaos-pod-network-loss-$RANDOM" \
-		| yq w - "metadata.namespace" "chaos-testing" \
+		| yq w - "metadata.namespace" "$namespace" \
 		| yq d - "spec.selector.pods.test-namespace" \
 		| yq w - "spec.selector.pods.$namespace[0]" "$pod" \
 		| kubectl_bin apply -f-
@@ -133,7 +133,7 @@ recreate() {
 
 main() {
 	create_infra $namespace
-	deploy_chaos_mesh
+	deploy_chaos_mesh $namespace
 
 	desc 'start cluster'
 	spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
@@ -150,7 +150,7 @@ main() {
 	desc 'recreate cluster'
 	recreate
 
-	destroy_chaos_mesh
+	destroy_chaos_mesh $namespace
 	destroy $namespace
 }
 

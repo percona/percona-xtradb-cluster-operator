@@ -353,14 +353,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	if len(o.Spec.PXC.ReplicationChannels) != 0 {
+	if o.Spec.PXC.Expose.Enabled {
 		err = r.ensurePxcPodServices(o)
 		if err != nil {
 			return rr, errors.Wrap(err, "create replication services")
-		}
-		err = r.removeOutdatedServices(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "failed to remove outdated services")
 		}
 	} else {
 		err = r.removePxcPodServices(o)
@@ -1250,6 +1246,9 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		switch object := obj.(type) {
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
+			if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
+				object.Spec.HealthCheckNodePort = oldObject.(*corev1.Service).Spec.HealthCheckNodePort
+			}
 		}
 
 		return r.client.Update(context.TODO(), obj)

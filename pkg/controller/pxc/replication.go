@@ -2,27 +2,43 @@ package pxc
 
 import (
 	"context"
-	"strconv"
+	"fmt"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtraDBCluster) error {
-	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
-		svc := pxc.NewServicePXC(cr)
+	if cr.Spec.Pause {
+		return nil
+	}
 
-		svc.Name += "-" + strconv.Itoa(i)
-		svc.Labels["app.kubernetes.io/component"] = "external-service"
-		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
-		svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
-		svc.Spec.ClusterIP = ""
-		svc.Spec.Selector = map[string]string{"statefulset.kubernetes.io/pod-name": svc.Name}
+	isBackupRunning, err := r.isBackupRunning(cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to check if backup is running")
+	}
+
+	if isBackupRunning {
+		return nil
+	}
+
+	isRestoreRunning, err := r.isRestoreRunning(cr.Name, cr.Namespace)
+	if err != nil {
+		return errors.Wrap(err, "failed to check if restore is running")
+	}
+
+	if isRestoreRunning {
+		return nil
+	}
+
+	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
+		svcName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
+		svc := NewExposedPXCService(svcName, cr)
 
 		err := setControllerReference(cr, svc, r.scheme)
 		if err != nil {
@@ -34,19 +50,18 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtra
 			return errors.Wrap(err, "failed to ensure pxc service")
 		}
 	}
-	return nil
+	return r.removeOutdatedServices(cr)
 }
 
 func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXtraDBCluster) error {
 	//needed for labels
-	svc := pxc.NewServicePXC(cr)
+	svc := NewExposedPXCService("", cr)
 
 	svcNames := make(map[string]struct{}, cr.Spec.PXC.Size)
 	for i := 0; i < int(cr.Spec.PXC.Size); i++ {
-		svcNames[svc.Name+"-"+strconv.Itoa(i)] = struct{}{}
+		svcNames[fmt.Sprintf("%s-pxc-%d", cr.Name, i)] = struct{}{}
 	}
 
-	svc.Labels["app.kubernetes.io/component"] = "external-service"
 	svcList := &corev1.ServiceList{}
 	err := r.client.List(context.TODO(),
 		svcList,
@@ -72,9 +87,12 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 }
 
 func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtraDBCluster) error {
+	if cr.Spec.Pause {
+		return nil
+	}
+
 	//needed for labels
-	svc := pxc.NewServicePXC(cr)
-	svc.Labels["app.kubernetes.io/component"] = "external-service"
+	svc := NewExposedPXCService("", cr)
 
 	svcList := &corev1.ServiceList{}
 	err := r.client.List(context.TODO(),
@@ -99,4 +117,37 @@ func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtra
 		}
 	}
 	return nil
+}
+
+func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.Service {
+	return &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcName,
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": "external-service",
+			},
+			Annotations: cr.Spec.PXC.Expose.Annotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port: 3306,
+					Name: "mysql",
+				},
+			},
+			Type:                     cr.Spec.PXC.Expose.Type,
+			LoadBalancerSourceRanges: cr.Spec.PXC.Expose.LoadBalancerSourceRanges,
+			ExternalTrafficPolicy:    cr.Spec.PXC.Expose.TrafficPolicy,
+			Selector: map[string]string{
+				"statefulset.kubernetes.io/pod-name": svcName,
+			},
+		},
+	}
 }

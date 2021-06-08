@@ -532,11 +532,39 @@ func (r *ReconcilePerconaXtraDBCluster) isBackupRunning(cr *api.PerconaXtraDBClu
 	}
 
 	for _, bcp := range bcpList.Items {
+		if bcp.Spec.PXCCluster != cr.Name {
+			continue
+		}
+
 		if bcp.Status.State == api.BackupRunning || bcp.Status.State == api.BackupStarting {
 			return true, nil
 		}
 	}
 
+	return false, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(clusterName, namespace string) (bool, error) {
+	restoreList := api.PerconaXtraDBClusterRestoreList{}
+
+	err := r.client.List(context.TODO(), &restoreList, &client.ListOptions{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return false, errors.Wrap(err, "failed to get restore list")
+	}
+
+	for _, v := range restoreList.Items {
+		if v.Spec.PXCCluster != clusterName {
+			continue
+		}
+
+		switch v.Status.State {
+		case api.RestoreStarting, api.RestoreStopCluster, api.RestoreRestore,
+			api.RestoreStartCluster, api.RestorePITR:
+			return true, nil
+		}
+	}
 	return false, nil
 }
 

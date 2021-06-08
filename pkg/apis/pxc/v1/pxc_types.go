@@ -47,7 +47,16 @@ type PerconaXtraDBClusterSpec struct {
 type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
+	Expose              ServiceExpose        `json:"expose,omitempty"`
 	*PodSpec
+}
+
+type ServiceExpose struct {
+	Enabled                  bool                                    `json:"enabled,omitempty"`
+	Type                     corev1.ServiceType                      `json:"type,omitempty"`
+	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	Annotations              map[string]string                       `json:"annotations,omitempty"`
+	TrafficPolicy            corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
 }
 
 type ReplicationChannel struct {
@@ -568,6 +577,15 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		if len(c.LogCollectorSecretName) == 0 {
 			c.LogCollectorSecretName = cr.Name + "-log-collector"
+		}
+	}
+
+	if c.PXC.Expose.Enabled {
+		if c.PXC.Expose.TrafficPolicy == "" {
+			c.PXC.Expose.TrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeLocal
+		}
+		if c.PXC.Expose.Type == "" {
+			c.PXC.Expose.Type = corev1.ServiceTypeClusterIP
 		}
 	}
 

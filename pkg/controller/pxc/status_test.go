@@ -3,7 +3,6 @@ package pxc
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -150,55 +149,6 @@ func TestHAProxyAppStatusReady(t *testing.T) {
 
 	if status.Ready != cr.Spec.HAProxy.Size {
 		t.Errorf("AppStatus.Ready got %#v, want %#v", status.Ready, cr.Spec.HAProxy.Size)
-	}
-}
-
-func TestAppStatusError(t *testing.T) {
-	cr := newCR("cr-mock", "pxc")
-
-	pxc := statefulset.NewNode(cr)
-	pxcSfs := pxc.StatefulSet()
-
-	podStatus := corev1.PodStatus{
-		Conditions: []corev1.PodCondition{
-			{
-				Type:               corev1.PodScheduled,
-				Reason:             corev1.PodReasonUnschedulable,
-				LastTransitionTime: metav1.NewTime(time.Now().Add(-5 * time.Minute)),
-			},
-		},
-	}
-	pxcPod := newMockPod("pxc-mock", cr.Namespace, pxc.Labels(), podStatus)
-
-	r := buildFakeClient([]runtime.Object{cr, pxcSfs, pxcPod})
-
-	status, err := r.appStatus(pxc, cr.Namespace, cr.Spec.PXC.PodSpec, cr.CompareVersionWith("1.7.0") == -1, false)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if status.Status != api.AppStateError {
-		t.Errorf("AppStatus.Status got %#v, want %#v", status.Status, api.AppStateError)
-	}
-}
-
-func TestUpdateStatusInit(t *testing.T) {
-	cr := newCR("cr-mock", "pxc")
-
-	pxc := statefulset.NewNode(cr)
-	pxcSfs := pxc.StatefulSet()
-
-	haproxy := statefulset.NewHAProxy(cr)
-	haproxySfs := haproxy.StatefulSet()
-
-	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs})
-
-	if err := r.updateStatus(cr, nil); err != nil {
-		t.Error(err)
-	}
-
-	if cr.Status.Status != api.AppStateInit {
-		t.Errorf("cr.Status.Status got %#v, want %#v", cr.Status.Status, api.AppStateInit)
 	}
 }
 
@@ -366,11 +316,7 @@ func TestClusterStatus(t *testing.T) {
 	}{
 		"Unknown": {
 			status: api.PerconaXtraDBClusterStatus{},
-			want:   api.AppStateUnknown,
-		},
-		"PXC error": {
-			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateError}},
-			want:   api.AppStateError,
+			want:   api.AppStateInit,
 		},
 		"PXC init": {
 			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateInit}},
@@ -380,9 +326,30 @@ func TestClusterStatus(t *testing.T) {
 			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateReady}},
 			want:   api.AppStateReady,
 		},
-		"HAProxy error": {
-			status: api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateError}},
-			want:   api.AppStateError,
+		"PXC stopping": {
+			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateStopping}},
+			want:   api.AppStateStopping,
+		},
+		"PXC paused, HAProxy stopping": {
+			status: api.PerconaXtraDBClusterStatus{
+				PXC:     api.AppStatus{Status: api.AppStatePaused},
+				HAProxy: api.AppStatus{Status: api.AppStateStopping},
+			},
+			want: api.AppStateStopping,
+		},
+		"PXC paused, ProxySQL stopping": {
+			status: api.PerconaXtraDBClusterStatus{
+				PXC:      api.AppStatus{Status: api.AppStatePaused},
+				ProxySQL: api.AppStatus{Status: api.AppStateStopping},
+			},
+			want: api.AppStateStopping,
+		},
+		"PXC paused, HAProxy paused": {
+			status: api.PerconaXtraDBClusterStatus{
+				PXC:     api.AppStatus{Status: api.AppStatePaused},
+				HAProxy: api.AppStatus{Status: api.AppStatePaused},
+			},
+			want: api.AppStatePaused,
 		},
 		"HAProxy init": {
 			status: api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateInit}},
@@ -394,10 +361,6 @@ func TestClusterStatus(t *testing.T) {
 				HAProxy: api.AppStatus{Status: api.AppStateReady},
 			},
 			want: api.AppStateReady,
-		},
-		"ProxySQL error": {
-			status: api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateError}},
-			want:   api.AppStateError,
 		},
 		"ProxySQL init": {
 			status: api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateInit}},
@@ -414,7 +377,7 @@ func TestClusterStatus(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(tt *testing.T) {
-			got := test.status.ClusterStatus(false, false)
+			got := test.status.ClusterStatus(false)
 
 			if got != test.want {
 				t.Errorf("AppState got %#v, want %#v", got, test.want)

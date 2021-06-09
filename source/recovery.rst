@@ -19,7 +19,7 @@ continuously restarting, and generates the following errors in the log::
 The Percona Operator for Percona XtraDB Cluster provides two ways of recovery
 after a full cluster crash.
 
-The Operator is able to provide automatic crash recovery and semi automatic
+The Operator is providing automatic crash recovery (by default) and semi-automatic
 recovery starting from the version ``1.7``. For the previous Operator versions,
 crash recovery can be done
 :ref:`manually<recovery-object-surgery>`.

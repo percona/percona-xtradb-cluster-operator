@@ -41,7 +41,9 @@ desc 'check mysql metrics'
 get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin
 get_metric_values mysql_global_status_uptime $namespace-$cluster-pxc-0 admin:admin
 
-# TODO: check haproxy metrics
+desc 'check haproxy metrics'
+get_metric_values haproxy_backend_status $namespace-$cluster-haproxy-0 admin:admin
+get_metric_values haproxy_backend_active_servers $namespace-$cluster-haproxy-0 admin:admin
 
 # wait for QAN
 sleep 90

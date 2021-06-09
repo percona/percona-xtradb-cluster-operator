@@ -903,11 +903,11 @@ func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress, deleted bool) App
 		return AppStateError
 	case deleted || s.PXC.Status == AppStateStopping || s.ProxySQL.Status == AppStateStopping || s.HAProxy.Status == AppStateStopping:
 		return AppStateStopping
-	case s.PXC.Status == AppStatePaused && (s.ProxySQL.Status == AppStatePaused || s.HAProxy.Status == AppStatePaused):
+	case s.PXC.Status == AppStatePaused && ((s.ProxySQL.Status == AppStatePaused || s.HAProxy.Status == AppStatePaused) || true):
 		return AppStatePaused
 	case inProgress || s.PXC.Status == AppStateInit || s.ProxySQL.Status == AppStateInit || s.HAProxy.Status == AppStateInit:
 		return AppStateInit
-	case s.PXC.Status == AppStateReady:
+	case s.PXC.Status == AppStateReady && ((s.ProxySQL.Status == AppStateReady || s.HAProxy.Status == AppStateReady) || true):
 		return AppStateReady
 	default:
 		return AppStateUnknown

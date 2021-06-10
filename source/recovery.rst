@@ -189,7 +189,7 @@ which is based on three Percona XtraDB Cluster Pods.
 #. Go back *to the previous shell* and return the original Percona XtraDB
    Cluster image because the debug image is no longer needed:
 
-   .. note:: Please make sure that the version of PXC image is the same that it was before setting the debug image.
+   .. note:: Please make sure the Percona XtraDB Cluster version for the debug image matches the version currently in use in the cluster.
 
    .. code-block:: bash
 

@@ -67,4 +67,4 @@ Your contribution will be reviewed by other developers contributing to the proje
 
 ## Building and automated testing
 
-See <e2e-tests/README.md> to find out how to build the Operator and run tests.
+See [e2e-tests/README.md](e2e-tests/README.md) to find out how to build the Operator and run tests.

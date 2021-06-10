@@ -19,8 +19,9 @@ continuously restarting, and generates the following errors in the log::
 The Percona Operator for Percona XtraDB Cluster provides two ways of recovery
 after a full cluster crash.
 
-The Operator is able to provide automatic crash recovery starting from version
-``1.7``. For previous Operator versions, crash recovery can be done
+The Operator is providing automatic crash recovery (by default) and semi-automatic
+recovery starting from the version ``1.7``. For the previous Operator versions,
+crash recovery can be done
 :ref:`manually<recovery-object-surgery>`.
 
 .. _recovery-auto:
@@ -35,7 +36,32 @@ The default value for this option is ``true``, which means that automatic
 recovery is turned on.
 
 If this option is set to ``false``, automatic crash recovery is not done,
-but manual crash recovery is still possible.
+but semi-automatic recovery is still possible.
+
+In this case you need to get the log from pxc container from all Pods
+using the following command:
+
+.. code-block:: bash
+
+   $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do echo "###############cluster1-pxc-$i##############"; kubectl logs cluster1-pxc-$i -c pxc | grep '(seqno):' ; done
+
+The output of this command should be similar to the following one::
+
+   ###############cluster1-pxc-0##############
+   It is cluster1-pxc-0.cluster1-pxc.default.svc.cluster.local node with sequence number (seqno): 18
+   ###############cluster1-pxc-1##############
+   It is cluster1-pxc-1.cluster1-pxc.default.svc.cluster.local node with sequence number (seqno): 18
+   ###############cluster1-pxc-2##############
+   It is cluster1-pxc-2.cluster1-pxc.default.svc.cluster.local node with sequence number (seqno): 19
+
+Now find the Pod with the largest ``seqno`` (it is ``cluster1-pxc-2`` in the
+above example).
+
+Now execute the following commands to start this instance:
+
+.. code-block:: bash
+
+   $ kubectl exec cluster1-pxc-2 -c pxc -- sh -c 'kill -s USR1 1'
 
 .. _recovery-object-surgery:
 
@@ -77,6 +103,13 @@ which is based on three Percona XtraDB Cluster Pods.
       $ kubectl patch pxc cluster1 --type=merge --patch '{"spec": {"updateStrategy": "OnDelete" }}'
 
 #. Change the normal PXC image inside the cluster object to the debug image:
+
+   .. note:: Please make sure the Percona XtraDB Cluster version for the debug image matches the version currently in use in the cluster. 
+      You can run the following command to find out which Percona XtraDB Cluster image is in use:
+
+      .. code-block:: bash
+
+         $ kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.image}'
 
    .. code-block:: bash
 
@@ -155,6 +188,8 @@ which is based on three Percona XtraDB Cluster Pods.
 
 #. Go back *to the previous shell* and return the original Percona XtraDB
    Cluster image because the debug image is no longer needed:
+
+   .. note:: Please make sure the Percona XtraDB Cluster version for the debug image matches the version currently in use in the cluster.
 
    .. code-block:: bash
 

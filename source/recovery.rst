@@ -104,7 +104,7 @@ which is based on three Percona XtraDB Cluster Pods.
 
 #. Change the normal PXC image inside the cluster object to the debug image:
 
-   .. note:: Please make sure that the version of PXC for debug image is the same that is used for cluster now.
+   .. note:: Please make sure the Percona XtraDB Cluster version for the debug image matches the version currently in use in the cluster. 
       You can run the following command to find out which Percona XtraDB Cluster image is in use:
 
       .. code-block:: bash

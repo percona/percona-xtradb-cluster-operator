@@ -901,10 +901,16 @@ func (s *PerconaXtraDBClusterStatus) ClusterStatus(deleted bool) AppState {
 	switch {
 	case deleted || s.PXC.Status == AppStateStopping || s.ProxySQL.Status == AppStateStopping || s.HAProxy.Status == AppStateStopping:
 		return AppStateStopping
-	case s.PXC.Status == AppStatePaused && ((s.ProxySQL.Status == AppStatePaused || s.HAProxy.Status == AppStatePaused) || true):
-		return AppStatePaused
-	case s.PXC.Status == AppStateReady && ((s.ProxySQL.Status == AppStateReady || s.HAProxy.Status == AppStateReady) || true):
-		return AppStateReady
+	case s.PXC.Status == AppStatePaused, s.PXC.Status == AppStateReady:
+		if s.HAProxy.Status != "" && s.HAProxy.Status != s.PXC.Status {
+			return s.HAProxy.Status
+		}
+
+		if s.ProxySQL.Status != "" && s.ProxySQL.Status != s.PXC.Status {
+			return s.ProxySQL.Status
+		}
+
+		return s.PXC.Status
 	default:
 		return AppStateInit
 	}

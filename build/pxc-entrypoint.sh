@@ -405,6 +405,9 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 fi
 
 if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
+	# still need to check config, container may have started with --user
+	_check_config "$@"
+
 	DATADIR=$(_get_config 'datadir' "$@")
 	SST_DIR=$(_get_cnf_config sst tmpdir "${DATADIR}/sst-xb-tmpdir")
 	SST_P_FILE=$(_get_cnf_config sst progress "${DATADIR}/sst_in_progress")

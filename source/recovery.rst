@@ -41,7 +41,7 @@ but semi automatic recovery is still possible.
 In this case you need to get the log from pxc container from all Pods
 using the following command:
 
-   .. code-block:: bash
+.. code-block:: bash
 
    $ for i in $(seq 0 $(($(kubectl get pxc cluster1 -o jsonpath='{.spec.pxc.size}')-1))); do echo "###############cluster1-pxc-$i##############"; kubectl logs cluster1-pxc-$i -c pxc | grep '(seqno):' ; done
 

@@ -61,7 +61,7 @@ Now execute the following commands to start this instance:
 
    .. code-block:: bash
 
-      $ kubectl exec cluster1-pxc-2 -c pxc -- sh -c 'kill -s USR1 1'
+   $ kubectl exec cluster1-pxc-2 -c pxc -- sh -c 'kill -s USR1 1'
 
 .. _recovery-object-surgery:
 

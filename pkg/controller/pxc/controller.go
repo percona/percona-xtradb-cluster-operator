@@ -221,17 +221,17 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return rr, nil
 	}
 
-	changed, err := o.CheckNSetDefaults(r.serverVersion, reqLogger)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
-	}
-
 	defer func() {
 		uerr := r.updateStatus(o, err)
 		if uerr != nil {
 			reqLogger.Error(uerr, "Update status")
 		}
 	}()
+
+	changed, err := o.CheckNSetDefaults(r.serverVersion, reqLogger)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
+	}
 
 	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
 		err = r.recoverFullClusterCrashIfNeeded(o)

@@ -120,7 +120,7 @@ func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtra
 }
 
 func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.Service {
-	return &corev1.Service{
+	svc := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
@@ -142,12 +142,23 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 					Name: "mysql",
 				},
 			},
-			Type:                     cr.Spec.PXC.Expose.Type,
 			LoadBalancerSourceRanges: cr.Spec.PXC.Expose.LoadBalancerSourceRanges,
-			ExternalTrafficPolicy:    cr.Spec.PXC.Expose.TrafficPolicy,
 			Selector: map[string]string{
 				"statefulset.kubernetes.io/pod-name": svcName,
 			},
 		},
 	}
+
+	switch cr.Spec.PXC.Expose.Type {
+	case corev1.ServiceTypeNodePort:
+		svc.Spec.Type = corev1.ServiceTypeNodePort
+		svc.Spec.ExternalTrafficPolicy = "Local"
+	case corev1.ServiceTypeLoadBalancer:
+		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+		svc.Spec.ExternalTrafficPolicy = "Cluster"
+	default:
+		svc.Spec.Type = corev1.ServiceTypeClusterIP
+	}
+
+	return svc
 }

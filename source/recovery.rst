@@ -36,7 +36,7 @@ The default value for this option is ``true``, which means that automatic
 recovery is turned on.
 
 If this option is set to ``false``, automatic crash recovery is not done,
-but semi automatic recovery is still possible.
+but semi-automatic recovery is still possible.
 
 In this case you need to get the log from pxc container from all Pods
 using the following command:

@@ -835,7 +835,7 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The number of the HAProxy Pods `to provide load balancing                                 |
 |                 | <https://www.percona.com/doc/percona-xtradb-cluster/8.0/howtos/haproxy.html>`__. It should|
-|                 | be more than 1 unless the ``spec.allowUnsafeConfigurations`` key is set to true.          |
+|                 | be 2 or more unless the ``spec.allowUnsafeConfigurations`` key is set to true.            |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1371,7 +1371,7 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The number of the ProxySQL daemons `to provide load balancing                             |
 |                 | <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`__. It      |
-|                 | should be more than 1 unless the ``spec.allowUnsafeConfigurations`` key is set to true.   |
+|                 | should be 2 or more unless the ``spec.allowUnsafeConfigurations`` key is set to true.     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

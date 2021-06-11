@@ -36,6 +36,14 @@ spec:
     size: 3
     image: percona/percona-xtradb-cluster:8.0.22-13.1
     autoRecovery: true
+#   expose:
+#     enabled: true
+#     type: LoadBalancer
+#     trafficPolicy: Local
+#     loadBalancerSourceRanges:
+#       - 10.0.0.0/8
+#     annotations:
+#       networking.gke.io/load-balancer-type: "Internal"
 #    replicationChannels:
 #    - name: pxc1_to_pxc2
 #      isSource: true

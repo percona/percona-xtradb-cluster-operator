@@ -1367,7 +1367,7 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | int                                                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``3``                                                                                     |
+| **Example**     | ``2``                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The number of the ProxySQL daemons `to provide load balancing                             |
 |                 | <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`__. It      |

@@ -78,6 +78,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		})
 	}
 
+	inProgress := false
 	cr.Status.Size = 0
 	cr.Status.Ready = 0
 	for _, a := range apps {
@@ -101,9 +102,16 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 
 		cr.Status.Size += status.Size
 		cr.Status.Ready += status.Ready
+
+		if !inProgress {
+			inProgress, err = r.upgradeInProgress(cr, a.app.Name())
+			if err != nil {
+				return errors.Wrapf(err, "check %s upgrade progress", a.app.Name())
+			}
+		}
 	}
 
-	cr.Status.Status = cr.Status.ClusterStatus(cr.ObjectMeta.DeletionTimestamp != nil)
+	cr.Status.Status = cr.Status.ClusterStatus(inProgress, cr.ObjectMeta.DeletionTimestamp != nil)
 	clusterCondition.Type = cr.Status.Status
 	cr.Status.AddCondition(clusterCondition)
 	cr.Status.ObservedGeneration = cr.ObjectMeta.Generation

@@ -897,11 +897,11 @@ func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {
 	return cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled
 }
 
-func (s *PerconaXtraDBClusterStatus) ClusterStatus(deleted bool) AppState {
+func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress, deleted bool) AppState {
 	switch {
 	case deleted || s.PXC.Status == AppStateStopping || s.ProxySQL.Status == AppStateStopping || s.HAProxy.Status == AppStateStopping:
 		return AppStateStopping
-	case s.PXC.Status == AppStatePaused, s.PXC.Status == AppStateReady:
+	case s.PXC.Status == AppStatePaused, !inProgress && s.PXC.Status == AppStateReady:
 		if s.HAProxy.Status != "" && s.HAProxy.Status != s.PXC.Status {
 			return s.HAProxy.Status
 		}

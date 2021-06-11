@@ -580,15 +580,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
-	if c.PXC.Expose.Enabled {
-		if c.PXC.Expose.TrafficPolicy == "" {
-			c.PXC.Expose.TrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeLocal
-		}
-		if c.PXC.Expose.Type == "" {
-			c.PXC.Expose.Type = corev1.ServiceTypeClusterIP
-		}
-	}
-
 	if c.PMM != nil && c.PMM.Enabled {
 		if len(c.PMM.ImagePullPolicy) == 0 {
 			c.PMM.ImagePullPolicy = corev1.PullAlways

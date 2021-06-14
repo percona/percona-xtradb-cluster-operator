@@ -91,10 +91,12 @@ type PXCScheduledBackupSchedule struct {
 type AppState string
 
 const (
-	AppStateUnknown AppState = "unknown"
-	AppStateInit    AppState = "initializing"
-	AppStateReady   AppState = "ready"
-	AppStateError   AppState = "error"
+	AppStateUnknown  AppState = "unknown"
+	AppStateInit     AppState = "initializing"
+	AppStatePaused   AppState = "paused"
+	AppStateStopping AppState = "stopping"
+	AppStateReady    AppState = "ready"
+	AppStateError    AppState = "error"
 )
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
@@ -895,16 +897,22 @@ func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {
 	return cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled
 }
 
-func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress bool) AppState {
+func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress, deleted bool) AppState {
 	switch {
-	case s.PXC.Status == AppStateError || s.ProxySQL.Status == AppStateError || s.HAProxy.Status == AppStateError:
-		return AppStateError
-	case inProgress || s.PXC.Status == AppStateInit || s.ProxySQL.Status == AppStateInit || s.HAProxy.Status == AppStateInit:
-		return AppStateInit
-	case s.PXC.Status == AppStateReady:
-		return AppStateReady
+	case deleted || s.PXC.Status == AppStateStopping || s.ProxySQL.Status == AppStateStopping || s.HAProxy.Status == AppStateStopping:
+		return AppStateStopping
+	case s.PXC.Status == AppStatePaused, !inProgress && s.PXC.Status == AppStateReady:
+		if s.HAProxy.Status != "" && s.HAProxy.Status != s.PXC.Status {
+			return s.HAProxy.Status
+		}
+
+		if s.ProxySQL.Status != "" && s.ProxySQL.Status != s.PXC.Status {
+			return s.ProxySQL.Status
+		}
+
+		return s.PXC.Status
 	default:
-		return AppStateUnknown
+		return AppStateInit
 	}
 }
 

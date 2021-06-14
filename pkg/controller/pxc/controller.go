@@ -353,6 +353,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
+	if o.Spec.PXC.Expose.Enabled {
+		err = r.ensurePxcPodServices(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "create replication services")
+		}
+	} else {
+		err = r.removePxcPodServices(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "remove pxc pod services")
+		}
+	}
+
 	if o.Spec.HAProxy != nil && o.Spec.HAProxy.Enabled {
 		err = r.updatePod(statefulset.NewHAProxy(o), o.Spec.HAProxy, o, nil)
 		if err != nil {
@@ -1234,6 +1246,9 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 		switch object := obj.(type) {
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP
+			if object.Spec.Type == corev1.ServiceTypeLoadBalancer {
+				object.Spec.HealthCheckNodePort = oldObject.(*corev1.Service).Spec.HealthCheckNodePort
+			}
 		}
 
 		return r.client.Update(context.TODO(), obj)

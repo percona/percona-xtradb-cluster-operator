@@ -30,11 +30,11 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com
-    apply: recommended
+    apply: Never
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.21-12.1
+    image: percona/percona-xtradb-cluster:5.7.32-31.47
     autoRecovery: true
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
@@ -339,7 +339,7 @@ spec:
 #        memory: 200M
 #        cpu: 500m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.7.0-pxc8.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:1.7.0-pxc8.0-backup-custom-81
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

@@ -234,6 +234,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 				"app.kubernetes.io/component":  "haproxy",
 				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
 				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+				"owner-rv": 					 cr.ResourceVersion,
 			},
 			Annotations:     serviceAnnotations,
 			OwnerReferences: owners,

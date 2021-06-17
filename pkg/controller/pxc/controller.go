@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -992,6 +993,22 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	return errors.New("waiting for pods to be deleted")
 }
 
+func xtraDBClusterFresherThanSfs(cr *api.PerconaXtraDBCluster, sfs appsv1.StatefulSet) bool {
+	labeledRV, ok := sfs.Labels["owner-rv"]
+	if !ok {
+		return true
+	}
+	largerRV, err := strconv.Atoi(cr.ResourceVersion)
+	if err != nil {
+		return true
+	}
+	smallerRV, err := strconv.Atoi(labeledRV)
+	if err != nil {
+		return true
+	}
+	return largerRV >= smallerRV
+}
+
 func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp, deletePVC bool) error {
 	sfsWithOwner := appsv1.StatefulSet{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{
@@ -1007,6 +1024,11 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 	}
 
 	if !metav1.IsControlledBy(&sfsWithOwner, cr) {
+		return nil
+	}
+
+	// Here we should check for the resource version
+	if !xtraDBClusterFresherThanSfs(cr, sfsWithOwner) {
 		return nil
 	}
 

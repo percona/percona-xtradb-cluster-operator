@@ -306,7 +306,7 @@ func (u *Manager) CreateReplicationUser(password string) error {
 		return errors.Wrap(err, "create replication user")
 	}
 
-	_, err = tx.Exec("GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* to 'replication'@'%'")
+	_, err = tx.Exec("GRANT REPLICATION SLAVE ON *.* to 'replication'@'%'")
 	if err != nil {
 		errT := tx.Rollback()
 		if errT != nil {

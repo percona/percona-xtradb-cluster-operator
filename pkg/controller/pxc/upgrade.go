@@ -196,6 +196,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
 	}
 	currentSet.Spec.Template.Spec.Tolerations = podSpec.Tolerations
+	if currentSet.Labels == nil {
+		currentSet.Labels = make(map[string]string)
+	}
 	currentSet.Labels["owner-rv"] = cr.ResourceVersion
 	err = r.createOrUpdate(currentSet)
 	if err != nil {

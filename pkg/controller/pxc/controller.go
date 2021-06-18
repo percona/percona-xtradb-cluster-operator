@@ -446,7 +446,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "delete HAProxy stateful set")
 		}
-		err = r.deleteServices(pxc.NewServiceHAProxy(o), pxc.NewServiceHAProxyReplicas(o))
+		err = r.deleteServices(o, pxc.NewServiceHAProxy(o), pxc.NewServiceHAProxyReplicas(o))
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "delete HAProxy replica service")
 		}
@@ -523,7 +523,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			return reconcile.Result{}, err
 		}
 		proxysqlUnreadyService := pxc.NewServiceProxySQLUnready(o)
-		err = r.deleteServices(pxc.NewServiceProxySQL(o), proxysqlUnreadyService)
+		err = r.deleteServices(o, pxc.NewServiceProxySQL(o), proxysqlUnreadyService)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -804,6 +804,10 @@ func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBClust
 
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{})
 	if err != nil && k8serrors.IsNotFound(err) {
+		if svc.Labels == nil {
+			svc.Labels = make(map[string]string)
+		}
+		svc.Labels["owner-rv"] = cr.ResourceVersion
 		err := r.client.Create(context.TODO(), svc)
 		return errors.WithMessage(err, "create")
 	}
@@ -994,6 +998,9 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 }
 
 func xtraDBClusterFresherThanSfs(cr *api.PerconaXtraDBCluster, sfs appsv1.StatefulSet) bool {
+	if sfs.Labels == nil {
+		return true
+	}
 	labeledRV, ok := sfs.Labels["owner-rv"]
 	if !ok {
 		return true
@@ -1027,7 +1034,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 		return nil
 	}
 
-	// Here we should check for the resource version
+	// Check the owner's resource version to detect for time travel
 	if !xtraDBClusterFresherThanSfs(cr, sfsWithOwner) {
 		return nil
 	}
@@ -1051,17 +1058,42 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs ...*corev1.Service) error {
+func xtraDBClusterFresherThanSvc(cr *api.PerconaXtraDBCluster, svc corev1.Service) bool {
+	if svc.Labels == nil {
+		return true
+	}
+	labeledRV, ok := svc.Labels["owner-rv"]
+	if !ok {
+		return true
+	}
+	largerRV, err := strconv.Atoi(cr.ResourceVersion)
+	if err != nil {
+		return true
+	}
+	smallerRV, err := strconv.Atoi(labeledRV)
+	if err != nil {
+		return true
+	}
+	return largerRV >= smallerRV
+}
+
+func (r *ReconcilePerconaXtraDBCluster) deleteServices(cr *api.PerconaXtraDBCluster, svcs ...*corev1.Service) error {
 	for _, s := range svcs {
+		svc := corev1.Service{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{
 			Name:      s.Name,
 			Namespace: s.Namespace,
-		}, &corev1.Service{})
+		}, &svc)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Wrapf(err, "get service: %s", s.Name)
 		}
 
 		if k8serrors.IsNotFound(err) {
+			continue
+		}
+
+		// Check the owner's resource version to detect for time travel
+		if !xtraDBClusterFresherThanSvc(cr, svc) {
 			continue
 		}
 

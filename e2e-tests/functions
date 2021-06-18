@@ -172,7 +172,6 @@ deploy_operator() {
 }
 
 deploy_helm() {
-    helm repo add stable https://kubernetes-charts.storage.googleapis.com/
     helm repo add hashicorp https://helm.releases.hashicorp.com
     helm repo add percona https://percona-charts.storage.googleapis.com/
     helm repo add minio https://helm.min.io/

@@ -82,7 +82,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 			}
 		}
 		if cr.CompareVersionWith("1.9.0") >= 0 {
-			err = r.manageReplicationUser(cr, &internalSysSecretObj)
+			err = r.manageReplicationUser(cr, &sysUsersSecretObj, &internalSysSecretObj)
 			if err != nil {
 				return nil, nil, errors.Wrap(err, "manage replication user")
 			}
@@ -468,12 +468,19 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtraDBCluster, sysUsersSecretObj *corev1.Secret) error {
+func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) error {
 	addr := cr.Name + "-pxc." + cr.Namespace
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
 	}
-	um, err := users.NewManager(addr, "root", string(sysUsersSecretObj.Data["root"]))
+
+	pxcUser := "root"
+	pxcPass := string(internalSysSecretObj.Data["root"])
+	if _, ok := internalSysSecretObj.Data["operator"]; ok {
+		pxcUser = "operator"
+		pxcPass = string(internalSysSecretObj.Data["operator"])
+	}
+	um, err := users.NewManager(addr, pxcUser, pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}

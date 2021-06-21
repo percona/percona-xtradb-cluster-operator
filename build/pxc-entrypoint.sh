@@ -542,7 +542,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 			for (( ; ; )) do
 				is_primary_exists=$(get_primary)
-				if [ -n "$is_primary_exists" ]; then
+				if [ -n "$is_primary_exists" ] && [ ! -f '/var/lib/mysql/sleep-forever' ]; then
 					rm -f /tmp/recovery-case
 					exit 0
 				fi
@@ -550,6 +550,10 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			set -o xtrace
 		fi
 	fi
+fi
+
+if [ -f '/var/lib/mysql/sleep-forever' ]; then
+    sleep infinity
 fi
 
 exec "$@" $wsrep_start_position_opt

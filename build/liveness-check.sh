@@ -5,7 +5,7 @@ if [[ $1 == '-h' || $1 == '--help' ]];then
     exit
 fi
 
-if [ -f /tmp/recovery-case ]; then
+if [ -f /tmp/recovery-case ] || [ -f '/var/lib/mysql/sleep-forever' ]; then
     exit 0
 fi
 

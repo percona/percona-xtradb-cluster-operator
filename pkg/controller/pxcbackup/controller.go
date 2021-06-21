@@ -173,8 +173,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		return rr, errors.New("a backup image should be set in the PXC config")
 	}
 
-	if cluster.Status.PXC.Status != api.AppStateReady {
-		return rr, errors.Errorf("failed to run backup on cluster with status %s", cluster.Status.Status)
+	if err := cluster.CanBackup(); err != nil {
+		return rr, errors.Wrap(err, "failed to run backup")
 	}
 
 	bcpStorage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]

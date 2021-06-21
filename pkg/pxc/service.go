@@ -51,6 +51,13 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = appName
 		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
 		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
+
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33060,
+				Name: "mysqlx"},
+		)
 	}
 
 	return obj
@@ -102,6 +109,13 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = appName
 		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
 		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
+
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port: 33060,
+				Name: "mysqlx"},
+		)
 	}
 
 	return obj
@@ -301,6 +315,17 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 				Port:       33062,
 				TargetPort: intstr.FromInt(33062),
 				Name:       "mysql-admin",
+			},
+		)
+	}
+
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		obj.Spec.Ports = append(
+			obj.Spec.Ports,
+			corev1.ServicePort{
+				Port:       33060,
+				TargetPort: intstr.FromInt(33060),
+				Name:       "mysqlx",
 			},
 		)
 	}

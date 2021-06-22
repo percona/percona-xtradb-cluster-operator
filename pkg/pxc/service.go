@@ -47,6 +47,12 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		)
 	}
 
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = appName
+		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
+		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
+	}
+
 	return obj
 }
 
@@ -90,6 +96,12 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				Port: 33062,
 				Name: "mysql-admin"},
 		)
+	}
+
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = appName
+		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
+		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
 	}
 
 	return obj
@@ -139,6 +151,12 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				Port: 33062,
 				Name: "mysql-admin"},
 		)
+	}
+
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = "proxysql"
+		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
+		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
 	}
 
 	return obj
@@ -202,6 +220,12 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 				Port: 33062,
 				Name: "mysql-admin"},
 		)
+	}
+
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = "proxysql"
+		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
+		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
 	}
 
 	return obj

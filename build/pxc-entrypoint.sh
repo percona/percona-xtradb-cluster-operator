@@ -532,8 +532,23 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			echo "Recovery was finished."
 			exec "$@" $wsrep_start_position_opt
 		}
+		function is_manual_recovery() {
+			set +o xtrace
+			recovery_file='/var/lib/mysql/sleep-forever'
+			if [ -f "${recovery_file}" ]; then
+				echo "The $recovery_file file is detected, node is going to infinity loop"
+				echo "If you want to exit from infinity loop you need to remove $recovery_file file"
+				for (( ; ; )); do
+					if [ ! -f "${recovery_file}" ]; then
+						exit 0
+					fi
+				done
+			fi
+			set -o xtrace
+		}
 
 		is_primary_exists=$(get_primary)
+		is_manual_recovery
 		if [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap != 1 ]] || [[ -z $is_primary_exists && -f "${DATADIR}/gvwstate.dat" ]]; then
 			trap '{ node_recovery "$@" ; }' USR1
 			touch /tmp/recovery-case
@@ -556,7 +571,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 			for (( ; ; )); do
 				is_primary_exists=$(get_primary)
-				if [ -n "$is_primary_exists" ] && [ ! -f '/var/lib/mysql/sleep-forever' ]; then
+				if [ -n "$is_primary_exists" ]; then
 					rm -f /tmp/recovery-case
 					exit 0
 				fi
@@ -564,10 +579,6 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			set -o xtrace
 		fi
 	fi
-fi
-
-if [ -f '/var/lib/mysql/sleep-forever' ]; then
-	sleep infinity
 fi
 
 exec "$@" $wsrep_start_position_opt

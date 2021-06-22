@@ -11,8 +11,7 @@ spec:
   commonName: no-proxysql-pxc
   dnsNames:
     - '*.no-proxysql-pxc'
-  isCA: true
   issuerRef:
     kind: Issuer
-    name: no-proxysql-pxc-ca
+    name: no-proxysql-pxc-issuer
   secretName: no-proxysql-ssl-internal

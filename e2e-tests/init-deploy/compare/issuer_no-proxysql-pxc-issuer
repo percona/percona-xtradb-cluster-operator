@@ -2,10 +2,11 @@ apiVersion: cert-manager.io/v1alpha3
 kind: Issuer
 metadata:
   generation: 1
-  name: no-proxysql-pxc-ca
+  name: no-proxysql-pxc-issuer
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
       name: no-proxysql
 spec:
-  selfSigned: {}
+  ca:
+    secretName: no-proxysql-ca-cert

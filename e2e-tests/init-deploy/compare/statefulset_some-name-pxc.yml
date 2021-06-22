@@ -125,6 +125,11 @@ spec:
               value: /var/lib/mysql
             - name: IS_LOGCOLLECTOR
               value: "yes"
+            - name: REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: replication
+                  name: internal-some-name
             - name: OPERATOR_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:

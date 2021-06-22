@@ -469,6 +469,24 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 }
 
 func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) error {
+	pass, existInSys := sysUsersSecretObj.Data["replication"]
+	_, existInInternal := internalSysSecretObj.Data["replication"]
+	if existInSys && !existInInternal {
+		if internalSysSecretObj.Data == nil {
+			internalSysSecretObj.Data = make(map[string][]byte)
+		}
+		internalSysSecretObj.Data["replication"] = pass
+		return nil
+	}
+	if existInSys {
+		return nil
+	}
+
+	pass, err := generatePass()
+	if err != nil {
+		return errors.Wrap(err, "generate password")
+	}
+
 	addr := cr.Name + "-pxc." + cr.Namespace
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
@@ -480,15 +498,30 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtr
 		pxcUser = "operator"
 		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
+
 	um, err := users.NewManager(addr, pxcUser, pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}
 	defer um.Close()
-	err = um.CreateReplicationUser(string(sysUsersSecretObj.Data["replication"]))
+
+	err = um.CreateReplicationUser(string(pass))
 	if err != nil {
 		return errors.Wrap(err, "create replication user")
 	}
+
+	sysUsersSecretObj.Data["replication"] = pass
+	internalSysSecretObj.Data["replication"] = pass
+
+	err = r.client.Update(context.TODO(), sysUsersSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update sys users secret")
+	}
+	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update internal users secret")
+	}
+
 	return nil
 }
 

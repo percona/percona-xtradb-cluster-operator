@@ -344,6 +344,8 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '${CLUSTERCHECK_PASSWORD}';
 			GRANT PROCESS ON *.* TO 'clustercheck'@'localhost';
 
+			CREATE USER 'replication'@'%' IDENTIFIED BY '${REPLICATION_PASSWORD}';
+			GRANT REPLICATION SLAVE ON *.* to 'replication'@'%';
 			DROP DATABASE IF EXISTS test;
 			FLUSH PRIVILEGES ;
 		EOSQL

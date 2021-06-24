@@ -60,10 +60,39 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 	caIssuerName := cr.Name + "-pxc-ca-issuer"
 	issuerKind := "Issuer"
 	issuerGroup := ""
+	isCA := false
+
 	if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
 		issuerKind = cr.Spec.TLS.IssuerConf.Kind
 		issuerName = cr.Spec.TLS.IssuerConf.Name
 		issuerGroup = cr.Spec.TLS.IssuerConf.Group
+
+		if issuerKind == "Issuer" {
+			issuer := cm.Issuer{}
+			err := r.client.Get(context.TODO(), types.NamespacedName{
+				Name:      issuerName,
+				Namespace: cr.Namespace,
+			}, &issuer)
+			if err != nil && !k8serr.IsNotFound(err) {
+				return err
+			}
+			if issuer.Spec.SelfSigned != nil {
+				isCA = true
+			}
+		} else {
+			issuer := cm.ClusterIssuer{}
+			err := r.client.Get(context.TODO(), types.NamespacedName{
+				Name:      issuerName,
+				Namespace: cr.Namespace,
+			}, &issuer)
+			if err != nil && !k8serr.IsNotFound(err) {
+				return err
+			}
+			if issuer.Spec.SelfSigned != nil {
+				isCA = true
+			}
+		}
+
 	} else {
 		if err := r.createIssuer(ownerReferences, cr.Namespace, caIssuerName, ""); err != nil {
 			return err
@@ -117,7 +146,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				"*." + cr.Name + "-pxc",
 				"*." + cr.Name + "-proxysql",
 			},
-			IsCA: true,
+			IsCA: isCA,
 			IssuerRef: cmmeta.ObjectReference{
 				Name:  issuerName,
 				Kind:  issuerKind,
@@ -151,7 +180,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			DNSNames: []string{
 				"*." + cr.Name + "-pxc",
 			},
-			IsCA: true,
+			IsCA: isCA,
 			IssuerRef: cmmeta.ObjectReference{
 				Name:  issuerName,
 				Kind:  issuerKind,

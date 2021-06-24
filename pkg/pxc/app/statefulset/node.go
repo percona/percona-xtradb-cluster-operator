@@ -189,12 +189,6 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Optional: &fvar,
 			},
 		})
-		appc.Env = append(appc.Env, corev1.EnvVar{
-			Name: "REPLICATION_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "replication"),
-			},
-		})
 	}
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		for k, v := range appc.VolumeMounts {

@@ -38,7 +38,7 @@ file_env() {
 		val="${!var}"
 	elif [ "${!fileVar:-}" ]; then
 		val="$(< "${!fileVar}")"
-	elif [ "${!3:-}" ] && [ -f "/etc/mysql/mysql-users-secret/$3" ]; then
+	elif [ "${3:-}" ] && [ -f "/etc/mysql/mysql-users-secret/$3" ]; then
 		val="$(</etc/mysql/mysql-users-secret/$3)"
 	fi
 	export "$var"="$val"

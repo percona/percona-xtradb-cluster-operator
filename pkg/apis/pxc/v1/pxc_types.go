@@ -324,7 +324,9 @@ type PodSpec struct {
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
+	ReadinessProbes               []corev1.Probe                          `json:"readinessProbes,omitempty"`
 	LivenessInitialDelaySeconds   *int32                                  `json:"livenessDelaySec,omitempty"`
+	LiveneesProbes                []corev1.Probe                          `json:"liveneesProbes,omitempty"`
 	PodSecurityContext            *corev1.PodSecurityContext              `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`

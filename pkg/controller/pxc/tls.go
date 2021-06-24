@@ -117,6 +117,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				"*." + cr.Name + "-pxc",
 				"*." + cr.Name + "-proxysql",
 			},
+			IsCA: true,
 			IssuerRef: cmmeta.ObjectReference{
 				Name:  issuerName,
 				Kind:  issuerKind,
@@ -150,6 +151,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			DNSNames: []string{
 				"*." + cr.Name + "-pxc",
 			},
+			IsCA: true,
 			IssuerRef: cmmeta.ObjectReference{
 				Name:  issuerName,
 				Kind:  issuerKind,

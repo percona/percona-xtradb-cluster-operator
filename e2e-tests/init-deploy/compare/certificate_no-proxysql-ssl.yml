@@ -13,6 +13,7 @@ spec:
     - no-proxysql-pxc
     - '*.no-proxysql-pxc'
     - '*.no-proxysql-proxysql'
+  isCA: true
   issuerRef:
     kind: Issuer
     name: no-proxysql-pxc-issuer

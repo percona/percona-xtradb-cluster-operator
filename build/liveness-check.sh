@@ -1,16 +1,16 @@
 #!/bin/bash
 
-if [[ $1 == '-h' || $1 == '--help' ]];then
-    echo "Usage: $0 <user> <pass> <log_file>"
-    exit
+if [[ $1 == '-h' || $1 == '--help' ]]; then
+	echo "Usage: $0 <user> <pass> <log_file>"
+	exit
 fi
 
-if [ -f /tmp/recovery-case ]; then
-    exit 0
+if [ -f /tmp/recovery-case ] || [ -f '/var/lib/mysql/sleep-forever' ]; then
+	exit 0
 fi
 
-if [[ -f '/var/lib/mysql/sst_in_progress' ]] || [[ -f '/var/lib/mysql/wsrep_recovery_verbose.log' ]];  then
-    exit 0
+if [[ -f '/var/lib/mysql/sst_in_progress' ]] || [[ -f '/var/lib/mysql/wsrep_recovery_verbose.log' ]]; then
+	exit 0
 fi
 
 { set +x; } 2>/dev/null
@@ -23,21 +23,21 @@ DB_HOST=${HOSTNAME:-localhost}
 TIMEOUT=5
 
 EXTRA_ARGS=""
-if [[ -n "$MYSQL_USERNAME" ]]; then
-    EXTRA_ARGS="$EXTRA_ARGS -P 33062 -h${DB_HOST} --user=${MYSQL_USERNAME}"
+if [[ -n $MYSQL_USERNAME ]]; then
+	EXTRA_ARGS="$EXTRA_ARGS -P 33062 -h${DB_HOST} --user=${MYSQL_USERNAME}"
 fi
-if [[ -r $DEFAULTS_EXTRA_FILE ]];then
-    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE \
+if [[ -r $DEFAULTS_EXTRA_FILE ]]; then
+	MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE \
         --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 else
-    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
+	MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 fi
 
 STATUS=$(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE -e 'SHOW GLOBAL STATUS LIKE "wsrep_cluster_status";' | sed -n -e '3p')
 set -x
 
-if [[ -n "${STATUS}" && "${STATUS}" == 'Primary' ]]; then
-    exit 0
+if [[ -n ${STATUS} && ${STATUS} == 'Primary' ]]; then
+	exit 0
 fi
 
 exit 1

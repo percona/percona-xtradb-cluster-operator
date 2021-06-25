@@ -957,3 +957,19 @@ func (s *PerconaXtraDBClusterStatus) AddCondition(c ClusterCondition) {
 		s.Conditions = s.Conditions[len(s.Conditions)-maxStatusesQuantity:]
 	}
 }
+
+func (cr *PerconaXtraDBCluster) CanBackup() error {
+	if cr.Status.Status == AppStateReady {
+		return nil
+	}
+
+	if !cr.Spec.AllowUnsafeConfig {
+		return errors.Errorf("allowUnsafeConfigurations must be true to run backup on cluster with status %s", cr.Status.Status)
+	}
+
+	if cr.Status.PXC.Ready < int32(1) {
+		return errors.New("there are no ready PXC nodes")
+	}
+
+	return nil
+}

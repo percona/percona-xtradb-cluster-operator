@@ -1,15 +1,8 @@
 package backup
 
 import (
-	"strings"
-
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
-
-func genScheduleLabel(sched string) string {
-	r := strings.NewReplacer("*", "N", "/", "E", " ", "_", ",", ".")
-	return r.Replace(sched)
-}
 
 // GenName63 generates legit name for backup resources.
 // k8s sets the `job-name` label for the created by job pod.

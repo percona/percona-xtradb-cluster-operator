@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/pkg/errors"
@@ -304,9 +305,13 @@ func sendResponse(uid types.UID, meta metav1.TypeMeta, w http.ResponseWriter, er
 }
 
 func (h *hook) operatorDeployment() (*appsv1.Deployment, error) {
+	operatorDeploymentName := os.Getenv("OPERATOR_NAME")
+	if operatorDeploymentName == "" {
+		operatorDeploymentName = "percona-xtradb-cluster-operator"
+	}
 	deployment := &appsv1.Deployment{}
 	err := h.cl.Get(context.TODO(), types.NamespacedName{
-		Name:      "percona-xtradb-cluster-operator",
+		Name:      operatorDeploymentName,
 		Namespace: h.namespace,
 	}, deployment)
 	return deployment, err

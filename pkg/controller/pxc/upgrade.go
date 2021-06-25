@@ -217,7 +217,19 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	if sfs.StatefulSet().Status.UpdatedReplicas >= sfs.StatefulSet().Status.Replicas {
+	// sleep to get new sfs revision
+	time.Sleep(time.Second)
+
+	currentSet := sfs.StatefulSet()
+	err := r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      currentSet.Name,
+		Namespace: currentSet.Namespace,
+	}, currentSet)
+	if err != nil {
+		return errors.Wrap(err, "failed to get current sfs")
+	}
+
+	if currentSet.Status.UpdatedReplicas >= currentSet.Status.Replicas {
 		return nil
 	}
 
@@ -235,7 +247,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	if sfs.StatefulSet().Status.ReadyReplicas < sfs.StatefulSet().Status.Replicas {
+	if currentSet.Status.ReadyReplicas < currentSet.Status.Replicas {
 		logger.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
 		return nil
 	}
@@ -244,7 +256,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	if err := r.client.List(context.TODO(),
 		&list,
 		&client.ListOptions{
-			Namespace:     sfs.StatefulSet().Namespace,
+			Namespace:     currentSet.Namespace,
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
 	); err != nil {
@@ -257,7 +269,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	}
 	for _, pod := range list.Items {
 		if pod.Status.PodIP == primary || pod.Name == primary {
-			primary = fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)
+			primary = fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)
 			break
 		}
 	}
@@ -276,18 +288,18 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	var primaryPod corev1.Pod
 	for _, pod := range list.Items {
 		pod := pod
-		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)) {
+		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)) {
 			primaryPod = pod
 		} else {
 			logger.Info("apply changes to secondary pod", "pod name", pod.Name)
-			if err := r.applyNWait(cr, sfs.StatefulSet(), &pod, waitLimit); err != nil {
+			if err := r.applyNWait(cr, currentSet, &pod, waitLimit); err != nil {
 				return errors.Wrap(err, "failed to apply changes")
 			}
 		}
 	}
 
 	logger.Info("apply changes to primary pod", "pod name", primaryPod.Name)
-	if err := r.applyNWait(cr, sfs.StatefulSet(), &primaryPod, waitLimit); err != nil {
+	if err := r.applyNWait(cr, currentSet, &primaryPod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to apply changes")
 	}
 

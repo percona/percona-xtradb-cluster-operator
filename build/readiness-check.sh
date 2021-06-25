@@ -1,12 +1,12 @@
 #!/bin/bash
 
-if [[ $1 == '-h' || $1 == '--help' ]];then
-    echo "Usage: $0 <user> <pass>"
-    exit
+if [[ $1 == '-h' || $1 == '--help' ]]; then
+	echo "Usage: $0 <user> <pass>"
+	exit
 fi
 
-if [ -f /tmp/recovery-case ]; then
-    exit 0
+if [ -f /tmp/recovery-case ] || [ -f '/var/lib/mysql/sleep-forever' ]; then
+	exit 0
 fi
 
 { set +x; } 2>/dev/null

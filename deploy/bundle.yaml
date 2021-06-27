@@ -357,9 +357,9 @@ spec:
       subresources:
         status: {}
         scale:
-        specReplicasPath: .spec.pxc.size
-        statusReplicasPath: .status.pxc.ready
-        labelSelectorPath: .status.pxc.labelSelectorPath
+          specReplicasPath: .spec.pxc.size
+          statusReplicasPath: .status.pxc.ready
+          labelSelectorPath: .status.pxc.labelSelectorPath
     - name: v1-9-0
       storage: true
       served: true
@@ -398,9 +398,9 @@ spec:
       subresources:
         status: {}
         scale:
-        specReplicasPath: .spec.pxc.size
-        statusReplicasPath: .status.pxc.ready
-        labelSelectorPath: .status.pxc.labelSelectorPath
+          specReplicasPath: .spec.pxc.size
+          statusReplicasPath: .status.pxc.ready
+          labelSelectorPath: .status.pxc.labelSelectorPath
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition

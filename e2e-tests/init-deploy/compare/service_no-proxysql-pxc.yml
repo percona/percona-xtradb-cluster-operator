@@ -23,6 +23,10 @@ spec:
       port: 33062
       protocol: TCP
       targetPort: 33062
+    - name: mysqlx
+      port: 33060
+      protocol: TCP
+      targetPort: 33060
   selector:
     app.kubernetes.io/component: pxc
     app.kubernetes.io/instance: no-proxysql

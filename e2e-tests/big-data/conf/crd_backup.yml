@@ -51,5 +51,3 @@ spec:
       - jsonPath: .metadata.creationTimestamp
         name: Age
         type: date
-      subresources:
-        status: {}

@@ -233,6 +233,16 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		appc.LivenessProbe.Exec.Command = []string{"/var/lib/mysql/liveness-check.sh"}
 	}
 
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		appc.Ports = append(
+			appc.Ports,
+			corev1.ContainerPort{
+				ContainerPort: 33060,
+				Name:          "mysqlx",
+			},
+		)
+	}
+
 	res, err := app.CreateResources(spec.Resources)
 	if err != nil {
 		return appc, fmt.Errorf("create resources error: %v", err)

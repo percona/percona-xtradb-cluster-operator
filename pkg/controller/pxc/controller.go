@@ -372,20 +372,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 
 		haProxyService := pxc.NewServiceHAProxy(o, crOwnerRef)
-		ports := []corev1.ServicePort{
-			{
-				Port:       3306,
-				TargetPort: intstr.FromInt(3306),
-				Name:       "mysql",
-			},
-			{
-				Port:       3309,
-				TargetPort: intstr.FromInt(3309),
-				Name:       "proxy-protocol",
-			},
-		}
-
-		haProxyService.Spec.Ports = ports
 		haProxyService.Spec.Type = corev1.ServiceTypeClusterIP
 
 		if len(o.Spec.HAProxy.ServiceType) > 0 {
@@ -397,16 +383,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 			if len(o.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
 				haProxyService.Spec.ExternalTrafficPolicy = o.Spec.HAProxy.ExternalTrafficPolicy
 			}
-		}
-
-		if o.CompareVersionWith("1.6.0") >= 0 {
-			haProxyService.Spec.Ports = append(ports,
-				corev1.ServicePort{
-					Port:       33062,
-					TargetPort: intstr.FromInt(33062),
-					Name:       "mysql-admin",
-				},
-			)
 		}
 
 		if err := r.createOrUpdate(haProxyService); err != nil {

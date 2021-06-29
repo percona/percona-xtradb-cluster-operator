@@ -157,6 +157,14 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			Name:      cr.Spec.HAProxy.EnvVarsSecretName,
 			MountPath: "/etc/mysql/haproxy-env-secret",
 		})
+
+		appc.Ports = append(
+			appc.Ports,
+			corev1.ContainerPort{
+				ContainerPort: 33060,
+				Name:          "mysqlx",
+			},
+		)
 	}
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 	if err != nil {

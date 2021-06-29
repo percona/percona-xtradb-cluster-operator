@@ -91,6 +91,9 @@ spec:
             - containerPort: 33062
               name: mysql-admin
               protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
+              protocol: TCP
           readinessProbe:
             exec:
               command:

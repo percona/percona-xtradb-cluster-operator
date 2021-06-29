@@ -13,8 +13,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	appsv1 "k8s.io/api/apps/v1"
@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
@@ -319,6 +320,15 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		}
 	}
 
+	orderInSts, err := getPodOrderInSts(sfs.Name, pod.Name)
+	if err != nil {
+		return errors.Errorf("compute pod order err, sfs name: %s, pod name: %s", sfs.Name, pod.Name)
+	}
+	if int32(orderInSts) >= *sfs.Spec.Replicas {
+		logger.Info(fmt.Sprintf("sfs %s is scaled down, pod %s will not be started ", sfs.Name, pod.Name))
+		return nil
+	}
+
 	if err := r.waitPodRestart(sfs.Status.UpdateRevision, pod, waitLimit, logger); err != nil {
 		return errors.Wrap(err, "failed to wait pod")
 	}
@@ -332,6 +342,10 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 	}
 
 	return nil
+}
+
+func getPodOrderInSts(stsName string, podName string) (int, error) {
+	return strconv.Atoi(podName[len(stsName)+1:])
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {

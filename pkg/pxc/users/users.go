@@ -4,7 +4,6 @@ import (
 	"database/sql"
 
 	"github.com/go-sql-driver/mysql"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 )
 
@@ -287,6 +286,47 @@ func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
 	_, err = tx.Exec("FLUSH PRIVILEGES")
 	if err != nil {
 		return errors.Wrap(err, "flush privileges")
+	}
+
+	return nil
+}
+
+func (u *Manager) CreateReplicationUser(password string) error {
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	_, err = tx.Exec("CREATE USER IF NOT EXISTS 'replication'@'%' IDENTIFIED BY ?", password)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("create replication user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "create replication user")
+	}
+
+	_, err = tx.Exec("GRANT REPLICATION SLAVE ON *.* to 'replication'@'%'")
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("grant replication user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "grant replication user")
+	}
+
+	_, err = tx.Exec("FLUSH PRIVILEGES")
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "flush privileges")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit transaction")
 	}
 
 	return nil

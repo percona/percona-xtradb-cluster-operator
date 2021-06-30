@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-8-0
+apiVersion: pxc.percona.com/v1-9-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -9,7 +9,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.8.0
+  crVersion: 1.9.0
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
@@ -36,6 +36,12 @@ spec:
     size: 3
     image: percona/percona-xtradb-cluster:8.0.22-13.1
     autoRecovery: true
+    readinessProbes:
+      InitialDelaySeconds: 300
+      TimeoutSeconds: 1
+      PeriodSeconds: 10
+      SuccessThreshold: 1
+      FailureThreshold: 3
 #    expose:
 #      enabled: true
 #      type: LoadBalancer

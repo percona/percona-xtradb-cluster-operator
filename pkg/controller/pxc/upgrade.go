@@ -13,8 +13,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	appsv1 "k8s.io/api/apps/v1"
@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
@@ -217,7 +218,19 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	if sfs.StatefulSet().Status.UpdatedReplicas >= sfs.StatefulSet().Status.Replicas {
+	// sleep to get new sfs revision
+	time.Sleep(time.Second)
+
+	currentSet := sfs.StatefulSet()
+	err := r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      currentSet.Name,
+		Namespace: currentSet.Namespace,
+	}, currentSet)
+	if err != nil {
+		return errors.Wrap(err, "failed to get current sfs")
+	}
+
+	if currentSet.Status.UpdatedReplicas >= currentSet.Status.Replicas {
 		return nil
 	}
 
@@ -235,7 +248,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	if sfs.StatefulSet().Status.ReadyReplicas < sfs.StatefulSet().Status.Replicas {
+	if currentSet.Status.ReadyReplicas < currentSet.Status.Replicas {
 		logger.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
 		return nil
 	}
@@ -244,7 +257,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	if err := r.client.List(context.TODO(),
 		&list,
 		&client.ListOptions{
-			Namespace:     sfs.StatefulSet().Namespace,
+			Namespace:     currentSet.Namespace,
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
 	); err != nil {
@@ -257,7 +270,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	}
 	for _, pod := range list.Items {
 		if pod.Status.PodIP == primary || pod.Name == primary {
-			primary = fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)
+			primary = fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)
 			break
 		}
 	}
@@ -276,18 +289,18 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	var primaryPod corev1.Pod
 	for _, pod := range list.Items {
 		pod := pod
-		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, sfs.StatefulSet().Namespace)) {
+		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)) {
 			primaryPod = pod
 		} else {
 			logger.Info("apply changes to secondary pod", "pod name", pod.Name)
-			if err := r.applyNWait(cr, sfs.StatefulSet(), &pod, waitLimit); err != nil {
+			if err := r.applyNWait(cr, currentSet, &pod, waitLimit); err != nil {
 				return errors.Wrap(err, "failed to apply changes")
 			}
 		}
 	}
 
 	logger.Info("apply changes to primary pod", "pod name", primaryPod.Name)
-	if err := r.applyNWait(cr, sfs.StatefulSet(), &primaryPod, waitLimit); err != nil {
+	if err := r.applyNWait(cr, currentSet, &primaryPod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to apply changes")
 	}
 
@@ -307,7 +320,16 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		}
 	}
 
-	if err := r.waitPodRestart(sfs.Status.UpdateRevision, pod, waitLimit, logger); err != nil {
+	orderInSts, err := getPodOrderInSts(sfs.Name, pod.Name)
+	if err != nil {
+		return errors.Errorf("compute pod order err, sfs name: %s, pod name: %s", sfs.Name, pod.Name)
+	}
+	if int32(orderInSts) >= *sfs.Spec.Replicas {
+		logger.Info(fmt.Sprintf("sfs %s is scaled down, pod %s will not be started ", sfs.Name, pod.Name))
+		return nil
+	}
+
+	if err := r.waitPodRestart(cr, sfs.Status.UpdateRevision, pod, waitLimit, logger); err != nil {
 		return errors.Wrap(err, "failed to wait pod")
 	}
 
@@ -320,6 +342,10 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 	}
 
 	return nil
+}
+
+func getPodOrderInSts(stsName string, podName string) (int, error) {
+	return strconv.Atoi(podName[len(stsName)+1:])
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
@@ -486,12 +512,17 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		})
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
 			err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
 			if err != nil && !k8serrors.IsNotFound(err) {
-				return false, err
+				return false, errors.Wrap(err, "fetch pod")
+			}
+
+			// We update status in every loop to not wait until the end of smart update
+			if err := r.updateStatus(cr, nil); err != nil {
+				return false, errors.Wrap(err, "update status")
 			}
 
 			ready := false

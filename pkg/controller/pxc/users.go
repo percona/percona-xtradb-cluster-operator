@@ -81,6 +81,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 				return nil, nil, errors.Wrap(err, "manage xtrabackup user")
 			}
 		}
+		if cr.CompareVersionWith("1.9.0") >= 0 {
+			err = r.manageReplicationUser(cr, &sysUsersSecretObj, &internalSysSecretObj)
+			if err != nil {
+				return nil, nil, errors.Wrap(err, "manage replication user")
+			}
+		}
 	}
 
 	if cr.Status.Status != api.AppStateReady {
@@ -267,6 +273,13 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	}
 	requiredUsers = append(requiredUsers, xtrabcupUser)
 
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		requiredUsers = append(requiredUsers, user{
+			name:  "replication",
+			hosts: []string{"%"},
+		})
+	}
+
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		requiredUsers = append(requiredUsers, user{
 			name:   "pmmserver",
@@ -442,6 +455,63 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 
 	sysUsersSecretObj.Data["operator"] = pass
 	internalSysSecretObj.Data["operator"] = pass
+
+	err = r.client.Update(context.TODO(), sysUsersSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update sys users secret")
+	}
+	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update internal users secret")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) error {
+	pass, existInSys := sysUsersSecretObj.Data["replication"]
+	_, existInInternal := internalSysSecretObj.Data["replication"]
+	if existInSys && !existInInternal {
+		if internalSysSecretObj.Data == nil {
+			internalSysSecretObj.Data = make(map[string][]byte)
+		}
+		internalSysSecretObj.Data["replication"] = pass
+		return nil
+	}
+	if existInSys {
+		return nil
+	}
+
+	pass, err := generatePass()
+	if err != nil {
+		return errors.Wrap(err, "generate password")
+	}
+
+	addr := cr.Name + "-pxc." + cr.Namespace
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+
+	pxcUser := "root"
+	pxcPass := string(internalSysSecretObj.Data["root"])
+	if _, ok := internalSysSecretObj.Data["operator"]; ok {
+		pxcUser = "operator"
+		pxcPass = string(internalSysSecretObj.Data["operator"])
+	}
+
+	um, err := users.NewManager(addr, pxcUser, pxcPass)
+	if err != nil {
+		return errors.Wrap(err, "new users manager")
+	}
+	defer um.Close()
+
+	err = um.CreateReplicationUser(string(pass))
+	if err != nil {
+		return errors.Wrap(err, "create replication user")
+	}
+
+	sysUsersSecretObj.Data["replication"] = pass
+	internalSysSecretObj.Data["replication"] = pass
 
 	err = r.client.Update(context.TODO(), sysUsersSecretObj)
 	if err != nil {

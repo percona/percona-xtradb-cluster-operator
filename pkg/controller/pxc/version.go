@@ -7,8 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
@@ -27,10 +26,10 @@ func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
 	delete(r.crons.ensureVersionJobs, jobName)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
+func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
 	jn := jobName(cr)
 	schedule, ok := r.crons.ensureVersionJobs[jn]
-	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
+	if cr.Spec.UpdateStrategy != apiv1.SmartUpdateStatefulSetStrategyType ||
 		cr.Spec.UpgradeOptions.Schedule == "" ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == disabled {
@@ -67,7 +66,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 			return
 		}
 
-		localCr := &api.PerconaXtraDBCluster{}
+		localCr := &apiv1.PerconaXtraDBCluster{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if k8serrors.IsNotFound(err) {
 			logger.Info("cluster is not found, deleting the job",
@@ -80,7 +79,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 			return
 		}
 
-		if localCr.Status.Status != v1.AppStateReady {
+		if localCr.Status.Status != apiv1.AppStateReady {
 			logger.Info("cluster is not ready")
 			return
 		}
@@ -110,7 +109,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *api.PerconaX
 	return nil
 }
 
-func jobName(cr *api.PerconaXtraDBCluster) string {
+func jobName(cr *apiv1.PerconaXtraDBCluster) string {
 	jobName := "ensure-version"
 	nn := types.NamespacedName{
 		Name:      cr.Name,
@@ -119,15 +118,15 @@ func jobName(cr *api.PerconaXtraDBCluster) string {
 	return fmt.Sprintf("%s/%s", jobName, nn.String())
 }
 
-func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCluster, vs VersionService) error {
-	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType ||
+func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+	if cr.Spec.UpdateStrategy != apiv1.SmartUpdateStatefulSetStrategyType ||
 		cr.Spec.UpgradeOptions.Schedule == "" ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == disabled {
 		return nil
 	}
 
-	if cr.Status.Status != v1.AppStateReady && cr.Status.PXC.Version != "" {
+	if cr.Status.Status != apiv1.AppStateReady && cr.Status.PXC.Version != "" {
 		return errors.New("cluster is not ready")
 	}
 
@@ -233,8 +232,8 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *api.PerconaXtraDBCl
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) error {
-	if cr.Status.PXC.Status != api.AppStateReady {
+func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
+	if cr.Status.PXC.Status != apiv1.AppStateReady {
 		return nil
 	}
 

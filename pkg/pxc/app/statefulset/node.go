@@ -181,17 +181,14 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 	}
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		fvar := true
-		appc.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.PXC.EnvVarsSecretName,
-					},
-					Optional: &fvar,
+		appc.EnvFrom = append(appc.EnvFrom, corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.PXC.EnvVarsSecretName,
 				},
+				Optional: &fvar,
 			},
-		}
-
+		})
 	}
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		for k, v := range appc.VolumeMounts {
@@ -234,6 +231,16 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		)
 		appc.ReadinessProbe.Exec.Command = []string{"/var/lib/mysql/readiness-check.sh"}
 		appc.LivenessProbe.Exec.Command = []string{"/var/lib/mysql/liveness-check.sh"}
+	}
+
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		appc.Ports = append(
+			appc.Ports,
+			corev1.ContainerPort{
+				ContainerPort: 33060,
+				Name:          "mysqlx",
+			},
+		)
 	}
 
 	res, err := app.CreateResources(spec.Resources)

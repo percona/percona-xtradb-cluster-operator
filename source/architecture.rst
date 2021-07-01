@@ -5,9 +5,9 @@ Design overview
 with the XtraDB storage engine, and *Percona XtraBackup* with the
 *Galera library* to enable synchronous multi-primary replication.
 
-The design of the operator is highly bound to the Percona XtraDB Cluster
-high availability implementation, which in its turn can be briefly
-described with the following diagram.
+The design of the Percona Distribution for MySQL Operator is highly bound to the
+Percona XtraDB Cluster high availability implementation, which in its turn can
+be briefly described with the following diagram.
 
 .. image:: ./assets/images/replication.png
    :align: center

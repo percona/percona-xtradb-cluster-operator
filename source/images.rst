@@ -4,7 +4,7 @@ Percona certified images
 ------------------------
 
 Following table presents Percona’s certified docker images to be used with the
-Percona XtraDB Cluster Operator:
+Percona Distribution for MySQL Operator:
 
 
       .. list-table::

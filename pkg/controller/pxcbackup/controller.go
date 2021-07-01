@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -338,12 +339,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 
 			spl := strings.Split(cr.Status.Destination, "/")
 			backup := spl[len(spl)-1]
-
 			for _, bcp := range []string{backup + ".md5", backup + "sst_info", backup} {
-				err := r.removeBackup(cr.Status.S3.Bucket, bcp, s3cli)
+				err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeBackup(cr.Status.S3.Bucket, bcp, s3cli))
 				if err != nil {
-					logger.Error(err, "failed to delete backup", "name", cr.Name)
-					finalizers = append(finalizers, f)
 					break
 				}
 			}
@@ -354,7 +352,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 
 	cr.SetFinalizers(finalizers)
 
-	logger.Info("backup was removed from s3", "name", cr.Name)
+	if err != nil {
+		logger.Info("Failed to delete backup from s3", "backup path", cr.Status.Destination, "error", err.Error())
+	} else {
+		logger.Info("backup was removed from s3", "name", cr.Name)
+	}
 
 	err = r.client.Update(context.TODO(), cr)
 	if err != nil {
@@ -362,26 +364,28 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 	}
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) removeBackup(bucket, backup string, s3cli *minio.Client) error {
-	objs := s3cli.ListObjects(context.Background(), bucket,
-		minio.ListObjectsOptions{
-			UseV1:     true,
-			Recursive: true,
-			Prefix:    backup,
-		})
+func removeBackup(bucket, backup string, s3cli *minio.Client) func() error {
+	return func() error {
+		objs := s3cli.ListObjects(context.Background(), bucket,
+			minio.ListObjectsOptions{
+				UseV1:     true,
+				Recursive: true,
+				Prefix:    backup,
+			})
 
-	for v := range objs {
-		if v.Err != nil {
-			return errors.Wrap(v.Err, "failed to list objects")
+		for v := range objs {
+			if v.Err != nil {
+				return errors.Wrap(v.Err, "failed to list objects")
+			}
+
+			err := s3cli.RemoveObject(context.Background(), bucket, v.Key, minio.RemoveObjectOptions{})
+			if err != nil {
+				return errors.Wrapf(err, "failed to remove object %s", v.Key)
+			}
 		}
 
-		err := s3cli.RemoveObject(context.Background(), bucket, v.Key, minio.RemoveObjectOptions{})
-		if err != nil {
-			return errors.Wrapf(err, "failed to remove object %s", v.Key)
-		}
+		return nil
 	}
-
-	return nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXtraDBClusterBackup) (*api.PerconaXtraDBCluster, error) {

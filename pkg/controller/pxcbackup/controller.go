@@ -368,7 +368,6 @@ func removeBackup(bucket, backup string, s3cli *minio.Client) func() error {
 	return func() error {
 		objs := s3cli.ListObjects(context.Background(), bucket,
 			minio.ListObjectsOptions{
-				UseV1:     true,
 				Recursive: true,
 				Prefix:    backup,
 			})

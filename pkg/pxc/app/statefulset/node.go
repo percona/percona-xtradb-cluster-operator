@@ -181,17 +181,14 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 	}
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		fvar := true
-		appc.EnvFrom = []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.PXC.EnvVarsSecretName,
-					},
-					Optional: &fvar,
+		appc.EnvFrom = append(appc.EnvFrom, corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.PXC.EnvVarsSecretName,
 				},
+				Optional: &fvar,
 			},
-		}
-
+		})
 	}
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		for k, v := range appc.VolumeMounts {

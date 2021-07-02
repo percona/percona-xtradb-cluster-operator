@@ -37,7 +37,9 @@ file_env() {
 	if [ "${!var:-}" ]; then
 		val="${!var}"
 	elif [ "${!fileVar:-}" ]; then
-		val="$(<"${!fileVar}")"
+		val="$(< "${!fileVar}")"
+	elif [ "${3:-}" ] && [ -f "/etc/mysql/mysql-users-secret/$3" ]; then
+		val="$(</etc/mysql/mysql-users-secret/$3)"
 	fi
 	export "$var"="$val"
 	unset "$fileVar"
@@ -178,10 +180,8 @@ grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
 grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$' "$CFG" 1<>"$CFG"
 
-file_env 'XTRABACKUP_PASSWORD' 'xtrabackup'
-{ set +x; } 2>/dev/null
-CLUSTERCHECK_PASSWORD=$(cat /etc/mysql/mysql-users-secret/clustercheck)
-set -x
+file_env 'XTRABACKUP_PASSWORD' 'xtrabackup' 'xtrabackup'
+file_env 'CLUSTERCHECK_PASSWORD' '' 'clustercheck'
 
 NODE_NAME=$(hostname -f)
 NODE_PORT=3306
@@ -260,8 +260,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	rm -rfv "$TMPDIR"
 
 	if [ ! -d "$DATADIR/mysql" ]; then
-		file_env 'MYSQL_ROOT_PASSWORD'
-
+		file_env 'MYSQL_ROOT_PASSWORD' '' 'root'
 		{ set +x; } 2>/dev/null
 		if [ -z "$MYSQL_ROOT_PASSWORD" -a -z "$MYSQL_ALLOW_EMPTY_PASSWORD" -a -z "$MYSQL_RANDOM_ROOT_PASSWORD" ]; then
 			echo >&2 'error: database is uninitialized and password option is not specified '
@@ -327,7 +326,8 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 
 		file_env 'MONITOR_HOST' 'localhost'
-		file_env 'MONITOR_PASSWORD' 'monitor'
+		file_env 'MONITOR_PASSWORD' 'monitor' 'monitor'
+		file_env 'REPLICATION_PASSWORD' '' 'replication'
 		if [ "$MYSQL_VERSION" == '8.0' ]; then
 			read -r -d '' monitorConnectGrant <<-EOSQL || true
 				GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'${MONITOR_HOST}';
@@ -358,6 +358,8 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '${CLUSTERCHECK_PASSWORD}';
 			GRANT PROCESS ON *.* TO 'clustercheck'@'localhost';
 
+			CREATE USER 'replication'@'%' IDENTIFIED BY '${REPLICATION_PASSWORD}';
+			GRANT REPLICATION SLAVE ON *.* to 'replication'@'%';
 			DROP DATABASE IF EXISTS test;
 			FLUSH PRIVILEGES ;
 		EOSQL

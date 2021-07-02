@@ -278,7 +278,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.CompareVersionWith("1.5.0") >= 0 {
 		pxcAnnotations, proxysqlAnnotations, err = r.reconcileUsers(o)
 		if err != nil {
-			return rr, errors.Wrap(err, "reconcileUsers")
+			return rr, errors.Wrap(err, "reconcile users")
 		}
 	}
 

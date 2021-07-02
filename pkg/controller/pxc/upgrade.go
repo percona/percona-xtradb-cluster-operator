@@ -329,7 +329,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return nil
 	}
 
-	if err := r.waitPodRestart(sfs.Status.UpdateRevision, pod, waitLimit, logger); err != nil {
+	if err := r.waitPodRestart(cr, sfs.Status.UpdateRevision, pod, waitLimit, logger); err != nil {
 		return errors.Wrap(err, "failed to wait pod")
 	}
 
@@ -512,12 +512,17 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		})
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(updateRevision string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
 			err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
 			if err != nil && !k8serrors.IsNotFound(err) {
-				return false, err
+				return false, errors.Wrap(err, "fetch pod")
+			}
+
+			// We update status in every loop to not wait until the end of smart update
+			if err := r.updateStatus(cr, nil); err != nil {
+				return false, errors.Wrap(err, "update status")
 			}
 
 			ready := false

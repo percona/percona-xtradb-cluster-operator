@@ -435,7 +435,7 @@ spec:
       - name: Cluster
         type: string
         description: Cluster name
-        jsonPath: .spec
+        jsonPath: .spec.pxcCluster
       - name: Storage
         type: string
         description: Storage name from pxc spec

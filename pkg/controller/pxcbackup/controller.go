@@ -182,6 +182,15 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 		return rr, errors.Errorf("bcpStorage %s doesn't exist", cr.Spec.StorageName)
 	}
 
+	bcpRunning, err := r.isAnotherBackupRunning(cluster, cr)
+	if err != nil {
+		return rr, errors.Wrap(err, "check if a backup is running")
+	}
+
+	if bcpRunning {
+		return rr, nil
+	}
+
 	bcp := backup.New(cluster)
 	job := bcp.Job(cr, cluster)
 	job.Spec, err = bcp.JobSpec(cr.Spec, cluster.Spec, job)
@@ -494,4 +503,27 @@ func setControllerReference(cr *api.PerconaXtraDBClusterBackup, obj metav1.Objec
 	}
 	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) isAnotherBackupRunning(cluster *api.PerconaXtraDBCluster, cr *api.PerconaXtraDBClusterBackup) (bool, error) {
+	bcpList := api.PerconaXtraDBClusterBackupList{}
+
+	if err := r.client.List(context.TODO(), &bcpList, &client.ListOptions{Namespace: cluster.Namespace}); err != nil {
+		if k8sErrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "failed to get backup list")
+	}
+
+	for _, bcp := range bcpList.Items {
+		if bcp.Spec.PXCCluster != cluster.Name {
+			continue
+		}
+
+		if bcp.Name != cr.Name && (bcp.Status.State == api.BackupRunning || bcp.Status.State == api.BackupStarting) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

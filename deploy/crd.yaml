@@ -75,6 +75,10 @@ spec:
         type: string
         description: Ready proxysql nodes
         jsonPath: .status.proxysql.ready
+      - name: haproxy
+        type: string
+        description: Ready haproxy nodes
+        jsonPath: .status.haproxy.ready
       - name: Age
         type: date
         jsonPath: .metadata.creationTimestamp
@@ -108,6 +112,10 @@ spec:
         type: string
         description: Ready proxysql nodes
         jsonPath: .status.proxysql.ready
+      - name: haproxy
+        type: string
+        description: Ready haproxy nodes
+        jsonPath: .status.haproxy.ready
       - name: Age
         type: date
         jsonPath: .metadata.creationTimestamp
@@ -141,6 +149,10 @@ spec:
         type: string
         description: Ready proxysql nodes
         jsonPath: .status.proxysql.ready
+      - name: haproxy
+        type: string
+        description: Ready haproxy nodes
+        jsonPath: .status.haproxy.ready
       - name: Age
         type: date
         jsonPath: .metadata.creationTimestamp
@@ -174,6 +186,10 @@ spec:
         type: string
         description: Ready proxysql nodes
         jsonPath: .status.proxysql.ready
+      - name: haproxy
+        type: string
+        description: Ready haproxy nodes
+        jsonPath: .status.haproxy.ready
       - name: Age
         type: date
         jsonPath: .metadata.creationTimestamp
@@ -207,6 +223,10 @@ spec:
         type: string
         description: Ready proxysql nodes
         jsonPath: .status.proxysql.ready
+      - name: haproxy
+        type: string
+        description: Ready haproxy nodes
+        jsonPath: .status.haproxy.ready
       - name: Age
         type: date
         jsonPath: .metadata.creationTimestamp
@@ -240,6 +260,10 @@ spec:
         type: string
         description: Ready proxysql nodes
         jsonPath: .status.proxysql.ready
+      - name: haproxy
+        type: string
+        description: Ready haproxy nodes
+        jsonPath: .status.haproxy.ready
       - name: Age
         type: date
         jsonPath: .metadata.creationTimestamp

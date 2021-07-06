@@ -84,6 +84,10 @@ spec:
         jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}
+        scale:
+          specReplicasPath: .spec.pxc.size
+          statusReplicasPath: .status.pxc.ready
+          labelSelectorPath: .status.pxc.labelSelectorPath
     - name: v1-1-0
       storage: false
       served: true

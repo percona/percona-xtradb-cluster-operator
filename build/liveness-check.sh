@@ -18,13 +18,13 @@ MYSQL_USERNAME="${MYSQL_USERNAME:-monitor}"
 mysql_pass=$(cat /etc/mysql/mysql-users-secret/monitor || :)
 MYSQL_PASSWORD="${mysql_pass:-$MONITOR_PASSWORD}"
 DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
-DB_HOST=${HOSTNAME:-localhost}
+NODE_IP=$(hostname -I | awk ' { print $1 } ')
 #Timeout exists for instances where mysqld may be hung
 TIMEOUT=${LIVENESS_CHECK_TIMEOUT:-5}
 
 EXTRA_ARGS=""
 if [[ -n $MYSQL_USERNAME ]]; then
-	EXTRA_ARGS="$EXTRA_ARGS -P 33062 -h${DB_HOST} --user=${MYSQL_USERNAME}"
+	EXTRA_ARGS="$EXTRA_ARGS -P 33062 -h${NODE_IP} --protocol=TCP --user=${MYSQL_USERNAME}"
 fi
 if [[ -r $DEFAULTS_EXTRA_FILE ]]; then
 	MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE \

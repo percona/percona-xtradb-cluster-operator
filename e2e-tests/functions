@@ -348,6 +348,8 @@ compare_kubectl() {
 		| yq d - 'metadata.ownerReferences.*.apiVersion' \
 		| yq d - '**.controller-uid' \
 		| yq d - '**.preemptionPolicy' \
+		| yq d - 'spec.ipFamilies' \
+		| yq d - 'spec.ipFamilyPolicy' \
 		| sed 's/namespace\:.*name/name/' \
 			>${new_result}
 	# last sed is needed for backup cronjob content

@@ -1,3 +1,5 @@
+.. _operator-configmaps:
+
 Changing MySQL Options
 ======================
 
@@ -7,17 +9,24 @@ You can pass the MySQL options from the
 `my.cnf <https://dev.mysql.com/doc/refman/8.0/en/option-files.html>`__
 configuration file to the cluster in one of the following ways:
 
-* Edit the CR.yaml file
-* Use a ConfigMap
+* edit the ``deploy/cr.yaml`` file,
+* use a ConfigMap,
+* use a Secret object.
 
-Edit the CR.yaml
-----------------
+You can pass configuration settings separately for Percona XtraDB Cluster Pods,
+ProxySQL Pods, and HAProxy Pods.
+
+Edit the ``deploy/cr.yaml`` file
+---------------------------------
 
 You can add options from the
-`my.cnf <https://dev.mysql.com/doc/refman/8.0/en/option-files.html>`__
-by editing the configuration section of the deploy/cr.yaml.
+`my.cnf <https://dev.mysql.com/doc/refman/8.0/en/option-files.html>`__,
+`proxysql.cnf <https://proxysql.com/documentation/configuring-proxysql/>`__, or
+`haproxy.cfg <https://www.haproxy.com/blog/the-four-essential-sections-of-an-haproxy-configuration/>`__
+by editing the configuration section of the ``deploy/cr.yaml``. Here is an
+example:
 
-::
+.. code:: yaml
 
    spec:
      secretsName: my-cluster-secrets
@@ -83,6 +92,82 @@ To view the created configmap, use the following command:
 .. code:: bash
 
    kubectl describe configmaps cluster1-pxc
+
+Use a Secret Object
+-------------------
+
+The Operator can also store configuration options in `Kubernetes Secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_.
+This can be useful if you need additional protection for some sensitive data.
+
+You should create a Secret object with a specific name, composed of your cluster
+name and a specific suffix:
+
+* ``my-cluster-name-pxc`` for the Percona XtraDB Cluster Pods,
+* ``my-cluster-name-proxysql`` for the ProxySQL Pods,
+* ``my-cluster-name-haproxy`` for the HAProxy Pods,
+  
+.. note:: To find the cluster name, you can use the following command:
+
+   .. code:: bash
+
+      $ kubectl get pxc
+
+Configuration options should be put inside a specific key:
+
+* ``data.pxc`` key for Percona XtraDB Cluster Pods,
+* ``data.proxysql`` key for ProxySQL Pods, 
+* ``data.haproxy`` key for HAProxy Pods.
+
+Actual options should be encoded with `Base64 <https://en.wikipedia.org/wiki/Base64>`_.
+
+For example, let's define a ``my.cnf`` configuration file and put there a pair
+of MySQL options we used in the previous example:
+
+.. code:: yaml
+
+   [mysqld]
+   wsrep_debug=ON
+   [sst]
+   wsrep_debug=ON
+
+You can get a Base64 encoded string from your options via the command line as
+follows:
+
+.. code:: bash
+
+   $ cat my.cnf | base64
+
+.. note:: Similarly, you can read the list of options from a Base64 encoded
+   string:
+
+   .. code:: bash
+
+      $ echo "ICAgICAgb3BlcmF0aW9uUHJvZmlsaW5nOgogICAgICAgIG1vZGU6IHNsb3dPc\
+      AogICAgICBzeXN0ZW1Mb2c6CiAgICAgICAgdmVyYm9zaXR5OiAxCg==" | base64 --decode
+
+Finally, use a yaml file to create the Secret object. For example, you can
+create a ``deploy/my-pxc-secret.yaml`` file with the following contents:
+
+.. code:: yaml
+
+   apiVersion: v1
+   kind: Secret
+   metadata:
+     name: cluster1-pxc
+   data:
+     my.cnf: "ICAgICAgb3BlcmF0aW9uUHJvZmlsaW5nOgogICAgICAgIG1vZGU6IHNsb3dPc\
+      AogICAgICBzeXN0ZW1Mb2c6CiAgICAgICAgdmVyYm9zaXR5OiAxCg=="
+
+When ready, apply it with the following command:
+
+.. code:: bash
+
+   $ kubectl create -f deploy/my-pxc-secret.yaml
+
+.. note:: Do not forget to restart Percona XtraDB Cluster to ensure the
+   cluster has updated the configuration (see details on how to connect in the
+   :ref:`Install Percona XtraDB Cluster on Kubernetes<operator.kubernetes>`
+   page).
 
 Make changed options visible to the Percona XtraDB Cluster
 ----------------------------------------------------------

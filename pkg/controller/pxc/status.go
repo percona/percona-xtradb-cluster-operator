@@ -100,6 +100,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			cr.Status.Messages = append(cr.Status.Messages, a.app.Name()+": "+a.status.Message)
 		}
 
+		// Ready count can be greater than total size in case of downscale
+		if status.Ready > status.Size {
+			status.Ready = status.Size
+		}
+
 		cr.Status.Size += status.Size
 		cr.Status.Ready += status.Ready
 

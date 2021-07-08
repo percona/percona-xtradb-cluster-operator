@@ -1102,7 +1102,10 @@ deploy_chaos_mesh() {
 	local chaos_mesh_ns=$1
 
 	desc 'install chaos-mesh'
-	helm del chaos-mesh --namespace ${chaos_mesh_ns} || :
+	local old_cm_namespace=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}')
+	if [ "${old_cm_namespace}" != "NAMESPACE" ]; then
+		helm del chaos-mesh --namespace ${old_cm_namespace} || :
+	fi
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
 	if version_gt "1.19"; then
 		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 0.5.1 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}

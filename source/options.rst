@@ -142,8 +142,7 @@ follows:
 
    .. code:: bash
 
-      $ echo "ICAgICAgb3BlcmF0aW9uUHJvZmlsaW5nOgogICAgICAgIG1vZGU6IHNsb3dPc\
-      AogICAgICBzeXN0ZW1Mb2c6CiAgICAgICAgdmVyYm9zaXR5OiAxCg==" | base64 --decode
+      $ echo "W215c3FsZF0Kd3NyZXBfZGVidWc9T04KW3NzdF0Kd3NyZXBfZGVidWc9T04K" | base64 --decode
 
 Finally, use a yaml file to create the Secret object. For example, you can
 create a ``deploy/my-pxc-secret.yaml`` file with the following contents:
@@ -155,8 +154,7 @@ create a ``deploy/my-pxc-secret.yaml`` file with the following contents:
    metadata:
      name: cluster1-pxc
    data:
-     my.cnf: "ICAgICAgb3BlcmF0aW9uUHJvZmlsaW5nOgogICAgICAgIG1vZGU6IHNsb3dPc\
-      AogICAgICBzeXN0ZW1Mb2c6CiAgICAgICAgdmVyYm9zaXR5OiAxCg=="
+     my.cnf: "W215c3FsZF0Kd3NyZXBfZGVidWc9T04KW3NzdF0Kd3NyZXBfZGVidWc9T04K"
 
 When ready, apply it with the following command:
 

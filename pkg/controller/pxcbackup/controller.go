@@ -523,7 +523,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) isAnotherBackupRunning(cluster *ap
 			continue
 		}
 
-		if bcp.Name != cr.Name && bcp.Status.State != api.BackupFailed && bcp.Status.State != api.BackupSucceeded {
+		if bcp.Name != cr.Name && bcp.Status.State != "" && bcp.Status.State != api.BackupFailed && bcp.Status.State != api.BackupSucceeded {
 			return true, nil
 		}
 	}

@@ -54,7 +54,7 @@ spec:
 #    forceUnsafeBootstrap: false
 #    configuration: |
 #      [mysqld]
-#      wsrep_debug=ON
+#      wsrep_debug=CLIENT
 #      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
 #      [sst]
 #      xbstream-opts=--decompress
@@ -145,6 +145,7 @@ spec:
 #      global
 #        maxconn 2048
 #        external-check
+#        insecure-fork-wanted
 #        stats socket /var/run/haproxy.sock mode 600 expose-fd listeners level user
 #
 #      defaults
@@ -157,7 +158,7 @@ spec:
 #
 #      frontend galera-in
 #        bind *:3309 accept-proxy
-#        bind *:3306 accept-proxy
+#        bind *:3306
 #        mode tcp
 #        option clitcpka
 #        default_backend galera-nodes

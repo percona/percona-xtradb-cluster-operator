@@ -4,6 +4,7 @@ The Operator options glossary
 .. glossary::
 
    accessModes
+
       :ref:`backup.storages.STORAGE_NAME.volume.persistentVolumeClaim.accessModes<backup-storages-volume-persistentvolumeclaim-accessmodes>`
 
       :ref:`proxysql.volumeSpec.persistentVolumeClaim.accessModes<proxysql-volumespec-persistentvolumeclaim-accessmodes>`
@@ -355,7 +356,7 @@ The Operator options glossary
 
       :ref:`proxysql.volumeSpec.resources.requests.storage<proxysql-volumespec-resources-requests-storage>`
 
-      :ref:`<pxc.volumeSpec.resources.requests.storage<pxc-volumespec-resources-requests-storage>`
+      :ref:`pxc.volumeSpec.resources.requests.storage<pxc-volumespec-resources-requests-storage>`
 
    storageClassName
       :ref:`backup.storages.STORAGE_NAME.persistentVolumeClaim.storageClassName<backup-storages-volume-persistentvolumeclaim-storageclassname>`

@@ -4,7 +4,7 @@ The Operator options glossary
 .. glossary::
 
    accessModes
-      :ref:`backup.storages.<storage-name>.volume.persistentVolumeClaim.accessModes<backup-storages-volume-persistentvolumeclaim-accessmodes>`
+      :ref:`backup.storages.STORAGE_NAME.volume.persistentVolumeClaim.accessModes<backup-storages-volume-persistentvolumeclaim-accessmodes>`
 
       :ref:`proxysql.volumeSpec.persistentVolumeClaim.accessModes<proxysql-volumespec-persistentvolumeclaim-accessmodes>`
 
@@ -18,7 +18,7 @@ The Operator options glossary
       :ref:`pxc.affinity.advanced<pxc-affinity-advanced>`
 
    annotations
-      :ref:`backup.storages.<storage-name>.annotations<backup-storages-annotations>`
+      :ref:`backup.storages.STORAGE_NAME.annotations<backup-storages-annotations>`
 
       :ref:`haproxy.annotations<haproxy-annotations>`
 
@@ -42,7 +42,7 @@ The Operator options glossary
       :ref:`pxc.autoRecovery<pxc-autorecovery>`
 
    bucket
-      :ref:`backup.storages.<storage-name>.s3.bucket<backup-storages-s3-bucket>`
+      :ref:`backup.storages.STORAGE_NAME.s3.bucket<backup-storages-s3-bucket>`
 
    command
       :ref:`haproxy.sidecars.command<haproxy-sidecars-command>`
@@ -61,12 +61,12 @@ The Operator options glossary
       :ref:`pxc.configuration<pxc-configuration>`
 
    containerSecurityContext
-      :ref:`backup.storages.<storage-name>.containerSecurityContext<backup-storages-containersecuritycontext>`
+      :ref:`backup.storages.STORAGE_NAME.containerSecurityContext<backup-storages-containersecuritycontext>`
 
       :ref:`pxc.containerSecurityContext<pxc-containersecuritycontext>`
 
    cpu
-      :ref:`backup.storages.<storage-name>.resources.requests.cpu<backup-storages-resources-requests-cpu>`
+      :ref:`backup.storages.STORAGE_NAME.resources.requests.cpu<backup-storages-resources-requests-cpu>`
 
       :ref:`haproxy.resources.limits.cpu<haproxy-resources-limits-cpu>`
 
@@ -97,7 +97,7 @@ The Operator options glossary
       :ref:`pxc.sidecarResources.requests.cpu<pxc-sidecarresources-requests-cpu>`
 
    credentialsSecret
-      :ref:`backup.storages.<storage-name>.s3.credentialsSecret<backup-storages-s3-credentialssecret>`
+      :ref:`backup.storages.STORAGE_NAME.s3.credentialsSecret<backup-storages-s3-credentialssecret>`
 
    gracePeriod
       :ref:`haproxy.gracePeriod<haproxy-graceperiod>`
@@ -120,7 +120,7 @@ The Operator options glossary
       :ref:`pxc.expose.enabled<pxc-expose-enabled>`
 
    endpointUrl
-      :ref:`backup.storages.s3.<storage-name>.endpointUrl<backup-storages-s3-endpointurl>`
+      :ref:`backup.storages.s3.STORAGE_NAME.endpointUrl<backup-storages-s3-endpointurl>`
 
    ephemeral-storage
       :ref:`pxc.resources.limits.ephemeral-storage<pxc-resources-limits-ephemeral-storage>`
@@ -167,7 +167,7 @@ The Operator options glossary
       :ref:`backup.schedule.keep<backup-schedule-keep>`
 
    labels
-      :ref:`backup.storages.<storage-name>.labels<backup-storages-labels>`
+      :ref:`backup.storages.STORAGE_NAME.labels<backup-storages-labels>`
 
       :ref:`haproxy.labels<haproxy-labels>`
 
@@ -193,9 +193,9 @@ The Operator options glossary
       :ref:`pxc.podDisruptionBudget.maxUnavailable<pxc-poddisruptionbudget-maxunavailable>`
 
    memory
-      :ref:`backup.storages.<storage-name>.resources.limits.memory<backup-storages-resources-limits-memory>`
+      :ref:`backup.storages.STORAGE_NAME.resources.limits.memory<backup-storages-resources-limits-memory>`
 
-      :ref:`backup.storages.<storage-name>.resources.requests.memory<backup-storages-resources-requests-memory>`
+      :ref:`backup.storages.STORAGE_NAME.resources.requests.memory<backup-storages-resources-requests-memory>`
 
       :ref:`haproxy.resources.limits.memory<haproxy-resources-limits-memory>`
 
@@ -209,9 +209,9 @@ The Operator options glossary
 
       :ref:`pmm.resources.requests.memory<pmm-resources-requests-memory>`
 
-      :ref:`proxysql.limits.memory<proxysql-limits-memory>`
+      :ref:`proxysql.resources.limits.memory<proxysql-resources-limits-memory>`
 
-      :ref:`proxysql.requests.memory<proxysql-requests-memory>`
+      :ref:`proxysql.resources.requests.memory<proxysql-resources-requests-memory>`
 
       :ref:`proxysql.sidecarResources.limits.memory<proxysql-sidecarresources-limits-memory>`
 
@@ -250,10 +250,10 @@ The Operator options glossary
       :ref:`pxc.sidecars.name<pxc-sidecars-name>`
 
    nodeAffinity
-      :ref:`backup.storages.<storage-name>.affinity.nodeAffinity<backup-storages-affinity-nodeaffinity>`
+      :ref:`backup.storages.STORAGE_NAME.affinity.nodeAffinity<backup-storages-affinity-nodeaffinity>`
 
    nodeSelector
-      :ref:`backup.storages.<storage-name>.nodeSelector<backup-storages-nodeselector>`
+      :ref:`backup.storages.STORAGE_NAME.nodeSelector<backup-storages-nodeselector>`
 
       :ref:`haproxy.nodeSelector<haproxy-nodeselector>`
 
@@ -264,10 +264,9 @@ The Operator options glossary
    path
       :ref:`proxysql.volumeSpec.hostPath.path<proxysql-volumespec-hostpath-path>`
 
-      :ref:`pxc.volumeSpec.hostPath.path<pxc-volumespec-hostpath-path>`
 
    priorityClassName
-      :ref:`backup.storages.<storage-name>.priorityClassName<backup-storages-priorityclassname>`
+      :ref:`backup.storages.STORAGE_NAME.priorityClassName<backup-storages-priorityclassname>`
 
       :ref:`haproxy.priorityClassName<haproxy-priorityclassname>`
 
@@ -276,7 +275,7 @@ The Operator options glossary
       :ref:`pxc.priorityClassName<pxc-priorityclassname>`
 
    podSecurityContext
-      :ref:`backup.storages.<storage-name>.podSecurityContext<backup-storages-podsecuritycontext>`
+      :ref:`backup.storages.STORAGE_NAME.podSecurityContext<backup-storages-podsecuritycontext>`
 
       :ref:`pxc.podSecurityContext<pxc-podsecuritycontext>`
 
@@ -290,7 +289,7 @@ The Operator options glossary
       :ref:`pxc.readinessDelaySec<pxc-readinessdelaysec>`
 
    region
-      :ref:`backup.storages.s3.<storage-name>.region<backup-storages-s3-region>`
+      :ref:`backup.storages.s3.STORAGE_NAME.region<backup-storages-s3-region>`
 
    replicasExternalTrafficPolicy
       :ref:`haproxy.replicasExternalTrafficPolicy<haproxy-replicasexternaltrafficpolicy>`
@@ -301,7 +300,7 @@ The Operator options glossary
    runtimeClassName
       :ref:`haproxy.runtimeClassName<haproxy-runtimeclassname>`
 
-      :ref:`proxysql.runtimeClassNameproxysql-runtimeclassname>`
+      :ref:`proxysql.runtimeClassName<proxysql-runtimeclassname>`
 
       :ref:`pxc.runtimeClassName<pxc-runtimeclassname>`
 
@@ -311,7 +310,7 @@ The Operator options glossary
       :ref:`upgradeOptions.schedule<upgradeoptions-schedule>`
 
    schedulerName
-      :ref:`backup.storages.<storage-name>.schedulerName<backup-storages-schedulername>`
+      :ref:`backup.storages.STORAGE_NAME.schedulerName<backup-storages-schedulername>`
 
       :ref:`haproxy.schedulerName<haproxy-schedulername>`
 
@@ -352,14 +351,14 @@ The Operator options glossary
       :ref:`ProxySQL<proxysql-size>`
 
    storage
-      :ref:`backup.storages.<storage-name>.volume.persistentVolumeClaim.resources.requests.storage<backup-storages-volume-persistentvolumeclaim-resources-requests-storage>`
+      :ref:`backup.storages.STORAGE_NAME.volume.persistentVolumeClaim.resources.requests.storage<backup-storages-volume-persistentvolumeclaim-resources-requests-storage>`
 
       :ref:`proxysql.volumeSpec.resources.requests.storage<proxysql-volumespec-resources-requests-storage>`
 
       :ref:`<pxc.volumeSpec.resources.requests.storage<pxc-volumespec-resources-requests-storage>`
 
    storageClassName
-      :ref:`backup.storages.<storage-name>.persistentVolumeClaim.storageClassName<backup-storages-volume-persistentvolumeclaim-storageclassname>`
+      :ref:`backup.storages.STORAGE_NAME.persistentVolumeClaim.storageClassName<backup-storages-volume-persistentvolumeclaim-storageclassname>`
 
       :ref:`proxysql.volumeSpec.persistentVolumeClaim.storageClassName<proxysql-volumespec-persistentvolumeclaim-storageclassname>`
 
@@ -374,7 +373,7 @@ The Operator options glossary
       :ref:`backup.pitr.timeBetweenUploads<backup-pitr-timebetweenuploads>`
 
    tolerations
-      :ref:`backup.storages.<storage-name>.tolerations<backup-storages-tolerations>`
+      :ref:`backup.storages.STORAGE_NAME.tolerations<backup-storages-tolerations>`
 
       :ref:`haproxy.tolerations<haproxy-tolerations>`
 
@@ -390,9 +389,9 @@ The Operator options glossary
       :ref:`<pxc.affinity.topologyKey<pxc-affinity-topologykey>`
 
    type
-      :ref:`backup.storages.<storage-name>.persistentVolumeClaim.type<backup-storages-persistentvolumeclaim-type>`
+      :ref:`backup.storages.STORAGE_NAME.persistentVolumeClaim.type<backup-storages-persistentvolumeclaim-type>`
 
-      :ref:`backup.storages.<storage-name>.type<backup-storages-type>`
+      :ref:`backup.storages.STORAGE_NAME.type<backup-storages-type>`
 
       :ref:`proxysql.volumeSpec.hostPath.type<proxysql-volumespec-hostpath-type>`
 

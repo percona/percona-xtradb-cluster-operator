@@ -5,6 +5,8 @@ The Operator options glossary
 
    accessModes
 
+     ..
+
       :ref:`backup.storages.STORAGE_NAME.volume.persistentVolumeClaim.accessModes<backup-storages-volume-persistentvolumeclaim-accessmodes>`
 
       :ref:`proxysql.volumeSpec.persistentVolumeClaim.accessModes<proxysql-volumespec-persistentvolumeclaim-accessmodes>`
@@ -12,11 +14,14 @@ The Operator options glossary
       :ref:`pxc.volumeSpec.persistentVolumeClaim.accessModes<pxc-volumespec-persistentvolumeclaim-accessmodes>`
 
    advanced
-      :ref:`haproxy.affinity.advanced<haproxy-affinity-advanced>`
 
-      :ref:`proxysql.affinity.advanced<proxysql-affinity-advanced>`
+     ..
 
-      :ref:`pxc.affinity.advanced<pxc-affinity-advanced>`
+       :ref:`haproxy.affinity.advanced<haproxy-affinity-advanced>`
+
+       :ref:`proxysql.affinity.advanced<proxysql-affinity-advanced>`
+
+       :ref:`pxc.affinity.advanced<pxc-affinity-advanced>`
 
    annotations
       :ref:`backup.storages.STORAGE_NAME.annotations<backup-storages-annotations>`

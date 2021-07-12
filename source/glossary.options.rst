@@ -201,7 +201,7 @@ The Operator options glossary
 
       :ref:`haproxy.resources.requests.memory<haproxy-resources-requests-memory>`
 
-      :ref:`haproxy.sidecarResources.limits.memory<haproxy-sidecarresources-limits-memory>
+      :ref:`haproxy.sidecarResources.limits.memory<haproxy-sidecarresources-limits-memory>`
 
       :ref:`haproxy.sidecarResources.requests.memory<haproxy-sidecarresources-requests-memory>`
 

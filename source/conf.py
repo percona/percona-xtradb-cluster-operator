@@ -268,6 +268,9 @@ man_pages = [
      [u'Percona LLC and/or its affiliates 2009-2021'], 1)
 ]
 
+def setup(app):
+    app.add_javascript('js/toggle-menu.js')
+
 def ultimateReplace(app, docname, source):
     result = source[0]
     for key in app.config.ultimate_replacements:

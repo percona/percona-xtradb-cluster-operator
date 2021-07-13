@@ -3,10 +3,12 @@
 Set up Percona XtraDB Cluster cross-site replication
 ====================================================
 
- automates the configuration of Source and Replica Percona XtraDB Clusters in Kubernetes. But we keep in mind that either Source or Replica can run outside of Kubernetes and be out of Operators’ control. In such a case the feature will still work.
+The cross-site replication involves configuring one Percona XtraDB Cluster as *Source*, and another Percona XtraDB Cluster as *Replica* to allow an asynchronous replication between them:
 
  .. image:: ./assets/images/pxc-replication.*
    :align: center
+
+The Operator automates the configuration of Source and Replica Percona XtraDB Clusters, but the feature itself is not bound to Kubernetes. Either *Source* or *Replica* can run outside of Kubernetes and be out of Operators’ control.
 
 .. note:: Cross-site replication is based on `Automatic Asynchronous Replication Connection Failover<https://dev.mysql.com/doc/refman/8.0/en/replication-asynchronous-connection-failover.html>`_. Therefore it requires  MySQL 8.0 (Percona XtraDB Cluster 8.0) to work.
 
@@ -15,12 +17,17 @@ Describe how to stop/start replication
 Describe how to perform a failover
 Describe that new replication user is created (in system users doc and replication doc)
 
-How to configure replication on Source and Replica for the cluster controlled by the Operator?
+Setting up Percona XtraDB Cluster for asynchronous replication without the Operator is described `here <https://www.percona.com/blog/2018/03/19/percona-xtradb-cluster-mysql-asynchronous-replication-and-log-slave-updates/>`_ and is out of the scope of this document.
+
+Configuring the cross-site replication for the cluster controlled by the Operator is explained in the following subsections.
+
+Configuring cross-site replication on Source and Replica instances
+------------------------------------------------------------------
 
 You can configure cross-site replication with ``spec.pxc.replicationChannels`` section in the ``deploy/cr.yaml`` configuration file.
 
 
-Example Source:
+The example for *Source* looks as follows:
 
 .. code:: yaml
 
@@ -30,8 +37,7 @@ Example Source:
        - name: pxc1_to_pxc2
          isSource: true
 
-
-Example Replica:
+Here is the example for *Replica*:
 
 .. code:: yaml
 

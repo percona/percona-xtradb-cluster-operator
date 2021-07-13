@@ -45,7 +45,7 @@ html:
 	@rm -rf source/percona-theme
 	@mv percona-theme-1-4 source/percona-theme
 	@rm percona-theme.tar.gz
-	@sed -i 's/{{ toc }}/{{ toctree\(false\) }}\n<style>\n \.select-wrapper {\n display: inline-flex;\n flex-direction: column;\n  }\n\n \#custom_select {\n margin-bottom: 5px;\n }\n\n \#custom_select_list\.select-hidden {\n display: none;\n }\n\n \#custom_select_list {\n display: inline-flex;\n flex-direction: column;\n padding-left: 0;\n }\n\n \.custom-select__option:not\(:last-child\) {\n margin-bottom: 5x;\n }\n <\/style>\n\n <section class=\"select-wrapper\">\n <div class=\"btn btn-primary\" id=\"custom_select\">\n <span class=\"select-active-text\"><\/span>\n <span class=\"glyphicon glyphicon-chevron-down\"><\/span>\n <\/div>\n <\/section>/' source/percona-theme/localtoc.html
+	@sed -i 's/{{ toc }}/{{ toctree\(false\) }}/' source/percona-theme/localtoc.html
 	@echo "Building html doc"
 
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

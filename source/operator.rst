@@ -187,10 +187,9 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``3``                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | The size of the Percona XtraDB cluster must be >= 3                                       |
+| **Description** | The size of the Percona XtraDB cluster must be 3 or 5 for                                 |
 |                 | `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_. |
-|                 | It also should not exceed 5 and should be an even number unless the                       |
-|                 | ``spec.allowUnsafeConfigurations`` key is set to true.                                    |
+|                 | other values are allowed if the ``spec.allowUnsafeConfigurations`` key is set to true.    |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

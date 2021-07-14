@@ -69,7 +69,7 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-server-
    * - allowUnsafeConfigurations
      - boolean
      - ``false``
-     - Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with less than 3 nodes, with even number of nodes, or without TLS/SSL certificates (if ``false``, unsafe parameters will be automatically changed to safe defaults)
+     - Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with the number of Percona XtdaDB Cluster instances which is less than 3, more than 5, or is an even number, with less than 2 ProxySQL or HAProxy Pods, or without TLS/SSL certificates (if ``false``, unsafe parameters will be automatically changed to safe defaults)
 
    * - enableCRValidationWebhook
      - boolean
@@ -187,8 +187,9 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``3``                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | The size of the Percona XtraDB cluster must be >= 3 for                                   |
-|                 | `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_  |
+| **Description** | The size of the Percona XtraDB cluster must be 3 or 5 for                                 |
+|                 | `High Availability <https://www.percona.com/doc/percona-xtradb-cluster/5.7/intro.html>`_. |
+|                 | other values are allowed if the ``spec.allowUnsafeConfigurations`` key is set to true.    |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -829,10 +830,11 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | int                                                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``3``                                                                                     |
+| **Example**     | ``2``                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The number of the HAProxy Pods `to provide load balancing                                 |
-|                 | <https://www.percona.com/doc/percona-xtradb-cluster/8.0/howtos/haproxy.html>`__           |
+|                 | <https://www.percona.com/doc/percona-xtradb-cluster/8.0/howtos/haproxy.html>`__. It should|
+|                 | be 2 or more unless the ``spec.allowUnsafeConfigurations`` key is set to true.            |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1364,11 +1366,11 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | int                                                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``1``                                                                                     |
+| **Example**     | ``2``                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The number of the ProxySQL daemons `to provide load balancing                             |
-|                 | <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`__          |
-|                 | must be = 1 in current release                                                            |
+|                 | <https://www.percona.com/doc/percona-xtradb-cluster/5.7/howtos/proxysql.html>`__. It      |
+|                 | should be 2 or more unless the ``spec.allowUnsafeConfigurations`` key is set to true.     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

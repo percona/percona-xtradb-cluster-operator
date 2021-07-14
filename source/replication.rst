@@ -26,8 +26,7 @@ Configuring cross-site replication on Source and Replica instances
 
 You can configure cross-site replication with ``spec.pxc.replicationChannels`` subsection in the ``deploy/cr.yaml`` configuration file. It is an array of channels, and each channel has its own name stored in the ``name`` key, and is configured either as *Source* or *Replica* (the ``isSource`` key).
 
-
-The example for *Source* looks as follows:
+If you configure a *Source* cluster, nothing more is needed. Here is an example:
 
 .. code:: yaml
 
@@ -36,6 +35,22 @@ The example for *Source* looks as follows:
        replicationChannels:
        - name: pxc1_to_pxc2
          isSource: true
+
+The claster will be ready for asyncronous replication when you apply changes as usual:
+
+.. code:: bash
+
+   $ kubectl apply -f deploy/cr.yaml
+
+If you configure a *Replica* cluster, you should also specify the following additional information:
+
+* ``eplicationChannels.[].sourcesList`` is the list of *Source* cluster names from which Replica should get the data,
+
+* ``spec.pxc.replicationChannels.[].sourcesList.[].host`` is the host name or IP-address of the Source,
+
+* ``spec.pxc.replicationChannels.[].sourcesList.[].port`` is the port of the source (``3306`` port will be used if nothing spepecified),
+
+* ``spec.pxc.replicationChannels.[].sourcesList.[].weight`` is the *weight* of the source (``100`` by default).
 
 Here is the example for *Replica*:
 
@@ -60,6 +75,12 @@ Here is the example for *Replica*:
            weight: 100
          - host: pxc2.source.percona.com
          - host: pxc3.source.percona.com
+
+The claster will be ready for asyncronous replication when you apply changes as usual:
+
+.. code:: bash
+
+   $ kubectl apply -f deploy/cr.yaml
 
 .. _operator-replication-expose:
 

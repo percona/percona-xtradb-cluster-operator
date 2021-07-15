@@ -111,14 +111,8 @@ Kubernetes.
    The creation process will take some time. The process is over when both
    operator and replica set Pods have reached their Running status:
 
-   .. code:: bash
 
-      $ kubectl get pods -n pxc
-      NAME                                              READY   STATUS    RESTARTS   AGE
-      cluster1-pxc-0                                    1/1     Running   0          5m
-      cluster1-pxc-1                                    1/1     Running   0          4m
-      cluster1-pxc-2                                    1/1     Running   0          2m
-      cluster1-proxysql-0                               1/1     Running   0          5m
+   .. include:: ./assets/code/kubectl-get-pods-response.txt
 
 #. Check connectivity to newly created cluster
 

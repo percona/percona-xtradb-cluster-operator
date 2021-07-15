@@ -13,12 +13,12 @@ require (
 	github.com/go-openapi/strfmt v0.19.5
 	github.com/go-openapi/swag v0.19.9
 	github.com/go-openapi/validate v0.19.10
-	github.com/go-sql-driver/mysql v1.4.1
+	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/hashicorp/go-version v1.1.0
-	github.com/jetstack/cert-manager v0.15.1
+	github.com/jetstack/cert-manager v1.0.4
 	github.com/minio/minio-go/v7 v7.0.6
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/pkg/errors v0.9.1

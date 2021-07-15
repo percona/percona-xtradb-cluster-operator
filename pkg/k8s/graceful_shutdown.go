@@ -24,7 +24,8 @@ func StartStopSignalHandler(client client.Client, namespaces []string) <-chan st
 }
 
 func handleStopSignal(client client.Client, namespaces []string, stopCH chan struct{}) {
-	<-signals.SetupSignalHandler()
+	ctx := signals.SetupSignalHandler()
+	<-ctx.Done()
 	stop(client, namespaces)
 	close(stopCH)
 }

@@ -39,12 +39,12 @@ type hook struct {
 	namespace string
 }
 
-func (h *hook) Start(i <-chan struct{}) error {
+func (h *hook) Start(ctx context.Context) error {
 	err := h.setup()
 	if err != nil {
 		log.Log.Info("failed to setup webhook", "err", err.Error())
 	}
-	<-i
+	<-ctx.Done()
 	return nil
 }
 

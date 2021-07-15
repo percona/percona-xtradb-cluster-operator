@@ -5,7 +5,7 @@ Set up Percona XtraDB Cluster cross-site replication
 
 The cross-site replication involves configuring one Percona XtraDB Cluster as *Source*, and another Percona XtraDB Cluster as *Replica* to allow an asynchronous replication between them:
 
- .. image:: ./assets/images/pxc-replication.*
+ .. image:: ./assets/images/pxc-replication.svg
    :align: center
 
 The Operator automates configuration of *Source* and *Replica* Percona XtraDB Clusters, but the feature itself is not bound to Kubernetes. Either *Source* or *Replica* can run outside of Kubernetes and be out of the Operators’ control. 
@@ -21,12 +21,20 @@ Setting up Percona XtraDB Cluster for asynchronous replication without the Opera
 
 Configuring the cross-site replication for the cluster controlled by the Operator is explained in the following subsections.
 
-Configuring cross-site replication on Source and Replica instances
-------------------------------------------------------------------
+.. contents:: :local:
 
-You can configure cross-site replication with ``spec.pxc.replicationChannels`` subsection in the ``deploy/cr.yaml`` configuration file. It is an array of channels, and each channel has its own name stored in the ``name`` key, and is configured either as *Source* or *Replica* (the ``isSource`` key).
+.. _operator-replication-source:
 
-If you configure a *Source* cluster, nothing more is needed. Here is an example:
+Configuring cross-site replication on Source instances
+------------------------------------------------------
+
+You can configure *Source* instances for cross-site replication with ``spec.pxc.replicationChannels`` subsection in the ``deploy/cr.yaml`` configuration file. It is an array of channels, and you should provide the following keys for the channel in your *Source* Percona XtraDB Cluster:
+
+* ``pxc.replicationChannels.[].name`` key is the name of the channel,
+
+* ``pxc.replicationChannels.[].isSource`` key should be set to ``true``.
+
+Here is an example:
 
 .. code:: yaml
 
@@ -36,23 +44,32 @@ If you configure a *Source* cluster, nothing more is needed. Here is an example:
        - name: pxc1_to_pxc2
          isSource: true
 
-The claster will be ready for asyncronous replication when you apply changes as usual:
+The cluster will be ready for asynchronous replication when you apply changes as usual:
 
 .. code:: bash
 
    $ kubectl apply -f deploy/cr.yaml
 
-If you configure a *Replica* cluster, you should also specify the following additional information:
+.. _operator-replication-replica:
 
-* ``eplicationChannels.[].sourcesList`` is the list of *Source* cluster names from which Replica should get the data,
+Configuring cross-site replication on Replica instances
+-------------------------------------------------------
 
-* ``spec.pxc.replicationChannels.[].sourcesList.[].host`` is the host name or IP-address of the Source,
+You can configure *Replica* instances for cross-site replication with ``spec.pxc.replicationChannels`` subsection in the ``deploy/cr.yaml`` configuration file. It is an array of channels, and you should provide the following keys for the channel in your *Replica* Percona XtraDB Cluster:
 
-* ``spec.pxc.replicationChannels.[].sourcesList.[].port`` is the port of the source (``3306`` port will be used if nothing spepecified),
+* ``pxc.replicationChannels.[].name`` key is the name of the channel,
+
+* ``pxc.replicationChannels.[].isSource`` key should be set to ``false``,
+
+* ``pxc.replicationChannels.[].sourcesList`` is the list of *Source* cluster names from which Replica should get the data,
+
+* ``pxc.replicationChannels.[].sourcesList.[].host`` is the host name or IP-address of the Source,
+
+* ``pxc.replicationChannels.[].sourcesList.[].port`` is the port of the source (``3306`` port will be used if nothing specified),
 
 * ``spec.pxc.replicationChannels.[].sourcesList.[].weight`` is the *weight* of the source (``100`` by default).
 
-Here is the example for *Replica*:
+Here is the example:
 
 .. code:: yaml
 
@@ -76,7 +93,7 @@ Here is the example for *Replica*:
          - host: pxc2.source.percona.com
          - host: pxc3.source.percona.com
 
-The claster will be ready for asyncronous replication when you apply changes as usual:
+The cluster will be ready for asynchronous replication when you apply changes as usual:
 
 .. code:: bash
 
@@ -105,7 +122,9 @@ make it possible for the *Replica* cluster to connect. This is done through the
 
 .. note:: This will create the internal LoadBalancer per each Percona XtraDB
    Cluster node.
-   
+
+.. _operator-replication-user:
+
 System user for replication
 ---------------------------
 

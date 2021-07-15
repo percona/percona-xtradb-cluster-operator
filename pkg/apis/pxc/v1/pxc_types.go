@@ -149,8 +149,8 @@ type ClusterCondition struct {
 }
 
 type AppStatus struct {
-	Size              int32    `json:"size,omitempty"`
-	Ready             int32    `json:"ready,omitempty"`
+	Size              int32    `json:"size"`
+	Ready             int32    `json:"ready"`
 	Status            AppState `json:"status,omitempty"`
 	Message           string   `json:"message,omitempty"`
 	Version           string   `json:"version,omitempty"`

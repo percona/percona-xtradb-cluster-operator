@@ -182,7 +182,7 @@ func NewCronRegistry() CronRegistry {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
 	}
@@ -1194,7 +1194,7 @@ func deleteConfigMapIfExists(cl client.Client, cr *api.PerconaXtraDBCluster, cmN
 	return cl.Delete(context.Background(), configMap)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error {
+func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj client.Object) error {
 	metaAccessor, ok := obj.(metav1.ObjectMetaAccessor)
 	if !ok {
 		return errors.New("can't convert object to ObjectMetaAccessor")
@@ -1223,7 +1223,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj runtime.Object) error
 	if val.Kind() == reflect.Ptr {
 		val = reflect.Indirect(val)
 	}
-	oldObject := reflect.New(val.Type()).Interface().(runtime.Object)
+	oldObject := reflect.New(val.Type()).Interface().(client.Object)
 
 	err = r.client.Get(context.Background(), types.NamespacedName{
 		Name:      objectMeta.GetName(),

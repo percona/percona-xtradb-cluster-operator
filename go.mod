@@ -5,6 +5,8 @@ go 1.13
 require (
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc
 	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
+	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/go-ini/ini v1.25.4
 	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.1
@@ -14,13 +16,17 @@ require (
 	github.com/go-openapi/swag v0.19.9
 	github.com/go-openapi/validate v0.19.10
 	github.com/go-sql-driver/mysql v1.4.1
+	github.com/gobuffalo/packr v1.30.1 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/hashicorp/go-version v1.1.0
+	github.com/helm/helm-2to3 v0.5.1 // indirect
 	github.com/jetstack/cert-manager v0.15.1
+	github.com/martinlindhe/base36 v1.0.0 // indirect
 	github.com/minio/minio-go/v7 v7.0.6
-	github.com/operator-framework/operator-sdk v0.17.1
+	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88 // indirect
+	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
 	go.uber.org/multierr v1.6.0 // indirect

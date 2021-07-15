@@ -85,17 +85,7 @@ Install Percona XtraDB Cluster on Kubernetes
    Creation process will take some time. The process is over when both
    operator and replica set pod have reached their Running status:
 
-   .. code:: bash
-
-      $ kubectl get pods
-      NAME                                              READY   STATUS    RESTARTS   AGE
-      cluster1-haproxy-0                                1/1     Running   0          5m
-      cluster1-haproxy-1                                1/1     Running   0          5m
-      cluster1-haproxy-2                                1/1     Running   0          5m
-      cluster1-pxc-0                                    1/1     Running   0          5m
-      cluster1-pxc-1                                    1/1     Running   0          4m
-      cluster1-pxc-2                                    1/1     Running   0          2m
-      percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
+   .. include:: ./assets/code/kubectl-get-pods-response.txt
 
 #. Check connectivity to newly created cluster
 

@@ -25,20 +25,19 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Certificate is a type to represent a Certificate from ACME
+// A Certificate resource should be created to ensure an up to date and signed
+// x509 certificate is stored in the Kubernetes Secret resource named in `spec.secretName`.
+//
+// The stored certificate will be renewed before it expires (as configured by `spec.renewBefore`).
 // +k8s:openapi-gen=true
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
-// +kubebuilder:printcolumn:name="Secret",type="string",JSONPath=".spec.secretName",description=""
-// +kubebuilder:printcolumn:name="Issuer",type="string",JSONPath=".spec.issuerRef.name",description="",priority=1
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",priority=1
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:path=certificates,shortName=cert;certs
 type Certificate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CertificateSpec   `json:"spec,omitempty"`
+	// Desired state of the Certificate resource.
+	Spec CertificateSpec `json:"spec,omitempty"`
+
+	// Status of the Certificate. This is set and managed automatically.
 	Status CertificateStatus `json:"status,omitempty"`
 }
 
@@ -56,7 +55,10 @@ type CertificateList struct {
 type KeyAlgorithm string
 
 const (
-	RSAKeyAlgorithm   KeyAlgorithm = "rsa"
+	// Denotes the RSA private key type.
+	RSAKeyAlgorithm KeyAlgorithm = "rsa"
+
+	// Denotes the ECDSA private key type.
 	ECDSAKeyAlgorithm KeyAlgorithm = "ecdsa"
 )
 
@@ -64,7 +66,15 @@ const (
 type KeyEncoding string
 
 const (
+	// PKCS1 key encoding will produce PEM files that include the type of
+	// private key as part of the PEM header, e.g. "BEGIN RSA PRIVATE KEY".
+	// If the keyAlgorithm is set to 'ECDSA', this will produce private keys
+	// that use the "BEGIN EC PRIVATE KEY" header.
 	PKCS1 KeyEncoding = "pkcs1"
+
+	// PKCS8 key encoding will produce PEM files with the "BEGIN PRIVATE KEY"
+	// header. It encodes the keyAlgorithm of the private key as part of the
+	// DER encoded PEM block.
 	PKCS8 KeyEncoding = "pkcs8"
 )
 
@@ -84,33 +94,42 @@ type CertificateSpec struct {
 	// +optional
 	CommonName string `json:"commonName,omitempty"`
 
-	// Certificate default Duration
+	// The requested 'duration' (i.e. lifetime) of the Certificate.
+	// This option may be ignored/overridden by some issuer types.
+	// If overridden and `renewBefore` is greater than the actual certificate
+	// duration, the certificate will be automatically renewed 2/3rds of the
+	// way through the certificate's duration.
 	// +optional
 	Duration *metav1.Duration `json:"duration,omitempty"`
 
-	// Certificate renew before expiration duration
+	// The amount of time before the currently issued certificate's `notAfter`
+	// time that cert-manager will begin to attempt to renew the certificate.
+	// If this value is greater than the total duration of the certificate
+	// (i.e. notAfter - notBefore), it will be automatically renewed 2/3rds of
+	// the way through the certificate's duration.
 	// +optional
 	RenewBefore *metav1.Duration `json:"renewBefore,omitempty"`
 
-	// DNSNames is a list of subject alt names to be used on the Certificate.
+	// DNSNames is a list of DNS subjectAltNames to be set on the Certificate.
 	// +optional
 	DNSNames []string `json:"dnsNames,omitempty"`
 
-	// IPAddresses is a list of IP addresses to be used on the Certificate
+	// IPAddresses is a list of IP address subjectAltNames to be set on the Certificate.
 	// +optional
 	IPAddresses []string `json:"ipAddresses,omitempty"`
 
-	// URISANs is a list of URI Subject Alternative Names to be set on this
-	// Certificate.
+	// URISANs is a list of URI subjectAltNames to be set on the Certificate.
 	// +optional
 	URISANs []string `json:"uriSANs,omitempty"`
 
-	// EmailSANs is a list of Email Subject Alternative Names to be set on this
-	// Certificate.
+	// EmailSANs is a list of email subjectAltNames to be set on the Certificate.
 	// +optional
 	EmailSANs []string `json:"emailSANs,omitempty"`
 
-	// SecretName is the name of the secret resource to store this secret in
+	// SecretName is the name of the secret resource that will be automatically
+	// created and managed by this Certificate resource.
+	// It will be populated with a private key and certificate, signed by the
+	// denoted issuer.
 	SecretName string `json:"secretName"`
 
 	// Keystores configures additional keystore output formats stored in the
@@ -126,19 +145,22 @@ type CertificateSpec struct {
 	// The 'name' field in this stanza is required at all times.
 	IssuerRef cmmeta.ObjectReference `json:"issuerRef"`
 
-	// IsCA will mark this Certificate as valid for signing.
-	// This implies that the 'cert sign' usage is set
+	// IsCA will mark this Certificate as valid for certificate signing.
+	// This will automatically add the `cert sign` usage to the list of `usages`.
 	// +optional
 	IsCA bool `json:"isCA,omitempty"`
 
-	// Usages is the set of x509 actions that are enabled for a given key. Defaults are ('digital signature', 'key encipherment') if empty
+	// Usages is the set of x509 usages that are requested for the certificate.
+	// Defaults to `digital signature` and `key encipherment` if not specified.
 	// +optional
 	Usages []KeyUsage `json:"usages,omitempty"`
 
 	// KeySize is the key bit size of the corresponding private key for this certificate.
-	// If provided, value must be between 2048 and 8192 inclusive when KeyAlgorithm is
-	// empty or is set to "rsa", and value must be one of (256, 384, 521) when
-	// KeyAlgorithm is set to "ecdsa".
+	// If `keyAlgorithm` is set to `RSA`, valid values are `2048`, `4096` or `8192`,
+	// and will default to `2048` if not specified.
+	// If `keyAlgorithm` is set to `ECDSA`, valid values are `256`, `384` or `521`,
+	// and will default to `256` if not specified.
+	// No other values are allowed.
 	// +kubebuilder:validation:ExclusiveMaximum=false
 	// +kubebuilder:validation:Maximum=8192
 	// +kubebuilder:validation:ExclusiveMinimum=false
@@ -148,7 +170,7 @@ type CertificateSpec struct {
 
 	// KeyAlgorithm is the private key algorithm of the corresponding private key
 	// for this certificate. If provided, allowed values are either "rsa" or "ecdsa"
-	// If KeyAlgorithm is specified and KeySize is not provided,
+	// If `keyAlgorithm` is specified and `keySize` is not provided,
 	// key size of 256 will be used for "ecdsa" key algorithm and
 	// key size of 2048 will be used for "rsa" key algorithm.
 	// +optional
@@ -158,6 +180,7 @@ type CertificateSpec struct {
 	// for this certificate's private key to be encoded in. If provided, allowed
 	// values are "pkcs1" and "pkcs8" standing for PKCS#1 and PKCS#8, respectively.
 	// If KeyEncoding is not specified, then PKCS#1 will be used by default.
+	// +optional
 	KeyEncoding KeyEncoding `json:"keyEncoding,omitempty"`
 
 	// Options to control private keys used for the Certificate.
@@ -270,16 +293,34 @@ type PKCS12Keystore struct {
 
 // CertificateStatus defines the observed state of Certificate
 type CertificateStatus struct {
+	// List of status conditions to indicate the status of certificates.
+	// Known condition types are `Ready` and `Issuing`.
 	// +optional
 	Conditions []CertificateCondition `json:"conditions,omitempty"`
 
+	// LastFailureTime is the time as recorded by the Certificate controller
+	// of the most recent failure to complete a CertificateRequest for this
+	// Certificate resource.
+	// If set, cert-manager will not re-request another Certificate until
+	// 1 hour has elapsed from this time.
 	// +optional
 	LastFailureTime *metav1.Time `json:"lastFailureTime,omitempty"`
 
+	// The time after which the certificate stored in the secret named
+	// by this resource in spec.secretName is valid.
+	// +optional
+	NotBefore *metav1.Time `json:"notBefore,omitempty"`
+
 	// The expiration time of the certificate stored in the secret named
-	// by this resource in spec.secretName.
+	// by this resource in `spec.secretName`.
 	// +optional
 	NotAfter *metav1.Time `json:"notAfter,omitempty"`
+
+	// RenewalTime is the time at which the certificate will be next
+	// renewed.
+	// If not set, no upcoming renewal is scheduled.
+	// +optional
+	RenewalTime *metav1.Time `json:"renewalTime,omitempty"`
 
 	// The current 'revision' of the certificate as issued.
 	//
@@ -310,7 +351,7 @@ type CertificateStatus struct {
 
 // CertificateCondition contains condition information for an Certificate.
 type CertificateCondition struct {
-	// Type of the condition, currently ('Ready').
+	// Type of the condition, known values are ('Ready', `Issuing`).
 	Type CertificateConditionType `json:"type"`
 
 	// Status of the condition, one of ('True', 'False', 'Unknown').

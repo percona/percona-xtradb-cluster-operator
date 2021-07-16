@@ -324,9 +324,9 @@ type PodSpec struct {
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
-	ReadinessProbes               []corev1.Probe                          `json:"readinessProbes,omitempty"`
+	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`
 	LivenessInitialDelaySeconds   *int32                                  `json:"livenessDelaySec,omitempty"`
-	LiveneesProbes                []corev1.Probe                          `json:"liveneesProbes,omitempty"`
+	LiveneesProbes                corev1.Probe                            `json:"liveneesProbes,omitempty"`
 	PodSecurityContext            *corev1.PodSecurityContext              `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
@@ -514,6 +514,30 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 	if c.PXC != nil {
 		changed = c.PXC.VolumeSpec.reconcileOpts()
+
+		if c.PXC.ReadinessInitialDelaySeconds != nil {
+			c.PXC.ReadinessProbes.InitialDelaySeconds = *c.PXC.ReadinessInitialDelaySeconds
+		} else {
+			c.PXC.ReadinessProbes.InitialDelaySeconds = 15
+		}
+
+		if c.PXC.LivenessInitialDelaySeconds != nil {
+			c.PXC.LiveneesProbes.InitialDelaySeconds = *c.PXC.LivenessInitialDelaySeconds
+		} else {
+			c.PXC.LiveneesProbes.InitialDelaySeconds = 300
+		}
+		if c.PXC.LiveneesProbes.TimeoutSeconds == 1 {
+			c.PXC.LiveneesProbes.TimeoutSeconds = 5
+		}
+		if c.PXC.ReadinessProbes.PeriodSeconds == 10 {
+			c.PXC.ReadinessProbes.PeriodSeconds = 30
+		}
+		if c.PXC.ReadinessProbes.FailureThreshold == 3 {
+			c.PXC.ReadinessProbes.FailureThreshold = 5
+		}
+		if c.PXC.ReadinessProbes.TimeoutSeconds == 1 {
+			c.PXC.ReadinessProbes.TimeoutSeconds = 15
+		}
 
 		if len(c.PXC.ImagePullPolicy) == 0 {
 			c.PXC.ImagePullPolicy = corev1.PullAlways

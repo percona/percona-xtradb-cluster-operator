@@ -241,6 +241,8 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Name:          "mysqlx",
 			},
 		)
+		appc.LivenessProbe = &cr.Spec.PXC.LiveneesProbes
+		appc.ReadinessProbe = &cr.Spec.PXC.ReadinessProbes
 	}
 
 	res, err := app.CreateResources(spec.Resources)

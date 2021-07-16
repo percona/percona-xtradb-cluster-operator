@@ -98,6 +98,10 @@ The following table shows system users' names and purposes.
       - operator
       - operator
       - Database administrative user, should be used only by the Operator
+    * - Replication
+      - replication
+      - replication
+      - Administrative user needed for `cross-site Percona XtraDB Cluster <operator-replication>`_
 
 YAML Object Format
 ******************
@@ -122,6 +126,8 @@ it should match the following simple format:
      proxyadmin: admin_password
      pmmserver: supa|^|pazz
      operator: operatoradmin
+     replication: repl_password
+
 
 The example above matches
 :ref:`what is shipped in deploy/secrets.yaml<users.development-mode>` which
@@ -183,6 +189,7 @@ proxyuser    ``s3cret``
 proxyadmin   ``admin_password``
 pmmserver    ``supa|^|pazz``
 operator     ``operatoradmin``
+replication  ``repl_password``
 ============ ========================
 
 .. warning:: Do not use the default Percona XtraDB Cluster user passwords in

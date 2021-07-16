@@ -1,7 +1,11 @@
 admin-admin_credentials	proxyadmin:admin_password
+admin-checksum_admin_variables	true
 admin-checksum_mysql_query_rules	true
 admin-checksum_mysql_servers	true
 admin-checksum_mysql_users	true
+admin-checksum_mysql_variables	true
+admin-cluster_admin_variables_diffs_before_sync	3
+admin-cluster_admin_variables_save_to_disk	true
 admin-cluster_check_interval_ms	200
 admin-cluster_check_status_frequency	100
 admin-cluster_mysql_query_rules_diffs_before_sync	1
@@ -10,12 +14,15 @@ admin-cluster_mysql_servers_diffs_before_sync	1
 admin-cluster_mysql_servers_save_to_disk	true
 admin-cluster_mysql_users_diffs_before_sync	1
 admin-cluster_mysql_users_save_to_disk	true
+admin-cluster_mysql_variables_diffs_before_sync	3
+admin-cluster_mysql_variables_save_to_disk	true
 admin-cluster_password	admin_password
 admin-cluster_proxysql_servers_diffs_before_sync	1
 admin-cluster_proxysql_servers_save_to_disk	true
 admin-cluster_username	proxyadmin
 admin-hash_passwords	true
 admin-mysql_ifaces	0.0.0.0:6032
+admin-prometheus_memory_metrics_interval	61
 admin-read_only	false
 admin-refresh_interval	2000
 admin-restapi_enabled	false
@@ -30,9 +37,10 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.0.17-percona-1.1
+admin-version	2.1.1-percona-1.1
 admin-web_enabled	false
 admin-web_port	6080
+admin-web_verbosity	0
 mysql-add_ldap_user_comment	
 mysql-auditlog_filename	
 mysql-auditlog_filesize	104857600
@@ -64,6 +72,8 @@ mysql-default_reconnect	true
 mysql-default_schema	information_schema
 mysql-default_session_track_gtids	OFF
 mysql-default_tx_isolation	READ-COMMITTED
+mysql-enable_client_deprecate_eof	true
+mysql-enable_server_deprecate_eof	true
 mysql-enforce_autocommit_on_reads	false
 mysql-eventslog_default_log	0
 mysql-eventslog_filename	
@@ -71,7 +81,6 @@ mysql-eventslog_filesize	104857600
 mysql-eventslog_format	1
 mysql-firewall_whitelist_enabled	0
 mysql-firewall_whitelist_errormsg	Firewall blocked this query
-mysql-forward_autocommit	false
 mysql-free_connections_pct	10
 mysql-handle_unknown_charset	1
 mysql-have_compress	true
@@ -82,6 +91,7 @@ mysql-interfaces	0.0.0.0:3306;0.0.0.0:33062
 mysql-keep_multiplexing_variables	tx_isolation,version
 mysql-kill_backend_connection_when_disconnect	true
 mysql-ldap_user_variable	
+mysql-log_mysql_warnings_enabled	false
 mysql-log_unhealthy_connections	true
 mysql-long_query_time	1000
 mysql-max_allowed_packet	67108864
@@ -132,6 +142,7 @@ mysql-poll_timeout_on_failure	100
 mysql-query_cache_size_MB	256
 mysql-query_cache_stores_empty_result	true
 mysql-query_digests	true
+mysql-query_digests_grouping_limit	3
 mysql-query_digests_lowercase	false
 mysql-query_digests_max_digest_length	2048
 mysql-query_digests_max_query_length	65000

@@ -122,7 +122,10 @@ the following contents:
 
 * **backup name** in the ``metadata.name`` key,
 * **Percona XtraDB Cluster name** in the ``spec.pxcCluster`` key,
-* **storage name** from ``deploy/cr.yaml`` in the ``spec.storageName`` key.
+* **storage name** from ``deploy/cr.yaml`` in the ``spec.storageName`` key,
+* **S3 backup finalizer** set by the ``metadata.finalizers.delete-s3-backup``
+  key (it triggers the actual deletion of backup files from the S3 bucket when
+  there is a manual or scheduled removal of the corresponding backup object).
 
 The example of the backup configuration file is `deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`_.
 
@@ -141,6 +144,8 @@ When the backup destination is configured and applied with `kubectl apply -f dep
       apiVersion: pxc.percona.com/v1
       kind: PerconaXtraDBClusterBackup
       metadata:
+        finalizers:
+          - delete-s3-backup
         name: backup1
       spec:
         pxcCluster: cluster1

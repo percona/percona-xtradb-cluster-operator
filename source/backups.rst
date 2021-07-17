@@ -27,6 +27,7 @@ can be done manually at any moment.
 Making scheduled backups
 ------------------------
 
+The string for test typos and offensive words - master executor.
 Since backups are stored separately on the Amazon S3, a secret with
 ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` should be present on
 the Kubernetes cluster. The secrets file with these base64-encoded keys should

@@ -510,6 +510,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		}
 	}
 
+	if o.CompareVersionWith("1.9.0") >= 0 {
+		err = r.reconcileReplication(o)
+		if err != nil {
+			return rr, errors.Wrap(err, "reconcile replication")
+		}
+	}
+
 	err = r.reconcileBackups(o)
 	if err != nil {
 		return reconcile.Result{}, err

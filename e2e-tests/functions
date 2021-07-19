@@ -313,6 +313,7 @@ compare_kubectl() {
 		| yq d - '**.namespace' \
 		| yq d - '**.uid' \
 		| yq d - 'metadata.resourceVersion' \
+		| yq d - '**.env.(name==CLUSTER_HASH)' \
 		| yq d - 'metadata.selfLink' \
 		| yq d - 'metadata.deletionTimestamp' \
 		| yq d - 'metadata.annotations."k8s.v1.cni.cncf.io*"' \

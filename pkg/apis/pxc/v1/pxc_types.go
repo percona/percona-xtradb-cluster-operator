@@ -60,9 +60,15 @@ type ServiceExpose struct {
 }
 
 type ReplicationChannel struct {
-	Name       string `json:"name,omitempty"`
-	IsSource   bool   `json:"isSource,omitempty"`
-	SecretName string `json:"secretName,omitempty"`
+	Name        string              `json:"name,omitempty"`
+	IsSource    bool                `json:"isSource,omitempty"`
+	SourcesList []ReplicationSource `json:"sourcesList,omitempty"`
+}
+
+type ReplicationSource struct {
+	Host   string `json:"host,omitempty"`
+	Port   int    `json:"port,omitempty"`
+	Weight int    `json:"weight,omitempty"`
 }
 
 type TLSSpec struct {
@@ -192,9 +198,6 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	for _, v := range c.PXC.ReplicationChannels {
 		if v.Name == "" {
 			return errors.New("pxc.replicationChannels.Name can't be empty")
-		}
-		if v.SecretName == "" {
-			return errors.New("pxc.replicationChannels.SecretName can't be empty")
 		}
 	}
 

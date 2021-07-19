@@ -39,7 +39,8 @@ function mysql_root_exec() {
 
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
 CLUSTER_NAME="$(hostname -f | cut -d'.' -f2)"
-SERVER_ID=${HOSTNAME/$CLUSTER_NAME-}
+SERVER_NUM=${HOSTNAME/$CLUSTER_NAME-}
+SERVER_ID=${CLUSTER_HASH}${SERVER_NUM}
 NODE_NAME=$(hostname -f)
 NODE_PORT=3306
 
@@ -80,7 +81,7 @@ fi
 grep -E -q "^[#]?wsrep_sst_donor" "$CFG" || sed '/^\[mysqld\]/a wsrep_sst_donor=\n' ${CFG} 1<>${CFG}
 grep -E -q "^[#]?wsrep_node_incoming_address" "$CFG" || sed '/^\[mysqld\]/a wsrep_node_incoming_address=\n' ${CFG} 1<>${CFG}
 grep -E -q "^[#]?wsrep_provider_options" "$CFG" || sed '/^\[mysqld\]/a wsrep_provider_options="pc.weight=10"\n' ${CFG} 1<>${CFG}
-sed -r "s|^[#]?server_id=.*$|server_id=1${SERVER_ID}|" ${CFG} 1<>${CFG}
+sed -r "s|^[#]?server_id=.*$|server_id=${SERVER_ID}|" ${CFG} 1<>${CFG}
 sed -r "s|^[#]?coredumper$|coredumper|" ${CFG} 1<>${CFG}
 sed -r "s|^[#]?wsrep_node_address=.*$|wsrep_node_address=${NODE_IP}|" ${CFG} 1<>${CFG}
 sed -r "s|^[#]?wsrep_cluster_name=.*$|wsrep_cluster_name=${CLUSTER_NAME}|" ${CFG} 1<>${CFG}

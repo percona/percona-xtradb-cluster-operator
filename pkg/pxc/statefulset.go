@@ -50,7 +50,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.Volumes = sfsVolume.Volumes
 	}
 
-	appC, err := sfs.AppContainer(podSpec, secrets, cr)
+	appC, err := sfs.AppContainer(podSpec, secrets, cr, pod.Volumes)
 	if err != nil {
 		return nil, errors.Wrap(err, "app container")
 	}

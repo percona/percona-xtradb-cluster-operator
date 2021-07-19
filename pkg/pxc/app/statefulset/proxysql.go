@@ -1,6 +1,7 @@
 package statefulset
 
 import (
+	"errors"
 	"fmt"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -11,8 +12,9 @@ import (
 )
 
 const (
-	proxyName           = "proxysql"
-	proxyDataVolumeName = "proxydata"
+	proxyName             = "proxysql"
+	proxyDataVolumeName   = "proxydata"
+	proxyConfigVolumeName = "config"
 )
 
 type Proxy struct {
@@ -52,7 +54,8 @@ func (c *Proxy) Name() string {
 	return proxyName
 }
 
-func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+	availableVolumes []corev1.Volume) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            proxyName,
 		Image:           spec.Image,
@@ -79,7 +82,8 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 			{
 				Name:      "ssl-internal",
 				MountPath: "/etc/proxysql/ssl-internal",
-			}},
+			},
+		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
@@ -124,9 +128,10 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		}
 
 	}
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
+
+	if api.ContainsVolume(availableVolumes, proxyConfigVolumeName) {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "config",
+			Name:      proxyConfigVolumeName,
 			MountPath: "/etc/proxysql/",
 		})
 	}
@@ -367,20 +372,23 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 }
 
 func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
-	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	ls := c.Labels()
+
+	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig),
 	)
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
-		configVolume, err := vg(cr.Namespace, "config", ls["app.kubernetes.io/instance"]+"-proxysql")
-		if err != nil {
-			return nil, err
-		}
+
+	configVolume, err := vg(cr.Namespace, proxyConfigVolumeName, ls["app.kubernetes.io/instance"]+"-proxysql", false)
+	if err != nil && !errors.Is(err, api.NoCustomVolumeErr) {
+		return nil, err
+	}
+	if err == nil {
 		vol.Volumes = append(vol.Volumes, configVolume)
 	}
+
 	return vol, nil
 }
 

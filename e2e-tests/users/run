@@ -21,8 +21,6 @@ patch_secret "my-cluster-secrets" "root" "$newpassencrypted"
 sleep 15
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uroot -p$newpass"
 
-
-
 desc 'test proxyadmin'
 kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":3}}}"
 sleep 15
@@ -33,8 +31,6 @@ wait_cluster_consistency "$cluster" 3 3
 compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-0" "" -c'proxysql'
 compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-1" "" -c'proxysql'
 compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-2" "" -c'proxysql'
-
-
 
 desc 'test xtrabackup'
 kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":1}}}"
@@ -77,15 +73,15 @@ compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p$
 newpass=$(getSecretData "my-cluster-secrets-2" "root")
 desc 'test new users sync'
 run_mysql \
-        "CREATE USER 'testsync'@'%' IDENTIFIED BY '$newpass';" \
-        "-h $cluster-pxc -uroot -p$newpass"
+	"CREATE USER 'testsync'@'%' IDENTIFIED BY '$newpass';" \
+	"-h $cluster-pxc -uroot -p$newpass"
 sleep 30
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -utestsync -p$newpass"
 
 pass=$(getSecretData "internal-some-name" "operator")
 desc 'check secret without operator'
 kubectl_bin apply \
-        -f "$test_dir/conf/secrets.yml"
+	-f "$test_dir/conf/secrets.yml"
 sleep 15
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p$pass"
 

@@ -36,6 +36,12 @@ if oc get projects; then
 	esac
 fi
 
+if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then
+	EKS=1
+else
+	EKS=0
+fi
+
 KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
@@ -350,7 +356,9 @@ compare_kubectl() {
 		| yq d - '**.preemptionPolicy' \
 		| yq d - 'spec.ipFamilies' \
 		| yq d - 'spec.ipFamilyPolicy' \
-		| sed 's/namespace\:.*name/name/' \
+		| $sed 's#^apiVersion: policy/v1beta1#apiVersion: policy/v1#' \
+		| $sed 's/name: kube-api-access-.*$/name: kube-api-access/' \
+		| $sed 's/namespace\:.*name/name/' \
 			>${new_result}
 	# last sed is needed for backup cronjob content
 

@@ -19,9 +19,7 @@ check_haproxy_writer() {
 main() {
 	create_infra $namespace
 
-	if [[ ${OPENSHIFT} == 4 ]]; then
-		apply_config "$test_dir/conf/container-rc.yaml"
-	elif [[ -z ${OPENSHIFT} ]] && [[ $(echo "$KUBE_VERSION >= 1.19" | bc -l) -eq 1 ]]; then
+	if version_gt "1.19" && [ $EKS -ne 1 ]; then
 		apply_config "$test_dir/conf/container-rc.yaml"
 	else
 		apply_config "$test_dir/conf/docker-rc.yaml"

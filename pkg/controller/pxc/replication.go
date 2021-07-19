@@ -3,13 +3,19 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 
+	"github.com/go-logr/logr"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -84,6 +90,193 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 		}
 	}
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtraDBCluster) error {
+	if cr.Status.PXC.Ready < 1 || len(cr.Spec.PXC.ReplicationChannels) == 0 {
+		return nil
+	}
+
+	sfs := statefulset.NewNode(cr)
+
+	list := corev1.PodList{}
+	if err := r.client.List(context.TODO(),
+		&list,
+		&client.ListOptions{
+			Namespace:     cr.Namespace,
+			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+		},
+	); err != nil {
+		return errors.Wrap(err, "get pod list")
+	}
+
+	primary, err := r.getPrimaryPod(cr)
+	if err != nil {
+		return errors.Wrap(err, "get primary pxc pod")
+	}
+
+	for _, pod := range list.Items {
+		if pod.Status.PodIP == primary || pod.Name == primary {
+			primary = fmt.Sprintf("%s.%s.%s", pod.Name, sfs.Name(), cr.Namespace)
+			break
+		}
+	}
+
+	sort.Slice(list.Items, func(i, j int) bool {
+		return list.Items[i].Name > list.Items[j].Name
+	})
+
+	var primaryPod corev1.Pod
+	for _, pod := range list.Items {
+		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.Name(), cr.Namespace)) {
+			primaryPod = pod
+			break
+		}
+	}
+
+	user := "root"
+	port := int32(3306)
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		port = int32(33062)
+	}
+
+	primaryDB, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
+	if err != nil {
+		return errors.Wrap(err, "failed to connect to pod "+primaryPod.Name)
+	}
+
+	err = primaryDB.DisableLogBin()
+	if err != nil {
+		return errors.Wrap(err, "failed to stop binlogging")
+	}
+
+	defer primaryDB.Close()
+
+	isReplica, err := primaryDB.IsReplica()
+	if err != nil {
+		return errors.Wrap(err, "failed to check if primary is replica")
+	}
+
+	// if primary pod is not a replica, we need to make it as replica, and stop replication on other pods
+	if !isReplica {
+		r.log.Info("primary is not replica, stopping all replication")
+		for _, pod := range list.Items {
+			if pod.Name == primaryPod.Name {
+				continue
+			}
+
+			db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
+			if err != nil {
+				return errors.Wrap(err, "failed to connect to pod "+pod.Name)
+			}
+			err = db.StopAllReplication()
+			db.Close()
+			if err != nil {
+				return errors.Wrap(err, "stop replication on pod "+pod.Name)
+			}
+		}
+	}
+
+	sysUsersSecretObj := corev1.Secret{}
+	err = r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      cr.Spec.SecretsName,
+		},
+		&sysUsersSecretObj,
+	)
+	if err != nil {
+		return errors.Wrap(err, "get secrets")
+	}
+
+	for _, channels := range cr.Spec.PXC.ReplicationChannels {
+		if channels.IsSource {
+			continue
+		}
+		err = manageReplicationChannel(r.log, primaryDB, channels, !isReplica, string(sysUsersSecretObj.Data["replication"]))
+		if err != nil {
+			return errors.Wrap(err, "manage replication channel "+channels.Name)
+		}
+	}
+
+	return nil
+}
+
+func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, channel api.ReplicationChannel, stopped bool, replicaPW string) error {
+	currentSources, err := primaryDB.ReplicationChannelSources(channel.Name)
+	if err != nil && err != queries.ErrNotFound {
+		return errors.Wrap(err, "get current replication channels")
+	}
+
+	if err == queries.ErrNotFound {
+		for _, src := range channel.SourcesList {
+			err := primaryDB.AddReplicationSource(channel.Name, src.Host, src.Port, src.Weight)
+			if err != nil {
+				return errors.Wrap(err, "add replication source "+channel.Name)
+			}
+		}
+	}
+
+	if !isSourcesChanged(channel.SourcesList, currentSources) {
+		return nil
+	}
+
+	if !stopped && len(currentSources) > 0 {
+		err = primaryDB.StopReplication(channel.Name)
+		if err != nil {
+			return errors.Wrap(err, "stop replication for channel")
+		}
+	}
+
+	for _, src := range currentSources {
+		err = primaryDB.DeleteReplicationSource(channel.Name, src.Host, src.Port)
+		if err != nil {
+			return errors.Wrap(err, "delete replication source")
+		}
+	}
+
+	maxWeight := 0
+	maxWeightSrc := channel.SourcesList[0]
+
+	for _, src := range channel.SourcesList {
+		if src.Weight > maxWeight {
+			maxWeightSrc = src
+		}
+		err := primaryDB.AddReplicationSource(channel.Name, src.Host, src.Port, src.Weight)
+		if err != nil {
+			return errors.Wrap(err, "add replication source "+channel.Name)
+		}
+	}
+
+	return primaryDB.StartReplication(replicaPW, queries.ReplicationChannelSource{
+		Name: channel.Name,
+		Host: maxWeightSrc.Host,
+		Port: maxWeightSrc.Port,
+	})
+}
+
+func isSourcesChanged(new []api.ReplicationSource, old []queries.ReplicationChannelSource) bool {
+	if len(new) != len(old) {
+		return true
+	}
+
+	oldSrc := make(map[string]queries.ReplicationChannelSource)
+	for _, src := range old {
+		oldSrc[src.Host] = src
+	}
+
+	for _, v := range new {
+		oldSource, ok := oldSrc[v.Host]
+		if !ok {
+			return true
+		}
+		if oldSource.Port != v.Port || oldSource.Weight != v.Weight {
+			return true
+		}
+		delete(oldSrc, v.Host)
+	}
+
+	return len(oldSrc) != 0
 }
 
 func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtraDBCluster) error {

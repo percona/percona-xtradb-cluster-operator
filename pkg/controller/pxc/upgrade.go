@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,9 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"strconv"
-
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
@@ -203,7 +201,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return errors.Wrap(err, "update error")
 	}
 
-	if cr.Spec.UpdateStrategy != v1.SmartUpdateStatefulSetStrategyType {
+	if cr.Spec.UpdateStrategy != api.SmartUpdateStatefulSetStrategyType {
 		return nil
 	}
 

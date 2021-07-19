@@ -67,7 +67,7 @@ You can configure *Replica* instances for cross-site replication with ``spec.pxc
 
 * ``pxc.replicationChannels.[].sourcesList.[].port`` is the port of the source (``3306`` port will be used if nothing specified),
 
-* ``spec.pxc.replicationChannels.[].sourcesList.[].weight`` is the *weight* of the source (``100`` by default).
+* ``pxc.replicationChannels.[].sourcesList.[].weight`` is the *weight* of the source (``100`` by default).
 
 Here is the example:
 
@@ -104,7 +104,7 @@ The cluster will be ready for asynchronous replication when you apply changes as
 Exposing instances of Percona XtraDB Cluster
 --------------------------------------------
 
-You need to expose every Percona XtraDB Cluster node of the *Source* cluster to
+You need to expose every Percona XtraDB Cluster Pod of the *Source* cluster to
 make it possible for the *Replica* cluster to connect. This is done through the
 ``pxc.expose`` section in the ``deploy/cr.yaml`` configuration file as follows.
 
@@ -121,7 +121,7 @@ make it possible for the *Replica* cluster to connect. This is done through the
            networking.gke.io/load-balancer-type: "Internal"
 
 .. note:: This will create the internal LoadBalancer per each Percona XtraDB
-   Cluster node.
+   Cluster Pod.
 
 .. _operator-replication-user:
 

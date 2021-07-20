@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/hashicorp/go-version"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
@@ -18,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var minReplicationVersion = version.Must(version.NewVersion("8.0.23"))
 
 func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtraDBCluster) error {
 	if cr.Spec.Pause {
@@ -93,7 +96,7 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtraDBCluster) error {
-	if cr.Status.PXC.Ready < 1 || len(cr.Spec.PXC.ReplicationChannels) == 0 {
+	if cr.Status.PXC.Ready < 1 || len(cr.Spec.PXC.ReplicationChannels) == 0 || cr.Spec.Pause {
 		return nil
 	}
 
@@ -143,6 +146,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	defer primaryDB.Close()
+
+	dbVer, err := primaryDB.Version()
+	if err != nil {
+		return errors.Wrap(err, "failed to get current db version")
+	}
+
+	if minReplicationVersion.Compare(version.Must(version.NewVersion(dbVer))) < 0 {
+		r.logger(cr.Name, cr.Namespace).Info("Failed to reconcile replication. Unsupported mysql version", "minimum version", minReplicationVersion.String())
+		return nil
+	}
 
 	isReplica, err := primaryDB.IsReplica()
 	if err != nil {

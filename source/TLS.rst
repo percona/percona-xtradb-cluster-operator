@@ -46,7 +46,7 @@ operator requests a certificate from the *cert-manager*. The *cert-manager* acts
 as a self-signed issuer and generates certificates. The Percona Operator
 self-signed issuer is local to the operator namespace. This self-signed issuer
 is created because Percona XtraDB Cluster requires all certificates are issued
-by the same CA.
+by the same :abbr:`CA (Certificate authority)`.
 
 The creation of the self-signed issuer allows you to deploy and use the Percona
 Operator without creating a clusterissuer separately.

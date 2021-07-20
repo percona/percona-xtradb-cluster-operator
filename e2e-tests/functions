@@ -36,6 +36,12 @@ if oc get projects; then
 	esac
 fi
 
+if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then
+	EKS=1
+else
+	EKS=0
+fi
+
 KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
@@ -349,7 +355,11 @@ compare_kubectl() {
 		| yq d - 'metadata.ownerReferences.*.apiVersion' \
 		| yq d - '**.controller-uid' \
 		| yq d - '**.preemptionPolicy' \
-		| sed 's/namespace\:.*name/name/' \
+		| yq d - 'spec.ipFamilies' \
+		| yq d - 'spec.ipFamilyPolicy' \
+		| $sed 's#^apiVersion: policy/v1beta1#apiVersion: policy/v1#' \
+		| $sed 's/name: kube-api-access-.*$/name: kube-api-access/' \
+		| $sed 's/namespace\:.*name/name/' \
 			>${new_result}
 	# last sed is needed for backup cronjob content
 
@@ -1103,7 +1113,10 @@ deploy_chaos_mesh() {
 	local chaos_mesh_ns=$1
 
 	desc 'install chaos-mesh'
-	helm del chaos-mesh --namespace ${chaos_mesh_ns} || :
+	local old_cm_namespace=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}')
+	if [ "${old_cm_namespace}" != "NAMESPACE" ]; then
+		helm del chaos-mesh --namespace ${old_cm_namespace} || :
+	fi
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
 	if version_gt "1.19"; then
 		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 0.5.1 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}

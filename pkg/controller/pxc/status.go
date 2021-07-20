@@ -88,6 +88,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		}
 		status.Version = a.status.Version
 		status.Image = a.status.Image
+		// Ready count can be greater than total size in case of downscale
+		if status.Ready > status.Size {
+			status.Ready = status.Size
+		}
 		*a.status = status
 
 		host, err := r.appHost(a.app, cr.Namespace, a.spec)

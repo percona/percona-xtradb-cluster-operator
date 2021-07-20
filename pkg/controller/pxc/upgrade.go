@@ -148,8 +148,14 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		}
 	}
 
+	// volumes
+	sfsVolume, err := sfs.Volumes(podSpec, cr, r.getConfigVolume)
+	if err != nil {
+		return errors.Wrap(err, "volumes error")
+	}
+
 	// application container
-	appC, err := sfs.AppContainer(podSpec, secrets, cr)
+	appC, err := sfs.AppContainer(podSpec, secrets, cr, sfsVolume.Volumes)
 	if err != nil {
 		return errors.Wrap(err, "app container error")
 	}
@@ -182,12 +188,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	newContainers = append(newContainers, sideC...)
 
 	newContainers = api.AddSidecarContainers(r.logger(cr.Name, cr.Namespace), newContainers, podSpec.Sidecars)
-
-	// volumes
-	sfsVolume, err := sfs.Volumes(podSpec, cr, r.getConfigVolume)
-	if err != nil {
-		return errors.Wrap(err, "volumes error")
-	}
 
 	currentSet.Spec.Template.Spec.Containers = newContainers
 	currentSet.Spec.Template.Spec.InitContainers = newInitContainers

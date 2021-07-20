@@ -107,8 +107,14 @@ func (r *ReconcilePerconaXtraDBClusterRestore) createJob(job *batchv1.Job) error
 			return errors.Wrap(err, "get job status")
 		}
 		for _, cond := range checkJob.Status.Conditions {
-			if cond.Type == batchv1.JobComplete && cond.Status == corev1.ConditionTrue {
+			if cond.Status != corev1.ConditionTrue {
+				continue
+			}
+			switch cond.Type {
+			case batchv1.JobComplete:
 				return nil
+			case batchv1.JobFailed:
+				return errors.New(cond.Message)
 			}
 		}
 	}

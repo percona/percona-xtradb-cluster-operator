@@ -23,6 +23,7 @@ import (
 	_ "github.com/Percona-Lab/percona-version-service/api"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
@@ -128,8 +129,10 @@ func main() {
 
 	log.Info("Starting the Cmd.")
 
+	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
+
 	// Start the Cmd
-	if err := mgr.Start(context.Background()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		os.Exit(1)
 	}

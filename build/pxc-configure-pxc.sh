@@ -39,7 +39,7 @@ function mysql_root_exec() {
 
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
 CLUSTER_NAME="$(hostname -f | cut -d'.' -f2)"
-SERVER_NUM=${HOSTNAME/$CLUSTER_NAME-}
+SERVER_NUM=${HOSTNAME/$CLUSTER_NAME-/}
 SERVER_ID=${CLUSTER_HASH}${SERVER_NUM}
 NODE_NAME=$(hostname -f)
 NODE_PORT=3306

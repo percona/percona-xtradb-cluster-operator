@@ -34,9 +34,9 @@ example:
        ...
          configuration: |
            [mysqld]
-           wsrep_debug=ON
+           wsrep_debug=CLIENT
            [sst]
-           wsrep_debug=ON
+           wsrep_debug=CLIENT
 
 See the `Custom Resource options, PXC
 section <operator.html#operator-pxc-section>`_
@@ -112,11 +112,12 @@ name and a specific suffix:
 
       $ kubectl get pxc
 
-Configuration options should be put inside a specific key:
+Configuration options should be put inside a specific key inside of the ``data``
+section. The names of these keys are as follows:
 
-* ``data.pxc`` key for Percona XtraDB Cluster Pods,
-* ``data.proxysql`` key for ProxySQL Pods, 
-* ``data.haproxy`` key for HAProxy Pods.
+* ``my.cnf`` key for Percona XtraDB Cluster Pods,
+* ``proxysql.cnf`` key for ProxySQL Pods, 
+* ``haproxy-global.cfg`` key for HAProxy Pods.
 
 Actual options should be encoded with `Base64 <https://en.wikipedia.org/wiki/Base64>`_.
 
@@ -126,9 +127,9 @@ of MySQL options we used in the previous example:
 .. code:: yaml
 
    [mysqld]
-   wsrep_debug=ON
+   wsrep_debug=CLIENT
    [sst]
-   wsrep_debug=ON
+   wsrep_debug=CLIENT
 
 You can get a Base64 encoded string from your options via the command line as
 follows:

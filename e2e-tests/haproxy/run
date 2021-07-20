@@ -46,9 +46,15 @@ main() {
 	compare_kubectl statefulset/$cluster-proxysql
 	compare_kubectl service/$cluster-proxysql
 
+  compare_mysql_cmd_local "ping_timeout_server" \
+          "SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
+          "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "" -c'proxysql'
 	apply_config "$test_dir/conf/config-secret-proxysql.yaml"
-	sleep 50
+	sleep 100
 	compare_kubectl statefulset/$cluster-proxysql "-secret"
+  compare_mysql_cmd_local "ping_timeout_server" \
+          "SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
+          "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "-secret" -c'proxysql'
 
 	desc 're-enable haproxy'
 	apply_config "$test_dir/conf/$cluster.yml"
@@ -56,10 +62,16 @@ main() {
 	compare_kubectl statefulset/$cluster-haproxy
 	compare_kubectl service/$cluster-haproxy
 	compare_kubectl pdb/$cluster-haproxy
+	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo -n "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
+	| grep "Maxconn:" > "$tmp_dir"/haproxy_maxconn.txt
+	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn.txt
 
 	apply_config "$test_dir/conf/config-secret-haproxy.yaml"
 	sleep 50
 	compare_kubectl statefulset/$cluster-haproxy "-secret"
+	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo -n "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
+	| grep "Maxconn:" > "$tmp_dir"/haproxy_maxconn.txt
+	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn-secret.txt
 	desc 'clean up'
 	destroy $namespace
 }

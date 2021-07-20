@@ -134,11 +134,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		}
 	}
 
-	user := "root"
-	port := int32(3306)
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		port = int32(33062)
-	}
+	user := "operator"
+	port := int32(33062)
 
 	primaryDB, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
 	if err != nil {

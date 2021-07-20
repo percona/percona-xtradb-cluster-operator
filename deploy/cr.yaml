@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-9-0
+apiVersion: pxc.percona.com/v1-8-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -9,7 +9,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.9.0
+  crVersion: 1.8.0
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
@@ -36,12 +36,6 @@ spec:
     size: 3
     image: percona/percona-xtradb-cluster:8.0.22-13.1
     autoRecovery: true
-    readinessProbes:
-      InitialDelaySeconds: 300
-      TimeoutSeconds: 1
-      PeriodSeconds: 10
-      SuccessThreshold: 1
-      FailureThreshold: 3
 #    expose:
 #      enabled: true
 #      type: LoadBalancer
@@ -60,7 +54,7 @@ spec:
 #    forceUnsafeBootstrap: false
 #    configuration: |
 #      [mysqld]
-#      wsrep_debug=ON
+#      wsrep_debug=CLIENT
 #      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
 #      [sst]
 #      xbstream-opts=--decompress
@@ -76,6 +70,18 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
+#    readinessProbes:
+#      initialDelaySeconds: 15
+#      timeoutSeconds: 15
+#      periodSeconds: 30
+#      successThreshold: 1
+#      failureThreshold: 5
+#    livenessProbes:
+#      initialDelaySeconds: 300
+#      timeoutSeconds: 5
+#      periodSeconds: 10
+#      successThreshold: 1
+#      failureThreshold: 3
 #    containerSecurityContext:
 #      privileged: false
 #    podSecurityContext:
@@ -151,6 +157,7 @@ spec:
 #      global
 #        maxconn 2048
 #        external-check
+#        insecure-fork-wanted
 #        stats socket /var/run/haproxy.sock mode 600 expose-fd listeners level user
 #
 #      defaults
@@ -163,7 +170,7 @@ spec:
 #
 #      frontend galera-in
 #        bind *:3309 accept-proxy
-#        bind *:3306 accept-proxy
+#        bind *:3306
 #        mode tcp
 #        option clitcpka
 #        default_backend galera-nodes
@@ -179,6 +186,18 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
+#    readinessProbes:
+#      initialDelaySeconds: 15
+#      timeoutSeconds: 1
+#      periodSeconds: 5
+#      successThreshold: 1
+#      failureThreshold: 3
+#    livenessProbes:
+#      initialDelaySeconds: 60
+#      timeoutSeconds: 5
+#      periodSeconds: 30
+#      successThreshold: 1
+#      failureThreshold: 4
 #    serviceType: ClusterIP
 #    externalTrafficPolicy: Cluster
 #    replicasServiceType: ClusterIP
@@ -229,10 +248,10 @@ spec:
       maxUnavailable: 1
 #      minAvailable: 0
     gracePeriod: 30
-#   loadBalancerSourceRanges:
-#     - 10.0.0.0/8
-#   serviceAnnotations:
-#     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    loadBalancerSourceRanges:
+#      - 10.0.0.0/8
+#    serviceAnnotations:
+#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   proxysql:
     enabled: false
     size: 3

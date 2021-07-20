@@ -56,7 +56,8 @@ func (c *HAProxy) Name() string {
 	return haproxyName
 }
 
-func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+	_ []corev1.Volume) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            haproxyName,
 		Image:           spec.Image,
@@ -165,6 +166,27 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 				Name:          "mysqlx",
 			},
 		)
+	}
+	if cr.CompareVersionWith("1.10.0") >= 0 {
+		appc.LivenessProbe = &cr.Spec.HAProxy.LivenessProbes
+		appc.ReadinessProbe = &cr.Spec.HAProxy.ReadinessProbes
+		appc.ReadinessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/usr/local/bin/readiness-check.sh"},
+		}
+		appc.LivenessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/usr/local/bin/liveness-check.sh"},
+		}
+		probsEnvs := []corev1.EnvVar{
+			{
+				Name:  "LIVENESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds),
+			},
+			{
+				Name:  "READINESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds),
+			},
+		}
+		appc.Env = append(appc.Env, probsEnvs...)
 	}
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 	if err != nil {
@@ -338,7 +360,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.Percon
 
 func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
-	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy")
+	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy", true)
 	if err != nil {
 		return nil, err
 	}

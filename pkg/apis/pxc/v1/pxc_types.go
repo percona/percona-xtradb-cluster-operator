@@ -128,8 +128,8 @@ type PerconaXtraDBClusterStatus struct {
 	Status             AppState           `json:"state,omitempty"`
 	Conditions         []ClusterCondition `json:"conditions,omitempty"`
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
-	Size               int32              `json:"size,omitempty"`
-	Ready              int32              `json:"ready,omitempty"`
+	Size               int32              `json:"size"`
+	Ready              int32              `json:"ready"`
 }
 
 type ConditionStatus string
@@ -149,8 +149,8 @@ type ClusterCondition struct {
 }
 
 type AppStatus struct {
-	Size              int32    `json:"size,omitempty"`
-	Ready             int32    `json:"ready,omitempty"`
+	Size              int32    `json:"size"`
+	Ready             int32    `json:"ready"`
 	Status            AppState `json:"status,omitempty"`
 	Message           string   `json:"message,omitempty"`
 	Version           string   `json:"version,omitempty"`
@@ -326,7 +326,7 @@ type PodSpec struct {
 	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
 	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`
 	LivenessInitialDelaySeconds   *int32                                  `json:"livenessDelaySec,omitempty"`
-	LiveneesProbes                corev1.Probe                            `json:"liveneesProbes,omitempty"`
+	LivenessProbes                corev1.Probe                            `json:"livenessProbes,omitempty"`
 	PodSecurityContext            *corev1.PodSecurityContext              `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
@@ -438,12 +438,23 @@ type Volume struct {
 	Volumes []corev1.Volume
 }
 
+func ContainsVolume(vs []corev1.Volume, name string) bool {
+	for _, v := range vs {
+		if v.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 const WorkloadSA = "default"
 
-type CustomVolumeGetter func(nsName, cvName, cmName string) (corev1.Volume, error)
+type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
+
+var NoCustomVolumeErr = errors.New("no custom volume found")
 
 type App interface {
-	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
+	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(spec *PMMSpec, secrets string, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
@@ -514,30 +525,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 	if c.PXC != nil {
 		changed = c.PXC.VolumeSpec.reconcileOpts()
-
-		if c.PXC.ReadinessInitialDelaySeconds != nil {
-			c.PXC.ReadinessProbes.InitialDelaySeconds = *c.PXC.ReadinessInitialDelaySeconds
-		} else {
-			c.PXC.ReadinessProbes.InitialDelaySeconds = 15
-		}
-
-		if c.PXC.LivenessInitialDelaySeconds != nil {
-			c.PXC.LiveneesProbes.InitialDelaySeconds = *c.PXC.LivenessInitialDelaySeconds
-		} else {
-			c.PXC.LiveneesProbes.InitialDelaySeconds = 300
-		}
-		if c.PXC.LiveneesProbes.TimeoutSeconds == 1 {
-			c.PXC.LiveneesProbes.TimeoutSeconds = 5
-		}
-		if c.PXC.ReadinessProbes.PeriodSeconds == 10 {
-			c.PXC.ReadinessProbes.PeriodSeconds = 30
-		}
-		if c.PXC.ReadinessProbes.FailureThreshold == 3 {
-			c.PXC.ReadinessProbes.FailureThreshold = 5
-		}
-		if c.PXC.ReadinessProbes.TimeoutSeconds == 1 {
-			c.PXC.ReadinessProbes.TimeoutSeconds = 15
-		}
 
 		if len(c.PXC.ImagePullPolicy) == 0 {
 			c.PXC.ImagePullPolicy = corev1.PullAlways
@@ -718,6 +705,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
+	cr.setProbesDefaults()
 	cr.setSecurityContext()
 
 	if cr.Spec.EnableCRValidationWebhook == nil {
@@ -732,6 +720,74 @@ const (
 	maxSafePXCSize   = 5
 	minSafeProxySize = 2
 )
+
+func (cr *PerconaXtraDBCluster) setProbesDefaults() {
+	if cr.Spec.PXC != nil {
+		if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
+			cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
+		} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
+			cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 300
+		}
+
+		if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {
+			cr.Spec.PXC.LivenessProbes.TimeoutSeconds = 5
+		}
+		if cr.Spec.PXC.LivenessProbes.SuccessThreshold > 1 {
+			cr.Spec.PXC.LivenessProbes.SuccessThreshold = 1
+		}
+
+		if cr.Spec.PXC.ReadinessInitialDelaySeconds != nil {
+			cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = *cr.Spec.PXC.ReadinessInitialDelaySeconds
+		} else if cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds == 0 {
+			cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = 15
+		}
+
+		if cr.Spec.PXC.ReadinessProbes.PeriodSeconds == 0 {
+			cr.Spec.PXC.ReadinessProbes.PeriodSeconds = 30
+		}
+
+		if cr.Spec.PXC.ReadinessProbes.FailureThreshold == 0 {
+			cr.Spec.PXC.ReadinessProbes.FailureThreshold = 5
+		}
+		if cr.Spec.PXC.ReadinessProbes.TimeoutSeconds == 0 {
+			cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 15
+		}
+	}
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+		if cr.Spec.HAProxy.ReadinessInitialDelaySeconds != nil {
+			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.ReadinessInitialDelaySeconds
+		} else if cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = 15
+		}
+		if cr.Spec.HAProxy.ReadinessProbes.PeriodSeconds == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.PeriodSeconds = 5
+		}
+
+		if cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds = 1
+		}
+
+		if cr.Spec.HAProxy.LivenessInitialDelaySeconds != nil {
+			cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.LivenessInitialDelaySeconds
+		} else if cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds == 0 {
+			cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds = 60
+		}
+
+		if cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds == 0 {
+			cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds = 5
+		}
+		if cr.Spec.HAProxy.LivenessProbes.FailureThreshold == 0 {
+			cr.Spec.HAProxy.LivenessProbes.FailureThreshold = 4
+		}
+		if cr.Spec.HAProxy.LivenessProbes.PeriodSeconds == 0 {
+			cr.Spec.HAProxy.LivenessProbes.PeriodSeconds = 30
+		}
+		if cr.Spec.HAProxy.LivenessProbes.SuccessThreshold > 1 {
+			cr.Spec.HAProxy.LivenessProbes.SuccessThreshold = 1
+		}
+
+	}
+}
 
 func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.AllowUnsafeConfig {

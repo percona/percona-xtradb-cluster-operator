@@ -53,7 +53,7 @@ func (c *Node) Name() string {
 	return app.Name
 }
 
-func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {
 	redinessDelay := int32(15)
 	if spec.ReadinessInitialDelaySeconds != nil {
 		redinessDelay = *spec.ReadinessInitialDelaySeconds
@@ -241,8 +241,28 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Name:          "mysqlx",
 			},
 		)
-		appc.LivenessProbe = &cr.Spec.PXC.LiveneesProbes
-		appc.ReadinessProbe = &cr.Spec.PXC.ReadinessProbes
+	}
+	if cr.CompareVersionWith("1.10.0") >= 0 {
+		appc.LivenessProbe = &spec.LivenessProbes
+		appc.ReadinessProbe = &spec.ReadinessProbes
+		appc.ReadinessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/var/lib/mysql/readiness-check.sh"},
+		}
+		appc.LivenessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/var/lib/mysql/liveness-check.sh"},
+		}
+		probsEnvs := []corev1.EnvVar{
+			{
+				Name:  "LIVENESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(spec.LivenessProbes.TimeoutSeconds),
+			},
+			{
+				Name:  "READINESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(spec.ReadinessProbes.TimeoutSeconds),
+			},
+		}
+		appc.Env = append(appc.Env, probsEnvs...)
+
 	}
 
 	res, err := app.CreateResources(spec.Resources)
@@ -454,7 +474,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, DataVolumeName)
 	ls := c.Labels()
-	configVolume, err := vg(cr.Namespace, "config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+	configVolume, err := vg(cr.Namespace, "config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"], true)
 	if err != nil {
 		return nil, err
 	}

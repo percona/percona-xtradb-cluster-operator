@@ -145,11 +145,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return errors.Wrap(err, "failed to connect to pod "+primaryPod.Name)
 	}
 
-	err = primaryDB.DisableLogBin()
-	if err != nil {
-		return errors.Wrap(err, "failed to stop binlogging")
-	}
-
 	defer primaryDB.Close()
 
 	isReplica, err := primaryDB.IsReplica()

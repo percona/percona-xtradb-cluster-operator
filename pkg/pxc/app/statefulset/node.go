@@ -191,7 +191,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			},
 		})
 		serverIDHash := fnv.New32()
-		serverIDHash.Write([]byte(string(cr.UID) + cr.Name))
+		serverIDHash.Write([]byte(string(cr.UID)))
 
 		// we cut first 3 symbols to give a space for hostname(actially, pod number)
 		// which is appended to all server ids. If we do not do this, it

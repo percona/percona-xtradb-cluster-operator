@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/rand"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -18,10 +16,6 @@ import (
 // value of writer group is hardcoded in ProxySQL config inside docker image
 // https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
 const writerID = 11
-
-func init() {
-	rand.Seed(time.Now().Unix())
-}
 
 type Database struct {
 	db *sql.DB
@@ -64,11 +58,6 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 	return Database{
 		db: db,
 	}, nil
-}
-
-func (p *Database) DisableLogBin() error {
-	_, err := p.db.Exec(`SET @@SESSION.SQL_LOG_BIN = off;`)
-	return errors.Wrap(err, "disable bin logging")
 }
 
 func (p *Database) IsReplica() (bool, error) {
@@ -147,7 +136,7 @@ func (p *Database) StartReplication(replicaPass string, src ReplicationChannelSo
     for channel ?
 `, replicaPass, src.Host, src.Port, src.Name)
 	if err != nil {
-		return errors.Wrap(err, "change master for srouce "+src.Name)
+		return errors.Wrap(err, "change source for channel "+src.Name)
 	}
 
 	_, err = p.db.Exec(`start replica for channel ?`, src.Name)

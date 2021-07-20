@@ -1278,17 +1278,31 @@ func compareMaps(x, y map[string]string) bool {
 	return true
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName string) (corev1.Volume, error) {
-	if err := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: nsName,
-			Name:      cmName,
-		},
-		&corev1.Secret{},
-	); err != nil && k8serrors.IsNotFound(err) {
-		return app.GetConfigVolumes(cvName, cmName), nil
-	} else if err != nil {
+func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error) {
+	n := types.NamespacedName{
+		Namespace: nsName,
+		Name:      cmName,
+	}
+
+	err := r.client.Get(context.TODO(), n, &corev1.Secret{})
+	if err == nil {
+		return app.GetSecretVolumes(cvName, cmName, false), nil
+	}
+	if !k8serrors.IsNotFound(err) {
 		return corev1.Volume{}, err
 	}
-	return app.GetSecretVolumes(cvName, cmName, false), nil
+
+	err = r.client.Get(context.TODO(), n, &corev1.ConfigMap{})
+	if err == nil {
+		return app.GetConfigVolumes(cvName, cmName), nil
+	}
+	if !k8serrors.IsNotFound(err) {
+		return corev1.Volume{}, err
+	}
+
+	if useDefaultVolume {
+		return app.GetConfigVolumes(cvName, cmName), nil
+	}
+
+	return corev1.Volume{}, api.NoCustomVolumeErr
 }

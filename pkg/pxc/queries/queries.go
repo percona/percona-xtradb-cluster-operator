@@ -61,7 +61,7 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 }
 
 func (p *Database) IsReplica() (bool, error) {
-	rows, err := p.db.Query("show replica status")
+	rows, err := p.db.Query("SHOW REPLICA STATUS")
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
@@ -87,7 +87,7 @@ func (p *Database) IsReplica() (bool, error) {
 }
 
 func (p *Database) StopAllReplication() error {
-	_, err := p.db.Exec("stop replica")
+	_, err := p.db.Exec("STOP REPLICA")
 	return errors.Wrap(err, "failed to stop replication")
 }
 
@@ -97,7 +97,13 @@ func (p *Database) AddReplicationSource(name, host string, port, weight int) err
 }
 
 func (p *Database) ReplicationChannelSources(channelName string) ([]ReplicationChannelSource, error) {
-	rows, err := p.db.Query("select host,port,weight from replication_asynchronous_connection_failover where channel_name=?", channelName)
+	rows, err := p.db.Query(`
+        SELECT host,
+               port,
+               weight
+        FROM   replication_asynchronous_connection_failover
+        WHERE  channel_name = ?
+    `, channelName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -118,13 +124,13 @@ func (p *Database) ReplicationChannelSources(channelName string) ([]ReplicationC
 }
 
 func (p *Database) StopReplication(name string) error {
-	_, err := p.db.Exec("stop replica for channel ?", name)
+	_, err := p.db.Exec("STOP REPLICA FOR CHANNEL ?", name)
 	return errors.Wrap(err, "stop replication for channel "+name)
 }
 
 func (p *Database) StartReplication(replicaPass string, src ReplicationChannelSource) error {
 	_, err := p.db.Exec(`
-	change master to
+	CHANGE REPLICATION SOURCE TO
     master_user='replication',
     master_password=?,
     master_host=?,
@@ -133,13 +139,13 @@ func (p *Database) StartReplication(replicaPass string, src ReplicationChannelSo
 	master_auto_position=1,
     master_retry_count=3,
     master_connect_retry=60  
-    for channel ?
+    FOR CHANNEL ?
 `, replicaPass, src.Host, src.Port, src.Name)
 	if err != nil {
 		return errors.Wrap(err, "change source for channel "+src.Name)
 	}
 
-	_, err = p.db.Exec(`start replica for channel ?`, src.Name)
+	_, err = p.db.Exec(`START REPLICA FOR CHANNEL ?`, src.Name)
 	return errors.Wrap(err, "start replica for source "+src.Name)
 
 }
@@ -150,7 +156,7 @@ func (p *Database) DeleteReplicationSource(name, host string, port int) error {
 }
 
 func (p *Database) Status(host, ip string) ([]string, error) {
-	rows, err := p.db.Query("select status from mysql_servers where hostname like ? or hostname = ?;", host+"%", ip)
+	rows, err := p.db.Query("SELECT status FROM mysql_servers WHERE hostname LIKE ? OR hostname = ?;", host+"%", ip)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound

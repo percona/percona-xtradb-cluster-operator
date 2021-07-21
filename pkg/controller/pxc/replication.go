@@ -142,7 +142,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 
 	primaryDB, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to pod "+primaryPod.Name)
+		return errors.Wrapf(err, "failed to connect to pod %s", primaryPod.Name)
 	}
 
 	defer primaryDB.Close()
@@ -172,12 +172,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 
 			db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
 			if err != nil {
-				return errors.Wrap(err, "failed to connect to pod "+pod.Name)
+				return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
 			}
 			err = db.StopAllReplication()
 			db.Close()
 			if err != nil {
-				return errors.Wrap(err, "stop replication on pod "+pod.Name)
+				return errors.Wrapf(err, "stop replication on pod %s", pod.Name)
 			}
 		}
 	}
@@ -200,7 +200,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		}
 		err = manageReplicationChannel(r.log, primaryDB, channels, !isReplica, string(sysUsersSecretObj.Data["replication"]))
 		if err != nil {
-			return errors.Wrap(err, "manage replication channel "+channels.Name)
+			return errors.Wrapf(err, "manage replication channel %s", channels.Name)
 		}
 	}
 
@@ -210,14 +210,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, channel api.ReplicationChannel, stopped bool, replicaPW string) error {
 	currentSources, err := primaryDB.ReplicationChannelSources(channel.Name)
 	if err != nil && err != queries.ErrNotFound {
-		return errors.Wrap(err, "get current replication channels")
+		return errors.Wrapf(err, "get current replication sources for channel %s", channel.Name)
 	}
 
 	if err == queries.ErrNotFound {
 		for _, src := range channel.SourcesList {
 			err := primaryDB.AddReplicationSource(channel.Name, src.Host, src.Port, src.Weight)
 			if err != nil {
-				return errors.Wrap(err, "add replication source "+channel.Name)
+				return errors.Wrapf(err, "add replication source for channel %s", channel.Name)
 			}
 		}
 	}
@@ -229,14 +229,14 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 	if !stopped && len(currentSources) > 0 {
 		err = primaryDB.StopReplication(channel.Name)
 		if err != nil {
-			return errors.Wrap(err, "stop replication for channel")
+			return errors.Wrapf(err, "stop replication for channel %s", channel.Name)
 		}
 	}
 
 	for _, src := range currentSources {
 		err = primaryDB.DeleteReplicationSource(channel.Name, src.Host, src.Port)
 		if err != nil {
-			return errors.Wrap(err, "delete replication source")
+			return errors.Wrapf(err, "delete replication source for channel %s", channel.Name)
 		}
 	}
 
@@ -249,7 +249,7 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 		}
 		err := primaryDB.AddReplicationSource(channel.Name, src.Host, src.Port, src.Weight)
 		if err != nil {
-			return errors.Wrap(err, "add replication source "+channel.Name)
+			return errors.Wrapf(err, "add replication source for channel %s", channel.Name)
 		}
 	}
 

@@ -203,69 +203,6 @@ pipeline {
                 archiveArtifacts 'results/docker/TAG'
             }
         }
-        stage('GoLicenseDetector test') {
-            when {
-                expression {
-                    !skipBranchBulds
-                }
-            }
-            steps {
-                sh """
-                    mkdir -p $WORKSPACE/src/github.com/percona
-                    ln -s $WORKSPACE $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator
-                    sg docker -c "
-                        docker run \
-                            --rm \
-                            -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            -e GO111MODULE=on \
-                            golang:1.16 sh -c '
-                                go get github.com/google/go-licenses;
-                                /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
-                                    | cut -d , -f 3 \
-                                    | sort -u \
-                                    > go-licenses-new || :
-                            '
-                    "
-                    diff -u e2e-tests/license/compare/go-licenses go-licenses-new
-                """
-            }
-        }
-        stage('GoLicense test') {
-            when {
-                expression {
-                    !skipBranchBulds
-                }
-            }
-            steps {
-                sh '''
-                    mkdir -p $WORKSPACE/src/github.com/percona
-                    ln -s $WORKSPACE $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator
-                    sg docker -c "
-                        docker run \
-                            --rm \
-                            -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            -e GO111MODULE=on \
-                            golang:1.16 sh -c 'go mod vendor && go build -v -mod=vendor -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
-                    "
-                '''
-
-                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
-                    sh """
-                        golicense -plain ./percona-xtradb-cluster-operator \
-                            | grep -v 'license not found' \
-                            | sed -r 's/^[^ ]+[ ]+//' \
-                            | sort \
-                            | uniq \
-                            > golicense-new || true
-
-                        diff -u e2e-tests/license/compare/golicense golicense-new
-                    """
-                }
-                unstash 'vendorFILES'
-            }
-        }
         stage('Run tests for operator') {
             when {
                 expression {

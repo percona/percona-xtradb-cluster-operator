@@ -574,6 +574,22 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.EnvVarsSecretName = cr.Name + "-env-vars-pxc"
 		}
 
+		if len(c.PXC.ReplicationChannels) > 0 {
+			for _, channel := range c.PXC.ReplicationChannels {
+				if channel.IsSource {
+					continue
+				}
+				for _, src := range channel.SourcesList {
+					if src.Weight == 0 {
+						src.Weight = 100
+					}
+					if src.Port == 0 {
+						src.Port = 3306
+					}
+				}
+			}
+		}
+
 		c.PXC.reconcileAffinityOpts()
 
 		if c.Pause {

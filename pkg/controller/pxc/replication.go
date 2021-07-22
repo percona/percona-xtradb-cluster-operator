@@ -20,6 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const replicationPodLabel = "percona.com/replicationPod"
+
 var minReplicationVersion = version.Must(version.NewVersion("8.0.23"))
 
 func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtraDBCluster) error {
@@ -147,15 +149,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 
 	defer primaryDB.Close()
 
-	err = removeOutdatedChannels(primaryDB, cr.Spec.PXC.ReplicationChannels)
-	if err != nil {
-		return errors.Wrap(err, "remove outdated replication channels")
-	}
-
-	if len(cr.Spec.PXC.ReplicationChannels) == 0 {
-		return nil
-	}
-
 	dbVer, err := primaryDB.Version()
 	if err != nil {
 		return errors.Wrap(err, "failed to get current db version")
@@ -166,27 +159,43 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return nil
 	}
 
-	isReplica, err := primaryDB.IsReplica()
+	err = removeOutdatedChannels(primaryDB, cr.Spec.PXC.ReplicationChannels)
 	if err != nil {
-		return errors.Wrap(err, "failed to check if primary is replica")
+		return errors.Wrap(err, "remove outdated replication channels")
+	}
+
+	if len(cr.Spec.PXC.ReplicationChannels) == 0 {
+		return nil
 	}
 
 	// if primary pod is not a replica, we need to make it as replica, and stop replication on other pods
-	if !isReplica {
-		r.log.Info("primary is not replica, stopping all replication")
+	_, ok := primaryPod.Labels[replicationPodLabel]
+	if !ok {
+		primaryPod.Labels[replicationPodLabel] = "true"
+		err = r.client.Update(context.TODO(), &primaryPod)
+		if err != nil {
+			return errors.Wrap(err, "add label to main replica pod")
+		}
 		for _, pod := range list.Items {
 			if pod.Name == primaryPod.Name {
 				continue
 			}
-
-			db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
-			if err != nil {
-				return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
-			}
-			err = db.StopAllReplication()
-			db.Close()
-			if err != nil {
-				return errors.Wrapf(err, "stop replication on pod %s", pod.Name)
+			if _, ok := pod.Labels[replicationPodLabel]; ok {
+				r.logger(cr.Name, cr.Namespace).Info("Replication pod has changed", "new replication pod", pod.Name)
+				db, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
+				if err != nil {
+					return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
+				}
+				err = db.StopAllReplication()
+				db.Close()
+				if err != nil {
+					return errors.Wrapf(err, "stop replication on pod %s", pod.Name)
+				}
+				delete(pod.Labels, replicationPodLabel)
+				err = r.client.Update(context.TODO(), &pod)
+				if err != nil {
+					return errors.Wrap(err, "failed to remove primary label from secondary pod")
+				}
 			}
 		}
 	}
@@ -207,7 +216,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		if channels.IsSource {
 			continue
 		}
-		err = manageReplicationChannel(r.log, primaryDB, channels, !isReplica, string(sysUsersSecretObj.Data["replication"]))
+		err = manageReplicationChannel(r.log, primaryDB, channels, string(sysUsersSecretObj.Data["replication"]))
 		if err != nil {
 			return errors.Wrapf(err, "manage replication channel %s", channels.Name)
 		}
@@ -239,27 +248,27 @@ func removeOutdatedChannels(db queries.Database, current []api.ReplicationChanne
 		return nil
 	}
 
-	for k := range toRemove {
-		err = db.StopReplication(k)
+	for channelToRemove := range toRemove {
+		err = db.StopReplication(channelToRemove)
 		if err != nil {
-			return errors.Wrapf(err, "stop replication for channel %s", k)
+			return errors.Wrapf(err, "stop replication for channel %s", channelToRemove)
 		}
 
-		srcList, err := db.ReplicationChannelSources(k)
+		srcList, err := db.ReplicationChannelSources(channelToRemove)
 		if err != nil {
-			return errors.Wrapf(err, "get src list for outdated channel %s", k)
+			return errors.Wrapf(err, "get src list for outdated channel %s", channelToRemove)
 		}
 		for _, v := range srcList {
-			err = db.DeleteReplicationSource(k, v.Host, v.Port)
+			err = db.DeleteReplicationSource(channelToRemove, v.Host, v.Port)
 			if err != nil {
-				return errors.Wrapf(err, "delete replication source fro outdated channel %s", v.Name)
+				return errors.Wrapf(err, "delete replication source for outdated channel %s", channelToRemove)
 			}
 		}
 	}
 	return nil
 }
 
-func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, channel api.ReplicationChannel, stopped bool, replicaPW string) error {
+func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, channel api.ReplicationChannel, replicaPW string) error {
 	currentSources, err := primaryDB.ReplicationChannelSources(channel.Name)
 	if err != nil && err != queries.ErrNotFound {
 		return errors.Wrapf(err, "get current replication sources for channel %s", channel.Name)
@@ -278,7 +287,12 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 		return nil
 	}
 
-	if !stopped && len(currentSources) > 0 {
+	replicationActive, err := primaryDB.IsReplicationActive(channel.Name)
+	if err != nil {
+		return errors.Wrap(err, "failed to check replication status")
+	}
+
+	if replicationActive {
 		err = primaryDB.StopReplication(channel.Name)
 		if err != nil {
 			return errors.Wrapf(err, "stop replication for channel %s", channel.Name)

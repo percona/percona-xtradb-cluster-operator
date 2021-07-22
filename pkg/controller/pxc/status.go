@@ -169,9 +169,11 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace
 	}
 
 	status := api.AppStatus{
-		Size:              podSpec.Size,
-		Status:            api.AppStateInit,
-		LabelSelectorPath: labels.SelectorFromSet(app.Labels()).String(),
+		Size: podSpec.Size,
+		ComponentStatus: api.ComponentStatus{
+			Status:            api.AppStateInit,
+			LabelSelectorPath: labels.SelectorFromSet(app.Labels()).String(),
+		},
 	}
 
 	for _, pod := range list.Items {

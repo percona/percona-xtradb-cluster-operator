@@ -162,7 +162,13 @@ spec:
               memory: 500M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
-        - env:
+        - args:
+            - /usr/bin/proxysql
+            - -f
+            - -c
+            - /etc/proxysql/proxysql.cnf
+            - --reload
+          env:
             - name: PXC_SERVICE
               value: no-limits-pxc
             - name: OPERATOR_PASSWORD

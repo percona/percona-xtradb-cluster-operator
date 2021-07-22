@@ -113,6 +113,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
+		Args:            []string{"/usr/bin/proxysql", "-f", "-c", "/etc/proxysql/proxysql.cnf", "--reload"},
 	}
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		fvar := true

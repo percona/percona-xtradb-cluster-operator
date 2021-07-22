@@ -154,7 +154,7 @@ mysql-query_processor_iterations	0
 mysql-query_retries_on_failure	1
 mysql-reset_connection_algorithm	2
 mysql-server_capabilities	571947
-mysql-server_version	5.7.33
+mysql-server_version	5.7.34
 mysql-servers_stats	true
 mysql-session_idle_ms	1000
 mysql-session_idle_show_processlist	true

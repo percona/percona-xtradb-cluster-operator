@@ -103,6 +103,9 @@ main() {
 	time_now=$(run_mysql "SELECT now();" "-h $proxy -uroot -proot_password")
 	gtid=$(run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password" | grep Gtid | tail -c 43)
 
+	desc 'show binlog events in binlog.000005'
+	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password"
+
 	sleep 60
 	write_data_for_pitr "$cluster"
 	sleep 80 # need to wait while collector catch new data
@@ -117,7 +120,7 @@ main() {
 	dest=$(sed 's,/,\\/,g' <<<$(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.destination}'))
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" ""
 	echo "done latest type"
-	
+
 	desc 'check if we restore data from binlogs'
 	kubectl patch pxc pitr --type=merge -p '{"spec":{"backup":{"pitr":{"enabled":true}}}}'
 	sleep 20

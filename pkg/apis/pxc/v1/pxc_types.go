@@ -126,9 +126,9 @@ type PerconaXtraDBClusterStatus struct {
 	PXC                AppStatus          `json:"pxc,omitempty"`
 	ProxySQL           AppStatus          `json:"proxysql,omitempty"`
 	HAProxy            AppStatus          `json:"haproxy,omitempty"`
-	Backup             AppStatus          `json:"backup,omitempty"`
-	PMM                AppStatus          `json:"pmm,omitempty"`
-	LogCollector       AppStatus          `json:"logcollector,omitempty"`
+	Backup             ComponentStatus    `json:"backup,omitempty"`
+	PMM                ComponentStatus    `json:"pmm,omitempty"`
+	LogCollector       ComponentStatus    `json:"logcollector,omitempty"`
 	Host               string             `json:"host,omitempty"`
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`
@@ -154,14 +154,19 @@ type ClusterCondition struct {
 	Message            string          `json:"message,omitempty"`
 }
 
-type AppStatus struct {
-	Size              int32    `json:"size"`
-	Ready             int32    `json:"ready"`
+type ComponentStatus struct {
 	Status            AppState `json:"status,omitempty"`
 	Message           string   `json:"message,omitempty"`
 	Version           string   `json:"version,omitempty"`
 	Image             string   `json:"image,omitempty"`
 	LabelSelectorPath string   `json:"labelSelectorPath,omitempty"`
+}
+
+type AppStatus struct {
+	ComponentStatus
+
+	Size  int32 `json:"size,omitempty"`
+	Ready int32 `json:"ready,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

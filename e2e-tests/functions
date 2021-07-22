@@ -398,7 +398,7 @@ run_mysql_local() {
 	[[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
 	set +o xtrace
-	kubectl_bin exec $pod $container_name -- \
+	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
 		bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)

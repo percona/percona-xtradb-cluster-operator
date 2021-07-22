@@ -83,7 +83,30 @@ func (p *Database) IsReplica() (bool, error) {
 			return false, errors.Wrap(err, "scan replication status")
 		}
 	}
-	return true, err
+	return true, nil
+}
+
+func (p *Database) CurrentReplicationChannels() ([]string, error) {
+	rows, err := p.db.Query(`SELECT DISTINCT(Channel_name) from replication_asynchronous_connection_failover`)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "select current replication channels")
+	}
+
+	defer rows.Close()
+
+	result := make([]string, 0)
+	for rows.Next() {
+		src := ""
+		err = rows.Scan(&src)
+		if err != nil {
+			return nil, errors.Wrap(err, "scan channel name")
+		}
+		result = append(result, src)
+	}
+	return result, nil
 }
 
 func (p *Database) StopAllReplication() error {

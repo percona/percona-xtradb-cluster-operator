@@ -96,7 +96,7 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtraDBCluster) error {
-	if cr.Status.PXC.Ready < 1 || len(cr.Spec.PXC.ReplicationChannels) == 0 || cr.Spec.Pause {
+	if cr.Status.PXC.Ready < 1 || cr.Spec.Pause {
 		return nil
 	}
 
@@ -146,6 +146,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	defer primaryDB.Close()
+
+	err = removeOutdatedChannels(primaryDB, cr.Spec.PXC.ReplicationChannels)
+	if err != nil {
+		return errors.Wrap(err, "remove outdated replication channels")
+	}
+
+	if len(cr.Spec.PXC.ReplicationChannels) == 0 {
+		return nil
+	}
 
 	dbVer, err := primaryDB.Version()
 	if err != nil {
@@ -204,6 +213,49 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		}
 	}
 
+	return nil
+}
+
+func removeOutdatedChannels(db queries.Database, current []api.ReplicationChannel) error {
+	channels, err := db.CurrentReplicationChannels()
+	if err != nil {
+		return errors.Wrap(err, "get current replication channels")
+	}
+
+	if len(channels) == 0 {
+		return nil
+	}
+
+	toRemove := make(map[string]struct{})
+	for _, v := range channels {
+		toRemove[v] = struct{}{}
+	}
+
+	for _, v := range current {
+		delete(toRemove, v.Name)
+	}
+
+	if len(toRemove) == 0 {
+		return nil
+	}
+
+	for k := range toRemove {
+		err = db.StopReplication(k)
+		if err != nil {
+			return errors.Wrapf(err, "stop replication for channel %s", k)
+		}
+
+		srcList, err := db.ReplicationChannelSources(k)
+		if err != nil {
+			return errors.Wrapf(err, "get src list for outdated channel %s", k)
+		}
+		for _, v := range srcList {
+			err = db.DeleteReplicationSource(k, v.Host, v.Port)
+			if err != nil {
+				return errors.Wrapf(err, "delete replication source fro outdated channel %s", v.Name)
+			}
+		}
+	}
 	return nil
 }
 

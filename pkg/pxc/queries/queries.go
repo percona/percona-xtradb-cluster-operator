@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -60,32 +61,6 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 	}, nil
 }
 
-func (p *Database) IsReplica() (bool, error) {
-	rows, err := p.db.Query("SHOW REPLICA STATUS")
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
-		}
-		return false, errors.Wrap(err, "failed to check if pod is replica")
-	}
-	defer rows.Close()
-	cols, err := rows.Columns()
-	if err != nil {
-		return false, errors.Wrap(err, "get columns")
-	}
-	vals := make([]interface{}, len(cols))
-	for i := range cols {
-		vals[i] = new(sql.RawBytes)
-	}
-	for rows.Next() {
-		err = rows.Scan(vals...)
-		if err != nil {
-			return false, errors.Wrap(err, "scan replication status")
-		}
-	}
-	return true, nil
-}
-
 func (p *Database) CurrentReplicationChannels() ([]string, error) {
 	rows, err := p.db.Query(`SELECT DISTINCT(Channel_name) from replication_asynchronous_connection_failover`)
 	if err != nil {
@@ -107,6 +82,29 @@ func (p *Database) CurrentReplicationChannels() ([]string, error) {
 		result = append(result, src)
 	}
 	return result, nil
+}
+
+func (p *Database) IsReplicationActive(channel string) (bool, error) {
+	row := p.db.QueryRow(`SHOW REPLICA STATUS FOR CHANNEL ?`, channel)
+	if row.Err() != nil {
+		if strings.HasSuffix(row.Err().Error(), "does not exist.") || row.Err() == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, errors.Wrap(row.Err(), "get current replica status")
+	}
+
+	cols := make([]interface{}, 59)
+	for i := range cols {
+		cols[i] = new(sql.RawBytes)
+	}
+
+	var IORunning, SQLRunning string
+
+	err := row.Scan(cols[:10], &IORunning, &SQLRunning, cols[11])
+	if err != nil {
+		return false, errors.Wrap(err, "failed to scan replica status")
+	}
+	return IORunning == "Yes" && SQLRunning == "Yes", nil
 }
 
 func (p *Database) StopAllReplication() error {

@@ -3,7 +3,6 @@ package pxc
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -101,6 +100,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	if cr.Status.PXC.Ready < 1 || cr.Spec.Pause {
 		return nil
 	}
+	logger := r.logger(cr.Name, cr.Namespace)
 
 	sfs := statefulset.NewNode(cr)
 
@@ -120,23 +120,17 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return errors.Wrap(err, "get primary pxc pod")
 	}
 
+	var primaryPod *corev1.Pod
 	for _, pod := range list.Items {
-		if pod.Status.PodIP == primary || pod.Name == primary {
-			primary = fmt.Sprintf("%s.%s.%s", pod.Name, sfs.Name(), cr.Namespace)
+		if pod.Status.PodIP == primary || pod.Name == primary || strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, cr.Namespace)) {
+			primaryPod = &pod
 			break
 		}
 	}
 
-	sort.Slice(list.Items, func(i, j int) bool {
-		return list.Items[i].Name > list.Items[j].Name
-	})
-
-	var primaryPod corev1.Pod
-	for _, pod := range list.Items {
-		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.Name(), cr.Namespace)) {
-			primaryPod = pod
-			break
-		}
+	if primaryPod == nil {
+		logger.Info("Unable to find primary pod for replication. No pod with name or ip like this", "primary name", primary)
+		return nil
 	}
 
 	user := "operator"
@@ -155,7 +149,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	if minReplicationVersion.Compare(version.Must(version.NewVersion(dbVer))) < 0 {
-		r.logger(cr.Name, cr.Namespace).Info("Failed to reconcile replication. Unsupported mysql version", "minimum version", minReplicationVersion.String())
+		logger.Info("Failed to reconcile replication. Unsupported mysql version", "minimum version", minReplicationVersion.String())
 		return nil
 	}
 
@@ -172,7 +166,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	_, ok := primaryPod.Labels[replicationPodLabel]
 	if !ok {
 		primaryPod.Labels[replicationPodLabel] = "true"
-		err = r.client.Update(context.TODO(), &primaryPod)
+		err = r.client.Update(context.TODO(), primaryPod)
 		if err != nil {
 			return errors.Wrap(err, "add label to main replica pod")
 		}

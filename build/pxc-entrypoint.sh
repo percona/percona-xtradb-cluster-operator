@@ -302,11 +302,11 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 
 		if [ -z "$MYSQL_INITDB_SKIP_TZINFO" ]; then
-		(
-			echo "SET @@SESSION.SQL_LOG_BIN = off;"
-			# sed is for https://bugs.mysql.com/bug.php?id=20545
-			mysql_tzinfo_to_sql /usr/share/zoneinfo | sed 's/Local time zone must be set--see zic manual page/FCTY/' | "${mysql[@]}" mysql
-		)
+				(
+					echo "SET @@SESSION.SQL_LOG_BIN = off;"
+					# sed is for https://bugs.mysql.com/bug.php?id=20545
+					mysql_tzinfo_to_sql /usr/share/zoneinfo | sed 's/Local time zone must be set--see zic manual page/FCTY/' | "${mysql[@]}" mysql
+				)
 		fi
 
 		{ set +x; } 2>/dev/null

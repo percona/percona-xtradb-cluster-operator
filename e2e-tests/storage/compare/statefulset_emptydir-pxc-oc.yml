@@ -71,6 +71,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-emptydir
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "15"
           envFrom:
             - secretRef:
                 name: emptydir-env-vars-pxc

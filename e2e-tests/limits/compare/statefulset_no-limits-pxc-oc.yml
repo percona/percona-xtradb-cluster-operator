@@ -189,6 +189,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-no-limits
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "15"
           envFrom:
             - secretRef:
                 name: no-limits-env-vars-pxc

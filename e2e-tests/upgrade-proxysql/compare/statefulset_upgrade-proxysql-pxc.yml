@@ -124,6 +124,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-upgrade-proxysql
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "15"
           envFrom:
             - secretRef:
                 name: upgrade-proxysql-env-vars-pxc

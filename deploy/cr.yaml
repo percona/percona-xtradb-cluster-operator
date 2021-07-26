@@ -47,7 +47,12 @@ spec:
 #     replicationChannels:
 #     - name: pxc1_to_pxc2
 #       isSource: true
-#       secretName: my-cluster-name-replication
+#     - name: pxc2_to_pxc1
+#       isSource: false
+#       sourcesList:
+#       - host: 10.95.251.101
+#         port: 3306
+#         weight: 100
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600

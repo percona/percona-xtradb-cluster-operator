@@ -3,7 +3,9 @@ package pxc
 import (
 	"context"
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sort"
 	"strings"
 	"time"
@@ -53,9 +55,17 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		currentSet.Spec.Template.Labels[k] = v
 	}
 
+	err = r.reconcileConfigMap(cr)
+	if err != nil {
+		return errors.Wrap(err, "upgradePod/updateApp error: update db config error")
+	}
+
 	// embed DB configuration hash
 	// TODO: code duplication with deploy function
-	configHash := r.getConfigHash(cr, sfs)
+	configHash, err := r.getConfigHash(cr, sfs)
+	if err != nil {
+		return errors.Wrap(err, "getting config hash")
+	}
 
 	if currentSet.Spec.Template.Annotations == nil {
 		currentSet.Spec.Template.Annotations = make(map[string]string)
@@ -68,11 +78,6 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		currentSet.Spec.Template.Spec.ServiceAccountName = podSpec.ServiceAccountName
-	}
-
-	err = r.reconcileConfigMap(cr)
-	if err != nil {
-		return errors.Wrap(err, "upgradePod/updateApp error: update db config error")
 	}
 
 	// change TLS secret configuration
@@ -604,16 +609,59 @@ func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(clusterName, namespace 
 	return false, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) string {
-	configString := cr.Spec.PXC.Configuration
-	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" {
-		configString = cr.Spec.HAProxy.Configuration
-	} else if sfs.Labels()["app.kubernetes.io/component"] == "proxysql" {
-		configString = cr.Spec.ProxySQL.Configuration
+func getCustomConfigHashHex(strData map[string]string, binData map[string][]byte) (string, error) {
+	var content = struct {
+		StrData map[string]string `json:"str_data,omitempty"`
+		BinData map[string][]byte `json:"bin_data,omitempty"`
+	}{
+		StrData: strData,
+		BinData: binData,
 	}
-	hash := fmt.Sprintf("%x", md5.Sum([]byte(configString)))
 
-	return hash
+	allData, err := json.Marshal(content)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to concat data for config hash")
+	}
+
+	hashHex := fmt.Sprintf("%x", md5.Sum(allData))
+
+	return hashHex, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
+	ls := sfs.Labels()
+
+	name := types.NamespacedName{
+		Namespace: cr.Namespace,
+		Name:      ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"],
+	}
+
+	obj, err := r.getFirstExisting(name, &corev1.Secret{}, &corev1.ConfigMap{})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get custom config")
+	}
+
+	switch obj := obj.(type) {
+	case *corev1.Secret:
+		return getCustomConfigHashHex(obj.StringData, obj.Data)
+	case *corev1.ConfigMap:
+		return getCustomConfigHashHex(obj.Data, obj.BinaryData)
+	default:
+		return fmt.Sprintf("%x", md5.Sum([]byte{})), nil
+	}
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(name types.NamespacedName, objs ...runtime.Object) (runtime.Object, error) {
+	for _, o := range objs {
+		err := r.client.Get(context.TODO(), name, o)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return nil, err
+		}
+		if err == nil {
+			return o, nil
+		}
+	}
+	return nil, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBCluster, secretName string, allowNonExistingSecret bool) (string, error) {

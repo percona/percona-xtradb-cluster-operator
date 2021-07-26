@@ -570,7 +570,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations = make(map[string]string)
 	}
 	if cr.CompareVersionWith("1.1.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = r.getConfigHash(cr, stsApp)
+		hash, err := r.getConfigHash(cr, stsApp)
+		if err != nil {
+			return errors.Wrap(err, "getting node config hash")
+		}
+		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
 	}
 
 	err = r.reconsileSSL(cr)
@@ -662,7 +666,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if nodeSet.Spec.Template.Annotations == nil {
 			nodeSet.Spec.Template.Annotations = make(map[string]string)
 		}
-		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = r.getConfigHash(cr, sfsHAProxy)
+		hash, err := r.getConfigHash(cr, sfsHAProxy)
+		if err != nil {
+			return errors.Wrap(err, "getting HAProxy config hash")
+		}
+		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
 		if cr.CompareVersionWith("1.5.0") == 0 {
 			if sslHash != "" {
 				haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
@@ -728,7 +736,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 			nodeSet.Spec.Template.Annotations = make(map[string]string)
 		}
 		if cr.CompareVersionWith("1.1.0") >= 0 {
-			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = r.getConfigHash(cr, sfsProxy)
+			hash, err := r.getConfigHash(cr, sfsProxy)
+			if err != nil {
+				return errors.Wrap(err, "getting proxySQL config hash")
+			}
+			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
 			if sslHash != "" {
 				proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 			}

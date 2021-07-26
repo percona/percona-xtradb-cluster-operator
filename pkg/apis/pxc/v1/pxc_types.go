@@ -732,7 +732,7 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 		if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {
 			cr.Spec.PXC.LivenessProbes.TimeoutSeconds = 5
 		}
-		if cr.Spec.PXC.LivenessProbes.SuccessThreshold > 1 {
+		if cr.Spec.PXC.LivenessProbes.SuccessThreshold > 1 || cr.Spec.PXC.LivenessProbes.SuccessThreshold == 0 {
 			cr.Spec.PXC.LivenessProbes.SuccessThreshold = 1
 		}
 
@@ -782,7 +782,7 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 		if cr.Spec.HAProxy.LivenessProbes.PeriodSeconds == 0 {
 			cr.Spec.HAProxy.LivenessProbes.PeriodSeconds = 30
 		}
-		if cr.Spec.HAProxy.LivenessProbes.SuccessThreshold > 1 {
+		if cr.Spec.HAProxy.LivenessProbes.SuccessThreshold > 1 || cr.Spec.HAProxy.LivenessProbes.SuccessThreshold == 0 {
 			cr.Spec.HAProxy.LivenessProbes.SuccessThreshold = 1
 		}
 

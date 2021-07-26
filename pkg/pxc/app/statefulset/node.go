@@ -241,8 +241,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Name:          "mysqlx",
 			},
 		)
-	}
-	if cr.CompareVersionWith("1.10.0") >= 0 {
+
 		appc.LivenessProbe = &spec.LivenessProbes
 		appc.ReadinessProbe = &spec.ReadinessProbes
 		appc.ReadinessProbe.Exec = &corev1.ExecAction{
@@ -262,7 +261,6 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			},
 		}
 		appc.Env = append(appc.Env, probsEnvs...)
-
 	}
 
 	res, err := app.CreateResources(spec.Resources)

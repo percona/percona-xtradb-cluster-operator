@@ -166,8 +166,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 				Name:          "mysqlx",
 			},
 		)
-	}
-	if cr.CompareVersionWith("1.10.0") >= 0 {
+
 		appc.LivenessProbe = &cr.Spec.HAProxy.LivenessProbes
 		appc.ReadinessProbe = &cr.Spec.HAProxy.ReadinessProbes
 		appc.ReadinessProbe.Exec = &corev1.ExecAction{

@@ -5,97 +5,105 @@ Upgrade Percona XtraDB Cluster
 
 Starting from version 1.1.0, Percona Kubernetes Operator for Percona
 XtraDB Cluster allows upgrades to newer versions. This includes upgrades of the
-Operator itself, and upgrades of the Percona XtraDB Cluster.
+Percona XtraDB Cluster, and upgrades of the Operator itself.
 
 .. contents:: :local:
 
-.. _operator-update:
+.. _operator-update-smartupdates:
 
-Upgrading the Operator
-----------------------
+Upgrading Percona XtraDB Cluster
+--------------------------------
 
-This upgrade can be done either in semi-automatic or in manual mode. 
+Automatic upgrade
+*****************
 
-.. note:: The manual update mode is the recomended way for a production cluster.
+Starting from version 1.5.0, the Operator can do fully automatic upgrades to
+the newer versions of Percona XtraDB Cluster within the method named *Smart
+Updates*.
 
-.. _operator-update-semi-auto-updates:
+To have this upgrade method enabled, make sure that the ``updateStrategy`` key
+in the ``deploy/cr.yaml`` configuration file is set to ``SmartUpdate``.
 
-Semi-automatic upgrade
-**********************
+When automatic updates are enabled, the Operator will carry on upgrades
+according to the following algorithm. It will query a special *Version Service* 
+server at scheduled times to obtain fresh information about version numbers and
+valid image paths needed for the upgrade. If the current version should be
+upgraded, the Operator updates the CR to reflect the new image paths and carries
+on sequential Pods deletion in a safe order, allowing StatefulSet to redeploy
+the cluster Pods with the new image.
 
-.. note:: Only the incremental update to a nearest minor version of the Operator
-   is supported (for example, update from 1.5.0 to 1.6.0).
-   To update to a newer version, which differs from the current version by more
-   than one, make several incremental updates sequentially.
+The upgrade details are set in the ``upgradeOptions`` section of the 
+``deploy/cr.yaml`` configuration file. Make the following edits to configure
+updates:
 
-#. Update the Custom Resource Definition file for the Operator, taking it from
-   the official repository on Github, and do the same for the Role-based access
-   control:
+#. Set the ``apply`` option to one of the following values:
 
-   .. code:: bash
+   * ``Recommended`` - automatic upgrades will choose the most recent version
+     of software flagged as Recommended (for clusters created from scratch,
+     the Percona XtraDB Cluster 8.0 version will be selected instead of the
+     Percona XtraDB Cluster 5.7 one regardless of the image path; for already
+     existing clusters, the 8.0 vs. 5.7 branch choice will be preserved),
+   * ``8.0-recommended``, ``5.7-recommended`` - same as above, but preserves
+     specific major Percona XtraDB Cluster version for newly provisioned
+     clusters (ex. 8.0 will not be automatically used instead of 5.7),
+   * ``Latest`` - automatic upgrades will choose the most recent version of
+     the software available,
+   * ``8.0-latest``, ``5.7-latest`` - same as above, but preserves specific
+     major Percona XtraDB Cluster version for newly provisioned
+     clusters (ex. 8.0 will not be automatically used instead of 5.7),
+   * *version number* - specify the desired version explicitly
+     (version numbers are specified as ``{{{pxc80recommended}}}``,
+     ``{{{pxc57recommended}}}``, etc.),
+   * ``Never`` or ``Disabled`` - disable automatic upgrades
 
-      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
-      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
+     .. note:: When automatic upgrades are disabled by the ``apply`` option, 
+        Smart Update functionality will continue working for changes triggered
+        by other events, such as updating a ConfigMap, rotating a password, or
+        changing resource values.
 
-#. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
-   ``RollingUpdate``.
+#. Make sure the ``versionServiceEndpoint`` key is set to a valid Version
+   Server URL (otherwise Smart Updates will not occur).
 
-#. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
-   deployment, supplying necessary image names with a newer version tag. This
-   is done with the ``kubectl patch deployment`` command. Actual image names
-   can be found :ref:`in the list of certified images<custom-registry-images>`.
-   For example, updating to the ``{{{release}}}`` version should look as
-   follows, depending on whether you are using Percona XtraDB Cluster 5.7 or 8.0.
+   A. You can use the URL of the official Percona's Version Service (default).
+      Set ``versionServiceEndpoint`` to ``https://check.percona.com``.
 
-   A. For Percona XtraDB Cluster 5.7 run the following:
-
+   B. Alternatively, you can run Version Service inside your cluster. This
+      can be done with the ``kubectl`` command as follows:
+      
       .. code:: bash
+      
+         kubectl run version-service --image=perconalab/version-service --env="SERVE_HTTP=true" --port 11000 --expose
 
-         kubectl patch deployment percona-xtradb-cluster-operator \
-            -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
+   .. note:: Version Service is never checked if automatic updates are disabled.
+      If automatic updates are enabled, but Version Service URL can not be
+      reached, upgrades will not occur.
 
-         kubectl patch pxc cluster1 --type=merge --patch '{
-            "spec": {
-                "crVersion":"{{{release}}}",
-                "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
-                "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
-                "haproxy":  { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
-                "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-backup" },
-                "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
-                "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
-            }}'
+#. Use the ``schedule`` option to specify the update checks time in CRON format.
 
-   B. For Percona XtraDB Cluster 8.0 run the following:
+The following example sets the midnight update checks with the official
+Percona's Version Service:
 
-      .. code:: bash
+.. code:: yaml
 
-         kubectl patch deployment percona-xtradb-cluster-operator \
-            -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
-
-         kubectl patch pxc cluster1 --type=merge --patch '{
-            "spec": {
-                "crVersion":"{{{release}}}",
-                "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
-                "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
-                "haproxy":  { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
-                "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-backup" },
-                "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
-                "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
-            }}'
-
-#. The deployment rollout will be automatically triggered by the applied patch.
-   You can track the rollout process in real time with the
-   ``kubectl rollout status`` command with the name of your cluster::
-
-     kubectl rollout status sts cluster1-pxc
+   spec:
+     updateStrategy: SmartUpdate
+     upgradeOptions:
+       apply: Recommended
+       versionServiceEndpoint: https://check.percona.com
+       schedule: "0 0 * * *"
+   ...
 
 .. _operator-update-manual-updates:
 
-Manual update
-*************
+Manual upgrade
+**************
+
+Manual update of Percona XtraDB Cluster should be used with the Operator
+version 1.5 or earlier. For all newer versions, use :ref:`automatic update<operator-update-smartupdates>`
+instead.
 
 .. note:: Only the incremental update to a nearest minor version of the Operator
-   is supported (for example, update from 1.2.0 to 1.3.0).
+   is supported (for example, update from 1.4.0 to 1.5.0).
    To update to a newer version, which differs from the current version by more
    than one, make several incremental updates sequentially.
 
@@ -174,86 +182,87 @@ Manual update
 #. The update process is successfully finished when all Pods have been
    restarted.
 
-.. _operator-update-smartupdates:
+.. _operator-update:
 
-Upgrading Percona XtraDB Cluster
---------------------------------
+Upgrading the Operator
+----------------------
 
-Starting from version 1.5.0, the Operator can do fully automatic upgrades to
-the newer versions of Percona XtraDB Cluster within the method named *Smart
-Updates*.
+This upgrade can be done either in semi-automatic or in manual mode. 
 
-To have this upgrade method enabled, make sure that the ``updateStrategy`` key
-in the ``deploy/cr.yaml`` configuration file is set to ``SmartUpdate``.
+.. note:: The manual update mode is the recomended way for a production cluster.
 
-When automatic updates are enabled, the Operator will carry on upgrades
-according to the following algorithm. It will query a special *Version Service* 
-server at scheduled times to obtain fresh information about version numbers and
-valid image paths needed for the upgrade. If the current version should be
-upgraded, the Operator updates the CR to reflect the new image paths and carries
-on sequential Pods deletion in a safe order, allowing StatefulSet to redeploy
-the cluster Pods with the new image.
+.. _operator-update-semi-auto-updates:
 
-The upgrade details are set in the ``upgradeOptions`` section of the 
-``deploy/cr.yaml`` configuration file. Make the following edits to configure
-updates:
+Semi-automatic upgrade
+**********************
 
-#. Set the ``apply`` option to one of the following values:
+.. note:: Only the incremental update to a nearest minor version of the Operator
+   is supported (for example, update from 1.5.0 to 1.6.0).
+   To update to a newer version, which differs from the current version by more
+   than one, make several incremental updates sequentially.
 
-   * ``Recommended`` - automatic upgrades will choose the most recent version
-     of software flagged as Recommended (for clusters created from scratch,
-     the Percona XtraDB Cluster 8.0 version will be selected instead of the
-     Percona XtraDB Cluster 5.7 one regardless of the image path; for already
-     existing clusters, the 8.0 vs. 5.7 branch choice will be preserved),
-   * ``8.0-recommended``, ``5.7-recommended`` - same as above, but preserves
-     specific major Percona XtraDB Cluster version for newly provisioned
-     clusters (ex. 8.0 will not be automatically used instead of 5.7),
-   * ``Latest`` - automatic upgrades will choose the most recent version of
-     the software available,
-   * ``8.0-latest``, ``5.7-latest`` - same as above, but preserves specific
-     major Percona XtraDB Cluster version for newly provisioned
-     clusters (ex. 8.0 will not be automatically used instead of 5.7),
-   * *version number* - specify the desired version explicitly
-     (version numbers are specified as ``{{{pxc80recommended}}}``,
-     ``{{{pxc57recommended}}}``, etc.),
-   * ``Never`` or ``Disabled`` - disable automatic upgrades
+#. Update the Custom Resource Definition file for the Operator, taking it from
+   the official repository on Github, and do the same for the Role-based access
+   control:
 
-     .. note:: When automatic upgrades are disabled by the ``apply`` option, 
-        Smart Update functionality will continue working for changes triggered
-        by other events, such as updating a ConfigMap, rotating a password, or
-        changing resource values.
+   .. code:: bash
 
-#. Make sure the ``versionServiceEndpoint`` key is set to a valid Version
-   Server URL (otherwise Smart Updates will not occur).
+      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
+      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
 
-   A. You can use the URL of the official Percona's Version Service (default).
-      Set ``versionServiceEndpoint`` to ``https://check.percona.com``.
+#. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
+   ``RollingUpdate``.
 
-   B. Alternatively, you can run Version Service inside your cluster. This
-      can be done with the ``kubectl`` command as follows:
-      
-      .. code:: bash
-      
-         kubectl run version-service --image=perconalab/version-service --env="SERVE_HTTP=true" --port 11000 --expose
+#. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
+   deployment, supplying necessary image names with a newer version tag. This
+   is done with the ``kubectl patch deployment`` command. Actual image names
+   can be found :ref:`in the list of certified images<custom-registry-images>`.
+   For example, updating to the ``{{{release}}}`` version should look as
+   follows, depending on whether you are using Percona XtraDB Cluster 5.7 or 8.0.
 
-   .. note:: Version Service is never checked if automatic updates are disabled.
-      If automatic updates are enabled, but Version Service URL can not be
-      reached, upgrades will not occur.
+   .. code:: bash
 
-#. Use the ``schedule`` option to specify the update checks time in CRON format.
+      $ kubectl patch deployment percona-xtradb-cluster-operator \
+        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
 
-The following example sets the midnight update checks with the official
-Percona's Version Service:
+#. The deployment rollout will be automatically triggered by the applied patch.
+   You can track the rollout process in real time with the
+   ``kubectl rollout status`` command with the name of your cluster::
 
-.. code:: yaml
+     kubectl rollout status sts cluster1-pxc
 
-   spec:
-     updateStrategy: SmartUpdate
-     upgradeOptions:
-       apply: Recommended
-       versionServiceEndpoint: https://check.percona.com
-       schedule: "0 0 * * *"
-   ...
+.. _operator-update-manual-updates:
 
-.. _operator-update-semiauto-updates:
+Manual update
+*************
 
+Manual update should be used 
+
+.. note:: Only the incremental update to a nearest minor version of the Operator
+   is supported (for example, update from 1.4.0 to 1.5.0).
+   To update to a newer version, which differs from the current version by more
+   than one, make several incremental updates sequentially.
+
+#. Update the Custom Resource Definition file for the Operator, taking it from
+   the official repository on Github, and do the same for the Role-based access
+   control:
+
+   .. code:: bash
+
+      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
+      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
+
+#. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
+   ``OnDelete``.
+
+#. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
+   deployment, supplying necessary image names with a newer version tag. This
+   is done with the ``kubectl patch deployment`` command. Actual image names
+   can be found :ref:`in the list of certified images<custom-registry-images>`.
+   For example, updating to the ``{{{release}}}`` version should look as
+   follows.
+
+   .. code:: bash
+
+      $ kubectl patch deployment percona-xtradb-cluster-operator \
+        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'

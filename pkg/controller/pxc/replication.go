@@ -268,22 +268,16 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 		return errors.Wrapf(err, "get current replication sources for channel %s", channel.Name)
 	}
 
-	if err == queries.ErrNotFound {
-		for _, src := range channel.SourcesList {
-			err := primaryDB.AddReplicationSource(channel.Name, src.Host, src.Port, src.Weight)
-			if err != nil {
-				return errors.Wrapf(err, "add replication source for channel %s", channel.Name)
-			}
-		}
-	}
-
-	if !isSourcesChanged(channel.SourcesList, currentSources) {
-		return nil
-	}
-
 	replicationActive, err := primaryDB.IsReplicationActive(channel.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to check replication status")
+	}
+
+	if !isSourcesChanged(channel.SourcesList, currentSources) {
+		if !replicationActive {
+			log.Info("Replication for channel is not running. Please, check the replication status", "channel", channel.Name)
+		}
+		return nil
 	}
 
 	if replicationActive {

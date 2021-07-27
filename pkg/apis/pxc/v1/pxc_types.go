@@ -722,36 +722,36 @@ const (
 )
 
 func (cr *PerconaXtraDBCluster) setProbesDefaults() {
-	if cr.Spec.PXC != nil {
-		if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
-			cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
-		} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
-			cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 300
-		}
 
-		if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {
-			cr.Spec.PXC.LivenessProbes.TimeoutSeconds = 5
-		}
-
-		cr.Spec.PXC.LivenessProbes.SuccessThreshold = 1
-
-		if cr.Spec.PXC.ReadinessInitialDelaySeconds != nil {
-			cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = *cr.Spec.PXC.ReadinessInitialDelaySeconds
-		} else if cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds == 0 {
-			cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = 15
-		}
-
-		if cr.Spec.PXC.ReadinessProbes.PeriodSeconds == 0 {
-			cr.Spec.PXC.ReadinessProbes.PeriodSeconds = 30
-		}
-
-		if cr.Spec.PXC.ReadinessProbes.FailureThreshold == 0 {
-			cr.Spec.PXC.ReadinessProbes.FailureThreshold = 5
-		}
-		if cr.Spec.PXC.ReadinessProbes.TimeoutSeconds == 0 {
-			cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 15
-		}
+	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
+	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 300
 	}
+
+	if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {
+		cr.Spec.PXC.LivenessProbes.TimeoutSeconds = 5
+	}
+
+	cr.Spec.PXC.LivenessProbes.SuccessThreshold = 1
+
+	if cr.Spec.PXC.ReadinessInitialDelaySeconds != nil {
+		cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = *cr.Spec.PXC.ReadinessInitialDelaySeconds
+	} else if cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds == 0 {
+		cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = 15
+	}
+
+	if cr.Spec.PXC.ReadinessProbes.PeriodSeconds == 0 {
+		cr.Spec.PXC.ReadinessProbes.PeriodSeconds = 30
+	}
+
+	if cr.Spec.PXC.ReadinessProbes.FailureThreshold == 0 {
+		cr.Spec.PXC.ReadinessProbes.FailureThreshold = 5
+	}
+	if cr.Spec.PXC.ReadinessProbes.TimeoutSeconds == 0 {
+		cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 15
+	}
+
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
 		if cr.Spec.HAProxy.ReadinessInitialDelaySeconds != nil {
 			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.ReadinessInitialDelaySeconds

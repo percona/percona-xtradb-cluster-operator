@@ -72,7 +72,7 @@ updates:
       
       .. code:: bash
       
-         kubectl run version-service --image=perconalab/version-service --env="SERVE_HTTP=true" --port 11000 --expose
+         $ kubectl run version-service --image=perconalab/version-service --env="SERVE_HTTP=true" --port 11000 --expose
 
    .. note:: Version Service is never checked if automatic updates are disabled.
       If automatic updates are enabled, but Version Service URL can not be
@@ -113,8 +113,8 @@ instead.
 
    .. code:: bash
 
-      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
-      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
 
 #. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
    ``OnDelete``.
@@ -130,11 +130,8 @@ instead.
 
       .. code:: bash
 
-         kubectl patch deployment percona-xtradb-cluster-operator \
-            -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
-
-         kubectl patch pxc cluster1 --type=merge --patch '{
-            "spec": {
+         $ kubectl patch pxc cluster1 --type=merge --patch '{
+             "spec": {
                 "crVersion":"{{{release}}}",
                 "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
@@ -142,17 +139,15 @@ instead.
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-backup" },
                 "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
                 "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
-            }}'
+             }}'
 
    B. For Percona XtraDB Cluster 8.0 run the following:
 
       .. code:: bash
 
-         kubectl patch deployment percona-xtradb-cluster-operator \
-            -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
 
-         kubectl patch pxc cluster1 --type=merge --patch '{
-            "spec": {
+         $ kubectl patch pxc cluster1 --type=merge --patch '{
+             "spec": {
                 "crVersion":"{{{release}}}",
                 "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
                 "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
@@ -160,7 +155,7 @@ instead.
                 "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-backup" },
                 "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
                 "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
-            }}'
+             }}'
 
 #. The Pod with the newer Percona XtraDB Cluster image will start after you
    delete it. Delete targeted Pods manually one by one to make them restart in
@@ -168,11 +163,11 @@ instead.
 
    #. Delete the Pod using its name with the command like the following one::
 
-         kubectl delete pod cluster1-pxc-2
+        $ kubectl delete pod cluster1-pxc-2
 
    #. Wait until Pod becomes ready::
 
-         kubectl get pod cluster1-pxc-2
+        $ kubectl get pod cluster1-pxc-2
 
       The output should be like this::
 
@@ -207,8 +202,8 @@ Semi-automatic upgrade
 
    .. code:: bash
 
-      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
-      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
 
 #. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
    ``RollingUpdate``.
@@ -229,7 +224,7 @@ Semi-automatic upgrade
    You can track the rollout process in real time with the
    ``kubectl rollout status`` command with the name of your cluster::
 
-     kubectl rollout status sts cluster1-pxc
+     $ kubectl rollout status sts cluster1-pxc
 
 .. _operator-update-manual-updates:
 
@@ -249,8 +244,8 @@ Manual update should be used
 
    .. code:: bash
 
-      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
-      kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
 
 #. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
    ``OnDelete``.

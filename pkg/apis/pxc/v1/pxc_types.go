@@ -200,9 +200,35 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.New("pxc.Image can't be empty")
 	}
 
-	for _, v := range c.PXC.ReplicationChannels {
-		if v.Name == "" {
-			return errors.New("pxc.replicationChannels.Name can't be empty")
+	if len(c.PXC.ReplicationChannels) > 0 {
+		// since we do not allow multimaster
+		// isSource field should be equal everywhere
+		isSrc := c.PXC.ReplicationChannels[0].IsSource
+		for _, channel := range c.PXC.ReplicationChannels {
+			// this restrictions coming from mysql itself
+			if len(channel.Name) > 64 || channel.Name == "" || channel.Name == "group_replication_applier" || channel.Name == "group_replication_recovery" {
+				return errors.Errorf("invalid replication channel name %s, please see channel naming conventions", channel.Name)
+			}
+
+			if isSrc != channel.IsSource {
+				return errors.New("you can specify only one type of replication please specify equal values for isSource field")
+			}
+
+			if !channel.IsSource {
+				if len(channel.SourcesList) > 0 {
+					return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
+				}
+				continue
+			}
+
+			for _, src := range channel.SourcesList {
+				if src.Weight == 0 {
+					src.Weight = 100
+				}
+				if src.Port == 0 {
+					src.Port = 3306
+				}
+			}
 		}
 	}
 
@@ -572,30 +598,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		if len(c.PXC.EnvVarsSecretName) == 0 {
 			c.PXC.EnvVarsSecretName = cr.Name + "-env-vars-pxc"
-		}
-
-		if len(c.PXC.ReplicationChannels) > 0 {
-			for _, channel := range c.PXC.ReplicationChannels {
-				// this restrictions coming from mysql itself
-				if len(channel.Name) > 64 || channel.Name == "group_replication_applier" || channel.Name == "group_replication_recovery" {
-					return false, errors.Errorf("invalid replication channel name %s, please see channel naming conventions", channel.Name)
-				}
-
-				if channel.IsSource {
-					if len(channel.SourcesList) > 0 {
-						return false, errors.Errorf("sources list for replication channel %s should be empty, because it's source", channel.Name)
-					}
-					continue
-				}
-				for _, src := range channel.SourcesList {
-					if src.Weight == 0 {
-						src.Weight = 100
-					}
-					if src.Port == 0 {
-						src.Port = 3306
-					}
-				}
-			}
 		}
 
 		c.PXC.reconcileAffinityOpts()

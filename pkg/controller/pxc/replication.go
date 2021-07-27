@@ -158,6 +158,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return errors.Wrap(err, "remove outdated replication channels")
 	}
 
+	err = checkReadonlyStatus(cr.Spec.PXC.ReplicationChannels, list.Items, cr, r.client)
+	if err != nil {
+		return errors.Wrap(err, "failed to ensure cluster readonly status")
+	}
+
 	if len(cr.Spec.PXC.ReplicationChannels) == 0 {
 		return nil
 	}
@@ -219,6 +224,42 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	return nil
 }
 
+func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {
+	isReplica := false
+	if len(channels) > 0 {
+		isReplica = !channels[0].IsSource
+	}
+
+	for _, pod := range pods {
+		db, err := queries.New(client, cr.Namespace, cr.Spec.SecretsName, "operator", pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 3306)
+		if err != nil {
+			return errors.Wrapf(err, "connect to pod %s", pod.Name)
+		}
+		defer db.Close()
+		readonly, err := db.IsReadonly()
+		if err != nil {
+			return errors.Wrap(err, "check readonly status")
+		}
+
+		if isReplica && readonly || (!isReplica && !readonly) {
+			continue
+		}
+
+		if isReplica && !readonly {
+			err = db.EnableReadonly()
+		}
+
+		if !isReplica && readonly {
+			err = db.DisableReadonly()
+		}
+		if err != nil {
+			return errors.Wrap(err, "enable or disable readonly mode")
+		}
+
+	}
+	return nil
+}
+
 func removeOutdatedChannels(db queries.Database, current []api.ReplicationChannel) error {
 	channels, err := db.CurrentReplicationChannels()
 	if err != nil {
@@ -235,7 +276,9 @@ func removeOutdatedChannels(db queries.Database, current []api.ReplicationChanne
 	}
 
 	for _, v := range current {
-		delete(toRemove, v.Name)
+		if !v.IsSource {
+			delete(toRemove, v.Name)
+		}
 	}
 
 	if len(toRemove) == 0 {
@@ -249,7 +292,7 @@ func removeOutdatedChannels(db queries.Database, current []api.ReplicationChanne
 		}
 
 		srcList, err := db.ReplicationChannelSources(channelToRemove)
-		if err != nil {
+		if err != nil && err != queries.ErrNotFound {
 			return errors.Wrapf(err, "get src list for outdated channel %s", channelToRemove)
 		}
 		for _, v := range srcList {

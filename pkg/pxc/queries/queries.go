@@ -158,6 +158,22 @@ func (p *Database) StopReplication(name string) error {
 	return errors.Wrap(err, "stop replication for channel "+name)
 }
 
+func (p *Database) EnableReadonly() error {
+	_, err := p.db.Exec("SET GLOBAL READ_ONLY=1")
+	return errors.Wrap(err, "set global read_only param to 1")
+}
+
+func (p *Database) DisableReadonly() error {
+	_, err := p.db.Exec("SET GLOBAL READ_ONLY=0")
+	return errors.Wrap(err, "set global read_only param to 0")
+}
+
+func (p *Database) IsReadonly() (bool, error) {
+	readonly := 0
+	err := p.db.QueryRow("select @@read_only").Scan(&readonly)
+	return readonly == 1, errors.Wrap(err, "select global read_only param")
+}
+
 func (p *Database) StartReplication(replicaPass string, src ReplicationChannelSource) error {
 	_, err := p.db.Exec(`
 	CHANGE REPLICATION SOURCE TO

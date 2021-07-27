@@ -576,7 +576,15 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		if len(c.PXC.ReplicationChannels) > 0 {
 			for _, channel := range c.PXC.ReplicationChannels {
+				// this restrictions coming from mysql itself
+				if len(channel.Name) > 64 || channel.Name == "group_replication_applier" || channel.Name == "group_replication_recovery" {
+					return false, errors.Errorf("invalid replication channel name %s, please see channel naming conventions", channel.Name)
+				}
+
 				if channel.IsSource {
+					if len(channel.SourcesList) > 0 {
+						return false, errors.Errorf("sources list for replication channel %s should be empty, because it's source", channel.Name)
+					}
 					continue
 				}
 				for _, src := range channel.SourcesList {

@@ -13,11 +13,11 @@ Security (TLS) cryptographic protocol for the following types of communication:
 The internal certificate is also used as an authorization method.
 
 TLS security can be configured in several ways. By default, the Operator
-generates certificates automatically if there are no certificate secrets
-available. Other options are the following ones:
+generates long-term certificates automatically if there are no certificate
+secrets available. Other options are the following ones:
 
-* The Operator can use a specifically installed *cert-manager* for the automatic
-  certificates generation,
+* The Operator can use a specifically installed *cert-manager*, which will
+  automatically generate and renew short-term TLS certificates,
 * Certificates can be generated manually.
 
 You can also use pre-generated certificates available in the
@@ -40,6 +40,9 @@ About the *cert-manager*
 A `cert-manager <https://cert-manager.io/docs/>`_ is a Kubernetes certificate
 management controller which widely used to automate the management and issuance
 of TLS certificates. It is community-driven, and open source.
+
+ .. image:: ./assets/images/certificates.svg
+   :align: center
 
 When you have already installed *cert-manager* and deploy the operator, the
 operator requests a certificate from the *cert-manager*. The *cert-manager* acts

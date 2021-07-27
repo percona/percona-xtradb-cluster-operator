@@ -85,25 +85,34 @@ func (p *Database) CurrentReplicationChannels() ([]string, error) {
 }
 
 func (p *Database) IsReplicationActive(channel string) (bool, error) {
-	row := p.db.QueryRow(`SHOW REPLICA STATUS FOR CHANNEL ?`, channel)
-	if row.Err() != nil {
-		if strings.HasSuffix(row.Err().Error(), "does not exist.") || row.Err() == sql.ErrNoRows {
+	rows, err := p.db.Query(`SHOW REPLICA STATUS FOR CHANNEL ?`, channel)
+	if err != nil {
+		if strings.HasSuffix(err.Error(), "does not exist.") || errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
-		return false, errors.Wrap(row.Err(), "get current replica status")
+		return false, errors.Wrap(err, "get current replica status")
 	}
 
-	cols := make([]interface{}, 59)
-	for i := range cols {
-		cols[i] = new(sql.RawBytes)
-	}
-
-	var IORunning, SQLRunning string
-
-	err := row.Scan(cols[:10], &IORunning, &SQLRunning, cols[11])
+	defer rows.Close()
+	cols, err := rows.Columns()
 	if err != nil {
-		return false, errors.Wrap(err, "failed to scan replica status")
+		return false, errors.Wrap(err, "get columns")
 	}
+	vals := make([]interface{}, len(cols))
+	for i := range cols {
+		vals[i] = new(sql.RawBytes)
+	}
+
+	for rows.Next() {
+		err = rows.Scan(vals...)
+		if err != nil {
+			return false, errors.Wrap(err, "scan replication status")
+		}
+	}
+
+	IORunning := string(*vals[10].(*sql.RawBytes))
+	SQLRunning := string(*vals[11].(*sql.RawBytes))
+
 	return IORunning == "Yes" && SQLRunning == "Yes", nil
 }
 

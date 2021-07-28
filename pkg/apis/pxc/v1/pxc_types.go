@@ -214,11 +214,12 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 				return errors.New("you can specify only one type of replication please specify equal values for isSource field")
 			}
 
-			if !channel.IsSource {
-				if len(channel.SourcesList) > 0 {
-					return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
-				}
+			if channel.IsSource {
 				continue
+			}
+
+			if len(channel.SourcesList) == 0 {
+				return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
 			}
 
 			for _, src := range channel.SourcesList {
@@ -226,7 +227,7 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 					src.Weight = 100
 				}
 				if src.Port == 0 {
-					src.Port = 33062
+					src.Port = 3306
 				}
 			}
 		}

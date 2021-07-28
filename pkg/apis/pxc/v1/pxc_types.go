@@ -226,7 +226,7 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 					src.Weight = 100
 				}
 				if src.Port == 0 {
-					src.Port = 3306
+					src.Port = 33062
 				}
 			}
 		}

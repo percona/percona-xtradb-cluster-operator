@@ -231,7 +231,7 @@ func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, c
 	}
 
 	for _, pod := range pods {
-		db, err := queries.New(client, cr.Namespace, cr.Spec.SecretsName, "operator", pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 3306)
+		db, err := queries.New(client, cr.Namespace, cr.Spec.SecretsName, "operator", pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062)
 		if err != nil {
 			return errors.Wrapf(err, "connect to pod %s", pod.Name)
 		}
@@ -260,22 +260,22 @@ func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, c
 	return nil
 }
 
-func removeOutdatedChannels(db queries.Database, current []api.ReplicationChannel) error {
-	channels, err := db.CurrentReplicationChannels()
+func removeOutdatedChannels(db queries.Database, currentChannels []api.ReplicationChannel) error {
+	dbChannels, err := db.CurrentReplicationChannels()
 	if err != nil {
 		return errors.Wrap(err, "get current replication channels")
 	}
 
-	if len(channels) == 0 {
+	if len(dbChannels) == 0 {
 		return nil
 	}
 
 	toRemove := make(map[string]struct{})
-	for _, v := range channels {
+	for _, v := range dbChannels {
 		toRemove[v] = struct{}{}
 	}
 
-	for _, v := range current {
+	for _, v := range currentChannels {
 		if !v.IsSource {
 			delete(toRemove, v.Name)
 		}

@@ -45,6 +45,10 @@ spec:
         - env:
             - name: PXC_SERVICE
               value: upgrade-haproxy-pxc
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "1"
           envFrom:
             - secretRef:
                 name: upgrade-haproxy-env-vars-haproxy
@@ -53,7 +57,7 @@ spec:
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/readiness-check.sh
+                - /usr/local/bin/liveness-check.sh
             failureThreshold: 4
             initialDelaySeconds: 60
             periodSeconds: 30

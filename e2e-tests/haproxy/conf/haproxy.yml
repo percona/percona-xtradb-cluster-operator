@@ -32,6 +32,12 @@ spec:
     enabled: true
     size: 3
     image: -haproxy
+    livenessProbes:
+      initialDelaySeconds: 61
+      timeoutSeconds: 6
+      periodSeconds: 31
+      successThreshold: 1
+      failureThreshold: 5
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
     tolerations:

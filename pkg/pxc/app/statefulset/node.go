@@ -241,6 +241,26 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Name:          "mysqlx",
 			},
 		)
+
+		appc.LivenessProbe = &spec.LivenessProbes
+		appc.ReadinessProbe = &spec.ReadinessProbes
+		appc.ReadinessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/var/lib/mysql/readiness-check.sh"},
+		}
+		appc.LivenessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/var/lib/mysql/liveness-check.sh"},
+		}
+		probsEnvs := []corev1.EnvVar{
+			{
+				Name:  "LIVENESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(spec.LivenessProbes.TimeoutSeconds),
+			},
+			{
+				Name:  "READINESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(spec.ReadinessProbes.TimeoutSeconds),
+			},
+		}
+		appc.Env = append(appc.Env, probsEnvs...)
 	}
 
 	res, err := app.CreateResources(spec.Resources)

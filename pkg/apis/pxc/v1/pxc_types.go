@@ -329,7 +329,9 @@ type PodSpec struct {
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
+	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`
 	LivenessInitialDelaySeconds   *int32                                  `json:"livenessDelaySec,omitempty"`
+	LivenessProbes                corev1.Probe                            `json:"livenessProbes,omitempty"`
 	PodSecurityContext            *corev1.PodSecurityContext              `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
@@ -708,6 +710,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
+	cr.setProbesDefaults()
 	cr.setSecurityContext()
 
 	if cr.Spec.EnableCRValidationWebhook == nil {
@@ -722,6 +725,72 @@ const (
 	maxSafePXCSize   = 5
 	minSafeProxySize = 2
 )
+
+func (cr *PerconaXtraDBCluster) setProbesDefaults() {
+
+	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
+	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 300
+	}
+
+	if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {
+		cr.Spec.PXC.LivenessProbes.TimeoutSeconds = 5
+	}
+
+	cr.Spec.PXC.LivenessProbes.SuccessThreshold = 1
+
+	if cr.Spec.PXC.ReadinessInitialDelaySeconds != nil {
+		cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = *cr.Spec.PXC.ReadinessInitialDelaySeconds
+	} else if cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds == 0 {
+		cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = 15
+	}
+
+	if cr.Spec.PXC.ReadinessProbes.PeriodSeconds == 0 {
+		cr.Spec.PXC.ReadinessProbes.PeriodSeconds = 30
+	}
+
+	if cr.Spec.PXC.ReadinessProbes.FailureThreshold == 0 {
+		cr.Spec.PXC.ReadinessProbes.FailureThreshold = 5
+	}
+	if cr.Spec.PXC.ReadinessProbes.TimeoutSeconds == 0 {
+		cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 15
+	}
+
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+		if cr.Spec.HAProxy.ReadinessInitialDelaySeconds != nil {
+			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.ReadinessInitialDelaySeconds
+		} else if cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = 15
+		}
+		if cr.Spec.HAProxy.ReadinessProbes.PeriodSeconds == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.PeriodSeconds = 5
+		}
+
+		if cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds = 1
+		}
+
+		if cr.Spec.HAProxy.LivenessInitialDelaySeconds != nil {
+			cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.LivenessInitialDelaySeconds
+		} else if cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds == 0 {
+			cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds = 60
+		}
+
+		if cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds == 0 {
+			cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds = 5
+		}
+		if cr.Spec.HAProxy.LivenessProbes.FailureThreshold == 0 {
+			cr.Spec.HAProxy.LivenessProbes.FailureThreshold = 4
+		}
+		if cr.Spec.HAProxy.LivenessProbes.PeriodSeconds == 0 {
+			cr.Spec.HAProxy.LivenessProbes.PeriodSeconds = 30
+		}
+
+		cr.Spec.HAProxy.LivenessProbes.SuccessThreshold = 1
+
+	}
+}
 
 func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	if spec.AllowUnsafeConfig {

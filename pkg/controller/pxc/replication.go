@@ -170,11 +170,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	// if primary pod is not a replica, we need to make it as replica, and stop replication on other pods
 	_, ok := primaryPod.Labels[replicationPodLabel]
 	if !ok {
-		primaryPod.Labels[replicationPodLabel] = "true"
-		err = r.client.Update(context.TODO(), primaryPod)
-		if err != nil {
-			return errors.Wrap(err, "add label to main replica pod")
-		}
 		for _, pod := range list.Items {
 			if pod.Name == primaryPod.Name {
 				continue
@@ -196,6 +191,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 					return errors.Wrap(err, "failed to remove primary label from secondary pod")
 				}
 			}
+		}
+		primaryPod.Labels[replicationPodLabel] = "true"
+		err = r.client.Update(context.TODO(), primaryPod)
+		if err != nil {
+			return errors.Wrap(err, "add label to main replica pod")
 		}
 	}
 

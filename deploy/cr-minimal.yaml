@@ -4,7 +4,7 @@ metadata:
   name: minimal-cluster
   finalizers:
     - delete-pxc-pods-in-order
-#    - delete-proxysql-pvc
+#    - delete-pxc-pvc
 spec:
   crVersion: 1.8.0
   secretsName: minimal-cluster-secrets

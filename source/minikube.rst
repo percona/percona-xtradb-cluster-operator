@@ -39,33 +39,23 @@ Minikube:
 
      kubectl apply -f deploy/bundle.yaml
 
-#. Because minikube runs locally, the default ``deploy/cr.yaml`` file should
-   be edited to adapt the Operator for the the local installation with limited
-   resources. Change the following keys in ``pxc`` and ``proxysql`` sections:
+#. Now apply the ``deploy/cr-minimal.yaml`` file with the following command::
 
-   #. comment ``resources.requests.memory`` and ``resources.requests.cpu`` keys
-      (this will fit the Operator in minikube default limitations)
-   #. set ``affinity.antiAffinityTopologyKey`` key to ``"none"`` (the Operator
-      will be unable to spread the cluster on several nodes)
+     kubectl apply -f deploy/cr-minimal.yaml
 
-   Also, switch ``allowUnsafeConfigurations`` key to ``true`` (this option turns
-   off the Operator’s control over the cluster configuration, making it possible to
-   deploy Percona XtraDB Cluster as a one-node cluster).
-
-#. Now apply the ``deploy/cr.yaml`` file with the following command::
-
-     kubectl apply -f deploy/cr.yaml
-
+   This deploys one Percona XtraDB Cluster node and one HAProxy node. 
+   ``deploy/cr-minimal.yaml`` is for minimal non-production deployment. For 
+   more configuration options please see ``deploy/cr.yaml`` and :ref:`Custom Resource Options<operator.custom-resource-options>`.
    Creation process will take some time. The process is over when both
    operator and replica set pod have reached their Running status:
 
-   .. include:: ./assets/code/kubectl-get-pods-response.txt
+   .. include:: ./assets/code/kubectl-get-minimal-response.txt
 
 #. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the
    password for the ``root`` user, which you will definitely need to access the
    cluster. Use ``kubectl get secrets`` to see the list of Secrets objects (by
-   default Secrets object you are interested in has ``my-cluster-secrets`` name).
-   Then ``kubectl get secret my-cluster-secrets -o yaml`` will return the YAML
+   default Secrets object you are interested in has ``minimal-cluster-secrets`` name).
+   Then ``kubectl get secret minimal-cluster-secrets -o yaml`` will return the YAML
    file with generated secrets, including the root password which should look as
    follows::
 
@@ -92,22 +82,9 @@ Minikube:
    
    .. code:: bash
 
-      mysql -h cluster1-haproxy -uroot -proot_password
+      mysql -h minimal-cluster-haproxy -uroot -proot_password
 
    This command will connect you to the MySQL monitor.
 
-   .. code:: text
-
-      mysql: [Warning] Using a password on the command line interface can be insecure.
-      Welcome to the MySQL monitor.  Commands end with ; or \g.
-      Your MySQL connection id is 1976
-      Server version: 8.0.19-10 Percona XtraDB Cluster (GPL), Release rel10, Revision 727f180, WSREP version 26.4.3
-
-      Copyright (c) 2009-2020 Percona LLC and/or its affiliates
-      Copyright (c) 2000, 2020, Oracle and/or its affiliates. All rights reserved.
-
-      Oracle is a registered trademark of Oracle Corporation and/or its
-      affiliates. Other names may be trademarks of their respective
-      owners.
-
-      Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+   .. include:: ./assets/code/mysql-welcome-response.txt
+   

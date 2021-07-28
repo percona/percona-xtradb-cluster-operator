@@ -190,6 +190,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-monitoring
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "15"
           envFrom:
             - secretRef:
                 name: monitoring-env-vars-pxc

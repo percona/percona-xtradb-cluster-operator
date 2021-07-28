@@ -18,7 +18,7 @@ AVAILABLE_WHEN_DONOR=${AVAILABLE_WHEN_DONOR:-1}
 DB_HOST=${HOSTNAME:-localhost}
 
 #Timeout exists for instances where mysqld may be hung
-TIMEOUT=10
+TIMEOUT=${READINESS_CHECK_TIMEOUT:-10}
 
 EXTRA_ARGS=""
 if [[ -n "$MYSQL_USERNAME" ]]; then

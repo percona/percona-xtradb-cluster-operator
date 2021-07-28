@@ -20,7 +20,7 @@ MYSQL_PASSWORD="${mysql_pass:-$MONITOR_PASSWORD}"
 DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
 DB_HOST=${HOSTNAME:-localhost}
 #Timeout exists for instances where mysqld may be hung
-TIMEOUT=5
+TIMEOUT=${LIVENESS_CHECK_TIMEOUT:-5}
 
 EXTRA_ARGS=""
 if [[ -n $MYSQL_USERNAME ]]; then

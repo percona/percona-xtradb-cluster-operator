@@ -1,0 +1,37 @@
+apiVersion: pxc.percona.com/v1-8-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: minimal-cluster
+  finalizers:
+    - delete-pxc-pods-in-order
+#    - delete-proxysql-pvc
+spec:
+  crVersion: 1.8.0
+  secretsName: minimal-cluster-secrets
+  vaultSecretName: keyring-secret-vault
+  sslSecretName: minima-cluster-ssl
+  sslInternalSecretName: minimal-cluster-ssl-internal
+  logCollectorSecretName: my-log-collector-secrets
+  allowUnsafeConfigurations: true
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    versionServiceEndpoint: https://check.percona.com
+    apply: 8.0-recommended
+    schedule: "0 4 * * *"
+  pxc:
+    size: 1
+    image: percona/percona-xtradb-cluster:8.0.22-13.1
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 6G
+    gracePeriod: 600
+  haproxy:
+    enabled: true
+    size: 1
+    image: percona/percona-xtradb-cluster-operator:1.8.0-haproxy
+    gracePeriod: 30
+  logcollector:
+    enabled: true
+    image: percona/percona-xtradb-cluster-operator:1.8.0-logcollector

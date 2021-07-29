@@ -164,7 +164,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	if len(cr.Spec.PXC.ReplicationChannels) == 0 {
-		return nil
+		return deleteReplicaLabels(r.client, list.Items)
+	}
+
+	if cr.Spec.PXC.ReplicationChannels[0].IsSource {
+		return deleteReplicaLabels(r.client, list.Items)
 	}
 
 	// if primary pod is not a replica, we need to make it as replica, and stop replication on other pods
@@ -379,6 +383,19 @@ func isSourcesChanged(new []api.ReplicationSource, old []queries.ReplicationChan
 	}
 
 	return len(oldSrc) != 0
+}
+
+func deleteReplicaLabels(client client.Client, pods []corev1.Pod) error {
+	for _, pod := range pods {
+		if _, ok := pod.Labels[replicationPodLabel]; ok {
+			delete(pod.Labels, replicationPodLabel)
+			err := client.Update(context.TODO(), &pod)
+			if err != nil {
+				return errors.Wrap(err, "failed to remove replication label from pod")
+			}
+		}
+	}
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtraDBCluster) error {

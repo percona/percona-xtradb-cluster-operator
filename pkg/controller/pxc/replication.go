@@ -100,19 +100,32 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	if cr.Status.PXC.Ready < 1 || cr.Spec.Pause {
 		return nil
 	}
+
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	sfs := statefulset.NewNode(cr)
 
-	list := corev1.PodList{}
-	if err := r.client.List(context.TODO(),
-		&list,
+	listRaw := corev1.PodList{}
+	err := r.client.List(context.TODO(),
+		&listRaw,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
-	); err != nil {
+	)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return errors.Wrap(err, "get pod list")
+	}
+
+	// we need only running pods, because we unable to
+	// connect to failed/pending pods
+	podList := make([]corev1.Pod, 0)
+	for _, pod := range listRaw.Items {
+		if isPodReady(pod) {
+			podList = append(podList, pod)
+		}
 	}
 
 	primary, err := r.getPrimaryPod(cr)
@@ -121,7 +134,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	var primaryPod *corev1.Pod
-	for _, pod := range list.Items {
+	for _, pod := range podList {
 		if pod.Status.PodIP == primary || pod.Name == primary || strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, cr.Namespace)) {
 			primaryPod = &pod
 			break
@@ -158,23 +171,23 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return errors.Wrap(err, "remove outdated replication channels")
 	}
 
-	err = checkReadonlyStatus(cr.Spec.PXC.ReplicationChannels, list.Items, cr, r.client)
+	err = checkReadonlyStatus(cr.Spec.PXC.ReplicationChannels, podList, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to ensure cluster readonly status")
 	}
 
 	if len(cr.Spec.PXC.ReplicationChannels) == 0 {
-		return deleteReplicaLabels(r.client, list.Items)
+		return deleteReplicaLabels(r.client, podList)
 	}
 
 	if cr.Spec.PXC.ReplicationChannels[0].IsSource {
-		return deleteReplicaLabels(r.client, list.Items)
+		return deleteReplicaLabels(r.client, podList)
 	}
 
 	// if primary pod is not a replica, we need to make it as replica, and stop replication on other pods
 	_, ok := primaryPod.Labels[replicationPodLabel]
 	if !ok {
-		for _, pod := range list.Items {
+		for _, pod := range podList {
 			if pod.Name == primaryPod.Name {
 				continue
 			}
@@ -473,4 +486,17 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 	}
 
 	return svc
+}
+
+// isPodReady returns a boolean reflecting if a pod is in a "ready" state
+func isPodReady(pod corev1.Pod) bool {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Status != corev1.ConditionTrue {
+			continue
+		}
+		if condition.Type == corev1.PodReady {
+			return true
+		}
+	}
+	return false
 }

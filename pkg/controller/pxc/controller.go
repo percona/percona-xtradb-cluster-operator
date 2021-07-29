@@ -236,7 +236,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
 		err = r.recoverFullClusterCrashIfNeeded(o)
 		if err != nil {
-			reqLogger.Error(err, "Failed to check if cluster needs to recover")
+			reqLogger.Info("Failed to check if cluster needs to recover", "err", err.Error())
 		}
 	}
 
@@ -513,7 +513,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if o.CompareVersionWith("1.9.0") >= 0 {
 		err = r.reconcileReplication(o)
 		if err != nil {
-			return rr, errors.Wrap(err, "reconcile replication")
+			reqLogger.Info("reconcile replication error", "err", err.Error())
 		}
 	}
 

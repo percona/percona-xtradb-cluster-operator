@@ -266,14 +266,16 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtr
 
 	user := "root"
 	port := int32(3306)
+	secrets := cr.Spec.SecretsName
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		port = int32(33062)
+		secrets = "internal-" + cr.Name
 	}
 
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	for _, pod := range list.Items {
-		database, err := queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
+		database, err := queries.New(r.client, cr.Namespace, secrets, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
 		if err != nil {
 			logger.Error(err, "failed to create db instance")
 			continue

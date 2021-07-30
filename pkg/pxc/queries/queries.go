@@ -14,6 +14,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type ReplicationStatus int8
+
+const (
+	ReplicationStatusActive ReplicationStatus = iota
+	ReplicationStatusError
+	ReplicationStatusNotInitiated
+)
+
 // value of writer group is hardcoded in ProxySQL config inside docker image
 // https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
 const writerID = 11
@@ -84,19 +92,19 @@ func (p *Database) CurrentReplicationChannels() ([]string, error) {
 	return result, nil
 }
 
-func (p *Database) IsReplicationActive(channel string) (bool, error) {
+func (p *Database) ReplicationStatus(channel string) (ReplicationStatus, error) {
 	rows, err := p.db.Query(`SHOW REPLICA STATUS FOR CHANNEL ?`, channel)
 	if err != nil {
 		if strings.HasSuffix(err.Error(), "does not exist.") || errors.Is(err, sql.ErrNoRows) {
-			return false, nil
+			return ReplicationStatusNotInitiated, nil
 		}
-		return false, errors.Wrap(err, "get current replica status")
+		return ReplicationStatusError, errors.Wrap(err, "get current replica status")
 	}
 
 	defer rows.Close()
 	cols, err := rows.Columns()
 	if err != nil {
-		return false, errors.Wrap(err, "get columns")
+		return ReplicationStatusError, errors.Wrap(err, "get columns")
 	}
 	vals := make([]interface{}, len(cols))
 	for i := range cols {
@@ -106,14 +114,22 @@ func (p *Database) IsReplicationActive(channel string) (bool, error) {
 	for rows.Next() {
 		err = rows.Scan(vals...)
 		if err != nil {
-			return false, errors.Wrap(err, "scan replication status")
+			return ReplicationStatusError, errors.Wrap(err, "scan replication status")
 		}
 	}
 
 	IORunning := string(*vals[10].(*sql.RawBytes))
 	SQLRunning := string(*vals[11].(*sql.RawBytes))
+	LastErrNo := string(*vals[18].(*sql.RawBytes))
+	if IORunning == "Yes" && SQLRunning == "Yes" {
+		return ReplicationStatusActive, nil
+	}
 
-	return IORunning == "Yes" && SQLRunning == "Yes", nil
+	if IORunning == "No" && SQLRunning == "No" && LastErrNo == "0" {
+		return ReplicationStatusNotInitiated, nil
+	}
+
+	return ReplicationStatusError, nil
 }
 
 func (p *Database) StopAllReplication() error {

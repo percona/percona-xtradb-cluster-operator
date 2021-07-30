@@ -2,6 +2,7 @@ package statefulset
 
 import (
 	"fmt"
+	"hash/fnv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -188,6 +189,21 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				},
 				Optional: &fvar,
 			},
+		})
+		serverIDHash := fnv.New32()
+		serverIDHash.Write([]byte(string(cr.UID)))
+
+		// we cut first 3 symbols to give a space for hostname(actially, pod number)
+		// which is appended to all server ids. If we do not do this, it
+		// can cause a int32 overflow
+		// P.S max value is 4294967295
+		serverIDHashStr := fmt.Sprint(serverIDHash.Sum32())
+		if len(serverIDHashStr) > 7 {
+			serverIDHashStr = serverIDHashStr[:7]
+		}
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "CLUSTER_HASH",
+			Value: serverIDHashStr,
 		})
 	}
 	if cr.CompareVersionWith("1.3.0") >= 0 {

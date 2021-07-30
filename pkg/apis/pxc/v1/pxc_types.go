@@ -60,9 +60,15 @@ type ServiceExpose struct {
 }
 
 type ReplicationChannel struct {
-	Name       string `json:"name,omitempty"`
-	IsSource   bool   `json:"isSource,omitempty"`
-	SecretName string `json:"secretName,omitempty"`
+	Name        string              `json:"name,omitempty"`
+	IsSource    bool                `json:"isSource,omitempty"`
+	SourcesList []ReplicationSource `json:"sourcesList,omitempty"`
+}
+
+type ReplicationSource struct {
+	Host   string `json:"host,omitempty"`
+	Port   int    `json:"port,omitempty"`
+	Weight int    `json:"weight,omitempty"`
 }
 
 type TLSSpec struct {
@@ -194,12 +200,36 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.New("pxc.Image can't be empty")
 	}
 
-	for _, v := range c.PXC.ReplicationChannels {
-		if v.Name == "" {
-			return errors.New("pxc.replicationChannels.Name can't be empty")
-		}
-		if v.SecretName == "" {
-			return errors.New("pxc.replicationChannels.SecretName can't be empty")
+	if len(c.PXC.ReplicationChannels) > 0 {
+		// since we do not allow multimaster
+		// isSource field should be equal everywhere
+		isSrc := c.PXC.ReplicationChannels[0].IsSource
+		for _, channel := range c.PXC.ReplicationChannels {
+			// this restrictions coming from mysql itself
+			if len(channel.Name) > 64 || channel.Name == "" || channel.Name == "group_replication_applier" || channel.Name == "group_replication_recovery" {
+				return errors.Errorf("invalid replication channel name %s, please see channel naming conventions", channel.Name)
+			}
+
+			if isSrc != channel.IsSource {
+				return errors.New("you can specify only one type of replication please specify equal values for isSource field")
+			}
+
+			if channel.IsSource {
+				continue
+			}
+
+			if len(channel.SourcesList) == 0 {
+				return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
+			}
+
+			for _, src := range channel.SourcesList {
+				if src.Weight == 0 {
+					src.Weight = 100
+				}
+				if src.Port == 0 {
+					src.Port = 3306
+				}
+			}
 		}
 	}
 

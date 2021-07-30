@@ -34,7 +34,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.22-13.1
+    image: percona/percona-xtradb-cluster:8.0.23-14.1
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -47,7 +47,12 @@ spec:
 #     replicationChannels:
 #     - name: pxc1_to_pxc2
 #       isSource: true
-#       secretName: my-cluster-name-replication
+#     - name: pxc2_to_pxc1
+#       isSource: false
+#       sourcesList:
+#       - host: 10.95.251.101
+#         port: 3306
+#         weight: 100
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600

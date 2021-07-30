@@ -41,9 +41,6 @@ A `cert-manager <https://cert-manager.io/docs/>`_ is a Kubernetes certificate
 management controller which widely used to automate the management and issuance
 of TLS certificates. It is community-driven, and open source.
 
- .. image:: ./assets/images/certificates.svg
-   :align: center
-
 When you have already installed *cert-manager* and deploy the operator, the
 operator requests a certificate from the *cert-manager*. The *cert-manager* acts
 as a self-signed issuer and generates certificates. The Percona Operator
@@ -145,6 +142,17 @@ Update certificates
 If a :ref`cert-manager<tls.certmanager>` is used, it should take care of
 updating the certificates. If you :ref:`generate certificates manually<tls.certs.manual>`,
 you are also in charge for updating them.
+
+TLS certificates issued by cert-manager are short-term ones. Starting from the
+Operator version 1.9.0 cert-manager issues TLS certificates for 3 months, while
+root certificate is valid for 3 years. This allows to re-issuer TLS certificates
+automatically when needed. 
+
+.. image:: ./assets/images/certificates.svg
+   :align: center
+
+.. note:: Versions of the Operator prior 1.9.0 have used 3 month root
+   certificate, which prevented the automatic TLS certificates update.
 
 .. _tls.cets.update.check:
 

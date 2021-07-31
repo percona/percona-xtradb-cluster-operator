@@ -44,15 +44,15 @@ spec:
 #        - 10.0.0.0/8
 #      annotations:
 #        networking.gke.io/load-balancer-type: "Internal"
-#     replicationChannels:
-#     - name: pxc1_to_pxc2
-#       isSource: true
-#     - name: pxc2_to_pxc1
-#       isSource: false
-#       sourcesList:
-#       - host: 10.95.251.101
-#         port: 3306
-#         weight: 100
+#    replicationChannels:
+#    - name: pxc1_to_pxc2
+#      isSource: true
+#    - name: pxc2_to_pxc1
+#      isSource: false
+#      sourcesList:
+#      - host: 10.95.251.101
+#        port: 3306
+#        weight: 100
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600

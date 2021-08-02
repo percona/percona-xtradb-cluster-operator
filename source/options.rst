@@ -13,18 +13,15 @@ configuration file to the cluster in one of the following ways:
 * use a ConfigMap,
 * use a Secret object.
 
-You can pass configuration settings separately for Percona XtraDB Cluster Pods,
-ProxySQL Pods, and HAProxy Pods.
+.. _operator-configmaps-cr:
 
 Edit the ``deploy/cr.yaml`` file
 ---------------------------------
 
 You can add options from the
-`my.cnf <https://dev.mysql.com/doc/refman/8.0/en/option-files.html>`__,
-`proxysql.cnf <https://proxysql.com/documentation/configuring-proxysql/>`__, or
-`haproxy.cfg <https://www.haproxy.com/blog/the-four-essential-sections-of-an-haproxy-configuration/>`__
-by editing the configuration section of the ``deploy/cr.yaml``. Here is an
-example:
+`my.cnf <https://dev.mysql.com/doc/refman/8.0/en/option-files.html>`__
+configuration file by editing the configuration section of the
+``deploy/cr.yaml``. Here is an example:
 
 .. code:: yaml
 
@@ -41,6 +38,8 @@ example:
 See the `Custom Resource options, PXC
 section <operator.html#operator-pxc-section>`_
 for more details
+
+.. _operator-configmaps-cm:
 
 Use a ConfigMap
 ---------------
@@ -80,8 +79,8 @@ The syntax for ``kubectl create configmap`` command is:
 
    kubectl create configmap <cluster-name>-pxc <resource-type=resource-name>
 
-The following example defines cluster1-pxc as the configmap name and the
-my-cnf file as the data source:
+The following example defines ``cluster1-pxc`` as the configmap name and the
+``my.cnf`` file as the data source:
 
 .. code:: bash
 
@@ -93,6 +92,8 @@ To view the created configmap, use the following command:
 
    kubectl describe configmaps cluster1-pxc
 
+.. _operator-configmaps-secret:
+
 Use a Secret Object
 -------------------
 
@@ -100,11 +101,7 @@ The Operator can also store configuration options in `Kubernetes Secrets <https:
 This can be useful if you need additional protection for some sensitive data.
 
 You should create a Secret object with a specific name, composed of your cluster
-name and a specific suffix:
-
-* ``my-cluster-name-pxc`` for the Percona XtraDB Cluster Pods,
-* ``my-cluster-name-proxysql`` for the ProxySQL Pods,
-* ``my-cluster-name-haproxy`` for the HAProxy Pods,
+name and the ``pxc`` suffix.
   
 .. note:: To find the cluster name, you can use the following command:
 
@@ -113,18 +110,14 @@ name and a specific suffix:
       $ kubectl get pxc
 
 Configuration options should be put inside a specific key inside of the ``data``
-section. The names of these keys are as follows:
-
-* ``my.cnf`` key for Percona XtraDB Cluster Pods,
-* ``proxysql.cnf`` key for ProxySQL Pods, 
-* ``haproxy-global.cfg`` key for HAProxy Pods.
+section. The name of this key is ``my.cnf`` for Percona XtraDB Cluster Pods.
 
 Actual options should be encoded with `Base64 <https://en.wikipedia.org/wiki/Base64>`_.
 
 For example, let's define a ``my.cnf`` configuration file and put there a pair
 of MySQL options we used in the previous example:
 
-.. code:: yaml
+::
 
    [mysqld]
    wsrep_debug=CLIENT
@@ -164,9 +157,9 @@ When ready, apply it with the following command:
    $ kubectl create -f deploy/my-pxc-secret.yaml
 
 .. note:: Do not forget to restart Percona XtraDB Cluster to ensure the
-   cluster has updated the configuration (see details on how to connect in the
-   :ref:`Install Percona XtraDB Cluster on Kubernetes<operator.kubernetes>`
-   page).
+   cluster has updated the configuration.
+
+.. _operator-configmaps-restart:
 
 Make changed options visible to the Percona XtraDB Cluster
 ----------------------------------------------------------
@@ -174,6 +167,8 @@ Make changed options visible to the Percona XtraDB Cluster
 Do not forget to restart Percona XtraDB Cluster to ensure the cluster
 has updated the configuration (see details on how to connect in the
 `Install Percona XtraDB Cluster on Kubernetes <kubernetes.html>`_ page).
+
+.. _operator-configmaps-auto:
 
 Auto-tuning MySQL options
 --------------------------

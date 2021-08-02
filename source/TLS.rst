@@ -38,17 +38,17 @@ About the *cert-manager*
 ------------------------
 
 A `cert-manager <https://cert-manager.io/docs/>`_ is a Kubernetes certificate
-management controller which widely used to automate the management and issuance
-of TLS certificates. It is community-driven, and open source.
+management controller which is widely used to automate the management and
+issuance of TLS certificates. It is community-driven, and open source.
 
 When you have already installed *cert-manager* and deploy the operator, the
 operator requests a certificate from the *cert-manager*. The *cert-manager* acts
 as a self-signed issuer and generates certificates. The Percona Operator
 self-signed issuer is local to the operator namespace. This self-signed issuer
-is created because Percona XtraDB Cluster requires all certificates are issued
+is created because Percona XtraDB Cluster requires all certificates issued
 by the same :abbr:`CA (Certificate authority)`.
 
-The creation of the self-signed issuer allows you to deploy and use the Percona
+Self-signed issuer allows you to deploy and use the Percona
 Operator without creating a clusterissuer separately.
 
 Installation of the *cert-manager*
@@ -56,8 +56,8 @@ Installation of the *cert-manager*
 
 The steps to install the *cert-manager* are the following:
 
-* Create a namespace
-* Disable resource validations on the cert-manager namespace
+* Create a namespace,
+* Disable resource validations on the cert-manager namespace,
 * Install the cert-manager.
 
 The following commands perform all the needed actions:
@@ -141,18 +141,34 @@ Update certificates
 
 If a :ref`cert-manager<tls.certmanager>` is used, it should take care of
 updating the certificates. If you :ref:`generate certificates manually<tls.certs.manual>`,
-you are also in charge for updating them.
+you are should take care of updating them in proper time.
 
 TLS certificates issued by cert-manager are short-term ones. Starting from the
 Operator version 1.9.0 cert-manager issues TLS certificates for 3 months, while
-root certificate is valid for 3 years. This allows to re-issuer TLS certificates
-automatically when needed. 
+root certificate is valid for 3 years. This allows to reissue TLS certificates
+automatically when needed.
 
 .. image:: ./assets/images/certificates.svg
    :align: center
 
-.. note:: Versions of the Operator prior 1.9.0 have used 3 month root
-   certificate, which prevented the automatic TLS certificates update.
+.. _tls.cets.update.check:
+
+Versions of the Operator prior 1.9.0 have used 3 month root certificate, which
+prevented the automatic TLS certificates update. If that's your case, you can
+make the Operator update as follows.
+
+#. Clone the percona-xtradb-cluster-operator repository and deploy the Operator
+   from it:
+
+   .. code:: bash
+
+      $ git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
+      $ cd percona-xtradb-cluster-operator
+      $ kubectl apply -f deploy/bundle.yaml
+
+#. Wait until everything is reconciled:
+
+   .. include:: ./assets/code/kubectl-get-pods-response.txt
 
 .. _tls.cets.update.check:
 
@@ -284,25 +300,9 @@ as follows.
 Update certificates with downtime
 ---------------------------------
 
-If your certificates have been already expired (or if you are using the
+If your certificates have been already expired (or if you continue to use the
 Operator version prior to 1.9.0), you should move through the
 *pause - update Secrets - unpause* route as follows.
-
-#. If you have the Operator 1.8.0, you have to update it because of a new
-   issuer introduced in 1.9.0.
-   
-   Clone the percona-xtradb-cluster-operator repository and deploy the Operator
-   from it:
-
-   .. code:: bash
-
-      $ git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
-      $ cd percona-xtradb-cluster-operator
-      $ kubectl apply -f deploy/bundle.yaml
-
-#. Wait until everything is reconciled:
-
-   .. include:: ./assets/code/kubectl-get-pods-response.txt
 
 #. Pause the cluster :ref:`in a standard way<operator-pause>`, and make
    sure it has reached its paused state.
@@ -323,6 +323,7 @@ Operator version prior to 1.9.0), you should move through the
 #. Unpause the cluster :ref:`in a standard way<operator-pause>`, and make
    sure it has reached its running state.
 
+.. _tls.no.tls:
 
 Run Percona XtraDB Cluster without TLS
 ======================================

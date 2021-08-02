@@ -57,7 +57,7 @@ spec:
     runtimeClassName: docker-rc
     configuration: |
       global
-        maxconn 2048
+        maxconn 1024
         external-check
         insecure-fork-wanted
         stats socket /etc/haproxy/pxc/haproxy.sock mode 600 expose-fd listeners level admin

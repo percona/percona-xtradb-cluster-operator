@@ -92,7 +92,7 @@ spec:
         monitor_history=60000
         monitor_connect_interval=20000
         monitor_ping_interval=10000
-        ping_timeout_server=200
+        ping_timeout_server=300
         commands_stats=true
         sessions_sort=true
         have_ssl=true

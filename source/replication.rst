@@ -50,6 +50,30 @@ The cluster will be ready for asynchronous replication when you apply changes as
 
    $ kubectl apply -f deploy/cr.yaml
 
+.. _operator-replication-expose:
+
+Exposing instances of Percona XtraDB Cluster
+--------------------------------------------
+
+You need to expose every Percona XtraDB Cluster Pod of the *Source* cluster to
+make it possible for the *Replica* cluster to connect. This is done through the
+``pxc.expose`` section in the ``deploy/cr.yaml`` configuration file as follows.
+
+.. code:: yaml
+
+   spec:
+     pxc:
+       expose:
+         enabled: true
+         type: LoadBalancer
+         loadBalancerSourceRanges:
+           - 10.0.0.0/8
+         annotations: 
+           networking.gke.io/load-balancer-type: "Internal"
+
+.. note:: This will create the internal LoadBalancer per each Percona XtraDB
+   Cluster Pod.
+
 .. _operator-replication-replica:
 
 Configuring cross-site replication on Replica instances
@@ -98,30 +122,6 @@ The cluster will be ready for asynchronous replication when you apply changes as
 .. code:: bash
 
    $ kubectl apply -f deploy/cr.yaml
-
-.. _operator-replication-expose:
-
-Exposing instances of Percona XtraDB Cluster
---------------------------------------------
-
-You need to expose every Percona XtraDB Cluster Pod of the *Source* cluster to
-make it possible for the *Replica* cluster to connect. This is done through the
-``pxc.expose`` section in the ``deploy/cr.yaml`` configuration file as follows.
-
-.. code:: yaml
-
-   spec:
-     pxc:
-       expose:
-         enabled: true
-         type: LoadBalancer
-         loadBalancerSourceRanges:
-           - 10.0.0.0/8
-         annotations: 
-           networking.gke.io/load-balancer-type: "Internal"
-
-.. note:: This will create the internal LoadBalancer per each Percona XtraDB
-   Cluster Pod.
 
 .. _operator-replication-user:
 

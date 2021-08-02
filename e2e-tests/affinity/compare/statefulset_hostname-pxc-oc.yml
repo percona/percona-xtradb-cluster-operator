@@ -71,6 +71,10 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-hostname
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "15"
           envFrom:
             - secretRef:
                 name: hostname-env-vars-pxc

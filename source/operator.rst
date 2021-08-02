@@ -238,8 +238,8 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``LoadBalancer``                                                                          |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | The `IP address type <https://kubernetes.io/docs/concepts/services-networking/service/    |
-|                 | #publishing-services-service-types>`_ to be exposed                                       |
+| **Description** | The `Kubernetes Service Type <https://kubernetes.io/docs/concepts/services-networking/service/    |
+|                 | #publishing-services-service-types>`_ used for exposure                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

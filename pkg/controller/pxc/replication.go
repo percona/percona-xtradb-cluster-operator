@@ -185,35 +185,35 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	// if primary pod is not a replica, we need to make it as replica, and stop replication on other pods
-	_, ok := primaryPod.Labels[replicationPodLabel]
-	if !ok {
-		for _, pod := range podList {
-			if pod.Name == primaryPod.Name {
-				continue
+	for _, pod := range podList {
+		if pod.Name == primaryPod.Name {
+			continue
+		}
+		if _, ok := pod.Labels[replicationPodLabel]; ok {
+			db, err := queries.New(r.client, cr.Namespace, internalPrefix+cr.Name, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
+			if err != nil {
+				return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
 			}
-			if _, ok := pod.Labels[replicationPodLabel]; ok {
-				r.logger(cr.Name, cr.Namespace).Info("Replication pod has changed", "new replication pod", pod.Name)
-				db, err := queries.New(r.client, cr.Namespace, internalPrefix+cr.Name, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
-				if err != nil {
-					return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
-				}
-				err = db.StopAllReplication()
-				db.Close()
-				if err != nil {
-					return errors.Wrapf(err, "stop replication on pod %s", pod.Name)
-				}
-				delete(pod.Labels, replicationPodLabel)
-				err = r.client.Update(context.TODO(), &pod)
-				if err != nil {
-					return errors.Wrap(err, "failed to remove primary label from secondary pod")
-				}
+			err = db.StopAllReplication()
+			db.Close()
+			if err != nil {
+				return errors.Wrapf(err, "stop replication on pod %s", pod.Name)
+			}
+			delete(pod.Labels, replicationPodLabel)
+			err = r.client.Update(context.TODO(), &pod)
+			if err != nil {
+				return errors.Wrap(err, "failed to remove primary label from secondary pod")
 			}
 		}
+	}
+
+	if _, ok := primaryPod.Labels[replicationPodLabel]; !ok {
 		primaryPod.Labels[replicationPodLabel] = "true"
 		err = r.client.Update(context.TODO(), primaryPod)
 		if err != nil {
 			return errors.Wrap(err, "add label to main replica pod")
 		}
+		r.logger(cr.Name, cr.Namespace).Info("Replication pod has changed", "new replication pod", primaryPod.Name)
 	}
 
 	sysUsersSecretObj := corev1.Secret{}

@@ -16,7 +16,7 @@ Setting it to ``true`` gracefully stops the cluster:
      .......
      pause: true
 
-Pausing hte cluster may take some time, and when the process is over, you will
+Pausing the cluster may take some time, and when the process is over, you will
 see only the Operator Pod running:
 
 .. code:: bash

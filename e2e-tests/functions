@@ -1115,7 +1115,7 @@ deploy_chaos_mesh() {
 	desc 'install chaos-mesh'
 	local old_cm_namespace=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}')
 	if [ "${old_cm_namespace}" != "NAMESPACE" ]; then
-		helm del chaos-mesh --namespace ${old_cm_namespace} || :
+		destroy_chaos_mesh "${old_cm_namespace}"
 	fi
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
 	if version_gt "1.19"; then
@@ -1131,6 +1131,7 @@ destroy_chaos_mesh() {
 
 	desc 'destroy chaos-mesh'
 	helm del chaos-mesh --namespace ${chaos_mesh_ns} || :
+	kubectl delete crd awschaos.chaos-mesh.org dnschaos.chaos-mesh.org httpchaos.chaos-mesh.org iochaos.chaos-mesh.org jvmchaos.chaos-mesh.org kernelchaos.chaos-mesh.org networkchaos.chaos-mesh.org podchaos.chaos-mesh.org podiochaos.chaos-mesh.org podnetworkchaos.chaos-mesh.org stresschaos.chaos-mesh.org timechaos.chaos-mesh.org || :
 }
 
 patch_secret() {

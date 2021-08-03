@@ -159,7 +159,7 @@ instead.
 
 #. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
    deployment, supplying necessary image names with a newer version tag. This
-   is done with the ``kubectl patch deployment`` command. Actual image names
+   is done with the ``kubectl patch pxc`` command. Actual image names
    can be found :ref:`in the list of certified images<custom-registry-images>`.
    For example, updating to the ``{{{release}}}`` version should look as
    follows, depending on whether you are using Percona XtraDB Cluster 5.7 or 8.0.

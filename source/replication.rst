@@ -12,7 +12,7 @@ The Operator automates configuration of *Source* and *Replica* Percona XtraDB Cl
 
 This feature can be useful in several cases: for example, it can simplify migration from on-premises to the cloud with replication, and it can be really helpful in case of the disaster recovery too.
 
-.. note:: Cross-site replication is based on `Automatic Asynchronous Replication Connection Failover<https://dev.mysql.com/doc/refman/8.0/en/replication-asynchronous-connection-failover.html>`_. Therefore it requires  MySQL 8.0 (Percona XtraDB Cluster 8.0) to work.
+.. note:: Cross-site replication is based on `Automatic Asynchronous Replication Connection Failover<https://dev.mysql.com/doc/refman/8.0/en/replication-asynchronous-connection-failover.html>`_. Therefore it requires  MySQL 8.0.22+ (Percona XtraDB Cluster 8.0.22+) to work.
 
 .. Describe how to stop/start replication
    Describe how to perform a failover

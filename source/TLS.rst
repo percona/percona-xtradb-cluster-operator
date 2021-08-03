@@ -7,8 +7,7 @@ The Percona Kubernetes Operator for Percona XtraDB Cluster uses Transport Layer
 Security (TLS) cryptographic protocol for the following types of communication:
 
 * Internal - communication between Percona XtraDB Cluster instances,
-* External - communication between the client application and the database
-  proxy/router (HAProxy or ProxySQL).
+* External - communication between the client application and ProxySQL.
 
 The internal certificate is also used as an authorization method.
 

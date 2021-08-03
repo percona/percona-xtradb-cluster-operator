@@ -45,7 +45,7 @@ The Operator upgrade includes the following steps.
    You can track the rollout process in real time with the
    ``kubectl rollout status`` command with the name of your cluster::
 
-     $ kubectl rollout status sts cluster1-pxc
+     $ kubectl rollout status deployments percona-xtradb-cluster-operator
 
 .. _operator-update-smartupdates:
 

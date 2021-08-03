@@ -51,7 +51,8 @@ You can pass custom configuration to ProxySQL
 
 .. note:: If you specify a custom ProxySQL configuration in this way, ProxySQL
    will try to merge the passed parameters with the previously set configuration
-   parameters, if any.
+   parameters, if any. If ProxySQL fails to merge some option, you will see a
+   warning in its log.
 
 .. _proxysql-conf-custom-cr:
 

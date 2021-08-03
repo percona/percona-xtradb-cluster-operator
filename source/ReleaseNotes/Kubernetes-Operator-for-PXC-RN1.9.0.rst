@@ -15,6 +15,9 @@ Release Highlights
   graduate changes which incorporated a collection of Percona’s solutions to run
   and operate Percona Server for MySQL and Percona XtraDB Cluster, available
   separately as `Percona Distribution for MySQL <https://www.percona.com/doc/percona-distribution-mysql/8.0/index.html>`_.
+* The :ref:`cross-site replication<operator-replication>` feature allows an
+  asynchronous replication between two Percona XtraDB Clusters, including
+  scenarios when one of the clusters is outside of the Kubernetes environment.
 
 New Features
 ================================================================================

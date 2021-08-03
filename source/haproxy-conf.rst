@@ -55,9 +55,9 @@ You can pass custom configuration to HAProxy in one of the following ways:
 * use a ConfigMap,
 * use a Secret object.
 
-.. note:: If you specify a custom HAProxy configuration in this way, the
-   Operator doesn't provide its own HAProxy configuration file. That's why you
-   should specify either a full set of configuration options or nothing.
+.. note:: If you specify a custom HAProxy configuration in this way, HAProxy
+   will try to merge the passed parameters with the previously set configuration
+   parameters, if any.
 
 .. _haproxy-conf-custom-cr:
 

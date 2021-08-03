@@ -5,9 +5,10 @@ Changing MySQL Options
 
 You may require a configuration change for your application. MySQL
 allows the option to configure the database with a configuration file.
-You can pass the MySQL options from the
+You can pass options from the
 `my.cnf <https://dev.mysql.com/doc/refman/8.0/en/option-files.html>`__
-configuration file to the cluster in one of the following ways:
+configuration file to be included in the MySQL configuration in one of the
+following ways:
 
 * edit the ``deploy/cr.yaml`` file,
 * use a ConfigMap,

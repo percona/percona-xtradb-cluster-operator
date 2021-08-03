@@ -9,6 +9,44 @@ Percona XtraDB Cluster, and upgrades of the Operator itself.
 
 .. contents:: :local:
 
+.. _operator-update:
+
+.. _operator-update-semi-auto-updates:
+
+.. _operator-update-manual-updates:
+
+Upgrading the Operator
+----------------------
+
+The Operator upgrade includes the following steps.
+
+#. Update the Custom Resource Definition file for the Operator, taking it from
+   the official repository on Github, and do the same for the Role-based access
+   control:
+
+   .. code:: bash
+
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
+
+#. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
+   deployment, supplying necessary image name with a newer version tag. This
+   is done with the ``kubectl patch deployment`` command. You can found proper
+   image name :ref:`in the list of certified images<custom-registry-images>`.
+   For example, updating to the ``{{{release}}}`` version should look as
+   follows.
+
+   .. code:: bash
+
+      $ kubectl patch deployment percona-xtradb-cluster-operator \
+        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
+
+#. The deployment rollout will be automatically triggered by the applied patch.
+   You can track the rollout process in real time with the
+   ``kubectl rollout status`` command with the name of your cluster::
+
+     $ kubectl rollout status sts cluster1-pxc
+
 .. _operator-update-smartupdates:
 
 Upgrading Percona XtraDB Cluster
@@ -99,7 +137,7 @@ Manual upgrade
 **************
 
 Manual update of Percona XtraDB Cluster should be used with the Operator
-version 1.5 or earlier. For all newer versions, use :ref:`automatic update<operator-update-smartupdates>`
+version 1.5.0 or earlier. For all newer versions, use :ref:`automatic update<operator-update-smartupdates>`
 instead.
 
 .. note:: Only the incremental update to a nearest minor version of the Operator
@@ -176,88 +214,3 @@ instead.
 
 #. The update process is successfully finished when all Pods have been
    restarted.
-
-.. _operator-update:
-
-Upgrading the Operator
-----------------------
-
-This upgrade can be done either in semi-automatic or in manual mode. 
-
-.. note:: The manual update mode is the recomended way for a production cluster.
-
-.. _operator-update-semi-auto-updates:
-
-Semi-automatic upgrade
-**********************
-
-.. note:: Only the incremental update to a nearest minor version of the Operator
-   is supported (for example, update from 1.5.0 to 1.6.0).
-   To update to a newer version, which differs from the current version by more
-   than one, make several incremental updates sequentially.
-
-#. Update the Custom Resource Definition file for the Operator, taking it from
-   the official repository on Github, and do the same for the Role-based access
-   control:
-
-   .. code:: bash
-
-      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
-      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
-
-#. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
-   ``RollingUpdate``.
-
-#. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
-   deployment, supplying necessary image names with a newer version tag. This
-   is done with the ``kubectl patch deployment`` command. Actual image names
-   can be found :ref:`in the list of certified images<custom-registry-images>`.
-   For example, updating to the ``{{{release}}}`` version should look as
-   follows, depending on whether you are using Percona XtraDB Cluster 5.7 or 8.0.
-
-   .. code:: bash
-
-      $ kubectl patch deployment percona-xtradb-cluster-operator \
-        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'
-
-#. The deployment rollout will be automatically triggered by the applied patch.
-   You can track the rollout process in real time with the
-   ``kubectl rollout status`` command with the name of your cluster::
-
-     $ kubectl rollout status sts cluster1-pxc
-
-.. _operator-update-manual-updates:
-
-Manual update
-*************
-
-Manual update should be used 
-
-.. note:: Only the incremental update to a nearest minor version of the Operator
-   is supported (for example, update from 1.4.0 to 1.5.0).
-   To update to a newer version, which differs from the current version by more
-   than one, make several incremental updates sequentially.
-
-#. Update the Custom Resource Definition file for the Operator, taking it from
-   the official repository on Github, and do the same for the Role-based access
-   control:
-
-   .. code:: bash
-
-      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
-      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
-
-#. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
-   ``OnDelete``.
-
-#. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
-   deployment, supplying necessary image names with a newer version tag. This
-   is done with the ``kubectl patch deployment`` command. Actual image names
-   can be found :ref:`in the list of certified images<custom-registry-images>`.
-   For example, updating to the ``{{{release}}}`` version should look as
-   follows.
-
-   .. code:: bash
-
-      $ kubectl patch deployment percona-xtradb-cluster-operator \
-        -p'{"spec":{"template":{"spec":{"containers":[{"name":"percona-xtradb-cluster-operator","image":"percona/percona-xtradb-cluster-operator:{{{release}}}"}]}}}}'

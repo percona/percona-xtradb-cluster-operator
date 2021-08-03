@@ -49,9 +49,9 @@ You can pass custom configuration to ProxySQL
 * use a ConfigMap,
 * use a Secret object.
 
-.. note:: If you specify a custom ProxySQL configuration in this way, the
-   Operator doesn't provide its own ProxySQL configuration file. That's why you
-   should specify either a full set of configuration options or nothing.
+.. note:: If you specify a custom ProxySQL configuration in this way, ProxySQL
+   will try to merge the passed parameters with the previously set configuration
+   parameters, if any.
 
 .. _proxysql-conf-custom-cr:
 

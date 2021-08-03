@@ -11,10 +11,6 @@ Percona XtraDB Cluster, and upgrades of the Operator itself.
 
 .. _operator-update:
 
-.. _operator-update-semi-auto-updates:
-
-.. _operator-update-manual-updates:
-
 Upgrading the Operator
 ----------------------
 
@@ -131,6 +127,70 @@ Percona's Version Service:
        schedule: "0 0 * * *"
    ...
 
+.. _operator-update-semi-auto-updates:
+
+Semi-automatic upgrade
+**********************
+
+Semi-automatic update of Percona XtraDB Cluster should be used with the Operator
+version 1.5.0 or earlier. For all newer versions, use :ref:`automatic update<operator-update-smartupdates>`
+instead.
+
+#. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
+   ``RollingUpdate``.
+
+#. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
+   Custom Resource, setting necessary image names with a newer version tag. 
+   Also, you should specify the Operator version for your Percona XtraDB Cluster
+   as a ``crVersion`` value. This version should be lower or equal to the
+   version of the Operator you currently have in your Kubernetes environment.
+
+   .. note:: Only the incremental update to a nearest minor version of the
+      Operator is supported (for example, update from 1.4.0 to 1.5.0). To update
+      to a newer version, which differs from the current version by more
+      than one, make several incremental updates sequentially.
+
+   Patching Custom Resource is done with the ``kubectl patch pxc`` command.
+   Actual image names can be found :ref:`in the list of certified images<custom-registry-images>`.
+   For example, updating to the ``{{{release}}}`` version should look as
+   follows, depending on whether you are using Percona XtraDB Cluster 5.7 or 8.0.
+
+   A. For Percona XtraDB Cluster 5.7 run the following:
+
+      .. code:: bash
+
+         kubectl patch pxc cluster1 --type=merge --patch '{
+            "spec": {
+                "crVersion":"{{{release}}}",
+                "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
+                "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
+                "haproxy":  { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
+                "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc5.7-backup" },
+                "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
+                "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
+            }}'
+
+   B. For Percona XtraDB Cluster 8.0 run the following:
+
+      .. code:: bash
+
+         kubectl patch pxc cluster1 --type=merge --patch '{
+            "spec": {
+                "crVersion":"{{{release}}}",
+                "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
+                "proxysql": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-proxysql" },
+                "haproxy":  { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-haproxy" },
+                "backup":   { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-pxc8.0-backup" },
+                "logcollector": { "image": "percona/percona-xtradb-cluster-operator:{{{release}}}-logcollector" },
+                "pmm":      { "image": "percona/pmm-client:{{{pmm2recommended}}}" }
+            }}'
+
+#. The deployment rollout will be automatically triggered by the applied patch.
+   You can track the rollout process in real time with the
+   ``kubectl rollout status`` command with the name of your cluster::
+
+     $ kubectl rollout status sts cluster1-pxc
+
 .. _operator-update-manual-updates:
 
 Manual upgrade
@@ -140,27 +200,22 @@ Manual update of Percona XtraDB Cluster should be used with the Operator
 version 1.5.0 or earlier. For all newer versions, use :ref:`automatic update<operator-update-smartupdates>`
 instead.
 
-.. note:: Only the incremental update to a nearest minor version of the Operator
-   is supported (for example, update from 1.4.0 to 1.5.0).
-   To update to a newer version, which differs from the current version by more
-   than one, make several incremental updates sequentially.
-
-#. Update the Custom Resource Definition file for the Operator, taking it from
-   the official repository on Github, and do the same for the Role-based access
-   control:
-
-   .. code:: bash
-
-      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
-      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
-
 #. Edit the ``deploy/cr.yaml`` file, setting ``updateStrategy`` key to
    ``OnDelete``.
 
 #. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
-   cr, supplying necessary image names with a newer version tag. This
-   is done with the ``kubectl patch pxc`` command. Actual image names
-   can be found :ref:`in the list of certified images<custom-registry-images>`.
+   Custom Resource, setting necessary image names with a newer version tag. 
+   Also, you should specify the Operator version for your Percona XtraDB Cluster
+   as a ``crVersion`` value. This version should be lower or equal to the
+   version of the Operator you currently have in your Kubernetes environment.
+
+   .. note:: Only the incremental update to a nearest minor version of the
+      Operator is supported (for example, update from 1.4.0 to 1.5.0). To update
+      to a newer version, which differs from the current version by more
+      than one, make several incremental updates sequentially.
+
+   Patching Custom Resource is done with the ``kubectl patch pxc`` command.
+   Actual image names can be found :ref:`in the list of certified images<custom-registry-images>`.
    For example, updating to the ``{{{release}}}`` version should look as
    follows, depending on whether you are using Percona XtraDB Cluster 5.7 or 8.0.
 

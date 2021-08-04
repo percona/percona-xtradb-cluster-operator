@@ -300,15 +300,21 @@ Operator version prior to 1.9.0), you should move through the
 #. Pause the cluster :ref:`in a standard way<operator-pause>`, and make
    sure it has reached its paused state.
 
-#. Delete Secrets to force the SSL reconciliation:
+#. If :ref:`cert-manager<tls.certs.certmanager>` is used, delete root
+   certificate and TLS certificates:
 
    .. code:: bash
 
       $ {
         kubectl delete issuer/cluster1-pxc-ca
         kubectl delete certificate/cluster1-ssl certificate/cluster1-ssl-internal
-        kubectl delete secret/my-cluster-ssl secret/my-cluster-ssl-internal
-       }
+        }
+
+#. Delete Secrets to force the SSL reconciliation:
+
+   .. code:: bash
+
+      $ kubectl delete secret/my-cluster-ssl secret/my-cluster-ssl-internal
 
 #. :ref:`Check certificates<tls.cets.update.check>` to make sure reconciliation
    have succeeded.

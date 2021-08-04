@@ -4,13 +4,11 @@ How to define environment variables via Custom Resource
 ========================================================
 
 Sometimes you need to define new environment variables to provide additional
-configuration for the components of your cluster. For example, this may help you
-to customize the configuration of HAProxy. Also you can follow this way to add
-some additional options for PMM Client.
+configuration for the components of your cluster. For example, you can use it to
+customize the configuration of HAProxy, or to add additional options for PMM
+Client.
 
-The Operator can also store environment variables in `Kubernetes Secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_. Environment variables should be placed in 
-Here is an example of such Secret with few HAProxy
-options:
+The Operator can store environment variables in `Kubernetes Secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_. Here is an example with several HAProxy options:
 
 .. code:: yaml
 
@@ -24,14 +22,12 @@ options:
      OK_IF_DONOR: MQ==
      HA_SERVER_OPTIONS: Y2hlY2sgaW50ZXIgMzAwMDAgcmlzZSAxIGZhbGwgNSB3ZWlnaHQgMQ==
 
-You can get a Base64 encoded string from your options via the command line as
-follows:
+As you can see, environment variables are stored as ``data`` - i.e.,
+base64-encoded strings, so you'll need to encode the value of each variable.
+For example, To have ``HA_CONNECTION_TIMEOUT`` variable equal to ``100``, you
+can run ``echo -n "100" | base64`` in your local shell and get ``MTAwMA==``.
 
-.. code:: bash
-
-   $ echo "1000" | base64
-
-.. note:: Similarly, you can read the list of options from a Base64 encoded
+.. note:: Similarly, you can read the list of options from a Base64-encoded
    string:
 
    .. code:: bash

@@ -1,5 +1,5 @@
-Local Storage support for the Percona XtraDB Cluster Operator
-=============================================================
+Local Storage support for the Percona Distribution for MySQL Operator
+=====================================================================
 
 Among the wide rage of volume types, supported by Kubernetes, there are
 two which allow Pod containers to access part of the local filesystem on

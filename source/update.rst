@@ -1,10 +1,10 @@
 .. _operator-upgrade:
 
-Upgrade Percona XtraDB Cluster
-======================================
+Updade Percona Distribution for MySQL Operator
+==============================================
 
-Starting from version 1.1.0, Percona Kubernetes Operator for Percona
-XtraDB Cluster allows upgrades to newer versions. This includes upgrades of the
+Starting from version 1.1.0, Percona Distribution for MySQL Operator
+allows upgrades to newer versions. This includes upgrades of the
 Operator itself, and upgrades of the Percona XtraDB Cluster.
 
 .. contents:: :local:

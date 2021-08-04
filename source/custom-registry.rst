@@ -5,7 +5,7 @@ Use docker images from a custom registry
 
 Using images from a private Docker registry may be useful in different
 situations: it may be related to storing images inside of a company, for
-privacy and security reasons, etc. In such cases, Percona XtraDB Cluster
+privacy and security reasons, etc. In such cases, Percona Distribution for MySQL
 Operator allows to use a custom registry, and the following instruction
 illustrates how this can be done by the example of the Operator deployed
 in the OpenShift environment.
@@ -94,5 +94,5 @@ in the OpenShift environment.
 8. Repeat steps 3-5 for other images, and update corresponding options
    in the ``deploy/cr.yaml`` file.
 
-9. Now follow the standard `Percona XtraDB Cluster Operator installation
+9. Now follow the standard `Percona Distribution for MySQL Operator installation
    instruction <./openshift>`__.

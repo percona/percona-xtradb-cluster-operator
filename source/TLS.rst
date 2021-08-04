@@ -224,7 +224,7 @@ Check your certificates for expiration
 Update certificates without downtime
 ------------------------------------
 
-If your certificates are still valid, and you use the Operator version 1.9.0 or
+If your certificates are still valid, 
 newer, you can follow next steps to perform a no-downtime update of the
 certificates. Otherwise, follow :ref:`the alternative way<tls.cets.update.with.downtime>`.
 

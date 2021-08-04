@@ -65,7 +65,7 @@ The following commands perform all the needed actions:
 
    $ kubectl create namespace cert-manager
    $ kubectl label namespace cert-manager certmanager.k8s.io/disable-validation=true
-   $ kubectl apply -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.7/deploy/manifests/cert-manager.yaml
+   $ kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml
 
 After the installation, you can verify the *cert-manager* by running the following command:
 
@@ -145,7 +145,7 @@ you are should take care of updating them in proper time.
 TLS certificates issued by cert-manager are short-term ones. Starting from the
 Operator version 1.9.0 cert-manager issues TLS certificates for 3 months, while
 root certificate is valid for 3 years. This allows to reissue TLS certificates
-automatically when needed.
+automatically on schedule and without downtime.
 
 .. image:: ./assets/images/certificates.svg
    :align: center
@@ -153,21 +153,13 @@ automatically when needed.
 .. _tls.cets.update.check:
 
 Versions of the Operator prior 1.9.0 have used 3 month root certificate, which
-prevented the automatic TLS certificates update. If that's your case, you can
-make the Operator update as follows.
+caused issues with the automatic TLS certificates update. If that's your case,
+you can make the Operator update along with the :ref:`official instruction<operator-update>`.
 
-#. Clone the percona-xtradb-cluster-operator repository and deploy the Operator
-   from it:
-
-   .. code:: bash
-
-      $ git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
-      $ cd percona-xtradb-cluster-operator
-      $ kubectl apply -f deploy/bundle.yaml
-
-#. Wait until everything is reconciled:
-
-   .. include:: ./assets/code/kubectl-get-pods-response.txt
+.. note:: If you use the cert-manager version earlier than 1.9.0, and you would
+   like to avoid downtime while updating the certificates after the Operator
+   update to 1.9.0 or newer version,
+   :ref:`force the certificates regeneration by a cert-manager<tls.cets.update.with.downtime>`.
 
 .. _tls.cets.update.check:
 
@@ -224,9 +216,11 @@ Check your certificates for expiration
 Update certificates without downtime
 ------------------------------------
 
-If your certificates are still valid, 
-newer, you can follow next steps to perform a no-downtime update of the
-certificates. Otherwise, follow :ref:`the alternative way<tls.cets.update.with.downtime>`.
+If you don't use cert-manager and have *created certificates manually*, 
+you can follow the next steps to perform a no-downtime update of these
+certificates *if they are still valid*.
+
+.. note:: For already expired certificates, follow :ref:`the alternative way<tls.cets.update.with.downtime>`.
 
 Having non-expired certificates, you can roll out new certificates (both CA and TLS) with the Operator
 as follows.

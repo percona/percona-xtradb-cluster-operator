@@ -71,8 +71,9 @@ make it possible for the *Replica* cluster to connect. This is done through the
          annotations: 
            networking.gke.io/load-balancer-type: "Internal"
 
-.. note:: This will create the internal LoadBalancer per each Percona XtraDB
-   Cluster Pod.
+.. note:: This will create a LoadBalancer per each Percona XtraDB Cluster Pod.
+   Please take into account, that you will need this IP address to be external
+   for cross-region replication in most cases.
 
 .. _operator-replication-replica:
 

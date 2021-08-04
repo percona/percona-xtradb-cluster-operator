@@ -66,6 +66,7 @@ Configuration
    storage
    constraints
    options
+   containers-conf
    haproxy-conf
    proxysql-conf
    TLS

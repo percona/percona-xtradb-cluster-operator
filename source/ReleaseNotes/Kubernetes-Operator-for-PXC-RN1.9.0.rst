@@ -44,45 +44,76 @@ Improvements
 
 * :jirabug:`K8SPXC-673`: HAProxy Pods now come with Percona Monitoring and
   Management integration and support
-* :jirabug:`K8SPXC-791`: Allow :ref:`stopping the restart-on-fail loop<no-restart>` for Percona XtraDB Cluster and Log Collector Pods without special debug images
-* :jirabug:`K8SPXC-764`: Allow backups even if just a single node is available
-* :jirabug:`K8SPXC-765`: Add ConfigMaps deletion for custom configurations (Thanks to Oleksandr Levchenkov for reporting this issue)
-* :jirabug:`K8SPXC-734`: Include PXC namespace in the manual recovery command (Thanks to Michael Lin for reporting this issue)
-* :jirabug:`K8SPXC-656`: Set imagePullPolicy for init container (Thanks to Herberto Graça for reporting this issue)
-* :jirabug:`K8SPXC-511`: Delete Secret object in Kubernetes if pvc finalizer is enabled (Thanks to Matthias Baur for reporting this issue)
-* :jirabug:`K8SPXC-784`: Parameterize operator deployment name
-* :jirabug:`K8SPXC-772`: Add common labels to service
-* :jirabug:`K8SPXC-749`: Add tunable parameters for any timeout existing in the checks
-* :jirabug:`K8SPXC-731`: Capture cluster provisioning progress in the Custom Resource
-* :jirabug:`K8SPXC-730`: Rework statuses for a Custom Resource
-* :jirabug:`K8SPXC-720`: Create additional PITR test
-* :jirabug:`K8SPXC-697`: Add namespace support in copy-backup script
-* :jirabug:`K8SPXC-568`: Restrict running more than 5 pods of PXC if unsafe flag is not set
-* :jirabug:`K8SPXC-556`: Restrict running less than 2 pods of Haproxy if unsafe flag is not set
-* :jirabug:`K8SPXC-554`: Reduce number of various object updates from the operator
-* :jirabug:`K8SPXC-421`: PXC pods have X Plugin enabled, but it's not available nor balanced
-* :jirabug:`K8SPXC-336`: Fix the tangle in cluster statuses
-* :jirabug:`K8SPXC-321`: Restrict running less than 2 pods of proxySQL if unsafe flag is not set
+* :jirabug:`K8SPXC-791`: Allow
+  :ref:`stopping the restart-on-fail loop<debug-images-no-restart>` for Percona
+  XtraDB Cluster and Log Collector Pods without special debug images
+* :jirabug:`K8SPXC-764`: Unblock backups even if just a single instance is
+  available by setting the ``allowUnsafeConfigurations`` flag to true
+* :jirabug:`K8SPXC-765`: Automatically delete custom configuration ConfigMaps if
+  the variable in Custom Resource was unset (Thanks to Oleksandr Levchenkov for
+  contributing)
+* :jirabug:`K8SPXC-734`: Simplify manual recovery by automatically getting
+  Percona XtraDB Cluster namespace in the pxc container entrypoint script
+  (Thanks to Michael Lin for contributing)
+* :jirabug:`K8SPXC-656`: imagePullPolicy is now set for init container as well
+  to avoid pulling and simplifying deployments in air-gapped environments
+  (Thanks to Herberto Graça for contributing)
+* :jirabug:`K8SPXC-511`: Secret object containing system users passwords is now
+  deleted along with the Cluster if ``delete-pxc-pvc`` finalizer is enabled
+  (Thanks to Matthias Baur for contributing)
+* :jirabug:`K8SPXC-772`: All Service objects now have Percona XtraDB Cluster
+  labels attached to them to enable label selector usage
+* :jirabug:`K8SPXC-731`: It is now possible to see the overall progress of the
+  provisioning of Percona XtraDB Cluster resources and dependent components in
+  Custom Resource status
+* :jirabug:`K8SPXC-730`: Percona XtraDB Cluster resource statuses in Custom
+  Resource output (e.g. returned by ``kubectl get pxc`` command) have been
+  improved and now provide more precise reporting
+* :jirabug:`K8SPXC-697`: Add namespace support in the ``copy-backup`` script
+* :jirabug:`K8SPXC-321`, :jirabug:`K8SPXC-556`, :jirabug:`K8SPXC-568`: Restrict
+  the minimal number of ProxySQL and HAProxy Pods and the maximal number of
+  Percona XtraDB Cluster Pods if the unsafe flag is not set
+* :jirabug:`K8SPXC-554`: Reduced the number of various etcd and k8s object
+  updates from the Operator to minimize the pressure on the Kubernetes cluster
+* :jirabug:`K8SPXC-421`: It is now possible to `use X Plugin <https://www.percona.com/blog/2019/01/07/understanding-mysql-x-all-flavors/>`_
+  with Percona XtraDB Cluster Pods
 
+Known Issues and Limitations
+================================================================================
+
+* :jirabug:`K8SPXC-835`: ProxySQL will fail to start on a Replica Percona XtraDB
+  Cluster for cross-site replication in this release
 
 Bugs Fixed
 ================================================================================
 
-* :jirabug:`K8SPXC-757`: Manual Crash Recovery interferes with auto recovery even with auto_recovery: false
-* :jirabug:`K8SPXC-742`: socat in percona/percona-xtradb-cluster-operator:1.7.0-pxc5.7-backup generates "E SSL_read(): Connection reset by peer"
-* :jirabug:`K8SPXC-706`: Certificate renewal - PXC fails to restart (Thanks to Jeff Andrews for reporting this issue)
-* :jirabug:`K8SPXC-785`: Backup to S3 produces error messages even during successful backup
-* :jirabug:`K8SPXC-642`: PodDisruptionBudget Problem due to wrong haproxy Statefulset Labels (Thanks to Davi S Evangelista for reporting this issue)
-* :jirabug:`K8SPXC-585`: Can't delete cluster (operator stuck in reconcileUsers) (Thanks to Sergiy Prykhodko for reporting this issue)
-* :jirabug:`K8SPXC-756`: While cluster is paused - operator schedule backups. (Thanks to Dmytro for reporting this issue)
-* :jirabug:`K8SPXC-821`: custom config from secret is not mounted to proxysql
-* :jirabug:`K8SPXC-815`: ready count in cr status can be higher than size value
-* :jirabug:`K8SPXC-813`: restore doesn't error on wrong AWS credentials
-* :jirabug:`K8SPXC-811`: HAProxy ready nodes missing in cr status
-* :jirabug:`K8SPXC-805`: Deletion of pxc-backups object hangs if operator can't list objects from S3 bucket
-* :jirabug:`K8SPXC-787`: The cluster doesn't become ready after password for xtrabackup user is changed
-* :jirabug:`K8SPXC-775`: The custom mysqld config isn't checked in case of cluster update
-* :jirabug:`K8SPXC-767`: On demand backup hangs if it was created when the cluster was in 'initializing' state
-* :jirabug:`K8SPXC-743`: Remove confusing error messages from the log of backup
-* :jirabug:`K8SPXC-726`: cannot delete a pvc backup which had delete-s3-backup finalizer specified
-* :jirabug:`K8SPXC-682`: Auto tuning sets wrong innodb_buffer_pool_size
+* :jirabug:`K8SPXC-757`: Fixed a bug where manual crash recovery interfered with
+  auto recovery functionality even with the ``auto_recovery`` flag set to false
+* :jirabug:`K8SPXC-706`: TLS certificates
+  :ref:`renewal by a cert-manager was failing<tls-cetrs-update-check>` (Thanks
+  to Jeff Andrews for reporting this issue)
+* :jirabug:`K8SPXC-785`: Fixed a bug where backup to S3 was producing
+  false-positive error messages even if backup was successful
+* :jirabug:`K8SPXC-642`: Fixed a bug where PodDisruptionBudget was blocking the
+  upgrade of HAProxy (Thanks to Davi S Evangelista for reporting this issue)
+* :jirabug:`K8SPXC-585`: Fixed a bug where the Operator got stuck if the wrong
+  user credentials were set in the Secret object (Thanks to Sergiy Prykhodko for
+  reporting this issue)
+* :jirabug:`K8SPXC-756`: Fixed a bug where the Operator was scheduling backups
+  even when the cluster was paused (Thanks to Dmytro for reporting this issue)
+* :jirabug:`K8SPXC-813`: Fixed a bug where backup restore didn’t return error on
+  incorrect AWS credentials
+* :jirabug:`K8SPXC-805`: Fixed a bug that made pxc-backups object deletion hang
+  if the Operator couldn’t list objects from the S3 bucket (e.g. due to wrong S3
+  credentials)
+* :jirabug:`K8SPXC-787`: Fixed the “initializing” status of ready clusters
+  caused by the xtrabackup user password change
+* :jirabug:`K8SPXC-775`: Fixed a bug where errors in custom myqsld config
+  settings were not detected by the Operator if the config was modified after
+  the initial cluster was created
+* :jirabug:`K8SPXC-767`: Fixed a bug where on-demand backup hung up if created
+  while the cluster was in the “initializing” state
+* :jirabug:`K8SPXC-726`: Fixed a bug where the ``delete-s3-backup`` finalizer
+  prevented deleting a backup stored on Persistent Volume
+* :jirabug:`K8SPXC-682`: Fixed auto-tuning feature setting wrong
+  ``innodb_buffer_pool_size`` value in some cases

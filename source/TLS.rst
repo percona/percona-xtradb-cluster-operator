@@ -216,7 +216,7 @@ Check your certificates for expiration
 Update certificates without downtime
 ------------------------------------
 
-If you don't use cert-manager and have *created certificates manually*, 
+If you don't use :ref:`cert-manager<tls.certs.certmanager>` and have *created certificates manually*, 
 you can follow the next steps to perform a no-downtime update of these
 certificates *if they are still valid*.
 

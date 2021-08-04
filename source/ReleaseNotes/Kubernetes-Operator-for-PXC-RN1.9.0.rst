@@ -12,24 +12,39 @@ Release Highlights
 
 * Starting from this release, the Operator changes its official name to
   **Percona Distribution for MySQL Operator**. This new name emphasizes
-  graduate changes which incorporated a collection of Percona’s solutions to run
+  gradual changes which incorporated a collection of Percona’s solutions to run
   and operate Percona Server for MySQL and Percona XtraDB Cluster, available
   separately as `Percona Distribution for MySQL <https://www.percona.com/doc/percona-distribution-mysql/8.0/index.html>`_.
+* Now you can `see HAProxy metrics <https://www.percona.com/doc/percona-monitoring-and-management/2.x/setting-up/client/haproxy.html>`_ in your favorite Percona Monitoring and Management (PMM) dashboards automatically.
 * The :ref:`cross-site replication<operator-replication>` feature allows an
   asynchronous replication between two Percona XtraDB Clusters, including
   scenarios when one of the clusters is outside of the Kubernetes environment.
+  The feature is intended for the following use cases:
+
+  * provide migrations of your Percona XtraDB Cluster to Kubernetes or vice
+    versa,
+  * migrate regular MySQL database to Percona XtraDB Cluster under the Operator
+    control, or carry on backward migration,
+  * enable disaster recovery capability for your cluster deployment.
 
 New Features
 ================================================================================
 
-* :jirabug:`K8SPXC-657`: Store custom configuration in Secrets
-* :jirabug:`K8SPXC-308`: Add asynchronous replication setup for PXC cluster running in K8S
-* :jirabug:`K8SPXC-688`: Add possibility of defining env variables via CR
+* :jirabug:`K8SPXC-657`: Use Secrets to store custom configuration with
+  sensitive data for :ref:`Percona XtraDB Cluster<operator-configmaps>`,
+  :ref:`HAProxy<haproxy-conf-custom>`, and :ref:`ProxySQL<proxysql-conf-custom>`
+  Pods
+* :jirabug:`K8SPXC-308`: Implement Percona XtraDB Cluster
+  :ref:`asynchronous replication<operator-replication>` within the Operator
+* :jirabug:`K8SPXC-688`: Define :ref:`environment variables<faq-env>` in the
+  Custom Resource to tune liveness and readiness probes and more customizations
 
 Improvements
 ================================================================================
 
-* :jirabug:`K8SPXC-791`: allow "sleep infinity" on non-debug images
+* :jirabug:`K8SPXC-673`: HAProxy Pods now come with Percona Monitoring and
+  Management integration and support
+* :jirabug:`K8SPXC-791`: Allow :ref:`stopping the restart-on-fail loop<no-restart>` for Percona XtraDB Cluster and Log Collector Pods without special debug images
 * :jirabug:`K8SPXC-764`: Allow backups even if just a single node is available
 * :jirabug:`K8SPXC-765`: Add ConfigMaps deletion for custom configurations (Thanks to Oleksandr Levchenkov for reporting this issue)
 * :jirabug:`K8SPXC-734`: Include PXC namespace in the manual recovery command (Thanks to Michael Lin for reporting this issue)
@@ -42,7 +57,6 @@ Improvements
 * :jirabug:`K8SPXC-730`: Rework statuses for a Custom Resource
 * :jirabug:`K8SPXC-720`: Create additional PITR test
 * :jirabug:`K8SPXC-697`: Add namespace support in copy-backup script
-* :jirabug:`K8SPXC-673`: Add PMM client sidecar for HAProxy pods
 * :jirabug:`K8SPXC-568`: Restrict running more than 5 pods of PXC if unsafe flag is not set
 * :jirabug:`K8SPXC-556`: Restrict running less than 2 pods of Haproxy if unsafe flag is not set
 * :jirabug:`K8SPXC-554`: Reduce number of various object updates from the operator

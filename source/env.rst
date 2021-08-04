@@ -1,7 +1,7 @@
 .. _faq-env:
 
-How to define environment variables via Custom Resource
-========================================================
+Define environment variables
+============================
 
 Sometimes you need to define new environment variables to provide additional
 configuration for the components of your cluster. For example, you can use it to

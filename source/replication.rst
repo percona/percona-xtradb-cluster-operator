@@ -17,7 +17,7 @@ This feature can be useful in several cases: for example, it can simplify migrat
 .. Describe how to stop/start replication
    Describe how to perform a failover
 
-Setting up Percona XtraDB Cluster for asynchronous replication without the Operator is described `here <https://www.percona.com/blog/2018/03/19/percona-xtradb-cluster-mysql-asynchronous-replication-and-log-slave-updates/>`_ and is out of the scope for this document.
+Setting up MySQL for asynchronous replication without the Operator is described `here <https://www.percona.com/blog/2021/04/14/what-you-can-do-with-auto-failover-and-percona-distribution-for-mysql-8-0-x/>`_ and is out of the scope for this document.
 
 Configuring the cross-site replication for the cluster controlled by the Operator is explained in the following subsections.
 

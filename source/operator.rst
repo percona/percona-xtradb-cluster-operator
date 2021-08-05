@@ -447,6 +447,158 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-readinessprobes-initialdelayseconds:                                              |
+|                 |                                                                                           |
+| **Key**         | `pxc.readinessProbes.initialDelaySeconds                                                  |
+|                 | <operator.html#pxc-readinessprobes-initialdelayseconds>`_                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``15``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Number of seconds to wait before performing the first `readiness probe                    |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-readinessprobes-timeoutseconds:                                                   |
+|                 |                                                                                           |
+| **Key**         | `pxc.readinessProbes.timeoutSeconds                                                       |
+|                 | <operator.html#pxc-readinessprobes-timeoutseconds>`_                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``15``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Number of seconds after the container has started before `readiness probes                |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_ are initiated                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-readinessprobes-periodseconds:                                                    |
+|                 |                                                                                           |
+| **Key**         | `pxc.readinessProbes.periodSeconds                                                        |
+|                 | <operator.html#pxc-readinessprobes-periodseconds>`_                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``30``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | How often (in seconds) to perform the `readiness probe                                    |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-readinessprobes-successthreshold:                                                 |
+|                 |                                                                                           |
+| **Key**         | `pxc.readinessProbes.successThreshold                                                     |
+|                 | <operator.html#pxc-readinessprobes-successthreshold>`_                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Minimum consecutive successes for the `readiness probe                                    |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_ to be considered successful after having  |
+|                 | failed                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-readinessprobes-failurethreshold:                                                 |
+|                 |                                                                                           |
+| **Key**         | `pxc.readinessProbes.failureThreshold                                                     |
+|                 | <operator.html#pxc-readinessprobes-failurethreshold>`_                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``5``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | When the `readiness probe <https://kubernetes.io/docs/tasks/configure-pod-container/      |
+|                 | configure-liveness-readiness-startup-probes/>`_ fails, Kubernetes will try this number of |
+|                 |  times before marking the Pod Unready                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-livenessprobes-initialdelayseconds:                                               |
+|                 |                                                                                           |
+| **Key**         | `pxc.livenessProbes.initialDelaySeconds                                                   |
+|                 | <operator.html#pxc-livenessprobes-initialdelayseconds>`_                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``300``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Number of seconds to wait before performing the first `liveness probe                     |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-livenessprobes-timeoutseconds:                                                    |
+|                 |                                                                                           |
+| **Key**         | `pxc.livenessProbes.timeoutSeconds                                                        |
+|                 | <operator.html#pxc-livenessprobes-timeoutseconds>`_                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``5``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Number of seconds after the container has started before `liveness probes                 |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_ are initiated                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-livenessprobes-periodseconds:                                                     |
+|                 |                                                                                           |
+| **Key**         | `pxc.livenessProbes.periodSeconds                                                         |
+|                 | <operator.html#pxc-livenessprobes-periodseconds>`_                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``10``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | How often (in seconds) to perform the `liveness probe                                     |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-livenessprobes-successthreshold:                                                  |
+|                 |                                                                                           |
+| **Key**         | `pxc.livenessProbes.successThreshold                                                      |
+|                 | <operator.html#pxc-livenessprobes-successthreshold>`_                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Minimum consecutive successes for the `liveness probe                                     |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_ to be considered successful after having  |
+|                 | failed                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-livenessprobes-failurethreshold:                                                  |
+|                 |                                                                                           |
+| **Key**         | `pxc.livenessProbes.failureThreshold                                                      |
+|                 | <operator.html#pxc-livenessprobes-failurethreshold>`_                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``3``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | When the `liveness probe <https://kubernetes.io/docs/tasks/configure-pod-container/       |
+|                 | configure-liveness-readiness-startup-probes/>`_ fails, Kubernetes will try this number of |
+|                 |  times before restarting the container                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _pxc-resources-requests-memory:                                                        |
 |                 |                                                                                           |
 | **Key**         | `pxc.resources.requests.memory <operator.html#pxc-resources-requests-memory>`_            |
@@ -1031,6 +1183,82 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Labels are key-value pairs attached to objects                                           |
 |                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`_             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-readinessprobes-initialdelayseconds:                                          |
+|                 |                                                                                           |
+| **Key**         | `haproxy.readinessProbes.initialDelaySeconds                                              |
+|                 | <operator.html#haproxy-readinessprobes-initialdelayseconds>`_                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``15``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Number of seconds to wait before performing the first `readiness probe                    |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-readinessprobes-timeoutseconds:                                               |
+|                 |                                                                                           |
+| **Key**         | `haproxy.readinessProbes.timeoutSeconds                                                   |
+|                 | <operator.html#haproxy-readinessprobes-timeoutseconds>`_                                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Number of seconds after the container has started before `readiness probes                |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_ are initiated                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-readinessprobes-periodseconds:                                                |
+|                 |                                                                                           |
+| **Key**         | `haproxy.readinessProbes.periodSeconds                                                    |
+|                 | <operator.html#haproxy-readinessprobes-periodseconds>`_                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``5``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | How often (in seconds) to perform the `readiness probe                                    |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-readinessprobes-successthreshold:                                             |
+|                 |                                                                                           |
+| **Key**         | `haproxy.readinessProbes.successThreshold                                                 |
+|                 | <operator.html#haproxy-readinessprobes-successthreshold>`_                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``1``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Minimum consecutive successes for the `readiness probe                                    |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/                                |
+|                 | configure-liveness-readiness-startup-probes/>`_ to be considered successful after having  |
+|                 | failed                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-readinessprobes-failurethreshold:                                             |
+|                 |                                                                                           |
+| **Key**         | `haproxy.readinessProbes.failureThreshold                                                 |
+|                 | <operator.html#haproxy-readinessprobes-failurethreshold>`_                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``3``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | When the `readiness probe <https://kubernetes.io/docs/tasks/configure-pod-container/      |
+|                 | configure-liveness-readiness-startup-probes/>`_ fails, Kubernetes will try this number of |
+|                 |  times before marking the Pod Unready                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

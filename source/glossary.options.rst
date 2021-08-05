@@ -191,6 +191,18 @@ The Operator options glossary
 
       :ref:`proxysql.externalTrafficPolicy<proxysql-externaltrafficpolicy>`
 
+   failureThreshold
+
+     ..
+
+      :ref:``haproxy.livenessProbes.failureThreshold<haproxy-livenessprobes-failurethreshold>`
+
+      :ref:``haproxy.readinessProbes.failureThreshold<haproxy-readinessprobes-failurethreshold>`
+
+      :ref:``pxc.livenessProbes.failureThreshold<pxc-livenessprobes-failurethreshold>`
+
+      :ref:``pxc.readinessProbes.failureThreshold<pxc-readinessprobes-failurethreshold>`
+
    host
 
      ..
@@ -228,6 +240,18 @@ The Operator options glossary
       :ref:`proxysql.imagePullPolicy<proxysql-imagepullpolicy>`
 
       :ref:`pxc.imagePullPolicy<pxc-imagepullpolicy>`
+
+   initialDelaySeconds
+
+     ..
+
+      :ref:``haproxy.livenessProbes.initialDelaySeconds<haproxy-livenessprobes-initialdelayseconds>`
+
+      :ref:``haproxy.readinessProbes.initialDelaySeconds<haproxy-readinessprobes-initialdelayseconds>`
+
+      :ref:``pxc.livenessProbes.initialDelaySeconds<pxc-livenessprobes-initialdelayseconds>`
+
+      :ref:``pxc.readinessProbes.initialDelaySeconds<pxc-readinessprobes-initialdelayseconds>`
 
    isSource
 
@@ -370,6 +394,18 @@ The Operator options glossary
      ..
 
       :ref:`proxysql.volumeSpec.hostPath.path<proxysql-volumespec-hostpath-path>`
+
+   periodSeconds
+
+     ..
+
+      :ref:``haproxy.livenessProbes.periodSeconds<haproxy-livenessprobes-periodseconds>`
+
+      :ref:``haproxy.readinessProbes.periodSeconds<haproxy-readinessprobes-periodseconds>`
+
+      :ref:``pxc.livenessProbes.periodSeconds<pxc-livenessprobes-periodseconds>`
+
+      :ref:``pxc.readinessProbes.periodSeconds<pxc-readinessprobes-periodseconds>`
 
    podSecurityContext
 
@@ -541,11 +577,35 @@ The Operator options glossary
 
       :ref:`backup.schedule.storageName<backup-schedule-storagename>`
 
+   successThreshold
+
+     ..
+
+      :ref:``haproxy.livenessProbes.successThreshold<haproxy-livenessprobes-successthreshold>`
+
+      :ref:``haproxy.readinessProbes.successThreshold<haproxy-readinessprobes-successthreshold>`
+
+      :ref:``pxc.livenessProbes.successThreshold<pxc-livenessprobes-successthreshold>`
+
+      :ref:``pxc.readinessProbes.successThreshold<pxc-readinessprobes-successthreshold>`
+
    timeBetweenUploads
 
      ..
 
       :ref:`backup.pitr.timeBetweenUploads<backup-pitr-timebetweenuploads>`
+
+   timeoutSeconds
+
+     ..
+
+      :ref:``haproxy.livenessProbes.timeoutSeconds<haproxy-livenessprobes-timeoutseconds>`
+
+      :ref:``haproxy.readinessProbes.timeoutSeconds<haproxy-readinessprobes-timeoutseconds>`
+
+      :ref:``pxc.livenessProbes.timeoutSeconds<pxc-livenessprobes-timeoutseconds>`
+
+      :ref:``pxc.readinessProbes.timeoutSeconds<pxc-readinessprobes-timeoutseconds>`
 
    tolerations
 
@@ -594,13 +654,4 @@ The Operator options glossary
      ..
 
       :ref:`pxc.replicationChannels.sourcesList.weight<pxc-replicationchannels-sourceslist-weight>`
-
-
-
-
-
-
-
-
-
 

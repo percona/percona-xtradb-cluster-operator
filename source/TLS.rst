@@ -300,8 +300,8 @@ Operator version prior to 1.9.0), you should move through the
 #. Pause the cluster :ref:`in a standard way<operator-pause>`, and make
    sure it has reached its paused state.
 
-#. If :ref:`cert-manager<tls.certs.certmanager>` is used, delete root
-   certificate and TLS certificates:
+#. If :ref:`cert-manager<tls.certs.certmanager>` is used, delete issuer
+   and TLS certificates:
 
    .. code:: bash
 

@@ -145,6 +145,14 @@ The Operator options glossary
 
       :ref:`pxc.gracePeriod<pxc-graceperiod>`
 
+   emptyDir
+
+     ..
+
+      :ref:`proxysql.volumeSpec.emptyDir<proxysql-volumespec-emptydir>`
+
+      :ref:`pxc.volumeSpec.emptyDir<pxc-volumespec-emptydir>`
+
    enabled
 
      ..
@@ -167,6 +175,16 @@ The Operator options glossary
 
       :ref:`backup.storages.s3.STORAGE_NAME.endpointUrl<backup-storages-s3-endpointurl>`
 
+   envVarsSecret
+
+     ..
+
+      :ref:`haproxy.envVarsSecret<haproxy-envvarssecret>`
+
+      :ref:`proxysql.envVarsSecret<proxysql-envvarssecret>`
+
+      :ref:`pxc.expose.envVarsSecret<pxc-expose-envvarssecret>`
+
    ephemeral-storage
 
      ..
@@ -174,14 +192,6 @@ The Operator options glossary
       :ref:`pxc.resources.limits.ephemeral-storage<pxc-resources-limits-ephemeral-storage>`
 
       :ref:`pxc.resources.requests.ephemeral-storage<pxc-resources-requests-ephemeral-storage>`
-
-   emptyDir
-
-     ..
-
-      :ref:`proxysql.volumeSpec.emptyDir<proxysql-volumespec-emptydir>`
-
-      :ref:`pxc.volumeSpec.emptyDir<pxc-volumespec-emptydir>`
 
    externalTrafficPolicy
 

@@ -22,7 +22,7 @@ import sys, os
 sys.path.append(os.path.abspath('ext'))
 
 extensions=['sphinx.ext.intersphinx', 'sphinx.ext.todo',
-            'sphinx.ext.coverage', 'sphinx.ext.ifconfig','sphinx.ext.extlinks', 'sphinx-prompt', 'psdom', 'fulltoc' ]
+            'sphinx.ext.coverage', 'sphinx.ext.ifconfig','sphinx.ext.extlinks', 'sphinx-prompt', 'fulltoc', 'psdom', ]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -284,5 +284,6 @@ ultimate_replacements = {
 }
 
 def setup(app):
+   app.add_javascript('js/toggle-menu.js')
    app.add_config_value('ultimate_replacements', {}, True)
    app.connect('source-read', ultimateReplace)

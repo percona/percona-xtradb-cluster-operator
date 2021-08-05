@@ -3,7 +3,7 @@
 Transport Layer Security (TLS)
 ******************************
 
-The Percona Kubernetes Operator for Percona XtraDB Cluster uses Transport Layer
+The Percona Distribution for MySQL Operator uses Transport Layer
 Security (TLS) cryptographic protocol for the following types of communication:
 
 * Internal - communication between Percona XtraDB Cluster instances,

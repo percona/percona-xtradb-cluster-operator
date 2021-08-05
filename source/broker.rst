@@ -27,7 +27,7 @@ Percona Service Broker provides the `Open Service Broker <https://www.openservic
       :align: center
       :alt: Broker in the OpenShift Console
 
-   Now switch to the Developer Catalog and select Percona XtraDB Cluster
+   Now switch to the Developer Catalog and select Percona Distribution for MySQL
    Operator:
 
    .. image:: img/broker-dev-catalog.png

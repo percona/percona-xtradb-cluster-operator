@@ -45,6 +45,7 @@ html:
 	@rm -rf source/percona-theme
 	@mv percona-theme-1-4 source/percona-theme
 	@rm percona-theme.tar.gz
+	@sed -i 's/{{ toc }}/{{ toctree\(false\) }}/' source/percona-theme/localtoc.html
 	@echo "Building html doc"
 
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

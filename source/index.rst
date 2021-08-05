@@ -82,6 +82,7 @@ Management
    pause
    update
    scaling
+   replication
    monitoring
    recovery
    debug

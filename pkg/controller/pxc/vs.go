@@ -39,7 +39,7 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		KubeVersion:         &vm.KubeVersion,
 		LogCollectorVersion: &vm.LogCollectorVersion,
 		NamespaceUID:        new(string),
-		OperatorVersion:     vs.OpVersion,
+		OperatorVersion:     cr.Spec.CRVersion,
 		Platform:            &vm.Platform,
 		PmmVersion:          &vm.PMMVersion,
 		Product:             productName,

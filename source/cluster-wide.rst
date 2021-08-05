@@ -42,10 +42,10 @@ the following information there:
   blank string to make the Operator deal with *all namespaces* in a Kubernetes
   cluster).
   
-  .. note:: The list of namespaces to watch is fully supported by Percona XtraDB
-     Cluster Operator starting from the version 1.7. In version 1.6 you can only
-     use cluster-wide mode with empty ``WATCH_NAMESPACE`` key to watch all
-     namespaces.
+  .. note:: The list of namespaces to watch is fully supported by Percona
+     Distribution for MySQL Operator starting from the version 1.7. In version
+     1.6 you can only use cluster-wide mode with empty ``WATCH_NAMESPACE`` key
+     to watch all namespaces.
 
 The following simple example shows how to install Operator cluster-wide on
 Kubernetes.
@@ -111,14 +111,8 @@ Kubernetes.
    The creation process will take some time. The process is over when both
    operator and replica set Pods have reached their Running status:
 
-   .. code:: bash
 
-      $ kubectl get pods -n pxc
-      NAME                                              READY   STATUS    RESTARTS   AGE
-      cluster1-pxc-0                                    1/1     Running   0          5m
-      cluster1-pxc-1                                    1/1     Running   0          4m
-      cluster1-pxc-2                                    1/1     Running   0          2m
-      cluster1-proxysql-0                               1/1     Running   0          5m
+   .. include:: ./assets/code/kubectl-get-pods-response.txt
 
 #. Check connectivity to newly created cluster
 

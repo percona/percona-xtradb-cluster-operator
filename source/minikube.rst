@@ -3,14 +3,14 @@
 Install Percona XtraDB Cluster on Minikube
 ============================================
 
-Installing the Percona XtraDB Cluster Operator on `minikube <https://github.com/kubernetes/minikube>`_
+Installing the Percona Distribution for MySQL Operator on `minikube <https://github.com/kubernetes/minikube>`_
 is the easiest way to try it locally without a cloud provider. Minikube runs
 Kubernetes on GNU/Linux, Windows, or macOS system using a system-wide
 hypervisor, such as VirtualBox, KVM/QEMU, VMware Fusion or Hyper-V. Using it is
 a popular way to test the Kubernetes application locally prior to deploying it
 on a cloud.
 
-The following steps are needed to run Percona XtraDB Cluster Operator on
+The following steps are needed to run Percona Distribution for MySQL Operator on
 Minikube:
 
 #. `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_,
@@ -59,17 +59,7 @@ Minikube:
    Creation process will take some time. The process is over when both
    operator and replica set pod have reached their Running status:
 
-   .. code:: bash
-
-      $ kubectl get pods
-      NAME                                              READY   STATUS    RESTARTS   AGE
-      cluster1-haproxy-0                                1/1     Running   0          5m
-      cluster1-haproxy-1                                1/1     Running   0          5m
-      cluster1-haproxy-2                                1/1     Running   0          5m
-      cluster1-pxc-0                                    1/1     Running   0          5m
-      cluster1-pxc-1                                    1/1     Running   0          4m
-      cluster1-pxc-2                                    1/1     Running   0          2m
-      percona-xtradb-cluster-operator-dc67778fd-qtspz   1/1     Running   0          6m
+   .. include:: ./assets/code/kubectl-get-pods-response.txt
 
 #. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the
    password for the ``root`` user, which you will definitely need to access the

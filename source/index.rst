@@ -19,7 +19,7 @@ availability for your applications while improving security and simplifying the
 development of new applications in the most demanding public, private, and
 hybrid cloud environments.
 
-Based on our best practices for deployment and configuration, `Percona Kubernetes Operator for Percona XtraDB Cluster <https://github.com/percona/percona-xtradb-cluster-operator>`_ 
+Based on our best practices for deployment and configuration, `Percona Distribution for MySQL Operator <https://github.com/percona/percona-xtradb-cluster-operator>`_ 
 contains everything you need to quickly and consistently deploy and scale
 Percona XtraDB Cluster instances in a Kubernetes-based environment on-premises
 or in the cloud.
@@ -66,6 +66,7 @@ Configuration
    storage
    constraints
    options
+   containers-conf
    haproxy-conf
    proxysql-conf
    TLS
@@ -81,6 +82,7 @@ Management
    pause
    update
    scaling
+   replication
    monitoring
    recovery
    debug

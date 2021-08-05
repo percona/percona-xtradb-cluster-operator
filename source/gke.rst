@@ -2,7 +2,7 @@
 Install Percona XtraDB Cluster on Google Kubernetes Engine (GKE)
 ==========================================================================================
 
-This quickstart shows you how to configure a Percona XtraDB cluster operator with the Google Kubernetes Engine. The document assumes some experience with Google Kubernetes Engine (GKE). For more information on the GKE, see the `Kubernetes Engine Quickstart <https://cloud.google.com/kubernetes-engine/docs/quickstart>`_.
+This quickstart shows you how to configure the Percona Distribution for MySQL Operator with the Google Kubernetes Engine. The document assumes some experience with Google Kubernetes Engine (GKE). For more information on the GKE, see the `Kubernetes Engine Quickstart <https://cloud.google.com/kubernetes-engine/docs/quickstart>`_.
 
 Prerequisites
 =============
@@ -135,16 +135,7 @@ Verifying the cluster operator
 
 It may take ten minutes to get the cluster started. You  can verify its creation with the ``kubectl get pods`` command:
 
-.. code:: text
-
-   $ kubectl get pods
-   NAME                                               READY     STATUS    RESTARTS   AGE
-   cluster1-haproxy-0                                 3/3     Running   0          102s
-   cluster1-haproxy-1                                 3/3     Running   0          77s
-   cluster1-haproxy-2                                 3/3     Running   0          42s
-   cluster1-pxc-0                                     1/1     Running   0          103s
-   cluster1-pxc-1                                     0/1     Running   0          56s
-   percona-xtradb-cluster-operator-7455888c9d-wpn9j   1/1     Running   0          4m3s
+   .. include:: ./assets/code/kubectl-get-pods-response.txt
 
 Also, you can see the same information when browsing Pods of your cluster in Google Cloud console via the *Object Browser*:
 

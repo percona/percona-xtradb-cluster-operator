@@ -1,7 +1,7 @@
 .. _rel_notes:
 
 ==============================================================================
-Percona Kubernetes Operator for Percona XtraDB Cluster |version| Release Notes
+Percona Distribution for MySQL Operator |version| Release Notes
 ==============================================================================
 
 .. toctree::

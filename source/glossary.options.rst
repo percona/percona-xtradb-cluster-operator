@@ -191,6 +191,12 @@ The Operator options glossary
 
       :ref:`proxysql.externalTrafficPolicy<proxysql-externaltrafficpolicy>`
 
+   host
+
+     ..
+
+      :ref:`pxc.replicationChannels.sourcesList.host<pxc-replicationchannels-sourceslist-host>`
+
    image
 
      ..
@@ -222,6 +228,12 @@ The Operator options glossary
       :ref:`proxysql.imagePullPolicy<proxysql-imagepullpolicy>`
 
       :ref:`pxc.imagePullPolicy<pxc-imagepullpolicy>`
+
+   isSource
+
+     ..
+
+      :ref:`pxc.replicationChannels.isSource<pxc-replicationchannels-issource>`
 
    keep
 
@@ -331,6 +343,8 @@ The Operator options glossary
 
       :ref:`pxc.imagePullSecrets.name<pxc-imagepullsecrets-name>`
 
+      :ref:`pxc.replicationChannels.name<pxc-replicationchannels-name>`
+      
       :ref:`pxc.sidecars.name<pxc-sidecars-name>`
 
    nodeAffinity
@@ -357,6 +371,19 @@ The Operator options glossary
 
       :ref:`proxysql.volumeSpec.hostPath.path<proxysql-volumespec-hostpath-path>`
 
+   podSecurityContext
+
+     ..
+
+      :ref:`backup.storages.STORAGE_NAME.podSecurityContext<backup-storages-podsecuritycontext>`
+
+      :ref:`pxc.podSecurityContext<pxc-podsecuritycontext>`
+
+   port
+
+     ..
+
+      :ref:`pxc.replicationChannels.sourcesList.port<pxc-replicationchannels-sourceslist-port>`
 
    priorityClassName
 
@@ -369,14 +396,6 @@ The Operator options glossary
       :ref:`proxysql.priorityClassName<proxysql-priorityclassname>`
 
       :ref:`pxc.priorityClassName<pxc-priorityclassname>`
-
-   podSecurityContext
-
-     ..
-
-      :ref:`backup.storages.STORAGE_NAME.podSecurityContext<backup-storages-podsecuritycontext>`
-
-      :ref:`pxc.podSecurityContext<pxc-podsecuritycontext>`
 
    proxysqlParams
 
@@ -570,7 +589,11 @@ The Operator options glossary
 
       :ref:`upgradeOptions.versionServiceEndpoint<upgradeoptions-versionserviceendpoint>`
 
+   weight
 
+     ..
+
+      :ref:`pxc.replicationChannels.sourcesList.weight<pxc-replicationchannels-sourceslist-weight>`
 
 
 

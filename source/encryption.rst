@@ -17,22 +17,18 @@ which ships with Percona XtraDB Cluster, and utilizes `HashiCorp Vault <https://
 Installing Vault
 ----------------
 
-The following steps will deploy Vault on Kubernetes with the `Helm 3 package manager <https://helm.sh/>`_. Other Vault installation methods should also work, so the instruction placed here is not obligatory and is for illustration purposes.
+The following steps will deploy Vault on Kubernetes with the `Helm 3 package manager <https://helm.sh/>`_. Other Vault installation methods should also work, so the instruction placed here is not obligatory and is for illustration purposes. Read more about installation in Vault's `documentation <https://www.vaultproject.io/docs/platform/k8s>`_.
 
-1. Clone the official HashiCorp Vault Helm chart from GitHub:
-
-   .. code:: bash
-
-      $ git clone -b v0.4.0 https://github.com/hashicorp/vault-helm.git
-      $ cd vault-helm
-
-2. Now use Helm to do the installation:
+1. Add helm repo and install:
 
    .. code:: bash
 
-      $ helm install vault-service ./
+      $ helm repo add hashicorp https://helm.releases.hashicorp.com
+      "hashicorp" has been added to your repositories
 
-3. After the installation, Vault should be first initialized and then unsealed.
+      $ helm install vault hashicorp/vault
+      
+2. After the installation, Vault should be first initialized and then unsealed.
    Initializing Vault is done with the following commands:
 
    .. code:: bash

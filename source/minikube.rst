@@ -30,24 +30,23 @@ Minikube:
    Executing ``minikube dashboard`` will start the dashboard and open it in your
    default web browser.
 
-#. Clone the percona-xtradb-cluster-operator repository::
-
-     git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
-     cd percona-xtradb-cluster-operator
-
 #. Deploy the operator with the following command::
 
-     kubectl apply -f deploy/bundle.yaml
+     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/bundle.yaml
 
-#. Now apply the ``deploy/cr-minimal.yaml`` file with the following command::
+#. Deploy Percona XtraDB Cluster::
 
-     kubectl apply -f deploy/cr-minimal.yaml
-
+     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/cr-minimal.yaml
+    
    This deploys one Percona XtraDB Cluster node and one HAProxy node. 
    ``deploy/cr-minimal.yaml`` is for minimal non-production deployment. For 
    more configuration options please see ``deploy/cr.yaml`` and :ref:`Custom Resource Options<operator.custom-resource-options>`.
    Creation process will take some time. The process is over when both
    operator and replica set pod have reached their Running status:
+   
+   You can clone the repository with all manifests and source code by executing the following command::
+   
+     git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
 
    .. include:: ./assets/code/kubectl-get-minimal-response.txt
 

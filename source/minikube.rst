@@ -42,13 +42,14 @@ Minikube:
    ``deploy/cr-minimal.yaml`` is for minimal non-production deployment. For 
    more configuration options please see ``deploy/cr.yaml`` and :ref:`Custom Resource Options<operator.custom-resource-options>`.
    Creation process will take some time. The process is over when both
-   operator and replica set pod have reached their Running status:
+   operator and replica set pod have reached their Running status. 
+   ``kubectl get pods`` output should look like this:
+   
+   .. include:: ./assets/code/kubectl-get-minimal-response.txt
    
    You can clone the repository with all manifests and source code by executing the following command::
    
      git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
-
-   .. include:: ./assets/code/kubectl-get-minimal-response.txt
 
 #. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the
    password for the ``root`` user, which you will definitely need to access the

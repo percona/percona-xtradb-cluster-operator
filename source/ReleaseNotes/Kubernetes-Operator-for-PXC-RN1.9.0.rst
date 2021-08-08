@@ -90,8 +90,8 @@ Bugs Fixed
 * :jirabug:`K8SPXC-757`: Fixed a bug where manual crash recovery interfered with
   auto recovery functionality even with the ``auto_recovery`` flag set to false
 * :jirabug:`K8SPXC-706`: TLS certificates
-  :ref:`renewal by a cert-manager was failing<tls-cetrs-update-check>` (Thanks
-  to Jeff Andrews for reporting this issue)
+  :ref:`renewal by a cert-manager was failing<tls.certs.update.check.issuer>`
+  (Thanks to Jeff Andrews for reporting this issue)
 * :jirabug:`K8SPXC-785`: Fixed a bug where backup to S3 was producing
   false-positive error messages even if backup was successful
 * :jirabug:`K8SPXC-642`: Fixed a bug where PodDisruptionBudget was blocking the

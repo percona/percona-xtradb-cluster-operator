@@ -133,7 +133,7 @@ communications must be added to the ``cr.yaml/spec/sslInternalSecretName``.
    from-file=tls.key=server-key.pem --from-file=ca.crt=ca.pem --
    type=kubernetes.io/tls
 
-.. _tls.cets.update:
+.. _tls.certs.update:
 
 Update certificates
 ===================
@@ -150,7 +150,7 @@ automatically on schedule and without downtime.
 .. image:: ./assets/images/certificates.svg
    :align: center
 
-.. _tls.cets.update.check:
+.. _tls.certs.update.check.issuer:
 
 Versions of the Operator prior 1.9.0 have used 3 month root certificate, which
 caused issues with the automatic TLS certificates update. If that's your case,
@@ -159,9 +159,9 @@ you can make the Operator update along with the :ref:`official instruction<opera
 .. note:: If you use the cert-manager version earlier than 1.9.0, and you would
    like to avoid downtime while updating the certificates after the Operator
    update to 1.9.0 or newer version,
-   :ref:`force the certificates regeneration by a cert-manager<tls.cets.update.with.downtime>`.
+   :ref:`force the certificates regeneration by a cert-manager<tls.certs.update.with.downtime>`.
 
-.. _tls.cets.update.check:
+.. _tls.certs.update.check:
 
 Check your certificates for expiration
 --------------------------------------
@@ -211,7 +211,7 @@ Check your certificates for expiration
       Not After : Sep 15 11:04:53 2021 GMT
       Not After : Sep 15 11:04:53 2021 GMT
 
-.. _tls.cets.update.without.downtime:
+.. _tls.certs.update.without.downtime:
 
 Update certificates without downtime
 ------------------------------------
@@ -220,7 +220,7 @@ If you don't use :ref:`cert-manager<tls.certs.certmanager>` and have *created ce
 you can follow the next steps to perform a no-downtime update of these
 certificates *if they are still valid*.
 
-.. note:: For already expired certificates, follow :ref:`the alternative way<tls.cets.update.with.downtime>`.
+.. note:: For already expired certificates, follow :ref:`the alternative way<tls.certs.update.with.downtime>`.
 
 Having non-expired certificates, you can roll out new certificates (both CA and TLS) with the Operator
 as follows.
@@ -280,15 +280,15 @@ as follows.
 
    .. code:: bash
 
-   $ kubectl delete secret/my-cluster-ssl-internal
-   $ kubectl create secret generic my-cluster-ssl-internal --from-file=tls.crt=server.pem --from-file=tls.key=server-key.pem --from-file=ca.crt=ca.pem --type=kubernetes.io/tls
+      $ kubectl delete secret/my-cluster-ssl-internal
+      $ kubectl create secret generic my-cluster-ssl-internal --from-file=tls.crt=server.pem --from-file=tls.key=server-key.pem --from-file=ca.crt=ca.pem --type=kubernetes.io/tls
 
 #. The cluster will go through a rolling reconciliation, but it will do it
    without problems: the old CA certificate is removed, and every node is
    already using new TLS certificate and no nodes rely on the old CA
    certificate any more.
 
-.. _tls.cets.update.with.downtime:
+.. _tls.certs.update.with.downtime:
 
 Update certificates with downtime
 ---------------------------------
@@ -316,7 +316,7 @@ Operator version prior to 1.9.0), you should move through the
 
       $ kubectl delete secret/my-cluster-ssl secret/my-cluster-ssl-internal
 
-#. :ref:`Check certificates<tls.cets.update.check>` to make sure reconciliation
+#. :ref:`Check certificates<tls.certs.update.check>` to make sure reconciliation
    have succeeded.
 
 #. Unpause the cluster :ref:`in a standard way<operator-pause>`, and make

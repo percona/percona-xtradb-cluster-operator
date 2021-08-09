@@ -4,7 +4,7 @@
 *Percona Distribution for MySQL Operator* 1.9.0
 ================================================================================
 
-:Date: August 5, 2021
+:Date: August 9, 2021
 :Installation: For installation please refer to `the documentation page <https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html#quickstart-guides>`_
 
 Release Highlights

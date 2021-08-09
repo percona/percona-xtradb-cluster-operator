@@ -108,7 +108,7 @@ Bugs Fixed
   credentials)
 * :jirabug:`K8SPXC-787`: Fixed the “initializing” status of ready clusters
   caused by the xtrabackup user password change
-* :jirabug:`K8SPXC-775`: Fixed a bug where errors in custom myqsld config
+* :jirabug:`K8SPXC-775`: Fixed a bug where errors in custom mysqld config
   settings were not detected by the Operator if the config was modified after
   the initial cluster was created
 * :jirabug:`K8SPXC-767`: Fixed a bug where on-demand backup hung up if created

@@ -41,9 +41,9 @@ version = '1.9.0'
 # the full version including alpha/beta/rc tags.
 release = '1.9.0'
 # the PXC 5.7 and PXC 8.0 recommended versions to be used in docs
-pxc57recommended = '5.7.33-31.49'
-pxc80recommended = '8.0.22-13.1'
-pmm2recommended = '2.12.0'
+pxc57recommended = '5.7.34-31.51'
+pxc80recommended = '8.0.23-14.1'
+pmm2recommended = '2.18.0'
 gkerecommended = '1.20'
 
 # List of patterns, relative to source directory, that match files and

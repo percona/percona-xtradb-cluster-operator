@@ -163,6 +163,8 @@ If using *Percona XtraDB Cluster* 8.0, the encryption is turned on by default
 The following table presents the default values of the `correspondent my.cnf
 configuration options <https://www.percona.com/doc/percona-server/LATEST/security/data-at-rest-encryption.html>`_:
 
+.. tabularcolumns:: |p{90mm}|p{60mm}|
+
 +---------------------------------------------------+-------------------------------------------------------+
 | Option                                            | Default value                                         |
 +===================================================+=======================================================+

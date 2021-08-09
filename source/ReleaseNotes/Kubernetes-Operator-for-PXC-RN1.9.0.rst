@@ -4,7 +4,7 @@
 *Percona Distribution for MySQL Operator* 1.9.0
 ================================================================================
 
-:Date: August 5, 2021
+:Date: August 9, 2021
 :Installation: For installation please refer to `the documentation page <https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html#quickstart-guides>`_
 
 Release Highlights
@@ -37,7 +37,7 @@ New Features
 * :jirabug:`K8SPXC-308`: Implement Percona XtraDB Cluster
   :ref:`asynchronous replication<operator-replication>` within the Operator
 * :jirabug:`K8SPXC-688`: Define :ref:`environment variables<faq-env>` in the
-  Custom Resource to tune liveness and readiness probes and more customizations
+  Custom Resource to provide containers with additional customizations
 
 Improvements
 ================================================================================
@@ -90,8 +90,8 @@ Bugs Fixed
 * :jirabug:`K8SPXC-757`: Fixed a bug where manual crash recovery interfered with
   auto recovery functionality even with the ``auto_recovery`` flag set to false
 * :jirabug:`K8SPXC-706`: TLS certificates
-  :ref:`renewal by a cert-manager was failing<tls-cetrs-update-check>` (Thanks
-  to Jeff Andrews for reporting this issue)
+  :ref:`renewal by a cert-manager was failing<tls.certs.update.check.issuer>`
+  (Thanks to Jeff Andrews for reporting this issue)
 * :jirabug:`K8SPXC-785`: Fixed a bug where backup to S3 was producing
   false-positive error messages even if backup was successful
 * :jirabug:`K8SPXC-642`: Fixed a bug where PodDisruptionBudget was blocking the
@@ -108,7 +108,7 @@ Bugs Fixed
   credentials)
 * :jirabug:`K8SPXC-787`: Fixed the “initializing” status of ready clusters
   caused by the xtrabackup user password change
-* :jirabug:`K8SPXC-775`: Fixed a bug where errors in custom myqsld config
+* :jirabug:`K8SPXC-775`: Fixed a bug where errors in custom mysqld config
   settings were not detected by the Operator if the config was modified after
   the initial cluster was created
 * :jirabug:`K8SPXC-767`: Fixed a bug where on-demand backup hung up if created

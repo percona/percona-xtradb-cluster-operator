@@ -520,7 +520,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | When the `readiness probe <https://kubernetes.io/docs/tasks/configure-pod-container/      |
 |                 | configure-liveness-readiness-startup-probes/>`_ fails, Kubernetes will try this number of |
-|                 |  times before marking the Pod Unready                                                     |
+|                 | times before marking the Pod Unready                                                      |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -596,7 +596,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | When the `liveness probe <https://kubernetes.io/docs/tasks/configure-pod-container/       |
 |                 | configure-liveness-readiness-startup-probes/>`_ fails, Kubernetes will try this number of |
-|                 |  times before restarting the container                                                    |
+|                 | times before restarting the container                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1272,7 +1272,7 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | When the `readiness probe <https://kubernetes.io/docs/tasks/configure-pod-container/      |
 |                 | configure-liveness-readiness-startup-probes/>`_ fails, Kubernetes will try this number of |
-|                 |  times before marking the Pod Unready                                                     |
+|                 | times before marking the Pod Unready                                                      |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

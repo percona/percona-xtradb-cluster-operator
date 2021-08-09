@@ -151,7 +151,7 @@ When identified, the appropriate core dump can be downloaded as follows:
       [4] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259465692, {"log"=>"Server Version: 8.0.21-12.1 Percona XtraDB Cluster (GPL), Release rel12, Revision 4d973e2, WSREP version 26.4.3, wsrep_26.4.3"}]
       .....
 
-How to chouse between HAProxy and ProxySQL when configuring the cluster?
+How to choose between HAProxy and ProxySQL when configuring the cluster?
 ================================================================================
 
 You can configure the Operator to use one of two different proxies, HAProxy

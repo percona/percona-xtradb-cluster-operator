@@ -183,7 +183,7 @@ The Operator options glossary
 
       :ref:`proxysql.envVarsSecret<proxysql-envvarssecret>`
 
-      :ref:`pxc.expose.envVarsSecret<pxc-expose-envvarssecret>`
+      :ref:`pxc.envVarsSecret<pxc-envvarssecret>`
 
    ephemeral-storage
 
@@ -205,13 +205,13 @@ The Operator options glossary
 
      ..
 
-      :ref:``haproxy.livenessProbes.failureThreshold<haproxy-livenessprobes-failurethreshold>`
+      :ref:`haproxy.livenessProbes.failureThreshold<haproxy-livenessprobes-failurethreshold>`
 
-      :ref:``haproxy.readinessProbes.failureThreshold<haproxy-readinessprobes-failurethreshold>`
+      :ref:`haproxy.readinessProbes.failureThreshold<haproxy-readinessprobes-failurethreshold>`
 
-      :ref:``pxc.livenessProbes.failureThreshold<pxc-livenessprobes-failurethreshold>`
+      :ref:`pxc.livenessProbes.failureThreshold<pxc-livenessprobes-failurethreshold>`
 
-      :ref:``pxc.readinessProbes.failureThreshold<pxc-readinessprobes-failurethreshold>`
+      :ref:`pxc.readinessProbes.failureThreshold<pxc-readinessprobes-failurethreshold>`
 
    host
 
@@ -255,13 +255,11 @@ The Operator options glossary
 
      ..
 
-      :ref:``haproxy.livenessProbes.initialDelaySeconds<haproxy-livenessprobes-initialdelayseconds>`
+      :ref:`haproxy.readinessProbes.initialDelaySeconds<haproxy-readinessprobes-initialdelayseconds>`
 
-      :ref:``haproxy.readinessProbes.initialDelaySeconds<haproxy-readinessprobes-initialdelayseconds>`
+      :ref:`pxc.livenessProbes.initialDelaySeconds<pxc-livenessprobes-initialdelayseconds>`
 
-      :ref:``pxc.livenessProbes.initialDelaySeconds<pxc-livenessprobes-initialdelayseconds>`
-
-      :ref:``pxc.readinessProbes.initialDelaySeconds<pxc-readinessprobes-initialdelayseconds>`
+      :ref:`pxc.readinessProbes.initialDelaySeconds<pxc-readinessprobes-initialdelayseconds>`
 
    isSource
 
@@ -409,13 +407,11 @@ The Operator options glossary
 
      ..
 
-      :ref:``haproxy.livenessProbes.periodSeconds<haproxy-livenessprobes-periodseconds>`
+      :ref:`haproxy.readinessProbes.periodSeconds<haproxy-readinessprobes-periodseconds>`
 
-      :ref:``haproxy.readinessProbes.periodSeconds<haproxy-readinessprobes-periodseconds>`
+      :ref:`pxc.livenessProbes.periodSeconds<pxc-livenessprobes-periodseconds>`
 
-      :ref:``pxc.livenessProbes.periodSeconds<pxc-livenessprobes-periodseconds>`
-
-      :ref:``pxc.readinessProbes.periodSeconds<pxc-readinessprobes-periodseconds>`
+      :ref:`pxc.readinessProbes.periodSeconds<pxc-readinessprobes-periodseconds>`
 
    podSecurityContext
 
@@ -507,13 +503,13 @@ The Operator options glossary
 
       :ref:`proxysql.schedulerName<proxysql-schedulername>`
 
-      :ref:`<pxc.schedulerName<pxc-schedulername>`
+      :ref:`pxc.schedulerName<pxc-schedulername>`
 
    serverHost
 
      ..
 
-      :ref:`pmm.serverHost<pmm-serverhost>
+      :ref:`pmm.serverHost<pmm-serverhost>`
 
    serverUser
 
@@ -577,7 +573,7 @@ The Operator options glossary
 
       :ref:`proxysql.volumeSpec.persistentVolumeClaim.storageClassName<proxysql-volumespec-persistentvolumeclaim-storageclassname>`
 
-      :ref:`<pxc.volumeSpec.persistentVolumeClaim.storageClassName<pxc-volumespec-persistentvolumeclaim-storageclassname>`
+      :ref:`pxc.volumeSpec.persistentVolumeClaim.storageClassName<pxc-volumespec-persistentvolumeclaim-storageclassname>`
 
    storageName
 
@@ -591,13 +587,9 @@ The Operator options glossary
 
      ..
 
-      :ref:``haproxy.livenessProbes.successThreshold<haproxy-livenessprobes-successthreshold>`
+      :ref:`pxc.livenessProbes.successThreshold<pxc-livenessprobes-successthreshold>`
 
-      :ref:``haproxy.readinessProbes.successThreshold<haproxy-readinessprobes-successthreshold>`
-
-      :ref:``pxc.livenessProbes.successThreshold<pxc-livenessprobes-successthreshold>`
-
-      :ref:``pxc.readinessProbes.successThreshold<pxc-readinessprobes-successthreshold>`
+      :ref:`pxc.readinessProbes.successThreshold<pxc-readinessprobes-successthreshold>`
 
    timeBetweenUploads
 
@@ -609,13 +601,11 @@ The Operator options glossary
 
      ..
 
-      :ref:``haproxy.livenessProbes.timeoutSeconds<haproxy-livenessprobes-timeoutseconds>`
+      :ref:`haproxy.readinessProbes.timeoutSeconds<haproxy-readinessprobes-timeoutseconds>`
 
-      :ref:``haproxy.readinessProbes.timeoutSeconds<haproxy-readinessprobes-timeoutseconds>`
+      :ref:`pxc.livenessProbes.timeoutSeconds<pxc-livenessprobes-timeoutseconds>`
 
-      :ref:``pxc.livenessProbes.timeoutSeconds<pxc-livenessprobes-timeoutseconds>`
-
-      :ref:``pxc.readinessProbes.timeoutSeconds<pxc-readinessprobes-timeoutseconds>`
+      :ref:`pxc.readinessProbes.timeoutSeconds<pxc-readinessprobes-timeoutseconds>`
 
    tolerations
 
@@ -627,7 +617,7 @@ The Operator options glossary
 
       :ref:`proxysql.tolerations<proxysql-tolerations>`
 
-      :ref:`<pxc.tolerations<pxc-tolerations>`
+      :ref:`pxc.tolerations<pxc-tolerations>`
 
    topologyKey
 
@@ -637,7 +627,7 @@ The Operator options glossary
 
       :ref:`proxysql.affinity.topologyKey<proxysql-affinity-topologykey>`
 
-      :ref:`<pxc.affinity.topologyKey<pxc-affinity-topologykey>`
+      :ref:`pxc.affinity.topologyKey<pxc-affinity-topologykey>`
 
    type
 

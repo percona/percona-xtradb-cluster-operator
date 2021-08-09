@@ -33,7 +33,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Percona Kubernetes Operator for PXC'
+project = u'Percona Distribution for MySQL Operator'
 copyright = u'Percona LLC and/or its affiliates 2009 - 2021'
 
 # the short X.Y version
@@ -41,9 +41,9 @@ version = '1.9.0'
 # the full version including alpha/beta/rc tags.
 release = '1.9.0'
 # the PXC 5.7 and PXC 8.0 recommended versions to be used in docs
-pxc57recommended = '5.7.33-31.49'
-pxc80recommended = '8.0.22-13.1'
-pmm2recommended = '2.12.0'
+pxc57recommended = '5.7.34-31.51'
+pxc80recommended = '8.0.23-14.1'
+pmm2recommended = '2.18.0'
 gkerecommended = '1.20'
 
 # List of patterns, relative to source directory, that match files and
@@ -151,10 +151,10 @@ html_theme_path = ['.', './percona-theme']
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = 'Percona Kubernetes Operator for Percona XtraDB Cluster Documentation'
+html_title = 'Percona Distribution for MySQL Operator Documentation'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_short_title = 'Percona Kubernetes Operator for Percona XtraDB Cluster Documentation'
+html_short_title = 'Percona Distribution for MySQL Operator Documentation'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
@@ -227,7 +227,7 @@ htmlhelp_basename = 'pxcoperatorpxc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'percona-kubernetes-operator-for-pxc.tex', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
+  ('index', 'percona-kubernetes-operator-for-pxc.tex', u'Percona Distribution for MySQL Operator',
      u'Percona LLC and/or its affiliates 2009-2021', 'manual'),
 ]
 
@@ -264,7 +264,7 @@ latex_elements = {
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Kubernetes Operator for Percona XtraDB Cluster',
+    ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Distribution for MySQL Operator',
      [u'Percona LLC and/or its affiliates 2009-2021'], 1)
 ]
 

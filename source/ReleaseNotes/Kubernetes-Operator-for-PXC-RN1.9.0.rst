@@ -37,7 +37,7 @@ New Features
 * :jirabug:`K8SPXC-308`: Implement Percona XtraDB Cluster
   :ref:`asynchronous replication<operator-replication>` within the Operator
 * :jirabug:`K8SPXC-688`: Define :ref:`environment variables<faq-env>` in the
-  Custom Resource to tune liveness and readiness probes and more customizations
+  Custom Resource to provide containers with additional customizations
 
 Improvements
 ================================================================================

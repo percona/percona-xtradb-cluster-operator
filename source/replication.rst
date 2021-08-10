@@ -66,12 +66,13 @@ make it possible for the *Replica* cluster to connect. This is done through the
        expose:
          enabled: true
          type: LoadBalancer
-         loadBalancerSourceRanges:
-           - 10.0.0.0/8
 
 .. note:: This will create a LoadBalancer per each Percona XtraDB Cluster Pod.
-   Please take into account, that you will need this IP address to be external
-   for cross-region replication in most cases.
+   In most cases, for cross-region replication to work this Load Balancer should
+   be internet-facing.
+   
+To list the endpoints assigned to PXC Pods list the Kubernetes Service objects by 
+executing ``kubectl get services -l "app.kubernetes.io/instance=CLUSTER_NAME"`` command.
 
 .. _operator-replication-replica:
 

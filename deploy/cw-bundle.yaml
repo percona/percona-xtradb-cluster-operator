@@ -369,7 +369,7 @@ spec:
           statusReplicasPath: .status.pxc.ready
           labelSelectorPath: .status.pxc.labelSelectorPath
     - name: v1-9-0
-      storage: true
+      storage: false
       served: true
       schema:
         openAPIV3Schema:

@@ -172,7 +172,7 @@ main() {
         "spec": {"crVersion":"1.10.0"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "9" "1"
+	wait_for_sts_generation "$cluster-pxc" "10" "1"
 	compare_kubectl service/$cluster-pxc "-1100"
 	compare_kubectl service/$cluster-proxysql "-1100"
 	compare_kubectl statefulset/$cluster-pxc "-1100"

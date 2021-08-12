@@ -369,6 +369,47 @@ spec:
           statusReplicasPath: .status.pxc.ready
           labelSelectorPath: .status.pxc.labelSelectorPath
     - name: v1-9-0
+      storage: false
+      served: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+      - name: Endpoint
+        type: string
+        jsonPath: .status.host
+      - name: Status
+        type: string
+        jsonPath: .status.state
+      - name: PXC
+        type: string
+        description: Ready pxc nodes
+        jsonPath: .status.pxc.ready
+      - name: proxysql
+        type: string
+        description: Ready proxysql nodes
+        jsonPath: .status.proxysql.ready
+      - name: haproxy
+        type: string
+        description: Ready haproxy nodes
+        jsonPath: .status.haproxy.ready
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
+        scale:
+          specReplicasPath: .spec.pxc.size
+          statusReplicasPath: .status.pxc.ready
+          labelSelectorPath: .status.pxc.labelSelectorPath
+    - name: v1-10-0
       storage: true
       served: true
       schema:

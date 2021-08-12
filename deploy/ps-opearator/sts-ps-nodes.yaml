@@ -1,0 +1,172 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: internal-cluster1
+type: Opaque
+stringData:
+  root: root_password
+  xtrabackup: backup_password
+  monitor: monitory
+  pmmserver: admin
+  operator: operatoradmin
+  replication: repl_password
+  orchestrator: orchestrator_password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ps-mysql
+spec:
+  clusterIP: None
+  ports:
+  - name: mysql
+    port: 3306
+    protocol: TCP
+    targetPort: 3306
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: ps-mysql
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cluster1-ps-mysql
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ps-mysql
+  serviceName: ps-mysql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ps-mysql
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: ps-mysql
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - mysqld
+        command:
+        - /var/lib/mysql/ps-entrypoint.sh
+        env:
+        - name: MONITOR_HOST
+          value: '%'
+        - name: XTRABACKUP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: xtrabackup
+              name: internal-cluster1
+        - name: MONITOR_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: monitor
+              name: internal-cluster1
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: root
+              name: internal-cluster1
+              optional: false
+        - name: OPERATOR_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: operator
+              name: internal-cluster1
+              optional: true
+        - name: ORC_TOPOLOGY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: orchestrator
+              name: internal-cluster1
+              optional: true
+        - name: MY_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: MY_SERVICE_NAME
+          value: mysql
+        - name: MY_FQDN
+          value: $(MY_POD_NAME).$(MY_SERVICE_NAME).$(MY_NAMESPACE)
+        image: percona/percona-server:8.0.25
+        imagePullPolicy: IfNotPresent
+        name: mysql
+        ports:
+        - containerPort: 3306
+          name: mysql
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 1Gi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/mysql
+          name: conf
+        - mountPath: /var/lib/mysql
+          name: datadir
+      initContainers:
+      - command:
+        - /ps-init-entrypoint.sh
+        image: perconalab/percona-xtradb-cluster-operator:ps-operator
+        imagePullPolicy: Always
+        name: ps-init
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100M
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: datadir
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      dnsPolicy: ClusterFirst
+      securityContext:
+        fsGroup: 1001
+        supplementalGroups:
+        - 1001
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: conf
+      - emptyDir: {}
+        name: init-scripts
+      - configMap:
+          defaultMode: 420
+          name: cluster1-ps-mysql
+        name: config-map
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: datadir
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+      volumeMode: Filesystem

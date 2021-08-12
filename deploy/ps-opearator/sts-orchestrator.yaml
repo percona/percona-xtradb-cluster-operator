@@ -1,0 +1,250 @@
+apiVersion: v1
+data:
+  TOPOLOGY_PASSWORD: b3JjaGVzdHJhdG9yX3Bhc3N3b3Jk
+  TOPOLOGY_USER: b3JjaGVzdHJhdG9y
+kind: Secret
+metadata:
+  labels:
+    app: orchestratorr
+  name: orchestrator
+type: Opaque
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-0-svc
+spec:
+  ports:
+  - name: web
+    port: 80
+    protocol: TCP
+    targetPort: 3000
+  - name: raft
+    port: 10008
+    protocol: TCP
+    targetPort: 10008
+  selector:
+    statefulset.kubernetes.io/pod-name: orchestrator-0
+  publishNotReadyAddresses: true
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-1-svc
+spec:
+  ports:
+  - name: web
+    port: 80
+    protocol: TCP
+    targetPort: 3000
+  - name: raft
+    port: 10008
+    protocol: TCP
+    targetPort: 10008
+  selector:
+    statefulset.kubernetes.io/pod-name: orchestrator-1
+  publishNotReadyAddresses: true
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-2-svc
+spec:
+  ports:
+  - name: web
+    port: 80
+    protocol: TCP
+    targetPort: 3000
+  - name: raft
+    port: 10008
+    protocol: TCP
+    targetPort: 10008
+  selector:
+    statefulset.kubernetes.io/pod-name: orchestrator-2
+  publishNotReadyAddresses: true
+  type: ClusterIP
+---
+apiVersion: v1
+data:
+  orc-topology.cnf: |
+    [client]
+    user = {{ .Env.ORC_TOPOLOGY_USER }}
+    password = {{ .Env.ORC_TOPOLOGY_PASSWORD }}
+  orchestrator.conf.json: |-
+    {
+      "ApplyMySQLPromotionAfterMasterFailover": false,
+      "BackendDB": "sqlite",
+      "Debug": true,
+      "DetachLostReplicasAfterMasterFailover": true,
+      "DetectClusterAliasQuery": "SELECT CONCAT(SUBSTRING(@@hostname, 1, LENGTH(@@hostname) - 1 - LENGTH(SUBSTRING_INDEX(@@hostname,'-',-2))),'.',SUBSTRING_INDEX(@@report_host,'.',-1))",
+      "DetectInstanceAliasQuery": "SELECT @@hostname",
+      "DiscoverByShowSlaveHosts": false,
+      "FailMasterPromotionIfSQLThreadNotUpToDate": true,
+      "HTTPAdvertise": "http://{{ .Env.HOSTNAME }}-svc:80",
+      "HostnameResolveMethod": "none",
+      "InstancePollSeconds": 5,
+      "ListenAddress": ":3000",
+      "MasterFailoverDetachReplicaMasterHost": true,
+      "MySQLHostnameResolveMethod": "@@report_host",
+      "MySQLTopologyCredentialsConfigFile": "/etc/orchestrator/orc-topology.cnf",
+      "OnFailureDetectionProcesses": [
+        "/usr/local/bin/orc-helper event -w '{failureClusterAlias}' 'OrcFailureDetection' 'Failure: {failureType}, failed host: {failedHost}, lost replcas: {lostReplicas}' || true",
+        "/usr/local/bin/orc-helper failover-in-progress '{failureClusterAlias}' '{failureDescription}' || true"
+      ],
+      "PostIntermediateMasterFailoverProcesses": [
+        "/usr/local/bin/orc-helper event '{failureClusterAlias}' 'OrcPostIntermediateMasterFailover' 'Failure type: {failureType}, failed hosts: {failedHost}, slaves: {countSlaves}' || true"
+      ],
+      "PostMasterFailoverProcesses": [
+        "/usr/local/bin/orc-helper event '{failureClusterAlias}' 'OrcPostMasterFailover' 'Failure type: {failureType}, new master: {successorHost}, slaves: {slaveHosts}' || true"
+      ],
+      "PostUnsuccessfulFailoverProcesses": [
+        "/usr/local/bin/orc-helper event -w '{failureClusterAlias}' 'OrcPostUnsuccessfulFailover' 'Failure: {failureType}, failed host: {failedHost} with {countSlaves} slaves' || true"
+      ],
+      "PreFailoverProcesses": [
+        "/usr/local/bin/orc-helper failover-in-progress '{failureClusterAlias}' '{failureDescription}' || true"
+      ],
+      "ProcessesShellCommand": "sh",
+      "RaftAdvertise": "{{ .Env.HOSTNAME }}-svc",
+      "RaftBind": "{{ .Env.HOSTNAME }}",
+      "RaftDataDir": "/var/lib/orchestrator",
+      "RaftEnabled": true,
+      "RaftNodes": [
+        "orchestrator-0-svc",
+        "orchestrator-1-svc",
+        "orchestrator-2-svc"
+      ],
+      "RecoverIntermediateMasterClusterFilters": [
+        ".*"
+      ],
+      "RecoverMasterClusterFilters": [
+        ".*"
+      ],
+      "RecoveryIgnoreHostnameFilters": [],
+      "RecoveryPeriodBlockSeconds": 300,
+      "RemoveTextFromHostnameDisplay": ":3306",
+      "SQLite3DataFile": "/var/lib/orchestrator/orc.db",
+      "SlaveLagQuery": "SELECT TIMESTAMPDIFF(SECOND,ts,NOW()) as drift FROM sys_operator.heartbeat ORDER BY drift ASC LIMIT 1",
+      "UnseenInstanceForgetHours": 1
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: orchestrator
+  name: orchestrator
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app: orchestrator
+  name: orchestrator
+spec:
+  podManagementPolicy: "Parallel"
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: orchestrator
+  serviceName: orchestrator
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/component: orchestrator
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: orchestrator
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - env:
+        - name: ORC_TOPOLOGY_USER
+          valueFrom:
+            secretKeyRef:
+              key: TOPOLOGY_USER
+              name: orchestrator
+        - name: ORC_TOPOLOGY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: TOPOLOGY_PASSWORD
+              name: orchestrator
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        envFrom:
+        - prefix: ORC_
+          secretRef:
+            name: orchestrator
+        image: quay.io/presslabs/mysql-operator-orchestrator:0.4.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/lb-check
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 200
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        name: orchestrator
+        ports:
+        - containerPort: 3000
+          name: web
+          protocol: TCP
+        - containerPort: 10008
+          name: raft
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/raft-health
+            port: 3000
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/orchestrator/
+          name: data
+        - mountPath: /templates/
+          name: config
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 777
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: orchestrator
+        name: config
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+      volumeMode: Filesystem

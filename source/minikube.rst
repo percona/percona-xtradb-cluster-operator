@@ -36,7 +36,7 @@ Minikube:
 
 #. Deploy Percona XtraDB Cluster::
 
-     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/cr-minimal.yaml
+     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/cr-minimal.yaml
     
    This deploys one Percona XtraDB Cluster node and one HAProxy node. 
    ``deploy/cr-minimal.yaml`` is for minimal non-production deployment. For 

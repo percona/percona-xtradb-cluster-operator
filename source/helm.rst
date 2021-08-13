@@ -3,7 +3,7 @@
 Install Percona XtraDB Cluster using Helm
 =========================================
 
-`Helm <https://github.com/helm/helm>`_ is the package manager for Kubernetes.
+`Helm <https://github.com/helm/helm>`_ is the package manager for Kubernetes. Percona Helm charts can be found in `percona/percona-helm-charts <https://github.com/percona/percona-helm-charts>`_ repository on Github.
 
 Pre-requisites
 --------------

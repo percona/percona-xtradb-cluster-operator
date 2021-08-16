@@ -136,6 +136,6 @@ You can change a password for this user as follows:
 
 .. code:: bash
 
-   kubectl patch secret/my-cluster-name-secrets -p '{"data":{"replication": '$(echo -n new_password | base64)'}}'
+   $ kubectl patch secret/my-cluster-name-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
 
 If the cluster is outside of Kubernetes and is not under the Operator's control, `the appropriate user with necessary permissions <https://dev.mysql.com/doc/refman/8.0/en/replication-asynchronous-connection-failover.html>`_ should be created manually.

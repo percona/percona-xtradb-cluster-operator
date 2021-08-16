@@ -138,4 +138,6 @@ You can change a password for this user as follows:
 
    $ kubectl patch secret/my-cluster-name-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
 
+.. note:: With the Operator version 1.9.0, you need one more step to change the ``replication`` user's password on a Replica cluster: :ref:`stop<operator-pause>` your Replica cluster after this command and then start it again.
+
 If the cluster is outside of Kubernetes and is not under the Operator's control, `the appropriate user with necessary permissions <https://dev.mysql.com/doc/refman/8.0/en/replication-asynchronous-connection-failover.html>`_ should be created manually.

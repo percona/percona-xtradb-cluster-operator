@@ -221,15 +221,6 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 			if len(channel.SourcesList) == 0 {
 				return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
 			}
-
-			for _, src := range channel.SourcesList {
-				if src.Weight == 0 {
-					src.Weight = 100
-				}
-				if src.Port == 0 {
-					src.Port = 3306
-				}
-			}
 		}
 	}
 
@@ -580,6 +571,17 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.SSLInternalSecretName = c.SSLInternalSecretName
 		} else {
 			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
+		}
+
+		for chIdx, channel := range c.PXC.ReplicationChannels {
+			for srcIdx, src := range channel.SourcesList {
+				if src.Weight == 0 {
+					c.PXC.ReplicationChannels[chIdx].SourcesList[srcIdx].Weight = 100
+				}
+				if src.Port == 0 {
+					c.PXC.ReplicationChannels[chIdx].SourcesList[srcIdx].Port = 3306
+				}
+			}
 		}
 
 		setSafeDefaults(c, logger)

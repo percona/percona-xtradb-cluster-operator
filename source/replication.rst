@@ -87,11 +87,11 @@ You can configure *Replica* instances for cross-site replication with ``spec.pxc
 
 * ``pxc.replicationChannels.[].sourcesList`` is the list of *Source* cluster names from which Replica should get the data,
 
-* ``pxc.replicationChannels.[].sourcesList.[].host`` is the host name or IP-address of the Source,
+* ``pxc.replicationChannels.[].sourcesList.[].host`` is the host name or IP address of the Source,
 
 * ``pxc.replicationChannels.[].sourcesList.[].port`` is the port of the source (``3306`` port will be used if nothing specified),
 
-* ``pxc.replicationChannels.[].sourcesList.[].weight`` is the *weight* of the source (``100`` by default).
+* ``pxc.replicationChannels.[].sourcesList.[].weight`` is the *weight* of the source (in the event of a connection failure, a new source is selected from the list based on a weighted priority).
 
 Here is the example:
 

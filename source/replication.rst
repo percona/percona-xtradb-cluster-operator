@@ -107,7 +107,9 @@ Here is the example:
            port: 3306
            weight: 100
          - host: pxc2.source.percona.com
+           weight: 100
          - host: pxc3.source.percona.com
+           weight: 100
        - name: eu_to_pxc2
          isSource: false
          sourcesList:
@@ -115,7 +117,9 @@ Here is the example:
            port: 3306
            weight: 100
          - host: pxc2.source.percona.com
+           weight: 100
          - host: pxc3.source.percona.com
+           weight: 100
 
 The cluster will be ready for asynchronous replication when you apply changes as usual:
 

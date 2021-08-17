@@ -184,6 +184,8 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
+                        ls vendor
+                        cat vendor/modules.txt
                         DOCKER_TAG=perconalab/percona-xtradb-cluster-operator:$VERSION
                         docker_tag_file='./results/docker/TAG'
                         mkdir -p $(dirname ${docker_tag_file})

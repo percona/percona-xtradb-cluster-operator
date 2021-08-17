@@ -174,6 +174,7 @@ pipeline {
                         cp $CLOUD_SECRET_FILE ./e2e-tests/conf/cloud-secret.yml
                     '''
                 }
+                unstash 'vendorFILES'
             }
         }
         stage('Build docker image') {

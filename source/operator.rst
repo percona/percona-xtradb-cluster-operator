@@ -335,7 +335,7 @@ configuration options for the Percona XtraDB Cluster.
 | **Example**     | ``100``                                                                                   |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | For the :ref:`cross-site replication<operator-replication>` Replica cluster, this key     |
-|                 | should contain the Source cluster weight (varies from ``0`` to ``100``, the cluster with  |
+|                 | should contain the Source cluster weight (varies from ``1`` to ``100``, the cluster with  |
 |                 | the higher number will be selected as the replication source first)                       |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |

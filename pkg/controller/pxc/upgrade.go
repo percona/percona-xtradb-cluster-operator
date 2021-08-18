@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -649,7 +648,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(name types.NamespacedName, objs ...runtime.Object) (runtime.Object, error) {
+func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(name types.NamespacedName, objs ...client.Object) (client.Object, error) {
 	for _, o := range objs {
 		err := r.client.Get(context.TODO(), name, o)
 		if err != nil && !k8serrors.IsNotFound(err) {

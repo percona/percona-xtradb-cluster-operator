@@ -245,6 +245,21 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-expose-trafficpolicy:                                                             |
+|                 |                                                                                           |
+| **Key**         | `pxc.expose.trafficPolicy <operator.html#pxc-expose-trafficpolicy>`_                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``Local``                                                                                 |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Specifies whether Service should `route external traffic to cluster-wide or node-local    |
+|                 | endpoints <https://kubernetes.io/docs/tasks/access-application-cluster/                   |
+|                 | create-external-load-balancer/#preserving-the-client-source-ip>`_ (it can influence the   |
+|                 | load balancing effectiveness)                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _pxc-expose-loadbalancersourceranges:                                                  |
 |                 |                                                                                           |
 | **Key**         | `pxc.expose.loadBalancerSourceRanges                                                      |

@@ -14,7 +14,6 @@ Officially supported platforms
 The following platforms were tested and are officially supported by the Operator
 {{{release}}}:
 
-* OpenShift 3.11
 * OpenShift 4.7
 * Google Kubernetes Engine (GKE) 1.16 - {{{gkerecommended}}}
 * Amazon Elastic Kubernetes Service (EKS) 1.19
@@ -31,17 +30,6 @@ Nodes, with the following resources:
 * 2GB of RAM,
 * 2 CPU threads per Node for Pods provisioning,
 * at least 60GB of available storage for Persistent Volumes provisioning.
-
-Platform-specific limitations
-------------------------------
-
-The Operator is subsequent to specific platform limitations.
-
-* Minikube doesn't support multi-node cluster configurations because of its
-  local nature, which is in collision with the default affinity requirements
-  of the Operator. To arrange this, the :ref:`install-minikube` instruction
-  includes an additional step which turns off the requirement of having not
-  less than three Nodes.
 
 
 

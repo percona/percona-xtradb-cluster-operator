@@ -159,7 +159,7 @@ Fixing this involves the following steps.
 
       $ kubectl get pods --selector percona.com/replicationPod=true
 
-#. Get the SSH access to this Pod and login to the MySQL monitor as a :ref:`root user<users.system-users>`:
+#. Get the shell access to this Pod and login to the MySQL monitor as a :ref:`root user<users.system-users>`:
 
    .. code:: bash
 

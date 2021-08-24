@@ -87,11 +87,11 @@ You can configure *Replica* instances for cross-site replication with ``spec.pxc
 
 * ``pxc.replicationChannels.[].sourcesList`` is the list of *Source* cluster names from which Replica should get the data,
 
-* ``pxc.replicationChannels.[].sourcesList.[].host`` is the host name or IP-address of the Source,
+* ``pxc.replicationChannels.[].sourcesList.[].host`` is the host name or IP address of the Source,
 
 * ``pxc.replicationChannels.[].sourcesList.[].port`` is the port of the source (``3306`` port will be used if nothing specified),
 
-* ``pxc.replicationChannels.[].sourcesList.[].weight`` is the *weight* of the source (``100`` by default).
+* ``pxc.replicationChannels.[].sourcesList.[].weight`` is the *weight* of the source (in the event of a connection failure, a new source is selected from the list based on a weighted priority).
 
 Here is the example:
 
@@ -107,7 +107,9 @@ Here is the example:
            port: 3306
            weight: 100
          - host: pxc2.source.percona.com
+           weight: 100
          - host: pxc3.source.percona.com
+           weight: 100
        - name: eu_to_pxc2
          isSource: false
          sourcesList:
@@ -115,7 +117,9 @@ Here is the example:
            port: 3306
            weight: 100
          - host: pxc2.source.percona.com
+           weight: 100
          - host: pxc3.source.percona.com
+           weight: 100
 
 The cluster will be ready for asynchronous replication when you apply changes as usual:
 
@@ -129,8 +133,11 @@ System user for replication
 ---------------------------
 
 Replication channel demands a special :ref:`system user<users.system-users>` with same credentials on both *Source* and *Replica*.
+
 The Operator creates a system-level Percona XtraDB Cluster user named ``replication`` for this purpose, with
 credentials stored in a Secret object :ref:`along with other system users<users.system-users>`.
+
+.. note:: If the cluster is outside of Kubernetes and is not under the Operator's control, `the appropriate user with necessary permissions <https://dev.mysql.com/doc/refman/8.0/en/replication-asynchronous-connection-failover.html>`_ should be created manually.
 
 You can change a password for this user as follows:
 
@@ -138,4 +145,31 @@ You can change a password for this user as follows:
 
    $ kubectl patch secret/my-cluster-name-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
 
-If the cluster is outside of Kubernetes and is not under the Operator's control, `the appropriate user with necessary permissions <https://dev.mysql.com/doc/refman/8.0/en/replication-asynchronous-connection-failover.html>`_ should be created manually.
+If you have changed the ``replication`` user's password on the Source cluster, and you use the Operator version 1.9.0, you can have a *replication is not running* error message in log, similar to the following one:
+
+.. code:: text
+
+   {"level":"info","ts":1629715578.2569592,"caller":"zapr/zapr.go 69","msg":"Replication for channel is not running. Please, check the replication status","channel":"pxc2_to_pxc1"}
+
+Fixing this involves the following steps.
+
+#. Find the Replica Pod which was chosen by the Operator for replication, using the following command:
+
+   .. code:: bash
+
+      $ kubectl get pods --selector percona.com/replicationPod=true
+
+#. Get the shell access to this Pod and login to the MySQL monitor as a :ref:`root user<users.system-users>`:
+
+   .. code:: bash
+
+      $ kubectl exec -c pxc --stdin --tty <pod_name> -- /bin/bash
+      bash-4.4$ mysql -uroot -proot_password
+
+#. Execute the following three SQL commands to propagate the ``replication`` user password from the Source cluster to Replica:
+
+   .. code:: sql
+
+      STOP REPLICA IO_THREAD FOR CHANNEL '$REPLICATION_CHANNEL_NAME';
+      CHANGE MASTER TO MASTER_PASSWORD='$NEW_REPLICATION_PASSWORD' FOR CHANNEL '$REPLICATION_CHANNEL_NAME';
+      START REPLICA IO_THREAD FOR CHANNEL '$REPLICATION_CHANNEL_NAME'; 

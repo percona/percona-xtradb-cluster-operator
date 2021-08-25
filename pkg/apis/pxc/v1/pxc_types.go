@@ -33,7 +33,7 @@ type PerconaXtraDBClusterSpec struct {
 	TLS                       *TLSSpec                             `json:"tls,omitempty"`
 	PXC                       *PXCSpec                             `json:"pxc,omitempty"`
 	ProxySQL                  *PodSpec                             `json:"proxysql,omitempty"`
-	HAProxy                   *PodSpec                             `json:"haproxy,omitempty"`
+	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
 	Backup                    *PXCScheduledBackup                  `json:"backup,omitempty"`
@@ -361,6 +361,11 @@ type PodSpec struct {
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
 }
 
+type HAProxySpec struct {
+	PodSpec
+	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
+}
+
 type PodDisruptionBudgetSpec struct {
 	MinAvailable   *intstr.IntOrString `json:"minAvailable,omitempty"`
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
@@ -637,6 +642,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.HAProxy != nil && c.HAProxy.Enabled {
+		if c.HAProxy.ReplicasServiceEnabled == nil {
+			t := true
+			c.HAProxy.ReplicasServiceEnabled = &t
+		}
+
 		if len(c.HAProxy.ImagePullPolicy) == 0 {
 			c.HAProxy.ImagePullPolicy = corev1.PullAlways
 		}
@@ -759,7 +769,6 @@ const (
 )
 
 func (cr *PerconaXtraDBCluster) setProbesDefaults() {
-
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
 	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
@@ -1033,6 +1042,10 @@ func (cr *PerconaXtraDBCluster) HAProxyReplicasNamespacedName() types.Namespaced
 
 func (cr *PerconaXtraDBCluster) HAProxyEnabled() bool {
 	return cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled
+}
+
+func (cr *PerconaXtraDBCluster) HAProxyReplicasServiceEnabled() bool {
+	return cr.HAProxyEnabled() && *cr.Spec.HAProxy.ReplicasServiceEnabled
 }
 
 func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {

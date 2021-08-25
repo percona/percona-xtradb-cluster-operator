@@ -275,8 +275,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
 	}
 	var pxcAnnotations, proxysqlAnnotations map[string]string
+	var replicaPWUpdated bool
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		pxcAnnotations, proxysqlAnnotations, err = r.reconcileUsers(o)
+		pxcAnnotations, proxysqlAnnotations, replicaPWUpdated, err = r.reconcileUsers(o)
 		if err != nil {
 			return rr, errors.Wrap(err, "reconcile users")
 		}
@@ -511,7 +512,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	if o.CompareVersionWith("1.9.0") >= 0 {
-		err = r.reconcileReplication(o)
+		err = r.reconcileReplication(o, replicaPWUpdated)
 		if err != nil {
 			reqLogger.Info("reconcile replication error", "err", err.Error())
 		}

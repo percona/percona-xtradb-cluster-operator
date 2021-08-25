@@ -19,7 +19,7 @@ import (
 
 const internalPrefix = "internal-"
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) (pxcAnnotations, proxysqlAnnotations map[string]string, err error) {
+func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) (pxcAnnotations, proxysqlAnnotations map[string]string, replicaPWUpdated bool, err error) {
 	sysUsersSecretObj := corev1.Secret{}
 	err = r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -29,9 +29,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		&sysUsersSecretObj,
 	)
 	if err != nil && k8serrors.IsNotFound(err) {
-		return nil, nil, nil
+		return nil, nil, replicaPWUpdated, nil
 	} else if err != nil {
-		return nil, nil, errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
+		return nil, nil, replicaPWUpdated, errors.Wrapf(err, "get sys users secret '%s'", cr.Spec.SecretsName)
 	}
 
 	secretName := internalPrefix + cr.Name
@@ -46,7 +46,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		&internalSysSecretObj,
 	)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil, nil, errors.Wrap(err, "get internal sys users secret")
+		return nil, nil, replicaPWUpdated, errors.Wrap(err, "get internal sys users secret")
 	}
 
 	if k8serrors.IsNotFound(err) {
@@ -57,66 +57,66 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		}
 		err = r.client.Create(context.TODO(), internalSysUsersSecret)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "create internal sys users secret")
+			return nil, nil, replicaPWUpdated, errors.Wrap(err, "create internal sys users secret")
 		}
-		return nil, nil, nil
+		return nil, nil, replicaPWUpdated, nil
 	}
 
 	if cr.Status.PXC.Ready > 0 {
 		err := r.manageOperatorAdminUser(cr, &sysUsersSecretObj, &internalSysSecretObj)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "manage operator admin user")
+			return nil, nil, replicaPWUpdated, errors.Wrap(err, "manage operator admin user")
 		}
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			// monitor user need more grants for work in version more then 1.6.0
 			err = r.manageMonitorUser(cr, &internalSysSecretObj)
 			if err != nil {
-				return nil, nil, errors.Wrap(err, "manage monitor user")
+				return nil, nil, replicaPWUpdated, errors.Wrap(err, "manage monitor user")
 			}
 		}
 		if cr.CompareVersionWith("1.7.0") >= 0 {
 			// xtrabackup user need more grants for work in version more then 1.7.0
 			err = r.manageXtrabackupUser(cr, &internalSysSecretObj)
 			if err != nil {
-				return nil, nil, errors.Wrap(err, "manage xtrabackup user")
+				return nil, nil, replicaPWUpdated, errors.Wrap(err, "manage xtrabackup user")
 			}
 		}
 		if cr.CompareVersionWith("1.9.0") >= 0 {
 			err = r.manageReplicationUser(cr, &sysUsersSecretObj, &internalSysSecretObj)
 			if err != nil {
-				return nil, nil, errors.Wrap(err, "manage replication user")
+				return nil, nil, replicaPWUpdated, errors.Wrap(err, "manage replication user")
 			}
 		}
 	}
 
 	if cr.Status.Status != api.AppStateReady {
-		return nil, nil, nil
+		return nil, nil, replicaPWUpdated, nil
 	}
 
 	newSysData, err := json.Marshal(sysUsersSecretObj.Data)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "marshal sys secret data")
+		return nil, nil, replicaPWUpdated, errors.Wrap(err, "marshal sys secret data")
 	}
 	newSecretDataHash := sha256Hash(newSysData)
 
 	dataChanged, err := sysUsersSecretDataChanged(newSecretDataHash, &internalSysSecretObj)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "check sys users data changes")
+		return nil, nil, replicaPWUpdated, errors.Wrap(err, "check sys users data changes")
 	}
 
 	if !dataChanged {
-		return nil, nil, nil
+		return nil, nil, replicaPWUpdated, nil
 	}
 
-	restartPXC, restartProxy, err := r.manageSysUsers(cr, &sysUsersSecretObj, &internalSysSecretObj)
+	restartPXC, restartProxy, replicaPWUpdated, err := r.manageSysUsers(cr, &sysUsersSecretObj, &internalSysSecretObj)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "manage sys users")
+		return nil, nil, replicaPWUpdated, errors.Wrap(err, "manage sys users")
 	}
 
 	internalSysSecretObj.Data = sysUsersSecretObj.Data
 	err = r.client.Update(context.TODO(), &internalSysSecretObj)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "update internal sys users secret")
+		return nil, nil, replicaPWUpdated, errors.Wrap(err, "update internal sys users secret")
 	}
 
 	if restartProxy {
@@ -128,7 +128,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		pxcAnnotations["last-applied-secret"] = newSecretDataHash
 	}
 
-	return pxcAnnotations, proxysqlAnnotations, nil
+	return pxcAnnotations, proxysqlAnnotations, replicaPWUpdated, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
@@ -223,8 +223,10 @@ func (r *ReconcilePerconaXtraDBCluster) manageXtrabackupUser(cr *api.PerconaXtra
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, bool, error) {
 	type action int
+
+	replicaPassChanged := false
 
 	const (
 		rPXC action = 1 << iota
@@ -298,11 +300,15 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	var todo action
 	for _, user := range requiredUsers {
 		if len(sysUsersSecretObj.Data[user.name]) == 0 {
-			return false, false, errors.New("undefined or not exist user " + user.name)
+			return false, false, replicaPassChanged, errors.New("undefined or not exist user " + user.name)
 		}
 
 		if bytes.Equal(sysUsersSecretObj.Data[user.name], internalSysSecretObj.Data[user.name]) {
 			continue
+		}
+
+		if user.name == "replication" {
+			replicaPassChanged = true
 		}
 
 		todo |= user.action
@@ -343,28 +349,28 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	}
 	um, err := users.NewManager(addr, pxcUser, pxcPass)
 	if err != nil {
-		return false, false, errors.Wrap(err, "new users manager")
+		return false, false, replicaPassChanged, errors.Wrap(err, "new users manager")
 	}
 	defer um.Close()
 
 	err = um.UpdateUsersPass(sysUsers)
 	if err != nil {
-		return false, false, errors.Wrap(err, "update sys users pass")
+		return false, false, replicaPassChanged, errors.Wrap(err, "update sys users pass")
 	}
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		err = r.updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
 		if err != nil {
-			return false, false, errors.Wrap(err, "update Proxy users pass")
+			return false, false, replicaPassChanged, errors.Wrap(err, "update Proxy users pass")
 		}
 	}
 	if todo&syncProxyUsers != 0 && !restartProxy {
 		err = r.syncPXCUsersWithProxySQL(cr)
 		if err != nil {
-			return false, false, errors.Wrap(err, "sync users")
+			return false, false, replicaPassChanged, errors.Wrap(err, "sync users")
 		}
 	}
 
-	return restartPXC, restartProxy, nil
+	return restartPXC, restartProxy, replicaPassChanged, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {

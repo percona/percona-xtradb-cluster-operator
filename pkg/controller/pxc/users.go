@@ -223,10 +223,8 @@ func (r *ReconcilePerconaXtraDBCluster) manageXtrabackupUser(cr *api.PerconaXtra
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (bool, bool, bool, error) {
+func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) (replicaPassChanged, restartPXC, restartProxy bool, err error) {
 	type action int
-
-	replicaPassChanged := false
 
 	const (
 		rPXC action = 1 << iota
@@ -296,8 +294,11 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		})
 	}
 
-	var sysUsers, proxyUsers []users.SysUser
-	var todo action
+	var (
+		sysUsers, proxyUsers []users.SysUser
+		todo                 action
+	)
+
 	for _, user := range requiredUsers {
 		if len(sysUsersSecretObj.Data[user.name]) == 0 {
 			return false, false, replicaPassChanged, errors.New("undefined or not exist user " + user.name)
@@ -333,8 +334,8 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		todo &^= rPXCifPMM | rProxyifPMM
 	}
 
-	restartPXC := todo&(rPXC|rPXCifPMM) != 0
-	restartProxy := todo&(rProxy|rProxyifPMM) != 0
+	restartPXC = todo&(rPXC|rPXCifPMM) != 0
+	restartProxy = todo&(rProxy|rProxyifPMM) != 0
 
 	pxcUser := "root"
 	pxcPass := string(internalSysSecretObj.Data["root"])
@@ -349,24 +350,24 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	}
 	um, err := users.NewManager(addr, pxcUser, pxcPass)
 	if err != nil {
-		return false, false, replicaPassChanged, errors.Wrap(err, "new users manager")
+		return restartPXC, restartProxy, replicaPassChanged, errors.Wrap(err, "new users manager")
 	}
 	defer um.Close()
 
 	err = um.UpdateUsersPass(sysUsers)
 	if err != nil {
-		return false, false, replicaPassChanged, errors.Wrap(err, "update sys users pass")
+		return restartPXC, restartProxy, replicaPassChanged, errors.Wrap(err, "update sys users pass")
 	}
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		err = r.updateProxyUsers(proxyUsers, internalSysSecretObj, cr)
 		if err != nil {
-			return false, false, replicaPassChanged, errors.Wrap(err, "update Proxy users pass")
+			return restartPXC, restartProxy, replicaPassChanged, errors.Wrap(err, "update Proxy users pass")
 		}
 	}
 	if todo&syncProxyUsers != 0 && !restartProxy {
 		err = r.syncPXCUsersWithProxySQL(cr)
 		if err != nil {
-			return false, false, replicaPassChanged, errors.Wrap(err, "sync users")
+			return restartPXC, restartProxy, replicaPassChanged, errors.Wrap(err, "sync users")
 		}
 	}
 

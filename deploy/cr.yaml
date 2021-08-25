@@ -39,7 +39,7 @@ spec:
 #     expose:
 #       enabled: true
 #       type: LoadBalancer
-#       trafficPolicy: Cluster
+#       trafficPolicy: Local
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
 #      annotations:

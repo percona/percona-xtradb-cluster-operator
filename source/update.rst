@@ -1,6 +1,6 @@
 .. _operator-upgrade:
 
-Updade Percona Distribution for MySQL Operator
+Update Percona Distribution for MySQL Operator
 ==============================================
 
 Starting from version 1.1.0, Percona Distribution for MySQL Operator

@@ -370,10 +370,14 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 		}
 	}
 
-	return primaryDB.StartReplication(replicaPW, queries.ReplicationChannelSource{
-		Name: channel.Name,
-		Host: maxWeightSrc.Host,
-		Port: maxWeightSrc.Port,
+	return primaryDB.StartReplication(replicaPW, queries.ReplicationConfig{
+		Source: queries.ReplicationChannelSource{
+			Name: channel.Name,
+			Host: maxWeightSrc.Host,
+			Port: maxWeightSrc.Port,
+		},
+		MasterRetryCount:   channel.Config.MasterRetryCount,
+		MasterConnectRetry: channel.Config.MasterConnectRetry,
 	})
 }
 

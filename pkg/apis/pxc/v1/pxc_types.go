@@ -60,9 +60,15 @@ type ServiceExpose struct {
 }
 
 type ReplicationChannel struct {
-	Name        string              `json:"name,omitempty"`
-	IsSource    bool                `json:"isSource,omitempty"`
-	SourcesList []ReplicationSource `json:"sourcesList,omitempty"`
+	Name        string                    `json:"name,omitempty"`
+	IsSource    bool                      `json:"isSource,omitempty"`
+	SourcesList []ReplicationSource       `json:"sourcesList,omitempty"`
+	Config      *ReplicationChannelConfig `json:"config,omitempty"`
+}
+
+type ReplicationChannelConfig struct {
+	MasterRetryCount   uint `json:"masterRetryCount,omitempty"`
+	MasterConnectRetry uint `josn:"masterConnectRetry,omitempty"`
 }
 
 type ReplicationSource struct {
@@ -580,6 +586,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 				}
 				if src.Port == 0 {
 					c.PXC.ReplicationChannels[chIdx].SourcesList[srcIdx].Port = 3306
+				}
+			}
+			if !channel.IsSource && channel.Config == nil {
+				c.PXC.ReplicationChannels[chIdx].Config = &ReplicationChannelConfig{
+					MasterRetryCount:   3,
+					MasterConnectRetry: 60,
 				}
 			}
 		}

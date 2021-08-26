@@ -30,6 +30,12 @@ type Database struct {
 	db *sql.DB
 }
 
+type ReplicationConfig struct {
+	Source             ReplicationChannelSource
+	MasterRetryCount   uint
+	MasterConnectRetry uint
+}
+
 type ReplicationChannelSource struct {
 	Name   string
 	Host   string
@@ -190,7 +196,7 @@ func (p *Database) IsReadonly() (bool, error) {
 	return readonly == 1, errors.Wrap(err, "select global read_only param")
 }
 
-func (p *Database) StartReplication(replicaPass string, src ReplicationChannelSource) error {
+func (p *Database) StartReplication(replicaPass string, config ReplicationConfig) error {
 	_, err := p.db.Exec(`
 	CHANGE REPLICATION SOURCE TO
     master_user='replication',
@@ -199,16 +205,16 @@ func (p *Database) StartReplication(replicaPass string, src ReplicationChannelSo
 	master_port=?,
     source_connection_auto_failover=1,
 	master_auto_position=1,
-    master_retry_count=3,
-    master_connect_retry=60  
+    master_retry_count=?,
+    master_connect_retry=?
     FOR CHANNEL ?
-`, replicaPass, src.Host, src.Port, src.Name)
+`, replicaPass, config.Source.Host, config.Source.Port, config.MasterRetryCount, config.MasterConnectRetry, config.Source.Name)
 	if err != nil {
-		return errors.Wrap(err, "change source for channel "+src.Name)
+		return errors.Wrapf(err, "change source for channel %s", config.Source.Name)
 	}
 
-	_, err = p.db.Exec(`START REPLICA FOR CHANNEL ?`, src.Name)
-	return errors.Wrap(err, "start replica for source "+src.Name)
+	_, err = p.db.Exec(`START REPLICA FOR CHANNEL ?`, config.Source.Name)
+	return errors.Wrapf(err, "start replica for source %s", config.Source.Name)
 
 }
 

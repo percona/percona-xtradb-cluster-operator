@@ -274,10 +274,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
 	}
-	var pxcAnnotations, proxysqlAnnotations map[string]string
-	var replicaPWUpdated bool
+
+	var userReconcileResult *ReconcileUsersResult
+
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		pxcAnnotations, proxysqlAnnotations, replicaPWUpdated, err = r.reconcileUsers(o)
+		userReconcileResult, err = r.reconcileUsers(o)
 		if err != nil {
 			return rr, errors.Wrap(err, "reconcile users")
 		}
@@ -336,7 +337,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	pxcSet := statefulset.NewNode(o)
-	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), pxcAnnotations)
+	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), userReconcileResult.pxcAnnotations)
 	err = r.updatePod(pxcSet, o.Spec.PXC.PodSpec, o, inits)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
@@ -429,7 +430,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
-	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), proxysqlAnnotations)
+	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxysqlAnnotations)
 
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
@@ -512,7 +513,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	}
 
 	if o.CompareVersionWith("1.9.0") >= 0 {
-		err = r.reconcileReplication(o, replicaPWUpdated)
+		err = r.reconcileReplication(o, userReconcileResult.updateReplicationPassword)
 		if err != nil {
 			reqLogger.Info("reconcile replication error", "err", err.Error())
 		}

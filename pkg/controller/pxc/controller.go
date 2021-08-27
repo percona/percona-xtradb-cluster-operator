@@ -481,10 +481,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(
-	cluster *api.PerconaXtraDBCluster,
-	owner metav1.OwnerReference,
-) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cluster *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
 	if !cluster.HAProxyEnabled() {
 		if err := r.disableHAProxyReplicasService(cluster); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -522,19 +519,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) enableHAProxy(
-	cluster *api.PerconaXtraDBCluster,
-) error {
+func (r *ReconcilePerconaXtraDBCluster) enableHAProxy(cluster *api.PerconaXtraDBCluster) error {
 	sfs := statefulset.NewHAProxy(cluster)
 	ps := &cluster.Spec.HAProxy.PodSpec
 
 	return r.updatePod(sfs, ps, cluster, nil)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) enableHAProxyService(
-	cluster *api.PerconaXtraDBCluster,
-	owner metav1.OwnerReference,
-) error {
+func (r *ReconcilePerconaXtraDBCluster) enableHAProxyService(cluster *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
 	haProxyService := pxc.NewServiceHAProxy(cluster, owner)
 	haProxyService.Spec.Type = corev1.ServiceTypeClusterIP
 
@@ -554,10 +546,7 @@ func (r *ReconcilePerconaXtraDBCluster) enableHAProxyService(
 	return r.createOrUpdate(haProxyService)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) enableHAProxyReplicasService(
-	cluster *api.PerconaXtraDBCluster,
-	owner metav1.OwnerReference,
-) error {
+func (r *ReconcilePerconaXtraDBCluster) enableHAProxyReplicasService(cluster *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
 	haProxyServiceReplicas := pxc.NewServiceHAProxyReplicas(cluster, owner)
 
 	replicaPorts := []corev1.ServicePort{
@@ -587,21 +576,15 @@ func (r *ReconcilePerconaXtraDBCluster) enableHAProxyReplicasService(
 	return r.createOrUpdate(haProxyServiceReplicas)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) disableHAProxy(
-	o *api.PerconaXtraDBCluster,
-) error {
+func (r *ReconcilePerconaXtraDBCluster) disableHAProxy(o *api.PerconaXtraDBCluster) error {
 	return r.deleteStatefulSet(o, statefulset.NewHAProxy(o), false)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) disableHAProxyService(
-	o *api.PerconaXtraDBCluster,
-) error {
+func (r *ReconcilePerconaXtraDBCluster) disableHAProxyService(o *api.PerconaXtraDBCluster) error {
 	return r.deleteServices(pxc.NewServiceHAProxy(o))
 }
 
-func (r *ReconcilePerconaXtraDBCluster) disableHAProxyReplicasService(
-	o *api.PerconaXtraDBCluster,
-) error {
+func (r *ReconcilePerconaXtraDBCluster) disableHAProxyReplicasService(o *api.PerconaXtraDBCluster) error {
 	return r.deleteServices(pxc.NewServiceHAProxyReplicas(o))
 }
 

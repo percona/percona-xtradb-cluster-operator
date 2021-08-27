@@ -118,14 +118,14 @@ main() {
 	compare_kubectl service/$cluster-haproxy
 	compare_kubectl pdb/$cluster-haproxy
 	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
-			| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
+		| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn.txt
 
 	apply_config "$test_dir/conf/config-secret-haproxy.yaml"
 	sleep 50
 	compare_kubectl statefulset/$cluster-haproxy "-secret"
 	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
-			| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
+		| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn-secret.txt
 	desc 'clean up'
 	destroy $namespace

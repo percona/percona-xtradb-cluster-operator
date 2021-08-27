@@ -3,6 +3,53 @@
 set -o errexit
 set -o xtrace
 
+
+kexists() {
+	local type=$1
+	local name=$2
+	local rv=$(kubectl get $type $name -o jsonpath={._} 2>&1)
+
+	! [[ $rv =~ "services \".*\" not found$" ]]
+}
+
+kpatch_delete_field() {
+	local type=$1
+	local name=$2
+	local path=$3
+
+	kubectl patch $type $name --type=json -p "[{\"op\": \"remove\", \"path\": \"$path\"}]" > /dev/null
+}
+
+kpatch_set_field() {
+	local type=$1
+	local name=$2
+	local path=$3
+	local value=$4
+
+	kubectl patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" > /dev/null
+}
+
+test_default_replicas_service() {
+	kpatch_delete_field pxc $1 "/spec/haproxy/replicasServiceEnabled"
+	kexists service "$1-haproxy-replicas" || exit 1
+}
+
+test_disable_replicas_service() {
+	set +o errexit
+	
+	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" false
+	kexists service "$1-haproxy-replicas"
+	local status=$?
+
+	set -o errexit
+	return ${status}
+}
+
+test_ensable_replicas_service() {
+	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" true
+	kexists service "$1-haproxy-replicas" || exit 1
+}
+
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
@@ -40,21 +87,30 @@ main() {
 	compare_kubectl pdb/$cluster-haproxy
 	compare_kubectl statefulset/$cluster-haproxy
 
+	desc 'default haproxy-replicas service'
+	test_default_replicas_service $cluster
+	
+	desc 'disable haproxy-replicas service'
+	test_disable_replicas_service $cluster
+	
+	desc 'enable haproxy-replicas service'
+	test_ensable_replicas_service $cluster
+
 	desc 'enable proxy-sql'
 	apply_config "$test_dir/conf/$cluster-proxysql.yml"
 	sleep 50
 	compare_kubectl statefulset/$cluster-proxysql
 	compare_kubectl service/$cluster-proxysql
 
-  compare_mysql_cmd_local "ping_timeout_server" \
-          "SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
-          "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "" -c'proxysql'
+	compare_mysql_cmd_local "ping_timeout_server" \
+		"SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
+		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "" -c'proxysql'
 	apply_config "$test_dir/conf/config-secret-proxysql.yaml"
 	sleep 100
 	compare_kubectl statefulset/$cluster-proxysql "-secret"
-  compare_mysql_cmd_local "ping_timeout_server" \
-          "SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
-          "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "-secret" -c'proxysql'
+	compare_mysql_cmd_local "ping_timeout_server" \
+		"SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
+		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "-secret" -c'proxysql'
 
 	desc 're-enable haproxy'
 	apply_config "$test_dir/conf/$cluster.yml"
@@ -62,15 +118,15 @@ main() {
 	compare_kubectl statefulset/$cluster-haproxy
 	compare_kubectl service/$cluster-haproxy
 	compare_kubectl pdb/$cluster-haproxy
-	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
-	| grep "Maxconn:" > "$tmp_dir"/haproxy_maxconn.txt
+	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' |
+		grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn.txt
 
 	apply_config "$test_dir/conf/config-secret-haproxy.yaml"
 	sleep 50
 	compare_kubectl statefulset/$cluster-haproxy "-secret"
-	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
-	| grep "Maxconn:" > "$tmp_dir"/haproxy_maxconn.txt
+	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' |
+		grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn-secret.txt
 	desc 'clean up'
 	destroy $namespace

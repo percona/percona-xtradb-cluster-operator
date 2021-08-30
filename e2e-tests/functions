@@ -1282,3 +1282,20 @@ function prepare_cr_yaml() {
 		yq w -i "${cr_yaml}" "spec.proxysql.enabled" "true"
 	fi
 }
+
+function kpatch_delete_field() {
+	local type=$1
+	local name=$2
+	local path=$3
+
+	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"remove\", \"path\": \"$path\"}]" >/dev/null
+}
+
+function kpatch_set_field() {
+	local type=$1
+	local name=$2
+	local path=$3
+	local value=$4
+
+	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
+}

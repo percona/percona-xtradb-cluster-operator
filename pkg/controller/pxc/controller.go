@@ -481,75 +481,74 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cluster *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
-	if !cluster.HAProxyEnabled() {
-		if err := r.disableHAProxyReplicasService(cluster); err != nil {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
+	if !cr.HAProxyEnabled() {
+		if err := r.disableHAProxyReplicasService(cr); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
 		}
 
-		if err := r.disableHAProxyService(cluster); err != nil {
+		if err := r.disableHAProxyService(cr); err != nil {
 			return errors.Wrap(err, "delete HAProxy service")
 		}
 
-		if err := r.disableHAProxy(cluster); err != nil {
+		if err := r.disableHAProxy(cr); err != nil {
 			return errors.Wrap(err, "delete HAProxy stateful set")
 		}
 
 		return nil
 	}
 
-	if err := r.enableHAProxy(cluster); err != nil {
+	if err := r.enableHAProxy(cr); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 
-	if err := r.enableHAProxyService(cluster, owner); err != nil {
+	if err := r.enableHAProxyService(cr, owner); err != nil {
 		return errors.Wrap(err, "failed to create or update haproxy service")
 	}
 
-	if cluster.HAProxyReplicasServiceEnabled() {
-		if err := r.enableHAProxyReplicasService(cluster, owner); err != nil {
-			return errors.Wrap(err, "failed to create or update haproxy replicas")
-		}
-	} else {
-		if err := r.disableHAProxyReplicasService(cluster); err != nil {
+	if !cr.HAProxyReplicasServiceEnabled() {
+		if err := r.disableHAProxyReplicasService(cr); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
 		}
+
+		return nil
+	}
+
+	if err := r.enableHAProxyReplicasService(cr, owner); err != nil {
+		return errors.Wrap(err, "failed to create or update haproxy replicas")
 	}
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) enableHAProxy(cluster *api.PerconaXtraDBCluster) error {
-	sfs := statefulset.NewHAProxy(cluster)
-	ps := &cluster.Spec.HAProxy.PodSpec
-
-	return r.updatePod(sfs, ps, cluster, nil)
+func (r *ReconcilePerconaXtraDBCluster) enableHAProxy(cr *api.PerconaXtraDBCluster) error {
+	return r.updatePod(statefulset.NewHAProxy(cr), &cr.Spec.HAProxy.PodSpec, cr, nil)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) enableHAProxyService(cluster *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
-	haProxyService := pxc.NewServiceHAProxy(cluster, owner)
+func (r *ReconcilePerconaXtraDBCluster) enableHAProxyService(cr *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
+	haProxyService := pxc.NewServiceHAProxy(cr, owner)
 	haProxyService.Spec.Type = corev1.ServiceTypeClusterIP
 
-	if len(cluster.Spec.HAProxy.ServiceType) > 0 {
-		haProxyService.Spec.Type = cluster.Spec.HAProxy.ServiceType
+	if len(cr.Spec.HAProxy.ServiceType) > 0 {
+		haProxyService.Spec.Type = cr.Spec.HAProxy.ServiceType
 	}
 
 	if haProxyService.Spec.Type == corev1.ServiceTypeLoadBalancer ||
 		haProxyService.Spec.Type == corev1.ServiceTypeNodePort {
 		haProxyService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
 
-		if len(cluster.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
-			haProxyService.Spec.ExternalTrafficPolicy = cluster.Spec.HAProxy.ExternalTrafficPolicy
+		if len(cr.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
+			haProxyService.Spec.ExternalTrafficPolicy = cr.Spec.HAProxy.ExternalTrafficPolicy
 		}
 	}
 
 	return r.createOrUpdate(haProxyService)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) enableHAProxyReplicasService(cluster *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
-	haProxyServiceReplicas := pxc.NewServiceHAProxyReplicas(cluster, owner)
+func (r *ReconcilePerconaXtraDBCluster) enableHAProxyReplicasService(cr *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
+	haProxyServiceReplicas := pxc.NewServiceHAProxyReplicas(cr, owner)
 
-	replicaPorts := []corev1.ServicePort{
+	haProxyServiceReplicas.Spec.Ports = []corev1.ServicePort{
 		{
 			Port:       3306,
 			TargetPort: intstr.FromInt(3307),
@@ -557,19 +556,18 @@ func (r *ReconcilePerconaXtraDBCluster) enableHAProxyReplicasService(cluster *ap
 		},
 	}
 
-	haProxyServiceReplicas.Spec.Ports = replicaPorts
 	haProxyServiceReplicas.Spec.Type = corev1.ServiceTypeClusterIP
 
-	if len(cluster.Spec.HAProxy.ReplicasServiceType) > 0 {
-		haProxyServiceReplicas.Spec.Type = cluster.Spec.HAProxy.ReplicasServiceType
+	if len(cr.Spec.HAProxy.ReplicasServiceType) > 0 {
+		haProxyServiceReplicas.Spec.Type = cr.Spec.HAProxy.ReplicasServiceType
 	}
 
 	if haProxyServiceReplicas.Spec.Type == corev1.ServiceTypeLoadBalancer ||
 		haProxyServiceReplicas.Spec.Type == corev1.ServiceTypeNodePort {
 		haProxyServiceReplicas.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
 
-		if len(cluster.Spec.HAProxy.ReplicasExternalTrafficPolicy) > 0 {
-			haProxyServiceReplicas.Spec.ExternalTrafficPolicy = cluster.Spec.HAProxy.ReplicasExternalTrafficPolicy
+		if len(cr.Spec.HAProxy.ReplicasExternalTrafficPolicy) > 0 {
+			haProxyServiceReplicas.Spec.ExternalTrafficPolicy = cr.Spec.HAProxy.ReplicasExternalTrafficPolicy
 		}
 	}
 
@@ -709,7 +707,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	// HAProxy StatefulSet
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+	if cr.HAProxyEnabled() {
 		sfsHAProxy := statefulset.NewHAProxy(cr)
 		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, nil, logger, r.getConfigVolume)
 		if err != nil {

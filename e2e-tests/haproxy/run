@@ -3,36 +3,19 @@
 set -o errexit
 set -o xtrace
 
-kpatch_delete_field() {
-	local type=$1
-	local name=$2
-	local path=$3
-
-	kubectl patch $type $name --type=json -p "[{\"op\": \"remove\", \"path\": \"$path\"}]" >/dev/null
-}
-
-kpatch_set_field() {
-	local type=$1
-	local name=$2
-	local path=$3
-	local value=$4
-
-	kubectl patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
-}
-
 test_default_replicas_service() {
 	kpatch_delete_field pxc $1 "/spec/haproxy/replicasServiceEnabled" && sleep 1
-	kubectl get svc "$1-haproxy-replicas" 2>&1 | grep -v "not found$" >/dev/null
+	compare_kubectl "service/$1-haproxy-replicas"
 }
 
 test_disable_replicas_service() {
 	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" false && sleep 1
-	kubectl get svc "$1-haproxy-replicas" 2>&1 | grep -e "not found$" >/dev/null
+	kubectl_bin get svc "$1-haproxy-replicas" 2>&1 | grep -e "not found$" >/dev/null
 }
 
 test_ensable_replicas_service() {
 	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" true && sleep 1
-	kubectl get svc "$1-haproxy-replicas" 2>&1 | grep -v "not found$" >/dev/null
+	compare_kubectl "service/$1-haproxy-replicas"
 }
 
 test_dir=$(realpath $(dirname $0))
@@ -103,14 +86,14 @@ main() {
 	compare_kubectl statefulset/$cluster-haproxy
 	compare_kubectl service/$cluster-haproxy
 	compare_kubectl pdb/$cluster-haproxy
-	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
+	kubectl_bin exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
 		| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn.txt
 
 	apply_config "$test_dir/conf/config-secret-haproxy.yaml"
 	sleep 50
 	compare_kubectl statefulset/$cluster-haproxy "-secret"
-	kubectl exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
+	kubectl_bin exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
 		| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn-secret.txt
 	desc 'clean up'

@@ -101,6 +101,13 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
+#      resources:
+#        requests:
+#          memory: 100M
+#          cpu: 100m
+#        limits:
+#          memory: 200M
+#          cpu: 200m
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:
@@ -113,13 +120,6 @@ spec:
 #        ephemeral-storage: 1G
 #    nodeSelector:
 #      disktype: ssd
-#    sidecarResources:
-#      requests:
-#        memory: 1G
-#        cpu: 500m
-#      limits:
-#        memory: 2G
-#        cpu: 600m
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -213,6 +213,13 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
+#      resources:
+#        requests:
+#          memory: 100M
+#          cpu: 100m
+#        limits:
+#          memory: 200M
+#          cpu: 200m
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:
@@ -325,6 +332,13 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
+#      resources:
+#        requests:
+#          memory: 100M
+#          cpu: 100m
+#        limits:
+#          memory: 200M
+#          cpu: 200m
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:

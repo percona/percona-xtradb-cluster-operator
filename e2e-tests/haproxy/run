@@ -13,7 +13,7 @@ test_disable_replicas_service() {
 	kubectl_bin get svc "$1-haproxy-replicas" 2>&1 | grep -e "not found$" >/dev/null
 }
 
-test_ensable_replicas_service() {
+test_enable_replicas_service() {
 	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" true && sleep 1
 	compare_kubectl "service/$1-haproxy-replicas"
 }
@@ -62,7 +62,7 @@ main() {
 	test_disable_replicas_service $cluster
 
 	desc 'enable haproxy-replicas service'
-	test_ensable_replicas_service $cluster
+	test_enable_replicas_service $cluster
 
 	desc 'enable proxy-sql'
 	apply_config "$test_dir/conf/$cluster-proxysql.yml"

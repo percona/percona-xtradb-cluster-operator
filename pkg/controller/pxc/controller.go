@@ -275,12 +275,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
 	}
 
-	var userReconcileResult *ReconcileUsersResult
+	userReconcileResult := &ReconcileUsersResult{}
 
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		userReconcileResult, err = r.reconcileUsers(o)
+		urr, err := r.reconcileUsers(o)
 		if err != nil {
 			return rr, errors.Wrap(err, "reconcile users")
+		}
+		if urr != nil {
+			userReconcileResult = urr
 		}
 	}
 

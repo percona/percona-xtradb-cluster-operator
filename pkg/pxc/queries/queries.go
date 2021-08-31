@@ -102,7 +102,7 @@ func (p *Database) ChangeChannelPassword(channel, password string) error {
 		tx.Rollback()
 		return errors.Wrapf(err, "stop replication IO thread for channel %s", channel)
 	}
-	_, err = tx.Exec(`CHANGE MASTER TO MASTER_PASSWORD=? FOR CHANNEL ?`, password, channel)
+	_, err = tx.Exec(`CHANGE REPLICATION SOURCE TO SOURCE_PASSWORD=? FOR CHANNEL ?`, password, channel)
 	if err != nil {
 		tx.Rollback()
 		return errors.Wrapf(err, "change master password for channel %s", channel)
@@ -216,14 +216,14 @@ func (p *Database) IsReadonly() (bool, error) {
 func (p *Database) StartReplication(replicaPass string, src ReplicationChannelSource) error {
 	_, err := p.db.Exec(`
 	CHANGE REPLICATION SOURCE TO
-    master_user='replication',
-    master_password=?,
-    master_host=?,
-	master_port=?,
-    source_connection_auto_failover=1,
-	master_auto_position=1,
-    master_retry_count=3,
-    master_connect_retry=60  
+    SOURCE_USER='replication',
+    SOURCE_PASSWORD=?,
+    SOURCE_HOST=?,
+	SOURCE_PORT=?,
+    SOURCE_CONNECTION_AUTO_FAILOVER=1,
+	SOURCE_AUTO_POSITION=1,
+    SOURCE_RETRY_COUNT=3,
+    SOURCE_CONNECT_RETRY=60
     FOR CHANNEL ?
 `, replicaPass, src.Host, src.Port, src.Name)
 	if err != nil {

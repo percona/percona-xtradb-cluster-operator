@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-8-0
+apiVersion: pxc.percona.com/v1-10-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -9,7 +9,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.8.0
+  crVersion: 1.10.0
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
@@ -101,6 +101,13 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
+#      resources:
+#        requests:
+#          memory: 100M
+#          cpu: 100m
+#        limits:
+#          memory: 200M
+#          cpu: 200m
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:
@@ -113,13 +120,6 @@ spec:
 #        ephemeral-storage: 1G
 #    nodeSelector:
 #      disktype: ssd
-#    sidecarResources:
-#      requests:
-#        memory: 1G
-#        cpu: 500m
-#      limits:
-#        memory: 2G
-#        cpu: 600m
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -155,7 +155,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.8.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |
@@ -213,6 +213,13 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
+#      resources:
+#        requests:
+#          memory: 100M
+#          cpu: 100m
+#        limits:
+#          memory: 200M
+#          cpu: 200m
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:
@@ -260,7 +267,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.8.0-proxysql
+    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -325,6 +332,13 @@ spec:
 #      command: ["/bin/sh"]
 #      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
 #      name: my-sidecar-1
+#      resources:
+#        requests:
+#          memory: 100M
+#          cpu: 100m
+#        limits:
+#          memory: 200M
+#          cpu: 200m
 #    envVarsSecret: my-env-var-secrets
     resources:
       requests:
@@ -382,7 +396,7 @@ spec:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.8.0-logcollector
+    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -397,7 +411,7 @@ spec:
 #        cpu: 500m
   pmm:
     enabled: false
-    image: percona/pmm-client:2.12.0
+    image: percona/pmm-client:2.18.0
     serverHost: monitoring-service
     serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
@@ -407,7 +421,7 @@ spec:
 #        memory: 200M
 #        cpu: 500m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.8.0-pxc8.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

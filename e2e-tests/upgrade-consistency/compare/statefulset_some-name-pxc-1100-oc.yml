@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   annotations: {}
-  generation: 1
+  generation: 10
   name: some-name-pxc
   ownerReferences:
     - controller: true
@@ -226,8 +226,8 @@ spec:
       securityContext:
         supplementalGroups:
           - 1001
-      serviceAccount: default
-      serviceAccountName: default
+      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 600
       volumes:
         - emptyDir: {}

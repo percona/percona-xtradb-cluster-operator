@@ -21,7 +21,7 @@ import (
 
 const replicationPodLabel = "percona.com/replicationPod"
 
-var minReplicationVersion = version.Must(version.NewVersion("8.0.23"))
+var minReplicationVersion = version.Must(version.NewVersion("8.0.23-14.1"))
 
 func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtraDBCluster) error {
 	if cr.Spec.Pause {
@@ -161,8 +161,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return errors.Wrap(err, "failed to get current db version")
 	}
 
-	if minReplicationVersion.Compare(version.Must(version.NewVersion(dbVer))) < 0 {
-		logger.Info("Failed to reconcile replication. Unsupported mysql version", "minimum version", minReplicationVersion.String())
+	if version.Must(version.NewVersion(dbVer)).Compare(minReplicationVersion) < 0 {
 		return nil
 	}
 

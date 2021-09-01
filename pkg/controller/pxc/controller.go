@@ -941,7 +941,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 
 	haproxyConfigName := ls["app.kubernetes.io/instance"] + "-haproxy"
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Spec.HAProxy.Configuration != "" {
+	if cr.HAProxyEnabled() && cr.Spec.HAProxy.Configuration != "" {
 		configMap := config.NewConfigMap(cr, haproxyConfigName, "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {

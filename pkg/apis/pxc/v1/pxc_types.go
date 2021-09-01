@@ -1045,7 +1045,7 @@ func (cr *PerconaXtraDBCluster) HAProxyEnabled() bool {
 }
 
 func (cr *PerconaXtraDBCluster) HAProxyReplicasServiceEnabled() bool {
-	return cr.Spec.HAProxy.ReplicasServiceEnabled != nil && *cr.Spec.HAProxy.ReplicasServiceEnabled
+	return cr.Spec.HAProxy.ReplicasServiceEnabled == nil || *cr.Spec.HAProxy.ReplicasServiceEnabled
 }
 
 func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {

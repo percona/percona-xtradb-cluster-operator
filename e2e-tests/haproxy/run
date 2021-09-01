@@ -10,7 +10,7 @@ test_default_replicas_service() {
 
 test_disable_replicas_service() {
 	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" false && sleep 1
-	kubectl_bin get svc "$1-haproxy-replicas" 2>&1 | grep -e "not found$" >/dev/null
+	! kubectl_bin get svc "$1-haproxy-replicas"
 }
 
 test_enable_replicas_service() {

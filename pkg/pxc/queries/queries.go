@@ -99,17 +99,26 @@ func (p *Database) ChangeChannelPassword(channel, password string) error {
 	}
 	_, err = tx.Exec(`STOP REPLICA IO_THREAD FOR CHANNEL ?`, channel)
 	if err != nil {
-		tx.Rollback()
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Wrapf(err, "rollback STOP REPLICA IO_THREAD FOR CHANNEL %s", channel)
+		}
 		return errors.Wrapf(err, "stop replication IO thread for channel %s", channel)
 	}
 	_, err = tx.Exec(`CHANGE REPLICATION SOURCE TO SOURCE_PASSWORD=? FOR CHANNEL ?`, password, channel)
 	if err != nil {
-		tx.Rollback()
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Wrapf(err, "rollback CHANGE SOURCE_PASSWORD FOR CHANNEL %s", channel)
+		}
 		return errors.Wrapf(err, "change master password for channel %s", channel)
 	}
 	_, err = tx.Exec(`START REPLICA IO_THREAD FOR CHANNEL ?`, channel)
 	if err != nil {
-		tx.Rollback()
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Wrapf(err, "rollback START REPLICA IO_THREAD FOR CHANNEL %s", channel)
+		}
 		return errors.Wrapf(err, "start io thread for channel %s", channel)
 	}
 	return tx.Commit()

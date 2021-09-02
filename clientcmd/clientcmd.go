@@ -24,7 +24,9 @@ func NewClient() (*Client, error) {
 	// Instantiate loader for kubeconfig file.
 	kubeconfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{},
+		&clientcmd.ConfigOverrides{
+			Timeout: "10s",
+		},
 	)
 
 	// Get a rest.Config from the kubeconfig file.  This will be passed into all

@@ -65,7 +65,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		apps = append(apps, sfsstatus{
 			app:    statefulset.NewHAProxy(cr),
 			status: &cr.Status.HAProxy,
-			spec:   cr.Spec.HAProxy,
+			spec:   &cr.Spec.HAProxy.PodSpec,
 		})
 	}
 

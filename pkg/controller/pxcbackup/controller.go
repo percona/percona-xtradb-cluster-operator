@@ -272,7 +272,18 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunS3BackupFinalizerJob(cr *api
 	}
 
 	if cr.Status.S3 == nil || cr.Status.Destination == "" || !strings.HasPrefix(cr.Status.Destination, "s3://") {
+		finalizersBefore := len(cr.GetFinalizers())
 		removeS3Finalizer(cr)
+
+		if finalizersBefore == len(cr.GetFinalizers()) {
+			return nil
+		}
+
+		if err := r.client.Update(context.TODO(), cr); err != nil {
+			r.log.Error(err, "failed to update finalizers for backup", "backup", cr.Name)
+			return err
+		}
+
 		return nil
 	}
 

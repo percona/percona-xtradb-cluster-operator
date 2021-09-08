@@ -358,6 +358,8 @@ type PodSpec struct {
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
 	ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
 	Sidecars                      []corev1.Container                      `json:"sidecars,omitempty"`
+	SidecarVolumes                []corev1.Volume                         `json:"sidecarVolumes,omitempty"`
+	SidecarPVCs                   []corev1.PersistentVolumeClaim          `json:"sidecarPVCs,omitempty"`
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
 }
 
@@ -1003,6 +1005,50 @@ func AddSidecarContainers(logger logr.Logger, existing, sidecars []corev1.Contai
 	for _, c := range sidecars {
 		if _, ok := names[c.Name]; ok {
 			logger.Info(fmt.Sprintf("Sidecar container name cannot be %s. It's skipped", c.Name))
+			continue
+		}
+
+		existing = append(existing, c)
+	}
+
+	return existing
+}
+
+func AddSidecarVolumes(logger logr.Logger, existing, sidecarVolumes []corev1.Volume) []corev1.Volume {
+	if len(sidecarVolumes) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, c := range existing {
+		names[c.Name] = struct{}{}
+	}
+
+	for _, c := range sidecarVolumes {
+		if _, ok := names[c.Name]; ok {
+			logger.Info(fmt.Sprintf("Sidecar volume name cannot be %s. It's skipped", c.Name))
+			continue
+		}
+
+		existing = append(existing, c)
+	}
+
+	return existing
+}
+
+func AddSidecarPVCs(logger logr.Logger, existing, sidecarPVCs []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
+	if len(sidecarPVCs) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, c := range existing {
+		names[c.Name] = struct{}{}
+	}
+
+	for _, c := range sidecarPVCs {
+		if _, ok := names[c.Name]; ok {
+			logger.Info(fmt.Sprintf("Sidecar PVC name cannot be %s. It's skipped", c.Name))
 			continue
 		}
 

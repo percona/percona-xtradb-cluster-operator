@@ -100,6 +100,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	pod.Containers = append(pod.Containers, appC)
 	pod.Containers = append(pod.Containers, sideC...)
 	pod.Containers = api.AddSidecarContainers(log, pod.Containers, podSpec.Sidecars)
+	pod.Volumes = api.AddSidecarVolumes(log, pod.Volumes, podSpec.SidecarVolumes)
 
 	ls := sfs.Labels()
 
@@ -134,6 +135,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	if sfsVolume != nil && sfsVolume.PVCs != nil {
 		obj.Spec.VolumeClaimTemplates = sfsVolume.PVCs
 	}
+	obj.Spec.VolumeClaimTemplates = api.AddSidecarPVCs(log, obj.Spec.VolumeClaimTemplates, podSpec.SidecarPVCs)
 
 	return obj, nil
 }

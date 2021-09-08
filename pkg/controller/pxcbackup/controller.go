@@ -256,10 +256,11 @@ func removeS3Finalizer(cl client.Client, cr *api.PerconaXtraDBClusterBackup) err
 	finalizers := cr.GetFinalizers()
 	beforeLen := len(finalizers)
 
-	for i := 0; i != len(finalizers); i++ {
+	for i := 0; i != len(finalizers); {
 		if finalizers[i] == api.FinalizerDeleteS3Backup {
-			copy(finalizers[:i], finalizers[i+1:])
-			finalizers = finalizers[:len(finalizers)-1]
+			finalizers = append(finalizers[:i], finalizers[i+1:]...)
+		} else {
+			i++
 		}
 	}
 

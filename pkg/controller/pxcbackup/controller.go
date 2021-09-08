@@ -270,7 +270,7 @@ func removeS3Finalizer(cl client.Client, cr *api.PerconaXtraDBClusterBackup) err
 
 	cr.SetFinalizers(finalizers)
 	if err := cl.Update(context.TODO(), cr); err != nil {
-		return errors.Wrap(err, "remove S3 finalizer")
+		return errors.Wrap(err, "update CR")
 	}
 
 	return nil
@@ -283,7 +283,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunS3BackupFinalizerJob(cr *api
 
 	if cr.Status.S3 == nil || cr.Status.Destination == "" || !strings.HasPrefix(cr.Status.Destination, "s3://") {
 		if err := removeS3Finalizer(r.client, cr); err != nil {
-			return errors.Wrap(err, "try to run S3 backup finalizer job")
+			return errors.Wrap(err, "remove S3 finalizers")
 		}
 
 		return nil

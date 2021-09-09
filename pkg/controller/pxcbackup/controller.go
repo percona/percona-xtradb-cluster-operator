@@ -13,9 +13,6 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	batchv1 "k8s.io/api/batch/v1"
@@ -32,6 +29,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 // Add creates a new PerconaXtraDBClusterBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -256,13 +257,7 @@ func removeS3Finalizer(cl client.Client, cr *api.PerconaXtraDBClusterBackup) err
 	finalizers := cr.GetFinalizers()
 	beforeLen := len(finalizers)
 
-	for i := 0; i != len(finalizers); {
-		if finalizers[i] == api.FinalizerDeleteS3Backup {
-			finalizers = append(finalizers[:i], finalizers[i+1:]...)
-		} else {
-			i++
-		}
-	}
+	finalizers = removeStringsFromSlice(finalizers, api.FinalizerDeleteS3Backup)
 
 	if beforeLen == len(finalizers) {
 		return nil

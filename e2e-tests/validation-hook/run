@@ -30,4 +30,24 @@ if [[ $output != *"PXC: volumeSpec should be specified"* ]]; then
     exit 1
 fi
 
+if ! kubectl apply -f "$test_dir/conf/cr-simple.yaml"; then
+    echo "ERROR: unable to apply simple CR"
+    exit 1
+fi
+
+if ! output=$(kubectl 2>&1 wait --for=condition=ready pxc/simple-pxc --timeout=1m); then
+    echo "ERROR: ${output}"
+    exit 1
+fi
+
+scale_cmd_err='admission webhook "validationwebhook.pxc.percona.com" denied the request: json: unknown field "replicas"'
+
+if ! output=$(kubectl 2>&1 scale pxc/simple-pxc --replicas 1); then
+    echo "ERROR: ${output}"
+    exit 1
+elif [[ ${output} =~ ${scale_cmd_err}$ ]]; then
+    echo "ERROR: unsupported scale command: ${output}"
+    exit 1
+fi
+
 destroy $namespace

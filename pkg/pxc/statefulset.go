@@ -93,7 +93,6 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		ic.LivenessProbe = nil
 		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
 		pod.InitContainers = append(pod.InitContainers, *ic)
-
 	}
 
 	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)

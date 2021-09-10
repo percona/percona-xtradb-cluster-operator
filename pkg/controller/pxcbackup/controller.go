@@ -276,19 +276,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunS3BackupFinalizerJob(cr *api
 		return nil
 	}
 
-	job := batchv1.Job{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: backup.GenName63(cr), Namespace: cr.Namespace}, &job)
-	if err != nil && !k8sErrors.IsNotFound(err) {
-		return errors.Wrap(err, "failed to get backup job")
-	}
-
-	if !k8sErrors.IsNotFound(err) {
-		err = r.client.Delete(context.TODO(), &job)
-		if err != nil && !k8sErrors.IsNotFound(err) {
-			return errors.Wrap(err, "failed to delete backup job")
-		}
-	}
-
 	select {
 	case r.chLimit <- struct{}{}:
 		_, ok := r.bcpDeleteInProgress.LoadOrStore(cr.Name, struct{}{})

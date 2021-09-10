@@ -254,16 +254,20 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 }
 
 func removeS3Finalizer(cl client.Client, cr *api.PerconaXtraDBClusterBackup) error {
-	finalizers := cr.GetFinalizers()
-	beforeLen := len(finalizers)
+	currFins := cr.GetFinalizers()
+	nextFins := make([]string, 0, len(currFins))
 
-	finalizers = removeStringsFromSlice(finalizers, api.FinalizerDeleteS3Backup)
+	for _, f := range currFins {
+		if f != api.FinalizerDeleteS3Backup {
+			nextFins = append(nextFins, f)
+		}
+	}
 
-	if beforeLen == len(finalizers) {
+	if len(nextFins) == len(currFins) {
 		return nil
 	}
 
-	cr.SetFinalizers(finalizers)
+	cr.SetFinalizers(nextFins)
 	if err := cl.Update(context.TODO(), cr); err != nil {
 		return errors.Wrap(err, "update CR")
 	}

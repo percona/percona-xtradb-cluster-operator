@@ -35,19 +35,28 @@ if ! kubectl apply -f "$test_dir/conf/cr-simple.yaml"; then
 	exit 1
 fi
 
-if ! output=$(kubectl 2>&1 wait --for=condition=ready pxc/simple-pxc --timeout=1m); then
+if ! output=$(kubectl 2>&1 wait --for=condition=initializing pxc/simple-pxc --timeout=1m); then
 	echo "ERROR: ${output}"
 	exit 1
 fi
 
+replicas_num=2
 scale_cmd_err='admission webhook "validationwebhook.pxc.percona.com" denied the request: json: unknown field "replicas"'
 
-if ! output=$(kubectl 2>&1 scale pxc/simple-pxc --replicas 1); then
+if ! output=$(kubectl 2>&1 scale pxc/simple-pxc --replicas ${replicas_num}); then
 	echo "ERROR: ${output}"
 	exit 1
 elif [[ ${output} =~ ${scale_cmd_err}$ ]]; then
 	echo "ERROR: unsupported scale command: ${output}"
 	exit 1
+fi
+
+sleep 1
+
+if ! output=$(kubectl 2>&1 get pxc/simple-pxc -o yaml | yq r - spec.pxc.size); then
+	echo "ERROR: ${output}"
+elif (( output != replicas_num )); then
+	echo "ERROR: pxc did  ${output}"
 fi
 
 destroy $namespace

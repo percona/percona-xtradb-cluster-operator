@@ -5,12 +5,13 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
@@ -79,13 +80,14 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.InitContainers = append(pod.InitContainers, initContainers...)
 	}
 
-	if podSpec.ForceUnsafeBootstrap {
-		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init-unsafe"
+	if podSpec.ForceUnsafeBootstrap && cr.CompareVersionWith("1.10.0") < 0 {
 		res, err := app.CreateResources(podSpec.Resources)
 		if err != nil {
 			return nil, errors.Wrap(err, "create resources")
 		}
+
+		ic := appC.DeepCopy()
+		ic.Name = ic.Name + "-init-unsafe"
 		ic.Resources = res
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil

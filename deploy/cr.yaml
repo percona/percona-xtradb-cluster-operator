@@ -56,7 +56,6 @@ spec:
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600
-#    forceUnsafeBootstrap: false
 #    configuration: |
 #      [mysqld]
 #      wsrep_debug=CLIENT

@@ -315,7 +315,7 @@ func (u *Manager) Update1100SystemUserPrivilege() (err error) {
 		return errors.Wrapf(err, "monitor user")
 	}
 
-	if _, err := tx.Exec("GRANT SYSTEM_USER ON *.* TO 'clustercheck'@'%'"); err != nil {
+	if _, err := tx.Exec("GRANT SYSTEM_USER ON *.* TO 'clustercheck'@'localhost'"); err != nil {
 		return errors.Wrapf(err, "clustercheck user")
 	}
 

@@ -291,6 +291,41 @@ func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
 	return nil
 }
 
+// Update1100SystemUserPrivilege grants system_user privilege for monitor and clustercheck users
+func (u *Manager) Update1100SystemUserPrivilege() (err error) {
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	defer func() {
+		if err != nil {
+			errT := tx.Rollback()
+			if errT != nil {
+				err = errors.Wrapf(err, "rollback error: %v, transaction failed with", errT)
+			}
+			return
+		}
+
+		err = tx.Commit()
+		err = errors.Wrap(err, "commit transaction")
+	}()
+
+	if _, err := tx.Exec("GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'"); err != nil {
+		return errors.Wrapf(err, "monitor user")
+	}
+
+	if _, err := tx.Exec("GRANT SYSTEM_USER ON *.* TO 'clustercheck'@'%'"); err != nil {
+		return errors.Wrapf(err, "clustercheck user")
+	}
+
+	if _, err := tx.Exec("FLUSH PRIVILEGES"); err != nil {
+		return errors.Wrap(err, "flush privileges")
+	}
+
+	return nil
+}
+
 func (u *Manager) CreateReplicationUser(password string) error {
 	tx, err := u.db.Begin()
 	if err != nil {

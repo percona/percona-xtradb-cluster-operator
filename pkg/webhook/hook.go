@@ -250,6 +250,13 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Request.Kind.Group == "autoscaling" && req.Request.Kind.Kind == "Scale" {
+		if err = sendResponse(req.Request.UID, req.TypeMeta, w, nil); err != nil {
+			log.Log.Error(err, "Can't send validation response")
+		}
+		return
+	}
+
 	cr := &v1.PerconaXtraDBCluster{}
 	decoder := json.NewDecoder(bytes.NewReader(req.Request.Object.Raw))
 	decoder.DisallowUnknownFields()

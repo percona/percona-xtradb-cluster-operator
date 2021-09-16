@@ -1,8 +1,6 @@
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
   labels:
     app.kubernetes.io/component: proxysql
     app.kubernetes.io/instance: some-name
@@ -28,6 +26,7 @@ spec:
       port: 33062
       protocol: TCP
       targetPort: 33062
+  publishNotReadyAddresses: true
   selector:
     app.kubernetes.io/component: proxysql
     app.kubernetes.io/instance: some-name

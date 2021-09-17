@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"strconv"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const internalPrefix = "internal-"
@@ -97,6 +98,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 			err = r.manageReplicationUser(cr, &sysUsersSecretObj, &internalSysSecretObj)
 			if err != nil {
 				return nil, errors.Wrap(err, "manage replication user")
+			}
+		}
+		if cr.CompareVersionWith("1.10.0") >= 0 {
+			err = r.grantSystemUserPrivilege(cr, &internalSysSecretObj)
+			if err != nil {
+				return nil, errors.Wrap(err, "grant system privilege")
 			}
 		}
 	}
@@ -222,6 +229,51 @@ func (r *ReconcilePerconaXtraDBCluster) manageXtrabackupUser(cr *api.PerconaXtra
 	err = um.Update170XtrabackupUser(string(internalSysSecretObj.Data["xtrabackup"]))
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
+	}
+
+	if internalSysSecretObj.Annotations == nil {
+		internalSysSecretObj.Annotations = make(map[string]string)
+	}
+
+	internalSysSecretObj.Annotations[annotationName] = "done"
+	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	if err != nil {
+		return errors.Wrap(err, "update internal sys users secret annotation")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+	annotationName := "grant-for-1.10.0-system-privilege"
+	if internalSysSecretObj.Annotations[annotationName] == "done" {
+		return nil
+	}
+
+	pxcUser := "root"
+	pxcPass := string(internalSysSecretObj.Data["root"])
+	if _, ok := internalSysSecretObj.Data["operator"]; ok {
+		pxcUser = "operator"
+		pxcPass = string(internalSysSecretObj.Data["operator"])
+	}
+
+	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
+	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	if err != nil {
+		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	}
+	if hasKey {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+
+	um, err := users.NewManager(addr, pxcUser, pxcPass)
+	if err != nil {
+		return errors.Wrap(err, "new users manager for grant")
+	}
+	defer um.Close()
+
+	if err = um.Update1100SystemUserPrivilege(); err != nil {
+		return errors.Wrap(err, "grant system user privilege")
 	}
 
 	if internalSysSecretObj.Annotations == nil {

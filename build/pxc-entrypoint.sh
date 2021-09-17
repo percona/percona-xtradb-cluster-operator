@@ -364,12 +364,12 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			GRANT ALL ON *.* TO 'xtrabackup'@'%';
 
 			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '${MONITOR_PASSWORD}' WITH MAX_USER_CONNECTIONS 100;
-			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';
+			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD, SYSTEM_USER ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			GRANT SELECT ON performance_schema.* TO 'monitor'@'${MONITOR_HOST}';
 			${monitorConnectGrant}
 
 			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '${CLUSTERCHECK_PASSWORD}';
-			GRANT PROCESS ON *.* TO 'clustercheck'@'localhost';
+			GRANT PROCESS, SYSTEM_USER ON *.* TO 'clustercheck'@'localhost';
 
 			CREATE USER 'replication'@'%' IDENTIFIED BY '${REPLICATION_PASSWORD}';
 			GRANT REPLICATION SLAVE ON *.* to 'replication'@'%';

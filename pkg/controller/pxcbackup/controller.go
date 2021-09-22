@@ -338,11 +338,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 
 			spl := strings.Split(cr.Status.Destination, "/")
 			backup := spl[len(spl)-1]
-			for _, bcp := range []string{backup + ".md5", backup + "sst_info", backup} {
-				err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeBackup(cr.Status.S3.Bucket, bcp, s3cli))
-				if err != nil {
-					break
-				}
+			err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeBackup(cr.Status.S3.Bucket, backup, s3cli))
+			if err != nil {
+				break
 			}
 		} else {
 			finalizers = append(finalizers, f)
@@ -365,6 +363,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 
 func removeBackup(bucket, backup string, s3cli *minio.Client) func() error {
 	return func() error {
+		// this is needed to understand if user provided some path
+		// on s3, instead of just a bucket name
+		bucketSplitted := strings.Split(bucket, "/")
+		if len(bucketSplitted) > 1 {
+			bucket = bucketSplitted[0]
+			backup = strings.Join(bucketSplitted[1:], "/") + "/" + backup
+		}
 		objs := s3cli.ListObjects(context.Background(), bucket,
 			minio.ListObjectsOptions{
 				Recursive: true,

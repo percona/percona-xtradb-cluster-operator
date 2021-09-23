@@ -368,7 +368,7 @@ func removeBackup(bucket, backup string, s3cli *minio.Client) func() error {
 		bucketSplitted := strings.Split(bucket, "/")
 		if len(bucketSplitted) > 1 {
 			bucket = bucketSplitted[0]
-			backup = strings.Join(bucketSplitted[1:], "/") + "/" + backup
+			backup = strings.Join(append(bucketSplitted[1:], backup), "/")
 		}
 		objs := s3cli.ListObjects(context.Background(), bucket,
 			minio.ListObjectsOptions{

@@ -214,31 +214,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 	reqLogger := r.logger(o.Name, o.Namespace)
 
-	// wait untill token issued to run PXC in data encrypted mode.
-	if o.ShouldWaitForTokenIssue() {
-		reqLogger.Info("wait for token issuing")
-		return rr, nil
-	}
-
-	defer func() {
-		uerr := r.updateStatus(o, err)
-		if uerr != nil {
-			reqLogger.Error(uerr, "Update status")
-		}
-	}()
-
-	changed, err := o.CheckNSetDefaults(r.serverVersion, reqLogger)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
-	}
-
-	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
-		err = r.recoverFullClusterCrashIfNeeded(o)
-		if err != nil {
-			reqLogger.Info("Failed to check if cluster needs to recover", "err", err.Error())
-		}
-	}
-
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
 		for _, fnlz := range o.GetFinalizers() {
@@ -267,6 +242,31 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 
 		// object is being deleted, no need in further actions
 		return rr, err
+	}
+
+	// wait untill token issued to run PXC in data encrypted mode.
+	if o.ShouldWaitForTokenIssue() {
+		reqLogger.Info("wait for token issuing")
+		return rr, nil
+	}
+
+	defer func() {
+		uerr := r.updateStatus(o, err)
+		if uerr != nil {
+			reqLogger.Error(uerr, "Update status")
+		}
+	}()
+
+	changed, err := o.CheckNSetDefaults(r.serverVersion, reqLogger)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
+	}
+
+	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
+		err = r.recoverFullClusterCrashIfNeeded(o)
+		if err != nil {
+			reqLogger.Info("Failed to check if cluster needs to recover", "err", err.Error())
+		}
 	}
 
 	err = r.reconcileUsersSecret(o)

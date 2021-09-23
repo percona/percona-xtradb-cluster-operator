@@ -244,7 +244,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(request reconcile.Request) (re
 		return rr, err
 	}
 
-	// wait untill token issued to run PXC in data encrypted mode.
+	// wait until token issued to run PXC in data encrypted mode.
 	if o.ShouldWaitForTokenIssue() {
 		reqLogger.Info("wait for token issuing")
 		return rr, nil

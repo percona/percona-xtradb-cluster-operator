@@ -66,74 +66,6 @@ spec:
   publishNotReadyAddresses: true
   type: ClusterIP
 ---
-apiVersion: v1
-data:
-  orc-topology.cnf: |
-    [client]
-    user = {{ .Env.ORC_TOPOLOGY_USER }}
-    password = {{ .Env.ORC_TOPOLOGY_PASSWORD }}
-  orchestrator.conf.json: |-
-    {
-      "ApplyMySQLPromotionAfterMasterFailover": false,
-      "BackendDB": "sqlite",
-      "Debug": true,
-      "DetachLostReplicasAfterMasterFailover": true,
-      "DetectClusterAliasQuery": "SELECT CONCAT(SUBSTRING(@@hostname, 1, LENGTH(@@hostname) - 1 - LENGTH(SUBSTRING_INDEX(@@hostname,'-',-2))),'.',SUBSTRING_INDEX(@@report_host,'.',-1))",
-      "DetectInstanceAliasQuery": "SELECT @@hostname",
-      "DiscoverByShowSlaveHosts": false,
-      "FailMasterPromotionIfSQLThreadNotUpToDate": true,
-      "HTTPAdvertise": "http://{{ .Env.HOSTNAME }}-svc:80",
-      "HostnameResolveMethod": "none",
-      "InstancePollSeconds": 5,
-      "ListenAddress": ":3000",
-      "MasterFailoverDetachReplicaMasterHost": true,
-      "MySQLHostnameResolveMethod": "@@report_host",
-      "MySQLTopologyCredentialsConfigFile": "/etc/orchestrator/orc-topology.cnf",
-      "OnFailureDetectionProcesses": [
-        "/usr/local/bin/orc-helper event -w '{failureClusterAlias}' 'OrcFailureDetection' 'Failure: {failureType}, failed host: {failedHost}, lost replcas: {lostReplicas}' || true",
-        "/usr/local/bin/orc-helper failover-in-progress '{failureClusterAlias}' '{failureDescription}' || true"
-      ],
-      "PostIntermediateMasterFailoverProcesses": [
-        "/usr/local/bin/orc-helper event '{failureClusterAlias}' 'OrcPostIntermediateMasterFailover' 'Failure type: {failureType}, failed hosts: {failedHost}, slaves: {countSlaves}' || true"
-      ],
-      "PostMasterFailoverProcesses": [
-        "/usr/local/bin/orc-helper event '{failureClusterAlias}' 'OrcPostMasterFailover' 'Failure type: {failureType}, new master: {successorHost}, slaves: {slaveHosts}' || true"
-      ],
-      "PostUnsuccessfulFailoverProcesses": [
-        "/usr/local/bin/orc-helper event -w '{failureClusterAlias}' 'OrcPostUnsuccessfulFailover' 'Failure: {failureType}, failed host: {failedHost} with {countSlaves} slaves' || true"
-      ],
-      "PreFailoverProcesses": [
-        "/usr/local/bin/orc-helper failover-in-progress '{failureClusterAlias}' '{failureDescription}' || true"
-      ],
-      "ProcessesShellCommand": "sh",
-      "RaftAdvertise": "{{ .Env.HOSTNAME }}-svc",
-      "RaftBind": "{{ .Env.HOSTNAME }}",
-      "RaftDataDir": "/var/lib/orchestrator",
-      "RaftEnabled": true,
-      "RaftNodes": [
-        "orchestrator-0-svc",
-        "orchestrator-1-svc",
-        "orchestrator-2-svc"
-      ],
-      "RecoverIntermediateMasterClusterFilters": [
-        ".*"
-      ],
-      "RecoverMasterClusterFilters": [
-        ".*"
-      ],
-      "RecoveryIgnoreHostnameFilters": [],
-      "RecoveryPeriodBlockSeconds": 300,
-      "RemoveTextFromHostnameDisplay": ":3306",
-      "SQLite3DataFile": "/var/lib/orchestrator/orc.db",
-      "SlaveLagQuery": "SELECT TIMESTAMPDIFF(SECOND,ts,NOW()) as drift FROM sys_operator.heartbeat ORDER BY drift ASC LIMIT 1",
-      "UnseenInstanceForgetHours": 1
-    }
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/component: orchestrator
-  name: orchestrator
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -142,7 +74,7 @@ metadata:
   name: orchestrator
 spec:
   podManagementPolicy: "Parallel"
-  replicas: 3
+  replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -182,8 +114,8 @@ spec:
         - prefix: ORC_
           secretRef:
             name: orchestrator
-        image: quay.io/presslabs/mysql-operator-orchestrator:0.4.0
-        imagePullPolicy: IfNotPresent
+        image: perconalab/percona-server-mysql-operator:main-orchestrator
+        imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -217,8 +149,8 @@ spec:
         volumeMounts:
         - mountPath: /var/lib/orchestrator/
           name: data
-        - mountPath: /templates/
-          name: config
+        - mountPath: /etc/orchestrator/orchestrator-users-secret
+          name: orchestrator-users-secret-file
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -228,10 +160,11 @@ spec:
       serviceAccountName: default
       terminationGracePeriodSeconds: 30
       volumes:
-      - configMap:
+      - name: orchestrator-users-secret-file
+        secret:
           defaultMode: 420
-          name: orchestrator
-        name: config
+          optional: false
+          secretName: orchestrator
   updateStrategy:
     rollingUpdate:
       partition: 0

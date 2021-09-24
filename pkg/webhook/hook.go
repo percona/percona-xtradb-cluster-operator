@@ -119,7 +119,7 @@ func (h *hook) createWebhook(ownerRef metav1.OwnerReference) error {
 		},
 		Webhooks: []admissionregistration.ValidatingWebhook{
 			{
-				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				AdmissionReviewVersions: []string{"v1"},
 				Name:                    "validationwebhook.pxc.percona.com",
 				ClientConfig: admissionregistration.WebhookClientConfig{
 					Service: &admissionregistration.ServiceReference{

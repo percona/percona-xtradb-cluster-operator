@@ -92,6 +92,38 @@ func (p *Database) CurrentReplicationChannels() ([]string, error) {
 	return result, nil
 }
 
+func (p *Database) ChangeChannelPassword(channel, password string) error {
+	tx, err := p.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "start transaction for updating channel password")
+	}
+	_, err = tx.Exec(`STOP REPLICA IO_THREAD FOR CHANNEL ?`, channel)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Wrapf(err, "rollback STOP REPLICA IO_THREAD FOR CHANNEL %s", channel)
+		}
+		return errors.Wrapf(err, "stop replication IO thread for channel %s", channel)
+	}
+	_, err = tx.Exec(`CHANGE REPLICATION SOURCE TO SOURCE_PASSWORD=? FOR CHANNEL ?`, password, channel)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Wrapf(err, "rollback CHANGE SOURCE_PASSWORD FOR CHANNEL %s", channel)
+		}
+		return errors.Wrapf(err, "change master password for channel %s", channel)
+	}
+	_, err = tx.Exec(`START REPLICA IO_THREAD FOR CHANNEL ?`, channel)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Wrapf(err, "rollback START REPLICA IO_THREAD FOR CHANNEL %s", channel)
+		}
+		return errors.Wrapf(err, "start io thread for channel %s", channel)
+	}
+	return tx.Commit()
+}
+
 func (p *Database) ReplicationStatus(channel string) (ReplicationStatus, error) {
 	rows, err := p.db.Query(`SHOW REPLICA STATUS FOR CHANNEL ?`, channel)
 	if err != nil {
@@ -193,14 +225,14 @@ func (p *Database) IsReadonly() (bool, error) {
 func (p *Database) StartReplication(replicaPass string, src ReplicationChannelSource) error {
 	_, err := p.db.Exec(`
 	CHANGE REPLICATION SOURCE TO
-    master_user='replication',
-    master_password=?,
-    master_host=?,
-	master_port=?,
-    source_connection_auto_failover=1,
-	master_auto_position=1,
-    master_retry_count=3,
-    master_connect_retry=60  
+    SOURCE_USER='replication',
+    SOURCE_PASSWORD=?,
+    SOURCE_HOST=?,
+	SOURCE_PORT=?,
+    SOURCE_CONNECTION_AUTO_FAILOVER=1,
+	SOURCE_AUTO_POSITION=1,
+    SOURCE_RETRY_COUNT=3,
+    SOURCE_CONNECT_RETRY=60
     FOR CHANNEL ?
 `, replicaPass, src.Host, src.Port, src.Name)
 	if err != nil {

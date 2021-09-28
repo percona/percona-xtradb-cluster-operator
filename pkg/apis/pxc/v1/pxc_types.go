@@ -33,7 +33,7 @@ type PerconaXtraDBClusterSpec struct {
 	TLS                       *TLSSpec                             `json:"tls,omitempty"`
 	PXC                       *PXCSpec                             `json:"pxc,omitempty"`
 	ProxySQL                  *PodSpec                             `json:"proxysql,omitempty"`
-	HAProxy                   *PodSpec                             `json:"haproxy,omitempty"`
+	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
 	Backup                    *PXCScheduledBackup                  `json:"backup,omitempty"`
@@ -221,15 +221,6 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 			if len(channel.SourcesList) == 0 {
 				return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
 			}
-
-			for _, src := range channel.SourcesList {
-				if src.Weight == 0 {
-					src.Weight = 100
-				}
-				if src.Port == 0 {
-					src.Port = 3306
-				}
-			}
 		}
 	}
 
@@ -367,7 +358,14 @@ type PodSpec struct {
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
 	ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
 	Sidecars                      []corev1.Container                      `json:"sidecars,omitempty"`
+	SidecarVolumes                []corev1.Volume                         `json:"sidecarVolumes,omitempty"`
+	SidecarPVCs                   []corev1.PersistentVolumeClaim          `json:"sidecarPVCs,omitempty"`
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
+}
+
+type HAProxySpec struct {
+	PodSpec
+	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -582,6 +580,17 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}
 
+		for chIdx, channel := range c.PXC.ReplicationChannels {
+			for srcIdx, src := range channel.SourcesList {
+				if src.Weight == 0 {
+					c.PXC.ReplicationChannels[chIdx].SourcesList[srcIdx].Weight = 100
+				}
+				if src.Port == 0 {
+					c.PXC.ReplicationChannels[chIdx].SourcesList[srcIdx].Port = 3306
+				}
+			}
+		}
+
 		setSafeDefaults(c, logger)
 
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-PXC.
@@ -635,6 +644,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.HAProxy != nil && c.HAProxy.Enabled {
+		if c.HAProxy.ReplicasServiceEnabled == nil {
+			t := true
+			c.HAProxy.ReplicasServiceEnabled = &t
+		}
+
 		if len(c.HAProxy.ImagePullPolicy) == 0 {
 			c.HAProxy.ImagePullPolicy = corev1.PullAlways
 		}
@@ -757,7 +771,6 @@ const (
 )
 
 func (cr *PerconaXtraDBCluster) setProbesDefaults() {
-
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
 		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
 	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
@@ -1001,6 +1014,50 @@ func AddSidecarContainers(logger logr.Logger, existing, sidecars []corev1.Contai
 	return existing
 }
 
+func AddSidecarVolumes(logger logr.Logger, existing, sidecarVolumes []corev1.Volume) []corev1.Volume {
+	if len(sidecarVolumes) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, c := range existing {
+		names[c.Name] = struct{}{}
+	}
+
+	for _, c := range sidecarVolumes {
+		if _, ok := names[c.Name]; ok {
+			logger.Info(fmt.Sprintf("Sidecar volume name cannot be %s. It's skipped", c.Name))
+			continue
+		}
+
+		existing = append(existing, c)
+	}
+
+	return existing
+}
+
+func AddSidecarPVCs(logger logr.Logger, existing, sidecarPVCs []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
+	if len(sidecarPVCs) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, c := range existing {
+		names[c.Name] = struct{}{}
+	}
+
+	for _, c := range sidecarPVCs {
+		if _, ok := names[c.Name]; ok {
+			logger.Info(fmt.Sprintf("Sidecar PVC name cannot be %s. It's skipped", c.Name))
+			continue
+		}
+
+		existing = append(existing, c)
+	}
+
+	return existing
+}
+
 func (cr *PerconaXtraDBCluster) ProxySQLUnreadyServiceNamespacedName() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      cr.Name + "-proxysql-unready",
@@ -1031,6 +1088,10 @@ func (cr *PerconaXtraDBCluster) HAProxyReplicasNamespacedName() types.Namespaced
 
 func (cr *PerconaXtraDBCluster) HAProxyEnabled() bool {
 	return cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled
+}
+
+func (cr *PerconaXtraDBCluster) HAProxyReplicasServiceEnabled() bool {
+	return *cr.Spec.HAProxy.ReplicasServiceEnabled
 }
 
 func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {

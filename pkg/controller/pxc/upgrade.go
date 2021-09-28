@@ -10,20 +10,24 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/go-logr/logr"
+
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 
 	"github.com/pkg/errors"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
@@ -171,17 +175,21 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	if podSpec.ForceUnsafeBootstrap {
-		ic := appC.DeepCopy()
-		res, err := app.CreateResources(podSpec.Resources)
-		if err != nil {
-			return errors.Wrap(err, "create resources")
+		r.log.Info("spec.pxc.forceUnsafeBootstrap option is not supported since v1.10")
+
+		if cr.CompareVersionWith("1.10.0") < 0 {
+			res, err := app.CreateResources(podSpec.Resources)
+			if err != nil {
+				return errors.Wrap(err, "create resources")
+			}
+			ic := appC.DeepCopy()
+			ic.Name = ic.Name + "-init-unsafe"
+			ic.Resources = res
+			ic.ReadinessProbe = nil
+			ic.LivenessProbe = nil
+			ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
+			newInitContainers = append(newInitContainers, *ic)
 		}
-		ic.Resources = res
-		ic.Name = ic.Name + "-init-unsafe"
-		ic.ReadinessProbe = nil
-		ic.LivenessProbe = nil
-		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
-		newInitContainers = append(newInitContainers, *ic)
 	}
 
 	// sidecars
@@ -199,6 +207,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if sfsVolume != nil && sfsVolume.Volumes != nil {
 		currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
 	}
+	currentSet.Spec.Template.Spec.Volumes = api.AddSidecarVolumes(r.logger(cr.Name, cr.Namespace), currentSet.Spec.Template.Spec.Volumes, podSpec.SidecarVolumes)
 	currentSet.Spec.Template.Spec.Tolerations = podSpec.Tolerations
 	err = r.createOrUpdate(currentSet)
 	if err != nil {
@@ -607,7 +616,7 @@ func (r *ReconcilePerconaXtraDBCluster) isRestoreRunning(clusterName, namespace 
 }
 
 func getCustomConfigHashHex(strData map[string]string, binData map[string][]byte) (string, error) {
-	var content = struct {
+	content := struct {
 		StrData map[string]string `json:"str_data,omitempty"`
 		BinData map[string][]byte `json:"bin_data,omitempty"`
 	}{

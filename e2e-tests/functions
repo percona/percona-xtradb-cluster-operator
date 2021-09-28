@@ -744,6 +744,12 @@ spinup_pxc() {
 		apply_config "$config"
 	fi
 
+	# todo(remove after 1.10 release)
+	if [ "${EKS}" -eq 1 ] && version_gt "1.21"; then
+		sleep 10
+		kpatch_set_field svc "${cluster}-pxc-unready" "/spec/publishNotReadyAddresses" true
+	fi
+
 	desc 'check if all 3 Pods started'
 	local proxy=$(get_proxy "$cluster")
 	wait_for_running "$proxy" 1
@@ -1116,7 +1122,7 @@ deploy_chaos_mesh() {
 	desc 'install chaos-mesh'
 	local old_cm_namespace=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}')
 	if [ "${old_cm_namespace}" != "NAMESPACE" ]; then
-		helm del chaos-mesh --namespace ${old_cm_namespace} || :
+		destroy_chaos_mesh "${old_cm_namespace}"
 	fi
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
 	if version_gt "1.19"; then
@@ -1131,7 +1137,10 @@ destroy_chaos_mesh() {
 	local chaos_mesh_ns=$1
 
 	desc 'destroy chaos-mesh'
-	helm del chaos-mesh --namespace ${chaos_mesh_ns} || :
+	helm uninstall chaos-mesh --namespace ${chaos_mesh_ns} || :
+	kubectl delete crd awschaos.chaos-mesh.org dnschaos.chaos-mesh.org httpchaos.chaos-mesh.org iochaos.chaos-mesh.org jvmchaos.chaos-mesh.org kernelchaos.chaos-mesh.org networkchaos.chaos-mesh.org podchaos.chaos-mesh.org podiochaos.chaos-mesh.org podnetworkchaos.chaos-mesh.org stresschaos.chaos-mesh.org timechaos.chaos-mesh.org || :
+	kubectl delete clusterrolebinding chaos-mesh-chaos-controller-manager-cluster-level || :
+	kubectl delete clusterrole chaos-mesh-chaos-controller-manager-cluster-level chaos-mesh-chaos-controller-manager-target-namespace || :
 }
 
 patch_secret() {
@@ -1278,4 +1287,21 @@ function prepare_cr_yaml() {
 		yq w -i "${cr_yaml}" "spec.haproxy.enabled" "false"
 		yq w -i "${cr_yaml}" "spec.proxysql.enabled" "true"
 	fi
+}
+
+function kpatch_delete_field() {
+	local type=$1
+	local name=$2
+	local path=$3
+
+	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"remove\", \"path\": \"$path\"}]" >/dev/null
+}
+
+function kpatch_set_field() {
+	local type=$1
+	local name=$2
+	local path=$3
+	local value=$4
+
+	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
 }

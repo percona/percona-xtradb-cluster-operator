@@ -118,6 +118,11 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		)
 	}
 
+	if cr.CompareVersionWith("1.10.0") >= 0 {
+		obj.Spec.PublishNotReadyAddresses = true
+		delete(obj.ObjectMeta.Annotations, "service.alpha.kubernetes.io/tolerate-unready-endpoints")
+	}
+
 	return obj
 }
 
@@ -171,6 +176,11 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		obj.ObjectMeta.Labels["app.kubernetes.io/component"] = "proxysql"
 		obj.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
 		obj.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
+	}
+
+	if cr.CompareVersionWith("1.10.0") >= 0 {
+		obj.Spec.PublishNotReadyAddresses = true
+		delete(obj.ObjectMeta.Annotations, "service.alpha.kubernetes.io/tolerate-unready-endpoints")
 	}
 
 	return obj

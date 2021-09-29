@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"github.com/go-logr/logr"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"

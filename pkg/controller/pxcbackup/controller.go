@@ -13,9 +13,6 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	batchv1 "k8s.io/api/batch/v1"
@@ -32,6 +29,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 // Add creates a new PerconaXtraDBClusterBackup Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -252,18 +253,26 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(request reconcile.Reques
 	return rr, err
 }
 
-func removeS3Finalizer(cr *api.PerconaXtraDBClusterBackup) {
-	filteredFins := make([]string, 0)
+func removeS3Finalizer(cl client.Client, cr *api.PerconaXtraDBClusterBackup) error {
+	currFins := cr.GetFinalizers()
+	nextFins := make([]string, 0, len(currFins))
 
-	for _, f := range cr.GetFinalizers() {
-		if f == api.FinalizerDeleteS3Backup {
-			continue
+	for _, f := range currFins {
+		if f != api.FinalizerDeleteS3Backup {
+			nextFins = append(nextFins, f)
 		}
-
-		filteredFins = append(filteredFins, f)
 	}
 
-	cr.SetFinalizers(filteredFins)
+	if len(nextFins) == len(currFins) {
+		return nil
+	}
+
+	cr.SetFinalizers(nextFins)
+	if err := cl.Update(context.TODO(), cr); err != nil {
+		return errors.Wrap(err, "update CR")
+	}
+
+	return nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) tryRunS3BackupFinalizerJob(cr *api.PerconaXtraDBClusterBackup) error {
@@ -272,21 +281,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunS3BackupFinalizerJob(cr *api
 	}
 
 	if cr.Status.S3 == nil || cr.Status.Destination == "" || !strings.HasPrefix(cr.Status.Destination, "s3://") {
-		removeS3Finalizer(cr)
-		return nil
-	}
-
-	job := batchv1.Job{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: backup.GenName63(cr), Namespace: cr.Namespace}, &job)
-	if err != nil && !k8sErrors.IsNotFound(err) {
-		return errors.Wrap(err, "failed to get backup job")
-	}
-
-	if !k8sErrors.IsNotFound(err) {
-		err = r.client.Delete(context.TODO(), &job)
-		if err != nil && !k8sErrors.IsNotFound(err) {
-			return errors.Wrap(err, "failed to delete backup job")
+		if err := removeS3Finalizer(r.client, cr); err != nil {
+			return errors.Wrap(err, "remove S3 finalizers")
 		}
+
+		return nil
 	}
 
 	select {
@@ -339,11 +338,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 
 			spl := strings.Split(cr.Status.Destination, "/")
 			backup := spl[len(spl)-1]
-			for _, bcp := range []string{backup + ".md5", backup + "sst_info", backup} {
-				err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeBackup(cr.Status.S3.Bucket, bcp, s3cli))
-				if err != nil {
-					break
-				}
+			err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeBackup(cr.Status.S3.Bucket, backup, s3cli))
+			if err != nil {
+				break
 			}
 		} else {
 			finalizers = append(finalizers, f)
@@ -366,6 +363,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 
 func removeBackup(bucket, backup string, s3cli *minio.Client) func() error {
 	return func() error {
+		// this is needed to understand if user provided some path
+		// on s3, instead of just a bucket name
+		bucketSplitted := strings.Split(bucket, "/")
+		if len(bucketSplitted) > 1 {
+			bucket = bucketSplitted[0]
+			backup = strings.Join(append(bucketSplitted[1:], backup), "/")
+		}
 		objs := s3cli.ListObjects(context.Background(), bucket,
 			minio.ListObjectsOptions{
 				Recursive: true,
@@ -395,7 +399,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXt
 			Namespace: cr.Namespace,
 		},
 	)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "get clusters list")
 	}
@@ -444,7 +447,6 @@ func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBCluster
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job,
 	destination, storageName string, s3 *api.BackupStorageS3Spec) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
-
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return nil

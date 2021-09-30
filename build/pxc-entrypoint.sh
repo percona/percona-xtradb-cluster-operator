@@ -37,7 +37,7 @@ file_env() {
 	if [ "${!var:-}" ]; then
 		val="${!var}"
 	elif [ "${!fileVar:-}" ]; then
-		val="$(< "${!fileVar}")"
+		val="$(<"${!fileVar}")"
 	elif [ "${3:-}" ] && [ -f "/etc/mysql/mysql-users-secret/$3" ]; then
 		val="$(</etc/mysql/mysql-users-secret/$3)"
 	fi
@@ -180,12 +180,12 @@ fi
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
 grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$' "$CFG" 1<>"$CFG"
-if [[ "$MYSQL_VERSION" == '8.0' ]]; then
-       if [[ $MYSQL_PATCH_VERSION -ge 26 ]]; then
-               grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
-       else
-               grep -q "^skip_slave_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_slave_start=ON" $CFG
-       fi
+if [[ $MYSQL_VERSION == '8.0' ]]; then
+	if [[ $MYSQL_PATCH_VERSION -ge 26 ]]; then
+		grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
+	else
+		grep -q "^skip_slave_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_slave_start=ON" $CFG
+	fi
 fi
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup' 'xtrabackup'
@@ -364,12 +364,12 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			GRANT ALL ON *.* TO 'xtrabackup'@'%';
 
 			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '${MONITOR_PASSWORD}' WITH MAX_USER_CONNECTIONS 100;
-			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';
+			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD, SYSTEM_USER ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			GRANT SELECT ON performance_schema.* TO 'monitor'@'${MONITOR_HOST}';
 			${monitorConnectGrant}
 
 			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '${CLUSTERCHECK_PASSWORD}';
-			GRANT PROCESS ON *.* TO 'clustercheck'@'localhost';
+			GRANT PROCESS, SYSTEM_USER ON *.* TO 'clustercheck'@'localhost';
 
 			CREATE USER 'replication'@'%' IDENTIFIED BY '${REPLICATION_PASSWORD}';
 			GRANT REPLICATION SLAVE ON *.* to 'replication'@'%';
@@ -564,7 +564,9 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		is_primary_exists=$(get_primary)
 		is_manual_recovery
-		if [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap != 1 ]] || [[ -z $is_primary_exists && -f "${DATADIR}/gvwstate.dat" ]]; then
+		if [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap != 1 ]] \
+			|| [[ -z $is_primary_exists && -f "${DATADIR}/gvwstate.dat" ]] \
+			|| [[ -z $is_primary_exists && -f $grastate_loc && $safe_to_bootstrap == 1 && -n ${CLUSTER_JOIN} ]]; then
 			trap '{ node_recovery "$@" ; }' USR1
 			touch /tmp/recovery-case
 			if [[ -z ${seqno} ]]; then

@@ -96,7 +96,7 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtraDBCluster, replicaPassUpdated bool) error {
 	if cr.Status.PXC.Ready < 1 || cr.Spec.Pause {
 		return nil
 	}
@@ -227,9 +227,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return errors.Wrap(err, "get secrets")
 	}
 
+	if replicaPassUpdated {
+		err = handleReplicaPasswordChange(primaryDB, string(sysUsersSecretObj.Data["replication"]))
+		if err != nil {
+			return errors.Wrap(err, "failed to change replication password")
+		}
+	}
+
 	for _, channel := range cr.Spec.PXC.ReplicationChannels {
 		if channel.IsSource {
-			return nil
+			continue
 		}
 
 		currConf := currentReplicaConfig(channel.Name, cr.Status.PXCReplication)
@@ -242,6 +249,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	return r.updateStatus(cr, nil)
+}
+
+func handleReplicaPasswordChange(db queries.Database, newPass string) error {
+	channels, err := db.CurrentReplicationChannels()
+	if err != nil {
+		return errors.Wrap(err, "get current replication channels")
+	}
+
+	for _, channel := range channels {
+		err := db.ChangeChannelPassword(channel, newPass)
+		if err != nil {
+			return errors.Wrapf(err, "change password for channel %s", channel)
+		}
+	}
+	return nil
 }
 
 func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {

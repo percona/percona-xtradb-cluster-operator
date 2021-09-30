@@ -43,9 +43,11 @@ func newCR(name, namespace string) *api.PerconaXtraDBCluster {
 					Size:    3,
 				},
 			},
-			HAProxy: &api.PodSpec{
-				Enabled: true,
-				Size:    3,
+			HAProxy: &api.HAProxySpec{
+				PodSpec: api.PodSpec{
+					Enabled: true,
+					Size:    3,
+				},
 			},
 			ProxySQL: &api.PodSpec{
 				Enabled: false,
@@ -212,7 +214,7 @@ func TestAppHostNoLoadBalancer(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs})
 
-	host, err := r.appHost(haproxy, cr.Namespace, cr.Spec.HAProxy)
+	host, err := r.appHost(haproxy, cr.Namespace, &cr.Spec.HAProxy.PodSpec)
 	if err != nil {
 		t.Error(err)
 	}
@@ -235,7 +237,7 @@ func TestAppHostLoadBalancerNoSvc(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs})
 
-	_, err := r.appHost(haproxy, cr.Namespace, cr.Spec.HAProxy)
+	_, err := r.appHost(haproxy, cr.Namespace, &cr.Spec.HAProxy.PodSpec)
 	if err == nil {
 		t.Error("want err, got nil")
 	}
@@ -265,7 +267,7 @@ func TestAppHostLoadBalancerOnlyIP(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs, haproxySvc})
 
-	host, err := r.appHost(haproxy, cr.Namespace, cr.Spec.HAProxy)
+	host, err := r.appHost(haproxy, cr.Namespace, &cr.Spec.HAProxy.PodSpec)
 	if err != nil {
 		t.Error(err)
 	}
@@ -299,7 +301,7 @@ func TestAppHostLoadBalancerWithHostname(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs, haproxySvc})
 
-	gotHost, err := r.appHost(haproxy, cr.Namespace, cr.Spec.HAProxy)
+	gotHost, err := r.appHost(haproxy, cr.Namespace, &cr.Spec.HAProxy.PodSpec)
 	if err != nil {
 		t.Error(err)
 	}
@@ -319,57 +321,57 @@ func TestClusterStatus(t *testing.T) {
 			want:   api.AppStateInit,
 		},
 		"PXC init": {
-			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateInit}},
+			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateInit}}},
 			want:   api.AppStateInit,
 		},
 		"PXC ready": {
-			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateReady}},
+			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateReady}}},
 			want:   api.AppStateReady,
 		},
 		"PXC stopping": {
-			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{Status: api.AppStateStopping}},
+			status: api.PerconaXtraDBClusterStatus{PXC: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateStopping}}},
 			want:   api.AppStateStopping,
 		},
 		"PXC paused, HAProxy stopping": {
 			status: api.PerconaXtraDBClusterStatus{
-				PXC:     api.AppStatus{Status: api.AppStatePaused},
-				HAProxy: api.AppStatus{Status: api.AppStateStopping},
+				PXC:     api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStatePaused}},
+				HAProxy: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateStopping}},
 			},
 			want: api.AppStateStopping,
 		},
 		"PXC paused, ProxySQL stopping": {
 			status: api.PerconaXtraDBClusterStatus{
-				PXC:      api.AppStatus{Status: api.AppStatePaused},
-				ProxySQL: api.AppStatus{Status: api.AppStateStopping},
+				PXC:      api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStatePaused}},
+				ProxySQL: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateStopping}},
 			},
 			want: api.AppStateStopping,
 		},
 		"PXC paused, HAProxy paused": {
 			status: api.PerconaXtraDBClusterStatus{
-				PXC:     api.AppStatus{Status: api.AppStatePaused},
-				HAProxy: api.AppStatus{Status: api.AppStatePaused},
+				PXC:     api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStatePaused}},
+				HAProxy: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStatePaused}},
 			},
 			want: api.AppStatePaused,
 		},
 		"HAProxy init": {
-			status: api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{Status: api.AppStateInit}},
+			status: api.PerconaXtraDBClusterStatus{HAProxy: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateInit}}},
 			want:   api.AppStateInit,
 		},
 		"HAProxy ready": {
 			status: api.PerconaXtraDBClusterStatus{
-				PXC:     api.AppStatus{Status: api.AppStateReady},
-				HAProxy: api.AppStatus{Status: api.AppStateReady},
+				PXC:     api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateReady}},
+				HAProxy: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateReady}},
 			},
 			want: api.AppStateReady,
 		},
 		"ProxySQL init": {
-			status: api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{Status: api.AppStateInit}},
+			status: api.PerconaXtraDBClusterStatus{ProxySQL: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateInit}}},
 			want:   api.AppStateInit,
 		},
 		"ProxySQL ready": {
 			status: api.PerconaXtraDBClusterStatus{
-				PXC:      api.AppStatus{Status: api.AppStateReady},
-				ProxySQL: api.AppStatus{Status: api.AppStateReady},
+				PXC:      api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateReady}},
+				ProxySQL: api.AppStatus{ComponentStatus: api.ComponentStatus{Status: api.AppStateReady}},
 			},
 			want: api.AppStateReady,
 		},
@@ -377,7 +379,7 @@ func TestClusterStatus(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(tt *testing.T) {
-			got := test.status.ClusterStatus(false)
+			got := test.status.ClusterStatus(false, false)
 
 			if got != test.want {
 				t.Errorf("AppState got %#v, want %#v", got, test.want)

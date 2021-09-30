@@ -98,6 +98,38 @@ func (p *Database) CurrentReplicationChannels() ([]string, error) {
 	return result, nil
 }
 
+func (p *Database) ChangeChannelPassword(channel, password string) error {
+	tx, err := p.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "start transaction for updating channel password")
+	}
+	_, err = tx.Exec(`STOP REPLICA IO_THREAD FOR CHANNEL ?`, channel)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Wrapf(err, "rollback STOP REPLICA IO_THREAD FOR CHANNEL %s", channel)
+		}
+		return errors.Wrapf(err, "stop replication IO thread for channel %s", channel)
+	}
+	_, err = tx.Exec(`CHANGE REPLICATION SOURCE TO SOURCE_PASSWORD=? FOR CHANNEL ?`, password, channel)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Wrapf(err, "rollback CHANGE SOURCE_PASSWORD FOR CHANNEL %s", channel)
+		}
+		return errors.Wrapf(err, "change master password for channel %s", channel)
+	}
+	_, err = tx.Exec(`START REPLICA IO_THREAD FOR CHANNEL ?`, channel)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Wrapf(err, "rollback START REPLICA IO_THREAD FOR CHANNEL %s", channel)
+		}
+		return errors.Wrapf(err, "start io thread for channel %s", channel)
+	}
+	return tx.Commit()
+}
+
 func (p *Database) ReplicationStatus(channel string) (ReplicationStatus, error) {
 	rows, err := p.db.Query(`SHOW REPLICA STATUS FOR CHANNEL ?`, channel)
 	if err != nil {

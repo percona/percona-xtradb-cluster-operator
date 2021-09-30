@@ -32,8 +32,8 @@ type Database struct {
 
 type ReplicationConfig struct {
 	Source             ReplicationChannelSource
-	MasterRetryCount   uint
-	MasterConnectRetry uint
+	SourceRetryCount   uint
+	SourceConnectRetry uint
 }
 
 type ReplicationChannelSource struct {
@@ -199,16 +199,16 @@ func (p *Database) IsReadonly() (bool, error) {
 func (p *Database) StartReplication(replicaPass string, config ReplicationConfig) error {
 	_, err := p.db.Exec(`
 	CHANGE REPLICATION SOURCE TO
-    master_user='replication',
-    master_password=?,
-    master_host=?,
-	master_port=?,
-    source_connection_auto_failover=1,
-	master_auto_position=1,
-    master_retry_count=?,
-    master_connect_retry=?
+    SOURCE_USER='replication',
+    SOURCE_PASSWORD=?,
+    SOURCE_HOST=?,
+	SOURCE_PORT=?,
+    SOURCE_CONNECTION_AUTO_FAILOVER=1,
+	SOURCE_AUTO_POSITION=1,
+    SOURCE_RETRY_COUNT=?,
+    SOURCE_CONNECT_RETRY=?
     FOR CHANNEL ?
-`, replicaPass, config.Source.Host, config.Source.Port, config.MasterRetryCount, config.MasterConnectRetry, config.Source.Name)
+`, replicaPass, config.Source.Host, config.Source.Port, config.SourceRetryCount, config.SourceConnectRetry, config.Source.Name)
 	if err != nil {
 		return errors.Wrapf(err, "change source for channel %s", config.Source.Name)
 	}

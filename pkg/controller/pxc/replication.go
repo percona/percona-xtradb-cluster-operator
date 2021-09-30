@@ -227,17 +227,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return errors.Wrap(err, "get secrets")
 	}
 
-	for _, channels := range cr.Spec.PXC.ReplicationChannels {
-		if channels.IsSource {
-			continue
+	for _, channel := range cr.Spec.PXC.ReplicationChannels {
+		if channel.IsSource {
+			return nil
 		}
-		err = manageReplicationChannel(r.log, primaryDB, channels, string(sysUsersSecretObj.Data["replication"]))
+
+		currConf := currentReplicaConfig(channel.Name, cr.Status.PXCReplication)
+
+		err = manageReplicationChannel(r.log, primaryDB, channel, currConf, string(sysUsersSecretObj.Data["replication"]))
 		if err != nil {
-			return errors.Wrapf(err, "manage replication channel %s", channels.Name)
+			return errors.Wrapf(err, "manage replication channel %s", channel.Name)
 		}
+		setReplicationChannelStatus(cr, channel)
 	}
 
-	return nil
+	return r.updateStatus(cr, nil)
 }
 
 func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {
@@ -321,7 +325,7 @@ func removeOutdatedChannels(db queries.Database, currentChannels []api.Replicati
 	return nil
 }
 
-func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, channel api.ReplicationChannel, replicaPW string) error {
+func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
 	currentSources, err := primaryDB.ReplicationChannelSources(channel.Name)
 	if err != nil && err != queries.ErrNotFound {
 		return errors.Wrapf(err, "get current replication sources for channel %s", channel.Name)
@@ -338,7 +342,8 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 			return nil
 		}
 
-		if replicationStatus == queries.ReplicationStatusActive {
+		if replicationStatus == queries.ReplicationStatusActive &&
+			*channel.Config == currConf {
 			return nil
 		}
 	}
@@ -376,8 +381,8 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 			Host: maxWeightSrc.Host,
 			Port: maxWeightSrc.Port,
 		},
-		MasterRetryCount:   channel.Config.MasterRetryCount,
-		MasterConnectRetry: channel.Config.MasterConnectRetry,
+		SourceRetryCount:   channel.Config.SourceRetryCount,
+		SourceConnectRetry: channel.Config.SourceConnectRetry,
 	})
 }
 
@@ -506,4 +511,41 @@ func isPodReady(pod corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+func currentReplicaConfig(name string, status *api.ReplicationStatus) api.ReplicationChannelConfig {
+	res := api.ReplicationChannelConfig{}
+	if status == nil {
+		return res
+	}
+
+	for _, v := range status.Channels {
+		if v.Name == name {
+			return v.ReplicationChannelConfig
+		}
+	}
+	return res
+}
+
+func setReplicationChannelStatus(cr *api.PerconaXtraDBCluster, channel api.ReplicationChannel) {
+	status := api.ReplicationChannelStatus{
+		Name:                     channel.Name,
+		ReplicationChannelConfig: *channel.Config,
+	}
+
+	if cr.Status.PXCReplication == nil {
+		cr.Status.PXCReplication = &api.ReplicationStatus{
+			Channels: []api.ReplicationChannelStatus{status},
+		}
+		return
+	}
+
+	for k, v := range cr.Status.PXCReplication.Channels {
+		if channel.Name == v.Name {
+			cr.Status.PXCReplication.Channels[k] = status
+			return
+		}
+	}
+
+	cr.Status.PXCReplication.Channels = append(cr.Status.PXCReplication.Channels, status)
 }

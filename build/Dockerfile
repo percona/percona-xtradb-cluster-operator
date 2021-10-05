@@ -41,4 +41,4 @@ COPY build/pxc-configure-pxc.sh /pxc-configure-pxc.sh
 COPY build/liveness-check.sh /liveness-check.sh
 COPY build/readiness-check.sh /readiness-check.sh
 
-USER nobody
+USER 2

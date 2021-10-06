@@ -429,7 +429,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) waitForPVCShutdown(ls map[string]
 			return errors.Wrap(err, "get pvc list")
 		}
 
-		if len(pvcs.Items) == 1 {
+		if len(pvcs.Items) <= 1 {
 			return nil
 		}
 

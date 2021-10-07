@@ -408,10 +408,10 @@ spec:
 #           Port  9200
 #           Index my_index
 #           Type  my_type
-#    resources:
-#      requests:
-#        memory: 200M
-#        cpu: 500m
+    resources:
+      requests:
+        memory: 200M
+        cpu: 500m
   pmm:
     enabled: false
     image: percona/pmm-client:2.18.0

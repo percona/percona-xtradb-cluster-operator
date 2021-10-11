@@ -419,10 +419,10 @@ spec:
     serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
-#    resources:
-#      requests:
-#        memory: 200M
-#        cpu: 500m
+    resources:
+      requests:
+        memory: 200M
+        cpu: 500m
   backup:
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    serviceAccountName: percona-xtradb-cluster-operator

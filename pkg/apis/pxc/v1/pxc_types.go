@@ -641,10 +641,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.Size = 0
 		}
 
-		if c.PMM != nil && c.PMM.Resources == nil {
-			c.PMM.Resources = c.PXC.Resources
-		}
-
 		if len(c.LogCollectorSecretName) == 0 {
 			c.LogCollectorSecretName = cr.Name + "-log-collector"
 		}

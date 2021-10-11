@@ -43,10 +43,12 @@ something else (e.g. a socket):
         path: /data
         type: Directory
 
-Please note, that hostPath directory is not created automatically! Is
-should be created manually and should have following correct
-attributives: 1. access permissions 2. ownership 3. SELinux security
-context
+Please note, that hostPath directory is not created automatically! It
+should be created manually on the node's filesystem. Also, it should have the
+attributives (access permissions, ownership, SELinux security context) which
+would allow Pod to access the correspondent filesystem objects according to
+:ref:`pxc.containerSecurityContext<pxc-containersecuritycontext>` and
+:ref:`pxc.podSecurityContext<pxc-podsecuritycontext>`.
 
 ``hostPath`` is useful when you are able to perform manual actions
 during the first run and have strong need in improved disk performance.

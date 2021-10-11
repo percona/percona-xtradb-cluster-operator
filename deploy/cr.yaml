@@ -155,7 +155,7 @@ spec:
     enabled: true
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
-#    replicasServiceEnabled: true
+#    replicasServiceEnabled: false
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |

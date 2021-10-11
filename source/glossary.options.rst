@@ -105,9 +105,9 @@ The Operator options glossary
 
       :ref:`haproxy.resources.requests.cpu<haproxy-resources-requests-cpu>`
 
-      :ref:`haproxy.sidecarResources.limits.cpu<haproxy-sidecarresources-limits-cpu>`
+      :ref:`haproxy.sidecars.resources.limits.cpu<haproxy-sidecars-resources-limits-cpu>`
 
-      :ref:`haproxy.sidecarResources.requests.cpu<haproxy-sidecarresources-requests-cpu>`
+      :ref:`haproxy.sidecars.resources.requests.cpu<haproxy-sidecars-resources-requests-cpu>`
 
       :ref:`logcollector.resources.requests.cpu<logcollector-resources-requests-cpu>`
 
@@ -117,17 +117,17 @@ The Operator options glossary
 
       :ref:`proxysql.resources.requests.cpu<proxysql-resources-requests-cpu>`
 
-      :ref:`proxysql.sidecarResources.limits.cpu<proxysql-sidecarresources-limits-cpu>`
+      :ref:`proxysql.sidecars.resources.limits.cpu<proxysql-sidecars.resources-limits-cpu>`
 
-      :ref:`proxysql.sidecarResources.requests.cpu<proxysql-sidecarresources-requests-cpu>`
+      :ref:`proxysql.sidecars.resources.requests.cpu<proxysql-sidecars.resources-requests-cpu>`
 
       :ref:`pxc.resources.limits.cpu<pxc-resources-limits-cpu>`
 
       :ref:`pxc.resources.requests.cpu<pxc-resources-requests-cpu>`
 
-      :ref:`pxc.sidecarResources.limits.cpu<pxc-sidecarresources-limits-cpu>`
+      :ref:`pxc.sidecars.resources.limits.cpu<pxc-sidecars.resources-limits-cpu>`
 
-      :ref:`pxc.sidecarResources.requests.cpu<pxc-sidecarresources-requests-cpu>`
+      :ref:`pxc.sidecars.resources.requests.cpu<pxc-sidecars.resources-requests-cpu>`
 
    credentialsSecret
 
@@ -323,9 +323,9 @@ The Operator options glossary
 
       :ref:`haproxy.resources.requests.memory<haproxy-resources-requests-memory>`
 
-      :ref:`haproxy.sidecarResources.limits.memory<haproxy-sidecarresources-limits-memory>`
+      :ref:`haproxy.sidecars.resources.limits.memory<haproxy-sidecars.resources-limits-memory>`
 
-      :ref:`haproxy.sidecarResources.requests.memory<haproxy-sidecarresources-requests-memory>`
+      :ref:`haproxy.sidecars.resources.requests.memory<haproxy-sidecars.resources-requests-memory>`
 
       :ref:`logcollector.resources.requests.memory<logcollector-resources-requests-memory>`
 
@@ -335,17 +335,17 @@ The Operator options glossary
 
       :ref:`proxysql.resources.requests.memory<proxysql-resources-requests-memory>`
 
-      :ref:`proxysql.sidecarResources.limits.memory<proxysql-sidecarresources-limits-memory>`
+      :ref:`proxysql.sidecars.resources.limits.memory<proxysql-sidecars.resources-limits-memory>`
 
-      :ref:`proxysql.sidecarResources.requests.memory<proxysql-sidecarresources-requests-memory>`
+      :ref:`proxysql.sidecars.resources.requests.memory<proxysql-sidecars.resources-requests-memory>`
 
       :ref:`pxc.resources.limits.memory<pxc-resources-limits-memory>`
 
       :ref:`pxc.resources.requests.memory<pxc-resources-requests-memory>`
 
-      :ref:`pxc.sidecarResources.limits.memory<pxc-sidecarresources-limits-memory>`
+      :ref:`pxc.sidecars.resources.limits.memory<pxc-sidecars.resources-limits-memory>`
 
-      :ref:`pxc.sidecarResources.requests.memory<pxc-sidecarresources-requests-memory>`
+      :ref:`pxc.sidecars.resources.requests.memory<pxc-sidecars.resources-requests-memory>`
 
    minAvailable
 

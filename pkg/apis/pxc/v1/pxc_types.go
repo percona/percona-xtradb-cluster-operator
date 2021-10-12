@@ -60,9 +60,15 @@ type ServiceExpose struct {
 }
 
 type ReplicationChannel struct {
-	Name        string              `json:"name,omitempty"`
-	IsSource    bool                `json:"isSource,omitempty"`
-	SourcesList []ReplicationSource `json:"sourcesList,omitempty"`
+	Name        string                    `json:"name,omitempty"`
+	IsSource    bool                      `json:"isSource,omitempty"`
+	SourcesList []ReplicationSource       `json:"sourcesList,omitempty"`
+	Config      *ReplicationChannelConfig `json:"configuration,omitempty"`
+}
+
+type ReplicationChannelConfig struct {
+	SourceRetryCount   uint `json:"sourceRetryCount,omitempty"`
+	SourceConnectRetry uint `json:"sourceConnectRetry,omitempty"`
 }
 
 type ReplicationSource struct {
@@ -124,6 +130,7 @@ const (
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
 type PerconaXtraDBClusterStatus struct {
 	PXC                AppStatus          `json:"pxc,omitempty"`
+	PXCReplication     *ReplicationStatus `json:"pxcReplication,omitempty"`
 	ProxySQL           AppStatus          `json:"proxysql,omitempty"`
 	HAProxy            AppStatus          `json:"haproxy,omitempty"`
 	Backup             ComponentStatus    `json:"backup,omitempty"`
@@ -136,6 +143,16 @@ type PerconaXtraDBClusterStatus struct {
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 	Size               int32              `json:"size"`
 	Ready              int32              `json:"ready"`
+}
+
+// TODO: add replication status(error,active and etc)
+type ReplicationStatus struct {
+	Channels []ReplicationChannelStatus `json:"replicationChannels,omitempty"`
+}
+
+type ReplicationChannelStatus struct {
+	Name string `json:"name,omitempty"`
+	ReplicationChannelConfig
 }
 
 type ConditionStatus string
@@ -587,6 +604,12 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 				}
 				if src.Port == 0 {
 					c.PXC.ReplicationChannels[chIdx].SourcesList[srcIdx].Port = 3306
+				}
+			}
+			if !channel.IsSource && channel.Config == nil {
+				c.PXC.ReplicationChannels[chIdx].Config = &ReplicationChannelConfig{
+					SourceRetryCount:   3,
+					SourceConnectRetry: 60,
 				}
 			}
 		}

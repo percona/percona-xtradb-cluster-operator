@@ -14,8 +14,7 @@ require (
 	github.com/go-openapi/swag v0.19.9
 	github.com/go-openapi/validate v0.19.10
 	github.com/go-sql-driver/mysql v1.5.0
-	github.com/golang/protobuf v1.4.3 // indirect
-	github.com/google/go-cmp v0.5.4 // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/hashicorp/go-version v1.1.0
 	github.com/jetstack/cert-manager v1.0.4
@@ -32,6 +31,7 @@ require (
 	golang.org/x/sys v0.0.0-20201214210602-f9fddec55a1e // indirect
 	golang.org/x/text v0.3.4 // indirect
 	golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58 // indirect
+	google.golang.org/protobuf v1.27.1 // indirect
 	k8s.io/api v0.19.2
 	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v12.0.0+incompatible

@@ -5,7 +5,7 @@ Set up Percona XtraDB Cluster cross-site replication
 
 The cross-site replication involves configuring one Percona XtraDB Cluster as *Source*, and another Percona XtraDB Cluster as *Replica* to allow an asynchronous replication between them:
 
- .. image:: ./assets/images/pxc-replication.svg
+.. image:: ./assets/images/pxc-replication.svg
    :align: center
 
 The Operator automates configuration of *Source* and *Replica* Percona XtraDB Clusters, but the feature itself is not bound to Kubernetes. Either *Source* or *Replica* can run outside of Kubernetes, be regular MySQL and be out of the Operators’ control. 

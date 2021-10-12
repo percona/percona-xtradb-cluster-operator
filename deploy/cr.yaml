@@ -421,8 +421,8 @@ spec:
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
     resources:
       requests:
-        memory: 200M
-        cpu: 500m
+        memory: 150M
+        cpu: 300m
   backup:
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    serviceAccountName: percona-xtradb-cluster-operator

@@ -410,8 +410,8 @@ spec:
 #           Type  my_type
     resources:
       requests:
-        memory: 200M
-        cpu: 500m
+        memory: 100M
+        cpu: 200m
   pmm:
     enabled: false
     image: percona/pmm-client:2.18.0

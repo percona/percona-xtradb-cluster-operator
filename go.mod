@@ -8,9 +8,9 @@ require (
 	github.com/go-ini/ini v1.25.4
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.2.0
-	github.com/go-openapi/errors v0.19.6
+	github.com/go-openapi/errors v0.19.8
 	github.com/go-openapi/runtime v0.19.20
-	github.com/go-openapi/strfmt v0.19.5
+	github.com/go-openapi/strfmt v0.20.3
 	github.com/go-openapi/swag v0.19.9
 	github.com/go-openapi/validate v0.19.10
 	github.com/go-sql-driver/mysql v1.5.0
@@ -29,7 +29,6 @@ require (
 	golang.org/x/net v0.0.0-20201216054612-986b41b23924 // indirect
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43 // indirect
 	golang.org/x/sys v0.0.0-20201214210602-f9fddec55a1e // indirect
-	golang.org/x/text v0.3.4 // indirect
 	golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	k8s.io/api v0.19.2

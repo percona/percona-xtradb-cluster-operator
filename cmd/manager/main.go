@@ -129,10 +129,10 @@ func main() {
 
 	log.Info("Starting the Cmd.")
 
-	stopCH := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
+	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
 
 	// Start the Cmd
-	if err := mgr.Start(stopCH); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		os.Exit(1)
 	}

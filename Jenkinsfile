@@ -259,7 +259,6 @@ pipeline {
                             | sort \
                             | uniq \
                             > golicense-new || true
-
                         diff -u e2e-tests/license/compare/golicense golicense-new
                     """
                 }

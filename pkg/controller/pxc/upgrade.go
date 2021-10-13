@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"github.com/go-logr/logr"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -657,7 +655,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBClust
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(name types.NamespacedName, objs ...runtime.Object) (runtime.Object, error) {
+func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(name types.NamespacedName, objs ...client.Object) (client.Object, error) {
 	for _, o := range objs {
 		err := r.client.Get(context.TODO(), name, o)
 		if err != nil && !k8serrors.IsNotFound(err) {

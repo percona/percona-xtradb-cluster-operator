@@ -14,19 +14,19 @@ import (
 
 var log = logf.Log
 
-// StartStopSignalHandler starts gorutine which is waiting for
-// termination signal and returns chan for indication when operator
-// can really stop.
-func StartStopSignalHandler(client client.Client, namespaces []string) <-chan struct{} {
-	stopCH := make(chan struct{})
-	go handleStopSignal(client, namespaces, stopCH)
-	return stopCH
+// StartStopSignalHandler starts gorutine which is waiting for termination
+// signal and returns a context which is cancelled when operator can really
+// stop.
+func StartStopSignalHandler(client client.Client, namespaces []string) context.Context {
+	ctx, shutdownFunc := context.WithCancel(context.Background())
+	go handleStopSignal(client, namespaces, shutdownFunc)
+	return ctx
 }
 
-func handleStopSignal(client client.Client, namespaces []string, stopCH chan struct{}) {
-	<-signals.SetupSignalHandler()
+func handleStopSignal(client client.Client, namespaces []string, shutdownFunc context.CancelFunc) {
+	<-signals.SetupSignalHandler().Done()
 	stop(client, namespaces)
-	close(stopCH)
+	shutdownFunc()
 }
 
 // Stop is used to understand, when we need to stop operator(usially SIGTERM)

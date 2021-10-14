@@ -170,3 +170,44 @@ Kubernetes and ProxySQL.
 See more detailed functionality and performance comparison of using the Operator
 with both solutions in `this blog post <https://www.percona.com/blog/2021/01/11/percona-kubernetes-operator-for-percona-xtradb-cluster-haproxy-or-proxysql/>`__.
 
+.. _faq-validation:
+
+How to have Custom Resource validation without the Operator cluster-wide mode?
+================================================================================
+
+The ``spec.enableCRValidationWebhook`` key in the `deploy/cr.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/cr.yaml>`__
+file enables or disables schema validation done by the Operator before applying
+``cr.yaml``. By default this feature works only in :ref:`cluster-wide mode<install-clusterwide>`
+due to access restrictions. Still it is possible to grant additional privileges
+needed to validate Custom Resource in the ordinary (per-namespace) Operator mode.
+
+Modify the default `deploy/rbac.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/rbac.yaml>_ file with the following additions:
+
+.. code:: yaml
+
+   ...
+   rules:
+   ...
+   - apiGroups:
+     - admissionregistration.k8s.io
+     resources:
+     - validatingwebhookconfigurations
+     verbs:
+     - get
+     - list
+     - watch
+     - create
+     - update
+     - patch
+     - delete
+   ...
+
+Apply the modified file as usual:
+
+.. code:: bash
+
+   $ kubectl apply -f deploy/rbac.yaml
+
+Now you can turn on Custom Resource validation without the Operator
+cluster-wide mode.
+

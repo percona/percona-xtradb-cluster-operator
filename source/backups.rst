@@ -56,6 +56,13 @@ possible). To have effect secrets file should be applied with the
 appropriate command to create the secret object, e.g. 
 ``kubectl apply -f deploy/backup-s3.yaml`` (for Kubernetes).
 
+.. note:: In case if the previous backup attempt fails (because of a temporary
+   networking problem, etc.) the backup job tries to delete the unsuccessful
+   backup leftovers first, and then makes a retry. Therefore there will be no
+   backup retry without `DELETE permissions to the objects in the bucket <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-with-s3-actions.html>`_.
+   Also, setting `Google Cloud Storage Retention Period <https://cloud.google.com/storage/docs/bucket-lock>`_
+   can cause a similar problem.
+
 Backups schedule is defined in the ``backup`` section of the
 `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
 file. This section contains following subsections:

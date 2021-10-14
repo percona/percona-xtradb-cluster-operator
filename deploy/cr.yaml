@@ -49,6 +49,9 @@ spec:
 #      isSource: true
 #    - name: pxc2_to_pxc1
 #      isSource: false
+#      configuration:
+#        sourceRetryCount: 3
+#        sourceConnectRetry: 60
 #      sourcesList:
 #      - host: 10.95.251.101
 #        port: 3306

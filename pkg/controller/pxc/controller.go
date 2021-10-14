@@ -1032,7 +1032,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteServices(svcs ...*corev1.Service) 
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), s, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &s.UID}})
+		err = r.client.Delete(context.TODO(), s)
 		if err != nil {
 			return errors.Wrapf(err, "delete service: %s", s.Name)
 		}

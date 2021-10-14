@@ -162,13 +162,17 @@ spec:
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |
+#
+#    the actual default configuration file can be found here https://github.com/percona/percona-docker/blob/main/haproxy/dockerdir/etc/haproxy/haproxy-global.cfg
+#
 #      global
 #        maxconn 2048
 #        external-check
 #        insecure-fork-wanted
-#        stats socket /var/run/haproxy.sock mode 600 expose-fd listeners level user
+#        stats socket /etc/haproxy/pxc/haproxy.sock mode 600 expose-fd listeners level admin
 #
 #      defaults
+#        default-server init-addr last,libc,none
 #        log global
 #        mode tcp
 #        retries 10
@@ -183,11 +187,29 @@ spec:
 #        option clitcpka
 #        default_backend galera-nodes
 #
+#      frontend galera-admin-in
+#        bind *:33062
+#        mode tcp
+#        option clitcpka
+#        default_backend galera-admin-nodes
+#
 #      frontend galera-replica-in
 #        bind *:3307
 #        mode tcp
 #        option clitcpka
 #        default_backend galera-replica-nodes
+#
+#      frontend galera-mysqlx-in
+#        bind *:33060
+#        mode tcp
+#        option clitcpka
+#        default_backend galera-mysqlx-nodes
+#
+#      frontend stats
+#        bind *:8404
+#        mode http
+#        option http-use-htx
+#        http-request use-service prometheus-exporter if { path /metrics }
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:

@@ -7,7 +7,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
@@ -18,8 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const never = "never"
-const disabled = "disabled"
+const (
+	never    = "never"
+	disabled = "disabled"
+)
 
 func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
 	r.crons.crons.Remove(cron.EntryID(r.crons.ensureVersionJobs[jobName].ID))
@@ -301,4 +305,59 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtr
 	}
 
 	return errors.New("failed to reach any pod")
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getPrimaryMySQLVersion(cr *api.PerconaXtraDBCluster) (string, error) {
+	sfs := statefulset.NewNode(cr)
+	listRaw := corev1.PodList{}
+	err := r.client.List(context.TODO(),
+		&listRaw,
+		&client.ListOptions{
+			Namespace:     cr.Namespace,
+			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+		},
+	)
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return "", errors.Wrap(err, "get pod list")
+		}
+
+		return "", nil
+	}
+
+	podList := make([]corev1.Pod, 0)
+	for _, pod := range listRaw.Items {
+		if isPodReady(pod) {
+			podList = append(podList, pod)
+		}
+	}
+
+	primary, err := r.getPrimaryPod(cr)
+	if err != nil {
+		return "", errors.Wrap(err, "get primary pxc pod")
+	}
+
+	var primaryPod *corev1.Pod
+	for _, pod := range podList {
+		if pod.Status.PodIP == primary || pod.Name == primary || strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, cr.Namespace)) {
+			primaryPod = &pod
+			break
+		}
+	}
+
+	if primaryPod == nil {
+		return "", nil
+	}
+
+	user := "operator"
+	port := int32(33062)
+
+	primaryDB, err := queries.New(r.client, cr.Namespace, internalPrefix+cr.Name, user, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to connect to pod %s", primaryPod.Name)
+	}
+
+	defer primaryDB.Close()
+
+	return primaryDB.Version()
 }

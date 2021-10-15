@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,6 +20,9 @@ import (
 )
 
 const internalPrefix = "internal-"
+
+// https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
+var privSystemUserAddedIn = version.Must(version.NewVersion("8.0.16"))
 
 type userUpdateRestart struct {
 	restartPXC            bool
@@ -101,9 +105,20 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 			}
 		}
 		if cr.CompareVersionWith("1.10.0") >= 0 {
-			err = r.grantSystemUserPrivilege(cr, &internalSysSecretObj)
+			dbVersion, err := r.getPrimaryMySQLVersion(cr)
 			if err != nil {
-				return nil, errors.Wrap(err, "grant system privilege")
+				return nil, errors.Wrap(err, "unable to fetch primary mysql version")
+			}
+
+			ver, err := version.NewVersion(dbVersion)
+			if err != nil {
+				return nil, errors.Wrap(err, "invalid primary mysql version")
+			}
+
+			if !ver.LessThan(privSystemUserAddedIn) {
+				if err := r.grantSystemUserPrivilege(cr, &internalSysSecretObj); err != nil {
+					return nil, errors.Wrap(err, "grant system privilege")
+				}
 			}
 		}
 	}

@@ -86,6 +86,70 @@ object-relational mapping), performance requirements, advanced routing and
 caching needs with one or another project, components already in use in the
 current infrastructure, and any other specific needs of the application.
 
+.. _faq-hostpath:
+
+How can I add create a directory on the node to use it as a local storage
+================================================================================
+
+You can :ref:`configure hostPath volume<storage-hostpath>` to mount some
+existing file or directory from the node’s filesystem into the Pod and use it
+as a local storage. The directory used for local storage should already exist
+in the node's filesystem. You can create it through the shell access to the node,
+with ``mkdir`` command, as all other directories. Alternatively you can create
+a Pod which will do this job. Let's suppose you are going to use
+``/var/run/data-dir`` directory as your local storage, describing it in the
+``deploy/cr.yaml`` configuration file as follows:
+
+.. code:: yaml
+
+	...
+	pxc:
+	  ...
+	  volumeSpec:
+	     hostPath:
+	       path: /var/run/data-dir
+	       type: Directory
+	  containerSecurityContext:
+	    privileged: false
+	  podSecurityContext:
+	    runAsUser: 1001
+	    runAsGroup: 1001
+	    supplementalGroups: [1001]
+	  nodeSelector:
+	    kubernetes.io/hostname: a.b.c
+
+Create the yaml file (e.g. ``mypod.yaml``), with the following contents:
+
+.. code:: yaml
+
+	apiVersion: v1
+	kind: Pod
+	metadata:
+	  name: hostpath-helper
+	spec:
+	  containers:
+	  - name: init
+	    image: busybox
+	    command: ["install", "-o", "1001", "-g", "1001", "-m", "755", "-d", "/mnt/data-dir"]
+	    volumeMounts:
+	    - name: root
+	      mountPath: /mnt
+	    securityContext: 
+	      runAsUser: 0
+	  volumes:
+	  - name: root
+	    hostPath:
+	      path: /var/run
+	  restartPolicy: Never
+	  nodeSelector:
+	    kubernetes.io/hostname: a.b.c
+
+Don't forget to apply it as usual:
+
+.. code:: bash
+
+   $ kubectl apply -f mypod.yaml
+
 .. _faq-sidecar:
 
 How can I add custom sidecar containers to my cluster?

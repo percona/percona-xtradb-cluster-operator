@@ -346,6 +346,16 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 				GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			EOSQL
 		fi
+
+		# SYSTEM_USER since 8.0.16
+		# https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
+		if [[ $MYSQL_VERSION == "8.0" ]] && (( MYSQL_PATCH_VERSION >= 16 )); then
+			read -r -d '' systemUserGrant <<-EOSQL || true
+				GRANT SYSTEM_USER ON *.* TO 'monitor'@'${MONITOR_HOST}';
+				GRANT SYSTEM_USER ON *.* TO 'clustercheck'@'localhost';
+			EOSQL
+		fi
+
 		"${mysql[@]}" <<-EOSQL
 			-- What's done in this file shouldn't be replicated
 			--  or products like mysql-fabric won't work
@@ -364,12 +374,14 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			GRANT ALL ON *.* TO 'xtrabackup'@'%';
 
 			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '${MONITOR_PASSWORD}' WITH MAX_USER_CONNECTIONS 100;
-			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD, SYSTEM_USER ON *.* TO 'monitor'@'${MONITOR_HOST}';
+			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			GRANT SELECT ON performance_schema.* TO 'monitor'@'${MONITOR_HOST}';
 			${monitorConnectGrant}
 
 			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '${CLUSTERCHECK_PASSWORD}';
-			GRANT PROCESS, SYSTEM_USER ON *.* TO 'clustercheck'@'localhost';
+			GRANT PROCESS ON *.* TO 'clustercheck'@'localhost';
+
+			${systemUserGrant}
 
 			CREATE USER 'replication'@'%' IDENTIFIED BY '${REPLICATION_PASSWORD}';
 			GRANT REPLICATION SLAVE ON *.* to 'replication'@'%';

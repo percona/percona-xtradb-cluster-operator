@@ -1,14 +1,16 @@
 package webhook
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"os"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	admission "k8s.io/api/admission/v1"
 	admissionregistration "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -20,12 +22,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/cert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook/json"
 )
 
 const certPath = "/tmp/k8s-webhook-server/serving-certs/"
@@ -37,12 +39,13 @@ type hook struct {
 	scheme    *runtime.Scheme
 	caBunlde  []byte
 	namespace string
+	log       logr.Logger
 }
 
 func (h *hook) Start(ctx context.Context) error {
 	err := h.setup()
 	if err != nil {
-		log.Log.Info("failed to setup webhook", "err", err.Error())
+		h.log.Info("failed to setup webhook", "err", err.Error())
 	}
 	<-ctx.Done()
 	return nil
@@ -184,11 +187,17 @@ func SetupWebhook(mgr manager.Manager) error {
 		return errors.Wrap(err, "prepare hook tls certs")
 	}
 
+	zapLog, err := zap.NewProduction()
+	if err != nil {
+		return errors.Wrap(err, "create logger")
+	}
+
 	h := &hook{
 		cl:        mgr.GetClient(),
 		scheme:    mgr.GetScheme(),
 		caBunlde:  ca,
 		namespace: namespace,
+		log:       zapr.NewLogger(zapLog),
 	}
 
 	srv := mgr.GetWebhookServer()
@@ -244,28 +253,29 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	req := &admission.AdmissionReview{}
 
-	err := json.NewDecoder(r.Body).Decode(req)
+	bites, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Log.Error(err, "Can't decode admission review request")
+		h.log.Error(err, "can't read request body")
+		return
+	}
+
+	if err := json.Decode(bites, req, true); err != nil {
+		h.log.Error(err, "Can't decode admission review request")
 		return
 	}
 
 	if req.Request.Kind.Group == "autoscaling" && req.Request.Kind.Kind == "Scale" {
 		if err = sendResponse(req.Request.UID, req.TypeMeta, w, nil); err != nil {
-			log.Log.Error(err, "Can't send validation response")
+			h.log.Error(err, "Can't send validation response")
 		}
 		return
 	}
 
 	cr := &v1.PerconaXtraDBCluster{}
-	decoder := json.NewDecoder(bytes.NewReader(req.Request.Object.Raw))
-	decoder.DisallowUnknownFields()
-
-	err = decoder.Decode(cr)
-	if err != nil {
+	if err := json.Decode(req.Request.Object.Raw, cr, true); err != nil {
 		err = sendResponse(req.Request.UID, req.TypeMeta, w, err)
 		if err != nil {
-			log.Log.Error(err, "Can't send validation response")
+			h.log.Error(err, "Can't send validation response")
 		}
 		return
 	}
@@ -273,14 +283,14 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if cr.Spec.EnableCRValidationWebhook == nil || !*cr.Spec.EnableCRValidationWebhook {
 		err = sendResponse(req.Request.UID, req.TypeMeta, w, nil)
 		if err != nil {
-			log.Log.Error(err, "Can't send validation response")
+			h.log.Error(err, "Can't send validation response")
 		}
 		return
 	}
 
 	err = sendResponse(req.Request.UID, req.TypeMeta, w, cr.Validate())
 	if err != nil {
-		log.Log.Error(err, "Can't send validation response")
+		h.log.Error(err, "Can't send validation response")
 	}
 }
 

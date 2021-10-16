@@ -349,7 +349,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		# SYSTEM_USER since 8.0.16
 		# https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
-		if [[ $MYSQL_VERSION == "8.0" ]] && (( MYSQL_PATCH_VERSION >= 16 )); then
+		if [[ $MYSQL_VERSION == "8.0" ]] && ((MYSQL_PATCH_VERSION >= 16)); then
 			read -r -d '' systemUserGrant <<-EOSQL || true
 				GRANT SYSTEM_USER ON *.* TO 'monitor'@'${MONITOR_HOST}';
 				GRANT SYSTEM_USER ON *.* TO 'clustercheck'@'localhost';

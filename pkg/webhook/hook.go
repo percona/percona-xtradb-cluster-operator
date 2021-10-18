@@ -253,13 +253,13 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	req := &admission.AdmissionReview{}
 
-	bites, err := ioutil.ReadAll(r.Body)
+	bytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		h.log.Error(err, "can't read request body")
 		return
 	}
 
-	if err := json.Decode(bites, req, true); err != nil {
+	if err := json.Decode(bytes, req, true); err != nil {
 		h.log.Error(err, "Can't decode admission review request")
 		return
 	}

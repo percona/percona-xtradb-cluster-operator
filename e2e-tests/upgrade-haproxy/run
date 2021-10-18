@@ -135,9 +135,7 @@ function main() {
     compare_kubectl "statefulset/${CLUSTER}-haproxy"
 
     desc 'cleanup'
-    # destroy "${namespace}"
-
-    return 0
+    destroy "${namespace}"
 }
 
 main

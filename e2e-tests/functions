@@ -364,6 +364,21 @@ compare_kubectl() {
 			>${new_result}
 	# last sed is needed for backup cronjob content
 
+	if version_gt "1.21"; then
+		if [[ $expected_result == */service*-proxysql-unready* ]]; then
+			yq d -i ${new_result} 'metadata.annotations'
+		fi
+	fi
+	if version_gt "1.22"; then
+		yq d -i ${new_result} 'spec.internalTrafficPolicy'
+		yq d -i ${new_result} 'spec.allocateLoadBalancerNodePorts'
+		if [[ $expected_result == */job* ]]; then
+			yq d -i ${new_result} 'metadata.generation'
+			yq d -i ${new_result} 'spec.completionMode'
+			yq d -i ${new_result} 'spec.suspend'
+		fi
+	fi
+
 	diff -u ${expected_result} ${new_result}
 }
 
@@ -924,6 +939,12 @@ function vault_tls() {
 	SECRET_NAME=$name
 	CSR_NAME=vault-csr-${RANDOM}
 
+	if version_gt "1.22"; then
+		CSR_API_VER="v1"
+	else
+		CSR_API_VER="v1beta1"
+	fi
+
 	openssl genrsa -out ${tmp_dir}/vault.key 2048
 	cat <<EOF >${tmp_dir}/csr.conf
 [req]
@@ -946,7 +967,7 @@ EOF
 	openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=${SERVICE}.${NAMESPACE}.svc" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
 
 	cat <<EOF >${tmp_dir}/csr.yaml
-apiVersion: certificates.k8s.io/v1beta1
+apiVersion: certificates.k8s.io/${CSR_API_VER}
 kind: CertificateSigningRequest
 metadata:
   name: ${CSR_NAME}
@@ -954,6 +975,7 @@ spec:
   groups:
   - system:authenticated
   request: $(cat ${tmp_dir}/server.csr | base64 | tr -d '\n')
+  signerName: kubernetes.io/kubelet-serving
   usages:
   - digital signature
   - key encipherment
@@ -1008,7 +1030,7 @@ start_vault() {
 		vault_tls "$name"
 		helm install $name hashicorp/vault \
 			--disable-openapi-validation \
-			--version 0.6.0 \
+			--version 0.16.1 \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
 			--set global.tlsDisable=false \
@@ -1032,7 +1054,7 @@ storage \"file\" {
 	else
 		helm install $name hashicorp/vault \
 			--disable-openapi-validation \
-			--version 0.6.0 \
+			--version 0.16.1 \
 			--namespace "$name" \
 			--set dataStorage.enabled=false \
 			--set global.platform="${platform}"

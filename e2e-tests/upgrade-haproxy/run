@@ -62,6 +62,8 @@ function main() {
     spinup_pxc "${CLUSTER}" "${cr_yaml}" "${CLUSTER_SIZE}" "30" "${conf_dir}/secrets_without_tls.yml"
     compare_generation "1" "${proxy}" "${CLUSTER}"
 
+    kubectl get sts -o yaml > ./all_statefulset.1
+
     desc 'upgrade operator'
     kubectl_bin apply -f "${src_dir}/deploy/crd.yaml"
     if [[ -n "${OPERATOR_NS}" ]]; then
@@ -74,12 +76,14 @@ function main() {
     kubectl_bin rollout status deployment/"${OPERATOR_NAME}" ${OPERATOR_NS:+-n $OPERATOR_NS}
     sleep 10
 
+    kubectl get sts -o yaml > ./all_statefulset.2
     desc 'wait for operator upgrade'
     until [[ $(kubectl_bin get pods --selector=app.kubernetes.io/name=${OPERATOR_NAME} \
                   -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image' ${OPERATOR_NS:+-n $OPERATOR_NS} \
                   | grep -vc 'NAME' | awk '{print $1}') -eq 1 ]]; do
         sleep 5
     done
+    kubectl get sts -o yaml > ./all_statefulset.3
 
     if [ -n "${OPERATOR_NS}" ]; then
         kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="${OPERATOR_NS}"
@@ -89,8 +93,10 @@ function main() {
                     | grep "${TARGET_IMAGE}" | awk '{print $1}')"
     kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="${namespace}"
 
+    kubectl get sts -o yaml > ./all_statefulset.4
     desc 'check images and generation after operator upgrade'
     check_pxc_liveness "${CLUSTER}" "${CLUSTER_SIZE}"
+    kubectl get sts -o yaml > ./all_statefulset.5
     if [[ "${TARGET_IMAGE}" == $(kubectl_bin get pod ${OPERATOR_NS:+-n $OPERATOR_NS} --selector=app.kubernetes.io/name="${OPERATOR_NAME}" -o jsonpath='{.items[*].spec.containers[?(@.name == "'"${OPERATOR_NAME}"'")].image}') \
         && "${IMAGE_PROXY}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.proxysql.image}') \
         && "${IMAGE_HAPROXY}" == $(kubectl_bin get pxc "${CLUSTER}" -o jsonpath='{.spec.haproxy.image}') \
@@ -102,7 +108,9 @@ function main() {
         echo 'Operator image has not been updated'
         exit 1
     fi
-    compare_generation "1" "${proxy}" "${CLUSTER}"
+    kubectl get sts -o yaml > ./all_statefulset.6
+    compare_generation "2" "${proxy}" "${CLUSTER}"
+    kubectl get sts -o yaml > ./all_statefulset.7
 
     desc 'patch pxc images and upgrade'
     kubectl_bin patch pxc "${CLUSTER}" --type=merge --patch '{
@@ -116,6 +124,7 @@ function main() {
         }}'
     sleep 10
 
+    kubectl get sts -o yaml > ./all_statefulset.8
     desc 'check images and generation after full upgrade'
     check_pxc_liveness "${CLUSTER}" "${CLUSTER_SIZE}"
     if [[ "${TARGET_IMAGE}" == $(kubectl_bin get pod ${OPERATOR_NS:+-n $OPERATOR_NS} --selector=app.kubernetes.io/name="${OPERATOR_NAME}" -o jsonpath='{.items[*].spec.containers[?(@.name == "'"${OPERATOR_NAME}"'")].image}') \
@@ -134,7 +143,9 @@ function main() {
     compare_kubectl "statefulset/${CLUSTER}-haproxy"
 
     desc 'cleanup'
-    destroy "${namespace}"
+    # destroy "${namespace}"
+
+    return 0
 }
 
 main

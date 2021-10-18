@@ -105,14 +105,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 			}
 		}
 		if cr.CompareVersionWith("1.10.0") >= 0 {
-			dbVersion, err := r.getPrimaryMySQLVersion(cr)
+			ver, err := version.NewVersion(cr.Status.PXC.Version)
 			if err != nil {
-				return nil, errors.Wrap(err, "unable to fetch primary mysql version")
-			}
-
-			ver, err := version.NewVersion(dbVersion)
-			if err != nil {
-				return nil, errors.Wrap(err, "invalid primary mysql version")
+				return nil, errors.Wrap(err, "invalid pxc version")
 			}
 
 			if !ver.LessThan(privSystemUserAddedIn) {

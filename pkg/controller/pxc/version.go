@@ -23,6 +23,8 @@ const (
 	disabled = "disabled"
 )
 
+var versionNotReadyErr = errors.New("not ready to fetch version")
+
 func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
 	r.crons.crons.Remove(cron.EntryID(r.crons.ensureVersionJobs[jobName].ID))
 	delete(r.crons.ensureVersionJobs, jobName)
@@ -234,25 +236,25 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
+func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (error, string) {
 	if cr.Status.PXC.Status != apiv1.AppStateReady {
-		return nil
+		return versionNotReadyErr, ""
 	}
 
 	if cr.Status.ObservedGeneration != cr.ObjectMeta.Generation {
-		return nil
+		return versionNotReadyErr, ""
 	}
 
 	if cr.Status.PXC.Image == cr.Spec.PXC.Image {
-		return nil
+		return versionNotReadyErr, ""
 	}
 
 	upgradeInProgress, err := r.upgradeInProgress(cr, "pxc")
 	if err != nil {
-		return errors.Wrap(err, "check pxc upgrade progress")
+		return errors.Wrap(err, "check pxc upgrade progress"), ""
 	}
 	if upgradeInProgress {
-		return nil
+		return versionNotReadyErr, ""
 	}
 
 	list := corev1.PodList{}
@@ -263,7 +265,7 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtr
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
 	); err != nil {
-		return errors.Wrap(err, "get pod list")
+		return errors.Wrap(err, "get pod list"), ""
 	}
 
 	user := "root"
@@ -291,16 +293,31 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtr
 			continue
 		}
 
-		logger.Info("update PXC version (fetched from db)", "new version", version)
-		cr.Status.PXC.Version = version
-		cr.Status.PXC.Image = cr.Spec.PXC.Image
-		err = r.client.Status().Update(context.Background(), cr)
-		if err != nil {
-			return errors.Wrap(err, "failed to update CR")
+		return nil, version
+	}
+
+	return errors.New("failed to reach any pod"), ""
+}
+
+func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
+	err, version := r.mysqlVersion(cr, sfs)
+	if err != nil {
+		if !errors.Is(err, versionNotReadyErr) {
+			return err
 		}
 
 		return nil
 	}
 
-	return errors.New("failed to reach any pod")
+	logger.Info("update PXC version (fetched from db)", "new version", version)
+	cr.Status.PXC.Version = version
+	cr.Status.PXC.Image = cr.Spec.PXC.Image
+
+	if err := r.client.Status().Update(context.Background(), cr); err != nil {
+		return errors.Wrap(err, "failed to update CR")
+	}
+
+	return nil
 }

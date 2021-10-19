@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
@@ -104,15 +105,26 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 				return nil, errors.Wrap(err, "manage replication user")
 			}
 		}
+
 		if cr.CompareVersionWith("1.10.0") >= 0 {
-			ver, err := version.NewVersion(cr.Status.PXC.Version)
-			if err != nil {
-				return nil, errors.Wrap(err, "invalid pxc version")
+			mysqlVersion := cr.Status.PXC.Version
+			if mysqlVersion == "" {
+				err, mysqlVersion = r.mysqlVersion(cr, statefulset.NewNode(cr))
+				if err != nil && !errors.Is(err, versionNotReadyErr) {
+					return nil, errors.Wrap(err, "retrieving pxc version")
+				}
 			}
 
-			if !ver.LessThan(privSystemUserAddedIn) {
-				if err := r.grantSystemUserPrivilege(cr, &internalSysSecretObj); err != nil {
-					return nil, errors.Wrap(err, "grant system privilege")
+			if mysqlVersion != "" {
+				ver, err := version.NewVersion(mysqlVersion)
+				if err != nil {
+					return nil, errors.Wrap(err, "invalid pxc version")
+				}
+
+				if !ver.LessThan(privSystemUserAddedIn) {
+					if err := r.grantSystemUserPrivilege(cr, &internalSysSecretObj); err != nil {
+						return nil, errors.Wrap(err, "grant system privilege")
+					}
 				}
 			}
 		}

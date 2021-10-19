@@ -304,11 +304,11 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtr
 
 	version, err := r.mysqlVersion(cr, sfs)
 	if err != nil {
-		if !errors.Is(err, versionNotReadyErr) {
-			return err
+		if errors.Is(err, versionNotReadyErr) {
+			return nil
 		}
 
-		return nil
+		return err
 	}
 
 	logger.Info("update PXC version (fetched from db)", "new version", version)

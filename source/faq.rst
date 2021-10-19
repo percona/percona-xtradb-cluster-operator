@@ -172,106 +172,25 @@ with both solutions in `this blog post <https://www.percona.com/blog/2021/01/11/
 
 .. _faq-validation:
 
-How to have Custom Resource validation without the Operator cluster-wide mode?
-================================================================================
+Which additional access permissions are used by the Custom Resource validation webhook?
+=======================================================================================
 
 The ``spec.enableCRValidationWebhook`` key in the `deploy/cr.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/cr.yaml>`__
 file enables or disables schema validation done by the Operator before applying
-``cr.yaml``. By default this feature works only in :ref:`cluster-wide mode<install-clusterwide>`
-due to access restrictions. Still it is possible to grant additional privileges
-needed to validate Custom Resource in the ordinary (per-namespace) Operator mode.
+``cr.yaml``. This feature works only in :ref:`cluster-wide mode<install-clusterwide>`
+due to access restrictions. It uses the following additional `RBAC permissions <https://kubernetes.io/docs/reference/access-authn-authz/rbac/>`_:
 
-1. Modify the default `deploy/rbac.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/rbac.yaml>_ file with the following additions:
+.. code:: yaml
 
-   .. code:: yaml
-
-      ...
-      rules:
-      ...
-      - apiGroups:
-        - admissionregistration.k8s.io
-        resources:
-        - validatingwebhookconfigurations
-        verbs:
-        - get
-        - list
-        - watch
-        - create
-        - update
-        - patch
-        - delete
-      ...
-
-   Apply the modified file as usual:
-
-   .. code:: bash
-
-      $ kubectl apply -f deploy/rbac.yaml
-
-2. :ref:`Create secret<tls>` ``pxc-webhook-ssl`` with ``tls.crt`` and ``tls.key``
-
-3. Create service for operator using the following yaml file (for example, ``service.yaml``):
-
-   .. code:: yaml
-   
-      apiVersion: v1
-      kind: Service
-      metadata:
-       name: percona-xtradb-cluster-operator
-       labels:
-       name: percona-xtradb-cluster-operator
-      spec:
-       ports:
-       - port: 443
-         targetPort: 9443
-       selector:
-       app.kubernetes.io/name: percona-xtradb-cluster-operator
-
-   Apply it:
-
-   .. code:: bash
-
-      $ kubectl apply -f deploy/service.yaml
-
-4. Install the webhook with the following yaml file (e. g. ``webhook.yaml``)...
-
-   .. code:: yaml
-   
-      apiVersion: admissionregistration.k8s.io/v1
-    kind: ValidatingWebhookConfiguration
-    metadata:
-    name: percona-xtradbcluster-webhook
-    webhooks:
-    - name: validationwebhook.pxc.percona.com
-    rules:
-    - apiGroups:
-    - pxc.percona.com
-    apiVersions:
-    - '*'
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - perconaxtradbclusters/*
-    scope: '*'
-    clientConfig:
-    service:
-    namespace: <your namespace>
-    name: percona-xtradb-cluster-operator
-    path: /validate-percona-xtradbcluster
-    port: 443
-    caBundle: "Ci0tLS0tQk...<`caBundle` is a PEM encoded CA bundle which will be used to validate the webhook's server certificate.>...tLS0K"
-    admissionReviewVersions: ["v1", "v1beta1"]
-    sideEffects: None
-    failurePolicy: Fail
-    timeoutSeconds: 10
-
-  ...and apply it:
-
-  .. code:: bash
-
-     $ kubectl apply -f deploy/webhook.yaml
-     
-Now you can turn on Custom Resource validation without the Operator
-cluster-wide mode.
-
+   - apiGroups:
+     - admissionregistration.k8s.io
+     resources:
+     - validatingwebhookconfigurations
+     verbs:
+     - get
+     - list
+     - watch
+     - create
+     - update
+     - patch
+     - delete

@@ -236,25 +236,25 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (error, string) {
+func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {
 	if cr.Status.PXC.Status != apiv1.AppStateReady {
-		return versionNotReadyErr, ""
+		return "", versionNotReadyErr
 	}
 
 	if cr.Status.ObservedGeneration != cr.ObjectMeta.Generation {
-		return versionNotReadyErr, ""
+		return "", versionNotReadyErr
 	}
 
 	if cr.Status.PXC.Image == cr.Spec.PXC.Image {
-		return versionNotReadyErr, ""
+		return "", versionNotReadyErr
 	}
 
 	upgradeInProgress, err := r.upgradeInProgress(cr, "pxc")
 	if err != nil {
-		return errors.Wrap(err, "check pxc upgrade progress"), ""
+		return "", errors.Wrap(err, "check pxc upgrade progress")
 	}
 	if upgradeInProgress {
-		return versionNotReadyErr, ""
+		return "", versionNotReadyErr
 	}
 
 	list := corev1.PodList{}
@@ -265,7 +265,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
 	); err != nil {
-		return errors.Wrap(err, "get pod list"), ""
+		return "", errors.Wrap(err, "get pod list")
 	}
 
 	user := "root"
@@ -293,16 +293,16 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 			continue
 		}
 
-		return nil, version
+		return version, nil
 	}
 
-	return errors.New("failed to reach any pod"), ""
+	return "", errors.New("failed to reach any pod")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	err, version := r.mysqlVersion(cr, sfs)
+	version, err := r.mysqlVersion(cr, sfs)
 	if err != nil {
 		if !errors.Is(err, versionNotReadyErr) {
 			return err

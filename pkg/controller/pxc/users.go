@@ -109,7 +109,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		if cr.CompareVersionWith("1.10.0") >= 0 {
 			mysqlVersion := cr.Status.PXC.Version
 			if mysqlVersion == "" {
-				err, mysqlVersion = r.mysqlVersion(cr, statefulset.NewNode(cr))
+				mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
 				if err != nil && !errors.Is(err, versionNotReadyErr) {
 					return nil, errors.Wrap(err, "retrieving pxc version")
 				}

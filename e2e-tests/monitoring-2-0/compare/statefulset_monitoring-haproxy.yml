@@ -157,7 +157,13 @@ spec:
               protocol: TCP
             - containerPort: 30105
               protocol: TCP
-          resources: {}
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 308m
+              memory: 508M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
         - env:

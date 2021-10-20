@@ -22,7 +22,7 @@ RUN go get k8s.io/apimachinery/pkg/util/sets \
     && go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
     && cp -r build/_output/bin/peer-list /usr/local/bin/
 
-FROM registry.access.redhat.com/ubi7/ubi-minimal AS ubi7
+FROM registry.access.redhat.com/ubi8/ubi-minimal AS ubi8
 RUN microdnf update && microdnf clean all
 
 LABEL name="Percona XtraDB Cluster Operator" \

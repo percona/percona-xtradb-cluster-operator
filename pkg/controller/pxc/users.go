@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,10 +16,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const internalPrefix = "internal-"
+
+// https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
+var privSystemUserAddedIn = version.Must(version.NewVersion("8.0.16"))
 
 type userUpdateRestart struct {
 	restartPXC            bool
@@ -100,10 +105,27 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 				return nil, errors.Wrap(err, "manage replication user")
 			}
 		}
+
 		if cr.CompareVersionWith("1.10.0") >= 0 {
-			err = r.grantSystemUserPrivilege(cr, &internalSysSecretObj)
-			if err != nil {
-				return nil, errors.Wrap(err, "grant system privilege")
+			mysqlVersion := cr.Status.PXC.Version
+			if mysqlVersion == "" {
+				mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
+				if err != nil && !errors.Is(err, versionNotReadyErr) {
+					return nil, errors.Wrap(err, "retrieving pxc version")
+				}
+			}
+
+			if mysqlVersion != "" {
+				ver, err := version.NewVersion(mysqlVersion)
+				if err != nil {
+					return nil, errors.Wrap(err, "invalid pxc version")
+				}
+
+				if !ver.LessThan(privSystemUserAddedIn) {
+					if err := r.grantSystemUserPrivilege(cr, &internalSysSecretObj); err != nil {
+						return nil, errors.Wrap(err, "grant system privilege")
+					}
+				}
 			}
 		}
 	}

@@ -2,12 +2,12 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   annotations: {}
-  generation: 2
-  name: no-proxysql-pxc
+  generation: 1
+  name: cluster1-pxc
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: no-proxysql
+      name: cluster1
 spec:
   podManagementPolicy: OrderedReady
   replicas: 3
@@ -15,58 +15,122 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: pxc
-      app.kubernetes.io/instance: no-proxysql
+      app.kubernetes.io/instance: cluster1
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: no-proxysql-pxc
+  serviceName: cluster1-pxc
   template:
     metadata:
       annotations: {}
       labels:
         app.kubernetes.io/component: pxc
-        app.kubernetes.io/instance: no-proxysql
+        app.kubernetes.io/instance: cluster1
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: pxc
+                  app.kubernetes.io/instance: cluster1
+                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                  app.kubernetes.io/name: percona-xtradb-cluster
+                  app.kubernetes.io/part-of: percona-xtradb-cluster
+              topologyKey: kubernetes.io/hostname
       containers:
+        - env:
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: POD_NAMESPASE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: my-log-collector-secrets
+                optional: true
+          imagePullPolicy: Always
+          name: logs
+          resources:
+            requests:
+              cpu: 600m
+              memory: 1G
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
+        - args:
+            - logrotate
+          env:
+            - name: SERVICE_TYPE
+              value: mysql
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-cluster1
+          imagePullPolicy: Always
+          name: logrotate
+          resources:
+            requests:
+              cpu: 600m
+              memory: 1G
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
         - args:
             - mysqld
           command:
             - /var/lib/mysql/pxc-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: no-proxysql-pxc-unready
+              value: cluster1-pxc-unready
             - name: MONITOR_HOST
               value: '%'
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: root
-                  name: internal-no-proxysql
+                  name: internal-cluster1
             - name: XTRABACKUP_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: xtrabackup
-                  name: internal-no-proxysql
+                  name: internal-cluster1
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-no-proxysql
+                  name: internal-cluster1
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: IS_LOGCOLLECTOR
+              value: "yes"
             - name: OPERATOR_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-no-proxysql
+                  name: internal-cluster1
             - name: LIVENESS_CHECK_TIMEOUT
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
           envFrom:
             - secretRef:
-                name: no-proxysql-env-vars-pxc
+                name: cluster1-env-vars-pxc
                 optional: true
           imagePullPolicy: Always
           livenessProbe:
@@ -109,8 +173,8 @@ spec:
             timeoutSeconds: 15
           resources:
             requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 600m
+              memory: 1G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -130,16 +194,6 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
-        - args:
-            - -c
-            - while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;
-          command:
-            - /bin/sh
-          imagePullPolicy: Always
-          name: my-sidecar-1
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -148,8 +202,8 @@ spec:
           name: pxc-init
           resources:
             requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 600m
+              memory: 1G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -158,6 +212,7 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
+        fsGroup: 1001
         supplementalGroups:
           - 1001
       serviceAccount: default
@@ -168,38 +223,36 @@ spec:
           name: tmp
         - configMap:
             defaultMode: 420
-            name: no-proxysql-pxc
+            name: cluster1-pxc
             optional: true
           name: config
         - name: ssl-internal
           secret:
             defaultMode: 420
             optional: true
-            secretName: no-proxysql-ssl-internal
+            secretName: my-cluster-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
             optional: false
-            secretName: no-proxysql-ssl
+            secretName: my-cluster-ssl
         - configMap:
             defaultMode: 420
-            name: auto-no-proxysql-pxc
+            name: auto-cluster1-pxc
             optional: true
           name: auto-config
         - name: vault-keyring-secret
           secret:
             defaultMode: 420
             optional: true
-            secretName: no-proxysql-vault
+            secretName: keyring-secret-vault
         - name: mysql-users-secret-file
           secret:
             defaultMode: 420
             optional: false
-            secretName: internal-no-proxysql
+            secretName: internal-cluster1
   updateStrategy:
-    rollingUpdate:
-      partition: 0
-    type: RollingUpdate
+    type: OnDelete
   volumeClaimTemplates:
     - metadata:
         name: datadir
@@ -208,6 +261,6 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 2Gi
+            storage: 6G
       status:
         phase: Pending

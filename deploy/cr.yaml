@@ -430,10 +430,10 @@ spec:
 #           Port  9200
 #           Index my_index
 #           Type  my_type
-#    resources:
-#      requests:
-#        memory: 200M
-#        cpu: 500m
+    resources:
+      requests:
+        memory: 100M
+        cpu: 200m
   pmm:
     enabled: false
     image: percona/pmm-client:2.18.0
@@ -441,10 +441,10 @@ spec:
     serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
-#    resources:
-#      requests:
-#        memory: 200M
-#        cpu: 500m
+    resources:
+      requests:
+        memory: 150M
+        cpu: 300m
   backup:
     image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    serviceAccountName: percona-xtradb-cluster-operator

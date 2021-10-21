@@ -92,7 +92,7 @@ function main() {
 	start_cluster ${cluster}
 	wait_cluster_consistency ${cluster} ${pxc_size} ${proxy_size}
 
-	for i in $(seq 0 $((pxc_size-1)) ); do
+	for i in $(seq 0 $((pxc_size - 1))); do
 		compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
 	done
 

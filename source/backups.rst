@@ -264,8 +264,13 @@ When enabled, compression will be used for both backups and `SST <https://www.pe
 Restore the cluster from a previously saved backup
 --------------------------------------------------
 
-Backup can be restored not only on the Kubernetes cluster where it was made, but
+Backups can be restored not only on the Kubernetes cluster where it was made, but
 also on any Kubernetes-based environment with the installed Operator.
+
+Backups **cannot be restored** to :ref:`emptyDir and hostPath volumes<storage-local>`,
+but it is possible to make a backup from such storage (i. e., from
+emptyDir/hostPath to S3), and later restore it to a `Persistent Volume <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_.
+
 
 .. note:: When restoring to a new Kubernetes-based environment, make sure it
    has a Secrets object with the same user passwords as in the original cluster.

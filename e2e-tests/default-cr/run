@@ -97,6 +97,23 @@ function main() {
 	done
 
 	kubectl_bin delete -f ${deploy_dir}/cr.yaml
+
+	cluster="$(yq r ${deploy_dir}/cr-minimal.yaml 'metadata.name')"
+	kubectl_bin apply -f ${deploy_dir}/cr-minimal.yaml
+
+	pxc_size=$(kubectl_bin get pxc/${cluster} -o jsonpath={.spec.pxc.size})
+	proxy_size=$(kubectl_bin get pxc/${cluster} -o jsonpath={.spec.$(get_proxy_engine ${cluster}).size})
+
+	wait_for_running "$(get_proxy ${cluster})" ${proxy_size}
+	wait_for_running "${cluster}-pxc" ${pxc_size}
+
+	desc 'check if service and statefulset created with expected config'
+	compare_kubectl statefulset/${cluster}-pxc
+	compare_kubectl statefulset/$(get_proxy ${cluster})
+	compare_kubectl service/${cluster}-pxc
+	compare_kubectl service/$(get_proxy ${cluster})
+	compare_kubectl service/$(get_proxy ${cluster})-unready
+
 	destroy $namespace
 }
 

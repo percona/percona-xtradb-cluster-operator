@@ -177,7 +177,7 @@ Which additional access permissions are used by the Custom Resource validation w
 
 The ``spec.enableCRValidationWebhook`` key in the `deploy/cr.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/cr.yaml>`__
 file enables or disables schema validation done by the Operator before applying
-``cr.yaml``. This feature works only in :ref:`cluster-wide mode<install-clusterwide>`
+``cr.yaml`` file. This feature works only in :ref:`cluster-wide mode<install-clusterwide>`
 due to access restrictions. It uses the following additional `RBAC permissions <https://kubernetes.io/docs/reference/access-authn-authz/rbac/>`_:
 
 .. code:: yaml

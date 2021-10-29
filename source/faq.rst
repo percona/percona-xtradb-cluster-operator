@@ -234,3 +234,27 @@ Kubernetes and ProxySQL.
 See more detailed functionality and performance comparison of using the Operator
 with both solutions in `this blog post <https://www.percona.com/blog/2021/01/11/percona-kubernetes-operator-for-percona-xtradb-cluster-haproxy-or-proxysql/>`__.
 
+.. _faq-validation:
+
+Which additional access permissions are used by the Custom Resource validation webhook?
+=======================================================================================
+
+The ``spec.enableCRValidationWebhook`` key in the `deploy/cr.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/cr.yaml>`__
+file enables or disables schema validation done by the Operator before applying
+``cr.yaml`` file. This feature works only in :ref:`cluster-wide mode<install-clusterwide>`
+due to access restrictions. It uses the following additional `RBAC permissions <https://kubernetes.io/docs/reference/access-authn-authz/rbac/>`_:
+
+.. code:: yaml
+
+   - apiGroups:
+     - admissionregistration.k8s.io
+     resources:
+     - validatingwebhookconfigurations
+     verbs:
+     - get
+     - list
+     - watch
+     - create
+     - update
+     - patch
+     - delete

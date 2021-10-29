@@ -74,7 +74,8 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-server-
    * - enableCRValidationWebhook
      - boolean
      - ``true``
-     - Enables or disables schema validation before applying ``cr.yaml`` (works only in :ref:`cluster-wide mode<install-clusterwide>` by default due to access restrictions)
+     - Enables or disables schema validation before applying ``cr.yaml`` file (works only in :ref:`cluster-wide mode<install-clusterwide>` due to
+       :ref:`access restrictions<faq-validation>`).
 
    * - pause
      - boolean

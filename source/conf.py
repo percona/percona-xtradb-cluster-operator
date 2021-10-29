@@ -37,9 +37,9 @@ project = u'Percona Distribution for MySQL Operator'
 copyright = u'Percona LLC and/or its affiliates 2009 - 2021'
 
 # the short X.Y version
-version = '1.9.0'
+version = '1.10.0'
 # the full version including alpha/beta/rc tags.
-release = '1.9.0'
+release = '1.10.0'
 # the PXC 5.7 and PXC 8.0 recommended versions to be used in docs
 pxc57recommended = '5.7.34-31.51'
 pxc80recommended = '8.0.23-14.1'

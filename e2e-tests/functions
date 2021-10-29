@@ -364,19 +364,10 @@ compare_kubectl() {
 			>${new_result}
 	# last sed is needed for backup cronjob content
 
-	if version_gt "1.21"; then
-		if [[ $expected_result == */service*-proxysql-unready* ]]; then
-			yq d -i ${new_result} 'metadata.annotations'
-		fi
-	fi
-	if version_gt "1.22"; then
-		yq d -i ${new_result} 'spec.internalTrafficPolicy'
-		yq d -i ${new_result} 'spec.allocateLoadBalancerNodePorts'
-		if [[ $expected_result == */job* ]]; then
-			yq d -i ${new_result} 'metadata.generation'
-			yq d -i ${new_result} 'spec.completionMode'
-			yq d -i ${new_result} 'spec.suspend'
-		fi
+	if version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
+		expected_result=${expected_result//.yml/-k122.yml}
+	elif version_gt "1.21" && [ -f ${expected_result//.yml/-k121.yml} ]; then
+		expected_result=${expected_result//.yml/-k121.yml}
 	fi
 
 	diff -u ${expected_result} ${new_result}

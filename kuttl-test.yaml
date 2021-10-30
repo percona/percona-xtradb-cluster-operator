@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+testDirs:
+- ./e2e-tests/kuttl/
+crdDir: ./deploy/crd.yaml

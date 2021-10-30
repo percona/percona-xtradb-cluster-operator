@@ -1,0 +1,17 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    . ../helpers
+
+    LABELED_NODE=$(kubectl get nodes --no-headers=true | grep -v master | head -n1 | awk '{print $1}')
+    kubectl label nodes "${LABELED_NODE}" backupWorker=True --overwrite
+
+    run_mysql \
+        "CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
+        "-h $(get_proxy $(get_cluster_name)) -uroot -proot_password"
+    run_mysql \
+        'INSERT myApp.myApp (id) VALUES (100500)' \
+        "-h $(get_proxy $(get_cluster_name)) -uroot -proot_password"
+
+  timeout: 300

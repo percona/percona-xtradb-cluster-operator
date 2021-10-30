@@ -1,0 +1,10 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 60
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: scheduled-backup
+status:
+  state: initializing

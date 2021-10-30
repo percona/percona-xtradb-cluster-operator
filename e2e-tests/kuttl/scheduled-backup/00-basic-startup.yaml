@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    src_dir=$(realpath ../../../)
+    kubectl -n ${NAMESPACE} create -f ${src_dir}/deploy/rbac.yaml
+    kubectl -n ${NAMESPACE} create -f ${src_dir}/deploy/operator.yaml
+    kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/secrets.yml
+    kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/client.yml
+    kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/cloud-secret.yml
+    kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/minio-secret.yml
+  timeout: 300

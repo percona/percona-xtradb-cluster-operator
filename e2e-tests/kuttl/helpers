@@ -1,0 +1,33 @@
+#!/bin/bash
+
+get_proxy() {
+    local target_cluster=${1}
+    if [[ "$(kubectl -n ${NAMESPACE} get pxc ${target_cluster} -o 'jsonpath={.spec.haproxy.enabled}')" == "true" ]]; then
+        echo "${target_cluster}-haproxy"
+        return
+    fi
+    if [[ "$(kubectl -n ${NAMESPACE} get pxc ${target_cluster} -o 'jsonpath={.spec.proxysql.enabled}')" == "true" ]]; then
+        echo "${target_cluster}-proxysql"
+        return
+    fi
+    echo "${target_cluster}-pxc"
+}
+
+run_mysql() {
+    local command="$1"
+    local uri="$2"
+
+    client_pod=$(kubectl -n ${NAMESPACE} get pods \
+        --selector=name=pxc-client \
+        -o 'jsonpath={.items[].metadata.name}')
+
+    kubectl -n ${NAMESPACE} exec $client_pod -- \
+        bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
+        | sed -e 's/mysql: //' \
+        | (grep -v 'Using a password on the command line interface can be insecure.' || :)
+}
+
+get_cluster_name() {
+    echo $(kubectl -n ${NAMESPACE} get pxc -o jsonpath='{.items[0].metadata.name}')
+}
+

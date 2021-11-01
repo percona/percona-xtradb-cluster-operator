@@ -30,6 +30,18 @@ wait_for_sts_generation() {
 	set -o xtrace
 }
 
+apply_fixed_rbac() {
+	local git_tag="$1"
+
+	if version_gt "1.22"; then
+		curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/rbac.yaml" >"${tmp_dir}/rbac_${git_tag}.yaml"
+		$sed -i -e "s^apiVersion: rbac.authorization.k8s.io/v1beta1^apiVersion: rbac.authorization.k8s.io/v1^" "${tmp_dir}/rbac_${git_tag}.yaml"
+		kubectl_bin apply -f "${tmp_dir}/rbac_${git_tag}.yaml"
+	else
+		kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/rbac.yaml
+	fi
+}
+
 main() {
 	create_infra $namespace
 
@@ -99,7 +111,7 @@ main() {
 
 	# test 1.5.0
 	API="pxc.percona.com/v1-5-0"
-	kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.5.0/deploy/rbac.yaml
+	apply_fixed_rbac "v1.5.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.5.0", "proxysql": { "image": "percona/percona-xtradb-cluster-operator:1.5.0-proxysql" }}
     }'
@@ -113,7 +125,7 @@ main() {
 
 	# test 1.6.0
 	API="pxc.percona.com/v1-6-0"
-	kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.6.0/deploy/rbac.yaml
+	apply_fixed_rbac "v1.6.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.6.0"}
     }'
@@ -127,7 +139,7 @@ main() {
 
 	# test 1.7.0
 	API="pxc.percona.com/v1-7-0"
-	kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.7.0/deploy/rbac.yaml
+	apply_fixed_rbac "v1.7.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.7.0"}
     }'
@@ -141,7 +153,7 @@ main() {
 
 	# test 1.8.0
 	API="pxc.percona.com/v1-8-0"
-	kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.8.0/deploy/rbac.yaml
+	apply_fixed_rbac "v1.8.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.8.0"}
     }'

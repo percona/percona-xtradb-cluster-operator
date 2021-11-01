@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: {}
+  labels:
+    app.kubernetes.io/component: pxc
+    app.kubernetes.io/instance: some-name
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+  name: some-name-pxc
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: some-name
+spec:
+  internalTrafficPolicy: Cluster
+  ports:
+    - name: mysql
+      port: 3306
+      protocol: TCP
+      targetPort: 3306
+    - name: mysql-admin
+      port: 33062
+      protocol: TCP
+      targetPort: 33062
+    - name: mysqlx
+      port: 33060
+      protocol: TCP
+      targetPort: 33060
+  selector:
+    app.kubernetes.io/component: pxc
+    app.kubernetes.io/instance: some-name
+    app.kubernetes.io/name: percona-xtradb-cluster
+  sessionAffinity: None
+  type: ClusterIP

@@ -85,14 +85,14 @@ in the OpenShift environment.
 7. When the custom registry image is Ok, put a Docker Repo + Tag string
    (it should look like
    ``docker-registry.default.svc:5000/pxc/percona-xtradb-cluster-operator:{{{release}}}``)
-   into the ``image:`` option in ``deploy/operator.yaml`` configuration
-   file.
+   into the ``initImage`` option in ``deploy/operator.yaml`` configuration file.
+
+8. Repeat steps 3-5 for other images, updating the ``image``options in the
+   corresponding sections of the the ``deploy/cr.yaml`` file.
 
    Please note it is possible to specify ``imagePullSecrets`` option for
-   all images, if the registry requires authentication.
-
-8. Repeat steps 3-5 for other images, and update corresponding options
-   in the ``deploy/cr.yaml`` file.
+   the images, if the registry requires authentication.
 
 9. Now follow the standard `Percona Distribution for MySQL Operator installation
    instruction <./openshift>`__.
+

@@ -1,0 +1,9 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+status:
+  state: Running
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+status:
+  state: Failed

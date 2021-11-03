@@ -3,27 +3,67 @@ kind: PerconaXtraDBCluster
 metadata:
   name: scheduled-backup
 spec:
-  secretsName: my-cluster-secrets
-  sslSecretName: some-name-ssl
-  sslInternalSecretName: some-name-ssl-internal
-  pxc:
-    size: 3
-    image: percona/percona-xtradb-cluster:8.0.22-13.1
-    volumeSpec:
-      persistentVolumeClaim:
-        resources:
-          requests:
-            storage: 2Gi
-  proxysql:
-    enabled: true
-    size: 1
-    image: percona/percona-xtradb-cluster-operator:1.8.0-proxysql
-    volumeSpec:
-      persistentVolumeClaim:
-        resources:
-          requests:
-            storage: 2Gi
-  pmm:
-    enabled: false
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.8.0-pxc8.0-backup
+    image: 'percona/percona-xtradb-cluster-operator:1.8.0-pxc8.0-backup'
+    imagePullPolicy: Always
+    pitr:
+      enabled: false
+      storageName: ''
+  crVersion: 1.8.0
+  enableCRValidationWebhook: false
+  logCollectorSecretName: scheduled-backup-log-collector
+  platform: kubernetes
+  pmm: {}
+  proxysql:
+    affinity:
+      antiAffinityTopologyKey: kubernetes.io/hostname
+    enabled: true
+    gracePeriod: 30
+    image: 'percona/percona-xtradb-cluster-operator:1.8.0-proxysql'
+    imagePullPolicy: Always
+    podDisruptionBudget:
+      maxUnavailable: 1
+    podSecurityContext:
+      fsGroup: 1001
+      supplementalGroups:
+        - 1001
+    serviceAccountName: default
+    size: 1
+    sslInternalSecretName: some-name-ssl-internal
+    sslSecretName: some-name-ssl
+    volumeSpec:
+      persistentVolumeClaim:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+  pxc:
+    affinity:
+      antiAffinityTopologyKey: kubernetes.io/hostname
+    autoRecovery: true
+    gracePeriod: 600
+    image: 'percona/percona-xtradb-cluster:8.0.22-13.1'
+    imagePullPolicy: Always
+    podDisruptionBudget:
+      maxUnavailable: 1
+    podSecurityContext:
+      fsGroup: 1001
+      supplementalGroups:
+        - 1001
+    serviceAccountName: default
+    size: 3
+    sslInternalSecretName: some-name-ssl-internal
+    sslSecretName: some-name-ssl
+    vaultSecretName: scheduled-backup-vault
+    volumeSpec:
+      persistentVolumeClaim:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+  secretsName: my-cluster-secrets
+  sslInternalSecretName: some-name-ssl-internal
+  sslSecretName: some-name-ssl
+  upgradeOptions: {}

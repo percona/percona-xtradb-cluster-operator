@@ -1,9 +1,0 @@
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-- script: |
-    . ../helpers
-
-    kubectl -n ${NAMESPACE} rollout status --watch sts/$(get_proxy $(get_cluster_name))
-    kubectl -n ${NAMESPACE} rollout status --watch sts/$(get_cluster_name)-pxc
-  timeout: 300

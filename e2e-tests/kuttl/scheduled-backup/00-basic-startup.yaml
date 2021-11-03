@@ -10,3 +10,24 @@ commands:
     kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/cloud-secret.yml
     kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/minio-secret.yml
   timeout: 300
+- command: helm repo add hashicorp https://helm.releases.hashicorp.com
+- command: helm repo add percona https://percona-charts.storage.googleapis.com/
+- command: helm repo add minio https://helm.min.io/
+- command: helm repo update
+- command: |
+      helm install -n ${NAMESPACE} minio-service
+        --version 8.0.5
+        --set accessKey=some-access-key
+        --set secretKey=some-secret-key
+        --set service.type=ClusterIP
+        --set configPathmc=/tmp/.minio/
+        --set securityContext.enabled=false
+        --set persistence.size=2G
+        --set environment.MINIO_REGION=us-east-1
+        --set environment.MINIO_HTTP_TRACE=/tmp/trace.log
+        minio/minio
+  namespaced: true
+- command: kubectl wait pod --for=condition=Ready --selector=release=minio-service
+  namespaced: true
+- command: kubectl -n ${NAMESPACE} run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- /usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
+  ignoreFailure: true

@@ -1,0 +1,13 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    . ../helpers
+    target_backup_num=20
+    until [[ $(kubectl -n ${NAMESPACE} get pxc-backups -o go-template='{{len .items}}') -ge ${target_backup_num} ]];
+    do
+      sleep 1
+    done
+    kubectl -n ${NAMESPACE} patch pxc/scheduled-backup --type=json -p '[{"op":"replace","path":"/spec/backup/schedule","value":null}]'
+
+  timeout: 600

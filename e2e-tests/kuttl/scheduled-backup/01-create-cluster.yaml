@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-10-0
+apiVersion: pxc.percona.com/v1-8-0
 kind: PerconaXtraDBCluster
 metadata:
   name: scheduled-backup
@@ -8,7 +8,7 @@ spec:
   sslInternalSecretName: some-name-ssl-internal
   pxc:
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
+    image: percona/percona-xtradb-cluster:8.0.22-13.1
     volumeSpec:
       persistentVolumeClaim:
         resources:
@@ -17,7 +17,7 @@ spec:
   proxysql:
     enabled: true
     size: 1
-    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.8.0-proxysql
     volumeSpec:
       persistentVolumeClaim:
         resources:
@@ -26,4 +26,4 @@ spec:
   pmm:
     enabled: false
   backup:
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.8.0-pxc8.0-backup

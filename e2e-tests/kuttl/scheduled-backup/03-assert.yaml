@@ -1,0 +1,12 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 2
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: 04-mysql-compare
+data:
+  scheduled-backup-pxc-0: "100500"
+  scheduled-backup-pxc-1: "100500"
+  scheduled-backup-pxc-2: "100500"

@@ -113,6 +113,11 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-server-
      - ``my-log-collector-secrets``
      - A secret for the `Fluent Bit Log Collector <https://fluentbit.io>`_
 
+   * - initImage
+     - string
+     - ``percona/percona-xtradb-cluster-operator:{{{release}}}``
+     - An alternative image for the initial Operator installation
+
    * - updateStrategy
      - string
      - ``SmartUpdate``

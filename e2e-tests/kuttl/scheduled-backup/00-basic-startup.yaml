@@ -2,7 +2,8 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
 - script: |
-    src_dir=$(realpath ../../../)
+    . ../helpers
+
     kubectl -n ${NAMESPACE} create -f ${src_dir}/deploy/rbac.yaml
     kubectl -n ${NAMESPACE} create -f ${src_dir}/deploy/operator.yaml
     kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/secrets.yml

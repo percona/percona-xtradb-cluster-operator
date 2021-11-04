@@ -1,0 +1,53 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 600
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+status:
+  state: Succeeded
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: scheduled-backup-pxc
+status:
+  observedGeneration: 3
+  replicas: 3
+  readyReplicas: 3
+  currentReplicas: 3
+  updatedReplicas: 3
+  collisionCount: 0
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: scheduled-backup-proxysql
+status:
+  observedGeneration: 3
+  replicas: 2
+  readyReplicas: 2
+  currentReplicas: 2
+  updatedReplicas: 2
+  collisionCount: 0
+---
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: scheduled-backup
+status:
+  proxysql:
+    labelSelectorPath: >-
+      app.kubernetes.io/component=proxysql,app.kubernetes.io/instance=scheduled-backup,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator,app.kubernetes.io/name=percona-xtradb-cluster,app.kubernetes.io/part-of=percona-xtradb-cluster
+    ready: 2
+    size: 2
+    status: ready
+  pxc:
+    labelSelectorPath: >-
+      app.kubernetes.io/component=pxc,app.kubernetes.io/instance=scheduled-backup,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator,app.kubernetes.io/name=percona-xtradb-cluster,app.kubernetes.io/part-of=percona-xtradb-cluster
+    ready: 3
+    size: 3
+    status: ready
+  ready: 5
+  size: 5
+  state: ready

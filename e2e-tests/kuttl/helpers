@@ -1,5 +1,8 @@
 #!/bin/bash
 
+src_dir=$(realpath ../../../)
+tmp_dir=$(mktemp -d)
+
 get_proxy() {
     local target_cluster=${1}
     if [[ "$(kubectl -n ${NAMESPACE} get pxc ${target_cluster} -o 'jsonpath={.spec.haproxy.enabled}')" == "true" ]]; then

@@ -5,7 +5,7 @@ timeout: 2
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: 03-mysql-compare
+  name: 08-mysql-compare
 data:
   scheduled-backup-pxc-0.sql: |
     100500

@@ -1,0 +1,16 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    . ../helpers
+
+    first_pvc_backup=$(kubectl -n ${NAMESPACE} get pxc-backups -o jsonpath='{.items[?(.spec.storageName == "pvc")].metadata.name}' | awk '{print $1}')
+
+    restore_name="backup-${first_pvc_backup:22:32}"
+
+    yq w "${src_dir}/deploy/backup/restore.yaml" 'metadata.name' "${restore_name}" \
+      | yq w - 'spec.pxcCluster' "$(get_cluster_name)" \
+      | yq w - 'spec.backupName' "${first_pvc_backup}" \
+      | kubectl -n ${NAMESPACE} apply -f -
+
+  timeout: 600

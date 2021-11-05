@@ -318,6 +318,33 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-replicationchannels-configuration-sourceretrycount:                               |
+|                 |                                                                                           |
+| **Key**         | `pxc.replicationChannels.configuration.sourceRetryCount                                   |
+|                 | <operator.html#pxc-replicationchannels-configuration-sourceretrycount>`_                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``3``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Number of retries Replica should do when the existing connection source fails             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _pxc-replicationchannels-configuration-sourceconnectretry:                             |
+|                 |                                                                                           |
+| **Key**         | `pxc.replicationChannels.configuration.sourceConnectRetry                                 |
+|                 | <operator.html#pxc-replicationchannels-configuration-sourceconnectretry>`_                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value Type**  | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``60``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The interval between reconnection attempts in seconds to be used by Replica when the      |
+|                 | the existing connection source fails                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _pxc-replicationchannels-sourceslist-host:                                             |
 |                 |                                                                                           |
 | **Key**         | `pxc.replicationChannels.sourcesList.host                                                 |

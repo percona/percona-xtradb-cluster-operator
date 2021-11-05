@@ -20,7 +20,7 @@ spec:
   haproxy:
     enabled: true
     size: 1
-    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.10.0-haproxy
   logcollector:
     enabled: true
-    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
+    image: percona/percona-xtradb-cluster-operator:1.10.0-logcollector

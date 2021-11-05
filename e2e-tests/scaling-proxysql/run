@@ -57,7 +57,7 @@ desc 'check if PVC not deleted'
 compare_kubectl pvc/proxydata-$cluster-proxysql-2
 
 desc 'check if Pod deleted from ProxySQL'
-sleep 15
+sleep 30
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
 	| (grep $pod2 && exit 1 || :)
 

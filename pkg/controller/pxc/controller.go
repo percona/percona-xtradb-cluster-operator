@@ -212,6 +212,17 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		return reconcile.Result{}, err
 	}
 
+	if o.SetVersion() {
+		err = r.client.Update(context.TODO(), o)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
+		}
+		err := r.client.Get(context.TODO(), request.NamespacedName, o)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "refetch PXC CR")
+		}
+	}
+
 	reqLogger := r.logger(o.Name, o.Namespace)
 
 	if o.ObjectMeta.DeletionTimestamp != nil {
@@ -257,7 +268,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		}
 	}()
 
-	changed, err := o.CheckNSetDefaults(r.serverVersion, reqLogger)
+	err = o.CheckNSetDefaults(r.serverVersion, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
 	}
@@ -287,14 +298,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	}
 
 	r.resyncPXCUsersWithProxySQL(o)
-
-	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
-	if changed {
-		err = r.client.Update(context.TODO(), o)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
-		}
-	}
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
 		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})

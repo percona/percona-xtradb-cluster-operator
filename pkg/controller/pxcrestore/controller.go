@@ -170,8 +170,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		err = errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
 		return rr, err
 	}
+	clusterOrig := cluster.DeepCopy()
 
-	_, err = cluster.CheckNSetDefaults(r.serverVersion, r.log)
+	err = cluster.CheckNSetDefaults(r.serverVersion, r.log)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
 	}
@@ -232,7 +233,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		cluster.Spec.AllowUnsafeConfig = oldUnsafe
 	}
 
-	err = r.startCluster(&cluster)
+	err = r.startCluster(clusterOrig)
 	if err != nil {
 		err = errors.Wrap(err, "restart cluster")
 		return rr, err
@@ -291,9 +292,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBC
 		gracePeriodSec = int64(c.Spec.PXC.Size) * *c.Spec.PXC.TerminationGracePeriodSeconds
 	}
 
+	patch := client.MergeFrom(c.DeepCopy())
 	c.Spec.Pause = true
-
-	err := r.client.Update(context.TODO(), c)
+	err := r.client.Patch(context.TODO(), c, patch)
 	if err != nil {
 		return errors.Wrap(err, "shutdown pods")
 	}
@@ -451,12 +452,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) setStatus(cr *api.PerconaXtraDBCl
 
 	err := r.client.Status().Update(context.TODO(), cr)
 	if err != nil {
-		// may be it's k8s v1.10 and erlier (e.g. oc3.9) that doesn't support status updates
-		// so try to update whole CR
-		err := r.client.Update(context.TODO(), cr)
-		if err != nil {
-			return fmt.Errorf("send update: %v", err)
-		}
+		return errors.Wrap(err, "send update")
 	}
 
 	return nil

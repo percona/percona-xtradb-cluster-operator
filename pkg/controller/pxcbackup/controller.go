@@ -166,7 +166,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 		return rr, nil
 	}
 
-	_, err = cluster.CheckNSetDefaults(r.serverVersion, logger)
+	err = cluster.CheckNSetDefaults(r.serverVersion, logger)
 	if err != nil {
 		return rr, errors.Wrap(err, "wrong PXC options")
 	}
@@ -481,12 +481,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 
 	err = r.client.Status().Update(context.TODO(), bcp)
 	if err != nil {
-		// may be it's k8s v1.10 and erlier (e.g. oc3.9) that doesn't support status updates
-		// so try to update whole CR
-		err := r.client.Update(context.TODO(), bcp)
-		if err != nil {
-			return errors.Wrap(err, "send update")
-		}
+		return errors.Wrap(err, "send update")
 	}
 
 	return nil

@@ -84,7 +84,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *apiv1.Percon
 			return
 		}
 
-		_, err = localCr.CheckNSetDefaults(r.serverVersion, r.logger(cr.Name, cr.Namespace))
+		err = localCr.CheckNSetDefaults(r.serverVersion, r.logger(cr.Name, cr.Namespace))
 		if err != nil {
 			logger.Error(err, "failed to set defaults for CR")
 			return
@@ -147,6 +147,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 	}
 
 	logger := r.logger(cr.Name, cr.Namespace)
+	patch := client.MergeFrom(cr.DeepCopy())
 
 	if cr.Spec.PXC != nil && cr.Spec.PXC.Image != newVersion.PXCImage {
 		if cr.Status.PXC.Version == "" {
@@ -202,7 +203,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		cr.Spec.LogCollector.Image = newVersion.LogCollectorImage
 	}
 
-	err = r.client.Update(context.Background(), cr)
+	err = r.client.Patch(context.Background(), cr, patch)
 	if err != nil {
 		return errors.Wrap(err, "failed to update CR")
 	}

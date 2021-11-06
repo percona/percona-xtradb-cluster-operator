@@ -60,11 +60,12 @@ function main() {
 	compare_kubectl statefulset/${cluster}-pxc
 	compare_kubectl statefulset/$(get_proxy ${cluster})
 	compare_kubectl service/${cluster}-pxc
+	compare_kubectl service/${cluster}-pxc-unready
 	compare_kubectl service/$(get_proxy ${cluster})
-	compare_kubectl service/$(get_proxy ${cluster})-unready
+	compare_kubectl service/$(get_proxy ${cluster})-replicas
 
 	desc 'starting PMM up'
-	retry 10 60 helm install monitoring --set platform=kubernetes https://percona-charts.storage.googleapis.com/pmm-server-2.21.0.tgz
+	retry 10 60 helm install monitoring --set platform=kubernetes https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 	sleep 20
 	kubectl_bin patch pxc/${cluster} --type=merge --patch '{
 			"spec": {"pmm":{"enabled":true}}
@@ -111,8 +112,9 @@ function main() {
 	compare_kubectl statefulset/${cluster}-pxc
 	compare_kubectl statefulset/$(get_proxy ${cluster})
 	compare_kubectl service/${cluster}-pxc
+	compare_kubectl service/${cluster}-pxc-unready
 	compare_kubectl service/$(get_proxy ${cluster})
-	compare_kubectl service/$(get_proxy ${cluster})-unready
+	compare_kubectl service/$(get_proxy ${cluster})-replicas
 
 	destroy $namespace
 }

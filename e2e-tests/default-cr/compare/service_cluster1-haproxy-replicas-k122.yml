@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: {}
+  labels:
+    app.kubernetes.io/component: haproxy
+    app.kubernetes.io/instance: cluster1
+    app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+    app.kubernetes.io/name: percona-xtradb-cluster
+    app.kubernetes.io/part-of: percona-xtradb-cluster
+  name: cluster1-haproxy-replicas
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: cluster1
+spec:
+  internalTrafficPolicy: Cluster
+  ports:
+    - name: mysql-replicas
+      port: 3306
+      protocol: TCP
+      targetPort: 3307
+  selector:
+    app.kubernetes.io/component: haproxy
+    app.kubernetes.io/instance: cluster1
+    app.kubernetes.io/name: percona-xtradb-cluster
+  sessionAffinity: None
+  type: ClusterIP

@@ -10,4 +10,5 @@ commands:
         run_mysql "SELECT * from myApp.myApp;" "-h $(get_cluster_name)-pxc-$i.$(get_cluster_name)-pxc -uroot -proot_password" > "${tmp_dir}/$(get_cluster_name)-pxc-$i.sql"
         args="${args} --from-file "${tmp_dir}/$(get_cluster_name)-pxc-$i.sql""
     done
-    kubectl -n ${NAMESPACE} create configmap 03-mysql-compare ${args}
+    kubectl -n ${NAMESPACE} create configmap 64-mysql-compare ${args}
+  timeout: 600

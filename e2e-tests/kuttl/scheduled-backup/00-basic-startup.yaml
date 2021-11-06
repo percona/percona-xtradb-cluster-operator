@@ -5,7 +5,7 @@ commands:
     . ../helpers
 
     kubectl -n ${NAMESPACE} create -f ${src_dir}/deploy/rbac.yaml
-    kubectl -n ${NAMESPACE} create -f ${src_dir}/deploy/operator.yaml
+    yq w ${src_dir}/deploy/operator.yaml 'spec.template.spec.containers[0].image' "${IMAGE}" | kubectl -n ${NAMESPACE} apply -f -
     kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/secrets.yml
     kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/client.yml
     kubectl -n ${NAMESPACE} create -f ${src_dir}/e2e-tests/conf/cloud-secret.yml

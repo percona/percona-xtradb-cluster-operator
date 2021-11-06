@@ -1,0 +1,18 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- script: |
+    . ../helpers
+
+    yq w ${src_dir}/deploy/cr.yaml 'spec.pxc.image' "${IMAGE_PXC}" \
+    | yq w - 'spec.proxysql.image' "${IMAGE_PROXY}" \
+    | yq w - 'metadata.name' "$(basename $(pwd))" \
+    | yq w - 'spec.haproxy.image' "${IMAGE_HAPROXY}" \
+    | yq w - 'spec.backup.image' "${IMAGE_BACKUP}" \
+    | yq w - 'spec.logcollector.image' "${IMAGE_LOGCOLLECTOR}" \
+    | yq w - 'apiVersion' "${API}" \
+    | yq w - 'spec.crVersion' "$(echo "${API//pxc.percona.com\/v/}" | $sed 's/-/./g')" \
+    | yq w - 'spec.haproxy.enabled' false \
+    | yq w - 'spec.proxysql.enabled' true \
+    | yq w - 'spec.proxysql.size' 1 \
+    | kubectl -n ${NAMESPACE} apply -f -

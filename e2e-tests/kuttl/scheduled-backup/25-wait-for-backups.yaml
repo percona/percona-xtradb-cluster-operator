@@ -8,6 +8,6 @@ commands:
     do
       sleep 1
     done
-    kubectl -n ${NAMESPACE} patch pxc/scheduled-backup --type=json -p '[{"op":"replace","path":"/spec/backup/schedule","value":null}]'
+    kubectl -n ${NAMESPACE} patch "pxc/$(get_cluster_name)" --type=json -p '[{"op":"replace","path":"/spec/backup/schedule","value":null}]'
 
   timeout: 600

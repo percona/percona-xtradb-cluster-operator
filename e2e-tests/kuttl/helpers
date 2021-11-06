@@ -1,7 +1,18 @@
 #!/bin/bash
 
+GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
+API="pxc.percona.com/v1-10-0"
+IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
+IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0"}
+IMAGE_PMM=${IMAGE_PMM:-"perconalab/pmm-client:dev-latest"}
+IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-proxysql"}
+IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
+IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup"}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
+
 src_dir=$(realpath ../../../)
 tmp_dir=$(mktemp -d)
+sed=$(which gsed || which sed)
 
 get_proxy() {
     local target_cluster=${1}

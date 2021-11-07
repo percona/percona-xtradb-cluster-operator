@@ -23,20 +23,30 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 		return nil
 	}
 	secretObj := corev1.Secret{}
-	err := r.client.Get(context.TODO(),
+	secretInternalObj := corev1.Secret{}
+	errSecret := r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.PXC.SSLSecretName,
 		},
 		&secretObj,
 	)
-	if err == nil {
+	errInternalSecret := r.client.Get(context.TODO(),
+ 		types.NamespacedName{
+ 			Namespace: cr.Namespace,
+ 			Name:      cr.Spec.PXC.SSLInternalSecretName,
+ 		},
+ 		&secretInternalObj,
+ 	)
+	if errSecret == nil && errInternalSecret == nil {
 		return nil
-	} else if !k8serr.IsNotFound(err) {
-		return fmt.Errorf("get secret: %v", err)
+	} else if errSecret != nil && !k8serr.IsNotFound(errSecret) {
+ 		return fmt.Errorf("get secret: %v", errSecret)
+ 	} else if errInternalSecret != nil && !k8serr.IsNotFound(errInternalSecret) {
+ 		return fmt.Errorf("get internal secret: %v", errInternalSecret)
 	}
 
-	err = r.createSSLByCertManager(cr)
+	err := r.createSSLByCertManager(cr)
 	if err != nil {
 		if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
 			return fmt.Errorf("create ssl with cert manager %w", err)

@@ -14,19 +14,19 @@ import (
 
 var log = logf.Log
 
-// StartStopSignalHandler starts gorutine which is waiting for
-// termination signal and returns chan for indication when operator
-// can really stop.
-func StartStopSignalHandler(client client.Client, namespaces []string) <-chan struct{} {
-	stopCH := make(chan struct{})
-	go handleStopSignal(client, namespaces, stopCH)
-	return stopCH
+// StartStopSignalHandler starts gorutine which is waiting for termination
+// signal and returns a context which is cancelled when operator can really
+// stop.
+func StartStopSignalHandler(client client.Client, namespaces []string) context.Context {
+	ctx, shutdownFunc := context.WithCancel(context.Background())
+	go handleStopSignal(client, namespaces, shutdownFunc)
+	return ctx
 }
 
-func handleStopSignal(client client.Client, namespaces []string, stopCH chan struct{}) {
-	<-signals.SetupSignalHandler()
+func handleStopSignal(client client.Client, namespaces []string, shutdownFunc context.CancelFunc) {
+	<-signals.SetupSignalHandler().Done()
 	stop(client, namespaces)
-	close(stopCH)
+	shutdownFunc()
 }
 
 // Stop is used to understand, when we need to stop operator(usially SIGTERM)
@@ -52,28 +52,26 @@ func checkClusters(cl client.Client, namespaces []string) (bool, error) {
 
 		clusterList := &api.PerconaXtraDBClusterList{}
 
-		err := cl.List(context.TODO(), clusterList, &client.ListOptions{
-			Namespace: ns,
-		})
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				continue
-			}
+		err := cl.List(context.TODO(), clusterList, &client.ListOptions{Namespace: ns})
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, errors.Wrapf(err, "list clusters in namespace: %s", ns)
 		}
 
-		if !isClustersReadyToDelete(clusterList.Items) {
+		if clusterList.HasUnfinishedFinalizers() {
+			return false, nil
+		}
+
+		bcpList := api.PerconaXtraDBClusterBackupList{}
+
+		err = cl.List(context.TODO(), &bcpList, &client.ListOptions{Namespace: ns})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return false, errors.Wrap(err, "failed to get backup object")
+		}
+
+		if bcpList.HasUnfinishedFinalizers() {
 			return false, nil
 		}
 	}
-	return true, nil
-}
 
-func isClustersReadyToDelete(list []api.PerconaXtraDBCluster) bool {
-	for _, v := range list {
-		if v.ObjectMeta.DeletionTimestamp != nil && len(v.Finalizers) != 0 {
-			return false
-		}
-	}
-	return true
+	return true, nil
 }

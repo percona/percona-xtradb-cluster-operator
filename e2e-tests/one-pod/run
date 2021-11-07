@@ -7,97 +7,108 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
 spinup_pxc() {
-    local cluster=$1
-    local config=$2
-    local size="${3:-3}"
+	local cluster=$1
+	local config=$2
+	local size="${3:-3}"
 
-    desc 'create first PXC cluster'
-    kubectl_bin apply \
-        -f $conf_dir/secrets.yml
+	desc 'create first PXC cluster'
+	kubectl_bin apply \
+		-f $conf_dir/secrets.yml
 
-    apply_config "$conf_dir/client.yml"
-    apply_config "$config"
+	apply_config "$conf_dir/client.yml"
+	apply_config "$config"
 
-    desc 'check if all 3 Pods started'
-    wait_for_running "$cluster-pxc" "$size"
-    sleep 15
+	# todo(remove after 1.10 release)
+	if [ "${EKS}" -eq 1 ] && version_gt "1.21"; then
+		sleep 10
+		kpatch_set_field svc "${cluster}-pxc-unready" "/spec/publishNotReadyAddresses" true
+	fi
 
-    desc 'write data'
-    run_mysql \
-        'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
-        "-h $cluster-pxc -uroot -proot_password"
-    run_mysql \
-        'INSERT myApp.myApp (id) VALUES (100500)' \
-        "-h $cluster-pxc -uroot -proot_password"
+	desc 'check if all 3 Pods started'
+	wait_for_running "$cluster-pxc" "$size"
+	sleep 15
 
-    for i in $(seq 0 $(($size-1))); do
-        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
-    done
+	desc 'write data'
+	run_mysql \
+		'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);' \
+		"-h $cluster-pxc -uroot -proot_password"
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100500)' \
+		"-h $cluster-pxc -uroot -proot_password"
+
+	for i in $(seq 0 $((size - 1))); do
+		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+	done
 }
 
 check_pvc_md5() {
-    desc 'check backup file md5sum'
-    apply_config "$test_dir/conf/client.yml"
-    sleep 10
-    bak_client_pod=$(
-        kubectl_bin get pods \
-            --selector=name=backup-client \
-            -o 'jsonpath={.items[].metadata.name}'
-    )
-    wait_pod $bak_client_pod
-    kubectl_bin exec $bak_client_pod -- \
-        bash -c "cd /backup; md5sum -c md5sum.txt"
-    kubectl_bin delete \
-        -f $test_dir/conf/client.yml
+	desc 'check backup file md5sum'
+	apply_config "$test_dir/conf/client.yml"
+	sleep 10
+	bak_client_pod=$(
+		kubectl_bin get pods \
+			--selector=name=backup-client \
+			-o 'jsonpath={.items[].metadata.name}'
+	)
+	wait_pod $bak_client_pod
+	kubectl_bin exec $bak_client_pod -- \
+		bash -c "cd /backup; md5sum -c md5sum.txt"
+	kubectl_bin delete \
+		-f $test_dir/conf/client.yml
 }
 
 run_backup() {
-    local cluster=$1
-    local backup1=$2
+	local cluster=$1
+	local backup1=$2
 
-    desc 'make backup'
-    kubectl_bin apply \
-        -f $test_dir/conf/$backup1.yml
-    wait_backup $backup1
+	desc 'make backup'
+	kubectl_bin apply \
+		-f $test_dir/conf/$backup1.yml
+	wait_backup $backup1
 }
 
 run_recovery_check() {
-    local cluster=$1
-    local backup1=$2
+	local cluster=$1
+	local backup1=$2
 
-    desc 'write data after backup'
-    run_mysql \
-        'INSERT myApp.myApp (id) VALUES (100501)' \
-        "-h $cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	desc 'write data after backup'
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100501)' \
+		"-h $cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 
-    desc 'recover backup'
-    kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
-    wait_backup_restore ${backup1}
-    kubectl_bin logs job/restore-job-${backup1}-${cluster}
-    kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
-    wait_for_running "$cluster-pxc" 1
+	desc 'recover backup'
+	kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
+	wait_backup_restore ${backup1}
+	kubectl_bin logs job/restore-job-${backup1}-${cluster}
+	kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
+	wait_for_running "$cluster-pxc" 1
 
-    desc 'check data after backup'
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	desc 'check data after backup'
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 }
 
 main() {
-    create_infra $namespace
-    kubectl_bin apply \
-        -f $conf_dir/cloud-secret.yml
+	create_infra $namespace
 
-    cluster="one-pod"
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "1"
+	cluster="one-pod"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "1"
 
-    run_backup         "$cluster" "on-demand-backup-pvc"
-    run_recovery_check "$cluster" "on-demand-backup-pvc"
-    check_pvc_md5
+	compare_kubectl statefulset/$cluster-pxc
+	apply_config "$test_dir/conf/config-secret.yaml"
+	sleep 50
+	compare_kubectl statefulset/$cluster-pxc "-secret"
 
-    run_backup         "$cluster" "on-demand-backup-aws-s3"
-    run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+	run_backup "$cluster" "on-demand-backup-pvc"
+	run_recovery_check "$cluster" "on-demand-backup-pvc"
+	check_pvc_md5
 
-    destroy $namespace
+	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+		run_backup "$cluster" "on-demand-backup-aws-s3"
+		run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+	fi
+
+	destroy $namespace
 }
 
 main

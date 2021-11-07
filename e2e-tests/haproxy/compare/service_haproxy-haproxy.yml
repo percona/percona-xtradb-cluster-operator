@@ -1,6 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
+  annotations: {}
   labels:
     app.kubernetes.io/component: haproxy
     app.kubernetes.io/instance: haproxy
@@ -26,6 +27,10 @@ spec:
       port: 33062
       protocol: TCP
       targetPort: 33062
+    - name: mysqlx
+      port: 33060
+      protocol: TCP
+      targetPort: 33060
   selector:
     app.kubernetes.io/component: haproxy
     app.kubernetes.io/instance: haproxy

@@ -25,9 +25,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -70,6 +72,16 @@ func shellOut(sendStdin, script string) {
 }
 
 func main() {
+	// Custom signal handler for SIGUSR1. This is needed because the
+	// Docker image (percona/percona-xtradb-cluster-operator:$version-haproxy)
+	// sets the STOPSIGNAL to SIGUSR1 to shutdown HAProxy gracefully.
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGUSR1)
+	go func() {
+		<-signalChan
+		os.Exit(0)
+	}()
+
 	flag.Parse()
 
 	ns := *namespace
@@ -114,7 +126,6 @@ func main() {
 			}
 		}
 		log.Printf("Determined Domain to be %s", domainName)
-
 	} else {
 		domainName = strings.Join([]string{ns, "svc", *domain}, ".")
 	}

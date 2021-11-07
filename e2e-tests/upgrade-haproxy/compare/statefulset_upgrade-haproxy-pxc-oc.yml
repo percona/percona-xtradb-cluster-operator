@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  annotations: {}
   generation: 2
   name: upgrade-haproxy-pxc
   ownerReferences:
@@ -41,6 +42,49 @@ spec:
                   app.kubernetes.io/part-of: percona-xtradb-cluster
               topologyKey: kubernetes.io/hostname
       containers:
+        - env:
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: POD_NAMESPASE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: my-log-collector-secrets
+                optional: true
+          imagePullPolicy: Always
+          name: logs
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
+        - args:
+            - logrotate
+          env:
+            - name: SERVICE_TYPE
+              value: mysql
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-upgrade-haproxy
+          imagePullPolicy: Always
+          name: logrotate
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
         - args:
             - mysqld
           command:
@@ -65,11 +109,23 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-upgrade-haproxy
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: IS_LOGCOLLECTOR
+              value: "yes"
             - name: OPERATOR_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
                   name: internal-upgrade-haproxy
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "15"
+          envFrom:
+            - secretRef:
+                name: upgrade-haproxy-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:
@@ -96,6 +152,9 @@ spec:
               protocol: TCP
             - containerPort: 33062
               name: mysql-admin
+              protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
               protocol: TCP
           readinessProbe:
             exec:
@@ -195,6 +254,6 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 6Gi
+            storage: 6G
       status:
         phase: Pending

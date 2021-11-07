@@ -10,21 +10,19 @@ create_infra $namespace
 deploy_cert_manager
 
 kubectl_bin apply -f "$test_dir/conf/service-account.yml"
-if [[ ! -z "${OPENSHIFT}" ]]; then
-    oc adm policy add-scc-to-user privileged -z percona-xtradb-cluster-operator-workload
+if [[ -n ${OPENSHIFT} ]]; then
+	oc adm policy add-scc-to-user privileged -z percona-xtradb-cluster-operator-workload
 
-    if [ -n "$OPERATOR_NS" ]; then
-        oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' ${OPERATOR_NS:+-n $OPERATOR_NS}
-    else
-        oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
-    fi
+	if [ -n "$OPERATOR_NS" ]; then
+		oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' ${OPERATOR_NS:+-n $OPERATOR_NS}
+	else
+		oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
+	fi
 fi
 
 desc 'create first PXC cluster'
 cluster="sec-context"
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
-
-kubectl_bin apply -f "${conf_dir}/cloud-secret.yml"
 
 desc 'check if service and statefulset created with expected config'
 compare_kubectl statefulset/$cluster-pxc
@@ -39,7 +37,7 @@ desc 'check if service and statefulset chenged to expected config'
 compare_kubectl statefulset/$cluster-pxc $pfx
 compare_kubectl statefulset/$cluster-proxysql $pfx
 
-wait_cluster_consistency "$cluster" 3 1
+wait_cluster_consistency "$cluster" 3 2
 
 desc 'run pvc backup'
 backup="on-demand-backup-pvc"
@@ -47,10 +45,6 @@ kubectl_bin apply -f "$test_dir/conf/$cluster-$backup.yml"
 wait_backup $backup
 compare_kubectl job.batch/xb-$backup
 
-if [ -n "$OPERATOR_NS" ]; then
-    kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$OPERATOR_NS"
-fi
-compare_kubectl cronjob/each-hour-pvc
 kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
 desc 'run pvc restore'
@@ -58,7 +52,11 @@ restore="restore-pvc"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
 wait_pod restore-src-$restore-$cluster
 kubectl_bin get -o yaml pod/restore-src-restore-pvc-sec-context
-compare_kubectl pod/restore-src-$restore-$cluster
+if version_gt "1.21"; then
+	compare_kubectl pod/restore-src-$restore-$cluster
+else
+	compare_kubectl pod/restore-src-$restore-$cluster "-120"
+fi
 wait_backup_restore $restore
 compare_kubectl job.batch/restore-job-$restore-$cluster
 
@@ -66,7 +64,7 @@ desc 'run s3 backup'
 kubectl_bin apply -f $conf_dir/minio-secret.yml
 start_minio
 
-wait_cluster_consistency "$cluster" 3 1
+wait_cluster_consistency "$cluster" 3 2
 backup="on-demand-backup-s3"
 kubectl_bin apply -f "$test_dir/conf/$cluster-$backup.yml"
 wait_backup $backup
@@ -78,7 +76,7 @@ kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
 wait_backup_restore $restore
 compare_kubectl job.batch/restore-job-$restore-$cluster
 
-if [[ ! -z "${OPENSHIFT}" ]]; then
-    oc adm policy remove-scc-from-user privileged -z percona-xtradb-cluster-operator-workload
+if [[ -n ${OPENSHIFT} ]]; then
+	oc adm policy remove-scc-from-user privileged -z percona-xtradb-cluster-operator-workload
 fi
 destroy $namespace

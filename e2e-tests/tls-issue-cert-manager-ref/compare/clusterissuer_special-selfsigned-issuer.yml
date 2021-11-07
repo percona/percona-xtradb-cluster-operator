@@ -1,9 +1,9 @@
-apiVersion: cert-manager.io/v1alpha3
+apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
   annotations:
     kubectl.kubernetes.io/last-applied-configuration: |
-      {"apiVersion":"cert-manager.io/v1alpha3","kind":"ClusterIssuer","metadata":{"annotations":{},"name":"special-selfsigned-issuer"},"spec":{"selfSigned":{}}}
+      {"apiVersion":"cert-manager.io/v1","kind":"ClusterIssuer","metadata":{"annotations":{},"name":"special-selfsigned-issuer"},"spec":{"selfSigned":{}}}
   generation: 1
   name: special-selfsigned-issuer
 spec:

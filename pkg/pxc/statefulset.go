@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-
+	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/pkg/errors"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) (*appsv1.StatefulSet, error) {
+func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster,
+	initContainers []corev1.Container, log logr.Logger, vg api.CustomVolumeGetter) (*appsv1.StatefulSet, error) {
+
 	pod := corev1.PodSpec{
 		SecurityContext:               podSpec.PodSecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,
@@ -24,6 +26,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		PriorityClassName:             podSpec.PriorityClassName,
 		ImagePullSecrets:              podSpec.ImagePullSecrets,
 		TerminationGracePeriodSeconds: podSpec.TerminationGracePeriodSeconds,
+		RuntimeClassName:              podSpec.RuntimeClassName,
 	}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		pod.ServiceAccountName = podSpec.ServiceAccountName
@@ -39,7 +42,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.ShareProcessNamespace = &t
 	}
 
-	sfsVolume, err := sfs.Volumes(podSpec, cr)
+	sfsVolume, err := sfs.Volumes(podSpec, cr, vg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get volumes %v", err)
 	}
@@ -48,7 +51,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.Volumes = sfsVolume.Volumes
 	}
 
-	appC, err := sfs.AppContainer(podSpec, secrets, cr)
+	appC, err := sfs.AppContainer(podSpec, secrets, cr, pod.Volumes)
 	if err != nil {
 		return nil, errors.Wrap(err, "app container")
 	}
@@ -77,13 +80,14 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.InitContainers = append(pod.InitContainers, initContainers...)
 	}
 
-	if podSpec.ForceUnsafeBootstrap {
-		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init-unsafe"
+	if podSpec.ForceUnsafeBootstrap && cr.CompareVersionWith("1.10.0") < 0 {
 		res, err := app.CreateResources(podSpec.Resources)
 		if err != nil {
 			return nil, errors.Wrap(err, "create resources")
 		}
+
+		ic := appC.DeepCopy()
+		ic.Name = ic.Name + "-init-unsafe"
 		ic.Resources = res
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil
@@ -97,11 +101,19 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 	pod.Containers = append(pod.Containers, appC)
 	pod.Containers = append(pod.Containers, sideC...)
+	pod.Containers = api.AddSidecarContainers(log, pod.Containers, podSpec.Sidecars)
+	pod.Volumes = api.AddSidecarVolumes(log, pod.Volumes, podSpec.SidecarVolumes)
 
 	ls := sfs.Labels()
+
+	customLabels := make(map[string]string, len(ls))
+	for k, v := range ls {
+		customLabels[k] = v
+	}
+
 	for k, v := range podSpec.Labels {
-		if _, ok := ls[k]; !ok {
-			ls[k] = v
+		if _, ok := customLabels[k]; !ok {
+			customLabels[k] = v
 		}
 	}
 
@@ -114,7 +126,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		ServiceName: sfs.Service(),
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels:      ls,
+				Labels:      customLabels,
 				Annotations: podSpec.Annotations,
 			},
 			Spec: pod,
@@ -125,6 +137,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	if sfsVolume != nil && sfsVolume.PVCs != nil {
 		obj.Spec.VolumeClaimTemplates = sfsVolume.PVCs
 	}
+	obj.Spec.VolumeClaimTemplates = api.AddSidecarPVCs(log, obj.Spec.VolumeClaimTemplates, podSpec.SidecarPVCs)
 
 	return obj, nil
 }

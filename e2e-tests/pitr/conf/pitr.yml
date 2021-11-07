@@ -13,6 +13,11 @@ spec:
   pxc:
     size: 3
     image: -pxc
+    configuration: |
+      [sst]
+      xbstream-opts=--decompress
+      [xtrabackup]
+      compress=lz4
     resources:
       requests:
         memory: 0.1G
@@ -56,7 +61,7 @@ spec:
     pitr:
       enabled: true
       storageName: minio-binlogs
-      timeBetweenUploads: 60
+      timeBetweenUploads: 55
     storages:
       pvc:
         type: filesystem

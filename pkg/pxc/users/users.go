@@ -4,7 +4,6 @@ import (
 	"database/sql"
 
 	"github.com/go-sql-driver/mysql"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 )
 
@@ -287,6 +286,82 @@ func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
 	_, err = tx.Exec("FLUSH PRIVILEGES")
 	if err != nil {
 		return errors.Wrap(err, "flush privileges")
+	}
+
+	return nil
+}
+
+// Update1100SystemUserPrivilege grants system_user privilege for monitor and clustercheck users
+func (u *Manager) Update1100SystemUserPrivilege() (err error) {
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	defer func() {
+		if err != nil {
+			errT := tx.Rollback()
+			if errT != nil {
+				err = errors.Wrapf(err, "rollback error: %v, transaction failed with", errT)
+			}
+			return
+		}
+
+		err = tx.Commit()
+		err = errors.Wrap(err, "commit transaction")
+	}()
+
+	if _, err := tx.Exec("GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'"); err != nil {
+		return errors.Wrapf(err, "monitor user")
+	}
+
+	if _, err := tx.Exec("GRANT SYSTEM_USER ON *.* TO 'clustercheck'@'localhost'"); err != nil {
+		return errors.Wrapf(err, "clustercheck user")
+	}
+
+	if _, err := tx.Exec("FLUSH PRIVILEGES"); err != nil {
+		return errors.Wrap(err, "flush privileges")
+	}
+
+	return nil
+}
+
+func (u *Manager) CreateReplicationUser(password string) error {
+	tx, err := u.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	_, err = tx.Exec("CREATE USER IF NOT EXISTS 'replication'@'%' IDENTIFIED BY ?", password)
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("create replication user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "create replication user")
+	}
+
+	_, err = tx.Exec("GRANT REPLICATION SLAVE ON *.* to 'replication'@'%'")
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("grant replication user: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "grant replication user")
+	}
+
+	_, err = tx.Exec("FLUSH PRIVILEGES")
+	if err != nil {
+		errT := tx.Rollback()
+		if errT != nil {
+			return errors.Errorf("flush privileges: %v, tx rollback: %v", err, errT)
+		}
+		return errors.Wrap(err, "flush privileges")
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "commit transaction")
 	}
 
 	return nil

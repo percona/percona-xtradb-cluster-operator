@@ -52,7 +52,12 @@ func NewHAProxy(cr *api.PerconaXtraDBCluster) *HAProxy {
 	}
 }
 
-func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+func (c *HAProxy) Name() string {
+	return haproxyName
+}
+
+func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+	_ []corev1.Volume) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            haproxyName,
 		Image:           spec.Image,
@@ -137,7 +142,51 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			FailureThreshold:    4,
 		}, "/usr/local/bin/readiness-check.sh")
 	}
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		appc.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.HAProxy.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      cr.Spec.HAProxy.EnvVarsSecretName,
+			MountPath: "/etc/mysql/haproxy-env-secret",
+		})
 
+		appc.Ports = append(
+			appc.Ports,
+			corev1.ContainerPort{
+				ContainerPort: 33060,
+				Name:          "mysqlx",
+			},
+		)
+
+		appc.LivenessProbe = &cr.Spec.HAProxy.LivenessProbes
+		appc.ReadinessProbe = &cr.Spec.HAProxy.ReadinessProbes
+		appc.ReadinessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/usr/local/bin/readiness-check.sh"},
+		}
+		appc.LivenessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/usr/local/bin/liveness-check.sh"},
+		}
+		probsEnvs := []corev1.EnvVar{
+			{
+				Name:  "LIVENESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds),
+			},
+			{
+				Name:  "READINESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds),
+			},
+		}
+		appc.Env = append(appc.Env, probsEnvs...)
+	}
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 	if err != nil {
 		return appc, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
@@ -217,6 +266,24 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 			MountPath: "/etc/mysql/mysql-users-secret",
 		})
 	}
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		container.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.HAProxy.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      cr.Spec.HAProxy.EnvVarsSecretName,
+			MountPath: "/etc/mysql/haproxy-env-secret",
+		})
+	}
+
 	return []corev1.Container{container}, nil
 }
 
@@ -225,18 +292,105 @@ func (c *HAProxy) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets 
 }
 
 func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	return nil, nil
+	if cr.CompareVersionWith("1.9.0") < 0 {
+		return nil, nil
+	}
+
+	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
+
+	pmmEnvs := []corev1.EnvVar{
+		{
+			Name:  "DB_TYPE",
+			Value: "haproxy",
+		},
+		{
+			Name:  "MONITOR_USER",
+			Value: "monitor",
+		},
+		{
+			Name: "MONITOR_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+			},
+		},
+		{
+			Name:  "DB_USER",
+			Value: "monitor",
+		},
+		{
+			Name: "DB_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+			},
+		},
+		{
+			Name:  "DB_CLUSTER",
+			Value: app.Name,
+		},
+		{
+			Name:  "DB_HOST",
+			Value: "localhost",
+		},
+		{
+			Name:  "DB_PORT",
+			Value: "3306",
+		},
+		{
+			Name:  "CLUSTER_NAME",
+			Value: cr.Name,
+		},
+		{
+			Name:  "PMM_ADMIN_CUSTOM_PARAMS",
+			Value: "--listen-port=8404",
+		},
+	}
+	ct.Env = append(ct.Env, pmmEnvs...)
+
+	pmmAgentScriptEnv := app.PMMAgentScript("haproxy")
+	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
+
+	if cr.CompareVersionWith("1.10.0") >= 0 {
+		// PMM team added these flags which allows us to avoid
+		// container crash, but just restart pmm-agent till it recovers
+		// the connection.
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_SIDECAR",
+				Value: "true",
+			},
+			{
+				Name:  "PMM_AGENT_SIDECAR_SLEEP",
+				Value: "5",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
+	res, err := app.CreateResources(spec.Resources)
+	if err != nil {
+		return nil, fmt.Errorf("create resources error: %v", err)
+	}
+	ct.Resources = res
+
+	return &ct, nil
 }
 
-func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
+func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, haproxyDataVolumeName)
+	configVolume, err := vg(cr.Namespace, "haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy", true)
+	if err != nil {
+		return nil, err
+	}
 	vol.Volumes = append(
 		vol.Volumes,
-		app.GetConfigVolumes("haproxy-custom", c.labels["app.kubernetes.io/instance"]+"-haproxy"),
+		configVolume,
 		app.GetTmpVolume("haproxy-auto"),
 	)
 	if cr.CompareVersionWith("1.7.0") >= 0 {
 		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false))
+	}
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes(cr.Spec.HAProxy.EnvVarsSecretName, cr.Spec.HAProxy.EnvVarsSecretName, true))
 	}
 
 	return vol, nil

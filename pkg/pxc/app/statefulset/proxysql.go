@@ -1,6 +1,7 @@
 package statefulset
 
 import (
+	"errors"
 	"fmt"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -11,8 +12,9 @@ import (
 )
 
 const (
-	proxyName           = "proxysql"
-	proxyDataVolumeName = "proxydata"
+	proxyName             = "proxysql"
+	proxyDataVolumeName   = "proxydata"
+	proxyConfigVolumeName = "config"
 )
 
 type Proxy struct {
@@ -48,7 +50,12 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 	}
 }
 
-func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+func (c *Proxy) Name() string {
+	return proxyName
+}
+
+func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
+	availableVolumes []corev1.Volume) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            proxyName,
 		Image:           spec.Image,
@@ -75,7 +82,8 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 			{
 				Name:      "ssl-internal",
 				MountPath: "/etc/proxysql/ssl-internal",
-			}},
+			},
+		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",
@@ -106,10 +114,24 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		},
 		SecurityContext: spec.ContainerSecurityContext,
 	}
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		appc.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
+	}
+
+	if api.ContainsVolume(availableVolumes, proxyConfigVolumeName) {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "config",
+			Name:      proxyConfigVolumeName,
 			MountPath: "/etc/proxysql/",
 		})
 	}
@@ -217,7 +239,19 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
-
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		envFrom := corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+				},
+				Optional: &fvar,
+			},
+		}
+		pxcMonit.EnvFrom = append(pxcMonit.EnvFrom, envFrom)
+		proxysqlMonit.EnvFrom = append(proxysqlMonit.EnvFrom, envFrom)
+	}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		operEnv := corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
@@ -300,6 +334,20 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 		ct.Env = append(ct.Env, dbArgsEnv...)
 	}
 
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		ct.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.ProxySQL.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
+	}
+
 	if cr.CompareVersionWith("1.7.0") >= 0 {
 		PmmProxysqlParams := ""
 		if spec.ProxysqlParams != "" {
@@ -320,20 +368,44 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaX
 		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 	}
 
+	if cr.CompareVersionWith("1.10.0") >= 0 {
+		// PMM team added these flags which allows us to avoid
+		// container crash, but just restart pmm-agent till it recovers
+		// the connection.
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_SIDECAR",
+				Value: "true",
+			},
+			{
+				Name:  "PMM_AGENT_SIDECAR_SLEEP",
+				Value: "5",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
 	return &ct, nil
 }
 
-func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
-	vol := app.Volumes(podSpec, proxyDataVolumeName)
+func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	ls := c.Labels()
+
+	vol := app.Volumes(podSpec, proxyDataVolumeName)
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig),
 	)
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Configuration != "" {
-		vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-proxysql"))
+
+	configVolume, err := vg(cr.Namespace, proxyConfigVolumeName, ls["app.kubernetes.io/instance"]+"-proxysql", false)
+	if err != nil && !errors.Is(err, api.NoCustomVolumeErr) {
+		return nil, err
 	}
+	if err == nil {
+		vol.Volumes = append(vol.Volumes, configVolume)
+	}
+
 	return vol, nil
 }
 

@@ -16,8 +16,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	_ "github.com/Percona-Lab/percona-version-service/api"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
@@ -30,11 +31,12 @@ import (
 var (
 	GitCommit string
 	GitBranch string
+	BuildTime string
 	log       = logf.Log.WithName("cmd")
 )
 
 func printVersion() {
-	log.Info(fmt.Sprintf("Git commit: %s Git branch: %s", GitCommit, GitBranch))
+	log.Info(fmt.Sprintf("Git commit: %s Git branch: %s Build time: %s", GitCommit, GitBranch, BuildTime))
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("operator-sdk Version: %v", sdkVersion.Version))
@@ -47,7 +49,7 @@ func main() {
 	// implementing the logr.Logger interface. This logger will
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
-	logf.SetLogger(logf.ZapLogger(false))
+	logf.SetLogger(zap.New(zap.UseDevMode(false)))
 
 	sv, err := version.Server()
 	if err != nil {
@@ -127,10 +129,10 @@ func main() {
 
 	log.Info("Starting the Cmd.")
 
-	stopCH := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
+	ctx := k8s.StartStopSignalHandler(mgr.GetClient(), strings.Split(namespace, ","))
 
 	// Start the Cmd
-	if err := mgr.Start(stopCH); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		os.Exit(1)
 	}

@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  annotations: {}
   generation: 2
   name: upgrade-haproxy-haproxy
   ownerReferences:
@@ -44,11 +45,19 @@ spec:
         - env:
             - name: PXC_SERVICE
               value: upgrade-haproxy-pxc
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: upgrade-haproxy-env-vars-haproxy
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/readiness-check.sh
+                - /usr/local/bin/liveness-check.sh
             failureThreshold: 4
             initialDelaySeconds: 60
             periodSeconds: 30
@@ -67,6 +76,9 @@ spec:
               protocol: TCP
             - containerPort: 33062
               name: mysql-admin
+              protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
               protocol: TCP
           readinessProbe:
             exec:
@@ -90,6 +102,8 @@ spec:
               name: haproxy-auto
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: upgrade-haproxy-env-vars-haproxy
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -97,6 +111,10 @@ spec:
           env:
             - name: PXC_SERVICE
               value: upgrade-haproxy-pxc
+          envFrom:
+            - secretRef:
+                name: upgrade-haproxy-env-vars-haproxy
+                optional: true
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -109,13 +127,14 @@ spec:
               name: haproxy-auto
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: upgrade-haproxy-env-vars-haproxy
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
       serviceAccount: default
       serviceAccountName: default
-      shareProcessNamespace: true
       terminationGracePeriodSeconds: 30
       volumes:
         - configMap:
@@ -130,6 +149,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-upgrade-haproxy
+        - name: upgrade-haproxy-env-vars-haproxy
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: upgrade-haproxy-env-vars-haproxy
   updateStrategy:
     rollingUpdate:
       partition: 0

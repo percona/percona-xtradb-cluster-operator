@@ -6,9 +6,9 @@ set -o errexit
 dir=$(realpath "$(dirname "$0")")
 
 fail() {
-    local test=$1
-    echo "test $test failed"
-    exit 1
+	local test=$1
+	echo "test $test failed"
+	exit 1
 }
 
 $dir/init-deploy/run || fail "init-deploy"
@@ -32,9 +32,12 @@ $dir/big-data/run || fail "big-data"
 $dir/proxysql-sidecar-res-limits/run || fail "proxysql-sidecar-res-limits"
 $dir/security-context/run || fail "security-context"
 $dir/storage/run || fail "storage"
-$dir/self-healing/run  || fail "self-healing"
+$dir/self-healing/run || fail "self-healing"
+$dir/self-healing-chaos/run || fail "self-healing-chaos"
 $dir/self-healing-advanced/run || fail "self-healing-advanced"
+$dir/self-healing-advanced-chaos/run || fail "self-healing-advanced-chaos"
 $dir/operator-self-healing/run || fail "operator-self-healing"
+$dir/operator-self-healing-chaos/run || fail "operator-self-healing-chaos"
 $dir/users/run || fail "users"
 $dir/haproxy/run || fail "haproxy"
 $dir/smart-update/run || fail "smart-update"

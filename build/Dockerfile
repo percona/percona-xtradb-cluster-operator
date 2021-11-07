@@ -1,10 +1,11 @@
-FROM golang:1.14 AS go_builder
+FROM golang:1.17 AS go_builder
 WORKDIR /go/src/github.com/percona/percona-xtradb-cluster-operator
 
 COPY . .
 
 ARG GIT_COMMIT
 ARG GIT_BRANCH
+ARG BUILD_TIME
 ARG GO_LDFLAGS
 ARG GOOS=linux
 ARG GOARCH=amd64
@@ -12,7 +13,7 @@ ARG CGO_ENABLED=0
 
 RUN mkdir -p build/_output/bin \
     && GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
-       go build -mod=vendor -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH" \
+       go build -mod=vendor -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH -X main.BuildTime=$BUILD_TIME" \
            -o build/_output/bin/percona-xtradb-cluster-operator \
                cmd/manager/main.go \
     && cp -r build/_output/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
@@ -21,7 +22,7 @@ RUN go get k8s.io/apimachinery/pkg/util/sets \
     && go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
     && cp -r build/_output/bin/peer-list /usr/local/bin/
 
-FROM registry.access.redhat.com/ubi7/ubi-minimal AS ubi7
+FROM registry.access.redhat.com/ubi8/ubi-minimal AS ubi8
 RUN microdnf update && microdnf clean all
 
 LABEL name="Percona XtraDB Cluster Operator" \
@@ -40,4 +41,4 @@ COPY build/pxc-configure-pxc.sh /pxc-configure-pxc.sh
 COPY build/liveness-check.sh /liveness-check.sh
 COPY build/readiness-check.sh /readiness-check.sh
 
-USER nobody
+USER 2

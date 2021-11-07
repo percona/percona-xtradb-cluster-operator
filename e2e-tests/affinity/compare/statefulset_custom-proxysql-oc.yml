@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  annotations: {}
   generation: 1
   name: custom-proxysql
   ownerReferences:
@@ -9,7 +10,7 @@ metadata:
       name: custom
 spec:
   podManagementPolicy: OrderedReady
-  replicas: 1
+  replicas: 2
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -88,6 +89,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-custom
+          envFrom:
+            - secretRef:
+                name: custom-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql
           ports:
@@ -137,6 +142,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-custom
+          envFrom:
+            - secretRef:
+                name: custom-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -166,6 +175,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-custom
+          envFrom:
+            - secretRef:
+                name: custom-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql-monit
           resources: {}

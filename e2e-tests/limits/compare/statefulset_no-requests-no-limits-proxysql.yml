@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  annotations: {}
   generation: 1
   name: no-requests-no-limits-proxysql
   ownerReferences:
@@ -9,7 +10,7 @@ metadata:
       name: no-requests-no-limits
 spec:
   podManagementPolicy: OrderedReady
-  replicas: 1
+  replicas: 2
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -50,6 +51,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
+          envFrom:
+            - secretRef:
+                name: no-requests-no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql
           ports:
@@ -93,6 +98,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
+          envFrom:
+            - secretRef:
+                name: no-requests-no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -122,6 +131,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
+          envFrom:
+            - secretRef:
+                name: no-requests-no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql-monit
           resources: {}

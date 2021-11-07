@@ -26,7 +26,7 @@ type PITR struct {
 	BackupSource *PXCBackupStatus `json:"backupSource"`
 	Type         string           `json:"type"`
 	Date         string           `json:"date"`
-	GTIDSet      string           `json:"gtidSet"`
+	GTID         string           `json:"gtid"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -54,13 +54,13 @@ type BcpRestoreStates string
 
 const (
 	RestoreNew          BcpRestoreStates = ""
-	RestoreStarting                      = "Starting"
-	RestoreStopCluster                   = "Stopping Cluster"
-	RestoreRestore                       = "Restoring"
-	RestoreStartCluster                  = "Starting Cluster"
-	RestorePITR                          = "Point-in-time recovering"
-	RestoreFailed                        = "Failed"
-	RestoreSucceeded                     = "Succeeded"
+	RestoreStarting     BcpRestoreStates = "Starting"
+	RestoreStopCluster  BcpRestoreStates = "Stopping Cluster"
+	RestoreRestore      BcpRestoreStates = "Restoring"
+	RestoreStartCluster BcpRestoreStates = "Starting Cluster"
+	RestorePITR         BcpRestoreStates = "Point-in-time recovering"
+	RestoreFailed       BcpRestoreStates = "Failed"
+	RestoreSucceeded    BcpRestoreStates = "Succeeded"
 )
 
 func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
@@ -72,6 +72,9 @@ func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
 	}
 	if cr.Spec.BackupName == "" && cr.Spec.BackupSource == nil {
 		return errors.New("backupName and BackupSource can't be empty simultaneously")
+	}
+	if len(cr.Spec.BackupName) > 0 && cr.Spec.BackupSource != nil {
+		return errors.New("backupName and BackupSource can't be specified simultaneously")
 	}
 
 	return nil

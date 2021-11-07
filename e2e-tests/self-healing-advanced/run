@@ -7,6 +7,11 @@ test_dir=$(realpath $(dirname $0))
 . "${test_dir}"/../functions
 cluster="self-healing-advanced"
 
+if version_gt "1.19"; then
+	echo "Kubernetes version is 1.19+ so skipping this test because of pumba support."
+	exit 0
+fi
+
 crash_cluster_with_kubectl() {
     # run chaos for Pods
     for _ in $(seq 1 5); do

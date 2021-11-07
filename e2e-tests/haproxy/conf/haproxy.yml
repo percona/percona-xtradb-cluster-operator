@@ -27,10 +27,17 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
     podDisruptionBudget:
       maxUnavailable: 1
+    runtimeClassName: docker-rc
   haproxy:
     enabled: true
     size: 3
     image: -haproxy
+    livenessProbes:
+      initialDelaySeconds: 61
+      timeoutSeconds: 6
+      periodSeconds: 31
+      successThreshold: 1
+      failureThreshold: 5
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
     tolerations:
@@ -40,6 +47,47 @@ spec:
       tolerationSeconds: 6000
     podDisruptionBudget:
       maxUnavailable: 2
+    sidecars:
+    - image: busybox
+      command: ["/bin/sh"]
+      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
+      name: my-sidecar-1
+    - image: busybox
+      name: haproxy
+    runtimeClassName: docker-rc
+    configuration: |
+      global
+        maxconn 1024
+        external-check
+        insecure-fork-wanted
+        stats socket /etc/haproxy/pxc/haproxy.sock mode 600 expose-fd listeners level admin
+
+      defaults
+        log global
+        mode tcp
+        retries 13
+        timeout client 28800s
+        timeout connect 100500
+        timeout server 28800s
+
+      frontend galera-in
+        bind *:3309 accept-proxy
+        bind *:3306
+        mode tcp
+        option clitcpka
+        default_backend galera-nodes
+
+      frontend galera-admin-in
+        bind *:33062
+        mode tcp
+        option clitcpka
+        default_backend galera-admin-nodes
+
+      frontend galera-replica-in
+        bind *:3307
+        mode tcp
+        option clitcpka
+        default_backend galera-replica-nodes
   proxysql:
     enabled: false
     size: 1
@@ -60,11 +108,13 @@ spec:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
     podDisruptionBudget:
       maxUnavailable: 1
+    runtimeClassName: docker-rc
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1
     serverHost: monitoring-service
     serverUser: pmm
+    runtimeClassName: docker-rc
   backup:
     image: -backup
     serviceAccountName: default
@@ -77,6 +127,7 @@ spec:
             resources:
               requests:
                 storage: 1Gi
+        runtimeClassName: docker-rc
       aws-s3:
         type: s3
         s3:

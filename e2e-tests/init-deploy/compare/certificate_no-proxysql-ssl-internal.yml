@@ -1,4 +1,4 @@
-apiVersion: cert-manager.io/v1alpha3
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   generation: 1
@@ -14,5 +14,5 @@ spec:
   isCA: true
   issuerRef:
     kind: Issuer
-    name: no-proxysql-pxc-ca
+    name: no-proxysql-pxc-issuer
   secretName: no-proxysql-ssl-internal

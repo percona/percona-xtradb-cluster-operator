@@ -1,33 +1,34 @@
 #!/bin/bash
 
-if [[ $1 == '-h' || $1 == '--help' ]];then
-    echo "Usage: $0 <user> <pass>"
-    exit
+if [[ $1 == '-h' || $1 == '--help' ]]; then
+	echo "Usage: $0 <user> <pass>"
+	exit
 fi
 
-if [ -f /tmp/recovery-case ]; then
-    exit 0
+if [ -f /tmp/recovery-case ] || [ -f '/var/lib/mysql/sleep-forever' ]; then
+	exit 0
 fi
 
 { set +x; } 2>/dev/null
-MYSQL_USERNAME="${MYSQL_USERNAME:-clustercheck}"
-mysql_pass=$(cat /etc/mysql/mysql-users-secret/clustercheck || :)
-MYSQL_PASSWORD="${mysql_pass:-$CLUSTERCHECK_PASSWORD}"
+MYSQL_USERNAME="${MYSQL_USERNAME:-monitor}"
+mysql_pass=$(cat /etc/mysql/mysql-users-secret/monitor || :)
+MYSQL_PASSWORD="${mysql_pass:-$MONITOR_PASSWORD}"
 DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
 AVAILABLE_WHEN_DONOR=${AVAILABLE_WHEN_DONOR:-1}
+NODE_IP=$(hostname -I | awk ' { print $1 } ')
 
 #Timeout exists for instances where mysqld may be hung
-TIMEOUT=10
+TIMEOUT=${READINESS_CHECK_TIMEOUT:-10}
 
 EXTRA_ARGS=""
 if [[ -n "$MYSQL_USERNAME" ]]; then
-    EXTRA_ARGS="$EXTRA_ARGS --user=${MYSQL_USERNAME}"
+    EXTRA_ARGS="$EXTRA_ARGS -P 33062 -h${NODE_IP} --protocol=TCP --user=${MYSQL_USERNAME}"
 fi
 if [[ -r $DEFAULTS_EXTRA_FILE ]];then
-    MYSQL_CMDLINE="mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE --connect-timeout=$TIMEOUT \
-                    ${EXTRA_ARGS}"
+    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE \
+        --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 else
-    MYSQL_CMDLINE="mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
+    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 fi
 
 WSREP_STATUS=($(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE -e "SHOW GLOBAL STATUS LIKE 'wsrep_%';"  \

@@ -2,9 +2,12 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"strings"
 
 	"github.com/go-ini/ini"
+	"github.com/go-logr/logr"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 
@@ -13,6 +16,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -29,7 +33,7 @@ type PerconaXtraDBClusterSpec struct {
 	TLS                       *TLSSpec                             `json:"tls,omitempty"`
 	PXC                       *PXCSpec                             `json:"pxc,omitempty"`
 	ProxySQL                  *PodSpec                             `json:"proxysql,omitempty"`
-	HAProxy                   *PodSpec                             `json:"haproxy,omitempty"`
+	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
 	Backup                    *PXCScheduledBackup                  `json:"backup,omitempty"`
@@ -41,8 +45,36 @@ type PerconaXtraDBClusterSpec struct {
 }
 
 type PXCSpec struct {
-	AutoRecovery *bool `json:"autoRecovery,omitempty"`
+	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
+	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
+	Expose              ServiceExpose        `json:"expose,omitempty"`
 	*PodSpec
+}
+
+type ServiceExpose struct {
+	Enabled                  bool                                    `json:"enabled,omitempty"`
+	Type                     corev1.ServiceType                      `json:"type,omitempty"`
+	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	Annotations              map[string]string                       `json:"annotations,omitempty"`
+	TrafficPolicy            corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
+}
+
+type ReplicationChannel struct {
+	Name        string                    `json:"name,omitempty"`
+	IsSource    bool                      `json:"isSource,omitempty"`
+	SourcesList []ReplicationSource       `json:"sourcesList,omitempty"`
+	Config      *ReplicationChannelConfig `json:"configuration,omitempty"`
+}
+
+type ReplicationChannelConfig struct {
+	SourceRetryCount   uint `json:"sourceRetryCount,omitempty"`
+	SourceConnectRetry uint `json:"sourceConnectRetry,omitempty"`
+}
+
+type ReplicationSource struct {
+	Host   string `json:"host,omitempty"`
+	Port   int    `json:"port,omitempty"`
+	Weight int    `json:"weight,omitempty"`
 }
 
 type TLSSpec struct {
@@ -75,7 +107,7 @@ type PITRSpec struct {
 	Enabled            bool          `json:"enabled"`
 	StorageName        string        `json:"storageName"`
 	Resources          *PodResources `json:"resources,omitempty"`
-	TimeBetweenUploads int64         `json:"timeBetweenUploads,omitempty"`
+	TimeBetweenUploads float64       `json:"timeBetweenUploads,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
@@ -87,61 +119,71 @@ type PXCScheduledBackupSchedule struct {
 type AppState string
 
 const (
-	AppStateUnknown AppState = "unknown"
-	AppStateInit    AppState = "initializing"
-	AppStateReady   AppState = "ready"
-	AppStateError   AppState = "error"
+	AppStateUnknown  AppState = "unknown"
+	AppStateInit     AppState = "initializing"
+	AppStatePaused   AppState = "paused"
+	AppStateStopping AppState = "stopping"
+	AppStateReady    AppState = "ready"
+	AppStateError    AppState = "error"
 )
 
 // PerconaXtraDBClusterStatus defines the observed state of PerconaXtraDBCluster
 type PerconaXtraDBClusterStatus struct {
 	PXC                AppStatus          `json:"pxc,omitempty"`
+	PXCReplication     *ReplicationStatus `json:"pxcReplication,omitempty"`
 	ProxySQL           AppStatus          `json:"proxysql,omitempty"`
 	HAProxy            AppStatus          `json:"haproxy,omitempty"`
-	Backup             AppStatus          `json:"backup,omitempty"`
-	PMM                AppStatus          `json:"pmm,omitempty"`
-	LogCollector       AppStatus          `json:"logcollector,omitempty"`
+	Backup             ComponentStatus    `json:"backup,omitempty"`
+	PMM                ComponentStatus    `json:"pmm,omitempty"`
+	LogCollector       ComponentStatus    `json:"logcollector,omitempty"`
 	Host               string             `json:"host,omitempty"`
 	Messages           []string           `json:"message,omitempty"`
 	Status             AppState           `json:"state,omitempty"`
 	Conditions         []ClusterCondition `json:"conditions,omitempty"`
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	Size               int32              `json:"size"`
+	Ready              int32              `json:"ready"`
+}
+
+// TODO: add replication status(error,active and etc)
+type ReplicationStatus struct {
+	Channels []ReplicationChannelStatus `json:"replicationChannels,omitempty"`
+}
+
+type ReplicationChannelStatus struct {
+	Name string `json:"name,omitempty"`
+	ReplicationChannelConfig
 }
 
 type ConditionStatus string
 
 const (
 	ConditionTrue    ConditionStatus = "True"
-	ConditionFalse                   = "False"
-	ConditionUnknown                 = "Unknown"
-)
-
-type ClusterConditionType string
-
-const (
-	ClusterReady        ClusterConditionType = "Ready"
-	ClusterInit                              = "Initializing"
-	ClusterPXCReady                          = "PXCReady"
-	ClusterProxyReady                        = "ProxySQLReady"
-	ClusterHAProxyReady                      = "HAProxyReady"
-	ClusterError                             = "Error"
+	ConditionFalse   ConditionStatus = "False"
+	ConditionUnknown ConditionStatus = "Unknown"
 )
 
 type ClusterCondition struct {
-	Status             ConditionStatus      `json:"status,omitempty"`
-	Type               ClusterConditionType `json:"type,omitempty"`
-	LastTransitionTime metav1.Time          `json:"lastTransitionTime,omitempty"`
-	Reason             string               `json:"reason,omitempty"`
-	Message            string               `json:"message,omitempty"`
+	Status             ConditionStatus `json:"status,omitempty"`
+	Type               AppState        `json:"type,omitempty"`
+	LastTransitionTime metav1.Time     `json:"lastTransitionTime,omitempty"`
+	Reason             string          `json:"reason,omitempty"`
+	Message            string          `json:"message,omitempty"`
+}
+
+type ComponentStatus struct {
+	Status            AppState `json:"status,omitempty"`
+	Message           string   `json:"message,omitempty"`
+	Version           string   `json:"version,omitempty"`
+	Image             string   `json:"image,omitempty"`
+	LabelSelectorPath string   `json:"labelSelectorPath,omitempty"`
 }
 
 type AppStatus struct {
-	Size    int32    `json:"size,omitempty"`
-	Ready   int32    `json:"ready,omitempty"`
-	Status  AppState `json:"status,omitempty"`
-	Message string   `json:"message,omitempty"`
-	Version string   `json:"version,omitempty"`
-	Image   string   `json:"image,omitempty"`
+	ComponentStatus
+
+	Size  int32 `json:"size,omitempty"`
+	Ready int32 `json:"ready,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -173,6 +215,30 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 	if c.PXC.Image == "" {
 		return errors.New("pxc.Image can't be empty")
+	}
+
+	if len(c.PXC.ReplicationChannels) > 0 {
+		// since we do not allow multimaster
+		// isSource field should be equal everywhere
+		isSrc := c.PXC.ReplicationChannels[0].IsSource
+		for _, channel := range c.PXC.ReplicationChannels {
+			// this restrictions coming from mysql itself
+			if len(channel.Name) > 64 || channel.Name == "" || channel.Name == "group_replication_applier" || channel.Name == "group_replication_recovery" {
+				return errors.Errorf("invalid replication channel name %s, please see channel naming conventions", channel.Name)
+			}
+
+			if isSrc != channel.IsSource {
+				return errors.New("you can specify only one type of replication please specify equal values for isSource field")
+			}
+
+			if channel.IsSource {
+				continue
+			}
+
+			if len(channel.SourcesList) == 0 {
+				return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
+			}
+		}
 	}
 
 	if c.PMM != nil && c.PMM.Enabled {
@@ -221,6 +287,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 			if len(cr.Spec.Backup.PITR.StorageName) == 0 {
 				return errors.Errorf("backup.PITR.StorageName can't be empty")
 			}
+			_, ok := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
+			if !ok {
+				return errors.Errorf("pitr storage %s doesn't exist", cr.Spec.Backup.PITR.StorageName)
+			}
 		}
 		for _, sch := range c.Backup.Schedule {
 			strg, ok := cr.Spec.Backup.Storages[sch.StorageName]
@@ -257,6 +327,16 @@ type PerconaXtraDBClusterList struct {
 	Items           []PerconaXtraDBCluster `json:"items"`
 }
 
+func (list *PerconaXtraDBClusterList) HasUnfinishedFinalizers() bool {
+	for _, v := range list.Items {
+		if v.ObjectMeta.DeletionTimestamp != nil && len(v.Finalizers) != 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 type PodSpec struct {
 	Enabled                       bool                                    `json:"enabled,omitempty"`
 	Size                          int32                                   `json:"size,omitempty"`
@@ -276,6 +356,7 @@ type PodSpec struct {
 	VaultSecretName               string                                  `json:"vaultSecretName,omitempty"`
 	SSLSecretName                 string                                  `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName         string                                  `json:"sslInternalSecretName,omitempty"`
+	EnvVarsSecretName             string                                  `json:"envVarsSecret,omitempty"`
 	TerminationGracePeriodSeconds *int64                                  `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                                    `json:"forceUnsafeBootstrap,omitempty"`
 	ServiceType                   corev1.ServiceType                      `json:"serviceType,omitempty"`
@@ -286,11 +367,22 @@ type PodSpec struct {
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
+	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`
 	LivenessInitialDelaySeconds   *int32                                  `json:"livenessDelaySec,omitempty"`
+	LivenessProbes                corev1.Probe                            `json:"livenessProbes,omitempty"`
 	PodSecurityContext            *corev1.PodSecurityContext              `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
 	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
 	ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
+	Sidecars                      []corev1.Container                      `json:"sidecars,omitempty"`
+	SidecarVolumes                []corev1.Volume                         `json:"sidecarVolumes,omitempty"`
+	SidecarPVCs                   []corev1.PersistentVolumeClaim          `json:"sidecarPVCs,omitempty"`
+	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
+}
+
+type HAProxySpec struct {
+	PodSpec
+	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -315,6 +407,7 @@ type LogCollectorSpec struct {
 	Configuration            string                  `json:"configuration,omitempty"`
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
+	RuntimeClassName         *string                 `json:"runtimeClassName,omitempty"`
 }
 
 type PMMSpec struct {
@@ -327,6 +420,7 @@ type PMMSpec struct {
 	Resources                *PodResources           `json:"resources,omitempty"`
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
+	RuntimeClassName         *string                 `json:"runtimeClassName,omitempty"`
 }
 
 type ResourcesList struct {
@@ -349,6 +443,7 @@ type BackupStorageSpec struct {
 	PriorityClassName        string                     `json:"priorityClassName,omitempty"`
 	PodSecurityContext       *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
+	RuntimeClassName         *string                    `json:"runtimeClassName,omitempty"`
 }
 
 type BackupStorageType string
@@ -356,6 +451,10 @@ type BackupStorageType string
 const (
 	BackupStorageFilesystem BackupStorageType = "filesystem"
 	BackupStorageS3         BackupStorageType = "s3"
+)
+
+const (
+	FinalizerDeleteS3Backup string = "delete-s3-backup"
 )
 
 type BackupStorageS3Spec struct {
@@ -389,19 +488,33 @@ type Volume struct {
 	Volumes []corev1.Volume
 }
 
+func ContainsVolume(vs []corev1.Volume, name string) bool {
+	for _, v := range vs {
+		if v.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 const WorkloadSA = "default"
 
+type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
+
+var NoCustomVolumeErr = errors.New("no custom volume found")
+
 type App interface {
-	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) (corev1.Container, error)
+	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	PMMContainer(spec *PMMSpec, secrets string, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
-	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster) (*Volume, error)
+	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster, vg CustomVolumeGetter) (*Volume, error)
 	Labels() map[string]string
 }
 
 type StatefulApp interface {
 	App
+	Name() string
 	StatefulSet() *appsv1.StatefulSet
 	Service() string
 	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy
@@ -445,16 +558,13 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
-func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion) (changed bool, err error) {
+func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion, logger logr.Logger) (changed bool, err error) {
 	workloadSA := "percona-xtradb-cluster-operator-workload"
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		workloadSA = WorkloadSA
 	}
 
-	CRVerChanged, err := cr.setVersion()
-	if err != nil {
-		return false, errors.Wrap(err, "set version")
-	}
+	CRVerChanged := cr.setVersion()
 
 	err = cr.Validate()
 	if err != nil {
@@ -487,15 +597,24 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.SSLInternalSecretName = cr.Name + "-ssl-internal"
 		}
 
-		// pxc replicas shouldn't be less than 3 for safe configuration
-		if c.PXC.Size < 3 && !c.AllowUnsafeConfig {
-			c.PXC.Size = 3
+		for chIdx, channel := range c.PXC.ReplicationChannels {
+			for srcIdx, src := range channel.SourcesList {
+				if src.Weight == 0 {
+					c.PXC.ReplicationChannels[chIdx].SourcesList[srcIdx].Weight = 100
+				}
+				if src.Port == 0 {
+					c.PXC.ReplicationChannels[chIdx].SourcesList[srcIdx].Port = 3306
+				}
+			}
+			if !channel.IsSource && channel.Config == nil {
+				c.PXC.ReplicationChannels[chIdx].Config = &ReplicationChannelConfig{
+					SourceRetryCount:   3,
+					SourceConnectRetry: 60,
+				}
+			}
 		}
 
-		// number of pxc replicas should be an odd
-		if c.PXC.Size%2 == 0 && !c.AllowUnsafeConfig {
-			c.PXC.Size++
-		}
+		setSafeDefaults(c, logger)
 
 		// Set maxUnavailable = 1 by default for PodDisruptionBudget-PXC.
 		// It's a description of the number of pods from that set that can be unavailable after the eviction.
@@ -512,18 +631,24 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.ServiceAccountName = workloadSA
 		}
 
+		if len(c.PXC.EnvVarsSecretName) == 0 {
+			c.PXC.EnvVarsSecretName = cr.Name + "-env-vars-pxc"
+		}
+
 		c.PXC.reconcileAffinityOpts()
 
 		if c.Pause {
 			c.PXC.Size = 0
 		}
 
-		if c.PMM != nil && c.PMM.Resources == nil {
-			c.PMM.Resources = c.PXC.Resources
-		}
+		if cr.CompareVersionWith("1.10.0") < 0 {
+			if c.PMM != nil && c.PMM.Resources == nil {
+				c.PMM.Resources = c.PXC.Resources
+			}
 
-		if c.LogCollector != nil && c.LogCollector.Resources == nil {
-			c.LogCollector.Resources = c.PXC.Resources
+			if c.LogCollector != nil && c.LogCollector.Resources == nil {
+				c.LogCollector.Resources = c.PXC.Resources
+			}
 		}
 
 		if len(c.LogCollectorSecretName) == 0 {
@@ -544,6 +669,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.HAProxy != nil && c.HAProxy.Enabled {
+		if c.HAProxy.ReplicasServiceEnabled == nil {
+			t := true
+			c.HAProxy.ReplicasServiceEnabled = &t
+		}
+
 		if len(c.HAProxy.ImagePullPolicy) == 0 {
 			c.HAProxy.ImagePullPolicy = corev1.PullAlways
 		}
@@ -561,6 +691,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		if len(c.HAProxy.ServiceAccountName) == 0 {
 			c.HAProxy.ServiceAccountName = workloadSA
+		}
+
+		if len(c.HAProxy.EnvVarsSecretName) == 0 {
+			c.HAProxy.EnvVarsSecretName = cr.Name + "-env-vars-haproxy"
 		}
 
 		c.HAProxy.reconcileAffinityOpts()
@@ -600,6 +734,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.ProxySQL.TerminationGracePeriodSeconds = &graceSec
 		}
 
+		if len(c.ProxySQL.EnvVarsSecretName) == 0 {
+			c.ProxySQL.EnvVarsSecretName = cr.Name + "-env-vars-proxysql"
+		}
+
 		if len(c.ProxySQL.ServiceAccountName) == 0 {
 			c.ProxySQL.ServiceAccountName = workloadSA
 		}
@@ -626,7 +764,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			strg := c.Backup.Storages[sch.StorageName]
 			switch strg.Type {
 			case BackupStorageS3:
-				//TODO what should we check here?
+				// TODO what should we check here?
 			case BackupStorageFilesystem:
 				changed = strg.Volume.reconcileOpts()
 			}
@@ -641,6 +779,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
+	cr.setProbesDefaults()
 	cr.setSecurityContext()
 
 	if cr.Spec.EnableCRValidationWebhook == nil {
@@ -651,41 +790,150 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	return CRVerChanged || changed, nil
 }
 
+const (
+	maxSafePXCSize   = 5
+	minSafeProxySize = 2
+)
+
+func (cr *PerconaXtraDBCluster) setProbesDefaults() {
+	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = *cr.Spec.PXC.LivenessInitialDelaySeconds
+	} else if cr.Spec.PXC.LivenessProbes.InitialDelaySeconds == 0 {
+		cr.Spec.PXC.LivenessProbes.InitialDelaySeconds = 300
+	}
+
+	if cr.Spec.PXC.LivenessProbes.TimeoutSeconds == 0 {
+		cr.Spec.PXC.LivenessProbes.TimeoutSeconds = 5
+	}
+
+	cr.Spec.PXC.LivenessProbes.SuccessThreshold = 1
+
+	if cr.Spec.PXC.ReadinessInitialDelaySeconds != nil {
+		cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = *cr.Spec.PXC.ReadinessInitialDelaySeconds
+	} else if cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds == 0 {
+		cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = 15
+	}
+
+	if cr.Spec.PXC.ReadinessProbes.PeriodSeconds == 0 {
+		cr.Spec.PXC.ReadinessProbes.PeriodSeconds = 30
+	}
+
+	if cr.Spec.PXC.ReadinessProbes.FailureThreshold == 0 {
+		cr.Spec.PXC.ReadinessProbes.FailureThreshold = 5
+	}
+	if cr.Spec.PXC.ReadinessProbes.TimeoutSeconds == 0 {
+		cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 15
+	}
+
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+		if cr.Spec.HAProxy.ReadinessInitialDelaySeconds != nil {
+			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.ReadinessInitialDelaySeconds
+		} else if cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = 15
+		}
+		if cr.Spec.HAProxy.ReadinessProbes.PeriodSeconds == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.PeriodSeconds = 5
+		}
+
+		if cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds = 1
+		}
+
+		if cr.Spec.HAProxy.LivenessInitialDelaySeconds != nil {
+			cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.LivenessInitialDelaySeconds
+		} else if cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds == 0 {
+			cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds = 60
+		}
+
+		if cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds == 0 {
+			cr.Spec.HAProxy.LivenessProbes.TimeoutSeconds = 5
+		}
+		if cr.Spec.HAProxy.LivenessProbes.FailureThreshold == 0 {
+			cr.Spec.HAProxy.LivenessProbes.FailureThreshold = 4
+		}
+		if cr.Spec.HAProxy.LivenessProbes.PeriodSeconds == 0 {
+			cr.Spec.HAProxy.LivenessProbes.PeriodSeconds = 30
+		}
+
+		cr.Spec.HAProxy.LivenessProbes.SuccessThreshold = 1
+
+	}
+}
+
+func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
+	if spec.AllowUnsafeConfig {
+		return
+	}
+
+	loginfo := func(msg string, args ...interface{}) {
+		log.Info(fmt.Sprintf(msg, args...))
+		log.Info("Set allowUnsafeConfigurations=true to disable safe configuration")
+	}
+
+	if spec.PXC.Size < 3 {
+		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, 3)
+		spec.PXC.Size = 3
+	} else if spec.PXC.Size > maxSafePXCSize {
+		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, maxSafePXCSize)
+		spec.PXC.Size = maxSafePXCSize
+	}
+
+	if spec.PXC.Size%2 == 0 {
+		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, spec.PXC.Size+1)
+		spec.PXC.Size++
+	}
+
+	if spec.ProxySQL != nil && spec.ProxySQL.Enabled {
+		if spec.ProxySQL.Size < minSafeProxySize {
+			loginfo("ProxySQL size will be changed from %d to %d due to safe config", spec.ProxySQL.Size, minSafeProxySize)
+			spec.ProxySQL.Size = minSafeProxySize
+		}
+	}
+
+	if spec.HAProxy != nil && spec.HAProxy.Enabled {
+		if spec.HAProxy.Size < minSafeProxySize {
+			loginfo("HAProxy size will be changed from %d to %d due to safe config", spec.HAProxy.Size, minSafeProxySize)
+			spec.HAProxy.Size = minSafeProxySize
+		}
+	}
+}
+
 // setVersion sets the API version of a PXC resource.
 // The new (semver-matching) version is determined either by the CR's API version or an API version specified via the CR's fields.
 // If the CR's API version is an empty string and last-applied-configuration from k8s is empty, it returns current operator version.
-func (cr *PerconaXtraDBCluster) setVersion() (bool, error) {
+func (cr *PerconaXtraDBCluster) setVersion() bool {
 	if len(cr.Spec.CRVersion) > 0 {
-		return false, nil
+		return false
 	}
+
 	apiVersion := version.Version
+
 	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
 		var newCR PerconaXtraDBCluster
 		err := json.Unmarshal([]byte(lastCR), &newCR)
 		if err != nil {
-			return false, errors.Wrap(err, "unmarshal cr")
-		}
-		if len(newCR.APIVersion) > 0 {
+			log.Printf("failed to unmarshal cr: %v", err)
+		} else if len(newCR.APIVersion) > 0 {
 			apiVersion = strings.Replace(strings.TrimPrefix(newCR.APIVersion, "pxc.percona.com/v"), "-", ".", -1)
 		}
 	}
 
 	cr.Spec.CRVersion = apiVersion
-	return true, nil
+	return true
 }
 
 func (cr *PerconaXtraDBCluster) Version() *v.Version {
 	return v.Must(v.NewVersion(cr.Spec.CRVersion))
 }
 
-// CompareVersionWith compares given version to current version. Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
-func (cr *PerconaXtraDBCluster) CompareVersionWith(version string) int {
+// CompareVersionWith compares given version to current version.
+// Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
+func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 	if len(cr.Spec.CRVersion) == 0 {
-		cr.setVersion()
+		_ = cr.setVersion()
 	}
 
-	//using Must because "version" must be right format
-	return cr.Version().Compare(v.Must(v.NewVersion(version)))
+	return cr.Version().Compare(v.Must(v.NewVersion(ver)))
 }
 
 // ConfigHasKey check if cr.Spec.PXC.Configuration has given key in given section
@@ -766,5 +1014,163 @@ func (v *VolumeSpec) validate() error {
 			return errors.New("volume.resources.storage can't be empty")
 		}
 	}
+	return nil
+}
+
+func AddSidecarContainers(logger logr.Logger, existing, sidecars []corev1.Container) []corev1.Container {
+	if len(sidecars) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, c := range existing {
+		names[c.Name] = struct{}{}
+	}
+
+	for _, c := range sidecars {
+		if _, ok := names[c.Name]; ok {
+			logger.Info(fmt.Sprintf("Sidecar container name cannot be %s. It's skipped", c.Name))
+			continue
+		}
+
+		existing = append(existing, c)
+	}
+
+	return existing
+}
+
+func AddSidecarVolumes(logger logr.Logger, existing, sidecarVolumes []corev1.Volume) []corev1.Volume {
+	if len(sidecarVolumes) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, c := range existing {
+		names[c.Name] = struct{}{}
+	}
+
+	for _, c := range sidecarVolumes {
+		if _, ok := names[c.Name]; ok {
+			logger.Info(fmt.Sprintf("Sidecar volume name cannot be %s. It's skipped", c.Name))
+			continue
+		}
+
+		existing = append(existing, c)
+	}
+
+	return existing
+}
+
+func AddSidecarPVCs(logger logr.Logger, existing, sidecarPVCs []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
+	if len(sidecarPVCs) == 0 {
+		return existing
+	}
+
+	names := make(map[string]struct{}, len(existing))
+	for _, c := range existing {
+		names[c.Name] = struct{}{}
+	}
+
+	for _, c := range sidecarPVCs {
+		if _, ok := names[c.Name]; ok {
+			logger.Info(fmt.Sprintf("Sidecar PVC name cannot be %s. It's skipped", c.Name))
+			continue
+		}
+
+		existing = append(existing, c)
+	}
+
+	return existing
+}
+
+func (cr *PerconaXtraDBCluster) ProxySQLUnreadyServiceNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-proxysql-unready",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) ProxySQLServiceNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-proxysql",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) HaproxyServiceNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-haproxy",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) HAProxyReplicasNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      cr.Name + "-haproxy-replicas",
+		Namespace: cr.Namespace,
+	}
+}
+
+func (cr *PerconaXtraDBCluster) HAProxyEnabled() bool {
+	return cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled
+}
+
+func (cr *PerconaXtraDBCluster) HAProxyReplicasServiceEnabled() bool {
+	return *cr.Spec.HAProxy.ReplicasServiceEnabled
+}
+
+func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {
+	return cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled
+}
+
+func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress, deleted bool) AppState {
+	switch {
+	case deleted || s.PXC.Status == AppStateStopping || s.ProxySQL.Status == AppStateStopping || s.HAProxy.Status == AppStateStopping:
+		return AppStateStopping
+	case s.PXC.Status == AppStatePaused, !inProgress && s.PXC.Status == AppStateReady:
+		if s.HAProxy.Status != "" && s.HAProxy.Status != s.PXC.Status {
+			return s.HAProxy.Status
+		}
+
+		if s.ProxySQL.Status != "" && s.ProxySQL.Status != s.PXC.Status {
+			return s.ProxySQL.Status
+		}
+
+		return s.PXC.Status
+	default:
+		return AppStateInit
+	}
+}
+
+const maxStatusesQuantity = 20
+
+func (s *PerconaXtraDBClusterStatus) AddCondition(c ClusterCondition) {
+	if len(s.Conditions) == 0 {
+		s.Conditions = append(s.Conditions, c)
+		return
+	}
+
+	if s.Conditions[len(s.Conditions)-1].Type != c.Type {
+		s.Conditions = append(s.Conditions, c)
+	}
+
+	if len(s.Conditions) > maxStatusesQuantity {
+		s.Conditions = s.Conditions[len(s.Conditions)-maxStatusesQuantity:]
+	}
+}
+
+func (cr *PerconaXtraDBCluster) CanBackup() error {
+	if cr.Status.Status == AppStateReady {
+		return nil
+	}
+
+	if !cr.Spec.AllowUnsafeConfig {
+		return errors.Errorf("allowUnsafeConfigurations must be true to run backup on cluster with status %s", cr.Status.Status)
+	}
+
+	if cr.Status.PXC.Ready < int32(1) {
+		return errors.New("there are no ready PXC nodes")
+	}
+
 	return nil
 }

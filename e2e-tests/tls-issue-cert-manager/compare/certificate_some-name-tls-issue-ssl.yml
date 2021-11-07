@@ -1,4 +1,4 @@
-apiVersion: cert-manager.io/v1alpha3
+apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   generation: 1
@@ -17,5 +17,5 @@ spec:
   isCA: true
   issuerRef:
     kind: Issuer
-    name: some-name-tls-issue-pxc-ca
+    name: some-name-tls-issue-pxc-issuer
   secretName: some-name-tls-issue-ssl

@@ -9,137 +9,187 @@ test_dir=$(realpath $(dirname $0))
 cluster='some-name'
 
 wait_for_sts_generation() {
-    local name="${1}"
-    local desired_generation="${2}"
-    local size="${3}"
-    set +o xtrace
-    echo -n "Waiting for statefulset readyness"
-    retry=0
-    until [[ "$(kubectl_bin get sts $name -o jsonpath='{.status.observedGeneration}')" == "${desired_generation}" \
-             && "$(kubectl_bin get sts $name -o jsonpath='{.status.readyReplicas}')" -ge "${size}" ]]; do
-        sleep 1
-        echo -n .
-        let retry+=1
-        if [ $retry -ge 300 ]; then
-            kubectl_bin logs $(get_operator_pod) ${OPERATOR_NS:+-n $OPERATOR_NS}
-            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-            exit 1
-        fi
-    done
-    echo
-    set -o xtrace
+	local name="${1}"
+	local desired_generation="${2}"
+	local size="${3}"
+	set +o xtrace
+	echo -n "Waiting for statefulset readyness"
+	retry=0
+	until [[ "$(kubectl_bin get sts $name -o jsonpath='{.status.observedGeneration}')" == "${desired_generation}" &&
+	"$(kubectl_bin get sts $name -o jsonpath='{.status.readyReplicas}')" -ge ${size} ]]; do
+		sleep 1
+		echo -n .
+		let retry+=1
+		if [ $retry -ge 300 ]; then
+			kubectl_bin logs $(get_operator_pod) ${OPERATOR_NS:+-n $OPERATOR_NS}
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
+	done
+	echo
+	set -o xtrace
+}
+
+apply_fixed_rbac() {
+	local git_tag="$1"
+
+	if version_gt "1.22"; then
+		curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/rbac.yaml" >"${tmp_dir}/rbac_${git_tag}.yaml"
+		$sed -i -e "s^apiVersion: rbac.authorization.k8s.io/v1beta1^apiVersion: rbac.authorization.k8s.io/v1^" "${tmp_dir}/rbac_${git_tag}.yaml"
+		kubectl_bin apply -f "${tmp_dir}/rbac_${git_tag}.yaml"
+	else
+		kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/rbac.yaml
+	fi
 }
 
 main() {
-    create_infra $namespace
+	create_infra $namespace
 
-    apply_config "$conf_dir/client.yml"
-    kubectl_bin apply \
-        -f "$test_dir/conf/secrets.yml"
+	apply_config "$conf_dir/client.yml"
+	kubectl_bin apply \
+		-f "$test_dir/conf/secrets.yml"
 
-    # test 1.0.0
-    API="pxc.percona.com/v1"
-    apply_config "$conf_dir/$cluster.yml"
-    wait_for_running "$cluster-pxc" "1"
-    sleep 10
-    wait_for_running "$cluster-pxc" "1"
+	# test 1.0.0
+	API="pxc.percona.com/v1"
+	apply_config "$conf_dir/$cluster.yml"
+	wait_for_running "$cluster-pxc" "1"
+	sleep 10
+	wait_for_running "$cluster-pxc" "1"
 
-    compare_kubectl service/$cluster-pxc "-100"
-    compare_kubectl service/$cluster-proxysql "-100"
-    compare_kubectl statefulset/$cluster-pxc "-100"
-    compare_kubectl statefulset/$cluster-proxysql "-100"
+	compare_kubectl service/$cluster-pxc "-100"
+	compare_kubectl service/$cluster-proxysql "-100"
+	compare_kubectl statefulset/$cluster-pxc "-100"
+	compare_kubectl statefulset/$cluster-proxysql "-100"
 
-    # test 1.1.0
-    API="pxc.percona.com/v1-1-0"
-    kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+	# test 1.1.0
+	API="pxc.percona.com/v1-1-0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.1.0"}
     }'
-    wait_for_sts_generation "$cluster-pxc" "2" "1"
+	wait_for_sts_generation "$cluster-pxc" "2" "1"
 
-    compare_kubectl service/$cluster-pxc "-110"
-    compare_kubectl service/$cluster-proxysql "-110"
-    compare_kubectl statefulset/$cluster-pxc "-110"
-    compare_kubectl statefulset/$cluster-proxysql "-110"
+	compare_kubectl service/$cluster-pxc "-110"
+	compare_kubectl service/$cluster-proxysql "-110"
+	compare_kubectl statefulset/$cluster-pxc "-110"
+	compare_kubectl statefulset/$cluster-proxysql "-110"
 
-    # test 1.2.0
-    API="pxc.percona.com/v1-2-0"
-    kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+	# test 1.2.0
+	API="pxc.percona.com/v1-2-0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.2.0"}
     }'
-    wait_for_sts_generation "$cluster-pxc" "2" "1"
+	wait_for_sts_generation "$cluster-pxc" "2" "1"
 
-    compare_kubectl service/$cluster-pxc "-120"
-    compare_kubectl service/$cluster-proxysql "-120"
-    compare_kubectl statefulset/$cluster-pxc "-120"
-    compare_kubectl statefulset/$cluster-proxysql "-120"
+	compare_kubectl service/$cluster-pxc "-120"
+	compare_kubectl service/$cluster-proxysql "-120"
+	compare_kubectl statefulset/$cluster-pxc "-120"
+	compare_kubectl statefulset/$cluster-proxysql "-120"
 
-    # test 1.3.0
-    API="pxc.percona.com/v1-3-0"
-    kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+	# test 1.3.0
+	API="pxc.percona.com/v1-3-0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.3.0"}
     }'
-    wait_for_sts_generation "$cluster-pxc" "3" "1"
+	wait_for_sts_generation "$cluster-pxc" "3" "1"
 
-    compare_kubectl service/$cluster-pxc "-130"
-    compare_kubectl service/$cluster-proxysql "-130"
-    compare_kubectl statefulset/$cluster-pxc "-130"
-    compare_kubectl statefulset/$cluster-proxysql "-130"
+	compare_kubectl service/$cluster-pxc "-130"
+	compare_kubectl service/$cluster-proxysql "-130"
+	compare_kubectl statefulset/$cluster-pxc "-130"
+	compare_kubectl statefulset/$cluster-proxysql "-130"
 
-    # test 1.4.0
-    API="pxc.percona.com/v1-4-0"
-    kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+	# test 1.4.0
+	API="pxc.percona.com/v1-4-0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.4.0"}
     }'
-    wait_for_sts_generation "$cluster-pxc" "4" "1"
+	wait_for_sts_generation "$cluster-pxc" "4" "1"
 
-    compare_kubectl service/$cluster-pxc "-140"
-    compare_kubectl service/$cluster-proxysql "-140"
-    compare_kubectl statefulset/$cluster-pxc "-140"
-    compare_kubectl statefulset/$cluster-proxysql "-140"
+	compare_kubectl service/$cluster-pxc "-140"
+	compare_kubectl service/$cluster-proxysql "-140"
+	compare_kubectl statefulset/$cluster-pxc "-140"
+	compare_kubectl statefulset/$cluster-proxysql "-140"
 
-    # test 1.5.0
-    API="pxc.percona.com/v1-5-0"
-    kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.5.0/deploy/rbac.yaml
-    kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+	# test 1.5.0
+	API="pxc.percona.com/v1-5-0"
+	apply_fixed_rbac "v1.5.0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.5.0", "proxysql": { "image": "percona/percona-xtradb-cluster-operator:1.5.0-proxysql" }}
     }'
-    wait_cluster_consistency "$cluster" 3 1
-    wait_for_sts_generation "$cluster-pxc" "5" "1"
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "5" "1"
 
-    compare_kubectl service/$cluster-pxc "-150"
-    compare_kubectl service/$cluster-proxysql "-150"
-    compare_kubectl statefulset/$cluster-pxc "-150"
-    compare_kubectl statefulset/$cluster-proxysql "-150"
+	compare_kubectl service/$cluster-pxc "-150"
+	compare_kubectl service/$cluster-proxysql "-150"
+	compare_kubectl statefulset/$cluster-pxc "-150"
+	compare_kubectl statefulset/$cluster-proxysql "-150"
 
-    # test 1.6.0
-    API="pxc.percona.com/v1-6-0"
-    kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.6.0/deploy/rbac.yaml
-    kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+	# test 1.6.0
+	API="pxc.percona.com/v1-6-0"
+	apply_fixed_rbac "v1.6.0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.6.0"}
     }'
-    wait_cluster_consistency "$cluster" 3 1
-    wait_for_sts_generation "$cluster-pxc" "6" "1"
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "6" "1"
 
-    compare_kubectl service/$cluster-pxc "-160"
-    compare_kubectl service/$cluster-proxysql "-160"
-    compare_kubectl statefulset/$cluster-pxc "-160"
-    compare_kubectl statefulset/$cluster-proxysql "-160"
+	compare_kubectl service/$cluster-pxc "-160"
+	compare_kubectl service/$cluster-proxysql "-160"
+	compare_kubectl statefulset/$cluster-pxc "-160"
+	compare_kubectl statefulset/$cluster-proxysql "-160"
 
-    # test 1.7.0
-    API="pxc.percona.com/v1-7-0"
-    kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/master/deploy/rbac.yaml
-    kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+	# test 1.7.0
+	API="pxc.percona.com/v1-7-0"
+	apply_fixed_rbac "v1.7.0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.7.0"}
     }'
-    wait_cluster_consistency "$cluster" 3 1
-    wait_for_sts_generation "$cluster-pxc" "7" "1"
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "7" "1"
 
-    compare_kubectl service/$cluster-pxc "-170"
-    compare_kubectl service/$cluster-proxysql "-170"
-    compare_kubectl statefulset/$cluster-pxc "-170"
-    compare_kubectl statefulset/$cluster-proxysql "-170"
+	compare_kubectl service/$cluster-pxc "-170"
+	compare_kubectl service/$cluster-proxysql "-170"
+	compare_kubectl statefulset/$cluster-pxc "-170"
+	compare_kubectl statefulset/$cluster-proxysql "-170"
 
-    destroy "${namespace}"
+	# test 1.8.0
+	API="pxc.percona.com/v1-8-0"
+	apply_fixed_rbac "v1.8.0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "spec": {"crVersion":"1.8.0"}
+    }'
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "8" "1"
+	compare_kubectl service/$cluster-pxc "-180"
+	compare_kubectl service/$cluster-proxysql "-180"
+	compare_kubectl statefulset/$cluster-pxc "-180"
+	compare_kubectl statefulset/$cluster-proxysql "-180"
+
+	# test 1.9.0
+	API="pxc.percona.com/v1-9-0"
+	kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.9.0/deploy/rbac.yaml
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "spec": {"crVersion":"1.9.0"}
+    }'
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "9" "1"
+	compare_kubectl service/$cluster-pxc "-190"
+	compare_kubectl service/$cluster-proxysql "-190"
+	compare_kubectl statefulset/$cluster-pxc "-190"
+	compare_kubectl statefulset/$cluster-proxysql "-190"
+
+	# test 1.10.0
+	API="pxc.percona.com/v1-10-0"
+	kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/rbac.yaml
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "spec": {"crVersion":"1.10.0"}
+    }'
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "10" "1"
+	compare_kubectl service/$cluster-pxc "-1100"
+	compare_kubectl service/$cluster-proxysql "-1100"
+	compare_kubectl statefulset/$cluster-pxc "-1100"
+	compare_kubectl statefulset/$cluster-proxysql "-1100"
+	destroy "${namespace}"
 }
 
 main

@@ -13,12 +13,12 @@ spinup_pxc "$cluster" "$test_dir/conf/${cluster}.yml"
 
 desc 'scale up from 1 to 3'
 cat_config "$test_dir/conf/$cluster.yml" \
-    | sed -e 's/size: 1/size: 3/' \
-    | kubectl_bin apply -f-
+	| sed -e 's/size: 1/size: 3/' \
+	| kubectl_bin apply -f-
 
-desc 'check if all 5 Pods started'
+desc 'check if all 3 Pods started'
 wait_for_running $cluster-proxysql 3
-sleep 15
+sleep 25
 
 desc 'check if PVC created'
 compare_kubectl pvc/proxydata-$cluster-proxysql-1
@@ -29,39 +29,36 @@ pod0=$cluster-proxysql-0
 pod1=$cluster-proxysql-1
 pod2=$cluster-proxysql-2
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | grep $pod0
+	| grep $pod0
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | grep $pod1
+	| grep $pod1
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | grep $pod2
+	| grep $pod2
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-1" \
-    | grep $pod0
+	| grep $pod0
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-1" \
-    | grep $pod1
+	| grep $pod1
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-1" \
-    | grep $pod2
+	| grep $pod2
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-2" \
-    | grep $pod0
+	| grep $pod0
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-2" \
-    | grep $pod1
+	| grep $pod1
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-2" \
-    | grep $pod2
+	| grep $pod2
 
 desc 'scale down from 3 to 1'
 apply_config $test_dir/conf/$cluster.yml
 
 desc 'check if Pod deleted'
 wait_for_delete pod/$cluster-proxysql-2
-wait_for_delete pod/$cluster-proxysql-1
 
 desc 'check if PVC not deleted'
-compare_kubectl pvc/proxydata-$cluster-proxysql-1
 compare_kubectl pvc/proxydata-$cluster-proxysql-2
 
 desc 'check if Pod deleted from ProxySQL'
+sleep 15
 run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | ( grep $pod1 && exit 1 || :)
-run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | ( grep $pod2 && exit 1 || :)
+	| (grep $pod2 && exit 1 || :)
 
 destroy $namespace

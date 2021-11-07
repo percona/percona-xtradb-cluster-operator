@@ -8,7 +8,7 @@ spec:
 #  pitr:
 #    type: latest
 #    date: "yyyy-mm-dd hh:mm:ss"
-#    gtidSet: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:nnn"
+#    gtid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:nnn"
 #    backupSource:
 #      storageName: "STORAGE-NAME-HERE"
 #      s3:

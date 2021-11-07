@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  annotations: {}
   generation: 2
   name: upgrade-proxysql-proxysql
   ownerReferences:
@@ -61,6 +62,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-upgrade-proxysql
+          envFrom:
+            - secretRef:
+                name: upgrade-proxysql-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql
           ports:
@@ -107,6 +112,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-upgrade-proxysql
+          envFrom:
+            - secretRef:
+                name: upgrade-proxysql-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -136,6 +145,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-upgrade-proxysql
+          envFrom:
+            - secretRef:
+                name: upgrade-proxysql-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql-monit
           resources: {}
@@ -172,6 +185,6 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 2Gi
+            storage: 2G
       status:
         phase: Pending

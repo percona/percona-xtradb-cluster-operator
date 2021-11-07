@@ -2404,7 +2404,7 @@ file contains configuration options for `Fluent Bit Log Collector <https://fluen
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``200M``                                                                                  |
+| **Example**     | ``100M``                                                                                  |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes memory requests                                                           |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
@@ -2419,7 +2419,7 @@ file contains configuration options for `Fluent Bit Log Collector <https://fluen
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``500m``                                                                                  |
+| **Example**     | ``200m``                                                                                  |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes CPU requests                                                                  |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
@@ -2494,7 +2494,7 @@ options for Percona Monitoring and Management.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``200M``                                                                                  |
+| **Example**     | ``150M``                                                                                  |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The `Kubernetes memory requests                                                           |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |
@@ -2509,7 +2509,7 @@ options for Percona Monitoring and Management.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Example**     | ``500m``                                                                                  |
+| **Example**     | ``300m``                                                                                  |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | `Kubernetes CPU requests                                                                  |
 |                 | <https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/    |

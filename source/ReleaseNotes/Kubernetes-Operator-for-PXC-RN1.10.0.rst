@@ -46,29 +46,13 @@ Bugs Fixed
 * :jirabug:`K8SPXC-851`: Fixed a bug where changing replication user password didn't work
 * :jirabug:`K8SPXC-850`: Fixed a bug where the default weight value wasn't set for a host in a replication channel
 * :jirabug:`K8SPXC-845`: Fixed a bug where using malformed cr.yaml caused stuck cases in cluster deletion
-* :jirabug:`K8SPXC-838`: Compute requests are inherited by log containers
+* :jirabug:`K8SPXC-838`: Fixed a bug due to which the Log Collector and PMM containers with unspecified memory and CPU requests were inheriting them from the PXC container
 * :jirabug:`K8SPXC-824`: Cluster may get into an unrecoverable state with incomplete full crash
-* :jirabug:`K8SPXC-818`: pods not restarted if custom config is updated inside secret or configmap
-* :jirabug:`K8SPXC-783`: Do not allow 'root@%' user to modify the monitor/clustercheck users
-* :jirabug:`K8SPXC-822`: Logrotate tries to rotate GRA logs
+* :jirabug:`K8SPXC-818`: Fixed a bug which made Pods with a custom config inside a Secret or a ConfigMap not restarting at config update
+* :jirabug:`K8SPXC-783`: Fixed a bug where root user was able bto to modify the monitor and clustercheck system users, makeing the possibility of the cluster failure or misbehavior
+* :jirabug:`K8SPXC-822`: LET'S MAKE IT AN IMPROVEMENT? Logrotate now doesn't rotate GRA logs (binlog events in ROW format representing the failed transaction) as ordinary log files, storing them for 7 days instead which gives additional time to debug the problem
 
 Deprecation and Removal
 ================================================================================
 
-* We are simplifying the way the user can customize MongoDB components such as
-  mongod and mongos. :ref:`It is now possible<operator-configmaps>`
-  to set custom configuration through ConfigMaps and Secrets Kubernetes
-  resources. The following options will be deprecated in Percona Distribution
-  for MongoDB Operator v1.9.0+, and completely removed in v1.12.0+:
-
-  * ``sharding.mongos.auditLog.*``
-  * ``mongod.security.redactClientLogData``
-  * ``mongod.security.*``
-  * ``mongod.setParameter.*``
-  * ``mongod.storage.*``
-  * ``mongod.operationProfiling.mode``
-  * ``mongod.auditLog.*``
-* The mongos.expose.enabled option has been completely removed from the Custom
-  Resource as it was causing confusion for the users
-
-
+* 

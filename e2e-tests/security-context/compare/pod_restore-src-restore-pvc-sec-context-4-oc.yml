@@ -30,6 +30,9 @@ spec:
           name: ssl-internal
         - mountPath: /etc/mysql/vault-keyring-secret
           name: vault-keyring-secret
+        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          name: kube-api-access
+          readOnly: true
   dnsPolicy: ClusterFirst
   priority: 0
   restartPolicy: Always
@@ -71,3 +74,26 @@ spec:
         defaultMode: 420
         optional: true
         secretName: sec-context-vault
+    - name: kube-api-access
+      projected:
+        defaultMode: 420
+        sources:
+          - serviceAccountToken:
+              expirationSeconds: 3607
+              path: token
+          - configMap:
+              items:
+                - key: ca.crt
+                  path: ca.crt
+              name: kube-root-ca.crt
+          - downwardAPI:
+              items:
+                - fieldRef:
+                    apiVersion: v1
+                    fieldPath: metadata.namespace
+                  path: namespace
+          - configMap:
+              items:
+                - key: service-ca.crt
+                  path: service-ca.crt
+              name: openshift-service-ca.crt

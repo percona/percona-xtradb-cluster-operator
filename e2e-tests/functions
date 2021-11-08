@@ -313,6 +313,12 @@ compare_kubectl() {
 		expected_result=${expected_result//.yml/-80.yml}
 	fi
 
+	if version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
+		expected_result=${expected_result//.yml/-k122.yml}
+	elif version_gt "1.21" && [ -f ${expected_result//.yml/-k121.yml} ]; then
+		expected_result=${expected_result//.yml/-k121.yml}
+	fi
+
 	kubectl_bin get -o yaml ${resource} \
 		| yq d - 'metadata.managedFields' \
 		| yq d - '**.creationTimestamp' \
@@ -363,12 +369,6 @@ compare_kubectl() {
 		| $sed 's/namespace\:.*name/name/' \
 			>${new_result}
 	# last sed is needed for backup cronjob content
-
-	if version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
-		expected_result=${expected_result//.yml/-k122.yml}
-	elif version_gt "1.21" && [ -f ${expected_result//.yml/-k121.yml} ]; then
-		expected_result=${expected_result//.yml/-k121.yml}
-	fi
 
 	diff -u ${expected_result} ${new_result}
 }

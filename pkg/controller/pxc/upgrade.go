@@ -250,14 +250,14 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	); err != nil {
 		return errors.Wrap(err, "get pod list")
 	}
-	update := false
+	statefulSetChanged := false
 	for _, pod := range list.Items {
 		if pod.ObjectMeta.Labels["controller-revision-hash"] != currentSet.Status.UpdateRevision {
-			update = true
+			statefulSetChanged = true
 			break
 		}
 	}
-	if !update {
+	if !statefulSetChanged {
 		return nil
 	}
 

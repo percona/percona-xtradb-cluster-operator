@@ -529,7 +529,7 @@ deploy_cert_manager() {
 	kubectl_bin create namespace cert-manager || :
 	kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
 	kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml --validate=false || : 2>/dev/null
-	sleep 45
+	sleep 60
 }
 
 destroy() {

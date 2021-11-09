@@ -48,6 +48,8 @@ Installation
    which is created for the Percona XtraDB Cluster when you install its Helm
    chart (use any name you like).
 
+.. _install-helm-params:
+
 Installing Percona XtraDB Cluster with customized parameters
 ----------------------------------------------------------------
 

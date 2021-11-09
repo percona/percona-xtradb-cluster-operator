@@ -240,7 +240,24 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return errors.Wrap(err, "failed to get current sfs")
 	}
 
-	if currentSet.Status.UpdatedReplicas >= currentSet.Status.Replicas {
+	list := corev1.PodList{}
+	if err := r.client.List(context.TODO(),
+		&list,
+		&client.ListOptions{
+			Namespace:     currentSet.Namespace,
+			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+		},
+	); err != nil {
+		return errors.Wrap(err, "get pod list")
+	}
+	statefulSetChanged := false
+	for _, pod := range list.Items {
+		if pod.ObjectMeta.Labels["controller-revision-hash"] != currentSet.Status.UpdateRevision {
+			statefulSetChanged = true
+			break
+		}
+	}
+	if !statefulSetChanged {
 		return nil
 	}
 
@@ -261,17 +278,6 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	if currentSet.Status.ReadyReplicas < currentSet.Status.Replicas {
 		logger.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
 		return nil
-	}
-
-	list := corev1.PodList{}
-	if err := r.client.List(context.TODO(),
-		&list,
-		&client.ListOptions{
-			Namespace:     currentSet.Namespace,
-			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
-		},
-	); err != nil {
-		return errors.Wrap(err, "get pod list")
 	}
 
 	primary, err := r.getPrimaryPod(cr)

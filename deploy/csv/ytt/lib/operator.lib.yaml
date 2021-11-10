@@ -1,0 +1,21 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#@ load("@ytt:template", "template")
+#@ load("@ytt:yaml", "yaml")
+
+#@ def image():
+spec:
+  template:
+    spec:
+      containers:
+      #@overlay/match by=overlay.subset({"name":"percona-xtradb-cluster-operator"})
+      - image: #@ data.values.image_operator
+#@ end
+
+#@ def get_operator_deployment():
+_: #@ template.replace(yaml.decode(data.values.operator_manifest))
+#@ end
+
+#@ def rendered_operator():
+_: #@ template.replace(overlay.apply(get_operator_deployment(), image()))
+#@ end

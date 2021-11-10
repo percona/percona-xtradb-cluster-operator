@@ -1,0 +1,56 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#@ load("@ytt:template", "template")
+#@ load("@ytt:yaml", "yaml")
+
+
+#@ def image():
+spec:
+  upgradeOptions:
+    apply: disabled
+  pxc:
+    image: #@ data.values.image_pxc
+  proxysql:
+    image: #@ data.values.image_proxysql
+  backup:
+    image: #@ data.values.image_backup
+  haproxy:
+    image: #@ data.values.image_haproxy
+  pmm:
+    image: #@ data.values.image_pmm_client
+  logcollector:
+    image: #@ data.values.image_logcollector
+#@ end
+
+#@ def set_storage(storage):
+spec:
+  storageName: #@ storage
+#@ end
+
+#@ def get_cr():
+_: #@ template.replace(yaml.decode(data.values.cr_manifest))
+#@ end
+
+#@ def get_backup():
+_: #@ template.replace(yaml.decode(data.values.backup_manifest))
+#@ end
+
+#@ def get_restore():
+_: #@ template.replace(yaml.decode(data.values.restore_manifest))
+#@ end
+
+#@ def rendered_cr():
+#@ return overlay.apply(get_cr(), image())
+#@ end
+
+#@ def get_backups():
+#@ backups = []
+#@ for storage in rendered_cr()["spec"]["backup"]["storages"]:
+#@ backups.append(overlay.apply(get_backup(), set_storage(storage)))
+#@ end
+#@ return backups
+#@ end
+
+#@ def get_all_crs():
+#@ return [get_backups(), overlay.apply(get_cr(), image()), get_restore()]
+#@ end

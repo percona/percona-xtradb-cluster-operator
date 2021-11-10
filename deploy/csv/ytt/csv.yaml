@@ -1,0 +1,22 @@
+#@ load("@ytt:data", "data")
+#@ load("@ytt:template", "template")
+#@ load("@ytt:json", "json")
+#@ load("lib/operator.lib.yaml", "rendered_operator")
+#@ load("lib/cr.lib.yaml", "rendered_cr", "get_all_crs", "get_backups")
+
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: #@ "{}.v{}".format(rendered_operator()["metadata"]["name"], rendered_cr()["spec"]["crVersion"])
+  namespace: default
+  annotations:
+    alm-examples: #@ json.encode(get_all_crs())
+    categories: Database
+    certified: 'true'
+    createdAt:
+    description: #@ data.values.csv_description
+    containerImage: #@ data.values.image_operator
+    support: Percona
+    capabilities: Deep Insights
+    repository: 'https://github.com/percona/percona-xtradb-cluster-operator'

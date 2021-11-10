@@ -1,0 +1,14 @@
+#@data/values-schema
+---
+operator_manifest: ""
+cr_manifest: ""
+backup_manifest: ""
+restore_manifest: ""
+csv_description: ""
+image_operator: ""
+image_pxc: ""
+image_proxysql: ""
+image_backup: ""
+image_haproxy: ""
+image_pmm_client: ""
+image_logcollector: ""

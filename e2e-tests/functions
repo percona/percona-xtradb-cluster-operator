@@ -955,7 +955,11 @@ DNS.4 = ${SERVICE}.${NAMESPACE}.svc.cluster.local
 IP.1 = 127.0.0.1
 EOF
 
-	openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=${SERVICE}.${NAMESPACE}.svc" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
+	if version_gt "1.22"; then
+		openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=system:node:${SERVICE}.${NAMESPACE}.svc;/O=system:nodes" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
+	else
+		openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=${SERVICE}.${NAMESPACE}.svc" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
+	fi
 
 	cat <<EOF >${tmp_dir}/csr.yaml
 apiVersion: certificates.k8s.io/${CSR_API_VER}

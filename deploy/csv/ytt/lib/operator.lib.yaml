@@ -19,3 +19,11 @@ _: #@ template.replace(yaml.decode(data.values.operator_manifest))
 #@ def rendered_operator():
 _: #@ template.replace(overlay.apply(get_operator_deployment(), image()))
 #@ end
+
+#@ def install_modes():
+#@ return [{'type': 'OwnNamespace','supported': 'true'},{'type': 'SingleNamespace','supported': 'true'},{'type': 'MultiNamespace','supported': 'false'},{'type': 'AllNamespaces','supported': 'false'}]
+#@ end
+
+#@ def get_deployment_for_csv():
+#@ return [{'name': rendered_operator()['metadata']['name'], 'spec': rendered_operator()['spec']}]
+#@ end

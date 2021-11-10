@@ -1,0 +1,12 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#@ load("@ytt:template", "template")
+#@ load("@ytt:yaml", "yaml")
+
+#@ def get_rbac():
+#@ return yaml.decode(data.values.rbac_manifest)
+#@ end
+
+#@ def get_permissions():
+#@ return [{'serviceAccountName': 'percona-xtradb-cluster-operator', 'rules': get_rbac()["rules"]},{'serviceAccountName': 'percona-xtradb-cluster-operator-workload','rules':[{'apiGroups':[''],'resources':[''],'verbs':['']}]}]
+#@ end

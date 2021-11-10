@@ -1,0 +1,82 @@
+#@ load("cr.lib.yaml", "rendered_cr")
+
+#@ def owned():
+- description: Instance of a Percona XtraDB Cluster
+  displayName: PerconaXtraDBCluster
+  kind: PerconaXtraDBCluster
+  name: perconaxtradbclusters.pxc.percona.com
+  version: #@ "v{}".format(rendered_cr()["spec"]["crVersion"])
+  specDescriptors: []
+  statusDescriptors: []
+  resources:
+  - version: v1
+    kind: Deployment
+    name: ''
+  - version: v1
+    kind: Service
+    name: ''
+  - version: v1
+    kind: ReplicaSet
+    name: ''
+  - version: v1
+    kind: Pod
+    name: ''
+  - version: v1
+    kind: Secret
+    name: ''
+  - version: v1
+    kind: ConfigMap
+    name: ''
+- description: Instance of a Percona XtraDB Cluster Backup
+  displayName: PerconaXtraDBClusterBackup
+  kind: PerconaXtraDBClusterBackup
+  name: perconaxtradbclusterbackups.pxc.percona.com
+  version: v1
+  specDescriptors: []
+  statusDescriptors: []
+  resources:
+  - version: v1
+    kind: Deployment
+    name: ''
+  - version: v1
+    kind: Service
+    name: ''
+  - version: v1
+    kind: ReplicaSet
+    name: ''
+  - version: v1
+    kind: Pod
+    name: ''
+  - version: v1
+    kind: Secret
+    name: ''
+  - version: v1
+    kind: ConfigMap
+    name: ''
+- description: Instance of a Percona XtraDB Cluster Restore
+  displayName: PerconaXtraDBClusterRestore
+  kind: PerconaXtraDBClusterRestore
+  name: perconaxtradbclusterrestores.pxc.percona.com
+  version: v1
+  specDescriptors: []
+  statusDescriptors: []
+  resources:
+    - version: v1
+      kind: Deployment
+      name: ''
+    - version: v1
+      kind: Service
+      name: ''
+    - version: v1
+      kind: ReplicaSet
+      name: ''
+    - version: v1
+      kind: Pod
+      name: ''
+    - version: v1
+      kind: Secret
+      name: ''
+    - version: v1
+      kind: ConfigMap
+      name: ''
+#@ end

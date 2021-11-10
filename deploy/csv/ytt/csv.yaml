@@ -1,9 +1,12 @@
 #@ load("@ytt:data", "data")
 #@ load("@ytt:template", "template")
 #@ load("@ytt:json", "json")
-#@ load("lib/operator.lib.yaml", "rendered_operator")
+#@ load("@ytt:base64", "base64")
+#@ load("lib/operator.lib.yaml", "rendered_operator", "install_modes", "get_deployment_for_csv")
 #@ load("lib/cr.lib.yaml", "rendered_cr", "get_all_crs")
+#@ load("lib/crd.lib.yaml", "owned")
 #@ load("lib/base.lib.txt", "description")
+#@ load("lib/rbac.lib.yaml", "get_permissions")
 
 ---
 apiVersion: operators.coreos.com/v1alpha1
@@ -24,6 +27,9 @@ metadata:
 spec:
   displayName: Percona Distribution for MySQL Operator
   description: #@ description()
+  icon:
+    - base64data: #@ base64.encode(data.read("icon.png"))
+      mediatype: image/png
   maturity: stable
   version: #@ rendered_cr()["spec"]["crVersion"]
   minKubeVersion: ''
@@ -50,3 +56,13 @@ spec:
       url: 'https://percona.github.io/percona-xtradb-cluster-operator/'
     - name: Github
       url: 'https://github.com/percona/percona-xtradb-cluster-operator'
+  installModes: #@ install_modes()
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned: #@ owned()
+    required: []
+  install:
+    strategy: deployment
+    spec:
+      permissions: #@ get_permissions()
+      deployments: #@ get_deployment_for_csv()

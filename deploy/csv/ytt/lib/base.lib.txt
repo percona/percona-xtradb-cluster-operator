@@ -1,0 +1,89 @@
+(@ load("@ytt:data", "data") @)
+
+(@ def description(): -@)
+(@ if True: @)
+## Percona is Cloud Native
+
+
+Percona Distribution for MySQL Operator is an open-source drop in replacement for
+MySQL Enterprise with synchronous replication running on Kubernetes. It
+automates the deployment and management of the members in your Percona
+XtraDB Cluster environment. It can be used to instantiate a new Percona
+XtraDB Cluster, or to scale an existing environment.
+
+
+Consult the
+[documentation](https://percona.github.io/percona-xtradb-cluster-operator/)
+on the Percona Distribution for MySQL Operator for complete
+details on capabilities and options.
+
+
+### Supported Features
+
+
+* **Scale Your Cluster**  change the `size` parameter to [add or remove
+members](https://percona.github.io/percona-xtradb-cluster-operator/install/scaling)
+of the cluster. Three is the minimum recommended size for a functioning
+cluster.
+
+
+* **Manage Your Users**  [add, remove, or
+change](https://percona.github.io/percona-xtradb-cluster-operator/configure/users)
+the privileges of database users
+
+
+* **Automate Your Backups**  [configure cluster
+backups](https://percona.github.io/percona-xtradb-cluster-operator/configure/operator)
+to run on a scheduled basis. Backups can be stored on a persistent volume or S3-compatible
+storage. Leverage [Point-in-time recovery](https://www.percona.com/doc/kubernetes-operator-for-pxc/backups.html#storing-binary-logs-for-point-in-time-recovery)
+to reduce RPO/RTO.
+
+* **Proxy integration**  choose HAProxy or ProxySQL as a proxy in front of
+the Percona XtraDB Cluster. Proxies are deployed and configured automatically
+with the Operator.
+
+
+### Common Configurations
+
+
+* **Set Resource Limits** - set limitation on requests to CPU and memory
+resources.
+
+
+* **Customize Storage** - set the desired Storage Class and Access Mode for
+your database cluster data.
+
+
+* **Control Scheduling** - define how your PXC Pods are scheduled onto the
+K8S cluster with tolerations, pod disruption budgets, node selector and
+affinity settings.
+
+* Automatic synchronization of MySQL users with ProxySQL
+
+* HAProxy Support
+
+* Fully automated minor version updates (Smart Update)
+
+* Update Reader members before Writer member at cluster upgrades
+
+* Support MySQL versions 5.7 and 8.0
+
+### Before You Start
+
+
+Add the PXC user `Secret` to Kubernetes. User information must be placed in
+the data section of the `secrets.yaml`
+
+file with Base64-encoded logins and passwords for the user accounts.
+
+
+Below is a sample `secrets.yaml` file for the correct formatting.
+
+
+```
+(@= data.values.secrets_manifest @)
+```
+(@= data.values.rn_txt @)
+
+(@ end @)
+(@- end @)

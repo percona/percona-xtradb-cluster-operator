@@ -43,14 +43,12 @@ _: #@ template.replace(yaml.decode(data.values.restore_manifest))
 #@ return overlay.apply(get_cr(), image())
 #@ end
 
-#@ def get_backups():
-#@ backups = []
-#@ for storage in rendered_cr()["spec"]["backup"]["storages"]:
-#@ backups.append(overlay.apply(get_backup(), set_storage(storage)))
-#@ end
-#@ return backups
-#@ end
-
 #@ def get_all_crs():
-#@ return [get_backups(), overlay.apply(get_cr(), image()), get_restore()]
+#@ crs = []
+#@ for storage in rendered_cr()["spec"]["backup"]["storages"]:
+#@ crs.append(overlay.apply(get_backup(), set_storage(storage)))
+#@ end
+#@ crs.append(rendered_cr())
+#@ crs.append(get_restore())
+#@ return crs
 #@ end

@@ -2,7 +2,8 @@
 #@ load("@ytt:template", "template")
 #@ load("@ytt:json", "json")
 #@ load("lib/operator.lib.yaml", "rendered_operator")
-#@ load("lib/cr.lib.yaml", "rendered_cr", "get_all_crs", "get_backups")
+#@ load("lib/cr.lib.yaml", "rendered_cr", "get_all_crs")
+#@ load("lib/base.lib.txt", "description")
 
 ---
 apiVersion: operators.coreos.com/v1alpha1
@@ -20,3 +21,32 @@ metadata:
     support: Percona
     capabilities: Deep Insights
     repository: 'https://github.com/percona/percona-xtradb-cluster-operator'
+spec:
+  displayName: Percona Distribution for MySQL Operator
+  description: #@ description()
+  maturity: stable
+  version: #@ rendered_cr()["spec"]["crVersion"]
+  minKubeVersion: ''
+  keywords:
+    - mysql
+    - percona
+    - database
+    - pxc
+    - galera
+  maintainers:
+    - name: Percona
+      email: info@percona.com
+  provider:
+    name: Percona
+  labels: {}
+  selector:
+    matchLabels: {}
+  links:
+    - name: Percona
+      url: 'https://www.percona.com/'
+    - name: Percona Kubernetes Operators Landing Page
+      url: 'https://www.percona.com/software/percona-kubernetes-operators'
+    - name: Documentation
+      url: 'https://percona.github.io/percona-xtradb-cluster-operator/'
+    - name: Github
+      url: 'https://github.com/percona/percona-xtradb-cluster-operator'

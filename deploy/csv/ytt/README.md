@@ -10,5 +10,6 @@ ytt -f ytt \
     --data-value-file operator_manifest='../../deploy/operator.yaml' \
     --data-value-file cr_manifest='../../deploy/cr.yaml' \
     --data-value-file restore_manifest='../../deploy/backup/restore.yaml' \
-    --data-value-file backup_manifest='../../deploy/backup/backup.yaml'
+    --data-value-file backup_manifest='../../deploy/backup/backup.yaml' \
+    --data-value-file secrets_manifest='../../deploy/secrets.yaml' \ --data-value-file rn_txt='./ytt/ReleaseNotes.md'
 ```

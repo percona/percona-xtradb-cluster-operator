@@ -215,12 +215,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	if o.SetVersion() {
 		err = r.client.Update(context.TODO(), o)
 		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
+			return reconcile.Result{}, errors.Wrap(err, "update CR Version")
 		}
-		err := r.client.Get(context.TODO(), request.NamespacedName, o)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "refetch PXC CR")
-		}
+		// k8s needs some time to write the changed CR object
+		// there is some probability to get the old object if we are fetching immediately after the Update call
+		// just rerun reconcile loop to get the new object
+		return rr, nil
 	}
 
 	reqLogger := r.logger(o.Name, o.Namespace)

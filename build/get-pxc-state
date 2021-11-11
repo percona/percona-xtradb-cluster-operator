@@ -26,5 +26,5 @@ while read -ra LINE; do
 	STATE=$(echo "$STATUS" | grep wsrep_local_state_comment | awk '{print$2}')
 	CLUSTER_STATUS=$(echo "$STATUS" | grep wsrep_cluster_status | awk '{print$2}')
 
-    echo node:$LINE:wsrep_ready:$READY:wsrep_connected:$ONLINE:wsrep_local_state_comment:$STATE:wsrep_cluster_status:$CLUSTER_STATUS
+	echo node:$LINE:wsrep_ready:$READY:wsrep_connected:$ONLINE:wsrep_local_state_comment:$STATE:wsrep_cluster_status:$CLUSTER_STATUS
 done

@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -342,25 +343,18 @@ func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBC
 
 func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraDBCluster) (err error) {
 	// tryin several times just to avoid possible conflicts with the main controller
-	for i := 0; i < 5; i++ {
+	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		// need to get the object with latest version of meta-data for update
 		current := &api.PerconaXtraDBCluster{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
-		if err != nil {
+		rerr := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
+		if rerr != nil {
 			return errors.Wrap(err, "get cluster")
 		}
-
 		current.Spec = cr.Spec
-
-		uerr := r.client.Update(context.TODO(), current)
-		if uerr == nil {
-			break
-		}
-		err = errors.Wrap(uerr, "update cluster")
-		time.Sleep(time.Second * 1)
-	}
+		return r.client.Update(context.TODO(), current)
+	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "update cluster")
 	}
 
 	// give time for process new state

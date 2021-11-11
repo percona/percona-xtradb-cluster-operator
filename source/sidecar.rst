@@ -77,7 +77,7 @@ You can login to your sidecar container as follows:
    $ kubectl exec -it cluster1-pxc-0 -c my-sidecar-1 -- sh
    / #
 
-Mount volumes to sidecar containers
+Mount volumes into sidecar containers
 ===================================
 
 It is possible to mount volumes into sidecar containers.

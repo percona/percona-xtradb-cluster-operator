@@ -80,7 +80,7 @@ You can login to your sidecar container as follows:
 Mount volumes to sidecar containers
 ===================================
 
-It is possible to volumes into sidecar containers.
+It is possible to mount volumes into sidecar containers.
 
 Following subsections describe different `volume types <https://kubernetes.io/docs/concepts/storage/volumes/#volume-types>`_,
 which were tested with sidecar containers and are known to work.

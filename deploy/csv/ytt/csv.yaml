@@ -2,7 +2,7 @@
 #@ load("@ytt:template", "template")
 #@ load("@ytt:json", "json")
 #@ load("@ytt:base64", "base64")
-#@ load("lib/operator.lib.yaml", "rendered_operator", "install_modes", "get_deployment_for_csv")
+#@ load("lib/operator.lib.yaml", "rendered_operator", "install_modes", "get_deployment_for_csv", "get_version_to_replace")
 #@ load("lib/cr.lib.yaml", "rendered_cr", "get_all_crs")
 #@ load("lib/crd.lib.yaml", "owned")
 #@ load("lib/base.lib.txt", "description")
@@ -20,7 +20,7 @@ metadata:
     certified: 'true'
     createdAt:
     description: #@ data.values.csv_description
-    containerImage: #@ data.values.image_operator
+    containerImage: #@ data.values.image.operator
     support: Percona
     capabilities: Deep Insights
     repository: 'https://github.com/percona/percona-xtradb-cluster-operator'
@@ -66,3 +66,5 @@ spec:
     spec:
       permissions: #@ get_permissions()
       deployments: #@ get_deployment_for_csv()
+  skips: []
+  replaces: #@ get_version_to_replace()

@@ -9,17 +9,17 @@ spec:
   upgradeOptions:
     apply: disabled
   pxc:
-    image: #@ data.values.image_pxc
+    image: #@ data.values.image.pxc80.db
   proxysql:
-    image: #@ data.values.image_proxysql
+    image: #@ data.values.image.proxysql
   backup:
-    image: #@ data.values.image_backup
+    image: #@ data.values.image.pxc80.backup
   haproxy:
-    image: #@ data.values.image_haproxy
+    image: #@ data.values.image.haproxy
   pmm:
-    image: #@ data.values.image_pmm_client
+    image: #@ data.values.image.pmmclient
   logcollector:
-    image: #@ data.values.image_logcollector
+    image: #@ data.values.image.logcollector
 #@ end
 
 #@ def set_storage(storage):

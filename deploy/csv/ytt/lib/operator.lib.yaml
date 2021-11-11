@@ -9,7 +9,35 @@ spec:
     spec:
       containers:
       #@overlay/match by=overlay.subset({"name":"percona-xtradb-cluster-operator"})
-      - image: #@ data.values.image_operator
+      - image: #@ data.values.image.operator
+#@ end
+
+#@ def env():
+spec:
+  template:
+    spec:
+      containers:
+      #@ if/end data.values.platform=="redhat":
+      #@overlay/match by=overlay.subset({"name":"percona-xtradb-cluster-operator"})
+      - env:
+        - name: RELATED_IMAGE_PXC_57
+          value: #@ data.values.image.pxc57.db
+        - name: RELATED_IMAGE_PXC_57_BACKUP
+          value: #@ data.values.image.pxc57.backup
+        - name: RELATED_IMAGE_PXC_80
+          value: #@ data.values.image.pxc80.db
+        - name: RELATED_IMAGE_PXC_80_BACKUP
+          value: #@ data.values.image.pxc80.backup
+        - name: RELATED_IMAGE_OPERATOR
+          value: #@ data.values.image.operator
+        - name: RELATED_IMAGE_HAPROXY
+          value: #@ data.values.image.haproxy
+        - name: RELATED_IMAGE_PROXYSQL
+          value: #@ data.values.image.proxysql
+        - name: RELATED_IMAGE_LOGCOLLECTOR
+          value: #@ data.values.image.logcollector
+        - name: RELATED_IMAGE_PMM_CLIENT
+          value: #@ data.values.image.pmmclient
 #@ end
 
 #@ def get_operator_deployment():
@@ -17,7 +45,7 @@ _: #@ template.replace(yaml.decode(data.values.operator_manifest))
 #@ end
 
 #@ def rendered_operator():
-_: #@ template.replace(overlay.apply(get_operator_deployment(), image()))
+_: #@ template.replace(overlay.apply(get_operator_deployment(), image(), env()))
 #@ end
 
 #@ def install_modes():
@@ -26,4 +54,11 @@ _: #@ template.replace(overlay.apply(get_operator_deployment(), image()))
 
 #@ def get_deployment_for_csv():
 #@ return [{'name': rendered_operator()['metadata']['name'], 'spec': rendered_operator()['spec']}]
+#@ end
+
+#@ def get_version_to_replace():
+#@ if data.values.last_version:
+#@ return "{}.v{}".format(get_operator_deployment()["metadata"]["name"], data.values.last_version)
+#@ end
+#@ return ''
 #@ end

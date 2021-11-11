@@ -7,14 +7,14 @@ function mysql_root_exec() {
 }
 
 function wait_for_mysql() {
-    local h="$1"
-    for i in {1..10}; do
-        if [ "$(mysql_root_exec "$h" 'select 1')" == "1" ]; then
-            return
-        fi
-        echo "MySQL is not up yet... sleeping ..."
-        sleep 1
-    done
+	local h="$1"
+	for i in {1..10}; do
+		if [ "$(mysql_root_exec "$h" 'select 1')" == "1" ]; then
+			return
+		fi
+		echo "MySQL is not up yet... sleeping ..."
+		sleep 1
+	done
 }
 
 echo

@@ -1,0 +1,26 @@
+---
+apiVersion: pxc.percona.com/v1-10-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: simple-pxc
+spec:
+  crVersion: 1.10.0
+  secretsName: simple-dev-secrets
+  allowUnsafeConfigurations: true
+
+  haproxy:
+    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+    size: 1
+    enabled: true
+    replicasServiceEnabled: false
+
+  pxc:
+    image: percona/percona-xtradb-cluster:8.0
+    size: 1
+    forceUnsafeBootstrap: false
+    volumeSpec:
+      persistentVolumeClaim:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1G

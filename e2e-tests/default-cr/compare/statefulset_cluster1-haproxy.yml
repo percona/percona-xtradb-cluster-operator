@@ -1,0 +1,160 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations: {}
+  generation: 1
+  name: cluster1-haproxy
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: cluster1
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: haproxy
+      app.kubernetes.io/instance: cluster1
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
+  serviceName: cluster1-haproxy
+  template:
+    metadata:
+      annotations: {}
+      labels:
+        app.kubernetes.io/component: haproxy
+        app.kubernetes.io/instance: cluster1
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: haproxy
+                  app.kubernetes.io/instance: cluster1
+                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                  app.kubernetes.io/name: percona-xtradb-cluster
+                  app.kubernetes.io/part-of: percona-xtradb-cluster
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - env:
+            - name: PXC_SERVICE
+              value: cluster1-pxc
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: cluster1-env-vars-haproxy
+                optional: true
+          imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/liveness-check.sh
+            failureThreshold: 4
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: haproxy
+          ports:
+            - containerPort: 3306
+              name: mysql
+              protocol: TCP
+            - containerPort: 3307
+              name: mysql-replicas
+              protocol: TCP
+            - containerPort: 3309
+              name: proxy-protocol
+              protocol: TCP
+            - containerPort: 33062
+              name: mysql-admin
+              protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/readiness-check.sh
+            failureThreshold: 3
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 600m
+              memory: 1G
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/haproxy-custom/
+              name: haproxy-custom
+            - mountPath: /etc/haproxy/pxc
+              name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: cluster1-env-vars-haproxy
+        - args:
+            - /usr/bin/peer-list
+            - -on-change=/usr/bin/add_pxc_nodes.sh
+            - -service=$(PXC_SERVICE)
+          env:
+            - name: PXC_SERVICE
+              value: cluster1-pxc
+          envFrom:
+            - secretRef:
+                name: cluster1-env-vars-haproxy
+                optional: true
+          imagePullPolicy: Always
+          name: pxc-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/haproxy-custom/
+              name: haproxy-custom
+            - mountPath: /etc/haproxy/pxc
+              name: haproxy-auto
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: cluster1-env-vars-haproxy
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - configMap:
+            defaultMode: 420
+            name: cluster1-haproxy
+            optional: true
+          name: haproxy-custom
+        - emptyDir: {}
+          name: haproxy-auto
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-cluster1
+        - name: cluster1-env-vars-haproxy
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: cluster1-env-vars-haproxy
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate

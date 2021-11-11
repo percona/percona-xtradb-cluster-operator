@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  annotations: {}
   generation: 1
   name: custom-pxc
   ownerReferences:
@@ -97,6 +98,14 @@ spec:
                 secretKeyRef:
                   key: operator
                   name: internal-custom
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "15"
+          envFrom:
+            - secretRef:
+                name: custom-env-vars-pxc
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:
@@ -123,6 +132,9 @@ spec:
               protocol: TCP
             - containerPort: 33062
               name: mysql-admin
+              protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
               protocol: TCP
           readinessProbe:
             exec:

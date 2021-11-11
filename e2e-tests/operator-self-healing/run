@@ -7,6 +7,11 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="no-limits"
 
+if version_gt "1.19"; then
+	echo "Kubernetes version is 1.19+ so skipping this test because of pumba support."
+	exit 0
+fi
+
 pumba_pod() {
     local action=$1
     local pod=$(get_operator_pod)

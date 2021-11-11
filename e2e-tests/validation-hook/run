@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -z "$OPERATOR_NS" ]; then
-    exit 0
+	exit 0
 fi
 
 test_dir=$(realpath $(dirname $0))
@@ -12,22 +12,51 @@ create_infra $namespace
 output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-too-long-name.yaml")
 
 if [[ $output != *"too long, must be no more than 22 characters"* ]]; then
-    echo 'invalid hook response'
-    exit 1
+	echo 'invalid hook response'
+	exit 1
 fi
 
 output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-haproxy-and-proxysql.yaml")
 
 if [[ $output != *"can't enable both HAProxy and ProxySQL"* ]]; then
-    echo 'invalid hook response'
-    exit 1
+	echo 'invalid hook response'
+	exit 1
 fi
 
 output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-no-storage.yaml")
 
 if [[ $output != *"PXC: volumeSpec should be specified"* ]]; then
-    echo 'invalid hook response'
-    exit 1
+	echo 'invalid hook response'
+	exit 1
+fi
+
+if ! kubectl apply -f "$test_dir/conf/cr-simple.yaml"; then
+	echo "ERROR: unable to apply simple CR"
+	exit 1
+fi
+
+if ! output=$(kubectl 2>&1 wait --for=condition=initializing pxc/simple-pxc --timeout=1m); then
+	echo "ERROR: ${output}"
+	exit 1
+fi
+
+replicas_num=2
+scale_cmd_err='admission webhook "validationwebhook.pxc.percona.com" denied the request: json: unknown field "replicas"'
+
+if ! output=$(kubectl 2>&1 scale pxc/simple-pxc --replicas ${replicas_num}); then
+	echo "ERROR: ${output}"
+	exit 1
+elif [[ ${output} =~ ${scale_cmd_err}$ ]]; then
+	echo "ERROR: unsupported scale command: ${output}"
+	exit 1
+fi
+
+sleep 1
+
+if ! output=$(kubectl 2>&1 get pxc/simple-pxc -o yaml | yq r - spec.pxc.size); then
+	echo "ERROR: ${output}"
+elif ((output != replicas_num)); then
+	echo "ERROR: pxc did  ${output}"
 fi
 
 destroy $namespace

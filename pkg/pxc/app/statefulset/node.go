@@ -2,6 +2,7 @@ package statefulset
 
 import (
 	"fmt"
+	"hash/fnv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,7 +50,11 @@ func NewNode(cr *api.PerconaXtraDBCluster) *Node {
 	}
 }
 
-func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) (corev1.Container, error) {
+func (c *Node) Name() string {
+	return app.Name
+}
+
+func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster, _ []corev1.Volume) (corev1.Container, error) {
 	redinessDelay := int32(15)
 	if spec.ReadinessInitialDelaySeconds != nil {
 		redinessDelay = *spec.ReadinessInitialDelaySeconds
@@ -175,7 +180,32 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			appc.Env = append(appc.Env, logEnvs...)
 		}
 	}
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		appc.EnvFrom = append(appc.EnvFrom, corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Spec.PXC.EnvVarsSecretName,
+				},
+				Optional: &fvar,
+			},
+		})
+		serverIDHash := fnv.New32()
+		serverIDHash.Write([]byte(string(cr.UID)))
 
+		// we cut first 3 symbols to give a space for hostname(actially, pod number)
+		// which is appended to all server ids. If we do not do this, it
+		// can cause a int32 overflow
+		// P.S max value is 4294967295
+		serverIDHashStr := fmt.Sprint(serverIDHash.Sum32())
+		if len(serverIDHashStr) > 7 {
+			serverIDHashStr = serverIDHashStr[:7]
+		}
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "CLUSTER_HASH",
+			Value: serverIDHashStr,
+		})
+	}
 	if cr.CompareVersionWith("1.3.0") >= 0 {
 		for k, v := range appc.VolumeMounts {
 			if v.Name == "config" {
@@ -217,6 +247,36 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		)
 		appc.ReadinessProbe.Exec.Command = []string{"/var/lib/mysql/readiness-check.sh"}
 		appc.LivenessProbe.Exec.Command = []string{"/var/lib/mysql/liveness-check.sh"}
+	}
+
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		appc.Ports = append(
+			appc.Ports,
+			corev1.ContainerPort{
+				ContainerPort: 33060,
+				Name:          "mysqlx",
+			},
+		)
+
+		appc.LivenessProbe = &spec.LivenessProbes
+		appc.ReadinessProbe = &spec.ReadinessProbes
+		appc.ReadinessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/var/lib/mysql/readiness-check.sh"},
+		}
+		appc.LivenessProbe.Exec = &corev1.ExecAction{
+			Command: []string{"/var/lib/mysql/liveness-check.sh"},
+		}
+		probsEnvs := []corev1.EnvVar{
+			{
+				Name:  "LIVENESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(spec.LivenessProbes.TimeoutSeconds),
+			},
+			{
+				Name:  "READINESS_CHECK_TIMEOUT",
+				Value: fmt.Sprint(spec.ReadinessProbes.TimeoutSeconds),
+			},
+		}
+		appc.Env = append(appc.Env, probsEnvs...)
 	}
 
 	res, err := app.CreateResources(spec.Resources)
@@ -401,6 +461,36 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 		pmmAgentScriptEnv := app.PMMAgentScript("mysql")
 		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 	}
+	if cr.CompareVersionWith("1.9.0") >= 0 {
+		fvar := true
+		ct.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.PXC.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
+
+	}
+	if cr.CompareVersionWith("1.10.0") >= 0 {
+		// PMM team added these flags which allows us to avoid
+		// container crash, but just restart pmm-agent till it recovers
+		// the connection.
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_SIDECAR",
+				Value: "true",
+			},
+			{
+				Name:  "PMM_AGENT_SIDECAR_SLEEP",
+				Value: "5",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{
@@ -412,13 +502,17 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 	return &ct, nil
 }
 
-func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster) (*api.Volume, error) {
+func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
 	vol := app.Volumes(podSpec, DataVolumeName)
 	ls := c.Labels()
+	configVolume, err := vg(cr.Namespace, "config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"], true)
+	if err != nil {
+		return nil, err
+	}
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetTmpVolume("tmp"),
-		app.GetConfigVolumes("config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]),
+		configVolume,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
 		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig))
 	if cr.CompareVersionWith("1.3.0") >= 0 {

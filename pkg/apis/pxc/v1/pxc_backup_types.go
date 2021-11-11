@@ -14,6 +14,16 @@ type PerconaXtraDBClusterBackupList struct {
 	Items           []PerconaXtraDBClusterBackup `json:"items"`
 }
 
+func (list *PerconaXtraDBClusterBackupList) HasUnfinishedFinalizers() bool {
+	for _, v := range list.Items {
+		if v.ObjectMeta.DeletionTimestamp != nil && len(v.Finalizers) != 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type PerconaXtraDBClusterBackup struct {
@@ -43,10 +53,10 @@ type PXCBackupState string
 
 const (
 	BackupNew       PXCBackupState = ""
-	BackupStarting                 = "Starting"
-	BackupRunning                  = "Running"
-	BackupFailed                   = "Failed"
-	BackupSucceeded                = "Succeeded"
+	BackupStarting  PXCBackupState = "Starting"
+	BackupRunning   PXCBackupState = "Running"
+	BackupFailed    PXCBackupState = "Failed"
+	BackupSucceeded PXCBackupState = "Succeeded"
 )
 
 // OwnerRef returns OwnerReference to object

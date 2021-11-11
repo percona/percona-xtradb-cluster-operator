@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  annotations: {}
   generation: 1
   name: haproxy-haproxy
   ownerReferences:
@@ -44,16 +45,24 @@ spec:
         - env:
             - name: PXC_SERVICE
               value: haproxy-pxc
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "6"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: haproxy-env-vars-haproxy
+                optional: true
           imagePullPolicy: Always
           livenessProbe:
             exec:
               command:
-                - /usr/local/bin/readiness-check.sh
-            failureThreshold: 4
-            initialDelaySeconds: 60
-            periodSeconds: 30
+                - /usr/local/bin/liveness-check.sh
+            failureThreshold: 5
+            initialDelaySeconds: 61
+            periodSeconds: 31
             successThreshold: 1
-            timeoutSeconds: 5
+            timeoutSeconds: 6
           name: haproxy
           ports:
             - containerPort: 3306
@@ -67,6 +76,9 @@ spec:
               protocol: TCP
             - containerPort: 33062
               name: mysql-admin
+              protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
               protocol: TCP
           readinessProbe:
             exec:
@@ -87,6 +99,8 @@ spec:
               name: haproxy-auto
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: haproxy-env-vars-haproxy
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -94,6 +108,10 @@ spec:
           env:
             - name: PXC_SERVICE
               value: haproxy-pxc
+          envFrom:
+            - secretRef:
+                name: haproxy-env-vars-haproxy
+                optional: true
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -106,8 +124,21 @@ spec:
               name: haproxy-auto
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
+            - mountPath: /etc/mysql/haproxy-env-secret
+              name: haproxy-env-vars-haproxy
+        - args:
+            - -c
+            - while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;
+          command:
+            - /bin/sh
+          imagePullPolicy: Always
+          name: my-sidecar-1
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
       restartPolicy: Always
+      runtimeClassName: docker-rc
       schedulerName: default-scheduler
       securityContext: {}
       serviceAccount: default
@@ -131,6 +162,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-haproxy
+        - name: haproxy-env-vars-haproxy
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: haproxy-env-vars-haproxy
   updateStrategy:
     rollingUpdate:
       partition: 0

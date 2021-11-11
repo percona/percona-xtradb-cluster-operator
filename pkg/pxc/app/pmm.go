@@ -159,12 +159,20 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string) []corev1.EnvVar 
 }
 
 func PMMAgentScript(dbType string) []corev1.EnvVar {
-	pmmServerArgs := " $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push "
-	pmmServerArgs += " --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME) "
-	pmmServerArgs += " --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT) "
-	if dbType == "mysql" {
-		pmmServerArgs += "$(DB_ARGS)"
+	pmmServerArgs := " $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push"
+	pmmServerArgs += " --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME)"
+	if dbType != "haproxy" {
+		pmmServerArgs += " --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT)"
 	}
+
+	if dbType == "mysql" {
+		pmmServerArgs += " $(DB_ARGS)"
+	}
+
+	if dbType == "haproxy" {
+		pmmServerArgs += " $(PMM_AGENT_SETUP_NODE_NAME)"
+	}
+
 	return []corev1.EnvVar{
 		{
 			Name:  "PMM_AGENT_PRERUN_SCRIPT",

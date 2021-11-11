@@ -1,0 +1,26 @@
+apiVersion: pxc.percona.com/v1-10-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: minimal-cluster
+spec:
+  crVersion: 1.10.0
+  secretsName: minimal-cluster-secrets
+  allowUnsafeConfigurations: true
+  upgradeOptions:
+    apply: 8.0-recommended
+    schedule: "0 4 * * *"
+  pxc:
+    size: 1
+    image: percona/percona-xtradb-cluster:8.0.23-14.1
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 6G
+  haproxy:
+    enabled: true
+    size: 1
+    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+  logcollector:
+    enabled: true
+    image: perconalab/percona-xtradb-cluster-operator:main-logcollector

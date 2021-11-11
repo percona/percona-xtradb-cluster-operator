@@ -4,15 +4,17 @@ exec 5>&2
 BASH_XTRACEFD="5"
 
 GIT_COMMIT=$(git rev-parse HEAD)
+BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-API="pxc.percona.com/v1-7-0"
+API="pxc.percona.com/v1-10-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
-IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0"}
+IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/pmm-client:dev-latest"}
-IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:master-proxysql"}
-IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:master-haproxy"}
-IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:master-pxc8.0-backup"}
-IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:master-logcollector"}
+IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-proxysql"}
+IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
+IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup"}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
+SKIP_BACKUPS_TO_AWS_GCP=${SKIP_BACKUPS_TO_AWS_GCP:-1}
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -22,593 +24,627 @@ namespace="${test_name}-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
 
-if oc get projects ; then
-    # Guessing Openshift version from master node API version
-    case "$(oc get nodes --no-headers=true | grep master | head -n1 | grep -Eo 'v[0-9]+\.[0-9]+')" in
-        "v1.11") OPENSHIFT=3.11 ;;
-              *) OPENSHIFT=4    ;;
-    esac
+if [ -f "$conf_dir/cloud-secret.yml" ]; then
+	SKIP_BACKUPS_TO_AWS_GCP=''
 fi
+
+if oc get projects; then
+	# Guessing Openshift version from master node API version
+	case "$(oc get nodes --no-headers=true | grep master | head -n1 | grep -Eo 'v[0-9]+\.[0-9]+')" in
+		"v1.11") OPENSHIFT=3.11 ;;
+		*) OPENSHIFT=4 ;;
+	esac
+fi
+
+if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then
+	EKS=1
+else
+	EKS=0
+fi
+
+KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
+
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
-    HELM_ARGS="--name"
+	HELM_ARGS="--name"
 fi
 
+version_gt() {
+	# return true if kubernetes version equal or greater than desired
+	if [ $(echo "${KUBE_VERSION} >= $1" | bc -l) -eq 1 ]; then
+		return 0
+	else
+		return 1
+	fi
+}
+
 wait_cluster_consistency() {
-    local cluster_name=${1}
-    local cluster_size=${2}
-    local proxy_size=${3}
+	local cluster_name=${1}
+	local cluster_size=${2}
+	local proxy_size=${3}
 
-    if [ -z "${proxy_size}" ]; then
-      proxy_size=${cluster_size}
-    fi
+	if [ -z "${proxy_size}" ]; then
+		proxy_size=${cluster_size}
+	fi
 
-    sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
-    until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" \
-             && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" \
-             && "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
-        echo 'waiting for cluster readyness'
-        sleep 20
-    done
+	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
+	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" &&
+	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" &&
+	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.'$(get_proxy_engine ${cluster_name})'.ready}')" == "${proxy_size}" ]]; do
+		echo 'waiting for cluster readyness'
+		sleep 20
+	done
 }
 
 create_namespace() {
-    local namespace="$1"
-    local skip_clean_namespace="$2"
+	local namespace="$1"
+	local skip_clean_namespace="$2"
 
-    if [[ "${CLEAN_NAMESPACE}" == 1 ]] && [[ -z "${skip_clean_namespace}" ]]; then
-        kubectl_bin get ns \
-            | egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" \
-            | awk '{print$1}' \
-            | xargs kubectl delete ns &
-    fi
+	if [[ ${CLEAN_NAMESPACE} == 1 ]] && [[ -z ${skip_clean_namespace} ]]; then
+		kubectl_bin get ns \
+			| egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" \
+			| awk '{print$1}' \
+			| xargs kubectl delete ns &
+	fi
 
-    if [ ! -z "$OPENSHIFT" ]; then
-        oc delete project "$namespace" && sleep 40 || :
-        oc new-project "$namespace"
-        oc project "$namespace"
-        oc adm policy add-scc-to-user hostaccess -z default || :
-    else
-        kubectl_bin delete namespace "$namespace" || :
-        wait_for_delete "namespace/$namespace"
-        kubectl_bin create namespace "$namespace"
-        kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
-    fi
+	if [ ! -z "$OPENSHIFT" ]; then
+		oc delete project "$namespace" && sleep 40 || :
+		oc new-project "$namespace"
+		oc project "$namespace"
+		oc adm policy add-scc-to-user hostaccess -z default || :
+	else
+		kubectl_bin delete namespace "$namespace" || :
+		wait_for_delete "namespace/$namespace"
+		kubectl_bin create namespace "$namespace"
+		kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
+	fi
 }
 
 get_operator_pod() {
-    local label_prefix="app.kubernetes.io/"
-    local check_label=$(kubectl get pods --selector=app.kubernetes.io/name=percona-xtradb-cluster-operator ${OPERATOR_NS:+-n $OPERATOR_NS} | grep -c "percona-xtradb-cluster-operator")
-    if [[ ${check_label} -eq 0 ]]; then
-        label_prefix=""
-    fi
-    kubectl_bin get pods \
-        --selector=${label_prefix}name=percona-xtradb-cluster-operator \
-        -o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
+	local label_prefix="app.kubernetes.io/"
+	local check_label=$(kubectl get pods --selector=app.kubernetes.io/name=percona-xtradb-cluster-operator ${OPERATOR_NS:+-n $OPERATOR_NS} | grep -c "percona-xtradb-cluster-operator")
+	if [[ ${check_label} -eq 0 ]]; then
+		label_prefix=""
+	fi
+	kubectl_bin get pods \
+		--selector=${label_prefix}name=percona-xtradb-cluster-operator \
+		-o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
 }
 
 wait_pod() {
-    local pod=$1
-    local max_retry="${2:-480}"
-    local ns=$3
-    local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
+	local pod=$1
+	local max_retry="${2:-480}"
+	local ns=$3
+	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
 
-    set +o xtrace
-    retry=0
-    echo -n $pod
-    until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
-        && kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
-        && ! kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q LAST_LINE; do
-        sleep 1
-        echo -n .
-        let retry+=1
-        if [[ $retry -ge $max_retry ]]; then
-            kubectl_bin describe pod/$pod
-            kubectl_bin logs $pod
-            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
-            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-            exit 1
-        fi
-    done
-    echo ".Ok"
-    set -o xtrace
+	set +o xtrace
+	retry=0
+	echo -n $pod
+	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
+		&& kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
+		&& ! kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q LAST_LINE; do
+		sleep 1
+		echo -n .
+		let retry+=1
+		if [[ $retry -ge $max_retry ]]; then
+			kubectl_bin describe pod/$pod
+			kubectl_bin logs $pod
+			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
+	done
+	echo ".Ok"
+	set -o xtrace
 }
 
 wait_crash_pod() {
-    local pod=$1
-    local max_retry="${2:-480}"
-    local ns=$3
-    local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
+	local pod=$1
+	local max_retry="${2:-480}"
+	local ns=$3
+	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
 
-    set +o xtrace
-    retry=0
-    echo -n $pod
-    until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
-        && kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
-        && kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q LAST_LINE; do
-        sleep 1
-        echo -n .
-        let retry+=1
-        if [[ $retry -ge $max_retry ]]; then
-            kubectl_bin describe pod/$pod
-            kubectl_bin logs $pod
-            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
-            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-            exit 1
-        fi
-    done
-    echo ".Ok"
-    set -o xtrace
+	set +o xtrace
+	retry=0
+	echo -n $pod
+	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
+		&& kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
+		&& kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q LAST_LINE; do
+		sleep 1
+		echo -n .
+		let retry+=1
+		if [[ $retry -ge $max_retry ]]; then
+			kubectl_bin describe pod/$pod
+			kubectl_bin logs $pod
+			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
+	done
+	echo ".Ok"
+	set -o xtrace
 }
 
-
 wait_backup() {
-    local backup=$1
+	local backup=$1
 
-    set +o xtrace
-    retry=0
-    echo -n $backup
-    until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
-        sleep 1
-        echo -n .
-        let retry+=1
-        if [ $retry -ge 120 ]; then
-            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
-            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-            exit 1
-        fi
-    done
-    set -o xtrace
+	set +o xtrace
+	retry=0
+	echo -n $backup
+	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+		sleep 1
+		echo -n .
+		let retry+=1
+		if [ $retry -ge 120 ]; then
+			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
+	done
+	set -o xtrace
 }
 
 wait_backup_restore() {
-    local backup_name=$1
+	local backup_name=$1
 
-    set +o xtrace
-    retry=0
-    echo -n $backup_name
-    until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
-        sleep 1
-        echo -n .
-        let retry+=1
-        if [ $retry -ge 1500 ]; then
-            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
-            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-            exit 1
-        fi
-    done
-    echo
-    set -o xtrace
+	set +o xtrace
+	retry=0
+	echo -n $backup_name
+	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+		sleep 1
+		echo -n .
+		let retry+=1
+		if [ $retry -ge 1500 ]; then
+			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
+	done
+	echo
+	set -o xtrace
 }
 
 apply_rbac() {
-    local operator_namespace=${OPERATOR_NS:-'pxc-operator'}
-    local rbac=${1:-'rbac'}
+	local operator_namespace=${OPERATOR_NS:-'pxc-operator'}
+	local rbac=${1:-'rbac'}
 
-    cat ${src_dir}/deploy/${rbac}.yaml \
-        | sed -e "s^namespace: .*^namespace: $operator_namespace^" \
-        | kubectl_bin apply  -f -
+	cat ${src_dir}/deploy/${rbac}.yaml \
+		| sed -e "s^namespace: .*^namespace: $operator_namespace^" \
+		| kubectl_bin apply -f -
 }
 
 deploy_operator() {
-    desc 'start operator'
+	desc 'start operator'
 
-    kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
+	kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
 
-    if [ -n "$OPERATOR_NS" ]; then
-        apply_rbac cw-rbac
-        cat ${src_dir}/deploy/cw-operator.yaml \
-            | sed -e "s^image: .*^image: ${IMAGE}^" \
-            | sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
-            | kubectl_bin apply  -f -
-    else
-        apply_rbac rbac
-        cat ${src_dir}/deploy/operator.yaml \
-            | sed -e "s^image: .*^image: ${IMAGE}^" \
-            | sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
-            | kubectl_bin apply  -f -
-    fi
+	if [ -n "$OPERATOR_NS" ]; then
+		apply_rbac cw-rbac
+		cat ${src_dir}/deploy/cw-operator.yaml \
+			| sed -e "s^image: .*^image: ${IMAGE}^" \
+			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
+			| kubectl_bin apply -f -
+	else
+		apply_rbac rbac
+		cat ${src_dir}/deploy/operator.yaml \
+			| sed -e "s^image: .*^image: ${IMAGE}^" \
+			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
+			| kubectl_bin apply -f -
+	fi
 
-    sleep 10
+	sleep 10
 
-    wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
-    sleep 3
+	wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
+	sleep 3
 }
 
 deploy_helm() {
-    helm repo add hashicorp https://helm.releases.hashicorp.com
-    helm repo add percona https://percona-charts.storage.googleapis.com/
-    helm repo add minio https://helm.min.io/
-    helm repo update
+	helm repo add hashicorp https://helm.releases.hashicorp.com
+	helm repo add percona https://percona-charts.storage.googleapis.com/
+	helm repo add minio https://helm.min.io/
+	helm repo update
 }
 
 create_infra() {
-    local ns="$1"
+	local ns="$1"
 
-    if [ -n "$OPERATOR_NS" ]; then
-        kubectl get pxc --all-namespaces -o wide \
-            | grep -v 'NAMESPACE' \
-            | xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
-            || :
-        kubectl_bin delete pxc --all --all-namespaces || :
-        kubectl_bin delete pxc-backup --all --all-namespaces || :
-        kubectl_bin delete pxc-restore --all --all-namespaces || :
+	if [ -n "$OPERATOR_NS" ]; then
+		kubectl get pxc --all-namespaces -o wide \
+			| grep -v 'NAMESPACE' \
+			| xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
+			|| :
+		kubectl_bin delete pxc --all --all-namespaces || :
+		kubectl_bin delete pxc-backup --all --all-namespaces || :
+		kubectl_bin delete pxc-restore --all --all-namespaces || :
 
-        create_namespace $OPERATOR_NS
-        deploy_operator
-        create_namespace $ns
-    else
-        create_namespace $ns
-        deploy_operator
-    fi
+		create_namespace $OPERATOR_NS
+		deploy_operator
+		create_namespace $ns
+	else
+		create_namespace $ns
+		deploy_operator
+	fi
+	apply_secrets
 }
 
 wait_for_running() {
-    local name="$1"
-    let last_pod="$(($2 - 1))" || :
-    local max_retry="${3:-480}"
+	local name="$1"
+	let last_pod="$(($2 - 1))" || :
+	local max_retry="${3:-480}"
 
-    for i in $(seq 0 $last_pod); do
-        wait_pod ${name}-${i} ${max_retry}
-    done
+	for i in $(seq 0 $last_pod); do
+		wait_pod ${name}-${i} ${max_retry}
+	done
 }
 
 wait_for_delete() {
-    local res="$1"
+	local res="$1"
 
-    set +o xtrace
-    echo -n "$res - "
-    retry=0
-    until (kubectl_bin get $res || :) 2>&1 | grep NotFound; do
-        sleep 1
-        echo -n .
-        let retry+=1
-        if [ $retry -ge 120 ]; then
-            kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
-            echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
-            exit 1
-        fi
-    done
-    set -o xtrace
+	set +o xtrace
+	echo -n "$res - "
+	retry=0
+	until (kubectl_bin get $res || :) 2>&1 | grep NotFound; do
+		sleep 1
+		echo -n .
+		let retry+=1
+		if [ $retry -ge 120 ]; then
+			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
+	done
+	set -o xtrace
 }
 
 compare_kubectl() {
-    local resource="$1"
-    local postfix="$2"
-    local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
-    local new_result="${tmp_dir}/${resource//\//_}.yml"
+	local resource="$1"
+	local postfix="$2"
+	local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
+	local new_result="${tmp_dir}/${resource//\//_}.yml"
 
-    if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
-        expected_result=${expected_result//.yml/-oc.yml}
-        if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
-            expected_result=${expected_result//-oc.yml/-4-oc.yml}
-        fi
-    fi
+	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
+		expected_result=${expected_result//.yml/-oc.yml}
+		if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
+			expected_result=${expected_result//-oc.yml/-4-oc.yml}
+		fi
+	fi
 
-    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
-        expected_result=${expected_result//.yml/-80.yml}
-    fi
+	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
+		expected_result=${expected_result//.yml/-80.yml}
+	fi
 
-    kubectl_bin get -o yaml ${resource} \
-        | yq d - 'metadata.managedFields' \
-        | yq d - '**.creationTimestamp' \
-        | yq d - '**.namespace' \
-        | yq d - '**.uid' \
-        | yq d - 'metadata.resourceVersion' \
-        | yq d - 'metadata.selfLink' \
-        | yq d - 'metadata.deletionTimestamp' \
-        | yq d - 'metadata.annotations."k8s.v1.cni.cncf.io*"' \
-        | yq d - 'metadata.annotations."kubernetes.io/psp"' \
-        | yq d - '**.(name==percona-xtradb-cluster-operator-workload-token*)' \
-        | yq d - '**.creationTimestamp' \
-        | yq d - '**.image' \
-        | yq d - '**.clusterIP' \
-        | yq d - '**.dataSource' \
-        | yq d - '**.procMount' \
-        | yq d - '**.storageClassName' \
-        | yq d - '**.finalizers' \
-        | yq d - '**."kubernetes.io/pvc-protection"' \
-        | yq d - '**.volumeName' \
-        | yq d - '**."volume.beta.kubernetes.io/storage-provisioner"' \
-        | yq d - 'spec.volumeMode' \
-        | yq d - 'spec.nodeName' \
-        | yq d - '**."volume.kubernetes.io/selected-node"' \
-        | yq d - '**."percona.com/*"' \
-        | yq d - '**.(volumeMode==Filesystem).volumeMode' \
-        | yq d - '**.healthCheckNodePort' \
-        | yq d - '**.nodePort' \
-        | yq d - '**.imagePullSecrets' \
-        | yq d - '**.enableServiceLinks' \
-        | yq d - 'status' \
-        | yq d - '**.(name==NAMESPACE)' \
-        | yq d - '**.(name==suffix)' \
-        | yq d - '**.(name==S3_BUCKET_PATH)' \
-        | yq d - '**.(name==S3_BUCKET_URL)' \
-        | yq d - 'spec.volumeClaimTemplates.*.apiVersion' \
-        | yq d - 'spec.volumeClaimTemplates.*.kind' \
-        | yq d - 'metadata.ownerReferences.*.apiVersion' \
-        | yq d - '**.controller-uid' \
-        | yq d - '**.preemptionPolicy' \
-        | sed 's/namespace\:.*name/name/' \
-        > ${new_result}
-        # last sed is needed for backup cronjob content
+	kubectl_bin get -o yaml ${resource} \
+		| yq d - 'metadata.managedFields' \
+		| yq d - '**.creationTimestamp' \
+		| yq d - '**.namespace' \
+		| yq d - '**.uid' \
+		| yq d - 'metadata.resourceVersion' \
+		| yq d - '**.env.(name==CLUSTER_HASH)' \
+		| yq d - 'metadata.selfLink' \
+		| yq d - 'metadata.deletionTimestamp' \
+		| yq d - 'metadata.annotations."k8s.v1.cni.cncf.io*"' \
+		| yq d - 'metadata.annotations."kubernetes.io/psp"' \
+		| yq d - 'metadata.annotations."cloud.google.com/neg"' \
+		| yq d - '**.(name==percona-xtradb-cluster-operator-workload-token*)' \
+		| yq d - '**.creationTimestamp' \
+		| yq d - '**.image' \
+		| yq d - '**.clusterIP' \
+		| yq d - '**.clusterIPs' \
+		| yq d - '**.dataSource' \
+		| yq d - '**.procMount' \
+		| yq d - '**.storageClassName' \
+		| yq d - '**.finalizers' \
+		| yq d - '**."kubernetes.io/pvc-protection"' \
+		| yq d - '**.volumeName' \
+		| yq d - '**."volume.beta.kubernetes.io/storage-provisioner"' \
+		| yq d - 'spec.volumeMode' \
+		| yq d - 'spec.nodeName' \
+		| yq d - '**."volume.kubernetes.io/selected-node"' \
+		| yq d - '**."percona.com/*"' \
+		| yq d - '**.(volumeMode==Filesystem).volumeMode' \
+		| yq d - '**.healthCheckNodePort' \
+		| yq d - '**.nodePort' \
+		| yq d - '**.imagePullSecrets' \
+		| yq d - '**.enableServiceLinks' \
+		| yq d - 'status' \
+		| yq d - '**.(name==NAMESPACE)' \
+		| yq d - '**.(name==suffix)' \
+		| yq d - '**.(name==S3_BUCKET_PATH)' \
+		| yq d - '**.(name==S3_BUCKET_URL)' \
+		| yq d - 'spec.volumeClaimTemplates.*.apiVersion' \
+		| yq d - 'spec.volumeClaimTemplates.*.kind' \
+		| yq d - 'metadata.ownerReferences.*.apiVersion' \
+		| yq d - '**.controller-uid' \
+		| yq d - '**.preemptionPolicy' \
+		| yq d - 'spec.ipFamilies' \
+		| yq d - 'spec.ipFamilyPolicy' \
+		| $sed 's#^apiVersion: policy/v1beta1#apiVersion: policy/v1#' \
+		| $sed 's/name: kube-api-access-.*$/name: kube-api-access/' \
+		| $sed 's/namespace\:.*name/name/' \
+			>${new_result}
+	# last sed is needed for backup cronjob content
 
-    diff -u ${expected_result} ${new_result}
+	if version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
+		expected_result=${expected_result//.yml/-k122.yml}
+	elif version_gt "1.21" && [ -f ${expected_result//.yml/-k121.yml} ]; then
+		expected_result=${expected_result//.yml/-k121.yml}
+	fi
+
+	diff -u ${expected_result} ${new_result}
 }
 
 get_client_pod() {
-    kubectl_bin get pods \
-        --selector=name=pxc-client \
-        -o 'jsonpath={.items[].metadata.name}'
+	kubectl_bin get pods \
+		--selector=name=pxc-client \
+		-o 'jsonpath={.items[].metadata.name}'
 }
 
 run_mysql() {
-    local command="$1"
-    local uri="$2"
+	local command="$1"
+	local uri="$2"
 
-    client_pod=$(get_client_pod)
-    wait_pod $client_pod 1>&2
+	client_pod=$(get_client_pod)
+	wait_pod $client_pod 1>&2
 
-    [[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $client_pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
+	[[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $client_pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
-    set +o xtrace
-    kubectl_bin exec $client_pod -- \
-        bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1  \
-        | sed -e 's/mysql: //' \
-        | (grep -v 'Using a password on the command line interface can be insecure.' || :)
-    set -o xtrace
+	set +o xtrace
+	kubectl_bin exec $client_pod -- \
+		bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
+		| sed -e 's/mysql: //' \
+		| (grep -v 'Using a password on the command line interface can be insecure.' || :)
+	set -o xtrace
 }
 
 run_mysql_local() {
-    local command="$1"
-    local uri="$2"
-    local pod="$3"
-    local container_name="$4"
+	local command="$1"
+	local uri="$2"
+	local pod="$3"
+	local container_name="$4"
 
-    [[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
+	[[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
-    set +o xtrace
-    kubectl_bin exec $pod $container_name -- \
-        bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
-        | sed -e 's/mysql: //' \
-        | (egrep -v 'Using a password on the command line interface can be insecure.|Defaulting container name|see all of the containers in this pod' || :)
-    set -o xtrace
+	set +o xtrace
+	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
+		bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
+		| sed -e 's/mysql: //' \
+		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
+	set -o xtrace
 }
 
 compare_mysql_cmd() {
-    local command_id="$1"
-    local command="$2"
-    local uri="$3"
-    local postfix="$4"
-    local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
+	local command_id="$1"
+	local command="$2"
+	local uri="$3"
+	local postfix="$4"
+	local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
 
-    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
-        expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
-    fi
+	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
+		expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
+	fi
 
-    run_mysql "$command" "$uri" \
-        >$tmp_dir/${command_id}.sql
-    if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
-        sleep 20
-        run_mysql "$command" "$uri" \
-            >$tmp_dir/${command_id}.sql
-    fi
-    diff -u $expected_result $tmp_dir/${command_id}.sql
+	run_mysql "$command" "$uri" \
+		>$tmp_dir/${command_id}.sql
+	if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
+		sleep 20
+		run_mysql "$command" "$uri" \
+			>$tmp_dir/${command_id}.sql
+	fi
+	diff -u $expected_result $tmp_dir/${command_id}.sql
 }
 
 compare_mysql_cmd_local() {
-    local command_id="$1"
-    local command="$2"
-    local uri="$3"
-    local pod="$4"
-    local postfix="$5"
-    local container_name="$6"
-    local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
+	local command_id="$1"
+	local command="$2"
+	local uri="$3"
+	local pod="$4"
+	local postfix="$5"
+	local container_name="$6"
+	local expected_result=${test_dir}/compare/${command_id}${postfix}.sql
 
+	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
+		expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
+	fi
 
-    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/${command_id}${postfix}-80.sql ]; then
-        expected_result=${test_dir}/compare/${command_id}${postfix}-80.sql
-    fi
-
-    run_mysql_local "$command" "$uri" "$pod" "$container_name"\
-        >$tmp_dir/${command_id}.sql
-    if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
-        sleep 20
-        run_mysql_local "$command" "$uri" "$pod"\
-            >$tmp_dir/${command_id}.sql
-    fi
-    diff -u $expected_result $tmp_dir/${command_id}.sql
+	run_mysql_local "$command" "$uri" "$pod" "$container_name" \
+		>$tmp_dir/${command_id}.sql
+	if [ ! -s "$tmp_dir/${command_id}.sql" ]; then
+		sleep 20
+		run_mysql_local "$command" "$uri" "$pod" \
+			>$tmp_dir/${command_id}.sql
+	fi
+	diff -u $expected_result $tmp_dir/${command_id}.sql
 }
 
 get_proxy_primary() {
-    local uri="$1"
-    local pod="$2"
-    local ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod")
+	local uri="$1"
+	local pod="$2"
+	local ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod" 'proxysql')
 
-    while [ $(echo "$ip" | wc -l) != 1 ]; do
-        sleep 1
-        ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod")
-    done
+	while [ $(echo "$ip" | wc -l) != 1 ]; do
+		sleep 1
+		ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod" 'proxysql')
+	done
 
-    echo $ip | cut -d'.' -f1
+	echo $ip | cut -d'.' -f1
 }
 
 get_pod_name() {
-    local ip=$1
-    kubectl_bin get pods -o json | jq -r '.items[] | select(.status.podIP == "'$ip'") | .metadata.name'
+	local ip=$1
+	kubectl_bin get pods -o json | jq -r '.items[] | select(.status.podIP == "'$ip'") | .metadata.name'
 }
 
 get_pod_ip() {
-    local name=$1
-    kubectl_bin get pods -o json | jq -r '.items[] | select(.metadata.name == "'$name'") | .status.podIP'
+	local name=$1
+	kubectl_bin get pods -o json | jq -r '.items[] | select(.metadata.name == "'$name'") | .status.podIP'
 }
 
 compare_mysql_user() {
-    local uri="$1"
-    local postfix="$2"
-    local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
-    local expected_result=${test_dir}/compare/$user$postfix.sql
+	local uri="$1"
+	local postfix="$2"
+	local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
+	local expected_result=${test_dir}/compare/$user$postfix.sql
 
-    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
-        expected_result=${test_dir}/compare/$user$postfix-80.sql
-    fi
+	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
+		expected_result=${test_dir}/compare/$user$postfix-80.sql
+	fi
 
-    (run_mysql "SHOW GRANTS;" "$uri" || :) \
-        | $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
-        > $tmp_dir/$user.sql
-    diff -u $expected_result $tmp_dir/$user.sql
+	(run_mysql "SHOW GRANTS;" "$uri" || :) \
+		| $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+			>$tmp_dir/$user.sql
+	diff -u $expected_result $tmp_dir/$user.sql
 }
 
 compare_mysql_user_local() {
-    local uri="$1"
-    local pod="$2"
-    local postfix="$3"
-    local container_name="$4"
-    local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
-    local expected_result=$test_dir/compare/$user$postfix.sql
+	local uri="$1"
+	local pod="$2"
+	local postfix="$3"
+	local container_name="$4"
+	local user=$(echo $uri | sed -e 's/.*-u//; s/ .*//')
+	local expected_result=$test_dir/compare/$user$postfix.sql
 
-    if [[ "$IMAGE_PXC" =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
-        expected_result=${test_dir}/compare/$user$postfix-80.sql
-    fi
+	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${test_dir}/compare/$user$postfix-80.sql ]; then
+		expected_result=${test_dir}/compare/$user$postfix-80.sql
+	fi
 
-    (run_mysql_local "SHOW GRANTS;" "$uri" "$pod" "$container_name" || :) \
-        | $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
-        > $tmp_dir/$user.sql
-    diff -u $expected_result $tmp_dir/$user.sql
+	(run_mysql_local "SHOW GRANTS;" "$uri" "$pod" "$container_name" || :) \
+		| $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+			>$tmp_dir/$user.sql
+	diff -u $expected_result $tmp_dir/$user.sql
 }
 
 get_pumba() {
-    kubectl_bin get pods \
-        --selector=name=pumba \
-        -o 'jsonpath={.items[].metadata.name}'
+	kubectl_bin get pods \
+		--selector=name=pumba \
+		-o 'jsonpath={.items[].metadata.name}'
 }
 
 run_pumba() {
-    local cmd="$*"
-    kubectl_bin exec -it "$(get_pumba)" -- /pumba -l info ${cmd}
+	local cmd="$*"
+	kubectl_bin exec -it "$(get_pumba)" -- /pumba -l info ${cmd}
 }
 
 deploy_cert_manager() {
-    kubectl_bin create namespace cert-manager || :
-    kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
-    kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml --validate=false || : 2>/dev/null
-    sleep 45
+	kubectl_bin create namespace cert-manager || :
+	kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
+	kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml --validate=false || : 2>/dev/null
+	sleep 45
 }
 
 destroy() {
-    local namespace="$1"
+	local namespace="$1"
 
-    kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
-        | grep -v '"level":"info"' \
-        | grep -v 'the object has been modified' \
-        | grep -v 'get backup status: Job.batch' \
-        | $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
-        | sort -u \
-        | tee $tmp_dir/operator.log
+	kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
+		| grep -v '"level":"info"' \
+		| grep -v 'the object has been modified' \
+		| grep -v 'get backup status: Job.batch' \
+		| $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
+		| sort -u \
+		| tee $tmp_dir/operator.log
 
-    #TODO: maybe will be enabled later
-    #diff $test_dir/compare/operator.log $tmp_dir/operator.log
+	#TODO: maybe will be enabled later
+	#diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
-    kubectl get pxc --all-namespaces -o wide \
-        | grep -v 'NAMESPACE' \
-        | xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
-        || :
-    kubectl_bin delete pxc --all --all-namespaces || :
-    kubectl_bin delete pxc-backup --all --all-namespaces || :
-    kubectl_bin delete pxc-restore --all --all-namespaces || :
-    kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
+	kubectl get pxc --all-namespaces -o wide \
+		| grep -v 'NAMESPACE' \
+		| xargs -L 1 sh -xc 'kubectl patch pxc -n $0 $1 --type=merge -p "{\"metadata\":{\"finalizers\":[]}}"' \
+		|| :
+	kubectl_bin delete pxc --all --all-namespaces || :
+	kubectl_bin delete pxc-backup --all --all-namespaces || :
+	kubectl_bin delete pxc-restore --all --all-namespaces || :
+	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
 
-    kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml 2>/dev/null || :
-    if [ ! -z "$OPENSHIFT" ]; then
-        oc delete --grace-period=0 --force=true project "$namespace" &
-        if [ -n "$OPERATOR_NS" ]; then
-            oc delete --grace-period=0 --force=true project "$OPERATOR_NS" &
-            if [ "${OPENSHIFT}" == "3.11" ]; then
-                wait_for_delete "project/$OPERATOR_NS"     # 3.11 Does not delete namespace immediately, let's wait at least 120 seconds till the next step
-            fi
-        fi
-    else
-        kubectl_bin delete --grace-period=0 --force=true namespace "$namespace" &
-        if [ -n "$OPERATOR_NS" ]; then
-            kubectl_bin delete --grace-period=0 --force=true namespace "$OPERATOR_NS" &
-        fi
-    fi
-    rm -rf ${tmp_dir}
+	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml 2>/dev/null || :
+	if [ ! -z "$OPENSHIFT" ]; then
+		oc delete --grace-period=0 --force=true project "$namespace" &
+		if [ -n "$OPERATOR_NS" ]; then
+			oc delete --grace-period=0 --force=true project "$OPERATOR_NS" &
+			if [ "${OPENSHIFT}" == "3.11" ]; then
+				wait_for_delete "project/$OPERATOR_NS" # 3.11 Does not delete namespace immediately, let's wait at least 120 seconds till the next step
+			fi
+		fi
+	else
+		kubectl_bin delete --grace-period=0 --force=true namespace "$namespace" &
+		if [ -n "$OPERATOR_NS" ]; then
+			kubectl_bin delete --grace-period=0 --force=true namespace "$OPERATOR_NS" &
+		fi
+	fi
+	rm -rf ${tmp_dir}
 }
 
 desc() {
-    set +o xtrace
-    local msg="$@"
-    printf "\n\n-----------------------------------------------------------------------------------\n"
-    printf "$msg"
-    printf "\n-----------------------------------------------------------------------------------\n\n"
-    set -o xtrace
+	set +o xtrace
+	local msg="$@"
+	printf "\n\n-----------------------------------------------------------------------------------\n"
+	printf "$msg"
+	printf "\n-----------------------------------------------------------------------------------\n\n"
+	set -o xtrace
 }
 
 get_service_endpoint() {
-    local service=$1
+	local service=$1
 
-    local hostname=$(
-        kubectl_bin get service/$service -o json \
-            | jq '.status.loadBalancer.ingress[].hostname' \
-            | sed -e 's/^"//; s/"$//;'
-    )
-    if [ -n "$hostname" -a "$hostname" != "null" ]; then
-        echo $hostname
-        return
-    fi
+	local hostname=$(
+		kubectl_bin get service/$service -o json \
+			| jq '.status.loadBalancer.ingress[].hostname' \
+			| sed -e 's/^"//; s/"$//;'
+	)
+	if [ -n "$hostname" -a "$hostname" != "null" ]; then
+		echo $hostname
+		return
+	fi
 
-    local ip=$(
-        kubectl_bin get service/$service -o json \
-            | jq '.status.loadBalancer.ingress[].ip' \
-            | sed -e 's/^"//; s/"$//;'
-    )
-    if [ -n "$ip" -a "$ip" != "null" ]; then
-        echo $ip
-        return
-    fi
+	local ip=$(
+		kubectl_bin get service/$service -o json \
+			| jq '.status.loadBalancer.ingress[].ip' \
+			| sed -e 's/^"//; s/"$//;'
+	)
+	if [ -n "$ip" -a "$ip" != "null" ]; then
+		echo $ip
+		return
+	fi
 
-    exit 1
+	exit 1
 }
 
 get_metric_values() {
-    local metric=$1
-    local instance=$2
-    local user_pass=$3
-    local start=$($date -u "+%s" -d "-1 minute")
-    local end=$($date -u "+%s")
-    local endpoint=$(get_service_endpoint monitoring-service)
+	local metric=$1
+	local instance=$2
+	local user_pass=$3
+	local start=$($date -u "+%s" -d "-1 minute")
+	local end=$($date -u "+%s")
+	local endpoint=$(get_service_endpoint monitoring-service)
 
-    curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=min%28$metric%7Bnode_name%3D%7E%22$instance%22%7d%20or%20$metric%7Bnode_name%3D%7E%22$instance%22%7D%29&start=$start&end=$end&step=60" \
-        | jq '.data.result[0].values[][1]' \
-        | grep '^"[0-9]'
+	curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=min%28$metric%7Bnode_name%3D%7E%22$instance%22%7d%20or%20$metric%7Bnode_name%3D%7E%22$instance%22%7D%29&start=$start&end=$end&step=60" \
+		| jq '.data.result[0].values[][1]' \
+		| grep '^"[0-9]'
 
 }
 
 get_qan_values() {
-    local instance=$1
-    local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
-    local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
-    local endpoint=$(get_service_endpoint monitoring-service)
+	local instance=$1
+	local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
+	local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
+	local endpoint=$(get_service_endpoint monitoring-service)
 
-    local uuid=$(
-        curl -s -k "https://$endpoint/qan-api/instances?deleted=no" \
-            | jq '.[] | select(.Subsystem == "mysql" and .Name == "'$instance'") | .UUID' \
-            | sed -e 's/^"//; s/"$//;'
-    )
+	local uuid=$(
+		curl -s -k "https://$endpoint/qan-api/instances?deleted=no" \
+			| jq '.[] | select(.Subsystem == "mysql" and .Name == "'$instance'") | .UUID' \
+			| sed -e 's/^"//; s/"$//;'
+	)
 
-    curl -s -k "https://$endpoint/qan-api/qan/profile/$uuid?begin=$start&end=$end&offset=0" \
-        | jq '.Query[].Fingerprint'
+	curl -s -k "https://$endpoint/qan-api/qan/profile/$uuid?begin=$start&end=$end&offset=0" \
+		| jq '.Query[].Fingerprint'
 }
 
 get_qan20_values() {
-    local instance=$1
-    local user_pass=$2
-    local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
-    local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
-    local endpoint=$(get_service_endpoint monitoring-service)
+	local instance=$1
+	local user_pass=$2
+	local start=$($date -u "+%Y-%m-%dT%H:%M:%S" -d "-30 minute")
+	local end=$($date -u "+%Y-%m-%dT%H:%M:%S")
+	local endpoint=$(get_service_endpoint monitoring-service)
 
-    cat >payload.json <<EOF
+	cat >payload.json <<EOF
 {
    "columns":[
       "load",
@@ -633,244 +669,275 @@ get_qan20_values() {
 }
 EOF
 
-    curl -s -k -XPOST -d @payload.json "https://${user_pass}@$endpoint/v0/qan/GetReport" \
-        | jq '.rows[].fingerprint'
-    rm -f payload.json
+	curl -s -k -XPOST -d @payload.json "https://${user_pass}@$endpoint/v0/qan/GetReport" \
+		| jq '.rows[].fingerprint'
+	rm -f payload.json
 }
 
 cat_config() {
-    cat "$1" \
-        | $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
-        | $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
-        | $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
-        | $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
-        | $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
-        | $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
-        | $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
-        | $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
-        | $sed -e "s#apply:.*#apply: Never#"
+	cat "$1" \
+		| $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
+		| $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
+		| $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
+		| $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
+		| $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
+		| $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
+		| $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
+		| $sed -e "s#image:.*-logcollector\$#image: $IMAGE_LOGCOLLECTOR#" \
+		| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+		| $sed -e "s#apply:.*#apply: Never#"
+}
+
+apply_secrets() {
+	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+		kubectl_bin apply \
+			-f $conf_dir/minio-secret.yml \
+			-f $conf_dir/cloud-secret.yml
+	else
+		kubectl_bin apply \
+			-f $conf_dir/minio-secret.yml
+	fi
 }
 
 apply_config() {
-    cat_config "$1" \
-        | kubectl_bin apply -f -
+	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+		cat_config "$1" \
+			| kubectl_bin apply -f -
+	else
+		cat_config "$1" \
+			| yq d - 'spec.backup.schedule.[1]' \
+			| yq d - 'spec.backup.schedule.[2]' \
+			| kubectl_bin apply -f -
+	fi
 }
 
 get_proxy() {
-    local target_cluster=${1}
-    if [[ "$(kubectl_bin get pxc ${target_cluster} -o 'jsonpath={.spec.haproxy.enabled}')" = "true" ]]; then
-        echo "${target_cluster}-haproxy"
-        return
-    fi
-    if [[ "$(kubectl_bin get pxc ${target_cluster} -o 'jsonpath={.spec.proxysql.enabled}')" = "true" ]]; then
-        echo "${target_cluster}-proxysql"
-        return
-    fi
-    echo "${target_cluster}-pxc"
+	local target_cluster=${1}
+	if [[ "$(kubectl_bin get pxc ${target_cluster} -o 'jsonpath={.spec.haproxy.enabled}')" == "true" ]]; then
+		echo "${target_cluster}-haproxy"
+		return
+	fi
+	if [[ "$(kubectl_bin get pxc ${target_cluster} -o 'jsonpath={.spec.proxysql.enabled}')" == "true" ]]; then
+		echo "${target_cluster}-proxysql"
+		return
+	fi
+	echo "${target_cluster}-pxc"
 }
 
 get_proxy_engine() {
-    local cluster_name=$1
-    local cluster_proxy="$(get_proxy ${cluster_name})"
-    echo "${cluster_proxy//$cluster_name-}"
+	local cluster_name=$1
+	local cluster_proxy="$(get_proxy ${cluster_name})"
+	echo "${cluster_proxy//$cluster_name-/}"
 }
 
 spinup_pxc() {
-    local cluster=$1
-    local config=$2
-    local size="${3:-3}"
-    local sleep="${4:-10}"
-    local secretsFile="${5:-$conf_dir/secrets.yml}"
-    local pxcClientFile="${6:-$conf_dir/client.yml}"
+	local cluster=$1
+	local config=$2
+	local size="${3:-3}"
+	local sleep="${4:-10}"
+	local secretsFile="${5:-$conf_dir/secrets.yml}"
+	local pxcClientFile="${6:-$conf_dir/client.yml}"
 
-    desc 'create first PXC cluster'
-    kubectl_bin apply -f $secretsFile
-    apply_config "$pxcClientFile"
-    if [[ "$IMAGE_PXC" =~ 5\.7 ]] && [ "$cluster" == 'demand-backup' ]; then
-        cat_config "$config" \
-            | $sed '/\[sst\]/,+1d' \
-            | $sed 's|compress=lz4|compress|' \
-            | kubectl_bin apply -f -
-    else
-        apply_config "$config"
-    fi
+	desc 'create first PXC cluster'
+	kubectl_bin apply -f $secretsFile
+	apply_config "$pxcClientFile"
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [ "$cluster" == 'demand-backup' ]; then
+		cat_config "$config" \
+			| $sed '/\[sst\]/,+1d' \
+			| $sed 's|compress=lz4|compress|' \
+			| kubectl_bin apply -f -
+	else
+		apply_config "$config"
+	fi
 
-    desc 'check if all 3 Pods started'
-    local proxy=$(get_proxy "$cluster")
-    wait_for_running "$proxy" 1
-    wait_for_running "$cluster-pxc" "$size"
-    sleep $sleep
+	# todo(remove after 1.10 release)
+	if [ "${EKS}" -eq 1 ] && version_gt "1.21"; then
+		sleep 10
+		kpatch_set_field svc "${cluster}-pxc-unready" "/spec/publishNotReadyAddresses" true
+	fi
 
-    desc 'write data'
-    if [[ "$IMAGE_PXC" =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
-        encrypt='ENCRYPTION=\"Y\"'
-    fi
-    run_mysql \
-        "CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-        "-h $proxy -uroot -proot_password"
-    run_mysql \
-        'INSERT myApp.myApp (id) VALUES (100500)' \
-        "-h $proxy -uroot -proot_password"
-    sleep 30
-    for i in $(seq 0 $(($size - 1))); do
-        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
-    done
+	desc 'check if all 3 Pods started'
+	local proxy=$(get_proxy "$cluster")
+	wait_for_running "$proxy" 1
+	wait_for_running "$cluster-pxc" "$size"
+	sleep $sleep
 
-    if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
-        table_must_be_encrypted "$cluster" "myApp"
-    fi
+	desc 'write data'
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+		encrypt='ENCRYPTION=\"Y\"'
+	fi
+	run_mysql \
+		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
+		"-h $proxy -uroot -proot_password"
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100500)' \
+		"-h $proxy -uroot -proot_password"
+	sleep 30
+	for i in $(seq 0 $((size - 1))); do
+		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+	done
+
+	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
+		table_must_be_encrypted "$cluster" "myApp"
+	fi
 
 }
 
 function is_table_encrypted() {
-    local cluster=$1
-    local table=$2
-    run_mysql \
-        "SELECT CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=\\\"$table\\\";" \
-        "-h $cluster-proxysql -uroot -proot_password" \
-        | egrep -o "ENCRYPTION=('Y'|\"Y\")"
+	local cluster=$1
+	local table=$2
+	run_mysql \
+		"SELECT CREATE_OPTIONS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME=\\\"$table\\\";" \
+		"-h $cluster-proxysql -uroot -proot_password" \
+		| egrep -o "ENCRYPTION=('Y'|\"Y\")"
 }
 
 function is_keyring_plugin_in_use() {
-    local cluster=$1
-    kubectl_bin exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
-        | egrep -o "early-plugin-load=keyring_\w+.so"
+	local cluster=$1
+	kubectl_bin exec -it $cluster-pxc-0 -c pxc -- bash -c "cat /etc/mysql/node.cnf" \
+		| egrep -o "early-plugin-load=keyring_\w+.so"
 }
 
 function table_must_not_be_encrypted() {
-    local cluster=$1
-    local table=$2
-    if is_table_encrypted "$cluster" "$table"; then
-        echo "error: table is encrypted"
-        exit 1
-    fi
+	local cluster=$1
+	local table=$2
+	if is_table_encrypted "$cluster" "$table"; then
+		echo "error: table is encrypted"
+		exit 1
+	fi
 }
 
 function table_must_be_encrypted() {
-    local cluster=$1
-    local table=$2
-    if ! is_table_encrypted "$cluster" "$table"; then
-        echo "error: table is not encrypted"
-        exit 1
-    fi
+	local cluster=$1
+	local table=$2
+	if ! is_table_encrypted "$cluster" "$table"; then
+		echo "error: table is not encrypted"
+		exit 1
+	fi
 }
 
 function keyring_plugin_must_be_in_use() {
-    local cluster=$1
-    if ! is_keyring_plugin_in_use "$cluster"; then
-        echo "error: keyring_plugin is not used"
-        exit 1
-    fi
+	local cluster=$1
+	if ! is_keyring_plugin_in_use "$cluster"; then
+		echo "error: keyring_plugin is not used"
+		exit 1
+	fi
 }
 
 function keyring_plugin_must_not_be_in_use() {
-    local cluster=$1
-    if is_keyring_plugin_in_use "$cluster"; then
-        echo "error: keyring_plugin is used"
-        exit 1
-    fi
+	local cluster=$1
+	if is_keyring_plugin_in_use "$cluster"; then
+		echo "error: keyring_plugin is used"
+		exit 1
+	fi
 }
 
 kubectl_bin() {
-    local LAST_OUT="$(mktemp)"
-    local LAST_ERR="$(mktemp)"
-    local exit_status=0
-    for i in $(seq 0 2); do
-        kubectl "$@" 1>"$LAST_OUT" 2>"$LAST_ERR"
-        exit_status=$?
-        [[ ${-/x/} != $- ]] && echo "--- $i stdout" | cat - "$LAST_OUT" >&$BASH_XTRACEFD
-        [[ ${-/x/} != $- ]] && echo "--- $i stderr" | cat - "$LAST_ERR" >&$BASH_XTRACEFD
-        if [[ ${exit_status} != 0 ]]; then
-            sleep "$((timeout * i))"
-        else
-            cat "$LAST_OUT"
-            cat "$LAST_ERR" >&2
-            rm "$LAST_OUT" "$LAST_ERR"
-            return ${exit_status}
-        fi
-    done
-    cat "$LAST_OUT"
-    cat "$LAST_ERR" >&2
-    rm "$LAST_OUT" "$LAST_ERR"
-    return ${exit_status}
+	local LAST_OUT="$(mktemp)"
+	local LAST_ERR="$(mktemp)"
+	local exit_status=0
+	for i in $(seq 0 2); do
+		kubectl "$@" 1>"$LAST_OUT" 2>"$LAST_ERR"
+		exit_status=$?
+		[[ ${-/x/} != $- ]] && echo "--- $i stdout" | cat - "$LAST_OUT" >&$BASH_XTRACEFD
+		[[ ${-/x/} != $- ]] && echo "--- $i stderr" | cat - "$LAST_ERR" >&$BASH_XTRACEFD
+		if [[ ${exit_status} != 0 ]]; then
+			sleep "$((timeout * i))"
+		else
+			cat "$LAST_OUT"
+			cat "$LAST_ERR" >&2
+			rm "$LAST_OUT" "$LAST_ERR"
+			return ${exit_status}
+		fi
+	done
+	cat "$LAST_OUT"
+	cat "$LAST_ERR" >&2
+	rm "$LAST_OUT" "$LAST_ERR"
+	return ${exit_status}
 }
 
 retry() {
-    local max=$1
-    local delay=$2
-    shift 2 # cut delay and max args
-    local n=1
+	local max=$1
+	local delay=$2
+	shift 2 # cut delay and max args
+	local n=1
 
-    until "$@"; do
-        if [[ $n -ge $max ]]; then
-            echo "The command '$@' has failed after $n attempts."
-            exit 1
-        fi
-        ((n++))
-        sleep $delay
-    done
+	until "$@"; do
+		if [[ $n -ge $max ]]; then
+			echo "The command '$@' has failed after $n attempts."
+			exit 1
+		fi
+		((n++))
+		sleep $delay
+	done
 }
 
 check_pvc_md5() {
-    desc 'check backup file md5sum'
-    apply_config "$test_dir/conf/client.yml"
-    sleep 10
-    bak_client_pod=$(
-        kubectl_bin get pods \
-            --selector=name=backup-client \
-            -o 'jsonpath={.items[].metadata.name}'
-    )
-    wait_pod $bak_client_pod
-    kubectl_bin exec $bak_client_pod -- \
-        bash -c "cd /backup; md5sum -c md5sum.txt"
-    kubectl_bin delete \
-        -f $test_dir/conf/client.yml
+	desc 'check backup file md5sum'
+	apply_config "$test_dir/conf/client.yml"
+	sleep 10
+	bak_client_pod=$(
+		kubectl_bin get pods \
+			--selector=name=backup-client \
+			-o 'jsonpath={.items[].metadata.name}'
+	)
+	wait_pod $bak_client_pod
+	kubectl_bin exec $bak_client_pod -- \
+		bash -c "cd /backup; md5sum -c md5sum.txt"
+	kubectl_bin delete \
+		-f $test_dir/conf/client.yml
 }
 
 run_backup() {
-    local cluster=$1
-    local backup1=$2
+	local cluster=$1
+	local backup1=$2
 
-    desc 'make backup'
-    kubectl_bin apply \
-        -f $test_dir/conf/$backup1.yml
-    wait_backup $backup1
+	desc 'make backup'
+	kubectl_bin apply \
+		-f $test_dir/conf/$backup1.yml
+	wait_backup $backup1
 }
 
 run_recovery_check() {
-    local cluster=$1
-    local backup1=$2
+	local cluster=$1
+	local backup1=$2
 
-    desc 'recover backup'
-    kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
-    wait_backup_restore ${backup1}
-    kubectl_bin logs job/restore-job-${backup1}-${cluster}
-    kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
-    wait_for_running "$cluster-proxysql" 1
-    wait_for_running "$cluster-pxc" 3
+	desc 'recover backup'
+	kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
+	wait_backup_restore ${backup1}
+	kubectl_bin logs job/restore-job-${backup1}-${cluster}
+	kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
+	wait_for_running "$cluster-proxysql" 1
+	wait_for_running "$cluster-pxc" 3
 
-    sleep 35
-    desc 'check data after backup'
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+	sleep 35
+	desc 'check data after backup'
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
-    if [ "$backup1" != "on-demand-backup-minio" ]; then
-        desc 'copy backup'
-        bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
-    fi
+	if [ "$backup1" != "on-demand-backup-minio" ]; then
+		desc 'copy backup'
+		bash $src_dir/deploy/backup/copy-backup.sh $backup1 $tmp_dir/backup
+	fi
 }
 
 function vault_tls() {
-    local name=${1:-vault-service}
+	local name=${1:-vault-service}
 
-    SERVICE=$name
-    NAMESPACE=$name
-    SECRET_NAME=$name
-    CSR_NAME=vault-csr-${RANDOM}
+	SERVICE=$name
+	NAMESPACE=$name
+	SECRET_NAME=$name
+	CSR_NAME=vault-csr-${RANDOM}
 
-    openssl genrsa -out ${tmp_dir}/vault.key 2048
-    cat <<EOF >${tmp_dir}/csr.conf
+	if version_gt "1.22"; then
+		CSR_API_VER="v1"
+	else
+		CSR_API_VER="v1beta1"
+	fi
+
+	openssl genrsa -out ${tmp_dir}/vault.key 2048
+	cat <<EOF >${tmp_dir}/csr.conf
 [req]
 req_extensions = v3_req
 distinguished_name = req_distinguished_name
@@ -888,10 +955,10 @@ DNS.4 = ${SERVICE}.${NAMESPACE}.svc.cluster.local
 IP.1 = 127.0.0.1
 EOF
 
-    openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=${SERVICE}.${NAMESPACE}.svc" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
+	openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=${SERVICE}.${NAMESPACE}.svc" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
 
-    cat <<EOF >${tmp_dir}/csr.yaml
-apiVersion: certificates.k8s.io/v1beta1
+	cat <<EOF >${tmp_dir}/csr.yaml
+apiVersion: certificates.k8s.io/${CSR_API_VER}
 kind: CertificateSigningRequest
 metadata:
   name: ${CSR_NAME}
@@ -899,69 +966,70 @@ spec:
   groups:
   - system:authenticated
   request: $(cat ${tmp_dir}/server.csr | base64 | tr -d '\n')
+  signerName: kubernetes.io/kubelet-serving
   usages:
   - digital signature
   - key encipherment
   - server auth
 EOF
 
-    kubectl_bin create -f ${tmp_dir}/csr.yaml
-    sleep 10
-    kubectl_bin certificate approve ${CSR_NAME}
-    kubectl_bin get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' > ${tmp_dir}/serverCert
-    openssl base64 -in ${tmp_dir}/serverCert -d -A -out ${tmp_dir}/vault.crt
-    kubectl_bin config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d > ${tmp_dir}/vault.ca
-    if [[ ! -z ${OPENSHIFT} ]]; then
-        if [[ "x$(kubectl_bin get namespaces | awk '{print $1}' | grep openshift-kube-controller-manager-operator)" != "x" ]]; then
-            #Detecting openshift 4+
-            kubectl_bin -n openshift-kube-controller-manager-operator get secret csr-signer -o jsonpath='{.data.tls\.crt}' \
-                | base64 -d > ${tmp_dir}/vault.ca
-        else
-            CA_SECRET_NAME=$(kubectl_bin -n default get secrets \
-                                | grep default \
-                                | grep service-account-token \
-                                | head -n 1 \
-                                | awk {'print $1'})
-            kubectl_bin -n default get secret ${CA_SECRET_NAME} -o jsonpath='{.data.ca\.crt}' \
-                | base64 -d > ${tmp_dir}/vault.ca
-        fi
-    fi
-    kubectl_bin create secret generic ${SECRET_NAME} \
-        --namespace ${NAMESPACE} \
-        --from-file=vault.key=${tmp_dir}/vault.key \
-        --from-file=vault.crt=${tmp_dir}/vault.crt \
-        --from-file=vault.ca=${tmp_dir}/vault.ca
+	kubectl_bin create -f ${tmp_dir}/csr.yaml
+	sleep 10
+	kubectl_bin certificate approve ${CSR_NAME}
+	kubectl_bin get csr ${CSR_NAME} -o jsonpath='{.status.certificate}' >${tmp_dir}/serverCert
+	openssl base64 -in ${tmp_dir}/serverCert -d -A -out ${tmp_dir}/vault.crt
+	kubectl_bin config view --raw --minify --flatten -o jsonpath='{.clusters[].cluster.certificate-authority-data}' | base64 -d >${tmp_dir}/vault.ca
+	if [[ -n ${OPENSHIFT} ]]; then
+		if [[ "x$(kubectl_bin get namespaces | awk '{print $1}' | grep openshift-kube-controller-manager-operator)" != "x" ]]; then
+			#Detecting openshift 4+
+			kubectl_bin -n openshift-kube-controller-manager-operator get secret csr-signer -o jsonpath='{.data.tls\.crt}' \
+				| base64 -d >${tmp_dir}/vault.ca
+		else
+			CA_SECRET_NAME=$(kubectl_bin -n default get secrets \
+				| grep default \
+				| grep service-account-token \
+				| head -n 1 \
+				| awk {'print $1'})
+			kubectl_bin -n default get secret ${CA_SECRET_NAME} -o jsonpath='{.data.ca\.crt}' \
+				| base64 -d >${tmp_dir}/vault.ca
+		fi
+	fi
+	kubectl_bin create secret generic ${SECRET_NAME} \
+		--namespace ${NAMESPACE} \
+		--from-file=vault.key=${tmp_dir}/vault.key \
+		--from-file=vault.crt=${tmp_dir}/vault.crt \
+		--from-file=vault.ca=${tmp_dir}/vault.ca
 }
 
 start_vault() {
-    name=${1:-vault-service}
-    protocol=${2:-http}
+	name=${1:-vault-service}
+	protocol=${2:-http}
 
-    local platform=kubernetes
+	local platform=kubernetes
 
-    if [[ ! -z ${OPENSHIFT} ]]; then
-        platform=openshift
-        oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
-    fi
-    create_namespace "$name" "skip_clean"
-    deploy_helm "$name"
-    helm delete "$name" || :
+	if [[ -n ${OPENSHIFT} ]]; then
+		platform=openshift
+		oc patch clusterrole system:auth-delegator --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
+	fi
+	create_namespace "$name" "skip_clean"
+	deploy_helm "$name"
+	helm delete "$name" || :
 
-    desc "install Vault $name"
+	desc "install Vault $name"
 
-    if [ $protocol == "https" ]; then
-        vault_tls "$name"
-        helm install $name hashicorp/vault \
-            --disable-openapi-validation \
-            --version 0.6.0 \
-            --namespace "$name" \
-            --set dataStorage.enabled=false \
-            --set global.tlsDisable=false \
-            --set global.platform="${platform}" \
-            --set server.extraVolumes[0].type=secret \
-            --set server.extraVolumes[0].name=$name \
-            --set server.extraEnvironmentVars.VAULT_CACERT=/vault/userconfig/$name/vault.ca \
-            --set server.standalone.config="
+	if [ $protocol == "https" ]; then
+		vault_tls "$name"
+		helm install $name hashicorp/vault \
+			--disable-openapi-validation \
+			--version 0.16.1 \
+			--namespace "$name" \
+			--set dataStorage.enabled=false \
+			--set global.tlsDisable=false \
+			--set global.platform="${platform}" \
+			--set server.extraVolumes[0].type=secret \
+			--set server.extraVolumes[0].name=$name \
+			--set server.extraEnvironmentVars.VAULT_CACERT=/vault/userconfig/$name/vault.ca \
+			--set server.standalone.config="
 listener \"tcp\" {
     address = \"[::]:8200\"
     cluster_address = \"[::]:8201\"
@@ -974,234 +1042,279 @@ storage \"file\" {
     path = \"/vault/data\"
 }"
 
-    else
-        helm install $name hashicorp/vault \
-            --disable-openapi-validation \
-            --version 0.6.0 \
-            --namespace "$name" \
-            --set dataStorage.enabled=false \
-            --set global.platform="${platform}"
-    fi
+	else
+		helm install $name hashicorp/vault \
+			--disable-openapi-validation \
+			--version 0.16.1 \
+			--namespace "$name" \
+			--set dataStorage.enabled=false \
+			--set global.platform="${platform}"
+	fi
 
-    if [[ ! -z "${OPENSHIFT}" ]]; then
-        oc patch clusterrole $name-agent-injector-clusterrole --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
-        oc adm policy add-scc-to-user privileged $name-agent-injector
-    fi
+	if [[ -n ${OPENSHIFT} ]]; then
+		oc patch clusterrole $name-agent-injector-clusterrole --type='json' -p '[{"op":"add","path":"/rules/-", "value":{"apiGroups":["security.openshift.io"], "attributeRestrictions":null, "resourceNames": ["privileged"], "resources":["securitycontextconstraints"],"verbs":["use"]}}]'
+		oc adm policy add-scc-to-user privileged $name-agent-injector
+	fi
 
-    set +o xtrace
-    retry=0
-    echo -n pod/$name-0
-    until kubectl_bin get pod/$name-0 -o 'jsonpath={.status.containerStatuses[0].state}' 2>/dev/null | grep 'running'; do
-        echo -n .
-        sleep 1
-        let retry+=1
-        if [ "$retry" -ge 480 ]; then
-            kubectl_bin describe pod/$name-0
-            kubectl_bin logs $name-0
-            echo max retry count "$retry" reached. something went wrong with vault
-            exit 1
-        fi
-    done
-    set -o xtrace
+	set +o xtrace
+	retry=0
+	echo -n pod/$name-0
+	until kubectl_bin get pod/$name-0 -o 'jsonpath={.status.containerStatuses[0].state}' 2>/dev/null | grep 'running'; do
+		echo -n .
+		sleep 1
+		let retry+=1
+		if [ "$retry" -ge 480 ]; then
+			kubectl_bin describe pod/$name-0
+			kubectl_bin logs $name-0
+			echo max retry count "$retry" reached. something went wrong with vault
+			exit 1
+		fi
+	done
+	set -o xtrace
 
-    kubectl_bin exec -it $name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
-    unsealKey=$(jq -r ".unseal_keys_b64[]" <"$tmp_dir/$name")
-    token=$(jq -r ".root_token" <"$tmp_dir/$name")
-    sleep 10
+	kubectl_bin exec -it $name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
+	unsealKey=$(jq -r ".unseal_keys_b64[]" <"$tmp_dir/$name")
+	token=$(jq -r ".root_token" <"$tmp_dir/$name")
+	sleep 10
 
-    kubectl_bin exec -it $name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
-    kubectl_bin exec -it $name-0 -- \
-        sh -c "export VAULT_TOKEN=$token && export VAULT_LOG_LEVEL=trace \
+	kubectl_bin exec -it $name-0 -- vault operator unseal -tls-skip-verify "$unsealKey"
+	kubectl_bin exec -it $name-0 -- \
+		sh -c "export VAULT_TOKEN=$token && export VAULT_LOG_LEVEL=trace \
                 && vault secrets enable --version=1 -tls-skip-verify -path=secret kv \
                 && vault audit enable file file_path=/vault/vault-audit.log"
-    sleep 10
+	sleep 10
 
-    cat "$conf_dir/vault-secret.yaml" \
-        | sed -e "s/#token/$token/" \
-        | sed -e "s/#vault_url/$protocol:\/\/$name.$name.svc.cluster.local:8200/" \
-        | sed -e "s/#secret/secret/" > "${tmp_dir}/vault-secret.yaml"
-    if [ $protocol == "https" ]; then
-        sed -e 's/^/    /' ${tmp_dir}/vault.ca > ${tmp_dir}/vault.new.ca
-        $sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
-        $sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
-        $sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
-    else
-        $sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
-    fi
+	cat "$conf_dir/vault-secret.yaml" \
+		| sed -e "s/#token/$token/" \
+		| sed -e "s/#vault_url/$protocol:\/\/$name.$name.svc.cluster.local:8200/" \
+		| sed -e "s/#secret/secret/" >"${tmp_dir}/vault-secret.yaml"
+	if [ $protocol == "https" ]; then
+		sed -e 's/^/    /' ${tmp_dir}/vault.ca >${tmp_dir}/vault.new.ca
+		$sed -i "s/#vault_ca/vault_ca/" "${tmp_dir}/vault-secret.yaml"
+		$sed -i "/#certVal/r ${tmp_dir}/vault.new.ca" "${tmp_dir}/vault-secret.yaml"
+		$sed -i "/#certVal/d" "${tmp_dir}/vault-secret.yaml"
+	else
+		$sed -i "/#vault_ca/d" "${tmp_dir}/vault-secret.yaml"
+	fi
 
-    kubectl_bin apply --namespace="$namespace" -f ${tmp_dir}/vault-secret.yaml
+	kubectl_bin apply --namespace="$namespace" -f ${tmp_dir}/vault-secret.yaml
 
-    kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
+	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 }
 
 start_minio() {
-    deploy_helm $namespace
+	deploy_helm $namespace
 
-    desc 'install Minio'
-    helm del minio-service || :
-    retry 10 60 helm install \
-        $HELM_ARGS \
-        minio-service \
-        --version 8.0.5 \
-        --set accessKey=some-access-key \
-        --set secretKey=some-secret-key \
-        --set service.type=ClusterIP \
-        --set configPathmc=/tmp/.minio/ \
-        --set securityContext.enabled=false \
-        --set persistence.size=2G \
-        --set environment.MINIO_REGION=us-east-1 \
-        --set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
-        minio/minio
-    sleep 30
-    MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
-    wait_pod $MINIO_POD
+	desc 'install Minio'
+	helm del minio-service || :
+	retry 10 60 helm install \
+		$HELM_ARGS \
+		minio-service \
+		--version 8.0.5 \
+		--set accessKey=some-access-key \
+		--set secretKey=some-secret-key \
+		--set service.type=ClusterIP \
+		--set configPathmc=/tmp/.minio/ \
+		--set securityContext.enabled=false \
+		--set persistence.size=2G \
+		--set environment.MINIO_REGION=us-east-1 \
+		--set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
+		minio/minio
+	sleep 30
+	MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
+	wait_pod $MINIO_POD
 
-    kubectl_bin run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
-        /usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-        /usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
+	kubectl_bin run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+		/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+		/usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
+}
+
+deploy_chaos_mesh() {
+	local chaos_mesh_ns=$1
+
+	desc 'install chaos-mesh'
+	local old_cm_namespace=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}')
+	if [ "${old_cm_namespace}" != "NAMESPACE" ]; then
+		destroy_chaos_mesh "${old_cm_namespace}"
+	fi
+	helm repo add chaos-mesh https://charts.chaos-mesh.org
+	if version_gt "1.19"; then
+		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 0.5.1 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
+	else
+		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set dashboard.create=false --version 0.5.1 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
+	fi
+	sleep 10
+}
+
+destroy_chaos_mesh() {
+	local chaos_mesh_ns=$1
+
+	desc 'destroy chaos-mesh'
+	helm uninstall chaos-mesh --namespace ${chaos_mesh_ns} || :
+	kubectl delete crd awschaos.chaos-mesh.org dnschaos.chaos-mesh.org httpchaos.chaos-mesh.org iochaos.chaos-mesh.org jvmchaos.chaos-mesh.org kernelchaos.chaos-mesh.org networkchaos.chaos-mesh.org podchaos.chaos-mesh.org podiochaos.chaos-mesh.org podnetworkchaos.chaos-mesh.org stresschaos.chaos-mesh.org timechaos.chaos-mesh.org || :
+	kubectl delete clusterrolebinding chaos-mesh-chaos-controller-manager-cluster-level || :
+	kubectl delete clusterrole chaos-mesh-chaos-controller-manager-cluster-level chaos-mesh-chaos-controller-manager-target-namespace || :
 }
 
 patch_secret() {
-    local secret=$1
-    local key=$2
-    local value=$3
+	local secret=$1
+	local key=$2
+	local value=$3
 
-    kubectl_bin patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
+	kubectl_bin patch secret $secret -p="{\"data\":{\"$key\": \"$value\"}}"
 }
 
 getSecretData() {
-    local secretName=$1
-    local dataKey=$2
-    kubectl_bin get secrets/${secretName} --template={{.data.${dataKey}}} \
-        | base64 --decode
+	local secretName=$1
+	local dataKey=$2
+	kubectl_bin get secrets/${secretName} --template={{.data.${dataKey}}} \
+		| base64 --decode
 }
 
 checkTLSSecret() {
-    local secretName=$1
-    local dataKey=$2
-    local secretData=$(kubectl_bin get secrets/${secretName} -o json | jq '.data["'${dataKey}'"]')
-    if [ -z "$secretData" ]; then
-      exit 1
-    fi
+	local secretName=$1
+	local dataKey=$2
+	local secretData=$(kubectl_bin get secrets/${secretName} -o json | jq '.data["'${dataKey}'"]')
+	if [ -z "$secretData" ]; then
+		exit 1
+	fi
 }
 
 tlsSecretsShouldExist() {
-  local secretName=$1
-  checkTLSSecret "$secretName" 'ca.crt'
-  checkTLSSecret "$secretName" 'tls.crt'
-  checkTLSSecret "$secretName" 'tls.key'
+	local secretName=$1
+	checkTLSSecret "$secretName" 'ca.crt'
+	checkTLSSecret "$secretName" 'tls.crt'
+	checkTLSSecret "$secretName" 'tls.key'
 }
 
 function check_pxc_liveness() {
-    local cluster="$1"
-    local cluster_size="$2"
-    wait_cluster_consistency "${cluster}" "${cluster_size}"
+	local cluster="$1"
+	local cluster_size="$2"
+	wait_cluster_consistency "${cluster}" "${cluster_size}"
 
-    wait_for_running "${cluster}-pxc" "${cluster_size}"
+	wait_for_running "${cluster}-pxc" "${cluster_size}"
 
-    for i in $(seq 0 $((cluster_size-1))); do
-        compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
-    done
+	for i in $(seq 0 $((cluster_size - 1))); do
+		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+	done
 }
 
 function compare_generation() {
-    local generation="$1"
-    local proxy="$2"
-    local cluster="$3"
-    local current_generation
+	local generation="$1"
+	local proxy="$2"
+	local cluster="$3"
+	local current_generation
 
-    if [[ "${proxy}" == "haproxy" ]]; then
-        containers=(pxc haproxy)
-      else
-        containers=(pxc proxysql)
-    fi
-    for container in "${containers[@]}"; do
-        current_generation="$(kubectl_bin get statefulset "${cluster}-${container}" -o jsonpath='{.metadata.generation}')"
-        if [[ "${generation}" != "${current_generation}" ]]; then
-            echo "Generation for resource ${container} is: ${current_generation}, but should be: ${generation}"
-            exit 1
-        fi
-    done
+	if [[ ${proxy} == "haproxy" ]]; then
+		containers=(pxc haproxy)
+	else
+		containers=(pxc proxysql)
+	fi
+	for container in "${containers[@]}"; do
+		current_generation="$(kubectl_bin get statefulset "${cluster}-${container}" -o jsonpath='{.metadata.generation}')"
+		if [[ ${generation} != "${current_generation}" ]]; then
+			echo "Generation for resource ${container} is: ${current_generation}, but should be: ${generation}"
+			exit 1
+		fi
+	done
 }
 
 function apply_rbac_gh() {
-    local operator_namespace="${OPERATOR_NS:-'pxc-operator'}"
-    local rbac="${1:-'rbac'}"
-    local git_tag="$2"
+	local operator_namespace="${OPERATOR_NS:-'pxc-operator'}"
+	local rbac="${1:-'rbac'}"
+	local git_tag="$2"
 
-    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/${rbac}.yaml" > "${tmp_dir}/rbac_${git_tag}.yaml"
-    $sed -i -e "s^namespace: .*^namespace: ${operator_namespace}^" "${tmp_dir}/rbac_${git_tag}.yaml"
-    kubectl_bin apply -f "${tmp_dir}/rbac_${git_tag}.yaml"
+	curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/${rbac}.yaml" >"${tmp_dir}/rbac_${git_tag}.yaml"
+	$sed -i -e "s^namespace: .*^namespace: ${operator_namespace}^" "${tmp_dir}/rbac_${git_tag}.yaml"
+	kubectl_bin apply -f "${tmp_dir}/rbac_${git_tag}.yaml"
 }
 
 function deploy_operator_gh() {
-    local git_tag="$1"
+	local git_tag="$1"
 
-    desc 'start operator'
-    if [[ -n $(kubectl_bin get crds -o jsonpath='{.items[?(@.metadata.name == "perconaxtradbclusters.pxc.percona.com")].metadata.name}') ]]\
-       && [[ -n $(kubectl_bin get crd/perconaxtradbclusters.pxc.percona.com -o jsonpath='{.spec.versions[?(@.name == "'"${git_tag//\./-}"'")].name}') ]]; then
-       echo "Target CRD for ${git_tag} is in place"
-    else
-        kubectl_bin apply -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/crd.yaml" > "${tmp_dir}/crd_${git_tag}.yaml"
-    fi
+	desc 'start operator'
+	if [[ -n $(kubectl_bin get crds -o jsonpath='{.items[?(@.metadata.name == "perconaxtradbclusters.pxc.percona.com")].metadata.name}') ]] \
+		&& [[ -n $(kubectl_bin get crd/perconaxtradbclusters.pxc.percona.com -o jsonpath='{.spec.versions[?(@.name == "'"${git_tag//\./-}"'")].name}') ]]; then
+		echo "Target CRD for ${git_tag} is in place"
+	else
+		kubectl_bin apply -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/crd.yaml" >"${tmp_dir}/crd_${git_tag}.yaml"
+	fi
 
-    local rbac_yaml="rbac"
-    local operator_yaml="operator.yaml"
-    if [ -n "${OPERATOR_NS}" ]; then
-        rbac_yaml="cw-rbac"
-        operator_yaml="cw-operator.yaml"
-    fi
-    apply_rbac_gh "${rbac_yaml}" "${git_tag}"
-    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/${operator_yaml}" > "${tmp_dir}/${operator_yaml}_${git_tag}.yaml"
-    $sed -i -e "s^image: .*^image: ${IMAGE}^" "${tmp_dir}/${operator_yaml}_${git_tag}.yaml"
-    kubectl_bin apply -f "${tmp_dir}/${operator_yaml}_${git_tag}.yaml" ${OPERATOR_NS:+-n $OPERATOR_NS}
+	local rbac_yaml="rbac"
+	local operator_yaml="operator.yaml"
+	if [ -n "${OPERATOR_NS}" ]; then
+		rbac_yaml="cw-rbac"
+		operator_yaml="cw-operator.yaml"
+	fi
+	apply_rbac_gh "${rbac_yaml}" "${git_tag}"
+	curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/${operator_yaml}" >"${tmp_dir}/${operator_yaml}_${git_tag}.yaml"
+	$sed -i -e "s^image: .*^image: ${IMAGE}^" "${tmp_dir}/${operator_yaml}_${git_tag}.yaml"
+	kubectl_bin apply -f "${tmp_dir}/${operator_yaml}_${git_tag}.yaml" ${OPERATOR_NS:+-n $OPERATOR_NS}
 
-    sleep 2
-    wait_pod "$(get_operator_pod)"
+	sleep 2
+	wait_pod "$(get_operator_pod)"
 }
 
 function create_infra_gh() {
-    local ns="$1"
-    local git_tag="$2"
+	local ns="$1"
+	local git_tag="$2"
 
-    if [ -n "${OPERATOR_NS}" ]; then
-        create_namespace "${OPERATOR_NS}"
-        deploy_operator_gh "${git_tag}"
-        create_namespace "${ns}"
-    else
-        create_namespace "${ns}"
-        deploy_operator_gh "${git_tag}"
-    fi
+	if [ -n "${OPERATOR_NS}" ]; then
+		create_namespace "${OPERATOR_NS}"
+		deploy_operator_gh "${git_tag}"
+		create_namespace "${ns}"
+	else
+		create_namespace "${ns}"
+		deploy_operator_gh "${git_tag}"
+	fi
+	apply_secrets
 }
 
 function prepare_cr_yaml() {
-    local cr_yaml="$1"
-    local proxy="$2"
-    local cluster="$3"
-    local cluster_size="$4"
-    local git_tag="$5"
+	local cr_yaml="$1"
+	local proxy="$2"
+	local cluster="$3"
+	local cluster_size="$4"
+	local git_tag="$5"
 
-    # spinup function expects images to have suffix like "-pxc"
-    # to replace them with images from environment variables
-    curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/cr.yaml" \
-        | yq w - "metadata.name" "${cluster}" \
-        | yq w - "spec.secretsName" "my-cluster-secrets" \
-        | yq w - "spec.vaultSecretName" "some-name-vault" \
-        | yq w - "spec.sslSecretName" "some-name-ssl" \
-        | yq w - "spec.sslInternalSecretName" "some-name-ssl-internal" \
-        | yq w - "spec.upgradeOptions.apply" "disabled" \
-        | yq w - "spec.pxc.size" "${cluster_size}" \
-        | yq w - "spec.proxysql.size" "${cluster_size}" \
-        | yq w - "spec.haproxy.size" "${cluster_size}" \
-        | yq w - "spec.pxc.image" -- "-pxc" \
-        | yq w - "spec.proxysql.image" -- "-proxysql" \
-        | yq w - "spec.haproxy.image" -- "-haproxy" \
-        | yq w - "spec.backup.image" -- "-backup" > "${cr_yaml}"
-    if [[ "${proxy}" == "haproxy" ]]; then
-        yq w -i "${cr_yaml}" "spec.haproxy.enabled" "true"
-        yq w -i "${cr_yaml}" "spec.proxysql.enabled" "false"
-    else
-        yq w -i "${cr_yaml}" "spec.haproxy.enabled" "false"
-        yq w -i "${cr_yaml}" "spec.proxysql.enabled" "true"
-    fi
+	# spinup function expects images to have suffix like "-pxc"
+	# to replace them with images from environment variables
+	curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/cr.yaml" \
+		| yq w - "metadata.name" "${cluster}" \
+		| yq w - "spec.secretsName" "my-cluster-secrets" \
+		| yq w - "spec.vaultSecretName" "some-name-vault" \
+		| yq w - "spec.sslSecretName" "some-name-ssl" \
+		| yq w - "spec.sslInternalSecretName" "some-name-ssl-internal" \
+		| yq w - "spec.upgradeOptions.apply" "disabled" \
+		| yq w - "spec.pxc.size" "${cluster_size}" \
+		| yq w - "spec.proxysql.size" "${cluster_size}" \
+		| yq w - "spec.haproxy.size" "${cluster_size}" \
+		| yq w - "spec.pxc.image" -- "-pxc" \
+		| yq w - "spec.proxysql.image" -- "-proxysql" \
+		| yq w - "spec.haproxy.image" -- "-haproxy" \
+		| yq w - "spec.backup.image" -- "-backup" >"${cr_yaml}"
+	if [[ ${proxy} == "haproxy" ]]; then
+		yq w -i "${cr_yaml}" "spec.haproxy.enabled" "true"
+		yq w -i "${cr_yaml}" "spec.proxysql.enabled" "false"
+	else
+		yq w -i "${cr_yaml}" "spec.haproxy.enabled" "false"
+		yq w -i "${cr_yaml}" "spec.proxysql.enabled" "true"
+	fi
+}
+
+function kpatch_delete_field() {
+	local type=$1
+	local name=$2
+	local path=$3
+
+	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"remove\", \"path\": \"$path\"}]" >/dev/null
+}
+
+function kpatch_set_field() {
+	local type=$1
+	local name=$2
+	local path=$3
+	local value=$4
+
+	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
 }

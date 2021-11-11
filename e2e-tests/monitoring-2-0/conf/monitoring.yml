@@ -35,3 +35,10 @@ spec:
     serverHost: monitoring-service
     serverUser: admin
     pxcParams: "--disable-tablestats-limit=2000"
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1000M
+      requests:
+        cpu: 308m
+        memory: 508M

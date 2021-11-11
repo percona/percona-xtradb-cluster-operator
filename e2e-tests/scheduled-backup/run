@@ -148,16 +148,12 @@ compare_extrafields() {
 
 main() {
     create_infra $namespace
-
-    kubectl_bin apply \
-        -f $conf_dir/minio-secret.yml \
-        -f $conf_dir/cloud-secret.yml
     start_minio
 
     cluster="scheduled-backup"
 
     cat - <<-EOF | kubectl_bin apply -f -
-        apiVersion: scheduling.k8s.io/v1beta1
+        apiVersion: scheduling.k8s.io/v1
         kind: PriorityClass
         metadata:
             name: high-priority
@@ -174,13 +170,6 @@ main() {
     label_node
     sleep 20
 
-    if [ -n "$OPERATOR_NS" ]; then
-        kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$OPERATOR_NS"
-    fi
-    compare_kubectl cronjob/each-min-pvc
-    compare_kubectl cronjob/each-min-aws-s3
-    compare_kubectl cronjob/each-min-minio
-    compare_kubectl cronjob/each-min-gcp-cs
     kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
     sleep 300
@@ -195,38 +184,31 @@ main() {
     JOB_MINIO_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_MINIO_BACKUP} | awk '{print $1}')
     POD_MINIO_BACKUP=$(kubectl_bin get pods | grep ${JOB_MINIO_BACKUP%-*}  | awk '{print $1}')
 
-    FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1| cut -d: -f1)
-    JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
-    POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*}  | awk '{print $1}')
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1| cut -d: -f1)
+        JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
+        POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*}  | awk '{print $1}')
 
-    FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1| cut -d: -f1)
-    JOB_GCP_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_GCP_BACKUP} | awk '{print $1}')
-    POD_GCP_BACKUP=$(kubectl_bin get pods | grep ${JOB_GCP_BACKUP%-*}  | awk '{print $1}')
-
-    compare_extrafields job ${JOB_PVC_BACKUP}
-    compare_extrafields pod ${POD_PVC_BACKUP}
-
-    compare_extrafields job ${JOB_MINIO_BACKUP}
-    compare_extrafields pod ${POD_MINIO_BACKUP}
-
-    compare_extrafields job ${JOB_AWS_BACKUP}
-    compare_extrafields pod ${POD_AWS_BACKUP}
-
-    compare_extrafields job ${JOB_GCP_BACKUP}
-    compare_extrafields pod ${POD_GCP_BACKUP}
-
+        FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1| cut -d: -f1)
+        JOB_GCP_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_GCP_BACKUP} | awk '{print $1}')
+        POD_GCP_BACKUP=$(kubectl_bin get pods | grep ${JOB_GCP_BACKUP%-*}  | awk '{print $1}')
+    fi
 
     backup_name_pvc=$(get_backup_name "pvc")
-    backup_name_aws=$(get_backup_name "aws-s3")
     backup_name_minio=$(get_backup_name "minio")
-    backup_name_gcp=$(get_backup_name "gcp-cs")
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        backup_name_aws=$(get_backup_name "aws-s3")
+        backup_name_gcp=$(get_backup_name "gcp-cs")
+    fi
 
     apply_config "$test_dir/conf/${cluster}1.yml"
 
     run_recovery_check "$cluster" "$backup_name_pvc"
-    run_recovery_check "$cluster" "$backup_name_aws"
     run_recovery_check "$cluster" "$backup_name_minio"
-    run_recovery_check "$cluster" "$backup_name_gcp"
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        run_recovery_check "$cluster" "$backup_name_aws"
+        run_recovery_check "$cluster" "$backup_name_gcp"
+    fi
 
     unlabel_node
     destroy $namespace

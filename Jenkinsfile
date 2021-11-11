@@ -1,16 +1,15 @@
+GKERegion='us-central1-a'
 
 void CreateCluster(String CLUSTER_PREFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             NODES_NUM=3
-            if [ ${CLUSTER_PREFIX} == 'backups' ]; then
-                NODES_NUM=4
-            fi
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters create --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version 1.17 --machine-type n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
+            gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+            gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.20 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
             kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
         """
    }
@@ -22,7 +21,7 @@ void ShutdownCluster(String CLUSTER_PREFIX) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-${CLUSTER_PREFIX}
+            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX}
         """
    }
 }
@@ -50,13 +49,13 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '| Test name  | Status |\\r\\n| ------------- | ------------- |'
+TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
 testsReportMap  = [:]
 testsResultsMap = [:]
 
 void makeReport() {
     for ( test in testsReportMap ) {
-        TestsReport = TestsReport + "\\r\\n| ${test.key} | ${test.value} |"
+        TestsReport = TestsReport + "\r\n| ${test.key} | ${test.value} |"
     }
 }
 
@@ -81,7 +80,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                     else
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
                         source $HOME/google-cloud-sdk/path.bash.inc
-                        ./e2e-tests/$TEST_NAME/run
+                        time bash ./e2e-tests/$TEST_NAME/run
                     fi
                 """
             }
@@ -142,6 +141,13 @@ pipeline {
                     if ( AUTHOR_NAME == 'null' )  {
                         AUTHOR_NAME = sh(script: "git show -s --pretty=%ae | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
                     }
+                    for (comment in pullRequest.comments) {
+                        println("Author: ${comment.user}, Comment: ${comment.body}")
+                        if (comment.user.equals('JNKPercona')) {
+                            println("delete comment")
+                            comment.delete()
+                        }
+                    }
                 }
                 sh '''
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
@@ -159,9 +165,6 @@ pipeline {
 
                     curl -s -L https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    curl -s -L https://github.com/go-enry/go-license-detector/releases/download/v4.0.0/license-detector-v4.0.0-linux-amd64.tar.gz \
-                        | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    sudo chmod +x /usr/local/bin/license-detector
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
@@ -207,10 +210,25 @@ pipeline {
                 }
             }
             steps {
-               sh """
-                   license-detector ${WORKSPACE} | awk '{print \$2}' | awk 'NF > 0' > license-detector-new || true
-                   diff -u e2e-tests/license/compare/license-detector license-detector-new
-               """
+                sh """
+                    mkdir -p $WORKSPACE/src/github.com/percona
+                    ln -s $WORKSPACE $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator
+                    sg docker -c "
+                        docker run \
+                            --rm \
+                            -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
+                            -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
+                            -e GO111MODULE=on \
+                            golang:1.17 sh -c '
+                                go get github.com/google/go-licenses;
+                                /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
+                                    | cut -d , -f 3 \
+                                    | sort -u \
+                                    > go-licenses-new || :
+                            '
+                    "
+                    diff -u e2e-tests/license/compare/go-licenses go-licenses-new
+                """
             }
         }
         stage('GoLicense test') {
@@ -229,7 +247,7 @@ pipeline {
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
-                            golang:1.14 sh -c 'go build -v -mod=vendor -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
+                            golang:1.17 sh -c 'go build -v -mod=vendor -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
                     "
                 '''
 
@@ -241,7 +259,6 @@ pipeline {
                             | sort \
                             | uniq \
                             > golicense-new || true
-
                         diff -u e2e-tests/license/compare/golicense golicense-new
                     """
                 }
@@ -305,8 +322,11 @@ pipeline {
                         CreateCluster('selfhealing')
                         runTest('storage', 'selfhealing')
                         runTest('self-healing', 'selfhealing')
+                        runTest('self-healing-chaos', 'selfhealing')
                         runTest('self-healing-advanced', 'selfhealing')
+                        runTest('self-healing-advanced-chaos', 'selfhealing')
                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('operator-self-healing-chaos', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }
                 }
@@ -318,10 +338,16 @@ pipeline {
                         runTest('demand-backup', 'backups')
                         runTest('pitr', 'backups')
                         runTest('demand-backup-encrypted-with-tls', 'backups')
-                        runTest('scheduled-backup', 'backups')
                         ShutdownCluster('backups')
                     }
                 }
+                stage('E2E Scheduled-backups') {
+                    steps {
+                        CreateCluster('scheduled-backups')
+                        runTest('scheduled-backup', 'scheduled-backups')
+                        ShutdownCluster('scheduled-backups')
+                    }
+                }                
                 stage('E2E BigData') {
                     steps {
                         CreateCluster('bigdata')
@@ -336,54 +362,37 @@ pipeline {
         always {
             script {
                 setTestsresults()
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    if (env.CHANGE_URL) {
-                        unstash 'IMAGE'
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                            sh """
-                                curl -v -X POST \
-                                    -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                    -d "{\\"body\\":\\"PXC operator docker - ${IMAGE}\\"}" \
-                                    "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
-                            """
-                        }
-                    }
-                }
-                else {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                 }
-            }
-            script {
                 if (env.CHANGE_URL) {
-                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                        makeReport()
-                        sh """
-                            curl -v -X POST \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                -d "{\\"body\\":\\"${TestsReport}\\"}" \
-                                "https://api.github.com/repos/\$(echo $CHANGE_URL | cut -d '/' -f 4-5)/issues/${CHANGE_ID}/comments"
-                        """
+                    for (comment in pullRequest.comments) {
+                        println("Author: ${comment.user}, Comment: ${comment.body}")
+                        if (comment.user.equals('JNKPercona')) {
+                            println("delete comment")
+                            comment.delete()
+                        }
                     }
-
-                    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-                        sh '''
-                            source $HOME/google-cloud-sdk/path.bash.inc
-                            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-                            gcloud config set project $GCP_PROJECT
-                            gcloud container clusters delete --zone us-central1-a $CLUSTER_NAME-basic $CLUSTER_NAME-scaling $CLUSTER_NAME-selfhealing $CLUSTER_NAME-backups $CLUSTER_NAME-bigdata $CLUSTER_NAME-upgrade | true
-                            sudo docker rmi -f \$(sudo docker images -q) || true
-
-                            sudo rm -rf $HOME/google-cloud-sdk
-                        '''
-                    }
+                    makeReport()
+                    unstash 'IMAGE'
+                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                    TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"
+                    pullRequest.comment(TestsReport)
                 }
             }
-            sh '''
-                sudo docker rmi -f \$(sudo docker images -q) || true
-                sudo rm -rf ./*
-                sudo rm -rf $HOME/google-cloud-sdk
-            '''
+            withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+                sh """
+                    if [ -f $HOME/google-cloud-sdk/path.bash.inc ]; then
+                        source $HOME/google-cloud-sdk/path.bash.inc
+                        gcloud auth activate-service-account --key-file \$CLIENT_SECRET_FILE
+                        gcloud config set project \$GCP_PROJECT
+                        gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                    fi
+                    sudo docker system prune -fa
+                    sudo rm -rf ./*
+                    sudo rm -rf $HOME/google-cloud-sdk
+                """
+            }
             deleteDir()
         }
     }

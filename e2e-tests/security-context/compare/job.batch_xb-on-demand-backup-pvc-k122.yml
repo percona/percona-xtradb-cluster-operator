@@ -1,0 +1,97 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    openshift.io/scc: privileged
+  generation: 1
+  labels:
+    cluster: sec-context
+    job-name: xb-on-demand-backup-pvc
+    type: xtrabackup
+  name: xb-on-demand-backup-pvc
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBClusterBackup
+      name: on-demand-backup-pvc
+spec:
+  backoffLimit: 10
+  completionMode: NonIndexed
+  completions: 1
+  manualSelector: true
+  parallelism: 1
+  selector:
+    matchLabels:
+      cluster: sec-context
+      job-name: xb-on-demand-backup-pvc
+      type: xtrabackup
+  suspend: false
+  template:
+    metadata:
+      annotations:
+        openshift.io/scc: privileged
+      labels:
+        cluster: sec-context
+        job-name: xb-on-demand-backup-pvc
+        type: xtrabackup
+    spec:
+      containers:
+        - command:
+            - bash
+            - /usr/bin/backup.sh
+          env:
+            - name: BACKUP_DIR
+              value: /backup
+            - name: PXC_SERVICE
+              value: sec-context-pxc
+            - name: PXC_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup
+                  name: my-cluster-secrets
+          imagePullPolicy: Always
+          name: xtrabackup
+          resources: {}
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /backup
+              name: xtrabackup
+            - mountPath: /etc/mysql/ssl
+              name: ssl
+            - mountPath: /etc/mysql/ssl-internal
+              name: ssl-internal
+            - mountPath: /etc/mysql/vault-keyring-secret
+              name: vault-keyring-secret
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1001
+        supplementalGroups:
+          - 1001
+          - 1002
+          - 1003
+      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccountName: percona-xtradb-cluster-operator-workload
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: xtrabackup
+          persistentVolumeClaim:
+            claimName: xb-on-demand-backup-pvc
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-ssl
+        - name: ssl-internal
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-ssl-internal
+        - name: vault-keyring-secret
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: sec-context-vault

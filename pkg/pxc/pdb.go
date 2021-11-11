@@ -7,9 +7,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
-func PodDisruptionBudget(spec *api.PodDisruptionBudgetSpec, app api.StatefulApp, namespace string) *policyv1beta1.PodDisruptionBudget {
-	labels := app.Labels()
-
+func PodDisruptionBudget(spec *api.PodDisruptionBudgetSpec, labels map[string]string, namespace string) *policyv1beta1.PodDisruptionBudget {
 	return &policyv1beta1.PodDisruptionBudget{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy/v1beta1",
@@ -27,5 +25,4 @@ func PodDisruptionBudget(spec *api.PodDisruptionBudgetSpec, app api.StatefulApp,
 			},
 		},
 	}
-
 }

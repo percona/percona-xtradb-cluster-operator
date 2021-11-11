@@ -19,8 +19,11 @@ main() {
   desc 'check if certificates issued with certmanager'
   tlsSecretsShouldExist "$cluster-ssl"
 
-  desc 'check if default issuer created'
-  compare_kubectl issuer/$cluster-pxc-ca
+  desc 'check if CA issuer created'
+  compare_kubectl issuer/$cluster-pxc-ca-issuer
+
+  desc 'check if issuer created'
+  compare_kubectl issuer/$cluster-pxc-issuer
 
   desc 'check if certificate issued'
   compare_kubectl certificate/$cluster-ssl

@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-7-0
+apiVersion: pxc.percona.com/v1-10-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -9,12 +9,13 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.7.0
+  crVersion: 1.10.0
   secretsName: my-cluster-secrets
   vaultSecretName: keyring-secret-vault
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
   logCollectorSecretName: my-log-collector-secrets
+#  initImage: percona/percona-xtradb-cluster-operator:1.9.0
 #  enableCRValidationWebhook: true
 #  tls:
 #    SANs:
@@ -30,19 +31,38 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com
-    apply: recommended
+    apply: 8.0-recommended
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.21-12.1
+    image: percona/percona-xtradb-cluster:8.0.23-14.1
     autoRecovery: true
+#    expose:
+#      enabled: true
+#      type: LoadBalancer
+#      trafficPolicy: Local
+#      loadBalancerSourceRanges:
+#        - 10.0.0.0/8
+#      annotations:
+#        networking.gke.io/load-balancer-type: "Internal"
+#    replicationChannels:
+#    - name: pxc1_to_pxc2
+#      isSource: true
+#    - name: pxc2_to_pxc1
+#      isSource: false
+#      configuration:
+#        sourceRetryCount: 3
+#        sourceConnectRetry: 60
+#      sourcesList:
+#      - host: 10.95.251.101
+#        port: 3306
+#        weight: 100
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
 #    livenessDelaySec: 600
-#    forceUnsafeBootstrap: false
 #    configuration: |
 #      [mysqld]
-#      wsrep_debug=ON
+#      wsrep_debug=CLIENT
 #      wsrep_provider_options="gcache.size=1G; gcache.recover=yes"
 #      [sst]
 #      xbstream-opts=--decompress
@@ -58,6 +78,18 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
+#    readinessProbes:
+#      initialDelaySeconds: 15
+#      timeoutSeconds: 15
+#      periodSeconds: 30
+#      successThreshold: 1
+#      failureThreshold: 5
+#    livenessProbes:
+#      initialDelaySeconds: 300
+#      timeoutSeconds: 5
+#      periodSeconds: 10
+#      successThreshold: 1
+#      failureThreshold: 3
 #    containerSecurityContext:
 #      privileged: false
 #    podSecurityContext:
@@ -66,15 +98,29 @@ spec:
 #      supplementalGroups: [1001]
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
 #    imagePullPolicy: Always
+#    runtimeClassName: image-rc
+#    sidecars:
+#    - image: busybox
+#      command: ["/bin/sh"]
+#      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
+#      name: my-sidecar-1
+#      resources:
+#        requests:
+#          memory: 100M
+#          cpu: 100m
+#        limits:
+#          memory: 200M
+#          cpu: 200m
+#    envVarsSecret: my-env-var-secrets
     resources:
       requests:
         memory: 1G
         cpu: 600m
-#        ephemeral-storage: 1Gi
+#        ephemeral-storage: 1G
 #      limits:
 #        memory: 1G
 #        cpu: "1"
-#        ephemeral-storage: 1Gi
+#        ephemeral-storage: 1G
 #    nodeSelector:
 #      disktype: ssd
     affinity:
@@ -107,21 +153,27 @@ spec:
 #        accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: 6Gi
+            storage: 6G
     gracePeriod: 600
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.7.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+#    replicasServiceEnabled: false
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    configuration: |
+#
+#    the actual default configuration file can be found here https://github.com/percona/percona-docker/blob/main/haproxy/dockerdir/etc/haproxy/haproxy-global.cfg
+#
 #      global
 #        maxconn 2048
 #        external-check
-#        stats socket /var/run/haproxy.sock mode 600 expose-fd listeners level user
+#        insecure-fork-wanted
+#        stats socket /etc/haproxy/pxc/haproxy.sock mode 600 expose-fd listeners level admin
 #
 #      defaults
+#        default-server init-addr last,libc,none
 #        log global
 #        mode tcp
 #        retries 10
@@ -131,27 +183,70 @@ spec:
 #
 #      frontend galera-in
 #        bind *:3309 accept-proxy
-#        bind *:3306 accept-proxy
+#        bind *:3306
 #        mode tcp
 #        option clitcpka
 #        default_backend galera-nodes
+#
+#      frontend galera-admin-in
+#        bind *:33062
+#        mode tcp
+#        option clitcpka
+#        default_backend galera-admin-nodes
 #
 #      frontend galera-replica-in
 #        bind *:3307
 #        mode tcp
 #        option clitcpka
 #        default_backend galera-replica-nodes
+#
+#      frontend galera-mysqlx-in
+#        bind *:33060
+#        mode tcp
+#        option clitcpka
+#        default_backend galera-mysqlx-nodes
+#
+#      frontend stats
+#        bind *:8404
+#        mode http
+#        option http-use-htx
+#        http-request use-service prometheus-exporter if { path /metrics }
 #    imagePullSecrets:
 #      - name: private-registry-credentials
 #    annotations:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
+#    readinessProbes:
+#      initialDelaySeconds: 15
+#      timeoutSeconds: 1
+#      periodSeconds: 5
+#      successThreshold: 1
+#      failureThreshold: 3
+#    livenessProbes:
+#      initialDelaySeconds: 60
+#      timeoutSeconds: 5
+#      periodSeconds: 30
+#      successThreshold: 1
+#      failureThreshold: 4
 #    serviceType: ClusterIP
 #    externalTrafficPolicy: Cluster
 #    replicasServiceType: ClusterIP
 #    replicasExternalTrafficPolicy: Cluster
-#    schedulerName: "default"
+#    runtimeClassName: image-rc
+#    sidecars:
+#    - image: busybox
+#      command: ["/bin/sh"]
+#      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
+#      name: my-sidecar-1
+#      resources:
+#        requests:
+#          memory: 100M
+#          cpu: 100m
+#        limits:
+#          memory: 200M
+#          cpu: 200m
+#    envVarsSecret: my-env-var-secrets
     resources:
       requests:
         memory: 1G
@@ -191,14 +286,14 @@ spec:
       maxUnavailable: 1
 #      minAvailable: 0
     gracePeriod: 30
-#   loadBalancerSourceRanges:
-#     - 10.0.0.0/8
-#   serviceAnnotations:
-#     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    loadBalancerSourceRanges:
+#      - 10.0.0.0/8
+#    serviceAnnotations:
+#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.7.0-proxysql
+    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -257,7 +352,20 @@ spec:
 #      rack: rack-22
 #    serviceType: ClusterIP
 #    externalTrafficPolicy: Cluster
-#    schedulerName: "default"
+#    runtimeClassName: image-rc
+#    sidecars:
+#    - image: busybox
+#      command: ["/bin/sh"]
+#      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
+#      name: my-sidecar-1
+#      resources:
+#        requests:
+#          memory: 100M
+#          cpu: 100m
+#        limits:
+#          memory: 200M
+#          cpu: 200m
+#    envVarsSecret: my-env-var-secrets
     resources:
       requests:
         memory: 1G
@@ -303,7 +411,7 @@ spec:
 #        accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: 2Gi
+            storage: 2G
     podDisruptionBudget:
       maxUnavailable: 1
 #      minAvailable: 0
@@ -314,7 +422,7 @@ spec:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.7.0-logcollector
+    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -323,23 +431,23 @@ spec:
 #           Port  9200
 #           Index my_index
 #           Type  my_type
-#    resources:
-#      requests:
-#        memory: 200M
-#        cpu: 500m
+    resources:
+      requests:
+        memory: 100M
+        cpu: 200m
   pmm:
     enabled: false
-    image: percona/pmm-client:2.12.0
+    image: percona/pmm-client:2.18.0
     serverHost: monitoring-service
-    serverUser: pmm
+    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
-#    resources:
-#      requests:
-#        memory: 200M
-#        cpu: 500m
+    resources:
+      requests:
+        memory: 150M
+        cpu: 300m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.7.0-pxc8.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -426,7 +534,7 @@ spec:
             accessModes: [ "ReadWriteOnce" ]
             resources:
               requests:
-                storage: 6Gi
+                storage: 6G
     schedule:
       - name: "sat-night-backup"
         schedule: "0 0 * * 6"

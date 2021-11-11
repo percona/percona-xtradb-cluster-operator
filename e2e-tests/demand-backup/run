@@ -25,10 +25,6 @@ run_recovery_from_source() {
 
 main() {
     create_infra $namespace
-
-    kubectl_bin apply \
-        -f $conf_dir/minio-secret.yml \
-        -f $conf_dir/cloud-secret.yml
     start_minio
 
     cluster="demand-backup"
@@ -41,16 +37,18 @@ main() {
     run_backup         "$cluster" "on-demand-backup-pvc-bsource"
     run_recovery_check "$cluster" "on-demand-backup-pvc-bsource"
 
-    run_backup         "$cluster" "on-demand-backup-aws-s3"
-    run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+        run_backup         "$cluster" "on-demand-backup-aws-s3"
+        run_recovery_check "$cluster" "on-demand-backup-aws-s3"
 
-    run_recovery_from_source
-    
+        run_recovery_from_source
+
+        run_backup         "$cluster" "on-demand-backup-gcp-cs"
+        run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
+    fi
+
     run_backup         "$cluster" "on-demand-backup-minio"
     run_recovery_check "$cluster" "on-demand-backup-minio"
-
-    run_backup         "$cluster" "on-demand-backup-gcp-cs"
-    run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
 
     destroy $namespace
 }

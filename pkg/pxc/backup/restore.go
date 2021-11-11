@@ -10,7 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
@@ -107,7 +107,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 				},
 			},
 			Volumes: []corev1.Volume{
-				corev1.Volume{
+				{
 					Name: "backup",
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -126,6 +126,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			SchedulerName:      cluster.Backup.Storages[bcpStorageName].SchedulerName,
 			PriorityClassName:  cluster.Backup.Storages[bcpStorageName].PriorityClassName,
 			ServiceAccountName: cluster.PXC.ServiceAccountName,
+			RuntimeClassName:   cluster.Backup.Storages[bcpStorageName].RuntimeClassName,
 		},
 	}, nil
 }
@@ -212,6 +213,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 					SchedulerName:      cluster.PXC.SchedulerName,
 					PriorityClassName:  cluster.PXC.PriorityClassName,
 					ServiceAccountName: cluster.PXC.ServiceAccountName,
+					RuntimeClassName:   cluster.PXC.RuntimeClassName,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
@@ -388,8 +390,8 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			Value: bucket,
 		})
 		envs = append(envs, corev1.EnvVar{
-			Name:  "PITR_GTID_SET",
-			Value: cr.Spec.PITR.GTIDSet,
+			Name:  "PITR_GTID",
+			Value: cr.Spec.PITR.GTID,
 		})
 		envs = append(envs, corev1.EnvVar{
 			Name:  "PITR_DATE",
@@ -438,6 +440,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 					SchedulerName:      cluster.PXC.SchedulerName,
 					PriorityClassName:  cluster.PXC.PriorityClassName,
 					ServiceAccountName: cluster.PXC.ServiceAccountName,
+					RuntimeClassName:   cluster.PXC.RuntimeClassName,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),

@@ -12,8 +12,6 @@ import (
 	"github.com/caarlos0/env"
 )
 
-var action string
-
 func main() {
 	command := "collect"
 	if len(os.Args) > 1 {

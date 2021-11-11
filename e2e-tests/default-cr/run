@@ -1,0 +1,120 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+deploy_dir=$(realpath $(dirname $0)/../../deploy)
+. ${test_dir}/../functions
+
+function stop_cluster() {
+	local cluster_name=$1
+	local max_wait_time=${2:-120}
+
+	local passed_time=0
+	local sleep_time=1
+	kubectl_bin patch pxc ${cluster_name} --type json -p='[{"op":"add","path":"/spec/pause","value":true}]'
+	set +x
+	echo -n 'Waiting for cluster stop'
+	until [[ $(kubectl_bin get pxc ${cluster_name} -o jsonpath='{.status.ready}') -le 0 ]]; do
+		echo -n .
+		let passed_time="${passed_time}+${sleep_time}"
+		sleep ${passed_time}
+		if [[ ${passed_time} -gt ${max_wait_time} ]]; then
+			echo "We've been waiting for cluster stop for too long. Exiting..."
+			exit 1
+		fi
+	done
+	echo
+	set -x
+}
+
+function start_cluster() {
+	local cluster_name=$1
+
+	kubectl_bin patch pxc ${cluster_name} --type json -p='[{"op":"add","path":"/spec/pause","value":false}]'
+	wait_cluster_consistency \
+		${cluster_name} \
+		$(kubectl_bin get pxc/${cluster_name} -o jsonpath={.spec.pxc.size}) \
+		$(kubectl_bin get pxc/${cluster_name} -o jsonpath={.spec.$(get_proxy_engine ${cluster_name}).size})
+}
+
+
+function main() {
+	create_infra "${namespace}"
+
+	cluster="$(yq r ${deploy_dir}/cr.yaml 'metadata.name')"
+
+	kubectl_bin apply -f ${deploy_dir}/secrets.yaml
+	kubectl_bin apply -f ${conf_dir}/client.yml
+	kubectl_bin apply -f ${conf_dir}/secrets.yml
+	kubectl_bin apply -f ${deploy_dir}/cr.yaml
+
+	pxc_size=$(kubectl_bin get pxc/${cluster} -o jsonpath={.spec.pxc.size})
+	proxy_size=$(kubectl_bin get pxc/${cluster} -o jsonpath={.spec.$(get_proxy_engine ${cluster}).size})
+
+	wait_for_running "$(get_proxy ${cluster})" ${proxy_size}
+	wait_for_running "${cluster}-pxc" ${pxc_size}
+
+	desc 'check if service and statefulset created with expected config'
+	compare_kubectl statefulset/${cluster}-pxc
+	compare_kubectl statefulset/$(get_proxy ${cluster})
+	compare_kubectl service/${cluster}-pxc
+	compare_kubectl service/$(get_proxy ${cluster})
+	compare_kubectl service/$(get_proxy ${cluster})-unready
+
+	desc 'starting PMM up'
+	retry 10 60 helm install monitoring --set platform=kubernetes https://percona-charts.storage.googleapis.com/pmm-server-2.21.0.tgz
+	sleep 20
+	kubectl_bin patch pxc/${cluster} --type=merge --patch '{
+			"spec": {"pmm":{"enabled":true}}
+		}'
+	sleep 120
+	# since pxc cluster won't work without pmm server running consistency check would be enough
+	wait_cluster_consistency ${cluster} ${pxc_size} ${proxy_size}
+
+	kubectl_bin patch pxc/${cluster} --type=merge --patch '{
+			"spec": {"pmm":{"enabled":false}}
+		}'
+	sleep 120
+	helm delete monitoring
+	wait_cluster_consistency ${cluster} ${pxc_size} ${proxy_size}
+
+	desc 'write data directly, read from all'
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100501)' \
+		"-h ${cluster}-pxc-2.${cluster}-pxc -uroot -proot_password"
+	for i in seq 0 2; do
+		compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+	done
+
+	stop_cluster ${cluster}
+	start_cluster ${cluster}
+	wait_cluster_consistency ${cluster} ${pxc_size} ${proxy_size}
+
+	for i in $(seq 0 $((pxc_size - 1))); do
+		compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
+	done
+
+	kubectl_bin delete -f ${deploy_dir}/cr.yaml
+
+	cluster="$(yq r ${deploy_dir}/cr-minimal.yaml 'metadata.name')"
+	kubectl_bin apply -f ${deploy_dir}/cr-minimal.yaml
+
+	pxc_size=$(kubectl_bin get pxc/${cluster} -o jsonpath={.spec.pxc.size})
+	proxy_size=$(kubectl_bin get pxc/${cluster} -o jsonpath={.spec.$(get_proxy_engine ${cluster}).size})
+
+	wait_for_running "$(get_proxy ${cluster})" ${proxy_size}
+	wait_for_running "${cluster}-pxc" ${pxc_size}
+
+	desc 'check if service and statefulset created with expected config'
+	compare_kubectl statefulset/${cluster}-pxc
+	compare_kubectl statefulset/$(get_proxy ${cluster})
+	compare_kubectl service/${cluster}-pxc
+	compare_kubectl service/$(get_proxy ${cluster})
+	compare_kubectl service/$(get_proxy ${cluster})-unready
+
+	destroy $namespace
+}
+
+main

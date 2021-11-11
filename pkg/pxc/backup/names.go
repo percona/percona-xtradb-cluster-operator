@@ -1,21 +1,14 @@
 package backup
 
 import (
-	"strings"
-
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
-func genScheduleLabel(sched string) string {
-	r := strings.NewReplacer("*", "N", "/", "E", " ", "_", ",", ".")
-	return r.Replace(sched)
-}
-
-// genName63 generates legit name for backup resources.
+// GenName63 generates legit name for backup resources.
 // k8s sets the `job-name` label for the created by job pod.
 // So we have to be sure that job name won't be longer than 63 symbols.
 // Yet the job name has to have some meaningful name which won't be conflicting with other jobs' names.
-func genName63(cr *api.PerconaXtraDBClusterBackup) string {
+func GenName63(cr *api.PerconaXtraDBClusterBackup) string {
 	postfix := cr.Name
 	maxNameLen := 16
 	typ, ok := cr.GetLabels()["type"]

@@ -1,44 +1,53 @@
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: perconaxtradbclusterbackups.pxc.percona.com
 spec:
-  additionalPrinterColumns:
-  - JSONPath: .spec.pxcCluster
-    description: Cluster name
-    name: Cluster
-    type: string
-  - JSONPath: .status.storageName
-    description: Storage name from pxc spec
-    name: Storage
-    type: string
-  - JSONPath: .status.destination
-    description: Backup destination
-    name: Destination
-    type: string
-  - JSONPath: .status.state
-    description: Job status
-    name: Status
-    type: string
-  - JSONPath: .status.completed
-    description: Completed time
-    name: Completed
-    type: date
-  - JSONPath: .metadata.creationTimestamp
-    name: Age
-    type: date
   group: pxc.percona.com
   names:
     kind: PerconaXtraDBClusterBackup
     listKind: PerconaXtraDBClusterBackupList
     plural: perconaxtradbclusterbackups
+    singular: perconaxtradbclusterbackup
     shortNames:
     - pxc-backup
     - pxc-backups
-    singular: perconaxtradbclusterbackup
   scope: Namespaced
-  version: v1
   versions:
-  - name: v1
-    served: true
-    storage: true
+    - name: v1
+      storage: true
+      served: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+      - jsonPath: .spec.pxcCluster
+        description: Cluster name
+        name: Cluster
+        type: string
+      - jsonPath: .status.storageName
+        description: Storage name from pxc spec
+        name: Storage
+        type: string
+      - jsonPath: .status.destination
+        description: Backup destination
+        name: Destination
+        type: string
+      - jsonPath: .status.state
+        description: Job status
+        name: Status
+        type: string
+      - jsonPath: .status.completed
+        description: Completed time
+        name: Completed
+        type: date
+      - jsonPath: .metadata.creationTimestamp
+        name: Age
+        type: date

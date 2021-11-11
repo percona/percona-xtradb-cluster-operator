@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"fmt"
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -17,7 +18,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
 	binlogCollectorName := GetBinlogCollectorDeploymentName(cr)
 	pxcUser := "xtrabackup"
-	sleepTime := strconv.FormatInt(cr.Spec.Backup.PITR.TimeBetweenUploads, 10)
+	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
 
 	bufferSize, err := getBufferSize(cr.Spec)
 	if err != nil {
@@ -139,6 +140,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 					Volumes: []corev1.Volume{
 						app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
 					},
+					RuntimeClassName: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].RuntimeClassName,
 				},
 			},
 		},

@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  annotations: {}
   generation: 1
   name: hostpath-proxysql
   ownerReferences:
@@ -9,7 +10,7 @@ metadata:
       name: hostpath
 spec:
   podManagementPolicy: OrderedReady
-  replicas: 1
+  replicas: 2
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -61,6 +62,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-hostpath
+          envFrom:
+            - secretRef:
+                name: hostpath-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql
           ports:
@@ -104,6 +109,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-hostpath
+          envFrom:
+            - secretRef:
+                name: hostpath-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: pxc-monit
           resources: {}
@@ -133,6 +142,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-hostpath
+          envFrom:
+            - secretRef:
+                name: hostpath-env-vars-proxysql
+                optional: true
           imagePullPolicy: Always
           name: proxysql-monit
           resources: {}

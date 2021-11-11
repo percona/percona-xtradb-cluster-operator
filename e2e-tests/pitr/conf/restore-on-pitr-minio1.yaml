@@ -1,0 +1,22 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: on-pitr-minio1
+spec:
+  pxcCluster: pitr
+  backupSource:
+    destination: <destination>
+    s3:
+      bucket: operator-testing
+      credentialsSecret: minio-secret
+      endpointUrl: http://minio-service:9000
+      region: us-east-1
+  pitr:
+    type: latest
+    backupSource:
+      s3:
+        bucket: operator-testing/binlogs
+        credentialsSecret: minio-secret
+        endpointUrl: http://minio-service:9000
+        region: us-east-1
+

@@ -7,7 +7,7 @@ spec:
   storageName: s3-us-west
 status:
   completed: "2020-03-12T08:27:04Z"
-  destination: s3://percona-jenkins-artifactory/big-data-test/some-name-2020-12-03-08:27:04-full
+  destination: s3://percona-jenkins-artifactory/big-data-test/some-name-2021-02-18-12:55:09-full
   s3:
     bucket: s3://percona-jenkins-artifactory/big-data-test
     credentialsSecret: aws-s3-secret

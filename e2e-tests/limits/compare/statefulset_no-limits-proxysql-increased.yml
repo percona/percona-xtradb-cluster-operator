@@ -1,6 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  annotations: {}
   generation: 2
   name: no-limits-proxysql
   ownerReferences:
@@ -9,7 +10,7 @@ metadata:
       name: no-limits
 spec:
   podManagementPolicy: OrderedReady
-  replicas: 1
+  replicas: 2
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -115,8 +116,16 @@ spec:
             - name: PMM_AGENT_PRERUN_SCRIPT
               value: |-
                 pmm-admin status --wait=10s;
-                pmm-admin add $(DB_TYPE) $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push  --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME)  --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT) ;
+                pmm-admin add $(DB_TYPE) $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME) --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT);
                 pmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) 'Service restarted'
+            - name: PMM_AGENT_SIDECAR
+              value: "true"
+            - name: PMM_AGENT_SIDECAR_SLEEP
+              value: "5"
+          envFrom:
+            - secretRef:
+                name: no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -151,10 +160,7 @@ spec:
               protocol: TCP
             - containerPort: 30105
               protocol: TCP
-          resources:
-            requests:
-              cpu: 300m
-              memory: 500M
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
         - env:
@@ -177,6 +183,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-limits
+          envFrom:
+            - secretRef:
+                name: no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: IfNotPresent
           name: proxysql
           ports:
@@ -223,6 +233,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-limits
+          envFrom:
+            - secretRef:
+                name: no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: IfNotPresent
           name: pxc-monit
           resources: {}
@@ -252,6 +266,10 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-limits
+          envFrom:
+            - secretRef:
+                name: no-limits-env-vars-proxysql
+                optional: true
           imagePullPolicy: IfNotPresent
           name: proxysql-monit
           resources: {}

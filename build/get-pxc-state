@@ -1,9 +1,9 @@
 #!/bin/bash
 
 function mysql_root_exec() {
-  local server="$1"
-  local query="$2"
-  MYSQL_PWD=${MYSQL_ROOT_PASSWORD:-password} timeout 600 mysql -P33062 -h${server} -uroot -s -NB -e "${query}"
+	local server="$1"
+	local query="$2"
+	MYSQL_PWD=${MYSQL_ROOT_PASSWORD:-password} timeout 600 mysql -P33062 -h${server} -uroot -s -NB -e "${query}"
 }
 
 function wait_for_mysql() {

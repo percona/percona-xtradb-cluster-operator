@@ -43,6 +43,8 @@ The Operator upgrade includes the following steps.
 
      $ kubectl rollout status deployments percona-xtradb-cluster-operator
 
+.. note:: Labels set on the Operator Pod will not be updated during upgrade.
+
 .. _operator-update-smartupdates:
 
 Upgrading Percona XtraDB Cluster

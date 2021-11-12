@@ -310,6 +310,10 @@ compare_kubectl() {
 		fi
 	fi
 
+	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
+		expected_result=${expected_result//.yml/-eks.yml}
+	fi
+
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
 		expected_result=${expected_result//.yml/-80.yml}
 	fi

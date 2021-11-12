@@ -22,7 +22,7 @@ import sys, os
 sys.path.append(os.path.abspath('ext'))
 
 extensions=['sphinx.ext.intersphinx', 'sphinx.ext.todo',
-            'sphinx.ext.coverage', 'sphinx.ext.ifconfig','sphinx.ext.extlinks', 'sphinx-prompt', 'fulltoc', 'psdom', ]
+            'sphinx.ext.coverage', 'sphinx.ext.ifconfig','sphinx.ext.extlinks', 'sphinx-prompt', ]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -54,7 +54,7 @@ exclude_patterns = ['*.txt']
 # the reST default role (used for this markup: 'text') to use for all documents.
 # default_role = none
 
-primary_domain = 'psdom'
+###primary_domain = 'psdom'
 
 # the name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
@@ -284,6 +284,5 @@ ultimate_replacements = {
 }
 
 def setup(app):
-   app.add_javascript('js/toggle-menu.js')
    app.add_config_value('ultimate_replacements', {}, True)
    app.connect('source-read', ultimateReplace)

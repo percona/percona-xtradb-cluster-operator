@@ -22,8 +22,7 @@ crash_cluster_with_kubectl() {
 
 crash_cluster_with_chaos_mesh() {
 	cat $conf_dir/chaos-pod-kill.yml \
-		| yq w - "metadata.name" "chaos-cluster-kill-$RANDOM" \
-		| yq w - "metadata.namespace" "$namespace" \
+		| yq w - "metadata.name" "chaos-cluster-kill" \
 		| yq w - "spec.mode" "all" \
 		| yq d - "spec.selector.pods.test-namespace" \
 		| yq w - "spec.selector.pods.$namespace[0]" "$cluster-pxc-0" \

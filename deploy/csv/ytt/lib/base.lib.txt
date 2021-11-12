@@ -81,7 +81,7 @@ Below is a sample `secrets.yaml` file for the correct formatting.
 
 
 ```
-(@= data.values.secrets_manifest @)
+(@= data.values.manifest.secrets @)
 ```
 (@= data.values.rn_txt @)
 

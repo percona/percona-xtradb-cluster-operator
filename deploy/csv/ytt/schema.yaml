@@ -1,11 +1,13 @@
 #@data/values-schema
 ---
-operator_manifest: ""
-cr_manifest: ""
-backup_manifest: ""
-restore_manifest: ""
-secrets_manifest: ""
-rbac_manifest: ""
+manifest:
+  operator: ""
+  cr: ""
+  backup: ""
+  restore: ""
+  secrets: ""
+  rbac: ""
+  crd: ""
 rn_txt: ""
 csv_description: ""
 image:

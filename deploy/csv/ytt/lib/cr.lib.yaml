@@ -28,15 +28,15 @@ spec:
 #@ end
 
 #@ def get_cr():
-_: #@ template.replace(yaml.decode(data.values.cr_manifest))
+_: #@ template.replace(yaml.decode(data.values.manifest.cr))
 #@ end
 
 #@ def get_backup():
-_: #@ template.replace(yaml.decode(data.values.backup_manifest))
+_: #@ template.replace(yaml.decode(data.values.manifest.backup))
 #@ end
 
 #@ def get_restore():
-_: #@ template.replace(yaml.decode(data.values.restore_manifest))
+_: #@ template.replace(yaml.decode(data.values.manifest.restore))
 #@ end
 
 #@ def rendered_cr():

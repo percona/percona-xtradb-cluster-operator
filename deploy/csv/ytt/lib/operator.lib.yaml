@@ -41,7 +41,7 @@ spec:
 #@ end
 
 #@ def get_operator_deployment():
-_: #@ template.replace(yaml.decode(data.values.operator_manifest))
+_: #@ template.replace(yaml.decode(data.values.manifest.operator))
 #@ end
 
 #@ def rendered_operator():

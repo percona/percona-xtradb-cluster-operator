@@ -79,4 +79,30 @@
     - version: v1
       kind: ConfigMap
       name: ''
+- description: (Legacy) Instance of a Percona XtraDB Cluster Backup
+  displayName: PerconaXtraDBBackup
+  kind: PerconaXtraDBBackup
+  name: perconaxtradbbackups.pxc.percona.com
+  version: v1alpha1
+  specDescriptors: []
+  statusDescriptors: []
+  resources:
+  - version: v1
+    kind: Deployment
+    name: ''
+  - version: v1
+    kind: Service
+    name: ''
+  - version: v1
+    kind: ReplicaSet
+    name: ''
+  - version: v1
+    kind: Pod
+    name: ''
+  - version: v1
+    kind: Secret
+    name: ''
+  - version: v1
+    kind: ConfigMap
+    name: ''
 #@ end

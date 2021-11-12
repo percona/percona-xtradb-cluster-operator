@@ -4,7 +4,7 @@
 #@ load("@ytt:yaml", "yaml")
 
 #@ def get_rbac():
-#@ return yaml.decode(data.values.rbac_manifest)
+#@ return yaml.decode(data.values.manifest.rbac)
 #@ end
 
 #@ def get_permissions():

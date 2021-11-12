@@ -555,6 +555,19 @@ The Operator options glossary
 
       :ref:`ProxySQL<proxysql-size>`
 
+   sourceConnectRetry
+   
+     ..
+
+      :ref:`pxc-replicationchannels-configuration-sourceconnectretry`
+
+   sourceRetryCount
+
+     ..
+
+      :ref:`pxc-replicationchannels-configuration-sourceretrycount`
+
+
    storage
 
      ..

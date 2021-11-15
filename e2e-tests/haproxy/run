@@ -10,6 +10,7 @@ test_default_replicas_service() {
 
 test_disable_replicas_service() {
 	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" false && sleep 1
+	wait_for_delete "svc/$1-haproxy-replicas"
 	(kubectl_bin get svc "$1-haproxy-replicas" || :) 2>&1 | grep -e "not found$" >/dev/null
 }
 
@@ -45,6 +46,7 @@ main() {
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10
 
 	desc 'checking all haproxy pods point to the same writer'
+	wait_for_running "$cluster-pxc" 3 5
 	check_haproxy_writer
 
 	desc 'delete active writer and checking all haproxy pods still point to the same writer'

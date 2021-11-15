@@ -35,7 +35,7 @@ Collected logs can be examined using the following command:
    used with the corresponding Percona XtraDB Cluster Pod. Therefore collected
    logs can be found in ``DATADIR`` (``var/lib/mysql/``).
 
-.. note:: You can increase human-friendliness of the visual representation of logs with `jq JSON processor <https://stedolan.github.io/jq/>`_ as follows:  ``kubectl logs cluster1-pxc-1 -c logs -f | jq -R 'fromjson?'``.
+.. note:: You can have human friendly output of the logs with `jq JSON processor <https://stedolan.github.io/jq/>`_ as follows:  ``kubectl logs cluster1-pxc-1 -c logs -f | jq -R 'fromjson?'``.
 
 .. _debug-images-no-restart:
 

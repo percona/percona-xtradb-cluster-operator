@@ -756,7 +756,7 @@ spinup_pxc() {
 	fi
 
 	# todo(remove after 1.10 release)
-	if [ "${EKS}" -eq 1 ] && version_gt "1.21"; then
+	if [[ ${EKS} -eq 1 || -n ${OPENSHIFT} ]] && version_gt "1.21"; then
 		sleep 10
 		kpatch_set_field svc "${cluster}-pxc-unready" "/spec/publishNotReadyAddresses" true
 	fi

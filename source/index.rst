@@ -84,6 +84,7 @@ Management
    scaling
    replication
    monitoring
+   sidecar
    recovery
    debug
 

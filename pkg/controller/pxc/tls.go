@@ -275,7 +275,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		Type: corev1.SecretTypeTLS,
 	}
 	err = r.client.Create(context.TODO(), &secretObj)
-	if err != nil {
+	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create TLS secret: %v", err)
 	}
 	pxcHosts := []string{
@@ -302,7 +302,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		Type: corev1.SecretTypeTLS,
 	}
 	err = r.client.Create(context.TODO(), &secretObjInternal)
-	if err != nil {
+	if err != nil && !k8serr.IsAlreadyExists(err) {
 		return fmt.Errorf("create TLS internal secret: %v", err)
 	}
 	return nil

@@ -463,7 +463,7 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 		secrets = "internal-" + cr.Name
 	}
 	for i := 0; ; i++ {
-		db, err := queries.New(r.client, cr.Namespace, secrets, user, host, port)
+		db, err := queries.New(r.client, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil && i < int(proxySize) {
 			time.Sleep(time.Second)
 		} else if err != nil && i == int(proxySize) {
@@ -506,7 +506,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		port = int32(33062)
 	}
 
-	database, err := queries.New(r.client, cr.Namespace, secrets, user, host, port)
+	database, err := queries.New(r.client, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "failed to access PXC database")
 	}

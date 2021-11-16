@@ -149,7 +149,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	user := "operator"
 	port := int32(33062)
 
-	primaryDB, err := queries.New(r.client, cr.Namespace, internalPrefix+cr.Name, user, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
+	primaryDB, err := queries.New(r.client, cr.Namespace, internalPrefix+cr.Name, user, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrapf(err, "failed to connect to pod %s", primaryPod.Name)
 	}
@@ -189,7 +189,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 			continue
 		}
 		if _, ok := pod.Labels[replicationPodLabel]; ok {
-			db, err := queries.New(r.client, cr.Namespace, internalPrefix+cr.Name, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
+			db, err := queries.New(r.client, cr.Namespace, internalPrefix+cr.Name, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 			if err != nil {
 				return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
 			}
@@ -273,7 +273,7 @@ func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, c
 	}
 
 	for _, pod := range pods {
-		db, err := queries.New(client, cr.Namespace, internalPrefix+cr.Name, "operator", pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062)
+		db, err := queries.New(client, cr.Namespace, internalPrefix+cr.Name, "operator", pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			return errors.Wrapf(err, "connect to pod %s", pod.Name)
 		}

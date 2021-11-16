@@ -23,7 +23,7 @@ Improvements
 
 * :jirabug:`K8SPXC-771`: ``spec.Backup.serviceAccount`` and ``spec.automountServiceAccountToken`` Custom Resource options can now be used in the Helm chart (Thanks to Gerwin van de Steeg for reporting this issue)
 * :jirabug:`K8SPXC-794`: The ``logrotate`` command now doesn't use verbose mode to avoid flooding the log with rotate information
-* :jirabug:`K8SPXC-793`: Logs are very messy
+* :jirabug:`K8SPXC-793`: Logs are now strictly following JSON specification to simplify parsing
 * :jirabug:`K8SPXC-789`: New :ref:`source_retry_count<pxc-replicationchannels-configuration-sourceretrycount>` and :ref:`source_connect_retry<pxc-replicationchannels-configuration-sourceconnectretry>` options were added to tune source retries for replication between two clusters
 * :jirabug:`K8SPXC-588`: New :ref:`replicasServiceEnabled<haproxy-replicasserviceenabled>` option was added to allow disabling the Kubernetes Service for ``haproxy-replicas``, which may be useful to avoid the unwanted forwarding of the application write requests to all Percona XtraDB Cluster instances
 * :jirabug:`K8SPXC-822`: Logrotate now doesn't rotate GRA logs (binlog events in ROW format representing the failed transaction) as ordinary log files, storing them for 7 days instead which gives additional time to debug the problem

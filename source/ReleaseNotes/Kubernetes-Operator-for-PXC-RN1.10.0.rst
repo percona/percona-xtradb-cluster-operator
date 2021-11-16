@@ -10,7 +10,7 @@
 Release Highlights
 ================================================================================
 
-* Custom sidecar containers allow users to customize Percona XtraDB Cluster and other Operator components without changing the container images. In this release, we enable even more customization, by allowing users to mount volumes into the sidecar containers.
+* :ref:`Custom sidecar containers<operator-sidecar>` allow users to customize Percona XtraDB Cluster and other Operator components without changing the container images. In this release, we enable even more customization, by allowing users to mount volumes into the sidecar containers.
 * In this release, we put a lot of effort into fixing bugs that were reported by the community. We appreciate everyone who helped us with discovering these issues and contributed to the fixes.
 
 New Features
@@ -21,9 +21,9 @@ New Features
 Improvements
 ================================================================================
 
-* :jirabug:`K8SPXC-771`: All Custom Resource options available with the Operator are now :ref:`exposed to the Helm chart<install-helm-params>` (Thanks to Gerwin van de Steeg for reporting this issue)
+* :jirabug:`K8SPXC-771`: ``spec.Backup.serviceAccount`` and ``spec.automountServiceAccountToken`` Custom Resource options can now be used in the Helm chart (Thanks to Gerwin van de Steeg for reporting this issue)
 * :jirabug:`K8SPXC-794`: The ``logrotate`` command now doesn't use verbose mode to avoid flooding the log with rotate information
-* :jirabug:`K8SPXC-793`: Logs are very messy
+* :jirabug:`K8SPXC-793`: Logs are now strictly following JSON specification to simplify parsing
 * :jirabug:`K8SPXC-789`: New :ref:`source_retry_count<pxc-replicationchannels-configuration-sourceretrycount>` and :ref:`source_connect_retry<pxc-replicationchannels-configuration-sourceconnectretry>` options were added to tune source retries for replication between two clusters
 * :jirabug:`K8SPXC-588`: New :ref:`replicasServiceEnabled<haproxy-replicasserviceenabled>` option was added to allow disabling the Kubernetes Service for ``haproxy-replicas``, which may be useful to avoid the unwanted forwarding of the application write requests to all Percona XtraDB Cluster instances
 * :jirabug:`K8SPXC-822`: Logrotate now doesn't rotate GRA logs (binlog events in ROW format representing the failed transaction) as ordinary log files, storing them for 7 days instead which gives additional time to debug the problem
@@ -54,10 +54,10 @@ Supported Platforms
 
 The following platforms were tested and are officially supported by the Operator 1.10.0:
 
-* OpenShift 4.7
-* Google Kubernetes Engine (GKE) 1.16 - 1.20
-* Amazon Elastic Kubernetes Service (EKS) 1.21
-* Minikube 1.19
+* OpenShift 4.7 - 4.9
+* Google Kubernetes Engine (GKE) 1.19 - 1.22
+* Amazon Elastic Kubernetes Service (EKS) 1.17 - 1.21
+* Minikube 1.22
 
 This list only includes the platforms that the Percona Operators are specifically tested on as part of the release process. Other Kubernetes flavors and versions depend on the backward compatibility offered by Kubernetes itself.
 

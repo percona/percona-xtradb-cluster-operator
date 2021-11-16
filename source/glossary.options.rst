@@ -117,17 +117,17 @@ The Operator options glossary
 
       :ref:`proxysql.resources.requests.cpu<proxysql-resources-requests-cpu>`
 
-      :ref:`proxysql.sidecars.resources.limits.cpu<proxysql-sidecars.resources-limits-cpu>`
+      :ref:`proxysql.sidecars.resources.limits.cpu<proxysql-sidecars-resources-limits-cpu>`
 
-      :ref:`proxysql.sidecars.resources.requests.cpu<proxysql-sidecars.resources-requests-cpu>`
+      :ref:`proxysql.sidecars.resources.requests.cpu<proxysql-sidecars-resources-requests-cpu>`
 
       :ref:`pxc.resources.limits.cpu<pxc-resources-limits-cpu>`
 
       :ref:`pxc.resources.requests.cpu<pxc-resources-requests-cpu>`
 
-      :ref:`pxc.sidecars.resources.limits.cpu<pxc-sidecars.resources-limits-cpu>`
+      :ref:`pxc.sidecars.resources.limits.cpu<pxc-sidecars-resources-limits-cpu>`
 
-      :ref:`pxc.sidecars.resources.requests.cpu<pxc-sidecars.resources-requests-cpu>`
+      :ref:`pxc.sidecars.resources.requests.cpu<pxc-sidecars-resources-requests-cpu>`
 
    credentialsSecret
 
@@ -559,13 +559,13 @@ The Operator options glossary
    
      ..
 
-      :ref:`pxc-replicationchannels-configuration-sourceconnectretry`
+      :ref:`pxc.replicationChannels.configuration.sourceConnectRetry<pxc-replicationchannels-configuration-sourceconnectretry>`
 
    sourceRetryCount
 
      ..
 
-      :ref:`pxc-replicationchannels-configuration-sourceretrycount`
+      :ref:`pxc.replicationChannels.configuration.sourceRetryCount<pxc-replicationchannels-configuration-sourceretrycount>`
 
 
    storage

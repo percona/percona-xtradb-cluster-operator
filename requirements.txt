@@ -1,0 +1,15 @@
+Sphinx>=3.5
+sphinx-autobuild==2020.9.1
+sphinx-copybutton==0.3.1
+sphinx-gitstamp==0.3.1
+sphinx-material==0.0.32
+sphinxcontrib-applehelp==1.0.2
+sphinxcontrib-contentui==0.2.5
+sphinxcontrib-devhelp==1.0.2
+sphinxcontrib-jsmath==1.0.1
+sphinxcontrib-qthelp==1.0.3
+sphinxcontrib-srclinks==0.2.4
+sphinx-tabs==3.2.0
+sphinx-prompt>=1.0
+sphinx-rtd-theme>=0.1
+sphinxcontrib-fulltoc>=1.0

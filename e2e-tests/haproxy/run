@@ -46,7 +46,7 @@ main() {
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10
 
 	desc 'checking all haproxy pods point to the same writer'
-	wait_for_running "$cluster-pxc" 3 5
+	wait_for_running "$cluster-pxc" 3
 	check_haproxy_writer
 
 	desc 'delete active writer and checking all haproxy pods still point to the same writer'
@@ -68,7 +68,7 @@ main() {
 
 	desc 'enable proxy-sql'
 	apply_config "$test_dir/conf/$cluster-proxysql.yml"
-	sleep 50
+	wait_for_running "$cluster-proxysql" 2
 	compare_kubectl statefulset/$cluster-proxysql
 	compare_kubectl service/$cluster-proxysql
 
@@ -76,7 +76,7 @@ main() {
 		"SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
 		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "" -c'proxysql'
 	apply_config "$test_dir/conf/config-secret-proxysql.yaml"
-	sleep 100
+	wait_cluster_consistency "$cluster" 3 2
 	compare_kubectl statefulset/$cluster-proxysql "-secret"
 	compare_mysql_cmd_local "ping_timeout_server" \
 		"SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
@@ -85,7 +85,7 @@ main() {
 
 	desc 're-enable haproxy'
 	apply_config "$test_dir/conf/$cluster.yml"
-	sleep 80
+	wait_for_running "$cluster-haproxy" 3
 	compare_kubectl statefulset/$cluster-haproxy
 	compare_kubectl service/$cluster-haproxy
 	compare_kubectl pdb/$cluster-haproxy
@@ -94,7 +94,7 @@ main() {
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn.txt
 
 	apply_config "$test_dir/conf/config-secret-haproxy.yaml"
-	sleep 100
+	wait_cluster_consistency "$cluster" 3 3
 	compare_kubectl statefulset/$cluster-haproxy "-secret"
 	kubectl_bin exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
 		| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt

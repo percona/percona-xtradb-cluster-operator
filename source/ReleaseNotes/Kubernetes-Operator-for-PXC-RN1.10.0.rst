@@ -4,7 +4,7 @@
 *Percona Kubernetes Operator for Percona XtraDB Cluster* 1.10.0
 ================================================================================
 
-:Date: November 18, 2021
+:Date: November 24, 2021
 :Installation: `Installing Percona Kubernetes Operator for Percona XtraDB Cluster <https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html#quickstart-guides>`_
 
 Release Highlights

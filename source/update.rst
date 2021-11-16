@@ -22,8 +22,8 @@ The Operator upgrade includes the following steps.
 
    .. code:: bash
 
-      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/crd.yaml
-      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/rbac.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-1.10.0/deploy/crd.yaml
+      $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-1.10.0/deploy/rbac.yaml
 
 #. Now you should `apply a patch <https://kubernetes.io/docs/tasks/run-application/update-api-object-kubectl-patch/>`_ to your
    deployment, supplying necessary image name with a newer version tag. This
@@ -101,7 +101,7 @@ updates:
    Server URL (otherwise Smart Updates will not occur).
 
    A. You can use the URL of the official Percona's Version Service (default).
-      Set ``versionServiceEndpoint`` to ``https://check.percona.com``.
+      Set ``versionServiceEndpoint`` to ``https://check-dev.percona.com``.
 
    B. Alternatively, you can run Version Service inside your cluster. This
       can be done with the ``kubectl`` command as follows:
@@ -125,7 +125,7 @@ Percona's Version Service:
      updateStrategy: SmartUpdate
      upgradeOptions:
        apply: Recommended
-       versionServiceEndpoint: https://check.percona.com
+       versionServiceEndpoint: https://check-dev.percona.com
        schedule: "0 0 * * *"
    ...
 

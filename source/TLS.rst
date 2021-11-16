@@ -138,7 +138,7 @@ communications must be added to the ``cr.yaml/spec/sslInternalSecretName``.
 Update certificates
 ===================
 
-If a :ref:`cert-manager<tls.certmanager>` is used, it should take care of
+If a :ref:`cert-manager<tls.certs.certmanager>` is used, it should take care of
 updating the certificates. If you :ref:`generate certificates manually<tls.certs.manual>`,
 you are should take care of updating them in proper time.
 

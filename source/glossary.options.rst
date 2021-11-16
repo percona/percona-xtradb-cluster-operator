@@ -205,8 +205,6 @@ The Operator options glossary
 
      ..
 
-      :ref:`haproxy.livenessProbes.failureThreshold<haproxy-livenessprobes-failurethreshold>`
-
       :ref:`haproxy.readinessProbes.failureThreshold<haproxy-readinessprobes-failurethreshold>`
 
       :ref:`pxc.livenessProbes.failureThreshold<pxc-livenessprobes-failurethreshold>`
@@ -323,9 +321,9 @@ The Operator options glossary
 
       :ref:`haproxy.resources.requests.memory<haproxy-resources-requests-memory>`
 
-      :ref:`haproxy.sidecars.resources.limits.memory<haproxy-sidecars.resources-limits-memory>`
+      :ref:`haproxy.sidecars.resources.limits.memory<haproxy-sidecars-resources-limits-memory>`
 
-      :ref:`haproxy.sidecars.resources.requests.memory<haproxy-sidecars.resources-requests-memory>`
+      :ref:`haproxy.sidecars.resources.requests.memory<haproxy-sidecars-resources-requests-memory>`
 
       :ref:`logcollector.resources.requests.memory<logcollector-resources-requests-memory>`
 
@@ -335,17 +333,17 @@ The Operator options glossary
 
       :ref:`proxysql.resources.requests.memory<proxysql-resources-requests-memory>`
 
-      :ref:`proxysql.sidecars.resources.limits.memory<proxysql-sidecars.resources-limits-memory>`
+      :ref:`proxysql.sidecars.resources.limits.memory<proxysql-sidecars-resources-limits-memory>`
 
-      :ref:`proxysql.sidecars.resources.requests.memory<proxysql-sidecars.resources-requests-memory>`
+      :ref:`proxysql.sidecars.resources.requests.memory<proxysql-sidecars-resources-requests-memory>`
 
       :ref:`pxc.resources.limits.memory<pxc-resources-limits-memory>`
 
       :ref:`pxc.resources.requests.memory<pxc-resources-requests-memory>`
 
-      :ref:`pxc.sidecars.resources.limits.memory<pxc-sidecars.resources-limits-memory>`
+      :ref:`pxc.sidecars.resources.limits.memory<pxc-sidecars-resources-limits-memory>`
 
-      :ref:`pxc.sidecars.resources.requests.memory<pxc-sidecars.resources-requests-memory>`
+      :ref:`pxc.sidecars.resources.requests.memory<pxc-sidecars-resources-requests-memory>`
 
    minAvailable
 

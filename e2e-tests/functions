@@ -309,8 +309,18 @@ compare_kubectl() {
 		fi
 	fi
 
+	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
+		expected_result=${expected_result//.yml/-eks.yml}
+	fi
+
 	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f ${expected_result//.yml/-80.yml} ]; then
 		expected_result=${expected_result//.yml/-80.yml}
+	fi
+
+	if version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
+		expected_result=${expected_result//.yml/-k122.yml}
+	elif version_gt "1.21" && [ -f ${expected_result//.yml/-k121.yml} ]; then
+		expected_result=${expected_result//.yml/-k121.yml}
 	fi
 
 	kubectl_bin get -o yaml ${resource} \
@@ -363,12 +373,6 @@ compare_kubectl() {
 		| $sed 's/namespace\:.*name/name/' \
 			>${new_result}
 	# last sed is needed for backup cronjob content
-
-	if version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
-		expected_result=${expected_result//.yml/-k122.yml}
-	elif version_gt "1.21" && [ -f ${expected_result//.yml/-k121.yml} ]; then
-		expected_result=${expected_result//.yml/-k121.yml}
-	fi
 
 	diff -u ${expected_result} ${new_result}
 }
@@ -751,7 +755,7 @@ spinup_pxc() {
 	fi
 
 	# todo(remove after 1.10 release)
-	if [ "${EKS}" -eq 1 ] && version_gt "1.21"; then
+	if [[ ${EKS} -eq 1 || -n ${OPENSHIFT} ]] && version_gt "1.21"; then
 		sleep 10
 		kpatch_set_field svc "${cluster}-pxc-unready" "/spec/publishNotReadyAddresses" true
 	fi
@@ -932,8 +936,10 @@ function vault_tls() {
 
 	if version_gt "1.22"; then
 		CSR_API_VER="v1"
+		CSR_SIGNER="  signerName: kubernetes.io/kubelet-serving"
 	else
 		CSR_API_VER="v1beta1"
+		CSR_SIGNER=""
 	fi
 
 	openssl genrsa -out ${tmp_dir}/vault.key 2048
@@ -955,7 +961,11 @@ DNS.4 = ${SERVICE}.${NAMESPACE}.svc.cluster.local
 IP.1 = 127.0.0.1
 EOF
 
-	openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=${SERVICE}.${NAMESPACE}.svc" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
+	if version_gt "1.22"; then
+		openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=system:node:${SERVICE}.${NAMESPACE}.svc;/O=system:nodes" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
+	else
+		openssl req -new -key ${tmp_dir}/vault.key -subj "/CN=${SERVICE}.${NAMESPACE}.svc" -out ${tmp_dir}/server.csr -config ${tmp_dir}/csr.conf
+	fi
 
 	cat <<EOF >${tmp_dir}/csr.yaml
 apiVersion: certificates.k8s.io/${CSR_API_VER}
@@ -966,7 +976,7 @@ spec:
   groups:
   - system:authenticated
   request: $(cat ${tmp_dir}/server.csr | base64 | tr -d '\n')
-  signerName: kubernetes.io/kubelet-serving
+${CSR_SIGNER}
   usages:
   - digital signature
   - key encipherment

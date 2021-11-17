@@ -38,6 +38,13 @@ spec:
           value: percona-xtradb-cluster-operator
         image: percona/percona-xtradb-cluster-operator:1.10.0
         imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
         livenessProbe:
           failureThreshold: 3
           httpGet:

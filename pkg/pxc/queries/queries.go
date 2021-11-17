@@ -63,6 +63,7 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 	config.User = user
 	config.Passwd = string(secretObj.Data[user])
 	config.Net = "tcp"
+	config.DBName = "mysql"
 	config.Addr = fmt.Sprintf("%s:%d", host, port)
 	config.Params = map[string]string{
 		"interpolateParams": "true",

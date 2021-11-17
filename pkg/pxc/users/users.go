@@ -27,6 +27,7 @@ func NewManager(addr string, user, pass string, timeout int32) (Manager, error) 
 	config.Passwd = pass
 	config.Net = "tcp"
 	config.Addr = addr
+	config.DBName = "mysql"
 	config.Params = map[string]string{
 		"interpolateParams": "true",
 		"timeout":           timeoutStr,

@@ -113,9 +113,7 @@ main() {
 	deploy_chaos_mesh $test_namespace
 
 	desc 'create PXC cluster'
-	cp -f "$test_dir/conf/$cluster.yml" "$tmp_dir/$cluster.yml"
-	yq w -i "$tmp_dir/$cluster.yml" "spec.initImage" "$IMAGE"
-	spinup_pxc "$cluster" "$tmp_dir/$cluster.yml"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
 	desc 'kill operator'
 	kill_pod

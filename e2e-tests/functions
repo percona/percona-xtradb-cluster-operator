@@ -683,6 +683,7 @@ cat_config() {
 		| $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
 		| $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
 		| $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
+		| $sed -e "s#initImage:.*-init\$#initImage: $IMAGE#" \
 		| $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
 		| $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
 		| $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
@@ -1142,11 +1143,10 @@ start_minio() {
 deploy_chaos_mesh() {
 	local chaos_mesh_ns=$1
 
-	desc 'install chaos-mesh'
 	local old_cm_namespace=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}')
-	if [ "${old_cm_namespace}" != "NAMESPACE" ]; then
-		destroy_chaos_mesh "${old_cm_namespace}"
-	fi
+	destroy_chaos_mesh "${old_cm_namespace/NAMESPACE/}"
+
+	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
 	if version_gt "1.19"; then
 		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.0.4 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
@@ -1162,7 +1162,9 @@ destroy_chaos_mesh() {
 	desc 'destroy chaos-mesh'
 	kubectl_bin delete podchaos --all --all-namespaces || :
 	kubectl_bin delete networkchaos --all --all-namespaces || :
-	helm uninstall chaos-mesh --namespace ${chaos_mesh_ns} || :
+	if [ -n "${chaos_mesh_ns}" ]; then
+		helm uninstall chaos-mesh --namespace ${chaos_mesh_ns} || :
+	fi
 	kubectl_bin delete crd awschaos.chaos-mesh.org dnschaos.chaos-mesh.org gcpchaos.chaos-mesh.org httpchaos.chaos-mesh.org iochaos.chaos-mesh.org jvmchaos.chaos-mesh.org kernelchaos.chaos-mesh.org networkchaos.chaos-mesh.org podchaos.chaos-mesh.org podhttpchaos.chaos-mesh.org podiochaos.chaos-mesh.org podnetworkchaos.chaos-mesh.org schedules.chaos-mesh.org stresschaos.chaos-mesh.org timechaos.chaos-mesh.org workflownodes.chaos-mesh.org workflows.chaos-mesh.org || :
 	kubectl_bin delete clusterrolebinding chaos-mesh-chaos-controller-manager-cluster-level || :
 	kubectl_bin delete clusterrole chaos-mesh-chaos-controller-manager-cluster-level chaos-mesh-chaos-controller-manager-target-namespace || :

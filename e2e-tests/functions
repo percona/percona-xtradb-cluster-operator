@@ -558,6 +558,7 @@ destroy() {
 	kubectl_bin delete pxc-restore --all --all-namespaces || :
 	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
 
+	destroy_chaos_mesh
 	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml 2>/dev/null || :
 	if [ ! -z "$OPENSHIFT" ]; then
 		oc delete --grace-period=0 --force=true project "$namespace" &
@@ -1143,8 +1144,7 @@ start_minio() {
 deploy_chaos_mesh() {
 	local chaos_mesh_ns=$1
 
-	local old_cm_namespace=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}')
-	destroy_chaos_mesh "${old_cm_namespace/NAMESPACE/}"
+	destroy_chaos_mesh
 
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
@@ -1157,7 +1157,7 @@ deploy_chaos_mesh() {
 }
 
 destroy_chaos_mesh() {
-	local chaos_mesh_ns=$1
+	local chaos_mesh_ns=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}' | sed 's/NAMESPACE//')
 
 	desc 'destroy chaos-mesh'
 	kubectl_bin delete podchaos --all --all-namespaces || :

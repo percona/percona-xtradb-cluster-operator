@@ -124,7 +124,7 @@ main() {
 	desc 'emulate bad network for 60s'
 	network_loss
 
-	destroy_chaos_mesh $test_namespace
+	destroy_chaos_mesh
 	destroy $namespace
 }
 

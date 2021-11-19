@@ -147,7 +147,7 @@ main() {
 	desc 'recreate cluster'
 	recreate
 
-	destroy_chaos_mesh $namespace
+	destroy_chaos_mesh
 	destroy $namespace
 }
 

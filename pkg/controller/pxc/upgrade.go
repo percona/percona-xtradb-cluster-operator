@@ -353,6 +353,10 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
+	if err := r.waitHostgroups(cr, sfs.Name, pod, waitLimit, logger); err != nil {
+		return errors.Wrap(err, "failed to wait hostgroups status")
+	}
+
 	if err := r.waitUntilOnline(cr, sfs.Name, pod, waitLimit, logger); err != nil {
 		return errors.Wrap(err, "failed to wait pxc status")
 	}
@@ -362,6 +366,37 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 
 func getPodOrderInSts(stsName string, podName string) (int, error) {
 	return strconv.Atoi(podName[len(stsName)+1:])
+}
+
+func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+		time.Sleep(5 * time.Second)
+		return nil
+	}
+
+	database, err := r.proxyDB(cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to get proxySQL db")
+	}
+
+	defer database.Close()
+
+	podNamePrefix := fmt.Sprintf("%s.%s.%s", pod.Name, sfsName, cr.Namespace)
+
+	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
+		func() (bool, error) {
+			hostgroups := []queries.HostgroupName{queries.WriterHostgroup, queries.ReaderHostgroup}
+			present, err := database.PresentInHostgroups(hostgroups, podNamePrefix, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+			if err != nil && err != queries.ErrNotFound {
+				return false, errors.Wrap(err, "failed to get hostgroup status")
+			}
+			if !present {
+				return false, nil
+			}
+
+			logger.Info("pod present in hostgroups", "pod name", pod.Name, "hostgroups names", hostgroups)
+			return true, nil
+		})
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {

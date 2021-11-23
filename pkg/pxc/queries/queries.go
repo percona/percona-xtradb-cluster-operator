@@ -22,6 +22,15 @@ const (
 	ReplicationStatusNotInitiated
 )
 
+type HostgroupName string
+
+const (
+	WriterHostgroup       HostgroupName = "writer_hostgroup"
+	BackupWriterHostgroup HostgroupName = "backup_writer_hostgroup"
+	ReaderHostgroup       HostgroupName = "reader_hostgroup"
+	OfflineHostgroup      HostgroupName = "offline_hostgroup"
+)
+
 // value of writer group is hardcoded in ProxySQL config inside docker image
 // https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
 const writerID = 11
@@ -289,6 +298,31 @@ func (p *Database) Status(host, ip string) ([]string, error) {
 	}
 
 	return statuses, nil
+}
+
+func (p *Database) PresentInHostgroups(hostgroups []HostgroupName, host, ip string) (bool, error) {
+	if len(hostgroups) == 0 {
+		return false, errors.New("no hostgroups provided")
+	}
+	query := "SELECT COUNT(*) FROM mysql_servers " +
+		"INNER JOIN mysql_galera_hostgroups ON hostgroup_id IN (" + string(hostgroups[0])
+	for i := range hostgroups {
+		query += "," + string(hostgroups[i])
+	}
+	query += ") WHERE hostname LIKE ? OR hostname = ? GROUP BY hostname"
+
+	var count int
+	err := p.db.QueryRow(query, host+"%", ip).Scan(&count)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrNotFound
+		}
+		return false, err
+	}
+	if count != len(hostgroups) {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (p *Database) PrimaryHost() (string, error) {

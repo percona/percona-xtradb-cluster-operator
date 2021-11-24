@@ -78,7 +78,7 @@ You can login to your sidecar container as follows:
    / #
 
 Mount volumes into sidecar containers
-===================================
+=====================================
 
 It is possible to mount volumes into sidecar containers.
 

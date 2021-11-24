@@ -290,7 +290,7 @@ configuration options for the Percona XtraDB Cluster.
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Example**     | ``true``                                                                                  |
 +-----------------+-------------------------------------------------------------------------------------------+
-| **Description** | Enable or disable exposing `Percona XtraDB Cluster nodes with dedicated IP addresses      |
+| **Description** | Enable or disable exposing Percona XtraDB Cluster nodes with dedicated IP addresses       |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

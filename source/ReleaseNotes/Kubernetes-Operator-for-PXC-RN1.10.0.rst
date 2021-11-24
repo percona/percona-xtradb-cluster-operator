@@ -47,7 +47,7 @@ Bugs Fixed
 * :jirabug:`K8SPXC-838`: Fixed a bug due to which the Log Collector and PMM containers with unspecified memory and CPU requests were inheriting them from the PXC container
 * :jirabug:`K8SPXC-824`: Cluster may get into an unrecoverable state with incomplete full crash
 * :jirabug:`K8SPXC-818`: Fixed a bug which made Pods with a custom config inside a Secret or a ConfigMap not restarting at config update
-* :jirabug:`K8SPXC-783`: Fixed a bug where the root user was able to modify the monitor and clustercheck system users, makeing the possibility of cluster failure or misbehavior
+* :jirabug:`K8SPXC-783`: Fixed a bug where the root user was able to modify the monitor and clustercheck system users, making the possibility of cluster failure or misbehavior
 
 Supported Platforms
 ================================================================================

@@ -32,11 +32,11 @@ Minikube:
 
 #. Deploy the operator with the following command::
 
-     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-1.10.0/deploy/bundle.yaml
+     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/bundle.yaml
 
 #. Deploy Percona XtraDB Cluster::
 
-     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/release-1.10.0/deploy/cr-minimal.yaml
+     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/cr-minimal.yaml
     
    This deploys one Percona XtraDB Cluster node and one HAProxy node. 
    ``deploy/cr-minimal.yaml`` is for minimal non-production deployment. For 
@@ -49,7 +49,7 @@ Minikube:
    
    You can clone the repository with all manifests and source code by executing the following command::
    
-     git clone -b release-1.10.0 https://github.com/percona/percona-xtradb-cluster-operator
+     git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
 
 #. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the
    password for the ``root`` user, which you will definitely need to access the

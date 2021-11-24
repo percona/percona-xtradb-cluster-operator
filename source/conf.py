@@ -43,7 +43,7 @@ release = '1.10.0'
 # the PXC 5.7 and PXC 8.0 recommended versions to be used in docs
 pxc57recommended = '5.7.34-31.51'
 pxc80recommended = '8.0.23-14.1'
-pmm2recommended = '2.18.0'
+pmm2recommended = '2.23.0'
 gkerecommended = '1.22'
 
 # List of patterns, relative to source directory, that match files and

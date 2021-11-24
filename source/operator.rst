@@ -118,10 +118,67 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-server-
      - ``percona/percona-xtradb-cluster-operator:{{{release}}}``
      - An alternative image for the initial Operator installation
 
+   * - tls.SANs
+     - subdoc 
+     -
+     - Additional domains (SAN) to be added to the TLS certificate within the
+       extended cert-manager configuration 
+
+   * - issuerConf
+     - :ref:`subdoc<operator.issuerconf-section>`
+     - 
+     - Extended cert-manager configuration section
+
    * - updateStrategy
      - string
      - ``SmartUpdate``
      - A strategy the Operator uses for :ref:`upgrades<operator-update>`
+
+.. _operator.issuerconf-section:
+
+`Extended cert-manager Configuration Section <operator.html#operator-issuerconf-section>`_
+------------------------------------------------------------------------------------------
+
+The ``issuerConf`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains various configuration options for additional customization of the `TLS certificates issuer <tls.certs.certmanager>`_.
+
+.. tabularcolumns:: |p{2cm}|p{13.6cm}|
+
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _issuerconf-name:                                                                      |
+|                 |                                                                                           |
+| **Key**         | `issuerConf.name <operator.html#issuerconf-name>`_                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``special-selfsigned-issuer``                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A `cert-manager issuer name <https://cert-manager.io/docs/concepts/issuer/>`__            |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _issuerconf-kind:                                                                      |
+|                 |                                                                                           |
+| **Key**         | `issuerConf.kind <operator.html#issuerconf-kind>`_                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``ClusterIssuer``                                                                         |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A `cert-manager issuer type <https://cert-manager.io/docs/configuration/>`__              |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _issuerconf-group:                                                                     |
+|                 |                                                                                           |
+| **Key**         | `issuerConf.group <operator.html#issuerconf-group>`_                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | string                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``cert-manager.io``                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A `cert-manager issuer group <https://cert-manager.io/docs/configuration/>`__. Should be  |
+|                 | ``cert-manager.io`` for built-in cert-manager certificate issuers                         |
++-----------------+-------------------------------------------------------------------------------------------+
 
 .. _operator.upgradeoptions-section:
 

@@ -290,6 +290,8 @@ spec:
 #      - 10.0.0.0/8
 #    serviceAnnotations:
 #      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    serviceLabels:
+#      rack: rack-23
   proxysql:
     enabled: false
     size: 3
@@ -423,6 +425,8 @@ spec:
 #     - 10.0.0.0/8
 #   serviceAnnotations:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#   serviceLabels:
+#     rack: rack-23
   logcollector:
     enabled: true
     image: perconalab/percona-xtradb-cluster-operator:main-logcollector

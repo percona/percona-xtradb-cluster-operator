@@ -116,15 +116,15 @@ Using it involves the following steps.
    
    .. code:: yaml
    
-   ...
-   volumeSpec:
-      persistentVolumeClaim:
-        storageClassName: localpv
-        accessModes: [ "ReadWriteOnce" ]
-        resources:
-          requests:
-            storage: 200Gi
+      ...
+      volumeSpec:
+         persistentVolumeClaim:
+           storageClassName: localpv
+           accessModes: [ "ReadWriteOnce" ]
+           resources:
+             requests:
+               storage: 200Gi
 
 .. note:: There are other storage options provided by the OpenEBS, which may
-   be helpful within your cluster setup. Look at the `OpenEBS for the Management of Kubernetes Storage Volumes<https://www.percona.com/blog/2020/11/09/openebs-for-the-management-of-kubernetes-storage-volumes/>`_ blog post for more examples. Also, consider
+   be helpful within your cluster setup. Look at the `OpenEBS for the Management of Kubernetes Storage Volumes <https://www.percona.com/blog/2020/11/09/openebs-for-the-management-of-kubernetes-storage-volumes/>`_ blog post for more examples. Also, consider
    looking at the `Measuring OpenEBS Local Volume Performance Overhead in Kubernetes <https://www.percona.com/blog/2020/11/12/measuring-openebs-local-volume-performance-overhead-in-kubernetes/>`_ post.

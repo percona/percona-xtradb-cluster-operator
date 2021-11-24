@@ -211,6 +211,12 @@ The Operator options glossary
 
       :ref:`pxc.readinessProbes.failureThreshold<pxc-readinessprobes-failurethreshold>`
 
+   group
+
+     ..
+
+      :ref:`issuerConf.group<operator.html#issuerconf-group>`
+
    host
 
      ..
@@ -270,6 +276,12 @@ The Operator options glossary
      ..
 
       :ref:`backup.schedule.keep<backup-schedule-keep>`
+
+   kind
+
+     ..
+
+      :ref:`issuerConf.kind<operator.html#issuerconf-kind>`
 
    labels
 
@@ -366,6 +378,8 @@ The Operator options glossary
       :ref:`haproxy.imagePullSecrets.name<haproxy-imagepullsecrets-name>`
 
       :ref:`haproxy.sidecars.name<haproxy-sidecars-name>`
+
+      :ref:`issuerConf.name<operator.html#issuerconf-name>`
 
       :ref:`proxysql.imagePullSecrets.name<proxysql-imagepullsecrets-name>`
 

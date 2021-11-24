@@ -1,11 +1,11 @@
 .. _K8SPXC-1.10.0:
 
 ================================================================================
-*Percona Kubernetes Operator for Percona XtraDB Cluster* 1.10.0
+*Percona Distribution for MySQL Operator* 1.10.0
 ================================================================================
 
 :Date: November 24, 2021
-:Installation: `Installing Percona Kubernetes Operator for Percona XtraDB Cluster <https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html#quickstart-guides>`_
+:Installation: For installation please refer to `the documentation page <https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html#quickstart-guides>`_
 
 Release Highlights
 ================================================================================

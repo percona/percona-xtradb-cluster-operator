@@ -22,7 +22,7 @@ import sys, os
 sys.path.append(os.path.abspath('ext'))
 
 extensions=['sphinx.ext.intersphinx', 'sphinx.ext.todo',
-            'sphinx.ext.coverage', 'sphinx.ext.ifconfig','sphinx.ext.extlinks', 'sphinx-prompt', 'psdom', ]
+            'sphinx.ext.coverage', 'sphinx.ext.ifconfig','sphinx.ext.extlinks', 'sphinx-prompt', 'fulltoc', 'psdom', ]
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 

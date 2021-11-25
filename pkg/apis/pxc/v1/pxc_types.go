@@ -365,6 +365,7 @@ type PodSpec struct {
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
 	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
+	ServiceLabels                 map[string]string                       `json:"serviceLabels,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
 	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`

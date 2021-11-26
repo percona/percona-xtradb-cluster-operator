@@ -3,29 +3,29 @@ kind: StatefulSet
 metadata:
   annotations: {}
   generation: 1
-  name: cluster1-pxc
+  name: minimal-cluster-pxc
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: cluster1
+      name: minimal-cluster
 spec:
   podManagementPolicy: OrderedReady
-  replicas: 3
+  replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       app.kubernetes.io/component: pxc
-      app.kubernetes.io/instance: cluster1
+      app.kubernetes.io/instance: minimal-cluster
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: cluster1-pxc
+  serviceName: minimal-cluster-pxc
   template:
     metadata:
       annotations: {}
       labels:
         app.kubernetes.io/component: pxc
-        app.kubernetes.io/instance: cluster1
+        app.kubernetes.io/instance: minimal-cluster
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -36,7 +36,7 @@ spec:
             - labelSelector:
                 matchLabels:
                   app.kubernetes.io/component: pxc
-                  app.kubernetes.io/instance: cluster1
+                  app.kubernetes.io/instance: minimal-cluster
                   app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
                   app.kubernetes.io/name: percona-xtradb-cluster
                   app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -57,14 +57,11 @@ spec:
                   fieldPath: metadata.name
           envFrom:
             - secretRef:
-                name: my-log-collector-secrets
+                name: minimal-cluster-log-collector
                 optional: true
           imagePullPolicy: Always
           name: logs
-          resources:
-            requests:
-              cpu: 200m
-              memory: 100M
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -79,13 +76,10 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-cluster1
+                  name: internal-minimal-cluster
           imagePullPolicy: Always
           name: logrotate
-          resources:
-            requests:
-              cpu: 200m
-              memory: 100M
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -97,24 +91,24 @@ spec:
             - /var/lib/mysql/pxc-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: cluster1-pxc-unready
+              value: minimal-cluster-pxc-unready
             - name: MONITOR_HOST
               value: '%'
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: root
-                  name: internal-cluster1
+                  name: internal-minimal-cluster
             - name: XTRABACKUP_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: xtrabackup
-                  name: internal-cluster1
+                  name: internal-minimal-cluster
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-cluster1
+                  name: internal-minimal-cluster
             - name: LOG_DATA_DIR
               value: /var/lib/mysql
             - name: IS_LOGCOLLECTOR
@@ -123,14 +117,14 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-cluster1
+                  name: internal-minimal-cluster
             - name: LIVENESS_CHECK_TIMEOUT
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
           envFrom:
             - secretRef:
-                name: cluster1-env-vars-pxc
+                name: minimal-cluster-env-vars-pxc
                 optional: true
           imagePullPolicy: Always
           livenessProbe:
@@ -171,10 +165,7 @@ spec:
             periodSeconds: 30
             successThreshold: 1
             timeoutSeconds: 15
-          resources:
-            requests:
-              cpu: 600m
-              memory: 1G
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -200,10 +191,7 @@ spec:
             - /pxc-init-entrypoint.sh
           imagePullPolicy: Always
           name: pxc-init
-          resources:
-            requests:
-              cpu: 600m
-              memory: 1G
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -212,7 +200,6 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        fsGroup: 1001
         supplementalGroups:
           - 1001
       serviceAccount: default
@@ -223,36 +210,38 @@ spec:
           name: tmp
         - configMap:
             defaultMode: 420
-            name: cluster1-pxc
+            name: minimal-cluster-pxc
             optional: true
           name: config
         - name: ssl-internal
           secret:
             defaultMode: 420
             optional: true
-            secretName: my-cluster-ssl-internal
+            secretName: minimal-cluster-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
-            optional: false
-            secretName: my-cluster-ssl
+            optional: true
+            secretName: minimal-cluster-ssl
         - configMap:
             defaultMode: 420
-            name: auto-cluster1-pxc
+            name: auto-minimal-cluster-pxc
             optional: true
           name: auto-config
         - name: vault-keyring-secret
           secret:
             defaultMode: 420
             optional: true
-            secretName: keyring-secret-vault
+            secretName: minimal-cluster-vault
         - name: mysql-users-secret-file
           secret:
             defaultMode: 420
             optional: false
-            secretName: internal-cluster1
+            secretName: internal-minimal-cluster
   updateStrategy:
-    type: OnDelete
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
         name: datadir

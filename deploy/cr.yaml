@@ -15,7 +15,7 @@ spec:
   sslSecretName: my-cluster-ssl
   sslInternalSecretName: my-cluster-ssl-internal
   logCollectorSecretName: my-log-collector-secrets
-#  initImage: percona/percona-xtradb-cluster-operator:1.9.0
+#  initImage: percona/percona-xtradb-cluster-operator:1.10.0
 #  enableCRValidationWebhook: true
 #  tls:
 #    SANs:
@@ -158,7 +158,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.10.0-haproxy
 #    replicasServiceEnabled: false
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
@@ -295,7 +295,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.10.0-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -429,7 +429,7 @@ spec:
 #     rack: rack-23
   logcollector:
     enabled: true
-    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
+    image: percona/percona-xtradb-cluster-operator:1.10.0-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -444,7 +444,7 @@ spec:
         cpu: 200m
   pmm:
     enabled: false
-    image: percona/pmm-client:2.18.0
+    image: percona/pmm-client:2.23.0
     serverHost: monitoring-service
     serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
@@ -454,7 +454,7 @@ spec:
         memory: 150M
         cpu: 300m
   backup:
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.10.0-pxc8.0-backup
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:
 #      - name: private-registry-credentials

@@ -53,7 +53,7 @@ main() {
 	API="pxc.percona.com/v1"
 	apply_config "$conf_dir/$cluster.yml"
 	if [[ ${EKS} -eq 1 || -n ${OPENSHIFT} ]] && version_gt "1.21"; then
-		sleep 10
+		sleep 20
 		kpatch_set_field svc "${cluster}-pxc-unready" "/spec/publishNotReadyAddresses" true
 	fi
 	wait_for_running "$cluster-pxc" "1"

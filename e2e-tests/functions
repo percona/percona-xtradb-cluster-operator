@@ -15,6 +15,7 @@ IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-
 IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup"}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
 SKIP_BACKUPS_TO_AWS_GCP=${SKIP_BACKUPS_TO_AWS_GCP:-1}
+PMM_SERVER_VER="2.23.0"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -532,7 +533,7 @@ deploy_cert_manager() {
 	kubectl_bin create namespace cert-manager || :
 	kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
 	kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml --validate=false || : 2>/dev/null
-	sleep 45
+	sleep 60
 }
 
 destroy() {
@@ -757,8 +758,8 @@ spinup_pxc() {
 	fi
 
 	# todo(remove after 1.10 release)
-	if [[ ${EKS} -eq 1 || -n ${OPENSHIFT} ]] && version_gt "1.21"; then
-		sleep 10
+	if [[ ${EKS} -eq 1 ]] && version_gt "1.21"; then
+		sleep 20
 		kpatch_set_field svc "${cluster}-pxc-unready" "/spec/publishNotReadyAddresses" true
 	fi
 

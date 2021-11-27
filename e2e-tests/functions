@@ -757,12 +757,6 @@ spinup_pxc() {
 		apply_config "$config"
 	fi
 
-	# todo(remove after 1.10 release)
-	if [[ ${EKS} -eq 1 ]] && version_gt "1.21"; then
-		sleep 20
-		kpatch_set_field svc "${cluster}-pxc-unready" "/spec/publishNotReadyAddresses" true
-	fi
-
 	desc 'check if all 3 Pods started'
 	local proxy=$(get_proxy "$cluster")
 	wait_for_running "$proxy" 1

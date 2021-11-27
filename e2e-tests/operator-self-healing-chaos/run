@@ -7,12 +7,6 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="operator-chaos"
 
-if version_gt "1.22"; then
-	echo "chaos-mesh currently doesn't work on kubernetes 1.22+ !"
-	echo "Needs fixing when support will be added."
-	exit 1
-fi
-
 fail_pod() {
 	local init_pod=$(get_operator_pod)
 	local restart_count_before=$(kubectl_bin get pod ${init_pod} --namespace="${OPERATOR_NS:-$namespace}" -ojsonpath='{.status.containerStatuses[0].restartCount}')

@@ -6,7 +6,7 @@ BASH_XTRACEFD="5"
 GIT_COMMIT=$(git rev-parse HEAD)
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-API="pxc.percona.com/v1-10-0"
+API="pxc.percona.com/v1-11-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/pmm-client:dev-latest"}
@@ -755,12 +755,6 @@ spinup_pxc() {
 			| kubectl_bin apply -f -
 	else
 		apply_config "$config"
-	fi
-
-	# todo(remove after 1.10 release)
-	if [[ ${EKS} -eq 1 ]] && version_gt "1.21"; then
-		sleep 20
-		kpatch_set_field svc "${cluster}-pxc-unready" "/spec/publishNotReadyAddresses" true
 	fi
 
 	desc 'check if all 3 Pods started'

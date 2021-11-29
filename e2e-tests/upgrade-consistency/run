@@ -183,7 +183,7 @@ main() {
 
 	# test 1.10.0
 	API="pxc.percona.com/v1-10-0"
-	kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/rbac.yaml
+	kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v1.10.0/deploy/rbac.yaml
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.10.0"}
     }'
@@ -193,6 +193,20 @@ main() {
 	compare_kubectl service/$cluster-proxysql "-1100"
 	compare_kubectl statefulset/$cluster-pxc "-1100"
 	compare_kubectl statefulset/$cluster-proxysql "-1100"
+
+	# test 1.11.0
+	API="pxc.percona.com/v1-11-0"
+	kubectl_bin apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/rbac.yaml
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "spec": {"crVersion":"1.11.0"}
+    }'
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "11" "1"
+	compare_kubectl service/$cluster-pxc "-1110"
+	compare_kubectl service/$cluster-proxysql "-1110"
+	compare_kubectl statefulset/$cluster-pxc "-1110"
+	compare_kubectl statefulset/$cluster-proxysql "-1110"
+
 	destroy "${namespace}"
 }
 

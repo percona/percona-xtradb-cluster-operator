@@ -7,12 +7,6 @@ test_dir=$(realpath $(dirname $0))
 . "${test_dir}"/../functions
 cluster="self-healing-advanced"
 
-if version_gt "1.22"; then
-	echo "chaos-mesh currently doesn't work on kubernetes 1.22+ !"
-	echo "Needs fixing when support will be added."
-	exit 1
-fi
-
 crash_cluster_with_kubectl() {
 	# run chaos for Pods
 	for _ in $(seq 1 5); do

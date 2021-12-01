@@ -6,6 +6,18 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+check_verify_identity() {
+  local host="$1"
+
+  local command="exit"
+  local args="--ssl-ca=/etc/mysql/ssl-internal/ca.crt --ssl-mode=VERIFY_IDENTITY --protocol=tcp -uroot -proot_password --host=$host"
+
+  [[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $cluster-pxc-0 -- bash -c \"printf '$command\n' | mysql -sN $args\"" >&$BASH_XTRACEFD
+
+  kubectl_bin exec "$cluster-pxc-0" -- \
+    bash -c "printf '%s\n' \"${command}\" | mysql -sN $args"
+}
+
 main() {
   create_infra $namespace
   cluster="some-name-tls-issue"
@@ -27,6 +39,11 @@ main() {
 
   desc 'check if certificate issued'
   compare_kubectl certificate/$cluster-ssl
+
+  desc 'check ssl-internal certificate using PXC'
+  check_verify_identity "$cluster-pxc"
+  desc 'check ssl-internal certificate using HAProxy'
+  check_verify_identity "$cluster-haproxy"
 
   destroy $namespace
 }

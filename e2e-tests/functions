@@ -1155,14 +1155,14 @@ destroy_chaos_mesh() {
 	local chaos_mesh_ns=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}' | sed 's/NAMESPACE//')
 
 	desc 'destroy chaos-mesh'
-	kubectl_bin delete podchaos --all --all-namespaces || :
-	kubectl_bin delete networkchaos --all --all-namespaces || :
+	kubectl delete podchaos --all --all-namespaces || :
+	kubectl delete networkchaos --all --all-namespaces || :
 	if [ -n "${chaos_mesh_ns}" ]; then
 		helm uninstall chaos-mesh --namespace ${chaos_mesh_ns} || :
 	fi
-	kubectl_bin delete crd awschaos.chaos-mesh.org dnschaos.chaos-mesh.org gcpchaos.chaos-mesh.org httpchaos.chaos-mesh.org iochaos.chaos-mesh.org jvmchaos.chaos-mesh.org kernelchaos.chaos-mesh.org networkchaos.chaos-mesh.org podchaos.chaos-mesh.org podhttpchaos.chaos-mesh.org podiochaos.chaos-mesh.org podnetworkchaos.chaos-mesh.org schedules.chaos-mesh.org stresschaos.chaos-mesh.org timechaos.chaos-mesh.org workflownodes.chaos-mesh.org workflows.chaos-mesh.org || :
-	kubectl_bin delete clusterrolebinding chaos-mesh-chaos-controller-manager-cluster-level || :
-	kubectl_bin delete clusterrole chaos-mesh-chaos-controller-manager-cluster-level chaos-mesh-chaos-controller-manager-target-namespace || :
+	kubectl delete crd awschaos.chaos-mesh.org dnschaos.chaos-mesh.org gcpchaos.chaos-mesh.org httpchaos.chaos-mesh.org iochaos.chaos-mesh.org jvmchaos.chaos-mesh.org kernelchaos.chaos-mesh.org networkchaos.chaos-mesh.org podchaos.chaos-mesh.org podhttpchaos.chaos-mesh.org podiochaos.chaos-mesh.org podnetworkchaos.chaos-mesh.org schedules.chaos-mesh.org stresschaos.chaos-mesh.org timechaos.chaos-mesh.org workflownodes.chaos-mesh.org workflows.chaos-mesh.org || :
+	kubectl delete clusterrolebinding chaos-mesh-chaos-controller-manager-cluster-level || :
+	kubectl delete clusterrole chaos-mesh-chaos-controller-manager-cluster-level chaos-mesh-chaos-controller-manager-target-namespace || :
 }
 
 patch_secret() {

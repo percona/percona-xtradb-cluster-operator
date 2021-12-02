@@ -372,8 +372,9 @@ compare_kubectl() {
 		| $sed 's#^apiVersion: policy/v1beta1#apiVersion: policy/v1#' \
 		| $sed 's/name: kube-api-access-.*$/name: kube-api-access/' \
 		| $sed 's/namespace\:.*name/name/' \
+		| $sed "s/${namespace}/namespace/g" \
 			>${new_result}
-	# last sed is needed for backup cronjob content
+	# last but one sed is needed for backup cronjob content
 
 	diff -u ${expected_result} ${new_result}
 }

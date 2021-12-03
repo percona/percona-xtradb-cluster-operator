@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,7 +50,7 @@ type ReplicationChannelSource struct {
 
 var ErrNotFound = errors.New("not found")
 
-func New(client client.Client, namespace, secretName, user, host string, port int32) (Database, error) {
+func New(client client.Client, namespace, secretName, user, host string, port int32, timeout int32) (Database, error) {
 	secretObj := corev1.Secret{}
 	err := client.Get(context.TODO(),
 		types.NamespacedName{
@@ -63,9 +63,21 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 		return Database{}, err
 	}
 
-	pass := string(secretObj.Data[user])
-	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/mysql?interpolateParams=true", user, pass, host, port)
-	db, err := sql.Open("mysql", connStr)
+	timeoutStr := fmt.Sprintf("%ds", timeout)
+	config := mysql.NewConfig()
+	config.User = user
+	config.Passwd = string(secretObj.Data[user])
+	config.Net = "tcp"
+	config.DBName = "mysql"
+	config.Addr = fmt.Sprintf("%s:%d", host, port)
+	config.Params = map[string]string{
+		"interpolateParams": "true",
+		"timeout":           timeoutStr,
+		"readTimeout":       timeoutStr,
+		"writeTimeout":      timeoutStr,
+	}
+
+	db, err := sql.Open("mysql", config.FormatDSN())
 	if err != nil {
 		return Database{}, err
 	}

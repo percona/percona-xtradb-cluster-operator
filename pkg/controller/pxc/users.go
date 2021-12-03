@@ -196,7 +196,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageMonitorUser(cr *api.PerconaXtraDBC
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
 	}
 
-	um, err := users.NewManager(addr, pxcUser, pxcPass)
+	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "new users manager for grant")
 	}
@@ -242,7 +242,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageXtrabackupUser(cr *api.PerconaXtra
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
 	}
 
-	um, err := users.NewManager(addr, pxcUser, pxcPass)
+	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "new users manager for grant")
 	}
@@ -288,7 +288,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.Percona
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
 	}
 
-	um, err := users.NewManager(addr, pxcUser, pxcPass)
+	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "new users manager for grant")
 	}
@@ -437,7 +437,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
 	}
-	um, err := users.NewManager(addr, pxcUser, pxcPass)
+	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return res, errors.Wrap(err, "new users manager")
 	}
@@ -503,7 +503,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUsers(proxyUsers []users.SysU
 		return nil
 	}
 	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
-		um, err := users.NewManager(cr.Name+"-proxysql-"+strconv.Itoa(i)+"."+cr.Name+"-proxysql-unready."+cr.Namespace+":6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]))
+		um, err := users.NewManager(cr.Name+"-proxysql-"+strconv.Itoa(i)+"."+cr.Name+"-proxysql-unready."+cr.Namespace+":6032", "proxyadmin", string(internalSysSecretObj.Data["proxyadmin"]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			return errors.Wrap(err, "new users manager")
 		}
@@ -538,7 +538,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
 	}
-	um, err := users.NewManager(addr, "root", string(sysUsersSecretObj.Data["root"]))
+	um, err := users.NewManager(addr, "root", string(sysUsersSecretObj.Data["root"]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}
@@ -595,7 +595,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtr
 		pxcPass = string(internalSysSecretObj.Data["operator"])
 	}
 
-	um, err := users.NewManager(addr, pxcUser, pxcPass)
+	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 	"sync"
@@ -262,6 +263,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	}
 
 	defer func() {
+		fmt.Println("TEST: update status")
 		uerr := r.updateStatus(o, err)
 		if uerr != nil {
 			reqLogger.Error(uerr, "Update status")
@@ -380,8 +382,21 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxysqlAnnotations)
 
 	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
-		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
+		fmt.Println("Test: start checking proxysql")
+		updatedCR := &api.PerconaXtraDBCluster{}
+		err = r.client.Get(context.TODO(), request.NamespacedName, updatedCR)
 		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to get cr for proxysql")
+		}
+		err = updatedCR.CheckNSetDefaults(r.serverVersion, reqLogger)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "failed to check and set defaults for proxysql")
+		}
+		fmt.Println("Test: before updatePod image updatedCR:", updatedCR.Spec.ProxySQL.Image)
+		fmt.Println("Test: before updatePod image o:", o.Spec.ProxySQL.Image)
+		err = r.updatePod(proxysqlSet, updatedCR.Spec.ProxySQL, updatedCR, nil)
+		if err != nil {
+			fmt.Println(fmt.Printf("Test: proxysql updatePod error: %v", err))
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
 

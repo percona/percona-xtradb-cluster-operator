@@ -211,6 +211,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	if err != nil {
 		return errors.Wrap(err, "update error")
 	}
+	if isProxySQL(sfs) {
+		fmt.Println("TEST: ProxySQL updatePod image name: ", cr.Spec.ProxySQL.Image)
+	}
 
 	if cr.Spec.UpdateStrategy != api.SmartUpdateStatefulSetStrategyType {
 		return nil

@@ -40,6 +40,9 @@ main() {
 	desc 'check if certificate issued'
 	compare_kubectl certificate/$cluster-ssl
 
+	apply_config "$test_dir/conf/$cluster-haproxy.yml"
+	wait_for_running "$cluster-haproxy" 1
+
 	desc 'check ssl-internal certificate using PXC'
 	check_verify_identity "$cluster-pxc"
 	desc 'check ssl-internal certificate using HAProxy'

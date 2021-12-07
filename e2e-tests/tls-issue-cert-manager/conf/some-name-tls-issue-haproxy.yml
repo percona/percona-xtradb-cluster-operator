@@ -29,7 +29,7 @@ spec:
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
-    enabled: true
+    enabled: false
     size: 1
     image: -proxysql
     resources:
@@ -47,7 +47,7 @@ spec:
           requests:
             storage: 2Gi
   haproxy:
-    enabled: false
+    enabled: true
     size: 1
     image: -haproxy
     resources:

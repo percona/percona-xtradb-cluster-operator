@@ -65,7 +65,7 @@ function main() {
 
 	desc 'starting PMM up'
 	platform=kubernetes
-	helm del --purge monitoring || :
+	helm uninstall monitoring || :
 	if [ ! -z "$OPENSHIFT" ]; then
 		platform=openshift
 		oc create sa pmm-server
@@ -94,7 +94,7 @@ function main() {
 			"spec": {"pmm":{"enabled":false}}
 		}'
 	sleep 120
-	helm delete monitoring
+	helm uninstall monitoring
 	wait_cluster_consistency ${cluster} ${pxc_size} ${proxy_size}
 
 	desc 'write data directly, read from all'

@@ -13,7 +13,7 @@ deploy_helm $namespace
 
 desc 'install PMM Server'
 platform=kubernetes
-helm del --purge monitoring || :
+helm uninstall monitoring || :
 if [ ! -z "$OPENSHIFT" ]; then
     platform=openshift
     oc create sa pmm-server
@@ -58,5 +58,5 @@ if [[ -n "${OPENSHIFT}" ]]; then
         oc delete rolebinding pmm-pxc-operator-namespace-only
     fi
 fi
-helm delete monitoring
+helm uninstall monitoring
 destroy $namespace

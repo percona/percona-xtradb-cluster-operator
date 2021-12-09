@@ -10,22 +10,21 @@ cluster="monitoring"
 create_infra $namespace
 deploy_helm $namespace
 
-
 desc 'install PMM Server'
 platform=kubernetes
 helm uninstall monitoring || :
 if [ ! -z "$OPENSHIFT" ]; then
-    platform=openshift
-    oc create sa pmm-server
-    oc adm policy add-scc-to-user privileged -z pmm-server
-    if [ -n "$OPERATOR_NS" ]; then
-        oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
-        oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' ${OPERATOR_NS:+-n $OPERATOR_NS}
-    else
-        oc create rolebinding pmm-pxc-operator-namespace-only --role percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
-        oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
-    fi
-    retry 10 60 helm install monitoring --set platform=$platform --set sa=pmm-server --set supresshttp2=false https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
+	platform=openshift
+	oc create sa pmm-server
+	oc adm policy add-scc-to-user privileged -z pmm-server
+	if [ -n "$OPERATOR_NS" ]; then
+		oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+		oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' ${OPERATOR_NS:+-n $OPERATOR_NS}
+	else
+		oc create rolebinding pmm-pxc-operator-namespace-only --role percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+		oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
+	fi
+	retry 10 60 helm install monitoring --set platform=$platform --set sa=pmm-server --set supresshttp2=false https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 else
 	helm install monitoring --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 fi
@@ -50,13 +49,13 @@ sleep 90
 
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 admin:admin
-if [[ -n "${OPENSHIFT}" ]]; then
-    oc adm policy remove-scc-from-user privileged -z pmm-server
-    if [ -n "$OPERATOR_NS" ]; then
-        oc delete clusterrolebinding pmm-pxc-operator-cluster-wide
-    else
-        oc delete rolebinding pmm-pxc-operator-namespace-only
-    fi
+if [[ -n ${OPENSHIFT} ]]; then
+	oc adm policy remove-scc-from-user privileged -z pmm-server
+	if [ -n "$OPERATOR_NS" ]; then
+		oc delete clusterrolebinding pmm-pxc-operator-cluster-wide
+	else
+		oc delete rolebinding pmm-pxc-operator-namespace-only
+	fi
 fi
 helm uninstall monitoring
 destroy $namespace

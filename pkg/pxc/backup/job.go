@@ -46,6 +46,11 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 
 	manualSelector := true
 	backbackoffLimit := int32(10)
+	verifyTLS := "1"
+	if cluster.Backup.Storages[spec.StorageName].VerifyTLS != nil &&
+		!*cluster.Backup.Storages[spec.StorageName].VerifyTLS {
+		verifyTLS = "0"
+	}
 	return batchv1.JobSpec{
 		BackoffLimit:   &backbackoffLimit,
 		ManualSelector: &manualSelector,
@@ -83,6 +88,10 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 								ValueFrom: &corev1.EnvVarSource{
 									SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, "xtrabackup"),
 								},
+							},
+							{
+								Name:  "VERIFY_TLS",
+								Value: verifyTLS,
 							},
 						},
 						Resources: resources,

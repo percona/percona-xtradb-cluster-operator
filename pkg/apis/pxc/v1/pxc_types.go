@@ -445,6 +445,7 @@ type BackupStorageSpec struct {
 	PodSecurityContext       *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
 	RuntimeClassName         *string                    `json:"runtimeClassName,omitempty"`
+	VerifyTLS                *bool                      `json:"verifyTLS,omitempty"`
 }
 
 type BackupStorageType string

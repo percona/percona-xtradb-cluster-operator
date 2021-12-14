@@ -265,6 +265,13 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 	pxcUser := "xtrabackup"
 	command := []string{"recovery-s3.sh"}
 
+	verifyTLS := "1"
+	if cluster.Backup != nil && len(cluster.Backup.Storages) > 0 {
+		if storage, ok := cluster.Backup.Storages[bcp.Spec.StorageName]; ok &&
+			storage.VerifyTLS != nil && !*storage.VerifyTLS {
+			verifyTLS = "0"
+		}
+	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "S3_BUCKET_URL",
@@ -313,6 +320,10 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, pxcUser),
 			},
+		},
+		{
+			Name:  "VERIFY_TLS",
+			Value: verifyTLS,
 		},
 	}
 	jobName := "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster

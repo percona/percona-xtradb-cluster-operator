@@ -272,8 +272,8 @@ func (p *Database) DeleteReplicationSource(name, host string, port int) error {
 	return errors.Wrap(err, "delete replication source "+name)
 }
 
-func (p *Database) Status(host, ip string) ([]string, error) {
-	rows, err := p.db.Query("SELECT status FROM mysql_servers WHERE hostname LIKE ? OR hostname = ?;", host+"%", ip)
+func (p *Database) Status(host string) ([]string, error) {
+	rows, err := p.db.Query("SELECT status FROM mysql_servers WHERE hostname LIKE ?;", host+"%")
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound

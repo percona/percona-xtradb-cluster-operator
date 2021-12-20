@@ -305,6 +305,10 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return list.Items[i].Name > list.Items[j].Name
 	})
 
+	cr.Status.Status = api.AppStateInit
+	if err := r.writeStatus(cr); err != nil {
+		return errors.Wrap(err, "write status")
+	}
 	var primaryPod corev1.Pod
 	for _, pod := range list.Items {
 		pod := pod
@@ -570,11 +574,6 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(cr *api.PerconaXtraDBClus
 			err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return false, errors.Wrap(err, "fetch pod")
-			}
-
-			// We update status in every loop to not wait until the end of smart update
-			if err := r.updateStatus(cr, nil); err != nil {
-				return false, errors.Wrap(err, "update status")
 			}
 
 			ready := false

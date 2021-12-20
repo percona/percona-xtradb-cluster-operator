@@ -22,13 +22,9 @@ const (
 	ReplicationStatusNotInitiated
 )
 
-type HostgroupName string
-
 const (
-	WriterHostgroup       HostgroupName = "writer_hostgroup"
-	BackupWriterHostgroup HostgroupName = "backup_writer_hostgroup"
-	ReaderHostgroup       HostgroupName = "reader_hostgroup"
-	OfflineHostgroup      HostgroupName = "offline_hostgroup"
+	WriterHostgroup = "writer_hostgroup"
+	ReaderHostgroup = "reader_hostgroup"
 )
 
 // value of writer group is hardcoded in ProxySQL config inside docker image
@@ -300,19 +296,13 @@ func (p *Database) Status(host, ip string) ([]string, error) {
 	return statuses, nil
 }
 
-func (p *Database) PresentInHostgroups(hostgroups []HostgroupName, host, ip string) (bool, error) {
-	if len(hostgroups) == 0 {
-		return false, errors.New("no hostgroups provided")
-	}
-	query := "SELECT COUNT(*) FROM mysql_servers " +
-		"INNER JOIN mysql_galera_hostgroups ON hostgroup_id IN (" + string(hostgroups[0])
-	for i := range hostgroups {
-		query += "," + string(hostgroups[i])
-	}
-	query += ") WHERE hostname LIKE ? OR hostname = ? GROUP BY hostname"
-
+func (p *Database) PresentInHostgroups(host string) (bool, error) {
+	hostgroups := []string{WriterHostgroup, ReaderHostgroup}
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM mysql_servers
+		INNER JOIN mysql_galera_hostgroups ON hostgroup_id IN (%s)
+		WHERE hostname LIKE ? GROUP BY hostname`, strings.Join(hostgroups, ","))
 	var count int
-	err := p.db.QueryRow(query, host+"%", ip).Scan(&count)
+	err := p.db.QueryRow(query, host+"%").Scan(&count)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, ErrNotFound

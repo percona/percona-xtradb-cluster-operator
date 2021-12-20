@@ -370,7 +370,6 @@ func getPodOrderInSts(stsName string, podName string) (int, error) {
 
 func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
 	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
-		time.Sleep(5 * time.Second)
 		return nil
 	}
 
@@ -385,8 +384,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(cr *api.PerconaXtraDBClus
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
-			hostgroups := []queries.HostgroupName{queries.WriterHostgroup, queries.ReaderHostgroup}
-			present, err := database.PresentInHostgroups(hostgroups, podNamePrefix, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+			present, err := database.PresentInHostgroups(podNamePrefix)
 			if err != nil && err != queries.ErrNotFound {
 				return false, errors.Wrap(err, "failed to get hostgroup status")
 			}
@@ -394,7 +392,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(cr *api.PerconaXtraDBClus
 				return false, nil
 			}
 
-			logger.Info("pod present in hostgroups", "pod name", pod.Name, "hostgroups names", hostgroups)
+			logger.Info("pod present in hostgroups", "pod name", pod.Name)
 			return true, nil
 		})
 }

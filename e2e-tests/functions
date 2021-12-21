@@ -560,7 +560,6 @@ destroy() {
 	kubectl_bin delete pxc-restore --all --all-namespaces || :
 	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
 
-	destroy_chaos_mesh
 	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml 2>/dev/null || :
 	if [ ! -z "$OPENSHIFT" ]; then
 		oc delete --grace-period=0 --force=true project "$namespace" &
@@ -1021,7 +1020,7 @@ start_vault() {
 	fi
 	create_namespace "$name" "skip_clean"
 	deploy_helm "$name"
-	helm delete "$name" || :
+	helm uninstall "$name" || :
 
 	desc "install Vault $name"
 
@@ -1114,7 +1113,7 @@ start_minio() {
 	deploy_helm $namespace
 
 	desc 'install Minio'
-	helm del minio-service || :
+	helm uninstall minio-service || :
 	retry 10 60 helm install \
 		$HELM_ARGS \
 		minio-service \
@@ -1156,14 +1155,14 @@ destroy_chaos_mesh() {
 	local chaos_mesh_ns=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}' | sed 's/NAMESPACE//')
 
 	desc 'destroy chaos-mesh'
-	kubectl delete podchaos --all --all-namespaces || :
-	kubectl delete networkchaos --all --all-namespaces || :
+	timeout 30 kubectl delete podchaos --all --all-namespaces || :
+	timeout 30 kubectl delete networkchaos --all --all-namespaces || :
 	if [ -n "${chaos_mesh_ns}" ]; then
 		helm uninstall chaos-mesh --namespace ${chaos_mesh_ns} || :
 	fi
-	kubectl delete crd awschaos.chaos-mesh.org dnschaos.chaos-mesh.org gcpchaos.chaos-mesh.org httpchaos.chaos-mesh.org iochaos.chaos-mesh.org jvmchaos.chaos-mesh.org kernelchaos.chaos-mesh.org networkchaos.chaos-mesh.org podchaos.chaos-mesh.org podhttpchaos.chaos-mesh.org podiochaos.chaos-mesh.org podnetworkchaos.chaos-mesh.org schedules.chaos-mesh.org stresschaos.chaos-mesh.org timechaos.chaos-mesh.org workflownodes.chaos-mesh.org workflows.chaos-mesh.org || :
-	kubectl delete clusterrolebinding chaos-mesh-chaos-controller-manager-cluster-level || :
-	kubectl delete clusterrole chaos-mesh-chaos-controller-manager-cluster-level chaos-mesh-chaos-controller-manager-target-namespace || :
+	timeout 30 kubectl delete crd awschaos.chaos-mesh.org dnschaos.chaos-mesh.org gcpchaos.chaos-mesh.org httpchaos.chaos-mesh.org iochaos.chaos-mesh.org jvmchaos.chaos-mesh.org kernelchaos.chaos-mesh.org networkchaos.chaos-mesh.org podchaos.chaos-mesh.org podhttpchaos.chaos-mesh.org podiochaos.chaos-mesh.org podnetworkchaos.chaos-mesh.org schedules.chaos-mesh.org stresschaos.chaos-mesh.org timechaos.chaos-mesh.org workflownodes.chaos-mesh.org workflows.chaos-mesh.org || :
+	timeout 30 kubectl delete clusterrolebinding chaos-mesh-chaos-controller-manager-cluster-level || :
+	timeout 30 kubectl delete clusterrole chaos-mesh-chaos-controller-manager-cluster-level chaos-mesh-chaos-controller-manager-target-namespace || :
 }
 
 patch_secret() {

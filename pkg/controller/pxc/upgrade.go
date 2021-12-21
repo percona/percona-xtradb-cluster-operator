@@ -373,7 +373,7 @@ func getPodOrderInSts(stsName string, podName string) (int, error) {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+	if cr.Spec.ProxySQL != nil && !cr.Spec.ProxySQL.Enabled {
 		return nil
 	}
 
@@ -402,8 +402,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
-		time.Sleep(5 * time.Second)
+	if cr.Spec.ProxySQL != nil && !cr.Spec.ProxySQL.Enabled {
 		return nil
 	}
 

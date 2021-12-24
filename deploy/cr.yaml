@@ -465,6 +465,7 @@ spec:
     storages:
       s3-us-west:
         type: s3
+        verifyTLS: true
 #        nodeSelector:
 #          storage: tape
 #          backupWorker: 'True'

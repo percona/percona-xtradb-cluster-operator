@@ -53,6 +53,8 @@ spec:
                 secretKeyRef:
                   key: AWS_ACCESS_KEY_ID
                   name: minio-secret
+            - name: VERIFY_TLS
+              value: "true"
             - name: SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:

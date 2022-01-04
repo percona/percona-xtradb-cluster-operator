@@ -956,10 +956,10 @@ func (cr *PerconaXtraDBCluster) ConfigHasKey(section, key string) (bool, error) 
 const AffinityTopologyKeyOff = "none"
 
 var affinityValidTopologyKeys = map[string]struct{}{
-	AffinityTopologyKeyOff:                     {},
-	"kubernetes.io/hostname":                   {},
-	"failure-domain.beta.kubernetes.io/zone":   {},
-	"failure-domain.beta.kubernetes.io/region": {},
+	AffinityTopologyKeyOff:          {},
+	"kubernetes.io/hostname":        {},
+	"topology.kubernetes.io/zone":   {},
+	"topology.kubernetes.io/region": {},
 }
 
 var defaultAffinityTopologyKey = "kubernetes.io/hostname"

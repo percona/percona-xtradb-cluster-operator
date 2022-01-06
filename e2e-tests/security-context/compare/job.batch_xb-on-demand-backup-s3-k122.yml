@@ -48,13 +48,13 @@ spec:
                 secretKeyRef:
                   key: xtrabackup
                   name: my-cluster-secrets
+            - name: VERIFY_TLS
+              value: "true"
             - name: ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
                   key: AWS_ACCESS_KEY_ID
                   name: minio-secret
-            - name: VERIFY_TLS
-              value: "true"
             - name: SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:

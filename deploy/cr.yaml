@@ -462,6 +462,13 @@ spec:
       enabled: false
       storageName: STORAGE-NAME-HERE
       timeBetweenUploads: 60
+#      resources:
+#        requests:
+#          memory: 0.1G
+#          cpu: 100m
+#        limits:
+#          memory: 1G
+#          cpu: 700m
     storages:
       s3-us-west:
         type: s3

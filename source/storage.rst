@@ -24,7 +24,7 @@ content. All containers in the Pod which have mounted this volume will
 gain read and write access to the correspondent directory.
 
 The ``emptyDir`` options in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file can be used to turn the emptyDir volume on by setting the directory
 name.
 
@@ -39,7 +39,7 @@ mounts some existing file or directory from the node’s filesystem into
 the Pod.
 
 The ``volumeSpec.hostPath`` subsection in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file may include ``path`` and ``type`` keys to set the node’s filesystem
 object path and to specify whether it is a file, a directory, or
 something else (e.g. a socket):

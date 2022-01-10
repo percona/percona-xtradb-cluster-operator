@@ -16,7 +16,7 @@ But storing backups on `Persistent Volumes <https://kubernetes.io/docs/concepts/
 
 The Operator allows doing backups in two ways.
 *Scheduled backups* are configured in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file to be executed automatically in proper time. *On-demand backups*
 can be done manually at any moment.
 
@@ -64,7 +64,7 @@ appropriate command to create the secret object, e.g. 
    can cause a similar problem.
 
 Backups schedule is defined in the ``backup`` section of the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file. This section contains following subsections:
 
 * ``storages`` subsection contains data needed to access the S3-compatible cloud
@@ -72,7 +72,7 @@ file. This section contains following subsections:
 * ``schedule`` subsection allows to actually schedule backups (the schedule is
   specified in crontab format).
 
-Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ which uses Amazon S3 storage for backups:
+Here is an example of `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ which uses Amazon S3 storage for backups:
 
 .. code:: yaml
 
@@ -134,7 +134,7 @@ the following contents:
   key (it triggers the actual deletion of backup files from the S3 bucket when
   there is a manual or scheduled removal of the corresponding backup object).
 
-The example of the backup configuration file is `deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/backup/backup.yaml>`_.
+The example of the backup configuration file is `deploy/backup/backup.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/backup/backup.yaml>`__.
 
 When the backup destination is configured and applied with `kubectl apply -f deploy/cr.yaml` command, the actual backup command is executed:
 
@@ -171,7 +171,7 @@ backup storage. Point-in-time recovery is off by default and is supported by the
 Operator only with Percona XtraDB Cluster versions starting from 8.0.21-12.1.
 
 To be used, it requires setting a number of keys in the ``pitr`` subsection
-under the ``backup`` section of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_ file:
+under the ``backup`` section of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file:
 
 * ``enabled`` key should be set to ``true``,
 * ``storageName`` key should point to the name of the storage already configured

@@ -9,7 +9,7 @@ equipped machine, or to reduce costs choosing nodes in a same
 availability zone.
 
 Both ``pxc`` and ``proxysql`` sections of the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file contain keys which can be used to do this, depending on what is the
 best for a particular situation.
 
@@ -73,7 +73,7 @@ Advanced approach - use standard Kubernetes constraints
 Previous way can be used with no special knowledge of the Kubernetes way
 of assigning Pods to specific nodes. Still in some cases more complex
 tuning may be needed. In this case ``advanced`` option placed in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file turns off the effect of the ``topologyKey`` and allows to use
 standard Kubernetes affinity constraints of any complexity:
 
@@ -156,7 +156,7 @@ distinguish more and less important Pods to resolve the situation when
 some higher priority Pod cannot be scheduled without evicting a lower
 priority one. This can be done adding one or more PriorityClasses in
 your Kubernetes cluster, and specifying the ``PriorityClassName`` in the
-`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`__
+`deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file:
 
 ::

@@ -248,7 +248,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		setReplicationChannelStatus(cr, channel)
 	}
 
-	return r.updateStatus(cr, nil)
+	return r.updateStatus(cr, false, nil)
 }
 
 func handleReplicaPasswordChange(db queries.Database, newPass string) error {

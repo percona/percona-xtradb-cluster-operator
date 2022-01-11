@@ -586,6 +586,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.VaultSecretName = cr.Name + "-vault"
 		}
 
+		if len(c.SecretsName) == 0 {
+			c.SecretsName = cr.Name + "-secrets"
+		}
+
 		if len(c.SSLSecretName) > 0 {
 			c.PXC.SSLSecretName = c.SSLSecretName
 		} else {

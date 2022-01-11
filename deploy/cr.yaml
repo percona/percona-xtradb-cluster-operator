@@ -10,11 +10,11 @@ metadata:
 #    percona.com/issue-vault-token: "true"
 spec:
   crVersion: 1.11.0
-  secretsName: my-cluster-secrets
-  vaultSecretName: keyring-secret-vault
-  sslSecretName: my-cluster-ssl
-  sslInternalSecretName: my-cluster-ssl-internal
-  logCollectorSecretName: my-log-collector-secrets
+#  secretsName: my-cluster-secrets
+#  vaultSecretName: keyring-secret-vault
+#  sslSecretName: my-cluster-ssl
+#  sslInternalSecretName: my-cluster-ssl-internal
+#  logCollectorSecretName: my-log-collector-secrets
 #  initImage: percona/percona-xtradb-cluster-operator:1.10.0
 #  enableCRValidationWebhook: true
 #  tls:

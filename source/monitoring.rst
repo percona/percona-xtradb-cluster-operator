@@ -31,7 +31,7 @@ Kubernetes-based environment:
 
 #. The PMM client installation is initiated by updating the ``pmm``
    section in the
-   `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/master/deploy/cr.yaml>`_
+   `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_
    file.
 
    -  set ``pmm.enabled=true``

@@ -2,7 +2,7 @@
 Install Percona XtraDB Cluster on Amazon Elastic Kubernetes Service (EKS)
 ==========================================================================================
 
-This quickstart shows you how to deploy Percona Distribution for MySQL Operator on Amazon Elastic Kubernetes Service (EKS). The document assumes some experience with Amazon EKS. For more information on the EKS, see the `Amazon EKS official documentation <https://aws.amazon.com/eks/>`_.
+This quickstart shows you how to deploy the Operator and Percona XtraDB Cluster on Amazon Elastic Kubernetes Service (EKS). The document assumes some experience with Amazon EKS. For more information on the EKS, see the `Amazon EKS official documentation <https://aws.amazon.com/eks/>`_.
 
 Prerequisites
 =============

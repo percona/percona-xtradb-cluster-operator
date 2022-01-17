@@ -3,14 +3,14 @@
 Install Percona XtraDB Cluster on Minikube
 ============================================
 
-Installing the Percona Distribution for MySQL Operator on `minikube <https://github.com/kubernetes/minikube>`_
+Installing the Percona Distribution for MySQL Operator based on Percona XtraDB Cluster on `minikube <https://github.com/kubernetes/minikube>`_
 is the easiest way to try it locally without a cloud provider. Minikube runs
 Kubernetes on GNU/Linux, Windows, or macOS system using a system-wide
 hypervisor, such as VirtualBox, KVM/QEMU, VMware Fusion or Hyper-V. Using it is
 a popular way to test the Kubernetes application locally prior to deploying it
 on a cloud.
 
-The following steps are needed to run Percona Distribution for MySQL Operator on
+The following steps are needed to run the Operator and Percona XtraDB Cluster on
 Minikube:
 
 #. `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_,

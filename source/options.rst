@@ -162,8 +162,8 @@ When ready, apply it with the following command:
 
 .. _operator-configmaps-restart:
 
-Make changed options visible to the Percona XtraDB Cluster
-----------------------------------------------------------
+Make changed options visible to Percona XtraDB Cluster
+------------------------------------------------------
 
 Do not forget to restart Percona XtraDB Cluster to ensure the cluster
 has updated the configuration (see details on how to connect in the

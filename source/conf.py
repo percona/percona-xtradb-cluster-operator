@@ -33,8 +33,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Percona Distribution for MySQL Operator'
-copyright = u'Percona LLC and/or its affiliates 2009 - 2021'
+project = u'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster'
+copyright = u'Percona LLC and/or its affiliates 2009 - 2022'
 
 # the short X.Y version
 version = '1.10.0'
@@ -151,10 +151,10 @@ html_theme_path = ['.', './percona-theme']
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = 'Percona Distribution for MySQL Operator Documentation'
+html_title = 'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster - Documentation'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_short_title = 'Percona Distribution for MySQL Operator Documentation'
+html_short_title = 'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster - Documentation'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
@@ -227,8 +227,8 @@ htmlhelp_basename = 'pxcoperatorpxc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'percona-kubernetes-operator-for-pxc.tex', u'Percona Distribution for MySQL Operator',
-     u'Percona LLC and/or its affiliates 2009-2021', 'manual'),
+  ('index', 'percona-kubernetes-operator-for-mysql-pxc.tex', u'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster',
+     u'Percona LLC and/or its affiliates 2009-2022', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -264,8 +264,8 @@ latex_elements = {
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'percona-kubernetes-operator-for-pxc', u'Percona Distribution for MySQL Operator',
-     [u'Percona LLC and/or its affiliates 2009-2021'], 1)
+    ('index', 'percona-kubernetes-operator-for-mysql-pxc', u'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster',
+     [u'Percona LLC and/or its affiliates 2009-2022'], 1)
 ]
 
 def ultimateReplace(app, docname, source):

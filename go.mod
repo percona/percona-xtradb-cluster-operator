@@ -1,6 +1,6 @@
 module github.com/percona/percona-xtradb-cluster-operator
 
-go 1.17
+go 1.16
 
 require (
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc
@@ -32,7 +32,7 @@ require (
 	golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	k8s.io/api v0.19.2
-	k8s.io/apimachinery v0.19.2
+	k8s.io/apimachinery v0.23.2
 	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.7.0
 

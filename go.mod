@@ -44,3 +44,36 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.2
 	k8s.io/client-go => k8s.io/client-go v0.19.2 // Required by prometheus-operator
 )
+
+exclude (
+	go.mongodb.org/mongo-driver v1.0.3
+	go.mongodb.org/mongo-driver v1.0.4
+	go.mongodb.org/mongo-driver v1.1.0
+	go.mongodb.org/mongo-driver v1.1.1
+	go.mongodb.org/mongo-driver v1.1.2
+	go.mongodb.org/mongo-driver v1.1.3
+	go.mongodb.org/mongo-driver v1.1.4
+	go.mongodb.org/mongo-driver v1.2.0
+	go.mongodb.org/mongo-driver v1.2.1
+	go.mongodb.org/mongo-driver v1.3.0
+	go.mongodb.org/mongo-driver v1.3.1
+	go.mongodb.org/mongo-driver v1.3.2
+	go.mongodb.org/mongo-driver v1.3.3
+	go.mongodb.org/mongo-driver v1.3.4
+	go.mongodb.org/mongo-driver v1.3.5
+	go.mongodb.org/mongo-driver v1.3.6
+	go.mongodb.org/mongo-driver v1.3.7
+	go.mongodb.org/mongo-driver v1.4.0
+	go.mongodb.org/mongo-driver v1.4.0-beta1
+	go.mongodb.org/mongo-driver v1.4.0-beta2
+	go.mongodb.org/mongo-driver v1.4.0-rc0
+	go.mongodb.org/mongo-driver v1.4.1
+	go.mongodb.org/mongo-driver v1.4.2
+	go.mongodb.org/mongo-driver v1.4.3
+	go.mongodb.org/mongo-driver v1.4.4
+	go.mongodb.org/mongo-driver v1.4.5
+	go.mongodb.org/mongo-driver v1.4.6
+	go.mongodb.org/mongo-driver v1.4.7
+	go.mongodb.org/mongo-driver v1.5.0
+	go.mongodb.org/mongo-driver v1.5.0-beta1
+)

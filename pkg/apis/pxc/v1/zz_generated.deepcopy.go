@@ -106,6 +106,11 @@ func (in *BackupStorageSpec) DeepCopyInto(out *BackupStorageSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.VerifyTLS != nil {
+		in, out := &in.VerifyTLS, &out.VerifyTLS
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

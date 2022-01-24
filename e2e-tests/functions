@@ -348,6 +348,7 @@ compare_kubectl() {
 		| yq d - '**."kubernetes.io/pvc-protection"' \
 		| yq d - '**.volumeName' \
 		| yq d - '**."volume.beta.kubernetes.io/storage-provisioner"' \
+		| yq d - '**."volume.kubernetes.io/storage-provisioner"' \
 		| yq d - 'spec.volumeMode' \
 		| yq d - 'spec.nodeName' \
 		| yq d - '**."volume.kubernetes.io/selected-node"' \

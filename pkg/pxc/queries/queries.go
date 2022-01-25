@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,6 +20,11 @@ const (
 	ReplicationStatusActive ReplicationStatus = iota
 	ReplicationStatusError
 	ReplicationStatusNotInitiated
+)
+
+const (
+	WriterHostgroup = "writer_hostgroup"
+	ReaderHostgroup = "reader_hostgroup"
 )
 
 // value of writer group is hardcoded in ProxySQL config inside docker image
@@ -45,7 +50,7 @@ type ReplicationChannelSource struct {
 
 var ErrNotFound = errors.New("not found")
 
-func New(client client.Client, namespace, secretName, user, host string, port int32) (Database, error) {
+func New(client client.Client, namespace, secretName, user, host string, port int32, timeout int32) (Database, error) {
 	secretObj := corev1.Secret{}
 	err := client.Get(context.TODO(),
 		types.NamespacedName{
@@ -58,9 +63,21 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 		return Database{}, err
 	}
 
-	pass := string(secretObj.Data[user])
-	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/mysql?interpolateParams=true", user, pass, host, port)
-	db, err := sql.Open("mysql", connStr)
+	timeoutStr := fmt.Sprintf("%ds", timeout)
+	config := mysql.NewConfig()
+	config.User = user
+	config.Passwd = string(secretObj.Data[user])
+	config.Net = "tcp"
+	config.DBName = "mysql"
+	config.Addr = fmt.Sprintf("%s:%d", host, port)
+	config.Params = map[string]string{
+		"interpolateParams": "true",
+		"timeout":           timeoutStr,
+		"readTimeout":       timeoutStr,
+		"writeTimeout":      timeoutStr,
+	}
+
+	db, err := sql.Open("mysql", config.FormatDSN())
 	if err != nil {
 		return Database{}, err
 	}
@@ -255,8 +272,8 @@ func (p *Database) DeleteReplicationSource(name, host string, port int) error {
 	return errors.Wrap(err, "delete replication source "+name)
 }
 
-func (p *Database) Status(host, ip string) ([]string, error) {
-	rows, err := p.db.Query("SELECT status FROM mysql_servers WHERE hostname LIKE ? OR hostname = ?;", host+"%", ip)
+func (p *Database) ProxySQLInstanceStatus(host string) ([]string, error) {
+	rows, err := p.db.Query("SELECT status FROM mysql_servers WHERE hostname LIKE ?;", host+"%")
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -277,6 +294,25 @@ func (p *Database) Status(host, ip string) ([]string, error) {
 	}
 
 	return statuses, nil
+}
+
+func (p *Database) PresentInHostgroups(host string) (bool, error) {
+	hostgroups := []string{WriterHostgroup, ReaderHostgroup}
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM mysql_servers
+		INNER JOIN mysql_galera_hostgroups ON hostgroup_id IN (%s)
+		WHERE hostname LIKE ? GROUP BY hostname`, strings.Join(hostgroups, ","))
+	var count int
+	err := p.db.QueryRow(query, host+"%").Scan(&count)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrNotFound
+		}
+		return false, err
+	}
+	if count != len(hostgroups) {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (p *Database) PrimaryHost() (string, error) {

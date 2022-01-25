@@ -2,6 +2,7 @@ package users
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
@@ -17,15 +18,22 @@ type SysUser struct {
 	Hosts []string `yaml:"hosts"`
 }
 
-func NewManager(addr string, user, pass string) (Manager, error) {
+func NewManager(addr string, user, pass string, timeout int32) (Manager, error) {
 	var um Manager
 
+	timeoutStr := fmt.Sprintf("%ds", timeout)
 	config := mysql.NewConfig()
 	config.User = user
 	config.Passwd = pass
 	config.Net = "tcp"
 	config.Addr = addr
-	config.Params = map[string]string{"interpolateParams": "true"}
+	config.DBName = "mysql"
+	config.Params = map[string]string{
+		"interpolateParams": "true",
+		"timeout":           timeoutStr,
+		"readTimeout":       timeoutStr,
+		"writeTimeout":      timeoutStr,
+	}
 
 	mysqlDB, err := sql.Open("mysql", config.FormatDSN())
 	if err != nil {

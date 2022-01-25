@@ -15,7 +15,7 @@ require (
 	github.com/go-openapi/validate v0.19.10
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-cmp v0.5.5
+	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/hashicorp/go-version v1.1.0
 	github.com/jetstack/cert-manager v1.0.4

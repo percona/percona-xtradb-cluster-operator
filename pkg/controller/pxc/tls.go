@@ -162,7 +162,14 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			SecretName: cr.Spec.PXC.SSLInternalSecretName,
 			CommonName: cr.Name + "-pxc",
 			DNSNames: []string{
+				cr.Name + "-pxc",
 				"*." + cr.Name + "-pxc",
+				cr.Name + "-haproxy-replicas." + cr.Namespace + ".svc.cluster.local",
+				cr.Name + "-haproxy-replicas." + cr.Namespace,
+				cr.Name + "-haproxy-replicas",
+				cr.Name + "-haproxy." + cr.Namespace + ".svc.cluster.local",
+				cr.Name + "-haproxy." + cr.Namespace,
+				cr.Name + "-haproxy",
 			},
 			IsCA: true,
 			IssuerRef: cmmeta.ObjectReference{

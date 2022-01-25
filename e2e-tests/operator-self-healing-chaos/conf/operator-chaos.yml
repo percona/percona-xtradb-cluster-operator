@@ -6,6 +6,7 @@ spec:
   secretsName: my-cluster-secrets
   sslSecretName: some-name-ssl
   sslInternalSecretName: some-name-ssl-internal
+  initImage: -init
   pxc:
     size: 3
     image: -pxc

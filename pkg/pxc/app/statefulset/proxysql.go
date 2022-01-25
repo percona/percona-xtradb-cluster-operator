@@ -239,6 +239,16 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
+	if cr.Spec.AllowUnsafeConfig && (cr.Spec.TLS == nil || cr.Spec.TLS.IssuerConf == nil) {
+		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
+			Name:  "SSL_DIR",
+			Value: "/dev/null",
+		})
+		proxysqlMonit.Env = append(proxysqlMonit.Env, corev1.EnvVar{
+			Name:  "SSL_DIR",
+			Value: "/dev/null",
+		})
+	}
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		fvar := true
 		envFrom := corev1.EnvFromSource{

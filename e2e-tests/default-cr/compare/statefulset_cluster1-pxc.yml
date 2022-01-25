@@ -63,8 +63,8 @@ spec:
           name: logs
           resources:
             requests:
-              cpu: 600m
-              memory: 1G
+              cpu: 200m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -84,8 +84,8 @@ spec:
           name: logrotate
           resources:
             requests:
-              cpu: 600m
-              memory: 1G
+              cpu: 200m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

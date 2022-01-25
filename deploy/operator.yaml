@@ -47,6 +47,13 @@ spec:
             path: /metrics
             port: metrics
             scheme: HTTP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 500Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
         name: percona-xtradb-cluster-operator
         ports:
         - containerPort: 8080

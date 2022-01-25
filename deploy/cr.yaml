@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-10-0
+apiVersion: pxc.percona.com/v1-11-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -9,13 +9,13 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.10.0
-  secretsName: my-cluster-secrets
-  vaultSecretName: keyring-secret-vault
-  sslSecretName: my-cluster-ssl
-  sslInternalSecretName: my-cluster-ssl-internal
-  logCollectorSecretName: my-log-collector-secrets
-#  initImage: percona/percona-xtradb-cluster-operator:1.9.0
+  crVersion: 1.11.0
+#  secretsName: my-cluster-secrets
+#  vaultSecretName: keyring-secret-vault
+#  sslSecretName: my-cluster-ssl
+#  sslInternalSecretName: my-cluster-ssl-internal
+#  logCollectorSecretName: my-log-collector-secrets
+#  initImage: percona/percona-xtradb-cluster-operator:1.10.0
 #  enableCRValidationWebhook: true
 #  tls:
 #    SANs:
@@ -290,6 +290,8 @@ spec:
 #      - 10.0.0.0/8
 #    serviceAnnotations:
 #      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    serviceLabels:
+#      rack: rack-23
   proxysql:
     enabled: false
     size: 3
@@ -306,6 +308,9 @@ spec:
 #
 #        cluster_username="proxyadmin"
 #        cluster_password="admin_password"
+#        checksum_admin_variables=false
+#        checksum_ldap_variables=false
+#        checksum_mysql_variables=false
 #        cluster_check_interval_ms=200
 #        cluster_check_status_frequency=100
 #        cluster_mysql_query_rules_save_to_disk=true
@@ -420,6 +425,8 @@ spec:
 #     - 10.0.0.0/8
 #   serviceAnnotations:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#   serviceLabels:
+#     rack: rack-23
   logcollector:
     enabled: true
     image: perconalab/percona-xtradb-cluster-operator:main-logcollector
@@ -437,7 +444,7 @@ spec:
         cpu: 200m
   pmm:
     enabled: false
-    image: percona/pmm-client:2.18.0
+    image: percona/pmm-client:2.23.0
     serverHost: monitoring-service
     serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
@@ -455,9 +462,17 @@ spec:
       enabled: false
       storageName: STORAGE-NAME-HERE
       timeBetweenUploads: 60
+#      resources:
+#        requests:
+#          memory: 0.1G
+#          cpu: 100m
+#        limits:
+#          memory: 1G
+#          cpu: 700m
     storages:
       s3-us-west:
         type: s3
+        verifyTLS: true
 #        nodeSelector:
 #          storage: tape
 #          backupWorker: 'True'

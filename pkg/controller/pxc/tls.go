@@ -45,7 +45,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconsileSSL(cr *api.PerconaXtraDBCluste
 	} else if errInternalSecret != nil && !k8serr.IsNotFound(errInternalSecret) {
 		return fmt.Errorf("get internal secret: %v", errInternalSecret)
 	}
-
+	// don't create secret ssl-internal if secret ssl is not created by operator
+	if errSecret == nil && !metav1.IsControlledBy(&secretObj, cr) {
+		return nil
+	}
 	err := r.createSSLByCertManager(cr)
 	if err != nil {
 		if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {

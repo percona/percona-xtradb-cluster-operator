@@ -1,5 +1,5 @@
-Percona Distribution for MySQL Operator
-=======================================
+Percona Distribution for MySQL Operator based on Percona XtraDB Cluster
+=======================================================================
 
 Kubernetes and the OpenShift platform, based on Kubernetes, have added a way to
 manage containerized systems, including database clusters. This management is

@@ -49,6 +49,7 @@ To specify your own repository for the Percona XtraDB Cluster Operator docker im
 ```
 export IMAGE=bob/my_repository_for_test_images:K8SPXC-622-fix-feature-X
 ```
+
 Use the following script to build the image:
 
 ```

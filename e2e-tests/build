@@ -21,6 +21,7 @@ build_operator() {
 	fi
 
 	export IMAGE
+	export DOCKER_DEFAULT_PLATFORM=${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
 	export GO_LDFLAGS="-w -s -trimpath $GO_LDFLAGS"
 	pushd ${src_dir}
 	docker build \

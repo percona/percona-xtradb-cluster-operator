@@ -49,6 +49,11 @@ To specify your own repository for the Percona XtraDB Cluster Operator docker im
 ```
 export IMAGE=bob/my_repository_for_test_images:K8SPXC-622-fix-feature-X
 ```
+We use linux/amd64 platform by default. To specify another platform, you can use DOCKER_DEFAULT_PLATFORM environment variable
+
+```
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+```
 
 Use the following script to build the image:
 

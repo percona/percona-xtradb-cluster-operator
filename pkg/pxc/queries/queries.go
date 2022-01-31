@@ -230,8 +230,8 @@ func (p *Database) StopReplication(name string) error {
 }
 
 func (p *Database) EnableReadonly() error {
-	_, err := p.db.Exec("SET GLOBAL READ_ONLY=1")
-	return errors.Wrap(err, "set global read_only param to 1")
+	_, err := p.db.Exec("SET GLOBAL SUPET_READ_ONLY=1")
+	return errors.Wrap(err, "set global super_read_only param to 1")
 }
 
 func (p *Database) DisableReadonly() error {

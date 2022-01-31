@@ -486,7 +486,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 			return errors.Wrap(err, "get proxysql pod")
 		}
 		var errb, outb bytes.Buffer
-		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers"}, nil, &outb, &errb, false)
+		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
 		if err != nil {
 			return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
 		}

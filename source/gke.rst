@@ -2,7 +2,7 @@
 Install Percona XtraDB Cluster on Google Kubernetes Engine (GKE)
 ==========================================================================================
 
-This quickstart shows you how to configure the Percona Distribution for MySQL Operator with the Google Kubernetes Engine. The document assumes some experience with Google Kubernetes Engine (GKE). For more information on the GKE, see the `Kubernetes Engine Quickstart <https://cloud.google.com/kubernetes-engine/docs/quickstart>`_.
+This quickstart shows you how to configure the Percona Distribution for MySQL Operator  based on Percona XtraDB Cluster with the Google Kubernetes Engine. The document assumes some experience with Google Kubernetes Engine (GKE). For more information on the GKE, see the `Kubernetes Engine Quickstart <https://cloud.google.com/kubernetes-engine/docs/quickstart>`_.
 
 Prerequisites
 =============

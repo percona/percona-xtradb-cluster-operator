@@ -3,7 +3,7 @@
 Configuring Load Balancing with HAProxy
 =======================================
 
-Percona Distribution for MySQL Operator provides a choice of two cluster components to
+Percona Distribution for MySQL Operator based on Percona XtraDB Cluster provides a choice of two cluster components to
 provide load balancing and proxy service: you can use either `HAProxy <https://haproxy.org>`_ or `ProxySQL <https://proxysql.com/>`_.
 You can control which one to use, if any, by enabling or disabling via the
 ``haproxy.enabled`` and ``proxysql.enabled`` options in the ``deploy/cr.yaml``

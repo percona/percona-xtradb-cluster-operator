@@ -3,7 +3,7 @@
 Install Percona XtraDB Cluster cluster-wide
 ============================================
 
-By default, Percona XtraDB Cluster Operator functions in a specific Kubernetes
+By default, Percona Distribution for MySQL Operator based on Percona XtraDB Cluster functions in a specific Kubernetes
 namespace. You can create one during installation (like it is shown in the 
 :ref:`installation instructions<install-kubernetes>`) or just use the ``default``
 namespace. This approach allows several Operators to co-exist in one
@@ -15,7 +15,7 @@ Kubernetes-based environment, being separated in different namespaces:
 Still, sometimes it is more convenient to have one Operator watching for
 Percona XtraDB Cluster custom resources in several namespaces.
 
-We recommend running Percona XtraDB Cluster Operator in a traditional way,
+We recommend running Percona Distribution for MySQL Operator in a traditional way,
 limited to a specific namespace. But it is possible to run it in so-called
 *cluster-wide* mode, one Operator watching several namespaces, if needed:
 

@@ -8,9 +8,9 @@ on specific nodes: for example, to get speed advantages of the SSD
 equipped machine, or to reduce costs choosing nodes in a same
 availability zone.
 
-Both ``pxc`` and ``proxysql`` sections of the
+Appropriate sections of the
 `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
-file contain keys which can be used to do this, depending on what is the
+file (such as ``pxc``, ``haproxy``, and ``proxysql``) contain keys which can be used to do this, depending on what is the
 best for a particular situation.
 
 Node selector

@@ -42,6 +42,7 @@ Quickstart guides
    minikube
    gke
    eks
+   helm
 
 Advanced Installation Guides
 ============================
@@ -53,7 +54,6 @@ Advanced Installation Guides
    openshift
    custom-registry
    broker
-   helm
    cluster-wide
 
 Configuration

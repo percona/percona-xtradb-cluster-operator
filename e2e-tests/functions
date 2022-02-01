@@ -853,7 +853,7 @@ kubectl_bin() {
 		if [[ ${exit_status} != 0 ]]; then
 			sleep "$((timeout * i))"
 		else
-		  break
+			break
 		fi
 	done
 	cat "$LAST_OUT"

@@ -289,19 +289,19 @@ pipeline {
             }
             parallel {
                 stage('E2E Upgrade') {
-//                     steps {
-//                         CreateCluster('upgrade')
-//                         runTest('upgrade-haproxy', 'upgrade')
-//                         ShutdownCluster('upgrade')
-//                         CreateCluster('upgrade')
-//                         runTest('upgrade-proxysql', 'upgrade')
-//                         ShutdownCluster('upgrade')
-//                         CreateCluster('upgrade')
-//                         runTest('smart-update', 'upgrade')
-//                         runTest('upgrade-consistency', 'upgrade')
-//                         ShutdownCluster('upgrade')
-//                     }
-//                 }
+                    steps {
+                        CreateCluster('upgrade')
+                        runTest('upgrade-haproxy', 'upgrade')
+                        ShutdownCluster('upgrade')
+                        CreateCluster('upgrade')
+                        runTest('upgrade-proxysql', 'upgrade')
+                        ShutdownCluster('upgrade')
+                        CreateCluster('upgrade')
+                        runTest('smart-update', 'upgrade')
+                        runTest('upgrade-consistency', 'upgrade')
+                        ShutdownCluster('upgrade')
+                    }
+                }
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
@@ -343,31 +343,31 @@ pipeline {
                         ShutdownCluster('selfhealing')
                     }
                 }
-//                 stage('E2E Backups') {
-//                     steps {
-//                         CreateCluster('backups')
-//                         runTest('recreate', 'backups')
-//                         runTest('restore-to-encrypted-cluster', 'backups')
-//                         runTest('demand-backup', 'backups')
-//                         runTest('pitr', 'backups')
-//                         runTest('demand-backup-encrypted-with-tls', 'backups')
-//                         ShutdownCluster('backups')
-//                     }
-//                 }
-//                 stage('E2E Scheduled-backups') {
-//                     steps {
-//                         CreateCluster('scheduled-backups')
-//                         runTest('scheduled-backup', 'scheduled-backups')
-//                         ShutdownCluster('scheduled-backups')
-//                     }
-//                 }
-//                 stage('E2E BigData') {
-//                     steps {
-//                         CreateCluster('bigdata')
-//                         runTest('big-data', 'bigdata')
-//                         ShutdownCluster('bigdata')
-//                     }
-//                 }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('backups')
+                        runTest('recreate', 'backups')
+                        runTest('restore-to-encrypted-cluster', 'backups')
+                        runTest('demand-backup', 'backups')
+                        runTest('pitr', 'backups')
+                        runTest('demand-backup-encrypted-with-tls', 'backups')
+                        ShutdownCluster('backups')
+                    }
+                }
+                stage('E2E Scheduled-backups') {
+                    steps {
+                        CreateCluster('scheduled-backups')
+                        runTest('scheduled-backup', 'scheduled-backups')
+                        ShutdownCluster('scheduled-backups')
+                    }
+                }
+                stage('E2E BigData') {
+                    steps {
+                        CreateCluster('bigdata')
+                        runTest('big-data', 'bigdata')
+                        ShutdownCluster('bigdata')
+                    }
+                }
             }
         }
     }

@@ -307,17 +307,17 @@ pipeline {
                         CreateCluster('basic')
                         runTest('haproxy', 'basic')
                         runTest('init-deploy', 'basic')
-//                         runTest('limits', 'basic')
-//                         runTest('monitoring-2-0', 'basic')
-//                         runTest('affinity', 'basic')
+                        runTest('limits', 'basic')
+                        runTest('monitoring-2-0', 'basic')
+                        runTest('affinity', 'basic')
                         runTest('one-pod', 'basic')
-//                         runTest('auto-tuning', 'basic')
-//                         runTest('proxysql-sidecar-res-limits', 'basic')
+                        runTest('auto-tuning', 'basic')
+                        runTest('proxysql-sidecar-res-limits', 'basic')
                         runTest('users', 'basic')
-//                         runTest('tls-issue-self','basic')
-//                         runTest('tls-issue-cert-manager','basic')
-//                         runTest('tls-issue-cert-manager-ref','basic')
-//                         runTest('validation-hook','basic')
+                        runTest('tls-issue-self','basic')
+                        runTest('tls-issue-cert-manager','basic')
+                        runTest('tls-issue-cert-manager-ref','basic')
+                        runTest('validation-hook','basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -325,8 +325,8 @@ pipeline {
                     steps {
                         CreateCluster('scaling')
                         runTest('scaling', 'scaling')
-//                         runTest('scaling-proxysql', 'scaling')
-//                         runTest('security-context', 'scaling')
+                        runTest('scaling-proxysql', 'scaling')
+                        runTest('security-context', 'scaling')
                         ShutdownCluster('scaling')
                     }
                 }
@@ -334,11 +334,11 @@ pipeline {
                     steps {
                         CreateCluster('selfhealing')
                         runTest('storage', 'selfhealing')
-//                         runTest('self-healing', 'selfhealing')
+                        runTest('self-healing', 'selfhealing')
                         runTest('self-healing-chaos', 'selfhealing')
                         runTest('self-healing-advanced', 'selfhealing')
                         runTest('self-healing-advanced-chaos', 'selfhealing')
-//                         runTest('operator-self-healing', 'selfhealing')
+                        runTest('operator-self-healing', 'selfhealing')
                         runTest('operator-self-healing-chaos', 'selfhealing')
                         ShutdownCluster('selfhealing')
                     }

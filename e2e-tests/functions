@@ -1,8 +1,5 @@
 #!/bin/bash
 
-#exec 5>&2
-#BASH_XTRACEFD="5"
-
 GIT_COMMIT=$(git rev-parse HEAD)
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
@@ -402,8 +399,6 @@ run_mysql() {
 	client_pod=$(get_client_pod)
 	wait_pod $client_pod 1>&2
 
-#	[[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $client_pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
-
 	set +o xtrace
 	kubectl_bin exec $client_pod -- \
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
@@ -417,8 +412,6 @@ run_mysql_local() {
 	local uri="$2"
 	local pod="$3"
 	local container_name="$4"
-
-#	[[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $pod -- bash -c \"printf '$command\n' | mysql -sN $uri\"" >&$BASH_XTRACEFD
 
 	set +o xtrace
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \

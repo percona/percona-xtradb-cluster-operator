@@ -44,7 +44,7 @@ needs some repository for the newly created docker images. If nothing is
 specified, scripts use Percona's experimental repository `perconalab/percona-xtradb-cluster-operator`, which
 requires decent access rights to make a push.
 
-To specify your own repository for the Percona XtraDB Cluster Operator docker image, you can use IMAGE environment variable:
+To specify your own repository for the Operator docker image, you can use IMAGE environment variable:
 
 ```
 export IMAGE=bob/my_repository_for_test_images:K8SPXC-622-fix-feature-X
@@ -99,7 +99,7 @@ Tests can also be run one-by-one using the appropriate scripts (their names shou
 You can use environment variables to re-declare all default docker images used for testing. The
 full list of variables is the following one:
 
-* `IMAGE` - Percona XtraDB Cluster Operator, `perconalab/percona-xtradb-cluster-operator:main` by default,
+* `IMAGE` - the Operator, `perconalab/percona-xtradb-cluster-operator:main` by default,
 * `IMAGE_PXC` - Percona XtraDB Cluster, `perconalab/percona-xtradb-cluster-operator:main-pxc8.0` by default,
 * `IMAGE_PMM` - Percona Monitoring and Management (PMM) client, `perconalab/pmm-client:dev-latest` by default,
 * `IMAGE_PROXY` - ProxySQL, `perconalab/percona-xtradb-cluster-operator:main-proxysql` by default,

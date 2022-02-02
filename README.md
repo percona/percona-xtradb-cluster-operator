@@ -37,8 +37,8 @@ helm install my-db percona/pxc-db
 
 See more details in:
 - [Helm installation documentation](https://www.percona.com/doc/kubernetes-operator-for-pxc/helm.html)
-- [Operator chart parameter reference](https://github.com/percona/percona-helm-charts/tree/main/charts/pxc-operator)
-- [Percona XtraDB Cluster parameters reference](https://github.com/percona/percona-helm-charts/tree/main/charts/pxc-db)
+- [Operator helm chart parameter reference](https://github.com/percona/percona-helm-charts/tree/main/charts/pxc-operator)
+- [Percona XtraDB Cluster helm chart parameters reference](https://github.com/percona/percona-helm-charts/tree/main/charts/pxc-db)
 
 
 ## kubectl

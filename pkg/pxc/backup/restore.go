@@ -480,12 +480,12 @@ func xbMemoryUse(cluster api.PerconaXtraDBClusterSpec) (useMem string, k8sQuanti
 	var memory string
 
 	if cluster.PXC.Resources != nil {
-		if cluster.PXC.Resources.Requests != nil && cluster.PXC.Resources.Requests.Memory != "" {
-			memory = cluster.PXC.Resources.Requests.Memory
+		if cluster.PXC.Resources.Requests != nil && cluster.PXC.Resources.Requests.Memory != nil {
+			memory = cluster.PXC.Resources.Requests.Memory.String()
 		}
 
-		if cluster.PXC.Resources.Limits != nil && cluster.PXC.Resources.Limits.Memory != "" {
-			memory = cluster.PXC.Resources.Limits.Memory
+		if cluster.PXC.Resources.Limits != nil && cluster.PXC.Resources.Limits.Memory != nil {
+			memory = cluster.PXC.Resources.Limits.Memory.String()
 		}
 
 		k8sQuantity, err = resource.ParseQuantity(memory)

@@ -37,20 +37,20 @@ func CreateResources(r *api.PodResources) (rr corev1.ResourceRequirements, err e
 func createResourceList(l *api.ResourcesList) (rlist corev1.ResourceList, err error) {
 	rlist = make(corev1.ResourceList)
 
-	if len(l.CPU) > 0 {
-		rlist[corev1.ResourceCPU], err = resource.ParseQuantity(l.CPU)
+	if l.CPU != nil {
+		rlist[corev1.ResourceCPU], err = resource.ParseQuantity(l.CPU.String())
 		if err != nil {
 			return nil, fmt.Errorf("malformed CPU resources: %v", err)
 		}
 	}
-	if len(l.Memory) > 0 {
-		rlist[corev1.ResourceMemory], err = resource.ParseQuantity(l.Memory)
+	if l.Memory != nil {
+		rlist[corev1.ResourceMemory], err = resource.ParseQuantity(l.Memory.String())
 		if err != nil {
 			return nil, fmt.Errorf("malformed memory resources: %v", err)
 		}
 	}
-	if len(l.EphemeralStorage) > 0 {
-		rlist[corev1.ResourceEphemeralStorage], err = resource.ParseQuantity(l.EphemeralStorage)
+	if l.EphemeralStorage != nil {
+		rlist[corev1.ResourceEphemeralStorage], err = resource.ParseQuantity(l.EphemeralStorage.String())
 		if err != nil {
 			return nil, fmt.Errorf("malformed ephemeral-storage resources: %v", err)
 		}

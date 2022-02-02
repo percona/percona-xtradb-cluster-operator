@@ -27,14 +27,14 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.
 
 	if cr.Spec.PXC.Resources != nil {
 		if cr.Spec.PXC.Resources.Requests != nil {
-			if len(cr.Spec.PXC.Resources.Requests.Memory) > 0 {
-				memory = cr.Spec.PXC.Resources.Requests.Memory
+			if cr.Spec.PXC.Resources.Requests.Memory != nil {
+				memory = cr.Spec.PXC.Resources.Requests.Memory.String()
 			}
 		}
 		// Use limits memory in priority if it set
 		if cr.Spec.PXC.Resources.Limits != nil {
-			if len(cr.Spec.PXC.Resources.Limits.Memory) > 0 {
-				memory = cr.Spec.PXC.Resources.Limits.Memory
+			if cr.Spec.PXC.Resources.Limits.Memory != nil {
+				memory = cr.Spec.PXC.Resources.Limits.Memory.String()
 			}
 		}
 	}

@@ -820,13 +820,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 
 	if cr.Spec.PXC.Resources != nil {
 		if cr.Spec.PXC.Resources.Limits != nil {
-			if cr.Spec.PXC.Resources.Limits.Memory != "" {
-				limitMemory = cr.Spec.PXC.Resources.Limits.Memory
+			if cr.Spec.PXC.Resources.Limits.Memory != nil {
+				limitMemory = cr.Spec.PXC.Resources.Limits.Memory.String()
 			}
 		}
 		if cr.Spec.PXC.Resources.Requests != nil {
-			if cr.Spec.PXC.Resources.Requests.Memory != "" {
-				requestMemory = cr.Spec.PXC.Resources.Requests.Memory
+			if cr.Spec.PXC.Resources.Requests.Memory != nil {
+				requestMemory = cr.Spec.PXC.Resources.Requests.Memory.String()
 			}
 		}
 	}

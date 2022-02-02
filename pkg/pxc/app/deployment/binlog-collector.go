@@ -158,12 +158,12 @@ func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) 
 		return 0, nil
 	}
 
-	if cluster.Backup.PITR.Resources.Requests != nil && cluster.Backup.PITR.Resources.Requests.Memory != "" {
-		memory = cluster.Backup.PITR.Resources.Requests.Memory
+	if cluster.Backup.PITR.Resources.Requests != nil && cluster.Backup.PITR.Resources.Requests.Memory != nil {
+		memory = cluster.Backup.PITR.Resources.Requests.Memory.String()
 	}
 
-	if cluster.Backup.PITR.Resources.Limits != nil && cluster.Backup.PITR.Resources.Limits.Memory != "" {
-		memory = cluster.Backup.PITR.Resources.Limits.Memory
+	if cluster.Backup.PITR.Resources.Limits != nil && cluster.Backup.PITR.Resources.Limits.Memory != nil {
+		memory = cluster.Backup.PITR.Resources.Limits.Memory.String()
 	}
 
 	k8sQuantity, err := resource.ParseQuantity(memory)

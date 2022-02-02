@@ -1,4 +1,4 @@
-![Percona Distribution for MySQL Operator](operator.png)
+![Percona Distribution for MySQL Operator based on Percona XtraDB Cluster](operator.png)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 

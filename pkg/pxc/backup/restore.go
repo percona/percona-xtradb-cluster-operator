@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -52,11 +51,6 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 		cluster.Backup.Storages[bcpStorageName] = &api.BackupStorageSpec{}
 	}
 
-	resources, err := app.CreateResources(cluster.Backup.Storages[bcpStorageName].Resources)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse backup resources: %w", err)
-	}
-
 	// Copy from the original labels to the restore labels
 	labels := make(map[string]string)
 	for key, value := range cluster.Backup.Storages[bcpStorageName].Labels {
@@ -103,7 +97,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 							MountPath: "/etc/mysql/vault-keyring-secret",
 						},
 					},
-					Resources: resources,
+					Resources: cluster.Backup.Storages[bcpStorageName].Resources,
 				},
 			},
 			Volumes: []corev1.Volume{
@@ -132,11 +126,6 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 }
 
 func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
-	resources, err := app.CreateResources(cluster.PXC.Resources)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse PXC resources: %w", err)
-	}
-
 	jobPVC := corev1.Volume{
 		Name: "datadir",
 		VolumeSource: corev1.VolumeSource{
@@ -202,7 +191,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 									Value: "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
 								},
 							},
-							Resources: resources,
+							Resources: cluster.PXC.Resources,
 						},
 					},
 					RestartPolicy:      corev1.RestartPolicyNever,
@@ -240,11 +229,6 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 
 // S3RestoreJob returns restore job object for s3
 func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec, pitr bool) (*batchv1.Job, error) {
-	resources, err := app.CreateResources(cluster.PXC.Resources)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse PXC resources: %w", err)
-	}
-
 	if bcp.Status.S3 == nil {
 		return nil, errors.New("nil s3 backup status")
 	}
@@ -440,7 +424,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 							SecurityContext: cluster.PXC.ContainerSecurityContext,
 							VolumeMounts:    volumeMounts,
 							Env:             envs,
-							Resources:       resources,
+							Resources:       cluster.PXC.Resources,
 						},
 					},
 					RestartPolicy:      corev1.RestartPolicyNever,
@@ -477,20 +461,12 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 }
 
 func xbMemoryUse(cluster api.PerconaXtraDBClusterSpec) (useMem string, k8sQuantity resource.Quantity, err error) {
-	var memory string
-
-	if cluster.PXC.Resources != nil {
-		if cluster.PXC.Resources.Requests != nil && cluster.PXC.Resources.Requests.Memory != nil {
-			memory = cluster.PXC.Resources.Requests.Memory.String()
+	if res := cluster.PXC.Resources; res.Size() > 0 {
+		if _, ok := res.Requests[corev1.ResourceMemory]; ok {
+			k8sQuantity = *res.Requests.Memory()
 		}
-
-		if cluster.PXC.Resources.Limits != nil && cluster.PXC.Resources.Limits.Memory != nil {
-			memory = cluster.PXC.Resources.Limits.Memory.String()
-		}
-
-		k8sQuantity, err = resource.ParseQuantity(memory)
-		if err != nil {
-			return "", resource.Quantity{}, err
+		if _, ok := res.Limits[corev1.ResourceMemory]; ok {
+			k8sQuantity = *res.Limits.Memory()
 		}
 
 		useMem75 := k8sQuantity.Value() / int64(100) * int64(75)

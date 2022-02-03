@@ -3,6 +3,7 @@ package config
 import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,19 +24,14 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName, filename, content string
 }
 
 func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.ConfigMap, error) {
-	var memory string
+	var memory *resource.Quantity
 
-	if cr.Spec.PXC.Resources != nil {
-		if cr.Spec.PXC.Resources.Requests != nil {
-			if cr.Spec.PXC.Resources.Requests.Memory != nil {
-				memory = cr.Spec.PXC.Resources.Requests.Memory.String()
-			}
+	if res := cr.Spec.PXC.Resources; res.Size() > 0 {
+		if _, ok := res.Requests[corev1.ResourceMemory]; ok {
+			memory = res.Requests.Memory()
 		}
-		// Use limits memory in priority if it set
-		if cr.Spec.PXC.Resources.Limits != nil {
-			if cr.Spec.PXC.Resources.Limits.Memory != nil {
-				memory = cr.Spec.PXC.Resources.Limits.Memory.String()
-			}
+		if _, ok := res.Limits[corev1.ResourceMemory]; ok {
+			memory = res.Limits.Memory()
 		}
 	}
 	autotuneParams, err := getAutoTuneParams(memory)

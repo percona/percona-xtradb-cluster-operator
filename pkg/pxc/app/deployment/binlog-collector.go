@@ -85,10 +85,6 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			Value: storage.S3.EndpointURL,
 		})
 	}
-	res, err := app.CreateResources(cr.Spec.Backup.PITR.Resources)
-	if err != nil {
-		return appsv1.Deployment{}, errors.Wrap(err, "create resources")
-	}
 	container := corev1.Container{
 		Name:            "pitr",
 		Image:           cr.Spec.Backup.Image,
@@ -96,7 +92,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 		Env:             envs,
 		SecurityContext: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].ContainerSecurityContext,
 		Command:         []string{"pitr"},
-		Resources:       res,
+		Resources:       cr.Spec.Backup.PITR.Resources,
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "mysql-users-secret-file",
@@ -152,24 +148,20 @@ func GetBinlogCollectorDeploymentName(cr *api.PerconaXtraDBCluster) string {
 }
 
 func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) {
-	var memory string
-
-	if cluster.Backup.PITR.Resources == nil {
+	res := cluster.Backup.PITR.Resources
+	if res.Size() == 0 {
 		return 0, nil
 	}
 
-	if cluster.Backup.PITR.Resources.Requests != nil && cluster.Backup.PITR.Resources.Requests.Memory != nil {
-		memory = cluster.Backup.PITR.Resources.Requests.Memory.String()
+	var memory *resource.Quantity
+
+	if _, ok := res.Requests[corev1.ResourceMemory]; ok {
+		memory = res.Requests.Memory()
 	}
 
-	if cluster.Backup.PITR.Resources.Limits != nil && cluster.Backup.PITR.Resources.Limits.Memory != nil {
-		memory = cluster.Backup.PITR.Resources.Limits.Memory.String()
+	if _, ok := res.Limits[corev1.ResourceMemory]; ok {
+		memory = res.Limits.Memory()
 	}
 
-	k8sQuantity, err := resource.ParseQuantity(memory)
-	if err != nil {
-		return 0, err
-	}
-
-	return k8sQuantity.Value() / int64(100) * int64(75), nil
+	return memory.Value() / int64(100) * int64(75), nil
 }

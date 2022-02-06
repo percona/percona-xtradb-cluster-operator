@@ -900,13 +900,14 @@ run_backup() {
 run_recovery_check() {
 	local cluster=$1
 	local backup1=$2
+	local proxy=$(get_proxy_engine $cluster)
 
 	desc 'recover backup'
 	kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
 	wait_backup_restore ${backup1}
 	kubectl_bin logs job/restore-job-${backup1}-${cluster}
 	kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
-	wait_for_running "$cluster-proxysql" 1
+	wait_for_running "$cluster-$proxy" 1
 	wait_for_running "$cluster-pxc" 3
 
 	sleep 35
@@ -1299,7 +1300,12 @@ function prepare_cr_yaml() {
 		| yq w - "spec.pxc.image" -- "-pxc" \
 		| yq w - "spec.proxysql.image" -- "-proxysql" \
 		| yq w - "spec.haproxy.image" -- "-haproxy" \
-		| yq w - "spec.backup.image" -- "-backup" >"${cr_yaml}"
+		| yq w - "spec.backup.image" -- "-backup" \
+		| yq w - "spec.backup.storages.minio.s3.credentialsSecret" "minio-secret" \
+		| yq w - "spec.backup.storages.minio.s3.region" "us-east-1" \
+		| yq w - "spec.backup.storages.minio.s3.bucket" "operator-testing" \
+		| yq w - "spec.backup.storages.minio.s3.endpointUrl" "http://minio-service:9000/" \
+		| yq w - "spec.backup.storages.minio.type" "s3" >"${cr_yaml}"
 	if [[ ${proxy} == "haproxy" ]]; then
 		yq w -i "${cr_yaml}" "spec.haproxy.enabled" "true"
 		yq w -i "${cr_yaml}" "spec.proxysql.enabled" "false"

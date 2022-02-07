@@ -39,8 +39,8 @@ main() {
 
   desc "Create replica cluster"
 
-  create_infra $replica_namespace
-  spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
+	create_infra $replica_namespace
+	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
 
 	run_mysql \
 		'DELETE FROM myApp.myApp WHERE id=100500' \

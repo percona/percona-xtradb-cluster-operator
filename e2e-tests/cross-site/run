@@ -29,13 +29,13 @@ main() {
 	echo "$endpoint1"
 	echo "$endpoint2"
 
-  desc 'write data'
-  run_mysql \
-    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS test (id int PRIMARY KEY);' \
-    "-h $source_cluster-pxc -uroot -proot_password"
-  run_mysql \
-    'INSERT myApp.test (id) VALUES (100700)' \
-    "-h $source_cluster-pxc -uroot -proot_password"
+	desc 'write data'
+	run_mysql \
+		'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS test (id int PRIMARY KEY);' \
+		"-h $source_cluster-pxc -uroot -proot_password"
+	run_mysql \
+		'INSERT myApp.test (id) VALUES (100700)' \
+		"-h $source_cluster-pxc -uroot -proot_password"
 
   desc "Create replica cluster"
 

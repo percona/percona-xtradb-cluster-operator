@@ -370,9 +370,9 @@ pipeline {
                 }
                 stage('E2E CrossSite') {
                     steps {
-                        CreateCluster('cross-site')
-                        runTest('cross-site', 'cross-site')
-                        ShutdownCluster('cross-site')
+                        CreateCluster('cross-site-replication')
+                        runTest('cross-site', 'cross-site-replication')
+                        ShutdownCluster('cross-site-replication')
                     }
                 }
             }

@@ -15,7 +15,7 @@ main() {
 	create_infra $namespace
 	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
 
-  kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"expose":{"enabled": true, "type": "LoadBalancer"}, "replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
+	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"expose":{"enabled": true, "type": "LoadBalancer"}, "replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
 
 	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
 	sleep 60

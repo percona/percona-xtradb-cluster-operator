@@ -48,9 +48,9 @@ main() {
 
 	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${endpoint0}'", "port": 3306, "weight": 100},{"host": "'${endpoint1}'", "port": 3306, "weight": 100},{"host": "'${endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
 
-  kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
-  sleep 30
-  wait_cluster_consistency "$replica_cluster" 3 2
+	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
+	sleep 30
+	wait_cluster_consistency "$replica_cluster" 3 2
 
   desc "Check replication works"
   compare_mysql_cmd "select-2" "SELECT * from myApp.test;" "-h $replica_cluster-pxc-0.$replica_cluster-pxc -uroot -proot_password"

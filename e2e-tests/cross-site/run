@@ -8,8 +8,8 @@ test_dir=$(realpath $(dirname $0))
 
 main() {
 
-  local source_cluster="cross-site-source"
-  local replica_cluster="cross-site-replica"
+	local source_cluster="cross-site-source"
+	local replica_cluster="cross-site-replica"
 
   desc "Create source cluster"
   create_infra $namespace

@@ -22,6 +22,7 @@ date=$(which gdate || which date)
 
 test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
+replica_namespace="${test_name}-replica-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
 

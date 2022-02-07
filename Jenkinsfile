@@ -354,6 +354,13 @@ pipeline {
                         ShutdownCluster('bigdata')
                     }
                 }
+                stage('E2E CrossSite') {
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site', 'cross-site')
+                        ShutdownCluster('cross-site')
+                    }
+                }
             }
         }
     }

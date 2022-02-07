@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+main() {
+
+  local source_cluster="cross-site-source"
+  local replica_cluster="cross-site-replica"
+
+  desc "Create source cluster"
+  create_infra $namespace
+  spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
+
+  kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"expose":{"enabled": true, "type": "LoadBalancer"}, "replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
+
+  kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
+  sleep 60
+  wait_cluster_consistency "$source_cluster" 3 2
+
+  endpoint0=$(get_service_endpoint ${source_cluster}-pxc-0)
+  endpoint1=$(get_service_endpoint ${source_cluster}-pxc-1)
+  endpoint2=$(get_service_endpoint ${source_cluster}-pxc-2)
+
+  echo "$endpoint0"
+  echo "$endpoint1"
+  echo "$endpoint2"
+
+  desc 'write data'
+  run_mysql \
+    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS test (id int PRIMARY KEY);' \
+    "-h $source_cluster-pxc -uroot -proot_password"
+  run_mysql \
+    'INSERT myApp.test (id) VALUES (100700)' \
+    "-h $source_cluster-pxc -uroot -proot_password"
+
+  desc "Create replica cluster"
+
+  create_infra $replica_namespace
+  spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
+
+  run_mysql \
+    'DELETE FROM myApp.myApp WHERE id=100500' \
+    "-h $replica_cluster-pxc -uroot -proot_password"
+
+  kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${endpoint0}'", "port": 3306, "weight": 100},{"host": "'${endpoint1}'", "port": 3306, "weight": 100},{"host": "'${endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
+
+  kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
+  sleep 30
+  wait_cluster_consistency "$replica_cluster" 3 2
+
+  desc "Check replication works"
+  compare_mysql_cmd "select-2" "SELECT * from myApp.test;" "-h $replica_cluster-pxc-0.$replica_cluster-pxc -uroot -proot_password"
+  compare_mysql_cmd "select-2" "SELECT * from myApp.test;" "-h $replica_cluster-pxc-1.$replica_cluster-pxc -uroot -proot_password"
+  compare_mysql_cmd "select-2" "SELECT * from myApp.test;" "-h $replica_cluster-pxc-2.$replica_cluster-pxc -uroot -proot_password"
+
+  echo "success3!"
+#    destroy $namespace
+#    destroy $replica_namespace
+}
+
+main

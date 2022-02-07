@@ -46,7 +46,7 @@ main() {
 		'DELETE FROM myApp.myApp WHERE id=100500' \
 		"-h $replica_cluster-pxc -uroot -proot_password"
 
-  kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${endpoint0}'", "port": 3306, "weight": 100},{"host": "'${endpoint1}'", "port": 3306, "weight": 100},{"host": "'${endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
+	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${endpoint0}'", "port": 3306, "weight": 100},{"host": "'${endpoint1}'", "port": 3306, "weight": 100},{"host": "'${endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
 
   kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
   sleep 30

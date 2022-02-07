@@ -37,7 +37,7 @@ main() {
 		'INSERT myApp.test (id) VALUES (100700)' \
 		"-h $source_cluster-pxc -uroot -proot_password"
 
-  desc "Create replica cluster"
+	desc "Create replica cluster"
 
 	create_infra $replica_namespace
 	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"

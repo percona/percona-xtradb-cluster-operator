@@ -11,9 +11,9 @@ main() {
 	local source_cluster="cross-site-source"
 	local replica_cluster="cross-site-replica"
 
-  desc "Create source cluster"
-  create_infra $namespace
-  spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
+	desc "Create source cluster"
+	create_infra $namespace
+	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
 
   kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"expose":{"enabled": true, "type": "LoadBalancer"}, "replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
 

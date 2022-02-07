@@ -25,22 +25,22 @@ main() {
 	endpoint1=$(get_service_endpoint ${source_cluster}-pxc-1)
 	endpoint2=$(get_service_endpoint ${source_cluster}-pxc-2)
 
-  echo "$endpoint0"
-  echo "$endpoint1"
-  echo "$endpoint2"
+	echo "$endpoint0"
+	echo "$endpoint1"
+	echo "$endpoint2"
 
-  desc 'write data'
-  run_mysql \
-    'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS test (id int PRIMARY KEY);' \
-    "-h $source_cluster-pxc -uroot -proot_password"
-  run_mysql \
-    'INSERT myApp.test (id) VALUES (100700)' \
-    "-h $source_cluster-pxc -uroot -proot_password"
+	desc 'write data'
+	run_mysql \
+		'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS test (id int PRIMARY KEY);' \
+		"-h $source_cluster-pxc -uroot -proot_password"
+	run_mysql \
+		'INSERT myApp.test (id) VALUES (100700)' \
+		"-h $source_cluster-pxc -uroot -proot_password"
 
-  desc "Create replica cluster"
+	desc "Create replica cluster"
 
-  create_infra $replica_namespace
-  spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
+	create_infra $replica_namespace
+	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
 
 	run_mysql \
 		'DELETE FROM myApp.myApp WHERE id=100500' \

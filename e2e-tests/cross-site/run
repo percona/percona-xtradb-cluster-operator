@@ -57,9 +57,9 @@ main() {
 	compare_mysql_cmd "select-2" "SELECT * from myApp.test;" "-h $replica_cluster-pxc-1.$replica_cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd "select-2" "SELECT * from myApp.test;" "-h $replica_cluster-pxc-2.$replica_cluster-pxc -uroot -proot_password"
 
-  echo "success3!"
-#    destroy $namespace
-#    destroy $replica_namespace
+
+  destroy $namespace
+  destroy $replica_namespace
 }
 
 main

@@ -21,9 +21,9 @@ main() {
 	sleep 60
 	wait_cluster_consistency "$source_cluster" 3 2
 
-  endpoint0=$(get_service_endpoint ${source_cluster}-pxc-0)
-  endpoint1=$(get_service_endpoint ${source_cluster}-pxc-1)
-  endpoint2=$(get_service_endpoint ${source_cluster}-pxc-2)
+	endpoint0=$(get_service_endpoint ${source_cluster}-pxc-0)
+	endpoint1=$(get_service_endpoint ${source_cluster}-pxc-1)
+	endpoint2=$(get_service_endpoint ${source_cluster}-pxc-2)
 
   echo "$endpoint0"
   echo "$endpoint1"

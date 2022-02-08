@@ -90,6 +90,11 @@ in the OpenShift environment.
 8. Repeat steps 3-5 for other images, updating the ``image``options in the
    corresponding sections of the the ``deploy/cr.yaml`` file.
 
+   .. note:: Don't forget to set :ref:`upgradeoptions.apply<upgradeoptions-apply>`
+      option to ``Disabled``. Otherwise :ref:`Smart Upgrade functionality<operator-update-smartupdates>`
+      will try using the image recommended by the Version Service instead of the
+      custom one.
+
    Please note it is possible to specify ``imagePullSecrets`` option for
    the images, if the registry requires authentication.
 

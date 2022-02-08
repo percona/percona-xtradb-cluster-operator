@@ -11,6 +11,9 @@ spec:
   pxc:
     size: 3
     image: -pxc
+    expose:
+      enabled: true
+      type: LoadBalancer
     resources:
       requests:
         memory: 1G

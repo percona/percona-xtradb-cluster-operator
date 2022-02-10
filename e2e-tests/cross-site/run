@@ -62,7 +62,6 @@ main() {
   compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint0 -uroot -proot_password"
   compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint1 -uroot -proot_password"
   compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint2 -uroot -proot_password"
-  echo "Success 1"
 
   desc "Switch clusters over"
   kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"

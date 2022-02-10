@@ -546,6 +546,14 @@ The Operator options glossary
       :ref:`haproxy.serviceAnnotations<haproxy-serviceannotations>`
 
       :ref:`proxysql.serviceAnnotations<proxysql-serviceannotations>`
+      
+   serviceLabels
+
+     ..
+
+      :ref:`haproxy.serviceLabels<haproxy-servicelabels>`
+
+      :ref:`proxysql.serviceLabels<proxysql-servicelabels>`
 
    serviceType
 

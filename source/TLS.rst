@@ -65,7 +65,7 @@ The following commands perform all the needed actions:
 
    $ kubectl create namespace cert-manager
    $ kubectl label namespace cert-manager certmanager.k8s.io/disable-validation=true
-   $ kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.yaml
+   $ kubectl_bin apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml
 
 After the installation, you can verify the *cert-manager* by running the following command:
 

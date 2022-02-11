@@ -224,7 +224,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
 			},
 		},
-		Resources: spec.Resources,
+		Resources: spec.SidecarResources,
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "haproxy-custom",

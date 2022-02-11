@@ -24,7 +24,7 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName, filename, content string
 }
 
 func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.ConfigMap, error) {
-	var memory *resource.Quantity
+	memory := new(resource.Quantity)
 
 	if res := cr.Spec.PXC.Resources; res.Size() > 0 {
 		if _, ok := res.Requests[corev1.ResourceMemory]; ok {

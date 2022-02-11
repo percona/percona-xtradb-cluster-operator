@@ -813,7 +813,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	requestMemory := cr.Spec.PXC.Resources.Requests.Memory().String()
 
 	if cr.CompareVersionWith("1.3.0") >= 0 {
-		if len(limitMemory) > 0 || len(requestMemory) > 0 {
+		if limitMemory != "0" || requestMemory != "0" {
 			configMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
 			if err != nil {
 				return errors.Wrap(err, "new auto-config map")

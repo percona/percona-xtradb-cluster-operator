@@ -58,10 +58,10 @@ main() {
 	sleep 15
 	wait_cluster_consistency "$replica_cluster" 3 2
 
-  desc "Check replication source-> replica works on"
-  compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint0 -uroot -proot_password"
-  compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint1 -uroot -proot_password"
-  compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint2 -uroot -proot_password"
+	desc "Check replication source-> replica works on"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint0 -uroot -proot_password"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint1 -uroot -proot_password"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint2 -uroot -proot_password"
 
 	desc "Switch clusters over"
 	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"

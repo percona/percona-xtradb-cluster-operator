@@ -372,7 +372,7 @@ pipeline {
                     steps {
                         CreateCluster('cross-site')
                         runTest('cross-site', 'cross-site-replication')
-                        ShutdownCluster('cross-site-replication')
+                        ShutdownCluster('cross-site')
                     }
                 }
             }

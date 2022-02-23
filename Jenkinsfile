@@ -122,9 +122,9 @@ void installRpms() {
     '''
 }
 
-def skipBranchBulds = true
+def skipBranchBuilds = true
 if ( env.CHANGE_URL ) {
-    skipBranchBulds = false
+    skipBranchBuilds = false
 }
 
 pipeline {
@@ -145,7 +145,7 @@ pipeline {
         stage('Prepare') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -193,7 +193,7 @@ pipeline {
         stage('Build docker image') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -220,7 +220,7 @@ pipeline {
         stage('GoLicenseDetector test') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -247,7 +247,7 @@ pipeline {
         stage('GoLicense test') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -281,7 +281,7 @@ pipeline {
         stage('Run tests for operator') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             options {

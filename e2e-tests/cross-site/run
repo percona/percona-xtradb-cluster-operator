@@ -42,9 +42,9 @@ main() {
 
 	desc "Create replica cluster"
 
-  create_namespace $replica_namespace 0
-  deploy_operator
-  apply_secrets
+	create_namespace $replica_namespace 0
+	deploy_operator
+	apply_secrets
 	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
 	sleep 60
 	replica_endpoint0=$(get_service_endpoint ${replica_cluster}-pxc-0)

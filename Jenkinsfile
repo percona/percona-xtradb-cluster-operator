@@ -288,7 +288,7 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             parallel {
-                stage('E2E Upgrade') {
+                stage('Set 1') {
                     steps {
                         CreateCluster('cluster1')
                         runTest('recreate', 'cluster1')

@@ -376,7 +376,7 @@ pipeline {
             script {
                 setTestsresults()
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                  
+
                     try {
                         slackSend channel: "@${AUTHOR_NAME}", color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }

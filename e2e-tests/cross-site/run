@@ -13,9 +13,9 @@ main() {
 
 	desc "Create source cluster"
 
-  create_namespace $namespace
-  deploy_operator
-  apply_secrets
+	create_namespace $namespace
+	deploy_operator
+	apply_secrets
 	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
 	sleep 60
 

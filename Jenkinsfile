@@ -290,82 +290,93 @@ pipeline {
             parallel {
                 stage('E2E Upgrade') {
                     steps {
-                        CreateCluster('upgrade')
-                        runTest('upgrade-haproxy', 'upgrade')
-                        ShutdownCluster('upgrade')
-                        CreateCluster('upgrade')
-                        runTest('upgrade-proxysql', 'upgrade')
-                        ShutdownCluster('upgrade')
-                        CreateCluster('upgrade')
-                        runTest('smart-update', 'upgrade')
-                        runTest('upgrade-consistency', 'upgrade')
-                        ShutdownCluster('upgrade')
+                        CreateCluster('cluster1')
+                        runTest('recreate', 'cluster1')
+                        runTest('auto-tuning', 'cluster1')
+                        runTest('self-healing-advanced', 'cluster1')
+                        runTest('self-healing-advanced-chaos', 'cluster1')
+                        runTest('smart-update', 'cluster1')
+                        ShutdownCluster('cluster1')
+
                     }
                 }
-                stage('E2E Basic Tests') {
+
+                stage('Set 2') {
                     steps {
-                        CreateCluster('basic')
-                        runTest('haproxy', 'basic')
-                        runTest('init-deploy', 'basic')
-                        runTest('limits', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('affinity', 'basic')
-                        runTest('one-pod', 'basic')
-                        runTest('auto-tuning', 'basic')
-                        runTest('proxysql-sidecar-res-limits', 'basic')
-                        runTest('users', 'basic')
-                        runTest('tls-issue-self','basic')
-                        runTest('tls-issue-cert-manager','basic')
-                        runTest('tls-issue-cert-manager-ref','basic')
-                        runTest('validation-hook','basic')
-                        ShutdownCluster('basic')
+                        CreateCluster('cluster2')
+                        runTest('monitoring-2-0', 'cluster2')
+                        runTest('self-healing', 'cluster2')
+                        runTest('self-healing-chaos', 'cluster2')
+                        runTest('operator-self-healing', 'cluster2')
+                        runTest('upgrade-consistency', 'cluster2')
+                        ShutdownCluster('cluster2')
                     }
                 }
-                stage('E2E Scaling') {
+
+                stage('Set 3') {
                     steps {
-                        CreateCluster('scaling')
-                        runTest('scaling', 'scaling')
-                        runTest('scaling-proxysql', 'scaling')
-                        runTest('security-context', 'scaling')
-                        ShutdownCluster('scaling')
+                        CreateCluster('cluster3')
+                        runTest('big-data', 'cluster3')
+                        runTest('init-deploy', 'cluster3')
+                        runTest('haproxy', 'cluster3')
+                        runTest('validation-hook', 'cluster3')
+                        runTest('operator-self-healing-chaos', 'cluster3')
+                        ShutdownCluster('cluster3')
                     }
                 }
-                stage('E2E SelfHealing') {
+
+                stage('Set 4') {
                     steps {
-                        CreateCluster('selfhealing')
-                        runTest('storage', 'selfhealing')
-                        runTest('self-healing', 'selfhealing')
-                        runTest('self-healing-chaos', 'selfhealing')
-                        runTest('self-healing-advanced', 'selfhealing')
-                        runTest('self-healing-advanced-chaos', 'selfhealing')
-                        runTest('operator-self-healing', 'selfhealing')
-                        runTest('operator-self-healing-chaos', 'selfhealing')
-                        ShutdownCluster('selfhealing')
+                        CreateCluster('cluster4')
+                        runTest('scheduled-backup', 'cluster4')
+                        runTest('upgrade-haproxy', 'cluster4')
+                        runTest('limits', 'cluster4')
+                        runTest('tls-issue-cert-manager-ref', 'cluster4')
+                        ShutdownCluster('cluster4')
                     }
                 }
-                stage('E2E Backups') {
+
+                stage('Set 5') {
                     steps {
-                        CreateCluster('backups')
-                        runTest('recreate', 'backups')
-                        runTest('restore-to-encrypted-cluster', 'backups')
-                        runTest('demand-backup', 'backups')
-                        runTest('pitr', 'backups')
-                        runTest('demand-backup-encrypted-with-tls', 'backups')
-                        ShutdownCluster('backups')
+                        CreateCluster('cluster5')
+                        runTest('demand-backup', 'cluster5')
+                        runTest('upgrade-proxysql', 'cluster5')
+                        runTest('storage', 'cluster5')
+                        runTest('tls-issue-self', 'cluster5')
+                        ShutdownCluster('cluster5')
                     }
                 }
-                stage('E2E Scheduled-backups') {
+
+                stage('Set 6') {
                     steps {
-                        CreateCluster('scheduled-backups')
-                        runTest('scheduled-backup', 'scheduled-backups')
-                        ShutdownCluster('scheduled-backups')
+                        CreateCluster('cluster6')
+                        runTest('security-context', 'cluster6')
+                        runTest('one-pod', 'cluster6')
+                        runTest('proxysql-sidecar-res-limits', 'cluster6')
+                        runTest('cross-site', 'cluster6')
+                        ShutdownCluster('cluster6')
                     }
                 }
-                stage('E2E BigData') {
+
+                stage('Set 7') {
                     steps {
-                        CreateCluster('bigdata')
-                        runTest('big-data', 'bigdata')
-                        ShutdownCluster('bigdata')
+                        CreateCluster('cluster7')
+                        runTest('pitr', 'cluster7')
+                        runTest('restore-to-encrypted-cluster', 'cluster7')
+                        runTest('tls-issue-cert-manager', 'cluster7')
+                        runTest('affinity', 'cluster7')
+                        ShutdownCluster('cluster7')
+                    }
+                }
+
+                stage('Set 8') {
+                    steps {
+                        CreateCluster('cluster8')
+                        runTest('users', 'cluster8')
+                        runTest('demand-backup-encrypted-with-tls', 'cluster8')
+                        runTest('scaling', 'cluster8')
+                        runTest('scaling-proxysql', 'cluster8')
+                        ShutdownCluster('cluster8')
                     }
                 }
             }

@@ -285,7 +285,7 @@ pipeline {
                 }
             }
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             parallel {
                 stage('Set 1') {
@@ -365,6 +365,8 @@ pipeline {
                         runTest('restore-to-encrypted-cluster', 'cluster7')
                         runTest('tls-issue-cert-manager', 'cluster7')
                         runTest('affinity', 'cluster7')
+                        runTest('scaling', 'cluster7')
+                        runTest('scaling-proxysql', 'cluster7')
                         ShutdownCluster('cluster7')
                     }
                 }
@@ -374,8 +376,6 @@ pipeline {
                         CreateCluster('cluster8')
                         runTest('users', 'cluster8')
                         runTest('demand-backup-encrypted-with-tls', 'cluster8')
-                        runTest('scaling', 'cluster8')
-                        runTest('scaling-proxysql', 'cluster8')
                         ShutdownCluster('cluster8')
                     }
                 }

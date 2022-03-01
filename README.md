@@ -54,7 +54,7 @@ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluste
 Deploy the database cluster itself from `deploy/cr.yaml`:
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/cr-minimal.yaml
+kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/cr.yaml
 
 ```
 

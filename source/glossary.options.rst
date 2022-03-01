@@ -676,6 +676,12 @@ The Operator options glossary
 
       :ref:`pxc.volumeSpec.hostPath.type<pxc-volumespec-hostpath-type>`
 
+   verifyTLS
+
+     ..
+
+      :ref:`backup.storages.STORAGE_NAME.verifyTLS<operator.html#backup-storages-verifytls>`
+
    versionServiceEndpoint
 
      ..

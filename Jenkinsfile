@@ -77,7 +77,7 @@ void setTestsresults() {
     }
 }
 
-void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
+void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0") {
     def retryCount = 0
     waitUntil {
         def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${TEST_NAME}.log"
@@ -92,6 +92,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                         echo Skip $TEST_NAME test
                     else
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        export MYSQL_VERSION=$MYSQL_VERSION
                         source $HOME/google-cloud-sdk/path.bash.inc
                         time bash ./e2e-tests/$TEST_NAME/run
                     fi
@@ -377,6 +378,16 @@ pipeline {
                         runTest('users', 'cluster8')
                         runTest('demand-backup-encrypted-with-tls', 'cluster8')
                         ShutdownCluster('cluster8')
+                    }
+                }
+                stage('Set 9') {
+                    steps {
+                        CreateCluster('cluster9')
+                        runTest('users', 'cluster9','5.7')
+                        runTest('scheduled-backup', 'cluster9','5.7')
+                        runTest('init-deploy', 'cluster9','5.7')
+                        runTest('haproxy', 'cluster9','5.7')
+                        ShutdownCluster('cluster9')
                     }
                 }
             }

@@ -354,7 +354,7 @@ pipeline {
                         runTest('security-context', 'cluster6')
                         runTest('one-pod', 'cluster6')
                         runTest('proxysql-sidecar-res-limits', 'cluster6')
-                        runTest('cross-site', 'cluster6')
+//                         runTest('cross-site', 'cluster6')
                         ShutdownCluster('cluster6')
                     }
                 }

@@ -79,16 +79,17 @@ void setTestsresults() {
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0") {
     def retryCount = 0
+    TEST_NAME_WITH_MYSQL_VERSION="$TEST_NAME-$MYSQL_VERSION"
     waitUntil {
-        def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${TEST_NAME}.log"
+        def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${TEST_NAME_WITH_MYSQL_VERSION}.log"
         try {
             echo "The $TEST_NAME test was started!"
-            testsReportMap[TEST_NAME] = "[failed]($testUrl)"
-            popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME")
+            testsReportMap[TEST_NAME_WITH_MYSQL_VERSION] = "[failed]($testUrl)"
+            popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME_WITH_MYSQL_VERSION")
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME" ]; then
+                    if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME_WITH_MYSQL_VERSION" ]; then
                         echo Skip $TEST_NAME test
                     else
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
@@ -98,8 +99,8 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0"
                     fi
                 """
             }
-            testsReportMap[TEST_NAME] = "[passed]($testUrl)"
-            testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME"] = 'passed'
+            testsReportMap[TEST_NAME_WITH_MYSQL_VERSION] = "[passed]($testUrl)"
+            testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME_WITH_MYSQL_VERSION"] = 'passed'
             return true
         }
         catch (exc) {
@@ -111,7 +112,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0"
             return false
         }
     }
-    pushLogFile(TEST_NAME)
+    pushLogFile(TEST_NAME_WITH_MYSQL_VERSION)
     echo "The $TEST_NAME test was finished!"
 }
 

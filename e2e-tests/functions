@@ -30,7 +30,7 @@ if [[ ${ENABLE_LOGGING} == "true" ]]; then
 	if [ ! -d "${logs_dir}" ]; then
 		mkdir "${logs_dir}"
 	fi
-	log_file_name=$( echo "$test_name-$MYSQL_VERSION"| tr '.' '-')
+	log_file_name=$(echo "$test_name-$MYSQL_VERSION" | tr '.' '-')
 	exec &> >(tee ${logs_dir}/${log_file_name}.log)
 	echo "Log: ${logs_dir}/${log_file_name}.log"
 fi

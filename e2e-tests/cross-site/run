@@ -10,7 +10,7 @@ main() {
 
   local source_cluster="cross-site-source"
   local replica_cluster="cross-site-replica"
-
+  unset OPERATOR_NS
 	desc "Create source cluster"
 
 	create_namespace $namespace

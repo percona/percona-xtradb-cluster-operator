@@ -98,7 +98,7 @@ main() {
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint0 -uroot -proot_password"
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint1 -uroot -proot_password"
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint2 -uroot -proot_password"
-  desc "Success"
+	desc "Success"
 
 	destroy $namespace
 	destroy $replica_namespace

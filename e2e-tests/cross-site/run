@@ -70,8 +70,6 @@ main() {
 
 	desc "Switch clusters over"
 	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
-	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${replica_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
-
 	run_mysql \
 		'DELETE FROM myApp.myApp WHERE id=100500' \
 		"-h $source_primary_endpoint -uroot -proot_password"
@@ -79,6 +77,8 @@ main() {
 	run_mysql \
 		'DELETE FROM myApp.testSourceReplica WHERE id=100700' \
 		"-h $source_primary_endpoint -uroot -proot_password"
+
+	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${replica_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
 
 	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$replica_namespace"
 	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": true, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'

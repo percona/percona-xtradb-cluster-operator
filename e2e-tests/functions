@@ -619,6 +619,22 @@ get_service_endpoint() {
 	exit 1
 }
 
+get_service_ip() {
+	local service=$1
+	while (kubectl_bin get service/$service -o 'jsonpath={.spec.type}' 2>&1 || :) | grep -q NotFound; do
+		sleep 1
+	done
+	if [ "$(kubectl_bin get service/$service -o 'jsonpath={.spec.type}')" = "ClusterIP" ]; then
+		kubectl_bin get service/$service -o 'jsonpath={.spec.clusterIP}'
+		return
+	fi
+	until kubectl_bin get service/$service -o 'jsonpath={.status.loadBalancer.ingress[]}' 2>&1 | egrep -q "hostname|ip"; do
+		sleep 1
+	done
+	kubectl_bin get service/$service -o 'jsonpath={.status.loadBalancer.ingress[].ip}'
+	kubectl_bin get service/$service -o 'jsonpath={.status.loadBalancer.ingress[].hostname}'
+}
+
 get_metric_values() {
 	local metric=$1
 	local instance=$2

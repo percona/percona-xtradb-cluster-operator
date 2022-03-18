@@ -13,7 +13,7 @@ spec:
     image: -pxc
     expose:
       enabled: true
-      type: LoadBalancer
+      type: ClusterIp
     resources:
       requests:
         memory: 1G

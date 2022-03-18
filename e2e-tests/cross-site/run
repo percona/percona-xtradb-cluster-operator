@@ -19,12 +19,12 @@ main() {
 	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
 	sleep 60
 
-	source_endpoint0=$(get_service_endpoint ${source_cluster}-pxc-0)
-	source_endpoint1=$(get_service_endpoint ${source_cluster}-pxc-1)
-	source_endpoint2=$(get_service_endpoint ${source_cluster}-pxc-2)
+	source_endpoint0=$(get_service_ip ${source_cluster}-pxc-0)
+	source_endpoint1=$(get_service_ip ${source_cluster}-pxc-1)
+	source_endpoint2=$(get_service_ip ${source_cluster}-pxc-2)
 
 	source_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$source_cluster-proxysql-0")
-	source_primary_endpoint=$(get_service_endpoint ${source_primary})
+	source_primary_endpoint=$(get_service_ip ${source_primary})
 
 	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
 
@@ -47,11 +47,11 @@ main() {
 	apply_secrets
 	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
 	sleep 60
-	replica_endpoint0=$(get_service_endpoint ${replica_cluster}-pxc-0)
-	replica_endpoint1=$(get_service_endpoint ${replica_cluster}-pxc-1)
-	replica_endpoint2=$(get_service_endpoint ${replica_cluster}-pxc-2)
+	replica_endpoint0=$(get_service_ip ${replica_cluster}-pxc-0)
+	replica_endpoint1=$(get_service_ip ${replica_cluster}-pxc-1)
+	replica_endpoint2=$(get_service_ip ${replica_cluster}-pxc-2)
 	replica_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$replica_cluster-proxysql-0")
-	replica_primary_endpoint=$(get_service_endpoint ${replica_primary})
+	replica_primary_endpoint=$(get_service_ip ${replica_primary})
 
 	run_mysql \
 		'DELETE FROM myApp.myApp WHERE id=100500' \

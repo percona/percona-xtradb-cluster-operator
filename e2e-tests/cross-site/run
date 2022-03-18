@@ -91,14 +91,14 @@ main() {
 		'INSERT myApp.testReplicaSource (id) VALUES (100800)' \
 		"-h $replica_primary_endpoint -uroot -proot_password"
 
-  sleep 15
+	sleep 15
 
 	desc "Check replication replica -> source works on"
 	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint0 -uroot -proot_password"
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint1 -uroot -proot_password"
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint2 -uroot -proot_password"
-  desc "Success"
+	desc "Success"
 
 	destroy $namespace
 	destroy $replica_namespace

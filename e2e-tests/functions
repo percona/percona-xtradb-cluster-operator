@@ -545,15 +545,17 @@ deploy_cert_manager() {
 
 destroy() {
 	local namespace="$1"
+	local ignore_logs="${2:-false}"
 
-	kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
-		| grep -v '"level":"info"' \
-		| grep -v 'the object has been modified' \
-		| grep -v 'get backup status: Job.batch' \
-		| $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
-		| sort -u \
-		| tee $tmp_dir/operator.log
-
+  if [[ ${ignore_logs} == "false" ]]; then
+		kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
+			| grep -v 'level=info' \
+			| grep -v 'the object has been modified' \
+			| grep -v 'get backup status: Job.batch' \
+			| $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
+			| sort -u \
+			| tee $tmp_dir/operator.log
+	fi
 	#TODO: maybe will be enabled later
 	#diff $test_dir/compare/operator.log $tmp_dir/operator.log
 

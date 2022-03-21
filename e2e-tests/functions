@@ -547,7 +547,7 @@ destroy() {
 	local namespace="$1"
 	local ignore_logs="${2:-false}"
 
-  if [[ ${ignore_logs} == "false" ]]; then
+	if [[ ${ignore_logs} == "false" ]]; then
 		kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
 			| grep -v 'level=info' \
 			| grep -v 'the object has been modified' \

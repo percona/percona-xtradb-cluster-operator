@@ -21,6 +21,7 @@ date=$(which gdate || which date)
 
 test_name=$(basename $test_dir)
 namespace="${test_name}-${RANDOM}"
+replica_namespace="${test_name}-replica-${RANDOM}"
 conf_dir=$(realpath $test_dir/../conf || :)
 src_dir=$(realpath $test_dir/../..)
 logs_dir=$(realpath $test_dir/../logs)
@@ -544,15 +545,17 @@ deploy_cert_manager() {
 
 destroy() {
 	local namespace="$1"
+	local ignore_logs="${2:-false}"
 
-	kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
-		| grep -v '"level":"info"' \
-		| grep -v 'the object has been modified' \
-		| grep -v 'get backup status: Job.batch' \
-		| $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
-		| sort -u \
-		| tee $tmp_dir/operator.log
-
+	if [[ ${ignore_logs} == "false" ]]; then
+		kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
+			| grep -v 'level=info' \
+			| grep -v 'the object has been modified' \
+			| grep -v 'get backup status: Job.batch' \
+			| $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
+			| sort -u \
+			| tee $tmp_dir/operator.log
+	fi
 	#TODO: maybe will be enabled later
 	#diff $test_dir/compare/operator.log $tmp_dir/operator.log
 
@@ -616,6 +619,22 @@ get_service_endpoint() {
 	fi
 
 	exit 1
+}
+
+get_service_ip() {
+	local service=$1
+	while (kubectl_bin get service/$service -o 'jsonpath={.spec.type}' 2>&1 || :) | grep -q NotFound; do
+		sleep 1
+	done
+	if [ "$(kubectl_bin get service/$service -o 'jsonpath={.spec.type}')" = "ClusterIP" ]; then
+		kubectl_bin get service/$service -o 'jsonpath={.spec.clusterIP}'
+		return
+	fi
+	until kubectl_bin get service/$service -o 'jsonpath={.status.loadBalancer.ingress[]}' 2>&1 | egrep -q "hostname|ip"; do
+		sleep 1
+	done
+	kubectl_bin get service/$service -o 'jsonpath={.status.loadBalancer.ingress[].ip}'
+	kubectl_bin get service/$service -o 'jsonpath={.status.loadBalancer.ingress[].hostname}'
 }
 
 get_metric_values() {

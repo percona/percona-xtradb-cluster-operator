@@ -33,7 +33,7 @@ void pushLogFile(String FILE_NAME) {
         sh """
             S3_PATH=s3://percona-jenkins-artifactory-public/\$JOB_NAME/\$(git rev-parse --short HEAD)
             aws s3 ls \$S3_PATH/${LOG_FILE_NAME} || :
-            aws s3 cp --quiet ${LOG_FILE_PATH} \$S3_PATH/${LOG_FILE_NAME} || :
+            aws s3 cp --content-type text/plain --quiet ${LOG_FILE_PATH} \$S3_PATH/${LOG_FILE_NAME} || :
         """
     }
 }
@@ -366,6 +366,13 @@ pipeline {
                         CreateCluster('bigdata')
                         runTest('big-data', 'bigdata')
                         ShutdownCluster('bigdata')
+                    }
+                }
+                stage('E2E CrossSite') {
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site', 'cross-site')
+                        ShutdownCluster('cross-site')
                     }
                 }
             }

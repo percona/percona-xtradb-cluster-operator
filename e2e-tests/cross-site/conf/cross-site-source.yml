@@ -1,0 +1,53 @@
+apiVersion: pxc.percona.com/v1-6-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: cross-site-source
+  finalizers:
+    - delete-pxc-pods-in-order
+spec:
+  secretsName: my-cluster-secrets
+  vaultSecretName: some-name-vault
+  pause: false
+  pxc:
+    size: 3
+    image: -pxc
+    expose:
+      enabled: true
+      type: ClusterIp
+    resources:
+      requests:
+        memory: 1G
+        cpu: 600m
+      limits:
+        memory: "1G"
+        cpu: "1"
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 6Gi
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+  proxysql:
+    enabled: true
+    size: 1
+    image: -proxysql
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+    affinity:
+      antiAffinityTopologyKey: none
+  pmm:
+    enabled: false
+    image: perconalab/pmm-client:1.17.1
+    serverHost: monitoring-service
+    serverUser: pmm

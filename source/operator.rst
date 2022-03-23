@@ -23,7 +23,7 @@ The metadata part of this file contains the following keys:
 
   ``delete-proxysql-pvc`` if present, activates the `Finalizer <https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#finalizers>`_ which deletes `Persistent Volume Claim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_ for ProxySQL Pod after the cluster deletion event (off by default).
 
-The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/cr.yaml>`__ file contains the following sections:
+The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains the following sections:
 
 .. tabularcolumns:: |p{40mm}|p{10mm}|p{49mm}|p{47mm}|
 

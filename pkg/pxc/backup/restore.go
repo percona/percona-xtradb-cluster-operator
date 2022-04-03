@@ -339,6 +339,8 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 	}
 	if pitr {
 		bucket := ""
+		prefix := ""
+
 		if cluster.Backup == nil && len(cluster.Backup.Storages) == 0 {
 			return nil, errors.New("no storage section")
 		}
@@ -349,11 +351,13 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			if ok {
 				storageS3 = storage.S3
 				bucket = storage.S3.Bucket
+				prefix = storage.S3.Prefix
 			}
 		}
 		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.S3 != nil {
 			storageS3 = *cr.Spec.PITR.BackupSource.S3
 			bucket = cr.Spec.PITR.BackupSource.S3.Bucket
+			prefix = cr.Spec.PITR.BackupSource.S3.Prefix
 		}
 
 		if len(bucket) == 0 {
@@ -361,53 +365,63 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		}
 
 		command = []string{"pitr", "recover"}
-		envs = append(envs, corev1.EnvVar{
-			Name:  "BINLOG_S3_ENDPOINT",
-			Value: storageS3.EndpointURL,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name:  "BINLOG_S3_REGION",
-			Value: storageS3.Region,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name: "BINLOG_ACCESS_KEY_ID",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: storageS3.CredentialsSecret,
+		pitrEnvs := []corev1.EnvVar{
+			{
+				Name:  "BINLOG_S3_ENDPOINT",
+				Value: storageS3.EndpointURL,
+			},
+			{
+				Name:  "BINLOG_S3_REGION",
+				Value: storageS3.Region,
+			},
+			{
+				Name: "BINLOG_ACCESS_KEY_ID",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageS3.CredentialsSecret,
+						},
+						Key: "AWS_ACCESS_KEY_ID",
 					},
-					Key: "AWS_ACCESS_KEY_ID",
 				},
 			},
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name: "BINLOG_SECRET_ACCESS_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: storageS3.CredentialsSecret,
+			{
+				Name: "BINLOG_SECRET_ACCESS_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageS3.CredentialsSecret,
+						},
+						Key: "AWS_SECRET_ACCESS_KEY",
 					},
-					Key: "AWS_SECRET_ACCESS_KEY",
 				},
 			},
-		})
+			{
+				Name:  "BINLOG_S3_BUCKET_URL",
+				Value: bucket,
+			},
+			{
+				Name:  "PITR_RECOVERY_TYPE",
+				Value: cr.Spec.PITR.Type,
+			},
+			{
+				Name:  "PITR_GTID",
+				Value: cr.Spec.PITR.GTID,
+			},
+			{
+				Name:  "PITR_DATE",
+				Value: cr.Spec.PITR.Date,
+			},
+		}
+		envs = append(envs, pitrEnvs...)
 
-		envs = append(envs, corev1.EnvVar{
-			Name:  "PITR_RECOVERY_TYPE",
-			Value: cr.Spec.PITR.Type,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name:  "BINLOG_S3_BUCKET_URL",
-			Value: bucket,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name:  "PITR_GTID",
-			Value: cr.Spec.PITR.GTID,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name:  "PITR_DATE",
-			Value: cr.Spec.PITR.Date,
-		})
+		if prefix != "" {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "BINLOG_S3_PREFIX",
+				Value: prefix,
+			})
+		}
+
 		jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 		volumeMounts = []corev1.VolumeMount{}
 		jobPVCs = []corev1.Volume{}

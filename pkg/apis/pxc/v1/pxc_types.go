@@ -106,6 +106,7 @@ type PXCScheduledBackup struct {
 type PITRSpec struct {
 	Enabled            bool          `json:"enabled"`
 	StorageName        string        `json:"storageName"`
+	Prefix             string        `json:"prefix"`
 	Resources          *PodResources `json:"resources,omitempty"`
 	TimeBetweenUploads float64       `json:"timeBetweenUploads,omitempty"`
 }
@@ -462,6 +463,7 @@ const (
 type BackupStorageS3Spec struct {
 	Bucket            string `json:"bucket"`
 	CredentialsSecret string `json:"credentialsSecret"`
+	Prefix            string `json:"prefix,omitempty"`
 	Region            string `json:"region,omitempty"`
 	EndpointURL       string `json:"endpointUrl,omitempty"`
 }

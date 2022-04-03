@@ -38,6 +38,7 @@ type Config struct {
 	S3AccessKey    string  `env:"SECRET_ACCESS_KEY,required"`
 	S3BucketURL    string  `env:"S3_BUCKET_URL,required"`
 	S3Region       string  `env:"DEFAULT_REGION,required"`
+	S3Prefix       string  `env:"S3_PREFIX"`
 	BufferSize     int64   `env:"BUFFER_SIZE"`
 	CollectSpanSec float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
 }
@@ -49,12 +50,15 @@ const (
 
 func New(c Config) (*Collector, error) {
 	bucketArr := strings.Split(c.S3BucketURL, "/")
-	prefix := ""
+	prefix := c.S3Prefix
 	// if c.S3BucketURL looks like "my-bucket/data/more-data" we need prefix to be "data/more-data/"
 	if len(bucketArr) > 1 {
-		prefix = strings.TrimPrefix(c.S3BucketURL, bucketArr[0]+"/") + "/"
+		prefix = strings.TrimPrefix(c.S3BucketURL, bucketArr[0]+"/") + "/" + prefix
 	}
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.S3Endpoint, "https://"), "http://"), c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], prefix, c.S3Region, strings.HasPrefix(c.S3Endpoint, "https"))
+
+	endpoint := strings.TrimPrefix(strings.TrimPrefix(c.S3Endpoint, "https://"), "http://")
+	useSSL := strings.HasPrefix(c.S3Endpoint, "https")
+	s3, err := storage.NewS3(endpoint, c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], prefix, c.S3Region, useSSL)
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}

@@ -35,6 +35,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	for key, value := range cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Labels {
 		labels[key] = value
 	}
+
 	envs := []corev1.EnvVar{
 		{
 			Name: "SECRET_ACCESS_KEY",
@@ -79,12 +80,21 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			Value: strconv.FormatInt(bufferSize, 10),
 		},
 	}
+
 	if len(storage.S3.EndpointURL) > 0 {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "ENDPOINT",
 			Value: storage.S3.EndpointURL,
 		})
 	}
+
+	if len(storage.S3.Prefix) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "S3_PREFIX",
+			Value: storage.S3.Prefix,
+		})
+	}
+
 	res, err := app.CreateResources(cr.Spec.Backup.PITR.Resources)
 	if err != nil {
 		return appsv1.Deployment{}, errors.Wrap(err, "create resources")

@@ -11,6 +11,7 @@ import (
 )
 
 type Storage interface {
+	Prefix() string
 	GetObject(objectName string) (io.Reader, error)
 	PutObject(name string, data io.Reader, size int64) error
 	ListObjects(prefix string) ([]string, error)
@@ -45,6 +46,10 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region st
 
 func (s *S3) SetPrefix(prefix string) {
 	s.prefix = prefix
+}
+
+func (s *S3) Prefix() string {
+	return s.prefix
 }
 
 // GetObject return content by given object name

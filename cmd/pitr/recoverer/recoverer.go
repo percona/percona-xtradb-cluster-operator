@@ -60,6 +60,7 @@ type BinlogS3 struct {
 	AccessKey   string `env:"BINLOG_SECRET_ACCESS_KEY,required"`
 	Region      string `env:"BINLOG_S3_REGION,required"`
 	BucketURL   string `env:"BINLOG_S3_BUCKET_URL,required"`
+	Prefix      string `env:"BINLOG_S3_PREFIX"`
 }
 
 func (c *Config) Verify() {
@@ -75,12 +76,24 @@ type RecoverType string
 
 func New(c Config) (*Recoverer, error) {
 	c.Verify()
-	bucket, prefix, err := getBucketAndPrefix(c.BinlogStorage.BucketURL)
+	bucket, prefix, err := getBucketAndPrefix(c.BinlogStorage.BucketURL, c.BinlogStorage.Prefix)
 	if err != nil {
 		return nil, errors.Wrap(err, "get bucket and prefix")
 	}
 
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://"), c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucket, prefix, c.BinlogStorage.Region, strings.HasPrefix(c.BinlogStorage.Endpoint, "https"))
+	log.Println("Using bucket:", bucket, "prefix:", prefix)
+
+	endpoint := strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://")
+	useSSL := strings.HasPrefix(c.BinlogStorage.Endpoint, "https")
+	s3, err := storage.NewS3(
+		endpoint,
+		c.BinlogStorage.AccessKeyID,
+		c.BinlogStorage.AccessKey,
+		bucket,
+		prefix,
+		c.BinlogStorage.Region,
+		useSSL,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
@@ -126,30 +139,30 @@ func New(c Config) (*Recoverer, error) {
 	}, nil
 }
 
-func getBucketAndPrefix(bucketURL string) (bucket string, prefix string, err error) {
+func getBucketAndPrefix(bucketURL, s3prefix string) (bucket string, prefix string, err error) {
+	prefix = s3prefix
+
 	u, err := url.Parse(bucketURL)
 	if err != nil {
-		err = errors.Wrap(err, "parse url")
-		return bucket, prefix, err
+		return bucket, prefix, errors.Wrap(err, "parse url")
 	}
 	path := strings.TrimPrefix(strings.TrimSuffix(u.Path, "/"), "/")
 
 	if u.IsAbs() && u.Scheme == "s3" {
 		bucket = u.Host
-		prefix = path + "/"
+		prefix = path + "/" + prefix
 		return bucket, prefix, err
 	}
 	bucketArr := strings.Split(path, "/")
 	if len(bucketArr) > 1 {
-		prefix = strings.TrimPrefix(path, bucketArr[0]+"/") + "/"
+		prefix = strings.TrimPrefix(path, bucketArr[0]+"/") + "/" + prefix
 	}
 	bucket = bucketArr[0]
 	if len(bucket) == 0 {
-		err = errors.Errorf("can't get bucket name from %s", bucketURL)
-		return bucket, prefix, err
+		return bucket, prefix, errors.Errorf("can't get bucket name from %s", bucketURL)
 	}
 
-	return bucket, prefix, err
+	return bucket, prefix, nil
 }
 
 func getStartGTIDSet(c BackupS3) (string, error) {
@@ -420,10 +433,6 @@ func (r *Recoverer) setBinlogs() error {
 		}
 		binlogGTIDSet := string(content)
 		log.Println("checking current file", " name ", binlog, " gtid ", binlogGTIDSet)
-		if sourceID != strings.Split(binlogGTIDSet, ":")[0] {
-			log.Println("Source id is not equal to binlog source id")
-			continue
-		}
 
 		if len(r.gtid) > 0 && r.recoverType == Transaction {
 			subResult, err := r.db.SubtractGTIDSet(binlogGTIDSet, r.gtid)
@@ -453,7 +462,7 @@ func (r *Recoverer) setBinlogs() error {
 		}
 	}
 	if len(binlogs) == 0 {
-		return errors.Errorf("no objects for prefix binlog_ or with source_id=%s", sourceID)
+		return errors.Errorf("no objects with prefix %sbinlog_ or with source_id=%s", r.storage.Prefix(), sourceID)
 	}
 	reverse(binlogs)
 	r.binlogs = binlogs

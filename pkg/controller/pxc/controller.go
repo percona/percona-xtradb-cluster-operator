@@ -323,16 +323,21 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		imageName := operatorPod.Spec.Containers[0].Image
-		if o.CompareVersionWith(version.Version) != 0 {
-			imageName = strings.Split(imageName, ":")[0] + ":" + o.Spec.CRVersion
+		var imageName string
+		if len(o.Spec.InitImage) > 0 {
+			imageName = o.Spec.InitImage
+		} else {
+			imageName, err = operatorImageName(&operatorPod)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			if o.CompareVersionWith(version.Version) != 0 {
+				imageName = strings.Split(imageName, ":")[0] + ":" + o.Spec.CRVersion
+			}
 		}
 		var initResources *api.PodResources
 		if o.CompareVersionWith("1.6.0") >= 0 {
 			initResources = o.Spec.PXC.Resources
-		}
-		if len(o.Spec.InitImage) > 0 {
-			imageName = o.Spec.InitImage
 		}
 		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
 		if err != nil {
@@ -538,16 +543,21 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	logger := r.logger(cr.Name, cr.Namespace)
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		imageName := operatorPod.Spec.Containers[0].Image
-		if cr.CompareVersionWith(version.Version) != 0 {
-			imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
+		var imageName string
+		if len(cr.Spec.InitImage) > 0 {
+			imageName = cr.Spec.InitImage
+		} else {
+			imageName, err = operatorImageName(&operatorPod)
+			if err != nil {
+				return err
+			}
+			if cr.CompareVersionWith(version.Version) != 0 {
+				imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
+			}
 		}
 		var initResources *api.PodResources
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			initResources = cr.Spec.PXC.Resources
-		}
-		if len(cr.Spec.InitImage) > 0 {
-			imageName = cr.Spec.InitImage
 		}
 		initC, err := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
 		if err != nil {
@@ -1315,4 +1325,13 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName s
 	}
 
 	return corev1.Volume{}, api.NoCustomVolumeErr
+}
+
+func operatorImageName(operatorPod *corev1.Pod) (string, error) {
+	for _, c := range operatorPod.Spec.Containers {
+		if len(c.Command) != 0 && c.Command[0] == "percona-xtradb-cluster-operator" {
+			return c.Image, nil
+		}
+	}
+	return "", errors.New("operator image not found")
 }

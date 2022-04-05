@@ -506,6 +506,7 @@ spec:
 #          fsGroup: 1001
 #          supplementalGroups: [1001, 1002, 1003]
         s3:
+#          prefix: cluster1
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
           region: us-west-2

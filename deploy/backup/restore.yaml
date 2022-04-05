@@ -13,6 +13,7 @@ spec:
 #      storageName: "STORAGE-NAME-HERE"
 #      s3:
 #        bucket: S3-BINLOG-BACKUP-BUCKET-NAME-HERE
+#        prefix: cluster1
 #        credentialsSecret: my-cluster-name-backup-s3
 #        endpointUrl: https://s3.us-west-2.amazonaws.com/
 #        region: us-west-2

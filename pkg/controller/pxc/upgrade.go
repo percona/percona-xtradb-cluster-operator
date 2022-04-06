@@ -127,14 +127,22 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	var newContainers []corev1.Container
 	var newInitContainers []corev1.Container
 
-	secrets := cr.Spec.SecretsName
+	secretsName := cr.Spec.SecretsName
 	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secrets = "internal-" + cr.Name
+		secretsName = "internal-" + cr.Name
 	}
 
 	// pmm container
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secrets, cr)
+		secret := new(corev1.Secret)
+		err := r.client.Get(context.TODO(), types.NamespacedName{
+			Name: secretsName, Namespace: cr.Namespace,
+		}, secret)
+		if client.IgnoreNotFound(err) != nil {
+			return errors.Wrap(err, "get internal secret")
+		}
+		_, useAPI := secret.Data["pmmserverapi"]
+		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secretsName, useAPI, cr)
 		if err != nil {
 			return errors.Wrap(err, "pmm container error")
 		}
@@ -145,7 +153,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 
 	// log-collector container
 	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
-		logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, secrets, cr)
+		logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, secretsName, cr)
 		if err != nil {
 			return errors.Wrap(err, "logcollector container error")
 		}
@@ -161,7 +169,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// application container
-	appC, err := sfs.AppContainer(podSpec, secrets, cr, sfsVolume.Volumes)
+	appC, err := sfs.AppContainer(podSpec, secretsName, cr, sfsVolume.Volumes)
 	if err != nil {
 		return errors.Wrap(err, "app container error")
 	}
@@ -191,7 +199,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// sidecars
-	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)
+	sideC, err := sfs.SidecarContainers(podSpec, secretsName, cr)
 	if err != nil {
 		return errors.Wrap(err, "sidecar container error")
 	}

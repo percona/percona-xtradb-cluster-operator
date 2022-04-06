@@ -1,13 +1,12 @@
 package app
 
 import (
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
-func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGreater bool) corev1.Container {
+func PMMClient(spec *api.PMMSpec, secrets string, useAPI bool, v120OrGreater bool, v170OrGreater bool) corev1.Container {
 	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
 
 	for i := 30100; i <= 30105; i++ {
@@ -37,7 +36,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGrea
 	}
 
 	if spec.ServerUser != "" {
-		pmmEnvs = append(pmmEnvs, pmmEnvServerUser(spec.ServerUser, secrets)...)
+		pmmEnvs = append(pmmEnvs, pmmEnvServerUser(spec.ServerUser, secrets, useAPI)...)
 	}
 
 	container := corev1.Container{
@@ -65,7 +64,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGrea
 				},
 			},
 		}
-		container.Env = append(container.Env, pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secrets)...)
+		container.Env = append(container.Env, pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secrets, useAPI)...)
 		container.Lifecycle = &corev1.Lifecycle{
 			PreStop: &corev1.Handler{
 				Exec: &corev1.ExecAction{
@@ -79,7 +78,14 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGrea
 	return container
 }
 
-func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string) []corev1.EnvVar {
+func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string, useAPI bool) []corev1.EnvVar {
+	var pmmServerPassKey string
+	if useAPI {
+		pmmServerUser = "api_key"
+		pmmServerPassKey = "pmmserverapi"
+	} else {
+		pmmServerPassKey = "pmmserver"
+	}
 	return []corev1.EnvVar{
 		{
 			Name: "POD_NAME",
@@ -108,7 +114,7 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string) []corev1.EnvVar 
 		{
 			Name: "PMM_AGENT_SERVER_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: SecretKeySelector(secrets, "pmmserver"),
+				SecretKeyRef: SecretKeySelector(secrets, pmmServerPassKey),
 			},
 		},
 		{
@@ -181,7 +187,14 @@ func PMMAgentScript(dbType string) []corev1.EnvVar {
 	}
 }
 
-func pmmEnvServerUser(user, secrets string) []corev1.EnvVar {
+func pmmEnvServerUser(user, secrets string, useAPI bool) []corev1.EnvVar {
+	var passKey string
+	if useAPI {
+		user = "api_key"
+		passKey = "pmmserverapi"
+	} else {
+		passKey = "pmmserver"
+	}
 	return []corev1.EnvVar{
 		{
 			Name:  "PMM_USER",
@@ -190,7 +203,7 @@ func pmmEnvServerUser(user, secrets string) []corev1.EnvVar {
 		{
 			Name: "PMM_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: SecretKeySelector(secrets, "pmmserver"),
+				SecretKeyRef: SecretKeySelector(secrets, passKey),
 			},
 		},
 	}

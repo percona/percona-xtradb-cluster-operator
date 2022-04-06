@@ -15,7 +15,7 @@ import (
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
-func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster,
+func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, secret *corev1.Secret,
 	initContainers []corev1.Container, log logr.Logger, vg api.CustomVolumeGetter) (*appsv1.StatefulSet, error) {
 
 	pod := corev1.PodSpec{
@@ -31,10 +31,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		pod.ServiceAccountName = podSpec.ServiceAccountName
 	}
-	secrets := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secrets = "internal-" + cr.Name
-	}
+	secrets := secret.Name
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
 
 	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" && cr.CompareVersionWith("1.7.0") == -1 {
@@ -57,7 +54,8 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secrets, cr)
+		_, useAPI := secret.Data["pmmserverapi"]
+		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secrets, useAPI, cr)
 		if err != nil {
 			return nil, fmt.Errorf("pmm container error: %v", err)
 		}

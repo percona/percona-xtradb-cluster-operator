@@ -420,10 +420,6 @@ func (r *Recoverer) setBinlogs() error {
 		}
 		binlogGTIDSet := string(content)
 		log.Println("checking current file", " name ", binlog, " gtid ", binlogGTIDSet)
-		if sourceID != strings.Split(binlogGTIDSet, ":")[0] {
-			log.Println("Source id is not equal to binlog source id")
-			continue
-		}
 
 		if len(r.gtid) > 0 && r.recoverType == Transaction {
 			subResult, err := r.db.SubtractGTIDSet(binlogGTIDSet, r.gtid)

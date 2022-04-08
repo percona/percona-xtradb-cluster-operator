@@ -3,7 +3,13 @@
 function mysql_root_exec() {
 	local server="$1"
 	local query="$2"
-	MYSQL_PWD=${MYSQL_ROOT_PASSWORD:-password} timeout 600 mysql -P33062 -h${server} -uroot -s -NB -e "${query}"
+
+	{ set +x; } 2>/dev/null
+	mysql_pass=$(cat /etc/mysql/mysql-users-secret/monitor || :)
+	MYSQL_PASSWORD="${mysql_pass:-$MONITOR_PASSWORD}"
+	MYSQL_USERNAME="${MYSQL_USERNAME:-monitor}"
+	MYSQL_PWD=${MYSQL_PASSWORD:-password} timeout 600 mysql -P33062 -h${server} -u${MYSQL_USERNAME} -s -NB -e "${query}"
+	set -x
 }
 
 function wait_for_mysql() {

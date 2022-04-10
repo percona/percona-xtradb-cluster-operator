@@ -318,6 +318,7 @@ pipeline {
                         runTest('tls-issue-cert-manager','basic')
                         runTest('tls-issue-cert-manager-ref','basic')
                         runTest('validation-hook','basic')
+                        runTest('proxy-protocol','basic')
                         ShutdownCluster('basic')
                     }
                 }

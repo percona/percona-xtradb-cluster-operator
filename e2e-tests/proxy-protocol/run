@@ -9,7 +9,7 @@ test_dir=$(realpath $(dirname $0))
 
 prepare_config() {
 	nodes=$(kubectl get nodes | grep -v "NAME" | awk '{print $1}')
-	if [ $(printf "${nodes}" | wc -l) -lt 3 ]; then
+	if [ $(printf "${nodes}\n" | wc -l) -lt 3 ]; then
 		echo "3 nodes are expected for this test to run."
 		exit 1
 	fi

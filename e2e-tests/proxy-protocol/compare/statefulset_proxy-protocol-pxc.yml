@@ -145,8 +145,7 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: datadir
-      nodeSelector:
-        kubernetes.io/hostname: gke-plavi-122-default-pool-d54f26d9-198l
+      nodeSelector: {}
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:

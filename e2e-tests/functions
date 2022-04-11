@@ -379,6 +379,7 @@ compare_kubectl() {
 		| yq d - '**.preemptionPolicy' \
 		| yq d - 'spec.ipFamilies' \
 		| yq d - 'spec.ipFamilyPolicy' \
+		| yq d - '**."kubernetes.io/hostname"' \
 		| $sed 's#^apiVersion: policy/v1beta1#apiVersion: policy/v1#' \
 		| $sed 's/name: kube-api-access-.*$/name: kube-api-access/' \
 		| $sed 's/namespace\:.*name/name/' \

@@ -123,8 +123,7 @@ spec:
             - mountPath: /etc/mysql/haproxy-env-secret
               name: proxy-protocol-env-vars-haproxy
       dnsPolicy: ClusterFirst
-      nodeSelector:
-        kubernetes.io/hostname: gke-plavi-122-default-pool-d54f26d9-322h
+      nodeSelector: {}
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}

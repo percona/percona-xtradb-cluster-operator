@@ -299,11 +299,14 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 
 	r.resyncPXCUsersWithProxySQL(o)
 
-	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
-		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
-		if err != nil {
-			reqLogger.Info("failed to ensure version, running with default", "error", err)
+	if isSmartUpdate(o) {
+		if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
+			err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
+			if err != nil {
+				reqLogger.Info("failed to ensure version, running with default", "error", err)
+			}
 		}
+		o.Spec.PXC.Image = o.Status.PXC.Image
 	}
 
 	err = r.deploy(o)

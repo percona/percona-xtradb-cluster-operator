@@ -391,10 +391,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 			return reconcile.Result{}, errors.Wrap(err, "failed to get current proxysql service sate")
 		}
 
+		var nodePort int32
+		if o.CompareVersionWith("1.11.0") >= 0 && currentService.Spec.Type == corev1.ServiceTypeNodePort {
+			nodePort = o.Spec.ProxySQL.NodePort
+		}
 		ports := []corev1.ServicePort{
 			{
-				Port: 3306,
-				Name: "mysql",
+				Port:     3306,
+				Name:     "mysql",
+				NodePort: nodePort,
 			},
 		}
 

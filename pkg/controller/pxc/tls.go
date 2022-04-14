@@ -97,7 +97,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 					Kind:  issuerKind,
 					Group: issuerGroup,
 				},
-				Duration:    &metav1.Duration{Duration: 87600 * time.Hour},
+				Duration:    &metav1.Duration{Duration: time.Hour * 24 * 365},
 				RenewBefore: &metav1.Duration{Duration: 730 * time.Hour},
 			},
 		}
@@ -127,6 +127,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			CommonName: cr.Name + "-proxysql",
 			DNSNames: []string{
 				cr.Name + "-pxc",
+				cr.Name + "-proxysql",
 				"*." + cr.Name + "-pxc",
 				"*." + cr.Name + "-proxysql",
 			},
@@ -136,6 +137,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				Kind:  issuerKind,
 				Group: issuerGroup,
 			},
+			Duration: &metav1.Duration{Duration: time.Hour * 24 * 365},
 		},
 	}
 
@@ -177,6 +179,7 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				Kind:  issuerKind,
 				Group: issuerGroup,
 			},
+			Duration: &metav1.Duration{Duration: time.Hour * 24 * 365},
 		},
 	}
 	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
@@ -289,8 +292,14 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		return fmt.Errorf("create TLS secret: %v", err)
 	}
 	pxcHosts := []string{
-		"*." + cr.Name + "-pxc",
 		cr.Name + "-pxc",
+		"*." + cr.Name + "-pxc",
+		cr.Name + "-haproxy-replicas." + cr.Namespace + ".svc.cluster.local",
+		cr.Name + "-haproxy-replicas." + cr.Namespace,
+		cr.Name + "-haproxy-replicas",
+		cr.Name + "-haproxy." + cr.Namespace + ".svc.cluster.local",
+		cr.Name + "-haproxy." + cr.Namespace,
+		cr.Name + "-haproxy",
 	}
 	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {
 		pxcHosts = append(pxcHosts, cr.Spec.TLS.SANs...)

@@ -145,6 +145,13 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		}
 	}
 
+	if cr.CompareVersionWith("1.11.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "hookscript",
+			MountPath: "/opt/hookscript",
+		})
+	}
+
 	res, err := app.CreateResources(spec.Resources)
 	if err != nil {
 		return appc, fmt.Errorf("create resources error: %v", err)
@@ -415,7 +422,10 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 	if err == nil {
 		vol.Volumes = append(vol.Volumes, configVolume)
 	}
-
+	if cr.CompareVersionWith("1.11.0") >= 0 {
+		vol.Volumes = append(vol.Volumes,
+			app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]+"-hookscript"))
+	}
 	return vol, nil
 }
 

@@ -379,6 +379,7 @@ type PodSpec struct {
 	SidecarVolumes                []corev1.Volume                         `json:"sidecarVolumes,omitempty"`
 	SidecarPVCs                   []corev1.PersistentVolumeClaim          `json:"sidecarPVCs,omitempty"`
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
+	HookScript                    string                                  `json:"hookScript,omitempty"`
 }
 
 type HAProxySpec struct {

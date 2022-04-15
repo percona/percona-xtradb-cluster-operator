@@ -857,6 +857,43 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
+	if cr.CompareVersionWith("1.11.0") >= 0 {
+		pxcHookScriptName := ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"] + "-hookscript"
+		if cr.Spec.PXC.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.PXC.PodSpec, pxcHookScriptName)
+			if err != nil {
+				return errors.Wrap(err, "create pxc hookscript config map")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, pxcHookScriptName); err != nil {
+				return errors.Wrap(err, "delete pxc hookscript config map")
+			}
+		}
+
+		proxysqlHookScriptName := ls["app.kubernetes.io/instance"] + "-proxysql" + "-hookscript"
+		if cr.Spec.ProxySQL.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.ProxySQL, proxysqlHookScriptName)
+			if err != nil {
+				return errors.Wrap(err, "create proxysql hookscript config map")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, proxysqlHookScriptName); err != nil {
+				return errors.Wrap(err, "delete proxysql hookscript config map")
+			}
+		}
+		haproxyHookScriptName := ls["app.kubernetes.io/instance"] + "-haproxy" + "-hookscript"
+		if cr.Spec.HAProxy.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, &cr.Spec.HAProxy.PodSpec, haproxyHookScriptName)
+			if err != nil {
+				return errors.Wrap(err, "create haproxy hookscript config map")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, haproxyHookScriptName); err != nil {
+				return errors.Wrap(err, "delete haproxy config map")
+			}
+		}
+	}
+
 	proxysqlConfigName := ls["app.kubernetes.io/instance"] + "-proxysql"
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Configuration != "" {
@@ -915,6 +952,20 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) createHookScriptConfigMap(cr *api.PerconaXtraDBCluster, spec *api.PodSpec, configMapName string) error {
+	configMap := config.NewConfigMap(cr, configMapName, "hook.sh", spec.HookScript)
+	err := setControllerReference(cr, configMap, r.scheme)
+	if err != nil {
+		return errors.Wrap(err, "set controller ref")
+	}
+
+	err = createOrUpdateConfigmap(r.client, configMap)
+	if err != nil {
+		return errors.Wrap(err, "create or update configmap")
+	}
 	return nil
 }
 

@@ -190,7 +190,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 	if cr.CompareVersionWith("1.11.0") >= 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "hookscript",
-			MountPath: "/opt/hookscript",
+			MountPath: "/opt/percona/hookscript",
 		})
 	}
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")

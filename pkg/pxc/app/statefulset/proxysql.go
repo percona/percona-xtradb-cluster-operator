@@ -148,7 +148,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 	if cr.CompareVersionWith("1.11.0") >= 0 {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "hookscript",
-			MountPath: "/opt/hookscript",
+			MountPath: "/opt/percona/hookscript",
 		})
 	}
 

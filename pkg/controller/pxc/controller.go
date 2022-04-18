@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -81,10 +83,31 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	}, nil
 }
 
+const (
+	MaxConcurrentReconcilesEnvVar = "MAX_CONCURRENT_RECONCILES"
+)
+
+func getMaxConcurrentReconciles() (int, error) {
+	s, found := os.LookupEnv(MaxConcurrentReconcilesEnvVar)
+	if !found {
+		return 0, errors.Errorf("%s must be set", MaxConcurrentReconcilesEnvVar)
+	}
+
+	value, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, errors.Wrapf(err, "%s must be int", MaxConcurrentReconcilesEnvVar)
+	}
+	return value, nil
+}
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	mcr, err := getMaxConcurrentReconciles()
+	if err != nil {
+		return err
+	}
 	// Create a new controller
-	c, err := controller.New("perconaxtradbcluster-controller", mgr, controller.Options{MaxConcurrentReconciles: 20, Reconciler: r})
+	c, err := controller.New("perconaxtradbcluster-controller", mgr, controller.Options{MaxConcurrentReconciles: mcr, Reconciler: r})
 	if err != nil {
 		return err
 	}

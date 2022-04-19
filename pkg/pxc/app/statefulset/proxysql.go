@@ -145,7 +145,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		}
 	}
 
-	if cr.CompareVersionWith("1.11.0") >= 0 {
+	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "hookscript",
 			MountPath: "/opt/percona/hookscript",
@@ -422,7 +422,7 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 	if err == nil {
 		vol.Volumes = append(vol.Volumes, configVolume)
 	}
-	if cr.CompareVersionWith("1.11.0") >= 0 {
+	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
 			app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]+"-hookscript"))
 	}

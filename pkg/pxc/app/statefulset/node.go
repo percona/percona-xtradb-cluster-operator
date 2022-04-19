@@ -235,7 +235,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
 			},
 		})
-		if cr.CompareVersionWith("1.11.0") >= 0 {
+		if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
 			appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 				Name:      "hookscript",
 				MountPath: "/opt/percona/hookscript",
@@ -537,7 +537,7 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 			vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("logcollector-config", ls["app.kubernetes.io/instance"]+"-logcollector"))
 		}
 	}
-	if cr.CompareVersionWith("1.11.0") >= 0 {
+	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
 			app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]+"-hookscript"))
 	}

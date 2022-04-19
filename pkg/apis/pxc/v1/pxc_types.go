@@ -8,9 +8,6 @@ import (
 
 	"github.com/go-ini/ini"
 	"github.com/go-logr/logr"
-	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
-
 	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -18,6 +15,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster

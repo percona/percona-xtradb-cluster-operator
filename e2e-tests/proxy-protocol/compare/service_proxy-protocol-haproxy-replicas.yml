@@ -1,7 +1,6 @@
 apiVersion: v1
 kind: Service
 metadata:
-  annotations: {}
   labels:
     app.kubernetes.io/component: haproxy
     app.kubernetes.io/instance: proxy-protocol
@@ -14,7 +13,6 @@ metadata:
       kind: PerconaXtraDBCluster
       name: proxy-protocol
 spec:
-  internalTrafficPolicy: Cluster
   ports:
     - name: mysql-replicas
       port: 3306

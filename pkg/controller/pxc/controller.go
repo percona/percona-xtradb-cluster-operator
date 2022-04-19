@@ -859,8 +859,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 
 	if cr.CompareVersionWith("1.11.0") >= 0 {
 		pxcHookScriptName := ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"] + "-hookscript"
-		if cr.Spec.PXC.HookScript != "" {
-			err := r.createHookScriptConfigMap(cr, cr.Spec.PXC.PodSpec, pxcHookScriptName)
+		if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.PXC.PodSpec.HookScript, pxcHookScriptName)
 			if err != nil {
 				return errors.Wrap(err, "create pxc hookscript config map")
 			}
@@ -871,8 +871,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 
 		proxysqlHookScriptName := ls["app.kubernetes.io/instance"] + "-proxysql" + "-hookscript"
-		if cr.Spec.ProxySQL.HookScript != "" {
-			err := r.createHookScriptConfigMap(cr, cr.Spec.ProxySQL, proxysqlHookScriptName)
+		if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.ProxySQL.HookScript, proxysqlHookScriptName)
 			if err != nil {
 				return errors.Wrap(err, "create proxysql hookscript config map")
 			}
@@ -882,13 +882,24 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			}
 		}
 		haproxyHookScriptName := ls["app.kubernetes.io/instance"] + "-haproxy" + "-hookscript"
-		if cr.Spec.HAProxy.HookScript != "" {
-			err := r.createHookScriptConfigMap(cr, &cr.Spec.HAProxy.PodSpec, haproxyHookScriptName)
+		if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.HAProxy.PodSpec.HookScript, haproxyHookScriptName)
 			if err != nil {
 				return errors.Wrap(err, "create haproxy hookscript config map")
 			}
 		} else {
 			if err := deleteConfigMapIfExists(r.client, cr, haproxyHookScriptName); err != nil {
+				return errors.Wrap(err, "delete haproxy config map")
+			}
+		}
+		logCollectorHookScriptName := ls["app.kubernetes.io/instance"] + "-logcollector" + "-hookscript"
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.LogCollector.HookScript, logCollectorHookScriptName)
+			if err != nil {
+				return errors.Wrap(err, "create haproxy hookscript config map")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, logCollectorHookScriptName); err != nil {
 				return errors.Wrap(err, "delete haproxy config map")
 			}
 		}
@@ -955,8 +966,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createHookScriptConfigMap(cr *api.PerconaXtraDBCluster, spec *api.PodSpec, configMapName string) error {
-	configMap := config.NewConfigMap(cr, configMapName, "hook.sh", spec.HookScript)
+func (r *ReconcilePerconaXtraDBCluster) createHookScriptConfigMap(cr *api.PerconaXtraDBCluster, hookScript string, configMapName string) error {
+	configMap := config.NewConfigMap(cr, configMapName, "hook.sh", hookScript)
 	err := setControllerReference(cr, configMap, r.scheme)
 	if err != nil {
 		return errors.Wrap(err, "set controller ref")

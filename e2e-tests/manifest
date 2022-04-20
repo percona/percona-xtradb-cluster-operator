@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+set -e
+
+if ! command -v controller-gen &>/dev/null; then
+	echo "controller-gen is required. install using:"
+	echo "  go install sigs.k8s.io/controller-tools/cmd/controller-gen@latest"
+	exit 1
+fi
+
+set -o xtrace
+
+controller-gen crd:allowDangerousTypes=true paths=./pkg/apis/... output:dir=./deploy/crds
+
+crd_ver=${1}
+if [ "${crd_ver}" == "" ]; then
+	crd_ver=$(yq r -d0 "deploy/crd.yaml" "spec.versions[-1].name")
+fi
+
+wip_crd=$(mktemp)
+yq r -d0 "deploy/crd.yaml" \
+	| yq d - "spec.versions(name==${crd_ver})" \
+	| yq w - "spec.versions[*].storage" false \
+		>"$wip_crd"
+
+yq w -i "$wip_crd" "spec.versions[+].name" "${crd_ver}"
+
+sed '/.*- protocol/d; s/.*- containerPort/&\n&/; s/- containerPort/- protocol/' \
+	deploy/crds/pxc.percona.com_perconaxtradbclusters.yaml \
+	| yq r - "spec.versions[0]" \
+	| yq d - "name" \
+	| sed 's/^/      /g' \
+		>>"$wip_crd"
+
+# deploy/crd.yaml
+crd_file=$(mktemp)
+yq r "$wip_crd" >"$crd_file"
+
+echo "---" >>"$crd_file"
+yq r "deploy/crds/pxc.percona.com_perconaxtradbclusterbackups.yaml" >>"$crd_file"
+echo "---" >>"$crd_file"
+yq r "deploy/crds/pxc.percona.com_perconaxtradbclusterrestores.yaml" >>"$crd_file"
+
+mv "$crd_file" "deploy/crd.yaml"
+
+# deploy/bundle.yaml
+bundle_file=$(mktemp)
+
+yq r "deploy/crd.yaml" >"$bundle_file"
+echo "---" >>"$bundle_file"
+yq r "deploy/rbac.yaml" >>"$bundle_file"
+echo "---" >>"$bundle_file"
+yq r "deploy/operator.yaml" >>"$bundle_file"
+
+mv "$bundle_file" "deploy/bundle.yaml"

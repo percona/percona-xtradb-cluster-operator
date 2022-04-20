@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"k8s.io/klog/v2"
 	"os"
 	"runtime"
 	"strings"
@@ -50,6 +51,7 @@ func main() {
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
 	logf.SetLogger(zap.New(zap.UseDevMode(false)))
+	klog.SetLogger(logf.Log)
 
 	sv, err := version.Server()
 	if err != nil {

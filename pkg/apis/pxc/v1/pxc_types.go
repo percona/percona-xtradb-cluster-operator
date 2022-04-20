@@ -48,7 +48,7 @@ type PXCSpec struct {
 	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
 	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
 	Expose              ServiceExpose        `json:"expose,omitempty"`
-	*PodSpec
+	*PodSpec            `json:",inline"`
 }
 
 type ServiceExpose struct {
@@ -151,8 +151,8 @@ type ReplicationStatus struct {
 }
 
 type ReplicationChannelStatus struct {
-	Name string `json:"name,omitempty"`
-	ReplicationChannelConfig
+	Name                     string `json:"name,omitempty"`
+	ReplicationChannelConfig `json:",inline"`
 }
 
 type ConditionStatus string
@@ -180,7 +180,7 @@ type ComponentStatus struct {
 }
 
 type AppStatus struct {
-	ComponentStatus
+	ComponentStatus `json:",inline"`
 
 	Size  int32 `json:"size,omitempty"`
 	Ready int32 `json:"ready,omitempty"`
@@ -190,6 +190,15 @@ type AppStatus struct {
 
 // PerconaXtraDBCluster is the Schema for the perconaxtradbclusters API
 // +k8s:openapi-gen=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName="pxc";"pxcs"
+// +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".status.host"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state"
+// +kubebuilder:printcolumn:name="PXC",type="string",JSONPath=".status.pxc.ready",description="Ready pxc nodes"
+// +kubebuilder:printcolumn:name="proxysql",type="string",JSONPath=".status.proxysql.ready",description="Ready proxysql nodes"
+// +kubebuilder:printcolumn:name="haproxy",type="string",JSONPath=".status.haproxy.ready",description="Ready haproxy nodes"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+
 type PerconaXtraDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -382,7 +391,7 @@ type PodSpec struct {
 }
 
 type HAProxySpec struct {
-	PodSpec
+	PodSpec                `json:",inline"`
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
 }
 

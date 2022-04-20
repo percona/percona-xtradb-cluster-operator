@@ -61,7 +61,10 @@ spec:
                 optional: true
           imagePullPolicy: Always
           name: logs
-          resources: {}
+          resources:
+            requests:
+              cpu: 200m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -79,7 +82,10 @@ spec:
                   name: internal-upgrade-haproxy
           imagePullPolicy: Always
           name: logrotate
-          resources: {}
+          resources:
+            requests:
+              cpu: 200m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

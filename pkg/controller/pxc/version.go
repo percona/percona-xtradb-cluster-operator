@@ -15,6 +15,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -88,7 +89,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *apiv1.Percon
 			return
 		}
 
-		_, err = localCr.CheckNSetDefaults(r.serverVersion, r.logger(cr.Name, cr.Namespace))
+		err = localCr.CheckNSetDefaults(r.serverVersion, r.logger(cr.Name, cr.Namespace))
 		if err != nil {
 			logger.Error(err, "failed to set defaults for CR")
 			return
@@ -151,6 +152,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 	}
 
 	logger := r.logger(cr.Name, cr.Namespace)
+	patch := client.MergeFrom(cr.DeepCopy())
 
 	if cr.Spec.PXC != nil && cr.Spec.PXC.Image != newVersion.PXCImage {
 		if cr.Status.PXC.Version == "" {
@@ -206,27 +208,27 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		cr.Spec.LogCollector.Image = newVersion.LogCollectorImage
 	}
 
-	err = r.client.Update(context.Background(), cr)
+	err = r.client.Patch(context.Background(), cr, patch)
 	if err != nil {
 		return errors.Wrap(err, "failed to update CR")
 	}
 
-	time.Sleep(1 * time.Second) // based on experiments operator just need it.
+	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+		rerr := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+		if rerr != nil {
+			return errors.Wrap(rerr, "failed to get CR")
+		}
 
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
-	if err != nil {
-		logger.Error(err, "failed to get CR")
-	}
+		cr.Status.ProxySQL.Version = newVersion.ProxySqlVersion
+		cr.Status.HAProxy.Version = newVersion.HAProxyVersion
+		cr.Status.PMM.Version = newVersion.PMMVersion
+		cr.Status.Backup.Version = newVersion.BackupVersion
+		cr.Status.PXC.Version = newVersion.PXCVersion
+		cr.Status.PXC.Image = newVersion.PXCImage
+		cr.Status.LogCollector.Version = newVersion.LogCollectorVersion
 
-	cr.Status.ProxySQL.Version = newVersion.ProxySqlVersion
-	cr.Status.HAProxy.Version = newVersion.HAProxyVersion
-	cr.Status.PMM.Version = newVersion.PMMVersion
-	cr.Status.Backup.Version = newVersion.BackupVersion
-	cr.Status.PXC.Version = newVersion.PXCVersion
-	cr.Status.PXC.Image = newVersion.PXCImage
-	cr.Status.LogCollector.Version = newVersion.LogCollectorVersion
-
-	err = r.client.Status().Update(context.Background(), cr)
+		return r.client.Status().Update(context.Background(), cr)
+	})
 	if err != nil {
 		return errors.Wrap(err, "failed to update CR status")
 	}
@@ -279,7 +281,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	for _, pod := range list.Items {
-		database, err := queries.New(r.client, cr.Namespace, secrets, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port)
+		database, err := queries.New(r.client, cr.Namespace, secrets, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			logger.Error(err, "failed to create db instance")
 			continue
@@ -312,12 +314,19 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtr
 	}
 
 	logger.Info("update PXC version (fetched from db)", "new version", version)
-	cr.Status.PXC.Version = version
-	cr.Status.PXC.Image = cr.Spec.PXC.Image
+	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
+		rerr := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+		if rerr != nil {
+			return errors.Wrap(rerr, "failed to get CR")
+		}
 
-	if err := r.client.Status().Update(context.Background(), cr); err != nil {
+		cr.Status.PXC.Version = version
+		cr.Status.PXC.Image = cr.Spec.PXC.Image
+
+		return r.client.Status().Update(context.Background(), cr)
+	})
+	if err != nil {
 		return errors.Wrap(err, "failed to update CR")
 	}
-
 	return nil
 }

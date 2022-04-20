@@ -1,9 +1,9 @@
-apiVersion: pxc.percona.com/v1-10-0
+apiVersion: pxc.percona.com/v1-11-0
 kind: PerconaXtraDBCluster
 metadata:
   name: minimal-cluster
 spec:
-  crVersion: 1.10.0
+  crVersion: 1.11.0
   secretsName: minimal-cluster-secrets
   allowUnsafeConfigurations: true
   upgradeOptions:

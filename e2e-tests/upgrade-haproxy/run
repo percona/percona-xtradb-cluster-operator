@@ -54,12 +54,15 @@ function main() {
 	# we cannot use create_infra and deploy_operator from functions since they deploy from the current source tree
 	# so we fetch last officially released images and yaml files as initial state for upgrade from github
 	create_infra_gh "${namespace}" "${GIT_TAG}"
+	start_minio
 
 	local proxy="haproxy"
 	local cr_yaml="${tmp_dir}/cr_${INIT_OPERATOR_VER}_${proxy}.yaml"
 	prepare_cr_yaml "${cr_yaml}" "${proxy}" "${CLUSTER}" "${CLUSTER_SIZE}" "${GIT_TAG}"
 	spinup_pxc "${CLUSTER}" "${cr_yaml}" "${CLUSTER_SIZE}" "30" "${conf_dir}/secrets_without_tls.yml"
 	compare_generation "1" "${proxy}" "${CLUSTER}"
+
+	run_backup "${CLUSTER}" "on-demand-backup-minio"
 
 	desc 'upgrade operator'
 	kubectl_bin apply -f "${src_dir}/deploy/crd.yaml"
@@ -131,6 +134,15 @@ function main() {
 	compare_generation "2" "${proxy}" "${CLUSTER}"
 	compare_kubectl "statefulset/${CLUSTER}-pxc"
 	compare_kubectl "statefulset/${CLUSTER}-haproxy"
+
+	desc 'check data exists after upgrade and drop database'
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-0.${CLUSTER}-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-1.${CLUSTER}-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-2.${CLUSTER}-pxc -uroot -proot_password"
+	run_mysql 'drop database myApp;' "-h ${CLUSTER}-pxc -uroot -proot_password"
+
+	desc 'run restore'
+	run_recovery_check "${CLUSTER}" "on-demand-backup-minio"
 
 	desc 'cleanup'
 	destroy "${namespace}"

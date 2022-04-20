@@ -21,6 +21,7 @@ build_operator() {
 	fi
 
 	export IMAGE
+	export DOCKER_DEFAULT_PLATFORM=${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
 	export GO_LDFLAGS="-w -s -trimpath $GO_LDFLAGS"
 	pushd ${src_dir}
 	docker build \
@@ -33,7 +34,10 @@ build_operator() {
 		--progress plain \
 		-t "${IMAGE}" -f build/Dockerfile .
 	popd
-	docker push ${IMAGE}
+
+	if [ "${DOCKER_PUSH:-1}" = 1 ]; then
+		docker push ${IMAGE}
+	fi
 }
 
 if [[ $BUILD == "0" ]]; then

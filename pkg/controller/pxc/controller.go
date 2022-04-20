@@ -212,6 +212,17 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		return reconcile.Result{}, err
 	}
 
+	if o.SetVersion() {
+		err = r.client.Update(context.TODO(), o)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrap(err, "update CR Version")
+		}
+		// k8s needs some time to write the changed CR object
+		// there is some probability to get the old object if we are fetching immediately after the Update call
+		// just rerun reconcile loop to get the new object
+		return rr, nil
+	}
+
 	reqLogger := r.logger(o.Name, o.Namespace)
 
 	if o.ObjectMeta.DeletionTimestamp != nil {
@@ -251,13 +262,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	}
 
 	defer func() {
-		uerr := r.updateStatus(o, err)
+		uerr := r.updateStatus(o, false, err)
 		if uerr != nil {
 			reqLogger.Error(uerr, "Update status")
 		}
 	}()
 
-	changed, err := o.CheckNSetDefaults(r.serverVersion, reqLogger)
+	err = o.CheckNSetDefaults(r.serverVersion, reqLogger)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
 	}
@@ -287,14 +298,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	}
 
 	r.resyncPXCUsersWithProxySQL(o)
-
-	// update CR if there was changes that may be read by another cr (e.g. pxc-backup)
-	if changed {
-		err = r.client.Update(context.TODO(), o)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "update PXC CR")
-		}
-	}
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
 		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})

@@ -1,0 +1,107 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+main() {
+
+  local source_cluster="cross-site-source"
+  local replica_cluster="cross-site-replica"
+  unset OPERATOR_NS
+	desc "Create source cluster"
+
+	create_namespace $namespace
+	deploy_operator
+	apply_secrets
+	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
+	sleep 60
+
+	source_endpoint0=$(get_service_ip ${source_cluster}-pxc-0)
+	source_endpoint1=$(get_service_ip ${source_cluster}-pxc-1)
+	source_endpoint2=$(get_service_ip ${source_cluster}-pxc-2)
+
+	source_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$source_cluster-proxysql-0")
+	source_primary_endpoint=$(get_service_ip ${source_primary})
+
+	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
+
+	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
+	sleep 15
+	wait_cluster_consistency "$source_cluster" 3 2
+
+	desc 'Write data to source cluster'
+	run_mysql \
+		'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS testSourceReplica (id int PRIMARY KEY);' \
+		"-h $source_primary_endpoint -uroot -proot_password"
+	run_mysql \
+		'INSERT myApp.testSourceReplica (id) VALUES (100700)' \
+		"-h $source_primary_endpoint -uroot -proot_password"
+
+	desc "Create replica cluster"
+
+	create_namespace $replica_namespace 0
+	deploy_operator
+	apply_secrets
+	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
+	sleep 60
+	replica_endpoint0=$(get_service_ip ${replica_cluster}-pxc-0)
+	replica_endpoint1=$(get_service_ip ${replica_cluster}-pxc-1)
+	replica_endpoint2=$(get_service_ip ${replica_cluster}-pxc-2)
+	replica_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$replica_cluster-proxysql-0")
+	replica_primary_endpoint=$(get_service_ip ${replica_primary})
+
+	run_mysql \
+		'DELETE FROM myApp.myApp WHERE id=100500' \
+		"-h $replica_primary_endpoint -uroot -proot_password"
+
+	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
+
+	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
+	sleep 15
+	wait_cluster_consistency "$replica_cluster" 3 2
+
+	desc "Check replication source-> replica works on"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint0 -uroot -proot_password"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint1 -uroot -proot_password"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint2 -uroot -proot_password"
+
+	desc "Switch clusters over"
+	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
+	run_mysql \
+		'DELETE FROM myApp.myApp WHERE id=100500' \
+		"-h $source_primary_endpoint -uroot -proot_password"
+
+	run_mysql \
+		'DELETE FROM myApp.testSourceReplica WHERE id=100700' \
+		"-h $source_primary_endpoint -uroot -proot_password"
+
+	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${replica_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
+
+	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$replica_namespace"
+	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": true, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
+
+	desc "Write data to replica cluster"
+	run_mysql \
+		'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS testReplicaSource (id int PRIMARY KEY);' \
+		"-h $replica_primary_endpoint -uroot -proot_password"
+	run_mysql \
+		'INSERT myApp.testReplicaSource (id) VALUES (100800)' \
+		"-h $replica_primary_endpoint -uroot -proot_password"
+
+	sleep 15
+
+	desc "Check replication replica -> source works on"
+	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
+	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint0 -uroot -proot_password"
+	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint1 -uroot -proot_password"
+	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint2 -uroot -proot_password"
+	desc "Success"
+
+	destroy $namespace "true"
+	destroy $replica_namespace "true"
+}
+
+main

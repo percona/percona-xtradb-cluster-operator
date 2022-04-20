@@ -45,6 +45,8 @@ spec:
                 secretKeyRef:
                   key: xtrabackup
                   name: my-cluster-secrets
+            - name: VERIFY_TLS
+              value: "true"
             - name: ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:

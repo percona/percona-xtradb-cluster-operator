@@ -192,9 +192,14 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		svcType = cr.Spec.ProxySQL.ServiceType
 	}
 	serviceAnnotations := make(map[string]string)
+	serviceLabels := map[string]string{
+		"app.kubernetes.io/name":     "percona-xtradb-cluster",
+		"app.kubernetes.io/instance": cr.Name,
+	}
 	loadBalancerSourceRanges := []string{}
 	if cr.Spec.ProxySQL != nil {
 		serviceAnnotations = cr.Spec.ProxySQL.ServiceAnnotations
+		serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.ProxySQL)
 		loadBalancerSourceRanges = cr.Spec.ProxySQL.LoadBalancerSourceRanges
 	}
 	obj := &corev1.Service{
@@ -203,12 +208,9 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.ProxySQLServiceNamespacedName().Name,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     "percona-xtradb-cluster",
-				"app.kubernetes.io/instance": cr.Name,
-			},
+			Name:        cr.ProxySQLServiceNamespacedName().Name,
+			Namespace:   cr.Namespace,
+			Labels:      serviceLabels,
 			Annotations: serviceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
@@ -262,9 +264,17 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 	}
 
 	serviceAnnotations := make(map[string]string)
+	serviceLabels := map[string]string{
+		"app.kubernetes.io/name":       "percona-xtradb-cluster",
+		"app.kubernetes.io/instance":   cr.Name,
+		"app.kubernetes.io/component":  "haproxy",
+		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+	}
 	loadBalancerSourceRanges := []string{}
 	if cr.Spec.HAProxy != nil {
 		serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
+		serviceLabels = fillServiceLabels(serviceLabels, &cr.Spec.HAProxy.PodSpec)
 		loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
 	}
 
@@ -274,15 +284,9 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.HaproxyServiceNamespacedName().Name,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":   cr.Name,
-				"app.kubernetes.io/component":  "haproxy",
-				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-			},
+			Name:            cr.HaproxyServiceNamespacedName().Name,
+			Namespace:       cr.Namespace,
+			Labels:          serviceLabels,
 			Annotations:     serviceAnnotations,
 			OwnerReferences: owners,
 		},
@@ -349,9 +353,16 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster, owners ...metav1.Ow
 		svcType = cr.Spec.HAProxy.ReplicasServiceType
 	}
 	serviceAnnotations := make(map[string]string)
+	serviceLabels := map[string]string{
+		"app.kubernetes.io/name":       "percona-xtradb-cluster",
+		"app.kubernetes.io/instance":   cr.Name,
+		"app.kubernetes.io/component":  "haproxy",
+		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+		"app.kubernetes.io/part-of":    "percona-xtradb-cluster"}
 	loadBalancerSourceRanges := []string{}
 	if cr.Spec.HAProxy != nil {
 		serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
+		serviceLabels = fillServiceLabels(serviceLabels, &cr.Spec.HAProxy.PodSpec)
 		loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
 	}
 	obj := &corev1.Service{
@@ -360,15 +371,9 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster, owners ...metav1.Ow
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.HAProxyReplicasNamespacedName().Name,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":   cr.Name,
-				"app.kubernetes.io/component":  "haproxy",
-				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-			},
+			Name:            cr.HAProxyReplicasNamespacedName().Name,
+			Namespace:       cr.Namespace,
+			Labels:          serviceLabels,
 			Annotations:     serviceAnnotations,
 			OwnerReferences: owners,
 		},
@@ -400,4 +405,14 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster, owners ...metav1.Ow
 	}
 
 	return obj
+}
+
+func fillServiceLabels(labels map[string]string, pod *api.PodSpec) map[string]string {
+	for k, v := range pod.ServiceLabels {
+		if _, ok := labels[k]; ok {
+			continue
+		}
+		labels[k] = v
+	}
+	return labels
 }

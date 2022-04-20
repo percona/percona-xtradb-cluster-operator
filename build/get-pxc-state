@@ -1,0 +1,36 @@
+#!/bin/bash
+
+function mysql_root_exec() {
+	local server="$1"
+	local query="$2"
+
+	{ set +x; } 2>/dev/null
+	mysql_pass=$(cat /etc/mysql/mysql-users-secret/monitor || :)
+	MYSQL_PASSWORD="${mysql_pass:-$MONITOR_PASSWORD}"
+	MYSQL_USERNAME="${MYSQL_USERNAME:-monitor}"
+	MYSQL_PWD=${MYSQL_PASSWORD:-password} timeout 600 mysql -P33062 -h${server} -u${MYSQL_USERNAME} -s -NB -e "${query}"
+	set -x
+}
+
+function wait_for_mysql() {
+	local h="$1"
+	for i in {1..10}; do
+		if [ "$(mysql_root_exec "$h" 'select 1')" == "1" ]; then
+			return
+		fi
+		echo "MySQL is not up yet... sleeping ..."
+		sleep 1
+	done
+}
+
+echo
+while read -ra LINE; do
+	wait_for_mysql $LINE
+	STATUS=$(mysql_root_exec "$LINE" "SHOW GLOBAL STATUS LIKE 'wsrep_%';")
+	READY=$(echo "$STATUS" | grep wsrep_ready | awk '{print$2}')
+	ONLINE=$(echo "$STATUS" | grep wsrep_connected | awk '{print$2}')
+	STATE=$(echo "$STATUS" | grep wsrep_local_state_comment | awk '{print$2}')
+	CLUSTER_STATUS=$(echo "$STATUS" | grep wsrep_cluster_status | awk '{print$2}')
+
+	echo node:$LINE:wsrep_ready:$READY:wsrep_connected:$ONLINE:wsrep_local_state_comment:$STATE:wsrep_cluster_status:$CLUSTER_STATUS
+done

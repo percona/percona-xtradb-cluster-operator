@@ -6,29 +6,47 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+check_verify_identity() {
+	local host="$1"
+
+	local command="exit"
+	local args="--ssl-ca=/etc/mysql/ssl-internal/ca.crt --ssl-mode=VERIFY_IDENTITY --protocol=tcp -uroot -proot_password --host=$host"
+
+	kubectl_bin exec "$cluster-pxc-0" -- \
+		bash -c "printf '%s\n' \"${command}\" | mysql -sN $args"
+}
+
 main() {
-  create_infra $namespace
-  cluster="some-name-tls-issue"
+	create_infra $namespace
+	cluster="some-name-tls-issue"
 
-  desc 'deploy cert manager'
-  deploy_cert_manager
+	desc 'deploy cert manager'
+	deploy_cert_manager
 
-  desc 'create pxc cluster'
-  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml" "$test_dir/conf/client.yml"
+	desc 'create pxc cluster'
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml" "$test_dir/conf/client.yml"
 
-  desc 'check if certificates issued with certmanager'
-  tlsSecretsShouldExist "$cluster-ssl"
+	desc 'check if certificates issued with certmanager'
+	tlsSecretsShouldExist "$cluster-ssl"
 
-  desc 'check if CA issuer created'
-  compare_kubectl issuer/$cluster-pxc-ca-issuer
+	desc 'check if CA issuer created'
+	compare_kubectl issuer/$cluster-pxc-ca-issuer
 
-  desc 'check if issuer created'
-  compare_kubectl issuer/$cluster-pxc-issuer
+	desc 'check if issuer created'
+	compare_kubectl issuer/$cluster-pxc-issuer
 
-  desc 'check if certificate issued'
-  compare_kubectl certificate/$cluster-ssl
+	desc 'check if certificate issued'
+	compare_kubectl certificate/$cluster-ssl
 
-  destroy $namespace
+	apply_config "$test_dir/conf/$cluster-haproxy.yml"
+	wait_for_running "$cluster-haproxy" 1
+
+	desc 'check ssl-internal certificate using PXC'
+	check_verify_identity "$cluster-pxc"
+	desc 'check ssl-internal certificate using HAProxy'
+	check_verify_identity "$cluster-haproxy"
+
+	destroy $namespace
 }
 
 main

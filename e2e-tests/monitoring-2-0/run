@@ -10,25 +10,36 @@ cluster="monitoring"
 create_infra $namespace
 deploy_helm $namespace
 
-
 desc 'install PMM Server'
 platform=kubernetes
-helm del --purge monitoring || :
+helm uninstall monitoring || :
 if [ ! -z "$OPENSHIFT" ]; then
-    platform=openshift
-    oc create sa pmm-server
-    oc adm policy add-scc-to-user privileged -z pmm-server
-    if [ -n "$OPERATOR_NS" ]; then
-        oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
-        oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' ${OPERATOR_NS:+-n $OPERATOR_NS}
-    else
-        oc create rolebinding pmm-pxc-operator-namespace-only --role percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
-        oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
-    fi
-    retry 10 60 helm install monitoring --set platform=$platform --set sa=pmm-server --set supresshttp2=false https://percona-charts.storage.googleapis.com/pmm-server-2.18.0.tgz
+	platform=openshift
+	oc create sa pmm-server
+	oc adm policy add-scc-to-user privileged -z pmm-server
+	if [ -n "$OPERATOR_NS" ]; then
+		oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+		oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' ${OPERATOR_NS:+-n $OPERATOR_NS}
+	else
+		oc create rolebinding pmm-pxc-operator-namespace-only --role percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+		oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
+	fi
+	retry 10 60 helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform --set sa=pmm-server --set supresshttp2=false https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 else
-	helm install monitoring --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-2.18.0.tgz
+	helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 fi
+SERVICE="postgres"
+until kubectl_bin exec monitoring-0 -- bash -c "pgrep -x $SERVICE >/dev/null"; do
+	echo "Retry $retry"
+	sleep 5
+	let retry+=1
+	if [ $retry -ge 20 ]; then
+		echo "Max retry count $retry reached. Pmm-server can't start"
+		exit 1
+	fi
+done
+ADMIN_PASSWORD=$(kubectl_bin exec monitoring-0 -- bash -c "printenv | grep ADMIN_PASSWORD | cut -d '=' -f2")
+kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini admin reset-admin-password $ADMIN_PASSWORD"
 
 desc 'create PXC cluster'
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
@@ -50,13 +61,13 @@ sleep 90
 
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 admin:admin
-if [[ -n "${OPENSHIFT}" ]]; then
-    oc adm policy remove-scc-from-user privileged -z pmm-server
-    if [ -n "$OPERATOR_NS" ]; then
-        oc delete clusterrolebinding pmm-pxc-operator-cluster-wide
-    else
-        oc delete rolebinding pmm-pxc-operator-namespace-only
-    fi
+if [[ -n ${OPENSHIFT} ]]; then
+	oc adm policy remove-scc-from-user privileged -z pmm-server
+	if [ -n "$OPERATOR_NS" ]; then
+		oc delete clusterrolebinding pmm-pxc-operator-cluster-wide
+	else
+		oc delete rolebinding pmm-pxc-operator-namespace-only
+	fi
 fi
-helm delete monitoring
+helm uninstall monitoring
 destroy $namespace

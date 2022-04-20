@@ -365,6 +365,7 @@ type PodSpec struct {
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
 	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
+	ServiceLabels                 map[string]string                       `json:"serviceLabels,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
 	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`
@@ -444,6 +445,7 @@ type BackupStorageSpec struct {
 	PodSecurityContext       *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
 	ContainerSecurityContext *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
 	RuntimeClassName         *string                    `json:"runtimeClassName,omitempty"`
+	VerifyTLS                *bool                      `json:"verifyTLS,omitempty"`
 }
 
 type BackupStorageType string
@@ -558,23 +560,22 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // CheckNSetDefaults sets defaults options and overwrites wrong settings
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
-func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion, logger logr.Logger) (changed bool, err error) {
+func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion, logger logr.Logger) (err error) {
 	workloadSA := "percona-xtradb-cluster-operator-workload"
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		workloadSA = WorkloadSA
 	}
 
-	CRVerChanged := cr.setVersion()
-
+	_ = cr.SetVersion()
 	err = cr.Validate()
 	if err != nil {
-		return false, errors.Wrap(err, "validate cr")
+		return errors.Wrap(err, "validate cr")
 	}
 
 	c := &cr.Spec
 
 	if c.PXC != nil {
-		changed = c.PXC.VolumeSpec.reconcileOpts()
+		c.PXC.VolumeSpec.reconcileOpts()
 
 		if len(c.PXC.ImagePullPolicy) == 0 {
 			c.PXC.ImagePullPolicy = corev1.PullAlways
@@ -583,6 +584,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		c.PXC.VaultSecretName = c.VaultSecretName
 		if len(c.PXC.VaultSecretName) == 0 {
 			c.PXC.VaultSecretName = cr.Name + "-vault"
+		}
+
+		if len(c.SecretsName) == 0 {
+			c.SecretsName = cr.Name + "-secrets"
 		}
 
 		if len(c.SSLSecretName) > 0 {
@@ -709,7 +714,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
 		}
 
-		changed = c.ProxySQL.VolumeSpec.reconcileOpts()
+		c.ProxySQL.VolumeSpec.reconcileOpts()
 
 		if len(c.SSLSecretName) > 0 {
 			c.ProxySQL.SSLSecretName = c.SSLSecretName
@@ -766,7 +771,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			case BackupStorageS3:
 				// TODO what should we check here?
 			case BackupStorageFilesystem:
-				changed = strg.Volume.reconcileOpts()
+				strg.Volume.reconcileOpts()
 			}
 		}
 	}
@@ -787,7 +792,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		cr.Spec.EnableCRValidationWebhook = &falseVal
 	}
 
-	return CRVerChanged || changed, nil
+	return nil
 }
 
 const (
@@ -898,10 +903,10 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	}
 }
 
-// setVersion sets the API version of a PXC resource.
+// SetVersion sets the API version of a PXC resource.
 // The new (semver-matching) version is determined either by the CR's API version or an API version specified via the CR's fields.
 // If the CR's API version is an empty string and last-applied-configuration from k8s is empty, it returns current operator version.
-func (cr *PerconaXtraDBCluster) setVersion() bool {
+func (cr *PerconaXtraDBCluster) SetVersion() bool {
 	if len(cr.Spec.CRVersion) > 0 {
 		return false
 	}
@@ -930,7 +935,7 @@ func (cr *PerconaXtraDBCluster) Version() *v.Version {
 // Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
 func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
 	if len(cr.Spec.CRVersion) == 0 {
-		_ = cr.setVersion()
+		_ = cr.SetVersion()
 	}
 
 	return cr.Version().Compare(v.Must(v.NewVersion(ver)))
@@ -988,7 +993,7 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	}
 }
 
-func (v *VolumeSpec) reconcileOpts() (changed bool) {
+func (v *VolumeSpec) reconcileOpts() {
 	if v.EmptyDir == nil && v.HostPath == nil && v.PersistentVolumeClaim == nil {
 		v.PersistentVolumeClaim = &corev1.PersistentVolumeClaimSpec{}
 	}
@@ -996,11 +1001,8 @@ func (v *VolumeSpec) reconcileOpts() (changed bool) {
 	if v.PersistentVolumeClaim != nil {
 		if len(v.PersistentVolumeClaim.AccessModes) == 0 {
 			v.PersistentVolumeClaim.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
-			changed = true
 		}
 	}
-
-	return changed
 }
 
 func (v *VolumeSpec) validate() error {

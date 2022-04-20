@@ -2,7 +2,6 @@ apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
   name: network-loss-example
-  namespace: chaos-testing
 spec:
   action: loss
   mode: one
@@ -14,5 +13,3 @@ spec:
     loss: "100"
     correlation: "100"
   duration: "60s"
-  scheduler:
-    cron: "@every 10h"

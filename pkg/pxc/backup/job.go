@@ -3,6 +3,7 @@ package backup
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -46,6 +47,10 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 
 	manualSelector := true
 	backbackoffLimit := int32(10)
+	verifyTLS := true
+	if cluster.Backup.Storages[spec.StorageName].VerifyTLS != nil {
+		verifyTLS = *cluster.Backup.Storages[spec.StorageName].VerifyTLS
+	}
 	return batchv1.JobSpec{
 		BackoffLimit:   &backbackoffLimit,
 		ManualSelector: &manualSelector,
@@ -83,6 +88,10 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster api.PerconaXtraDBClus
 								ValueFrom: &corev1.EnvVarSource{
 									SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, "xtrabackup"),
 								},
+							},
+							{
+								Name:  "VERIFY_TLS",
+								Value: strconv.FormatBool(verifyTLS),
 							},
 						},
 						Resources: resources,

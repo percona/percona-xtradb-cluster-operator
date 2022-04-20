@@ -39,11 +39,24 @@ spec:
       limits:
         memory: 1G
         cpu: 700m
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
     volumeSpec:
       persistentVolumeClaim:
         resources:
           requests:
             storage: 2Gi
+  haproxy:
+    enabled: false
+    size: 1
+    image: -haproxy
+    resources:
+      requests:
+        memory: 0.1G
+        cpu: 100m
+      limits:
+        memory: 1G
+        cpu: 700m
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   pmm:

@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, reconcileErr error) (err error) {
+func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluster, inProgress bool, reconcileErr error) (err error) {
 	clusterCondition := api.ClusterCondition{
 		Status:             api.ConditionTrue,
 		Type:               api.AppStateInit,
@@ -79,7 +79,6 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		})
 	}
 
-	inProgress := false
 	cr.Status.Size = 0
 	cr.Status.Ready = 0
 	for _, a := range apps {

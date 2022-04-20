@@ -51,6 +51,8 @@ spec:
                 secretKeyRef:
                   key: xtrabackup
                   name: my-cluster-secrets
+            - name: VERIFY_TLS
+              value: "true"
             - name: XB_USE_MEMORY
               value: "750000000"
           imagePullPolicy: Always

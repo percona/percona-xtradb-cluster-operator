@@ -32,7 +32,7 @@ main() {
         table_must_not_be_encrypted "$cluster" "myApp"
     fi
 
-    helm delete $vault1 || :
+    helm uninstall $vault1 || :
     kubectl_bin delete --grace-period=0 --force=true namespace $vault1 &
     destroy $namespace
 }

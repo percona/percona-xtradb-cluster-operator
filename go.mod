@@ -23,7 +23,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	go.uber.org/zap v1.18.1
 	k8s.io/api v0.19.2
-	k8s.io/apimachinery v0.23.6
+	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.7.0
 )
@@ -103,7 +103,6 @@ require (
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
 	k8s.io/api => k8s.io/api v0.19.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.19.2
 	k8s.io/client-go => k8s.io/client-go v0.19.2 // Required by prometheus-operator
 )
 

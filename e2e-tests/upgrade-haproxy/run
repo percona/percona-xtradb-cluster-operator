@@ -65,7 +65,7 @@ function main() {
 	run_backup "${CLUSTER}" "on-demand-backup-minio"
 
 	desc 'upgrade operator'
-	kubectl_bin apply -f "${src_dir}/deploy/crd.yaml"
+	kubectl_bin apply --server-side --force-conflicts -f "${src_dir}/deploy/crd.yaml"
 	if [[ -n ${OPERATOR_NS} ]]; then
 		apply_rbac cw-rbac
 	else

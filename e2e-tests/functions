@@ -226,7 +226,7 @@ apply_rbac() {
 deploy_operator() {
 	desc 'start operator'
 
-	kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
+	kubectl_bin apply --server-side --force-conflicts -f ${src_dir}/deploy/crd.yaml || :
 
 	if [ -n "$OPERATOR_NS" ]; then
 		apply_rbac cw-rbac
@@ -1266,7 +1266,7 @@ function deploy_operator_gh() {
 		&& [[ -n $(kubectl_bin get crd/perconaxtradbclusters.pxc.percona.com -o jsonpath='{.spec.versions[?(@.name == "'"${git_tag//\./-}"'")].name}') ]]; then
 		echo "Target CRD for ${git_tag} is in place"
 	else
-		kubectl_bin apply -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/crd.yaml" >"${tmp_dir}/crd_${git_tag}.yaml"
+		kubectl_bin apply --server-side --force-conflicts -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/crd.yaml" >"${tmp_dir}/crd_${git_tag}.yaml"
 	fi
 
 	local rbac_yaml="rbac"

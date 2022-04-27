@@ -896,11 +896,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.HookScript != "" {
 			err := r.createHookScriptConfigMap(cr, cr.Spec.LogCollector.HookScript, logCollectorHookScriptName)
 			if err != nil {
-				return errors.Wrap(err, "create haproxy hookscript config map")
+				return errors.Wrap(err, "create logcollector hookscript config map")
 			}
 		} else {
 			if err := deleteConfigMapIfExists(r.client, cr, logCollectorHookScriptName); err != nil {
-				return errors.Wrap(err, "delete haproxy config map")
+				return errors.Wrap(err, "delete logcollector config map")
 			}
 		}
 	}

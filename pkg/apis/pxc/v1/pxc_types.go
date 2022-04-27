@@ -410,7 +410,7 @@ type LogCollectorSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                 `json:"runtimeClassName,omitempty"`
-	HookScript               string                  `json:"HookScript,omitempty"`
+	HookScript               string                  `json:"hookScript,omitempty"`
 }
 
 type PMMSpec struct {

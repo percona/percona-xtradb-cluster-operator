@@ -22,43 +22,11 @@ prepare_config() {
 	cat ${test_dir}/conf/client.yml | $sed -e "s#kubernetes.io/hostname:.*-node3\$#kubernetes.io/hostname: ${client_node}#" >${tmp_dir}/client.yml
 }
 
-spinup_pxc() {
-	local cluster=$1
-	local config=$2
-	local size="${3:-3}"
-	local sleep="${4:-10}"
-	local secretsFile="${5:-$conf_dir/secrets.yml}"
-	local pxcClientFile="${6:-$conf_dir/client.yml}"
-
-	desc 'create first PXC cluster'
-	kubectl_bin apply -f $secretsFile
-	apply_config "$pxcClientFile"
-	apply_config "$config"
-
-	desc 'check if all 3 Pods started'
-	local proxy=$(get_proxy "$cluster")
-	wait_for_running "$proxy" 1
-	wait_for_running "$cluster-pxc" "$size"
-	sleep $sleep
-
-	desc 'write data'
-	run_mysql \
-		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-		"-h $proxy -uroot -proot_password"
-	run_mysql \
-		'INSERT myApp.myApp (id) VALUES (100500)' \
-		"-h $proxy -uroot -proot_password"
-
-	for i in $(seq 0 $((size - 1))); do
-		run_mysql_local 'SELECT * from myApp.myApp;' "-hlocalhost -P3306 -uroot -proot_password" "$cluster-pxc-$i" | grep "100500"
-	done
-}
-
 prepare_config
 create_infra ${namespace}
 
 desc 'create first PXC cluster'
-spinup_pxc "${cluster}" "${tmp_dir}/${cluster}.yml" "3" "15" "${conf_dir}/secrets.yml" "${tmp_dir}/client.yml"
+spinup_pxc "${cluster}" "${tmp_dir}/${cluster}.yml" "3" "15" "${conf_dir}/secrets.yml" "${tmp_dir}/client.yml" "33062"
 client_ip=$(kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].status.podIP}')
 service_ip=$(get_service_endpoint proxy-protocol-haproxy)
 

@@ -258,8 +258,9 @@ func (r *Recoverer) recover() (err error) {
 	if err != nil {
 		return errors.Wrap(err, "drop collector funcs")
 	}
-	for _, binlog := range r.binlogs {
-		log.Println("working with", binlog)
+	for i, binlog := range r.binlogs {
+		remaining := len(r.binlogs) - i
+		log.Printf("working with %s, %d out of %d remaining\n", binlog, remaining, len(r.binlogs))
 		if r.recoverType == Date {
 			binlogArr := strings.Split(binlog, "_")
 			if len(binlogArr) < 2 {
@@ -420,10 +421,6 @@ func (r *Recoverer) setBinlogs() error {
 		}
 		binlogGTIDSet := string(content)
 		log.Println("checking current file", " name ", binlog, " gtid ", binlogGTIDSet)
-		if sourceID != strings.Split(binlogGTIDSet, ":")[0] {
-			log.Println("Source id is not equal to binlog source id")
-			continue
-		}
 
 		if len(r.gtid) > 0 && r.recoverType == Transaction {
 			subResult, err := r.db.SubtractGTIDSet(binlogGTIDSet, r.gtid)

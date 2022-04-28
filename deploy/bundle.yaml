@@ -538,9 +538,6 @@ spec:
                           type: string
                         timeBetweenUploads:
                           type: number
-                      required:
-                        - enabled
-                        - storageName
                       type: object
                     schedule:
                       items:
@@ -1117,9 +1114,6 @@ spec:
                                 type: string
                               region:
                                 type: string
-                            required:
-                              - bucket
-                              - credentialsSecret
                             type: object
                           schedulerName:
                             type: string
@@ -1264,8 +1258,6 @@ spec:
                                     type: string
                                 type: object
                             type: object
-                        required:
-                          - type
                         type: object
                       type: object
                   type: object
@@ -10000,9 +9992,6 @@ spec:
                   type: integer
                 state:
                   type: string
-              required:
-                - ready
-                - size
               type: object
           type: object
       served: true
@@ -10146,7 +10135,7 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: percona-xtradb-cluster-operator
-          image: ademajazzserve/operator:latest
+          image: perconalab/percona-xtradb-cluster-operator:main
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3

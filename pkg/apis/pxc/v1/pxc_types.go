@@ -192,6 +192,7 @@ type AppStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName="pxc";"pxcs"
+// +kubebuilder:validation:Optional
 // +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".status.host"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="PXC",type="string",JSONPath=".status.pxc.ready",description="Ready pxc nodes"

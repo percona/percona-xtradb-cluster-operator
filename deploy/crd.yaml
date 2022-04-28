@@ -538,9 +538,6 @@ spec:
                           type: string
                         timeBetweenUploads:
                           type: number
-                      required:
-                        - enabled
-                        - storageName
                       type: object
                     schedule:
                       items:
@@ -1117,9 +1114,6 @@ spec:
                                 type: string
                               region:
                                 type: string
-                            required:
-                              - bucket
-                              - credentialsSecret
                             type: object
                           schedulerName:
                             type: string
@@ -1264,8 +1258,6 @@ spec:
                                     type: string
                                 type: object
                             type: object
-                        required:
-                          - type
                         type: object
                       type: object
                   type: object
@@ -10000,9 +9992,6 @@ spec:
                   type: integer
                 state:
                   type: string
-              required:
-                - ready
-                - size
               type: object
           type: object
       served: true
@@ -10075,8 +10064,6 @@ spec:
                   type: string
                 storageName:
                   type: string
-              required:
-                - pxcCluster
               type: object
             status:
               properties:
@@ -10098,18 +10085,12 @@ spec:
                       type: string
                     region:
                       type: string
-                  required:
-                    - bucket
-                    - credentialsSecret
                   type: object
                 state:
                   type: string
                 storageName:
                   type: string
               type: object
-          required:
-            - metadata
-            - spec
           type: object
       served: true
       storage: true
@@ -10195,9 +10176,6 @@ spec:
                           type: string
                         region:
                           type: string
-                      required:
-                        - bucket
-                        - credentialsSecret
                       type: object
                     state:
                       type: string
@@ -10226,9 +10204,6 @@ spec:
                               type: string
                             region:
                               type: string
-                          required:
-                            - bucket
-                            - credentialsSecret
                           type: object
                         state:
                           type: string
@@ -10241,17 +10216,9 @@ spec:
                       type: string
                     type:
                       type: string
-                  required:
-                    - backupSource
-                    - date
-                    - gtid
-                    - type
                   type: object
                 pxcCluster:
                   type: string
-              required:
-                - backupName
-                - pxcCluster
               type: object
             status:
               description: PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore

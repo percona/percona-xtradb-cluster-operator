@@ -8,9 +8,6 @@ import (
 
 	"github.com/go-ini/ini"
 	"github.com/go-logr/logr"
-	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
-
 	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -18,6 +15,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
@@ -379,6 +379,7 @@ type PodSpec struct {
 	SidecarVolumes                []corev1.Volume                         `json:"sidecarVolumes,omitempty"`
 	SidecarPVCs                   []corev1.PersistentVolumeClaim          `json:"sidecarPVCs,omitempty"`
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
+	HookScript                    string                                  `json:"hookScript,omitempty"`
 }
 
 type HAProxySpec struct {
@@ -409,6 +410,7 @@ type LogCollectorSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                 `json:"runtimeClassName,omitempty"`
+	HookScript               string                  `json:"hookScript,omitempty"`
 }
 
 type PMMSpec struct {

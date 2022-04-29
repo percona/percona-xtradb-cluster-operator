@@ -1329,7 +1329,7 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName s
 
 func operatorImageName(operatorPod *corev1.Pod) (string, error) {
 	for _, c := range operatorPod.Spec.Containers {
-		if len(c.Command) != 0 && c.Command[0] == "percona-xtradb-cluster-operator" {
+		if c.Name == "percona-xtradb-cluster-operator" {
 			return c.Image, nil
 		}
 	}

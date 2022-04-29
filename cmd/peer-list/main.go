@@ -89,10 +89,14 @@ func main() {
 		ns = os.Getenv("POD_NAMESPACE")
 	}
 	log.Printf("Peer finder enter")
-	var domainName string
 
-	// If domain is not provided, try to get it from resolv.conf
-	if *domain == "" {
+	// If domain is not provided, try to get it from environment variables OR from resolv.conf.
+	domainName := *namespace
+	if domainName == "" {
+		domainName = os.Getenv("PXC_DOMAIN")
+	}
+
+	if domainName == "" {
 		resolvConfBytes, err := ioutil.ReadFile("/etc/resolv.conf")
 		resolvConf := string(resolvConfBytes)
 		if err != nil {

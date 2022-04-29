@@ -187,6 +187,12 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		}
 		appc.Env = append(appc.Env, probsEnvs...)
 	}
+	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "hookscript",
+			MountPath: "/opt/percona/hookscript",
+		})
+	}
 	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 	if err != nil {
 		return appc, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
@@ -287,7 +293,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 	return []corev1.Container{container}, nil
 }
 
-func (c *HAProxy) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *HAProxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ string, _ *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	return nil, nil
 }
 
@@ -392,7 +398,10 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes(cr.Spec.HAProxy.EnvVarsSecretName, cr.Spec.HAProxy.EnvVarsSecretName, true))
 	}
-
+	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
+		vol.Volumes = append(vol.Volumes,
+			app.GetConfigVolumes("hookscript", c.labels["app.kubernetes.io/instance"]+"-"+c.labels["app.kubernetes.io/component"]+"-hookscript"))
+	}
 	return vol, nil
 }
 

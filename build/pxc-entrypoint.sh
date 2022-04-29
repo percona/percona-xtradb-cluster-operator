@@ -610,4 +610,6 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 	fi
 fi
 
+test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
+
 exec "$@" $wsrep_start_position_opt

@@ -235,6 +235,12 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
 			},
 		})
+		if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
+			appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+				Name:      "hookscript",
+				MountPath: "/opt/percona/hookscript",
+			})
+		}
 	}
 
 	if cr.CompareVersionWith("1.6.0") >= 0 {
@@ -378,11 +384,20 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		},
 	}
 
-	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
-		logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
-			Name:      "logcollector-config",
-			MountPath: "/etc/fluentbit/custom",
-		})
+	if cr.Spec.LogCollector != nil {
+		if cr.Spec.LogCollector.Configuration != "" {
+			logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
+				Name:      "logcollector-config",
+				MountPath: "/etc/fluentbit/custom",
+			})
+		}
+
+		if cr.Spec.LogCollector.HookScript != "" {
+			logProcContainer.VolumeMounts = append(logProcContainer.VolumeMounts, corev1.VolumeMount{
+				Name:      "hookscript",
+				MountPath: "/opt/percona/hookscript",
+			})
+		}
 	}
 
 	return []corev1.Container{logProcContainer, logRotContainer}, nil
@@ -529,6 +544,17 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false))
 		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
 			vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("logcollector-config", ls["app.kubernetes.io/instance"]+"-logcollector"))
+		}
+	}
+	if cr.CompareVersionWith("1.11.0") >= 0 {
+		if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
+			vol.Volumes = append(vol.Volumes,
+				app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]+"-hookscript"))
+		}
+
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.HookScript != "" {
+			vol.Volumes = append(vol.Volumes,
+				app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-logcollector-hookscript"))
 		}
 	}
 

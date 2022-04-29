@@ -145,6 +145,13 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		}
 	}
 
+	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "hookscript",
+			MountPath: "/opt/percona/hookscript",
+		})
+	}
+
 	res, err := app.CreateResources(spec.Resources)
 	if err != nil {
 		return appc, fmt.Errorf("create resources error: %v", err)
@@ -276,7 +283,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	return []corev1.Container{pxcMonit, proxysqlMonit}, nil
 }
 
-func (c *Proxy) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
+func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ string, _ *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
 	return nil, nil
 }
 
@@ -415,7 +422,10 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 	if err == nil {
 		vol.Volumes = append(vol.Volumes, configVolume)
 	}
-
+	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
+		vol.Volumes = append(vol.Volumes,
+			app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]+"-hookscript"))
+	}
 	return vol, nil
 }
 

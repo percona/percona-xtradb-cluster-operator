@@ -379,6 +379,7 @@ compare_kubectl() {
 		| yq d - '**.preemptionPolicy' \
 		| yq d - 'spec.ipFamilies' \
 		| yq d - 'spec.ipFamilyPolicy' \
+		| yq d - '**."kubernetes.io/hostname"' \
 		| $sed 's#^apiVersion: policy/v1beta1#apiVersion: policy/v1#' \
 		| $sed 's/name: kube-api-access-.*$/name: kube-api-access/' \
 		| $sed 's/namespace\:.*name/name/' \
@@ -768,6 +769,7 @@ spinup_pxc() {
 	local sleep="${4:-10}"
 	local secretsFile="${5:-$conf_dir/secrets.yml}"
 	local pxcClientFile="${6:-$conf_dir/client.yml}"
+	local port="${7:-3306}"
 
 	desc 'create first PXC cluster'
 	kubectl_bin apply -f $secretsFile
@@ -793,13 +795,13 @@ spinup_pxc() {
 	fi
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-		"-h $proxy -uroot -proot_password"
+		"-h $proxy -uroot -proot_password -P$port"
 	run_mysql \
 		'INSERT myApp.myApp (id) VALUES (100500)' \
-		"-h $proxy -uroot -proot_password"
+		"-h $proxy -uroot -proot_password -P$port"
 	sleep 30
 	for i in $(seq 0 $((size - 1))); do
-		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password -P$port"
 	done
 
 	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then

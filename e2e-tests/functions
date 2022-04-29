@@ -379,6 +379,7 @@ compare_kubectl() {
 		| yq d - '**.preemptionPolicy' \
 		| yq d - 'spec.ipFamilies' \
 		| yq d - 'spec.ipFamilyPolicy' \
+		| yq d - '**."kubernetes.io/hostname"' \
 		| $sed 's#^apiVersion: policy/v1beta1#apiVersion: policy/v1#' \
 		| $sed 's/name: kube-api-access-.*$/name: kube-api-access/' \
 		| $sed 's/namespace\:.*name/name/' \
@@ -768,6 +769,7 @@ spinup_pxc() {
 	local sleep="${4:-10}"
 	local secretsFile="${5:-$conf_dir/secrets.yml}"
 	local pxcClientFile="${6:-$conf_dir/client.yml}"
+	local port="${7:-3306}"
 
 	desc 'create first PXC cluster'
 	kubectl_bin apply -f $secretsFile
@@ -793,13 +795,13 @@ spinup_pxc() {
 	fi
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
-		"-h $proxy -uroot -proot_password"
+		"-h $proxy -uroot -proot_password -P$port"
 	run_mysql \
 		'INSERT myApp.myApp (id) VALUES (100500)' \
-		"-h $proxy -uroot -proot_password"
+		"-h $proxy -uroot -proot_password -P$port"
 	sleep 30
 	for i in $(seq 0 $((size - 1))); do
-		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
+		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password -P$port"
 	done
 
 	if [ "$(is_keyring_plugin_in_use "$cluster")" ]; then
@@ -1164,9 +1166,9 @@ deploy_chaos_mesh() {
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
 	if version_gt "1.19"; then
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.0.4 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
+		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.1.5 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
 	else
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set dashboard.create=false --version 2.0.4 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
+		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set dashboard.create=false --version 2.1.5 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
 	fi
 	sleep 10
 }
@@ -1175,14 +1177,13 @@ destroy_chaos_mesh() {
 	local chaos_mesh_ns=$(helm list --all-namespaces --filter chaos-mesh | tail -n1 | awk -F' ' '{print $2}' | sed 's/NAMESPACE//')
 
 	desc 'destroy chaos-mesh'
-	timeout 30 kubectl delete podchaos --all --all-namespaces || :
-	timeout 30 kubectl delete networkchaos --all --all-namespaces || :
+	for i in $(kubectl api-resources | grep chaos-mesh | awk '{print $1}'); do timeout 30 kubectl delete ${i} --all --all-namespaces || :; done
 	if [ -n "${chaos_mesh_ns}" ]; then
 		helm uninstall chaos-mesh --namespace ${chaos_mesh_ns} || :
 	fi
-	timeout 30 kubectl delete crd awschaos.chaos-mesh.org dnschaos.chaos-mesh.org gcpchaos.chaos-mesh.org httpchaos.chaos-mesh.org iochaos.chaos-mesh.org jvmchaos.chaos-mesh.org kernelchaos.chaos-mesh.org networkchaos.chaos-mesh.org podchaos.chaos-mesh.org podhttpchaos.chaos-mesh.org podiochaos.chaos-mesh.org podnetworkchaos.chaos-mesh.org schedules.chaos-mesh.org stresschaos.chaos-mesh.org timechaos.chaos-mesh.org workflownodes.chaos-mesh.org workflows.chaos-mesh.org || :
-	timeout 30 kubectl delete clusterrolebinding chaos-mesh-chaos-controller-manager-cluster-level || :
-	timeout 30 kubectl delete clusterrole chaos-mesh-chaos-controller-manager-cluster-level chaos-mesh-chaos-controller-manager-target-namespace || :
+	timeout 30 kubectl delete crd $(kubectl get crd | grep 'chaos-mesh.org' | awk '{print $1}') || :
+	timeout 30 kubectl delete clusterrolebinding $(kubectl get clusterrolebinding | grep 'chaos-mesh' | awk '{print $1}') || :
+	timeout 30 kubectl delete clusterrole $(kubectl get clusterrole | grep 'chaos-mesh' | awk '{print $1}') || :
 }
 
 patch_secret() {

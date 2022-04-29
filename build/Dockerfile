@@ -18,8 +18,7 @@ RUN mkdir -p build/_output/bin \
                cmd/manager/main.go \
     && cp -r build/_output/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator
 
-RUN go get k8s.io/apimachinery/pkg/util/sets \
-    && go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
+RUN go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
     && cp -r build/_output/bin/peer-list /usr/local/bin/
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal AS ubi8

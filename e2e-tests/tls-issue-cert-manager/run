@@ -12,8 +12,6 @@ check_verify_identity() {
 	local command="exit"
 	local args="--ssl-ca=/etc/mysql/ssl-internal/ca.crt --ssl-mode=VERIFY_IDENTITY --protocol=tcp -uroot -proot_password --host=$host"
 
-	[[ ${-/x/} != $- ]] && echo "+ kubectl exec -it $cluster-pxc-0 -- bash -c \"printf '$command\n' | mysql -sN $args\"" >&$BASH_XTRACEFD
-
 	kubectl_bin exec "$cluster-pxc-0" -- \
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $args"
 }

@@ -1,3 +1,6 @@
+## Documentation
+Learn more about backups and restores in our [documentation](https://www.percona.com/doc/kubernetes-operator-for-pxc/backups.html).
+
 ## Make on-demand backup
 1. correct the backup name, cluster name, and PVC settings in the `deploy/backup/backup.yaml` file
 2. run backup

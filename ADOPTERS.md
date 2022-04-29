@@ -1,8 +1,8 @@
-# Percona XtraDB Cluster Operator Adopters
+# Percona Distribution for MySQL Operator based on Percona XtraDB Cluster Adopters
 
 This is the list of organizations and users that publicly shared details of how they are using Percona Operator for running their MySQL databases.  Please send PRs to add or remove organizations/users.
 
-The list of organizations that have publicly shared the usage of Percona XtraDB Cluster Operator.
+The list of organizations that have publicly shared the usage of Percona Distribution for MySQL Operator based on Percona XtraDB Cluster (PXC).
 
 | Organization | Description | Success Story |
 | :--- | :--- | :--- |

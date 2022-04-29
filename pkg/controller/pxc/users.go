@@ -352,15 +352,15 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		},
 	}
 
-	xtrabcupUser := user{
+	xtrabackupUser := user{
 		name:   "xtrabackup",
 		hosts:  []string{"localhost"},
 		action: rPXC,
 	}
 	if cr.CompareVersionWith("1.7.0") >= 0 {
-		xtrabcupUser.hosts = []string{"%"}
+		xtrabackupUser.hosts = []string{"%"}
 	}
-	requiredUsers = append(requiredUsers, xtrabcupUser)
+	requiredUsers = append(requiredUsers, xtrabackupUser)
 
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		requiredUsers = append(requiredUsers, user{

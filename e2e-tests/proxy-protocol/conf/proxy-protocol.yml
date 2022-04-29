@@ -1,0 +1,47 @@
+apiVersion: pxc.percona.com/v1-11-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: proxy-protocol
+  finalizers:
+    - delete-pxc-pods-in-order
+spec:
+  secretsName: my-cluster-secrets
+  pxc:
+    size: 3
+    image: -pxc 
+    configuration: |
+      [mysqld]
+      proxy_protocol_networks=*
+    resources:
+      requests:
+        memory: 1G
+        cpu: 600m
+    nodeSelector:
+      kubernetes.io/hostname: -node1
+    affinity:
+      antiAffinityTopologyKey: "none"
+    podDisruptionBudget:
+      maxUnavailable: 1
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2G
+    gracePeriod: 600
+  haproxy:
+    enabled: true
+    size: 3
+    image: -haproxy
+    serviceType: LoadBalancer
+    externalTrafficPolicy: Local
+    resources:
+      requests:
+        memory: 0.5G
+        cpu: 600m
+    nodeSelector:
+      kubernetes.io/hostname: -node2
+    affinity:
+      antiAffinityTopologyKey: "none"
+    podDisruptionBudget:
+      maxUnavailable: 1
+    gracePeriod: 30

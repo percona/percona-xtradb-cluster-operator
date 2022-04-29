@@ -33,11 +33,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"golang.org/x/net/http2"
 	"k8s.io/klog/v2"
+	netutils "k8s.io/utils/net"
 )
 
 // JoinPreservingTrailingSlash does a path.Join of the specified elements,
@@ -112,6 +114,7 @@ func SetOldTransportDefaults(t *http.Transport) *http.Transport {
 		t.Proxy = NewProxierWithNoProxyCIDR(http.ProxyFromEnvironment)
 	}
 	// If no custom dialer is set, use the default context dialer
+	//lint:file-ignore SA1019 Keep supporting deprecated Dial method of custom transports
 	if t.DialContext == nil && t.Dial == nil {
 		t.DialContext = defaultTransport.DialContext
 	}
@@ -130,13 +133,61 @@ func SetTransportDefaults(t *http.Transport) *http.Transport {
 	t = SetOldTransportDefaults(t)
 	// Allow clients to disable http2 if needed.
 	if s := os.Getenv("DISABLE_HTTP2"); len(s) > 0 {
-		klog.Infof("HTTP2 has been explicitly disabled")
+		klog.Info("HTTP2 has been explicitly disabled")
 	} else if allowsHTTP2(t) {
-		if err := http2.ConfigureTransport(t); err != nil {
+		if err := configureHTTP2Transport(t); err != nil {
 			klog.Warningf("Transport failed http2 configuration: %v", err)
 		}
 	}
 	return t
+}
+
+func readIdleTimeoutSeconds() int {
+	ret := 30
+	// User can set the readIdleTimeout to 0 to disable the HTTP/2
+	// connection health check.
+	if s := os.Getenv("HTTP2_READ_IDLE_TIMEOUT_SECONDS"); len(s) > 0 {
+		i, err := strconv.Atoi(s)
+		if err != nil {
+			klog.Warningf("Illegal HTTP2_READ_IDLE_TIMEOUT_SECONDS(%q): %v."+
+				" Default value %d is used", s, err, ret)
+			return ret
+		}
+		ret = i
+	}
+	return ret
+}
+
+func pingTimeoutSeconds() int {
+	ret := 15
+	if s := os.Getenv("HTTP2_PING_TIMEOUT_SECONDS"); len(s) > 0 {
+		i, err := strconv.Atoi(s)
+		if err != nil {
+			klog.Warningf("Illegal HTTP2_PING_TIMEOUT_SECONDS(%q): %v."+
+				" Default value %d is used", s, err, ret)
+			return ret
+		}
+		ret = i
+	}
+	return ret
+}
+
+func configureHTTP2Transport(t *http.Transport) error {
+	t2, err := http2.ConfigureTransports(t)
+	if err != nil {
+		return err
+	}
+	// The following enables the HTTP/2 connection health check added in
+	// https://github.com/golang/net/pull/55. The health check detects and
+	// closes broken transport layer connections. Without the health check,
+	// a broken connection can linger too long, e.g., a broken TCP
+	// connection will be closed by the Linux kernel after 13 to 30 minutes
+	// by default, which caused
+	// https://github.com/kubernetes/client-go/issues/374 and
+	// https://github.com/kubernetes/kubernetes/issues/87615.
+	t2.ReadIdleTimeout = time.Duration(readIdleTimeoutSeconds()) * time.Second
+	t2.PingTimeout = time.Duration(pingTimeoutSeconds()) * time.Second
+	return nil
 }
 
 func allowsHTTP2(t *http.Transport) bool {
@@ -184,6 +235,29 @@ func DialerFor(transport http.RoundTripper) (DialFunc, error) {
 		return DialerFor(transport.WrappedRoundTripper())
 	default:
 		return nil, fmt.Errorf("unknown transport type: %T", transport)
+	}
+}
+
+// CloseIdleConnectionsFor close idles connections for the Transport.
+// If the Transport is wrapped it iterates over the wrapped round trippers
+// until it finds one that implements the CloseIdleConnections method.
+// If the Transport does not have a CloseIdleConnections method
+// then this function does nothing.
+func CloseIdleConnectionsFor(transport http.RoundTripper) {
+	if transport == nil {
+		return
+	}
+	type closeIdler interface {
+		CloseIdleConnections()
+	}
+
+	switch transport := transport.(type) {
+	case closeIdler:
+		transport.CloseIdleConnections()
+	case RoundTripperWrapper:
+		CloseIdleConnectionsFor(transport.WrappedRoundTripper())
+	default:
+		klog.Warningf("unknown transport type: %T", transport)
 	}
 }
 
@@ -239,7 +313,7 @@ func SourceIPs(req *http.Request) []net.IP {
 		// Use the first valid one.
 		parts := strings.Split(hdrForwardedFor, ",")
 		for _, part := range parts {
-			ip := net.ParseIP(strings.TrimSpace(part))
+			ip := netutils.ParseIPSloppy(strings.TrimSpace(part))
 			if ip != nil {
 				srcIPs = append(srcIPs, ip)
 			}
@@ -249,7 +323,7 @@ func SourceIPs(req *http.Request) []net.IP {
 	// Try the X-Real-Ip header.
 	hdrRealIp := hdr.Get("X-Real-Ip")
 	if hdrRealIp != "" {
-		ip := net.ParseIP(hdrRealIp)
+		ip := netutils.ParseIPSloppy(hdrRealIp)
 		// Only append the X-Real-Ip if it's not already contained in the X-Forwarded-For chain.
 		if ip != nil && !containsIP(srcIPs, ip) {
 			srcIPs = append(srcIPs, ip)
@@ -261,11 +335,11 @@ func SourceIPs(req *http.Request) []net.IP {
 	// Remote Address in Go's HTTP server is in the form host:port so we need to split that first.
 	host, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err == nil {
-		remoteIP = net.ParseIP(host)
+		remoteIP = netutils.ParseIPSloppy(host)
 	}
 	// Fallback if Remote Address was just IP.
 	if remoteIP == nil {
-		remoteIP = net.ParseIP(req.RemoteAddr)
+		remoteIP = netutils.ParseIPSloppy(req.RemoteAddr)
 	}
 
 	// Don't duplicate remote IP if it's already the last address in the chain.
@@ -332,7 +406,7 @@ func NewProxierWithNoProxyCIDR(delegate func(req *http.Request) (*url.URL, error
 
 	cidrs := []*net.IPNet{}
 	for _, noProxyRule := range noProxyRules {
-		_, cidr, _ := net.ParseCIDR(noProxyRule)
+		_, cidr, _ := netutils.ParseCIDRSloppy(noProxyRule)
 		if cidr != nil {
 			cidrs = append(cidrs, cidr)
 		}
@@ -343,7 +417,7 @@ func NewProxierWithNoProxyCIDR(delegate func(req *http.Request) (*url.URL, error
 	}
 
 	return func(req *http.Request) (*url.URL, error) {
-		ip := net.ParseIP(req.URL.Hostname())
+		ip := netutils.ParseIPSloppy(req.URL.Hostname())
 		if ip == nil {
 			return delegate(req)
 		}
@@ -644,7 +718,7 @@ func parseQuotedString(quotedString string) (string, string, error) {
 	var remainder string
 	escaping := false
 	closedQuote := false
-	result := &bytes.Buffer{}
+	result := &strings.Builder{}
 loop:
 	for i := 0; i < len(quotedString); i++ {
 		b := quotedString[i]

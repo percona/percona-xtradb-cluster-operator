@@ -115,8 +115,8 @@ type ReconcilePerconaXtraDBCluster struct {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
-	return log.NewDelegatingLogger(r.log).WithName("perconaxtradbcluster").
-		WithValues("cluster", name, "namespace", namespace)
+	return logr.New(log.NewDelegatingLogSink(log.NullLogSink{}).WithName("perconaxtradbcluster").
+		WithValues("cluster", name, "namespace", namespace))
 }
 
 type lockStore struct {
@@ -857,6 +857,54 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
+	if cr.CompareVersionWith("1.11.0") >= 0 {
+		pxcHookScriptName := ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"] + "-hookscript"
+		if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.PXC.PodSpec.HookScript, pxcHookScriptName)
+			if err != nil {
+				return errors.Wrap(err, "create pxc hookscript config map")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, pxcHookScriptName); err != nil {
+				return errors.Wrap(err, "delete pxc hookscript config map")
+			}
+		}
+
+		proxysqlHookScriptName := ls["app.kubernetes.io/instance"] + "-proxysql" + "-hookscript"
+		if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.ProxySQL.HookScript, proxysqlHookScriptName)
+			if err != nil {
+				return errors.Wrap(err, "create proxysql hookscript config map")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, proxysqlHookScriptName); err != nil {
+				return errors.Wrap(err, "delete proxysql hookscript config map")
+			}
+		}
+		haproxyHookScriptName := ls["app.kubernetes.io/instance"] + "-haproxy" + "-hookscript"
+		if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.HAProxy.PodSpec.HookScript, haproxyHookScriptName)
+			if err != nil {
+				return errors.Wrap(err, "create haproxy hookscript config map")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, haproxyHookScriptName); err != nil {
+				return errors.Wrap(err, "delete haproxy config map")
+			}
+		}
+		logCollectorHookScriptName := ls["app.kubernetes.io/instance"] + "-logcollector" + "-hookscript"
+		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.HookScript != "" {
+			err := r.createHookScriptConfigMap(cr, cr.Spec.LogCollector.HookScript, logCollectorHookScriptName)
+			if err != nil {
+				return errors.Wrap(err, "create logcollector hookscript config map")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, logCollectorHookScriptName); err != nil {
+				return errors.Wrap(err, "delete logcollector config map")
+			}
+		}
+	}
+
 	proxysqlConfigName := ls["app.kubernetes.io/instance"] + "-proxysql"
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Configuration != "" {
@@ -915,6 +963,20 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) createHookScriptConfigMap(cr *api.PerconaXtraDBCluster, hookScript string, configMapName string) error {
+	configMap := config.NewConfigMap(cr, configMapName, "hook.sh", hookScript)
+	err := setControllerReference(cr, configMap, r.scheme)
+	if err != nil {
+		return errors.Wrap(err, "set controller ref")
+	}
+
+	err = createOrUpdateConfigmap(r.client, configMap)
+	if err != nil {
+		return errors.Wrap(err, "create or update configmap")
+	}
 	return nil
 }
 
@@ -1057,7 +1119,7 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 	}
 
 	for _, pvc := range list.Items {
-		err := r.client.Delete(context.TODO(), &pvc)
+		err := r.client.Delete(context.TODO(), &pvc, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &pvc.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete PVC %s", pvc.Name)
 		}
@@ -1084,7 +1146,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), secret)
+		err = r.client.Delete(context.TODO(), secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete secret %s", secretName)
 		}

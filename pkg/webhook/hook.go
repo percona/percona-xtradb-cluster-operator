@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	admission "k8s.io/api/admission/v1"
@@ -37,7 +36,7 @@ var hookPath = "/validate-percona-xtradbcluster"
 type hook struct {
 	cl        client.Client
 	scheme    *runtime.Scheme
-	caBunlde  []byte
+	caBundle  []byte
 	namespace string
 	log       logr.Logger
 }
@@ -130,7 +129,7 @@ func (h *hook) createWebhook(ownerRef metav1.OwnerReference) error {
 						Name:      "percona-xtradb-cluster-operator",
 						Path:      &hookPath,
 					},
-					CABundle: h.caBunlde,
+					CABundle: h.caBundle,
 				},
 				SideEffects:   &sideEffects,
 				FailurePolicy: &failPolicy,
@@ -162,7 +161,7 @@ func (h *hook) createWebhook(ownerRef metav1.OwnerReference) error {
 			return err
 		}
 
-		hook.Webhooks[0].ClientConfig.CABundle = h.caBunlde
+		hook.Webhooks[0].ClientConfig.CABundle = h.caBundle
 		hook.ObjectMeta.OwnerReferences = []metav1.OwnerReference{ownerRef}
 		return h.cl.Update(context.TODO(), hook)
 	}
@@ -177,7 +176,7 @@ func SetupWebhook(mgr manager.Manager) error {
 		return errors.Wrap(err, "add admissionregistration to scheme")
 	}
 
-	namespace, err := k8sutil.GetOperatorNamespace()
+	namespace, err := k8s.GetOperatorNamespace()
 	if err != nil {
 		return errors.Wrap(err, "get operator namespace")
 	}
@@ -195,7 +194,7 @@ func SetupWebhook(mgr manager.Manager) error {
 	h := &hook{
 		cl:        mgr.GetClient(),
 		scheme:    mgr.GetScheme(),
-		caBunlde:  ca,
+		caBundle:  ca,
 		namespace: namespace,
 		log:       zapr.NewLogger(zapLog),
 	}

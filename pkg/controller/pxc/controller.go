@@ -115,8 +115,8 @@ type ReconcilePerconaXtraDBCluster struct {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
-	return log.NewDelegatingLogger(r.log).WithName("perconaxtradbcluster").
-		WithValues("cluster", name, "namespace", namespace)
+	return logr.New(log.NewDelegatingLogSink(log.NullLogSink{}).WithName("perconaxtradbcluster").
+		WithValues("cluster", name, "namespace", namespace))
 }
 
 type lockStore struct {
@@ -1119,7 +1119,7 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 	}
 
 	for _, pvc := range list.Items {
-		err := r.client.Delete(context.TODO(), &pvc)
+		err := r.client.Delete(context.TODO(), &pvc, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &pvc.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete PVC %s", pvc.Name)
 		}
@@ -1146,7 +1146,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), secret)
+		err = r.client.Delete(context.TODO(), secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete secret %s", secretName)
 		}

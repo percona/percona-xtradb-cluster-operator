@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 	corev1 "k8s.io/api/core/v1"
@@ -136,7 +136,6 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				Kind:  issuerKind,
 				Group: issuerGroup,
 			},
-			Duration: &metav1.Duration{Duration: time.Hour * 24 * 365},
 		},
 	}
 
@@ -178,7 +177,6 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 				Kind:  issuerKind,
 				Group: issuerGroup,
 			},
-			Duration: &metav1.Duration{Duration: time.Hour * 24 * 365},
 		},
 	}
 	if cr.Spec.TLS != nil && len(cr.Spec.TLS.SANs) > 0 {

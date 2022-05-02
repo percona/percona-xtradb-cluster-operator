@@ -38,8 +38,8 @@ AUTO_INNODB_SIZE=$(run_mysql \
                         'SELECT @@innodb_buffer_pool_size;' \
                         "-h $cluster-pxc -uroot -proot_password")
 AUTO_CONNECTIONS=$(run_mysql \
-                        'SELECT @@max_connections;' \
-                        "-h $cluster-pxc -uroot -proot_password")
+	'SELECT @@max_connections;' \
+	"-h $cluster-pxc -uroot -proot_password")
 
 if [[ ${AUTO_INNODB_SIZE} != $(( ${RAM_SIZE} / 2 * 50 / 100)) ]]; then
     echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with cr.pxc.requests.memory * 0.50"

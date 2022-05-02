@@ -58,7 +58,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGrea
 			InitialDelaySeconds: 60,
 			TimeoutSeconds:      5,
 			PeriodSeconds:       10,
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Port: intstr.FromInt(7777),
 					Path: "/local/Status",
@@ -67,7 +67,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, v120OrGreater bool, v170OrGrea
 		}
 		container.Env = append(container.Env, pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secrets)...)
 		container.Lifecycle = &corev1.Lifecycle{
-			PreStop: &corev1.Handler{
+			PreStop: &corev1.LifecycleHandler{
 				Exec: &corev1.ExecAction{
 					// TODO https://jira.percona.com/browse/PMM-7010
 					Command: []string{"bash", "-c", "pmm-admin inventory remove node --force $(pmm-admin status --json | python -c \"import sys, json; print(json.load(sys.stdin)['pmm_agent_status']['node_id'])\")"},

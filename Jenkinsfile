@@ -25,6 +25,18 @@ void ShutdownCluster(String CLUSTER_PREFIX) {
         """
    }
 }
+void pushLogFile(String FILE_NAME) {
+    LOG_FILE_PATH="e2e-tests/logs/${FILE_NAME}.log"
+    LOG_FILE_NAME="${FILE_NAME}.log"
+    echo "Push logfile $LOG_FILE_NAME file to S3!"
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            S3_PATH=s3://percona-jenkins-artifactory-public/\$JOB_NAME/\$(git rev-parse --short HEAD)
+            aws s3 ls \$S3_PATH/${LOG_FILE_NAME} || :
+            aws s3 cp --content-type text/plain --quiet ${LOG_FILE_PATH} \$S3_PATH/${LOG_FILE_NAME} || :
+        """
+    }
+}
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -54,9 +66,12 @@ testsReportMap  = [:]
 testsResultsMap = [:]
 
 void makeReport() {
+    def wholeTestAmount=sh(script: 'cat e2e-tests/run | grep "|| fail"| wc -l', , returnStdout: true).trim()
+    def startedTestAmount = testsReportMap.size()
     for ( test in testsReportMap ) {
         TestsReport = TestsReport + "\r\n| ${test.key} | ${test.value} |"
     }
+    TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
 }
 
 void setTestsresults() {
@@ -68,9 +83,10 @@ void setTestsresults() {
 void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
     def retryCount = 0
     waitUntil {
+        def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${TEST_NAME}.log"
         try {
             echo "The $TEST_NAME test was started!"
-            testsReportMap[TEST_NAME] = 'failed'
+            testsReportMap[TEST_NAME] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME")
 
             timeout(time: 90, unit: 'MINUTES') {
@@ -84,7 +100,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
                     fi
                 """
             }
-            testsReportMap[TEST_NAME] = 'passed'
+            testsReportMap[TEST_NAME] = "[passed]($testUrl)"
             testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME"] = 'passed'
             return true
         }
@@ -96,9 +112,11 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             retryCount++
             return false
         }
+        finally {
+            pushLogFile(TEST_NAME)
+            echo "The $TEST_NAME test was finished!"
+        }
     }
-
-    echo "The $TEST_NAME test was finished!"
 }
 
 void installRpms() {
@@ -109,9 +127,9 @@ void installRpms() {
     '''
 }
 
-def skipBranchBulds = true
+def skipBranchBuilds = true
 if ( env.CHANGE_URL ) {
-    skipBranchBulds = false
+    skipBranchBuilds = false
 }
 
 pipeline {
@@ -123,6 +141,7 @@ pipeline {
         VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
         CLUSTER_NAME = sh(script: "echo jenkins-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
         AUTHOR_NAME  = sh(script: "echo ${CHANGE_AUTHOR_EMAIL} | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
+        ENABLE_LOGGING="true"
     }
     agent {
         label 'docker'
@@ -131,7 +150,7 @@ pipeline {
         stage('Prepare') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -179,7 +198,7 @@ pipeline {
         stage('Build docker image') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -206,7 +225,7 @@ pipeline {
         stage('GoLicenseDetector test') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -218,9 +237,8 @@ pipeline {
                             --rm \
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            -e GO111MODULE=on \
                             golang:1.17 sh -c '
-                                go get github.com/google/go-licenses;
+                                go install -mod=readonly github.com/google/go-licenses@latest;
                                 /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
                                     | cut -d , -f 3 \
                                     | sort -u \
@@ -234,7 +252,7 @@ pipeline {
         stage('GoLicense test') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             steps {
@@ -268,7 +286,7 @@ pipeline {
         stage('Run tests for operator') {
             when {
                 expression {
-                    !skipBranchBulds
+                    !skipBranchBuilds
                 }
             }
             options {
@@ -305,6 +323,7 @@ pipeline {
                         runTest('tls-issue-cert-manager','basic')
                         runTest('tls-issue-cert-manager-ref','basic')
                         runTest('validation-hook','basic')
+                        runTest('proxy-protocol','basic')
                         ShutdownCluster('basic')
                     }
                 }
@@ -347,12 +366,19 @@ pipeline {
                         runTest('scheduled-backup', 'scheduled-backups')
                         ShutdownCluster('scheduled-backups')
                     }
-                }                
+                }
                 stage('E2E BigData') {
                     steps {
                         CreateCluster('bigdata')
                         runTest('big-data', 'bigdata')
                         ShutdownCluster('bigdata')
+                    }
+                }
+                stage('E2E CrossSite') {
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site', 'cross-site')
+                        ShutdownCluster('cross-site')
                     }
                 }
             }
@@ -363,7 +389,13 @@ pipeline {
             script {
                 setTestsresults()
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
+
+                    try {
+                        slackSend channel: "@${AUTHOR_NAME}", color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
+                    }
+                    catch (exc) {
+                        slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
+                    }
                 }
                 if (env.CHANGE_URL) {
                     for (comment in pullRequest.comments) {

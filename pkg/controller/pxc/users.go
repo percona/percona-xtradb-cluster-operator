@@ -352,15 +352,15 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		},
 	}
 
-	xtrabcupUser := user{
+	xtrabackupUser := user{
 		name:   "xtrabackup",
 		hosts:  []string{"localhost"},
 		action: rPXC,
 	}
 	if cr.CompareVersionWith("1.7.0") >= 0 {
-		xtrabcupUser.hosts = []string{"%"}
+		xtrabackupUser.hosts = []string{"%"}
 	}
-	requiredUsers = append(requiredUsers, xtrabcupUser)
+	requiredUsers = append(requiredUsers, xtrabackupUser)
 
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		requiredUsers = append(requiredUsers, user{
@@ -486,7 +486,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 			return errors.Wrap(err, "get proxysql pod")
 		}
 		var errb, outb bytes.Buffer
-		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers"}, nil, &outb, &errb, false)
+		err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
 		if err != nil {
 			return errors.Errorf("exec syncusers: %v / %s / %s", err, outb.String(), errb.String())
 		}

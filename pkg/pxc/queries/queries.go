@@ -22,6 +22,11 @@ const (
 	ReplicationStatusNotInitiated
 )
 
+const (
+	WriterHostgroup = "writer_hostgroup"
+	ReaderHostgroup = "reader_hostgroup"
+)
+
 // value of writer group is hardcoded in ProxySQL config inside docker image
 // https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
 const writerID = 11
@@ -267,8 +272,8 @@ func (p *Database) DeleteReplicationSource(name, host string, port int) error {
 	return errors.Wrap(err, "delete replication source "+name)
 }
 
-func (p *Database) Status(host, ip string) ([]string, error) {
-	rows, err := p.db.Query("SELECT status FROM mysql_servers WHERE hostname LIKE ? OR hostname = ?;", host+"%", ip)
+func (p *Database) ProxySQLInstanceStatus(host string) ([]string, error) {
+	rows, err := p.db.Query("SELECT status FROM mysql_servers WHERE hostname LIKE ?;", host+"%")
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -289,6 +294,25 @@ func (p *Database) Status(host, ip string) ([]string, error) {
 	}
 
 	return statuses, nil
+}
+
+func (p *Database) PresentInHostgroups(host string) (bool, error) {
+	hostgroups := []string{WriterHostgroup, ReaderHostgroup}
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM mysql_servers
+		INNER JOIN mysql_galera_hostgroups ON hostgroup_id IN (%s)
+		WHERE hostname LIKE ? GROUP BY hostname`, strings.Join(hostgroups, ","))
+	var count int
+	err := p.db.QueryRow(query, host+"%").Scan(&count)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrNotFound
+		}
+		return false, err
+	}
+	if count != len(hostgroups) {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (p *Database) PrimaryHost() (string, error) {

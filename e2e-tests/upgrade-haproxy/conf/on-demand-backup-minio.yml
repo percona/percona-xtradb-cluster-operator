@@ -1,0 +1,7 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterBackup
+metadata:
+  name: on-demand-backup-minio
+spec:
+  pxcCluster: upgrade-haproxy
+  storageName: minio

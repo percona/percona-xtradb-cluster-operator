@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pxc-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: pxc-client
+  template:
+    metadata:
+      labels:
+        name: pxc-client
+    spec:
+      containers:
+      - name: pxc-client
+        image: percona/percona-xtradb-cluster-operator:1.0.0-backup
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /etc/mysql/ssl
+          name: ssl
+      volumes:
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: some-name-ssl
+      nodeSelector:
+        kubernetes.io/hostname: -node3

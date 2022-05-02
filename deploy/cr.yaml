@@ -10,11 +10,11 @@ metadata:
 #    percona.com/issue-vault-token: "true"
 spec:
   crVersion: 1.11.0
-  secretsName: my-cluster-secrets
-  vaultSecretName: keyring-secret-vault
-  sslSecretName: my-cluster-ssl
-  sslInternalSecretName: my-cluster-ssl-internal
-  logCollectorSecretName: my-log-collector-secrets
+#  secretsName: my-cluster-secrets
+#  vaultSecretName: keyring-secret-vault
+#  sslSecretName: my-cluster-ssl
+#  sslInternalSecretName: my-cluster-ssl-internal
+#  logCollectorSecretName: my-log-collector-secrets
 #  initImage: percona/percona-xtradb-cluster-operator:1.10.0
 #  enableCRValidationWebhook: true
 #  tls:
@@ -462,6 +462,13 @@ spec:
       enabled: false
       storageName: STORAGE-NAME-HERE
       timeBetweenUploads: 60
+#      resources:
+#        requests:
+#          memory: 0.1G
+#          cpu: 100m
+#        limits:
+#          memory: 1G
+#          cpu: 700m
     storages:
       s3-us-west:
         type: s3

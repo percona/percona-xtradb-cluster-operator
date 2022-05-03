@@ -46,16 +46,16 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}
 
 	manualSelector := true
-	backbackoffLimit := int32(10)
+	backoffLimit := int32(10)
 	if cluster.CompareVersionWith("1.11.0") >= 0 && cluster.Spec.Backup.BackoffLimit != nil {
-		backbackoffLimit = *cluster.Spec.Backup.BackoffLimit
+		backoffLimit = *cluster.Spec.Backup.BackoffLimit
 	}
 	verifyTLS := true
 	if cluster.Spec.Backup.Storages[spec.StorageName].VerifyTLS != nil {
 		verifyTLS = *cluster.Spec.Backup.Storages[spec.StorageName].VerifyTLS
 	}
 	return batchv1.JobSpec{
-		BackoffLimit:   &backbackoffLimit,
+		BackoffLimit:   &backoffLimit,
 		ManualSelector: &manualSelector,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: job.Labels,

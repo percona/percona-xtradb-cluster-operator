@@ -101,7 +101,7 @@ type PXCScheduledBackup struct {
 	ServiceAccountName string                        `json:"serviceAccountName,omitempty"`
 	Annotations        map[string]string             `json:"annotations,omitempty"`
 	PITR               PITRSpec                      `json:"pitr,omitempty"`
-	BackoffLimit       *int32                        `json:"backupBackoffLimit,omitempty"`
+	BackoffLimit       *int32                        `json:"backoffLimit,omitempty"`
 }
 
 type PITRSpec struct {

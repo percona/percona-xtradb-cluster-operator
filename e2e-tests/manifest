@@ -10,7 +10,7 @@ fi
 
 set -o xtrace
 
-controller-gen crd:allowDangerousTypes=true paths=./pkg/apis/... output:dir=./deploy/crds
+controller-gen crd:allowDangerousTypes=true,maxDescLen=0 paths=./pkg/apis/... output:dir=./deploy/crds
 
 crd_ver=${1}
 if [ "${crd_ver}" == "" ]; then
@@ -36,20 +36,19 @@ sed '/.*- protocol/d; s/.*- containerPort/&\n&/; s/- containerPort/- protocol/' 
 crd_file=$(mktemp)
 yq r "$wip_crd" >"$crd_file"
 
-echo "---" >>"$crd_file"
-yq r "deploy/crds/pxc.percona.com_perconaxtradbclusterbackups.yaml" >>"$crd_file"
-echo "---" >>"$crd_file"
-yq r "deploy/crds/pxc.percona.com_perconaxtradbclusterrestores.yaml" >>"$crd_file"
+cat "deploy/crds/pxc.percona.com_perconaxtradbclusterbackups.yaml" >>"$crd_file"
+cat "deploy/crds/pxc.percona.com_perconaxtradbclusterrestores.yaml" >>"$crd_file"
 
 mv "$crd_file" "deploy/crd.yaml"
 
 # deploy/bundle.yaml
 bundle_file=$(mktemp)
 
-yq r "deploy/crd.yaml" >"$bundle_file"
+cat "deploy/crd.yaml" >"$bundle_file"
 echo "---" >>"$bundle_file"
-yq r "deploy/rbac.yaml" >>"$bundle_file"
+cat "deploy/rbac.yaml" >>"$bundle_file"
 echo "---" >>"$bundle_file"
-yq r "deploy/operator.yaml" >>"$bundle_file"
+cat "deploy/operator.yaml" >>"$bundle_file"
 
 mv "$bundle_file" "deploy/bundle.yaml"
+rm -rf ./deploy/crds

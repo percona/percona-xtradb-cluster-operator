@@ -446,7 +446,7 @@ spec:
     enabled: false
     image: percona/pmm-client:2.23.0
     serverHost: monitoring-service
-    serverUser: admin
+#    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
     resources:

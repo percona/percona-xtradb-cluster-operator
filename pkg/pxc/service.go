@@ -202,6 +202,10 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.ProxySQL)
 		loadBalancerSourceRanges = cr.Spec.ProxySQL.LoadBalancerSourceRanges
 	}
+	var nodePort int32
+	if cr.CompareVersionWith("1.11.0") >= 0 && svcType == corev1.ServiceTypeNodePort {
+		nodePort = cr.Spec.ProxySQL.NodePort
+	}
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -217,8 +221,9 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			Type: svcType,
 			Ports: []corev1.ServicePort{
 				{
-					Port: 3306,
-					Name: "mysql",
+					Port:     3306,
+					Name:     "mysql",
+					NodePort: nodePort,
 				},
 			},
 			Selector: map[string]string{
@@ -278,6 +283,10 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 		loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
 	}
 
+	var nodePort int32
+	if cr.CompareVersionWith("1.11.0") >= 0 && svcType == corev1.ServiceTypeNodePort {
+		nodePort = cr.Spec.HAProxy.NodePort
+	}
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -297,6 +306,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 					Port:       3306,
 					TargetPort: intstr.FromInt(3306),
 					Name:       "mysql",
+					NodePort:   nodePort,
 				},
 				{
 					Port:       3309,

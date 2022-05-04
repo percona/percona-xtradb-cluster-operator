@@ -1,6 +1,6 @@
 module github.com/percona/percona-xtradb-cluster-operator
 
-go 1.17
+go 1.18
 
 require (
 	github.com/Percona-Lab/percona-version-service/api v0.0.0-20201216104127-a39f2dded3cc

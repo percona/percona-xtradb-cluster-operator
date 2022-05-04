@@ -256,18 +256,18 @@ func (p *Database) StartReplication(replicaPass string, config ReplicationConfig
 	}
 	_, err := p.db.Exec(`
 	CHANGE REPLICATION SOURCE TO
-    SOURCE_USER='replication',
-    SOURCE_PASSWORD=?,
-    SOURCE_HOST=?,
-	SOURCE_PORT=?,
-    SOURCE_CONNECTION_AUTO_FAILOVER=1,
-	SOURCE_AUTO_POSITION=1,
-    SOURCE_RETRY_COUNT=?,
-    SOURCE_CONNECT_RETRY=?,
+		SOURCE_USER='replication',
+		SOURCE_PASSWORD=?,
+		SOURCE_HOST=?,
+		SOURCE_PORT=?,
+		SOURCE_CONNECTION_AUTO_FAILOVER=1,
+		SOURCE_AUTO_POSITION=1,
+		SOURCE_RETRY_COUNT=?,
+		SOURCE_CONNECT_RETRY=?,
 		SOURCE_SSL=?,
 		SOURCE_SSL_VERIFY_SERVER_CERT=?,
 		SOURCE_SSL_CA='?'
-    FOR CHANNEL ?
+		FOR CHANNEL ?
 `, replicaPass, config.Source.Host, config.Source.Port, config.SourceRetryCount, config.SourceConnectRetry, ssl, ssl, ca, config.Source.Name)
 	if err != nil {
 		return errors.Wrapf(err, "change source for channel %s", config.Source.Name)

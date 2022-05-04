@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/go-ini/ini"
 	"github.com/go-logr/logr"
 	v "github.com/hashicorp/go-version"
@@ -15,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
@@ -967,6 +967,8 @@ var affinityValidTopologyKeys = map[string]struct{}{
 	"kubernetes.io/hostname":                   {},
 	"failure-domain.beta.kubernetes.io/zone":   {},
 	"failure-domain.beta.kubernetes.io/region": {},
+	"topology.kubernetes.io/zone":              {},
+	"topology.kubernetes.io/region":            {},
 }
 
 var defaultAffinityTopologyKey = "kubernetes.io/hostname"

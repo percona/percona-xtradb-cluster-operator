@@ -82,7 +82,7 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string, useAPI bool) []c
 	var pmmServerPassKey string
 	if useAPI {
 		pmmServerUser = "api_key"
-		pmmServerPassKey = "pmmserverapi"
+		pmmServerPassKey = "pmmserverkey"
 	} else {
 		pmmServerPassKey = "pmmserver"
 	}
@@ -191,7 +191,7 @@ func pmmEnvServerUser(user, secrets string, useAPI bool) []corev1.EnvVar {
 	var passKey string
 	if useAPI {
 		user = "api_key"
-		passKey = "pmmserverapi"
+		passKey = "pmmserverkey"
 	} else {
 		passKey = "pmmserver"
 	}

@@ -39,7 +39,7 @@ spec:
             - name: PMM_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserverapi
+                  key: pmmserverkey
                   name: internal-monitoring
             - name: CLIENT_PORT_LISTEN
               value: "7777"
@@ -64,7 +64,7 @@ spec:
             - name: PMM_AGENT_SERVER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserverapi
+                  key: pmmserverkey
                   name: internal-monitoring
             - name: PMM_AGENT_LISTEN_PORT
               value: "7777"

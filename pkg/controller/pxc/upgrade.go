@@ -141,7 +141,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		if client.IgnoreNotFound(err) != nil {
 			return errors.Wrap(err, "get internal secret")
 		}
-		_, useAPI := secret.Data["pmmserverapi"]
+		_, useAPI := secret.Data["pmmserverkey"]
 		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secretsName, useAPI, cr)
 		if err != nil {
 			return errors.Wrap(err, "pmm container error")

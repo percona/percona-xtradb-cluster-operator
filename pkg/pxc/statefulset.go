@@ -54,7 +54,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		_, useAPI := secret.Data["pmmserverapi"]
+		_, useAPI := secret.Data["pmmserverkey"]
 		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secrets, useAPI, cr)
 		if err != nil {
 			return nil, fmt.Errorf("pmm container error: %v", err)

@@ -46,7 +46,7 @@ desc 'create PXC cluster'
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
 API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@"$(get_service_endpoint monitoring-service)"/graph/api/auth/keys" | jq .key)
 
-kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverapi": '$API_KEY'}}'
+kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '$API_KEY'}}'
 
 sleep 5
 

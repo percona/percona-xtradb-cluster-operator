@@ -17,63 +17,62 @@ import (
 )
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtraDBCluster) error {
-	secretObj := corev1.Secret{}
+	secretObj := new(corev1.Secret)
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      cr.Spec.SecretsName,
 		},
-		&secretObj,
+		secretObj,
 	)
 	if err == nil {
+		isChanged, err := setUserSecretDefaults(secretObj)
+		if err != nil {
+			return errors.Wrap(err, "set user secret defaults")
+		}
+		if isChanged {
+			return r.client.Update(context.TODO(), secretObj)
+		}
 		return nil
 	} else if !k8serror.IsNotFound(err) {
 		return errors.Wrap(err, "get secret")
 	}
 
-	data := make(map[string][]byte)
-	data["root"], err = generatePass()
-	if err != nil {
-		return errors.Wrap(err, "create root users password")
-	}
-	data["xtrabackup"], err = generatePass()
-	if err != nil {
-		return errors.Wrap(err, "create xtrabackup users password")
-	}
-	data["monitor"], err = generatePass()
-	if err != nil {
-		return errors.Wrap(err, "create monitor users password")
-	}
-	data["clustercheck"], err = generatePass()
-	if err != nil {
-		return errors.Wrap(err, "create clustercheck users password")
-	}
-	data["proxyadmin"], err = generatePass()
-	if err != nil {
-		return errors.Wrap(err, "create proxyadmin users password")
-	}
-	data["operator"], err = generatePass()
-	if err != nil {
-		return errors.Wrap(err, "create operator users password")
-	}
-	data["replication"], err = generatePass()
-	if err != nil {
-		return errors.Wrap(err, "generate replication password")
-	}
-
-	secretObj = corev1.Secret{
+	secretObj = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Spec.SecretsName,
 			Namespace: cr.Namespace,
 		},
-		Data: data,
 		Type: corev1.SecretTypeOpaque,
 	}
-	err = r.client.Create(context.TODO(), &secretObj)
+
+	if _, err = setUserSecretDefaults(secretObj); err != nil {
+		return errors.Wrap(err, "set user secret defaults")
+	}
+
+	err = r.client.Create(context.TODO(), secretObj)
 	if err != nil {
 		return fmt.Errorf("create Users secret: %v", err)
 	}
 	return nil
+}
+
+func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
+	if secret.Data == nil {
+		secret.Data = make(map[string][]byte)
+	}
+	users := []string{"root", "xtrabackup", "monitor", "clustercheck", "proxyadmin", "operator", "replication"}
+	for _, user := range users {
+		if pass, ok := secret.Data[user]; !ok || len(pass) == 0 {
+			secret.Data[user], err = generatePass()
+			if err != nil {
+				return false, errors.Wrapf(err, "create %s users password", user)
+			}
+
+			isChanged = true
+		}
+	}
+	return
 }
 
 const (

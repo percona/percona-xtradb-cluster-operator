@@ -39,6 +39,8 @@ type ReplicationConfig struct {
 	Source             ReplicationChannelSource
 	SourceRetryCount   uint
 	SourceConnectRetry uint
+	Ssl    bool
+	Ca     string
 }
 
 type ReplicationChannelSource struct {
@@ -46,8 +48,6 @@ type ReplicationChannelSource struct {
 	Host   string
 	Port   int
 	Weight int
-	Ssl    bool
-	Ca     string
 }
 
 var ErrNotFound = errors.New("not found")
@@ -250,9 +250,9 @@ func (p *Database) IsReadonly() (bool, error) {
 func (p *Database) StartReplication(replicaPass string, config ReplicationConfig) error {
 	var ssl int = 0
 	var ca string = ""
-	if config.Source.Ssl {
+	if config.Ssl {
 		ssl = 1
-		ca = config.Source.Ca
+		ca = config.Ca
 	}
 	_, err := p.db.Exec(`
 	CHANGE REPLICATION SOURCE TO

@@ -405,8 +405,8 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 		},
 		SourceRetryCount:   channel.Config.SourceRetryCount,
 		SourceConnectRetry: channel.Config.SourceConnectRetry,
-		Ssl: channel.Config.Ssl,
-		Ca: channel.Config.Ca,
+		SSL:                channel.Config.SSL,
+		CA:                 channel.Config.CA,
 	})
 }
 

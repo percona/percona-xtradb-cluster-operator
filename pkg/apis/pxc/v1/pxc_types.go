@@ -242,7 +242,7 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 			}
 
 			if channel.Config.Ssl && channel.Config.Ca ==  "" {
-				return errors.Errorf("if you set ssl for a source in channel %s, you have to indicate a path to a CA file to verify the server certificate", channel.Name)
+				return errors.Errorf("if you set ssl for channel %s, you have to indicate a path to a CA file to verify the server certificate", channel.Name)
 			}
 		}
 	}

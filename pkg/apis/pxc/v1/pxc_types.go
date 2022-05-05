@@ -69,14 +69,14 @@ type ReplicationChannel struct {
 type ReplicationChannelConfig struct {
 	SourceRetryCount   uint `json:"sourceRetryCount,omitempty"`
 	SourceConnectRetry uint `json:"sourceConnectRetry,omitempty"`
+	Ssl                bool   `json:"ssl,omitempty"`
+	Ca                 string `json:"ca,omitempty"`	
 }
 
 type ReplicationSource struct {
 	Host   string `json:"host,omitempty"`
 	Port   int    `json:"port,omitempty"`
 	Weight int    `json:"weight,omitempty"`
-	Ssl		 bool   `json:"ssl,omitempty"`
-	Ca     string `json:"ca,omitempty"`	
 }
 
 type TLSSpec struct {
@@ -241,10 +241,8 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 				return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
 			}
 
-			for _, source := range channel.SourcesList {
-				if source.Ssl && source.Ca == "" {
-					return errors.Errorf("if you set ssl for a source in channel %s, you have to indicate a path to a CA file to verify the server certificate", channel.Name)
-				}
+			if channel.Config.Ssl && channel.Config.Ca ==  "" {
+				return errors.Errorf("if you set ssl for a source in channel %s, you have to indicate a path to a CA file to verify the server certificate", channel.Name)
 			}
 		}
 	}

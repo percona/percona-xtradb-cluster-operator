@@ -340,7 +340,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 		file_env 'MONITOR_HOST' 'localhost'
 		file_env 'MONITOR_PASSWORD' 'monitor' 'monitor'
-		file_env 'REPLICATION_PASSWORD' '' 'replication'
+		file_env 'REPLICATION_PASSWORD' 'replication' 'replication'
 		if [ "$MYSQL_VERSION" == '8.0' ]; then
 			read -r -d '' monitorConnectGrant <<-EOSQL || true
 				GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'${MONITOR_HOST}';
@@ -609,5 +609,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 	fi
 fi
+
+test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 
 exec "$@" $wsrep_start_position_opt

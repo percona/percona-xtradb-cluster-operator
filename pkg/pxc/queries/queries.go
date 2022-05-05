@@ -248,11 +248,11 @@ func (p *Database) IsReadonly() (bool, error) {
 }
 
 func (p *Database) StartReplication(replicaPass string, config ReplicationConfig) error {
-	var ssl int = 0
-	var ca string = ""
+	var SSL int = 0
+	var CA string = ""
 	if config.SSL {
-		ssl = 1
-		ca = config.CA
+		SSL = 1
+		CA = config.CA
 	}
 	_, err := p.db.Exec(`
 	CHANGE REPLICATION SOURCE TO
@@ -268,7 +268,7 @@ func (p *Database) StartReplication(replicaPass string, config ReplicationConfig
 		SOURCE_SSL_VERIFY_SERVER_CERT=?,
 		SOURCE_SSL_CA='?'
 		FOR CHANNEL ?
-`, replicaPass, config.Source.Host, config.Source.Port, config.SourceRetryCount, config.SourceConnectRetry, ssl, ssl, ca, config.Source.Name)
+`, replicaPass, config.Source.Host, config.Source.Port, config.SourceRetryCount, config.SourceConnectRetry, SSL, SSL, CA, config.Source.Name)
 	if err != nil {
 		return errors.Wrapf(err, "change source for channel %s", config.Source.Name)
 	}

@@ -402,6 +402,8 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 			Name: channel.Name,
 			Host: maxWeightSrc.Host,
 			Port: maxWeightSrc.Port,
+			Ssl: maxWeightSrc.Ssl,
+			Ca: maxWeightSrc.Ca,
 		},
 		SourceRetryCount:   channel.Config.SourceRetryCount,
 		SourceConnectRetry: channel.Config.SourceConnectRetry,

@@ -115,8 +115,8 @@ type ReconcilePerconaXtraDBCluster struct {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
-	return log.NewDelegatingLogger(r.log).WithName("perconaxtradbcluster").
-		WithValues("cluster", name, "namespace", namespace)
+	return logr.New(log.NewDelegatingLogSink(log.NullLogSink{}).WithName("perconaxtradbcluster").
+		WithValues("cluster", name, "namespace", namespace))
 }
 
 type lockStore struct {
@@ -391,10 +391,15 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 			return reconcile.Result{}, errors.Wrap(err, "failed to get current proxysql service sate")
 		}
 
+		var nodePort int32
+		if o.CompareVersionWith("1.11.0") >= 0 && currentService.Spec.Type == corev1.ServiceTypeNodePort {
+			nodePort = o.Spec.ProxySQL.NodePort
+		}
 		ports := []corev1.ServicePort{
 			{
-				Port: 3306,
-				Name: "mysql",
+				Port:     3306,
+				Name:     "mysql",
+				NodePort: nodePort,
 			},
 		}
 
@@ -1130,7 +1135,7 @@ func (r *ReconcilePerconaXtraDBCluster) deletePVC(namespace string, lbls map[str
 	}
 
 	for _, pvc := range list.Items {
-		err := r.client.Delete(context.TODO(), &pvc)
+		err := r.client.Delete(context.TODO(), &pvc, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &pvc.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete PVC %s", pvc.Name)
 		}
@@ -1157,7 +1162,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), secret)
+		err = r.client.Delete(context.TODO(), secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete secret %s", secretName)
 		}

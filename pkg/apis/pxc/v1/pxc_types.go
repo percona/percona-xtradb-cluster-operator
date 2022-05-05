@@ -6,11 +6,9 @@ import (
 	"log"
 	"strings"
 
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/go-ini/ini"
 	"github.com/go-logr/logr"
-	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/version"
-
 	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -18,6 +16,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
@@ -360,6 +360,7 @@ type PodSpec struct {
 	TerminationGracePeriodSeconds *int64                                  `json:"gracePeriod,omitempty"`
 	ForceUnsafeBootstrap          bool                                    `json:"forceUnsafeBootstrap,omitempty"`
 	ServiceType                   corev1.ServiceType                      `json:"serviceType,omitempty"`
+	NodePort                      int32                                   `json:"nodePort,omitempty"`
 	ReplicasServiceType           corev1.ServiceType                      `json:"replicasServiceType,omitempty"`
 	ExternalTrafficPolicy         corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
@@ -966,6 +967,8 @@ var affinityValidTopologyKeys = map[string]struct{}{
 	"kubernetes.io/hostname":                   {},
 	"failure-domain.beta.kubernetes.io/zone":   {},
 	"failure-domain.beta.kubernetes.io/region": {},
+	"topology.kubernetes.io/zone":              {},
+	"topology.kubernetes.io/region":            {},
 }
 
 var defaultAffinityTopologyKey = "kubernetes.io/hostname"

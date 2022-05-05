@@ -15,6 +15,9 @@ func getAutoTuneParams(memory string) (string, error) {
 	}
 
 	poolSize := q.Value() / int64(100) * int64(75)
+	if q.Value()-poolSize < int64(1000000000) {
+		poolSize = q.Value() / int64(100) * int64(50)
+	}
 	poolSizeVal := strconv.FormatInt(poolSize, 10)
 	paramValue := "\n" + "innodb_buffer_pool_size" + " = " + poolSizeVal
 	autotuneParams += paramValue

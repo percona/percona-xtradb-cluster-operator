@@ -230,7 +230,6 @@ spec:
 #      successThreshold: 1
 #      failureThreshold: 4
 #    serviceType: ClusterIP
-#    nodePort: 31222
 #    externalTrafficPolicy: Cluster
 #    replicasServiceType: ClusterIP
 #    replicasExternalTrafficPolicy: Cluster
@@ -357,7 +356,6 @@ spec:
 #    labels:
 #      rack: rack-22
 #    serviceType: ClusterIP
-#    nodePort: 31223
 #    externalTrafficPolicy: Cluster
 #    runtimeClassName: image-rc
 #    sidecars:

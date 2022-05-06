@@ -186,7 +186,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(cr, cluster)
-	job.Spec, err = bcp.JobSpec(cr.Spec, cluster.Spec, job)
+	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job)
 	if err != nil {
 		return rr, errors.Wrap(err, "can't create job spec")
 	}

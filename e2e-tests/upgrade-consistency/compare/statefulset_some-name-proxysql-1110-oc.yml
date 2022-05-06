@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   annotations: {}
-  generation: 5
+  generation: 2
   name: some-name-proxysql
   ownerReferences:
     - controller: true

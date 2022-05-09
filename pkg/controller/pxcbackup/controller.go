@@ -113,8 +113,8 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) logger(name, namespace string) logr.Logger {
-	return log.NewDelegatingLogger(r.log).WithName("perconaxtradbclusterbackup").
-		WithValues("backup", name, "namespace", namespace)
+	return logr.New(log.NewDelegatingLogSink(log.NullLogSink{}).WithName("perconaxtradbclusterbackup").
+		WithValues("backup", name, "namespace", namespace))
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read
@@ -186,7 +186,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(cr, cluster)
-	job.Spec, err = bcp.JobSpec(cr.Spec, cluster.Spec, job)
+	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job)
 	if err != nil {
 		return rr, errors.Wrap(err, "can't create job spec")
 	}

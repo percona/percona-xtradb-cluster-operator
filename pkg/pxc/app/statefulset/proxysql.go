@@ -287,8 +287,8 @@ func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ strin
 	return nil, nil
 }
 
-func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, useAPI bool, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	ct := app.PMMClient(spec, secrets, useAPI, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
+func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -302,7 +302,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, useAPI bool, cr 
 		{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
 			},
 		},
 	}
@@ -315,7 +315,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secrets string, useAPI bool, cr 
 		{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
 			},
 		},
 		{

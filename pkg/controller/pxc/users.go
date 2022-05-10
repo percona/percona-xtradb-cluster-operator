@@ -149,6 +149,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil, nil
 	}
 
+	if _, ok := sysUsersSecretObj.Data["pmmserverkey"]; ok {
+		if _, ok := internalSysSecretObj.Data["pmmserverkey"]; !ok {
+			internalSysSecretObj.Data["pmmserverkey"] = sysUsersSecretObj.Data["pmmserverkey"]
+		}
+	}
+
 	restarts, err := r.manageSysUsers(cr, &sysUsersSecretObj, &internalSysSecretObj)
 	if err != nil {
 		return nil, errors.Wrap(err, "manage sys users")
@@ -372,8 +378,8 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		name := "pmmserverkey"
-		if _, ok := sysUsersSecretObj.Data["pmmserverkey"]; !ok {
-			if _, ok := sysUsersSecretObj.Data["pmmserver"]; ok {
+		if _, ok := internalSysSecretObj.Data["pmmserverkey"]; !ok {
+			if _, ok := internalSysSecretObj.Data["pmmserver"]; ok {
 				name = "pmmserver"
 			}
 		}

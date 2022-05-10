@@ -297,12 +297,12 @@ func (c *HAProxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ str
 	return nil, nil
 }
 
-func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, useAPI bool, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
 	if cr.CompareVersionWith("1.9.0") < 0 {
 		return nil, nil
 	}
 
-	ct := app.PMMClient(spec, secrets, useAPI, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
+	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -316,7 +316,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, useAPI bool, c
 		{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
 			},
 		},
 		{
@@ -326,7 +326,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, useAPI bool, c
 		{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
 			},
 		},
 		{

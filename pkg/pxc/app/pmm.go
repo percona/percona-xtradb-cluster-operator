@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func PMMClient(spec *api.PMMSpec, secrets string, useAPI bool, v120OrGreater bool, v170OrGreater bool) corev1.Container {
+func PMMClient(spec *api.PMMSpec, secret *corev1.Secret, v120OrGreater bool, v170OrGreater bool) corev1.Container {
 	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
 
 	for i := 30100; i <= 30105; i++ {
@@ -35,8 +35,14 @@ func PMMClient(spec *api.PMMSpec, secrets string, useAPI bool, v120OrGreater boo
 		},
 	}
 
+	useAPI := true
+	if _, ok := secret.Data["pmmserverkey"]; !ok {
+		if _, ok := secret.Data["pmmserver"]; ok {
+			useAPI = false
+		}
+	}
 	if spec.ServerUser != "" {
-		pmmEnvs = append(pmmEnvs, pmmEnvServerUser(spec.ServerUser, secrets, useAPI)...)
+		pmmEnvs = append(pmmEnvs, pmmEnvServerUser(spec.ServerUser, secret.Name, useAPI)...)
 	}
 
 	container := corev1.Container{
@@ -64,7 +70,7 @@ func PMMClient(spec *api.PMMSpec, secrets string, useAPI bool, v120OrGreater boo
 				},
 			},
 		}
-		container.Env = append(container.Env, pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secrets, useAPI)...)
+		container.Env = append(container.Env, pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secret.Name, useAPI)...)
 		container.Lifecycle = &corev1.Lifecycle{
 			PreStop: &corev1.LifecycleHandler{
 				Exec: &corev1.ExecAction{

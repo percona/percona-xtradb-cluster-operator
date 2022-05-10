@@ -511,7 +511,7 @@ var NoCustomVolumeErr = errors.New("no custom volume found")
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
-	PMMContainer(spec *PMMSpec, secrets string, useAPI bool, cr *PerconaXtraDBCluster) (*corev1.Container, error)
+	PMMContainer(spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster, vg CustomVolumeGetter) (*Volume, error)
 	Labels() map[string]string

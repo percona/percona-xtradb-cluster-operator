@@ -11,6 +11,7 @@ spec:
   commonName: some-name-tls-issue-proxysql
   dnsNames:
     - some-name-tls-issue-pxc
+    - some-name-tls-issue-proxysql
     - '*.some-name-tls-issue-pxc'
     - '*.some-name-tls-issue-proxysql'
     - test.com

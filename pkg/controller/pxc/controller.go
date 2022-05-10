@@ -581,7 +581,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
 	}
 
-	err = r.reconsileSSL(cr)
+	err = r.reconcileSSL(cr)
 	if err != nil {
 		return errors.Wrapf(err, "failed to reconcile SSL.Please create your TLS secret %s and %s manually or setup cert-manager correctly",
 			cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)

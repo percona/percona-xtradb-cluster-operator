@@ -208,13 +208,14 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		cr.Spec.LogCollector.Image = newVersion.LogCollectorImage
 	}
 
-	err = r.client.Patch(context.Background(), cr, patch)
+	err = r.client.Patch(context.Background(), cr.DeepCopy(), patch)
 	if err != nil {
 		return errors.Wrap(err, "failed to update CR")
 	}
 
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-		rerr := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
+		localCr := &apiv1.PerconaXtraDBCluster{}
+		rerr := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if rerr != nil {
 			return errors.Wrap(rerr, "failed to get CR")
 		}
@@ -227,7 +228,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		cr.Status.PXC.Image = newVersion.PXCImage
 		cr.Status.LogCollector.Version = newVersion.LogCollectorVersion
 
-		return r.client.Status().Update(context.Background(), cr)
+		return r.client.Status().Update(context.Background(), localCr)
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to update CR status")

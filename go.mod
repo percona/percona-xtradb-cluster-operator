@@ -73,7 +73,7 @@ require (
 	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	go.uber.org/atomic v1.8.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
-	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871 // indirect
+	golang.org/x/crypto v0.0.0-20220507011949-2cf3adece122 // indirect
 	golang.org/x/net v0.0.0-20220107192237-5cfca573fb4d // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
@@ -101,6 +101,9 @@ require (
 replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
 
 exclude (
+	github.com/gogo/protobuf v1.1.1
+	github.com/gogo/protobuf v1.2.1
+	github.com/gogo/protobuf v1.3.1
 	go.mongodb.org/mongo-driver v1.0.3
 	go.mongodb.org/mongo-driver v1.0.4
 	go.mongodb.org/mongo-driver v1.1.0

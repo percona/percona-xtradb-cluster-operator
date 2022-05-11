@@ -200,7 +200,6 @@ type AppStatus struct {
 // +kubebuilder:printcolumn:name="proxysql",type="string",JSONPath=".status.proxysql.ready",description="Ready proxysql nodes"
 // +kubebuilder:printcolumn:name="haproxy",type="string",JSONPath=".status.haproxy.ready",description="Ready haproxy nodes"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-
 type PerconaXtraDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -254,6 +254,12 @@ else
 
 fi
 
+WSREP_CLUSTER_NAME=$(grep wsrep_cluster_name  ${CFG}| cut -d '=' -f 2| tr -d ' ' )
+if [[ ! ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
+  echo "Cluster name is invalid, please check DNS"
+  exit 1
+fi
+
 # if we have CLUSTER_JOIN - then we do not need to perform datadir initialize
 # the data will be copied from another node
 

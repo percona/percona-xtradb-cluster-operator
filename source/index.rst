@@ -1,4 +1,4 @@
-Percona Distribution for MySQL Operator based on Percona XtraDB Cluster
+|pxcoperator|
 =======================================================================
 
 Kubernetes and the OpenShift platform, based on Kubernetes, have added a way to
@@ -19,7 +19,7 @@ availability for your applications while improving security and simplifying the
 development of new applications in the most demanding public, private, and
 hybrid cloud environments.
 
-Following our best practices for deployment and configuration, `Percona Distribution for MySQL Operator  based on Percona XtraDB Cluster <https://github.com/percona/percona-xtradb-cluster-operator>`_ 
+Following our best practices for deployment and configuration, `Percona Operator for MySQL based on Percona XtraDB Cluster <https://github.com/percona/percona-xtradb-cluster-operator>`_ 
 contains everything you need to quickly and consistently deploy and scale
 Percona XtraDB Cluster instances in a Kubernetes-based environment on-premises
 or in the cloud.

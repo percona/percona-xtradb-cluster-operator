@@ -39,16 +39,16 @@ same availability zone or even the same node - or, on the contrary, to
 make them land on different nodes or even different availability zones
 for the high availability and balancing purposes.
 
-Percona Distribution for MySQL Operator provides two approaches for doing this:
+|operator| provides two approaches for doing this:
 
 -  simple way to set anti-affinity for Pods, built-in into the Operator,
 -  more advanced approach based on using standard Kubernetes
    constraints.
 
-Simple approach - use topologyKey of the Percona Distribution for MySQL Operator
+Simple approach - use topologyKey of the |operator|
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Percona Distribution for MySQL Operator provides a ``topologyKey`` option, which
+|operator| provides a ``topologyKey`` option, which
 may have one of the following values:
 
 -  ``kubernetes.io/hostname`` - Pods will avoid residing within the same

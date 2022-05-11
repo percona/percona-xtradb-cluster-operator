@@ -1,7 +1,7 @@
 .. _rel_notes:
 
 ================================================================================================
-Percona Distribution for MySQL Operator based on Percona XtraDB Cluster |version| Release Notes
+|pxcoperator| |version| Release Notes
 ================================================================================================
 
 .. toctree::

@@ -576,10 +576,21 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if err != nil {
 		return errors.Wrap(err, "get pxc statefulset")
 	}
+	currentNodeSet := new(appsv1.StatefulSet)
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: nodeSet.Namespace,
+		Name:      nodeSet.Name,
+	}, currentNodeSet)
+	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err, "get current pxc sts")
+	}
 
 	// TODO: code duplication with updatePod function
 	if nodeSet.Spec.Template.Annotations == nil {
 		nodeSet.Spec.Template.Annotations = make(map[string]string)
+	}
+	if v, ok := currentNodeSet.Spec.Template.Annotations["last-applied-secret"]; ok {
+		nodeSet.Spec.Template.Annotations["last-applied-secret"] = v
 	}
 	if cr.CompareVersionWith("1.1.0") >= 0 {
 		hash, err := r.getConfigHash(cr, stsApp)
@@ -675,9 +686,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if haProxySet.Spec.Template.Annotations == nil {
 			haProxySet.Spec.Template.Annotations = make(map[string]string)
 		}
-		if nodeSet.Spec.Template.Annotations == nil {
-			nodeSet.Spec.Template.Annotations = make(map[string]string)
-		}
 		hash, err := r.getConfigHash(cr, sfsHAProxy)
 		if err != nil {
 			return errors.Wrap(err, "getting HAProxy config hash")
@@ -741,13 +749,21 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if err != nil {
 			return err
 		}
+		currentProxySet := new(appsv1.StatefulSet)
+		err = r.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: nodeSet.Namespace,
+			Name:      nodeSet.Name,
+		}, currentProxySet)
+		if client.IgnoreNotFound(err) != nil {
+			return errors.Wrap(err, "get current proxy sts")
+		}
 
 		// TODO: code duplication with updatePod function
 		if proxySet.Spec.Template.Annotations == nil {
 			proxySet.Spec.Template.Annotations = make(map[string]string)
 		}
-		if nodeSet.Spec.Template.Annotations == nil {
-			nodeSet.Spec.Template.Annotations = make(map[string]string)
+		if v, ok := currentProxySet.Spec.Template.Annotations["last-applied-secret"]; ok {
+			proxySet.Spec.Template.Annotations["last-applied-secret"] = v
 		}
 		if cr.CompareVersionWith("1.1.0") >= 0 {
 			hash, err := r.getConfigHash(cr, sfsProxy)

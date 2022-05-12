@@ -492,6 +492,9 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    backoffLimit:
+                      format: int32
+                      type: integer
                     image:
                       type: string
                     imagePullPolicy:

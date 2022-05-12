@@ -1,11 +1,17 @@
 .. _K8SPXC-1.11.0:
 
 ================================================================================
-*Percona Kubernetes Operator for Percona XtraDB Cluster* 1.11.0
+*Percona Operator for MySQL based on Percona XtraDB Cluster* 1.11.0
 ================================================================================
 
 :Date: May 26, 2022
-:Installation: `Installing Percona Kubernetes Operator for Percona XtraDB Cluster <https://www.percona.com/doc/kubernetes-operator-for-psmongodb/index.html#installation>`_
+:Installation: `Installing Percona Operator for MySQL based on Percona XtraDB Cluster <https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html#installation>`_
+
+Release Highlights
+================================================================================
+
+* With this release, the Operator turns to a simplified naming convention and
+  changes its official name to **Percona Operator for MySQL based on Percona XtraDB Cluster**
 
 New Features
 ================================================================================
@@ -31,8 +37,6 @@ Improvements
 * :jirabug:`K8SPXC-758`: Allow to skip TLS verification for backup storage
 * :jirabug:`K8SPXC-625`: improve logs for PITR
 
-
-
 Bugs Fixed
 ================================================================================
 
@@ -57,5 +61,18 @@ Bugs Fixed
 * :jirabug:`K8SPXC-814`: missing CR status when invalid option specified
 * :jirabug:`K8SPXC-687`: restore not starting after failed restore on another cluster
 * :jirabug:`K8SPXC-975`: typo `xtrabcupUser`
+
+Supported Platforms
+================================================================================
+
+The following platforms were tested and are officially supported by the Operator
+1.11.0:
+
+* OpenShift 4.7 - 4.9
+* Google Kubernetes Engine (GKE) 1.19 - 1.22
+* Amazon Elastic Kubernetes Service (EKS) 1.17 - 1.21
+* Minikube 1.22
+
+This list only includes the platforms that the Percona Operators are specifically tested on as part of the release process. Other Kubernetes flavors and versions depend on the backward compatibility offered by Kubernetes itself.
 
 

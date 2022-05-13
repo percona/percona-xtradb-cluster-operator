@@ -86,12 +86,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if err != nil {
 			return errors.Wrapf(err, "get %s status", a.app.Name())
 		}
-		if a.status.Version != "" {
-			status.Version = a.status.Version
-		}
-		if a.status.Image != "" {
-			status.Image = a.status.Image
-		}
+		status.Image = a.status.Image
 		// Ready count can be greater than total size in case of downscale
 		if status.Ready > status.Size {
 			status.Ready = status.Size

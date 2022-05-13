@@ -215,20 +215,21 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		localCr := &apiv1.PerconaXtraDBCluster{}
-		rerr := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
-		if rerr != nil {
-			return errors.Wrap(rerr, "failed to get CR")
+
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		if err != nil {
+			return err
 		}
 
-		cr.Status.ProxySQL.Version = newVersion.ProxySqlVersion
-		cr.Status.HAProxy.Version = newVersion.HAProxyVersion
-		cr.Status.PMM.Version = newVersion.PMMVersion
-		cr.Status.Backup.Version = newVersion.BackupVersion
-		cr.Status.PXC.Version = newVersion.PXCVersion
-		cr.Status.PXC.Image = newVersion.PXCImage
-		cr.Status.LogCollector.Version = newVersion.LogCollectorVersion
+		localCr.Status.ProxySQL.Version = newVersion.ProxySqlVersion
+		localCr.Status.HAProxy.Version = newVersion.HAProxyVersion
+		localCr.Status.PMM.Version = newVersion.PMMVersion
+		localCr.Status.Backup.Version = newVersion.BackupVersion
+		localCr.Status.PXC.Version = newVersion.PXCVersion
+		localCr.Status.PXC.Image = newVersion.PXCImage
+		localCr.Status.LogCollector.Version = newVersion.LogCollectorVersion
 
-		return r.client.Status().Update(context.Background(), localCr)
+		return r.client.Status().Update(context.TODO(), localCr)
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to update CR status")
@@ -314,17 +315,21 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtr
 		return err
 	}
 
+	cr.Status.PXC.Version = version
+	cr.Status.PXC.Image = cr.Spec.PXC.Image
+
 	logger.Info("update PXC version (fetched from db)", "new version", version)
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
-		rerr := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, cr)
-		if rerr != nil {
-			return errors.Wrap(rerr, "failed to get CR")
+		localCr := &apiv1.PerconaXtraDBCluster{}
+
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		if err != nil {
+			return err
 		}
 
-		cr.Status.PXC.Version = version
-		cr.Status.PXC.Image = cr.Spec.PXC.Image
+		localCr.Status = cr.Status
 
-		return r.client.Status().Update(context.Background(), cr)
+		return r.client.Status().Update(context.TODO(), localCr)
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to update CR")

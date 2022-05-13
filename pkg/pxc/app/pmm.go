@@ -35,14 +35,8 @@ func PMMClient(spec *api.PMMSpec, secret *corev1.Secret, v120OrGreater bool, v17
 		},
 	}
 
-	useAPI := true
-	if _, ok := secret.Data["pmmserverkey"]; !ok {
-		if _, ok := secret.Data["pmmserver"]; ok {
-			useAPI = false
-		}
-	}
 	if spec.ServerUser != "" {
-		pmmEnvs = append(pmmEnvs, pmmEnvServerUser(spec.ServerUser, secret.Name, useAPI)...)
+		pmmEnvs = append(pmmEnvs, pmmEnvServerUser(spec.ServerUser, secret.Name, spec.UseAPI(secret))...)
 	}
 
 	container := corev1.Container{
@@ -70,7 +64,7 @@ func PMMClient(spec *api.PMMSpec, secret *corev1.Secret, v120OrGreater bool, v17
 				},
 			},
 		}
-		container.Env = append(container.Env, pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secret.Name, useAPI)...)
+		container.Env = append(container.Env, pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secret.Name, spec.UseAPI(secret))...)
 		container.Lifecycle = &corev1.Lifecycle{
 			PreStop: &corev1.LifecycleHandler{
 				Exec: &corev1.ExecAction{

@@ -427,6 +427,15 @@ type PMMSpec struct {
 	RuntimeClassName         *string                 `json:"runtimeClassName,omitempty"`
 }
 
+func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
+	if _, ok := secret.Data["pmmserverkey"]; !ok {
+		if _, ok := secret.Data["pmmserver"]; ok {
+			return false
+		}
+	}
+	return true
+}
+
 type ResourcesList struct {
 	Memory           string `json:"memory,omitempty"`
 	CPU              string `json:"cpu,omitempty"`

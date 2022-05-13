@@ -107,10 +107,10 @@ type PXCScheduledBackup struct {
 }
 
 type PITRSpec struct {
-	Enabled            bool          `json:"enabled"`
-	StorageName        string        `json:"storageName"`
-	Resources          *PodResources `json:"resources,omitempty"`
-	TimeBetweenUploads float64       `json:"timeBetweenUploads,omitempty"`
+	Enabled            bool                        `json:"enabled"`
+	StorageName        string                      `json:"storageName"`
+	Resources          corev1.ResourceRequirements `json:"resources,omitempty"`
+	TimeBetweenUploads float64                     `json:"timeBetweenUploads,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
@@ -352,8 +352,8 @@ type PodSpec struct {
 	Enabled                       bool                                    `json:"enabled,omitempty"`
 	Size                          int32                                   `json:"size,omitempty"`
 	Image                         string                                  `json:"image,omitempty"`
-	Resources                     *PodResources                           `json:"resources,omitempty"`
-	SidecarResources              *PodResources                           `json:"sidecarResources,omitempty"`
+	Resources                     corev1.ResourceRequirements             `json:"resources,omitempty"`
+	SidecarResources              corev1.ResourceRequirements             `json:"sidecarResources,omitempty"`
 	VolumeSpec                    *VolumeSpec                             `json:"volumeSpec,omitempty"`
 	Affinity                      *PodAffinity                            `json:"affinity,omitempty"`
 	NodeSelector                  map[string]string                       `json:"nodeSelector,omitempty"`
@@ -408,57 +408,46 @@ type PodAffinity struct {
 	Advanced    *corev1.Affinity `json:"advanced,omitempty"`
 }
 
-type PodResources struct {
-	Requests *ResourcesList `json:"requests,omitempty"`
-	Limits   *ResourcesList `json:"limits,omitempty"`
-}
-
 type LogCollectorSpec struct {
-	Enabled                  bool                    `json:"enabled,omitempty"`
-	Image                    string                  `json:"image,omitempty"`
-	Resources                *PodResources           `json:"resources,omitempty"`
-	Configuration            string                  `json:"configuration,omitempty"`
-	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
-	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
-	RuntimeClassName         *string                 `json:"runtimeClassName,omitempty"`
+	Enabled                  bool                        `json:"enabled,omitempty"`
+	Image                    string                      `json:"image,omitempty"`
+	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
+	Configuration            string                      `json:"configuration,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
+	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
+	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 	HookScript               string                  `json:"hookScript,omitempty"`
 }
 
 type PMMSpec struct {
-	Enabled                  bool                    `json:"enabled,omitempty"`
-	ServerHost               string                  `json:"serverHost,omitempty"`
-	Image                    string                  `json:"image,omitempty"`
-	ServerUser               string                  `json:"serverUser,omitempty"`
-	PxcParams                string                  `json:"pxcParams,omitempty"`
-	ProxysqlParams           string                  `json:"proxysqlParams,omitempty"`
-	Resources                *PodResources           `json:"resources,omitempty"`
-	ContainerSecurityContext *corev1.SecurityContext `json:"containerSecurityContext,omitempty"`
-	ImagePullPolicy          corev1.PullPolicy       `json:"imagePullPolicy,omitempty"`
-	RuntimeClassName         *string                 `json:"runtimeClassName,omitempty"`
-}
-
-type ResourcesList struct {
-	Memory           string `json:"memory,omitempty"`
-	CPU              string `json:"cpu,omitempty"`
-	EphemeralStorage string `json:"ephemeral-storage,omitempty"`
+	Enabled                  bool                        `json:"enabled,omitempty"`
+	ServerHost               string                      `json:"serverHost,omitempty"`
+	Image                    string                      `json:"image,omitempty"`
+	ServerUser               string                      `json:"serverUser,omitempty"`
+	PxcParams                string                      `json:"pxcParams,omitempty"`
+	ProxysqlParams           string                      `json:"proxysqlParams,omitempty"`
+	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
+	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
+	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 }
 
 type BackupStorageSpec struct {
-	Type                     BackupStorageType          `json:"type"`
-	S3                       BackupStorageS3Spec        `json:"s3,omitempty"`
-	Volume                   *VolumeSpec                `json:"volume,omitempty"`
-	NodeSelector             map[string]string          `json:"nodeSelector,omitempty"`
-	Resources                *PodResources              `json:"resources,omitempty"`
-	Affinity                 *corev1.Affinity           `json:"affinity,omitempty"`
-	Tolerations              []corev1.Toleration        `json:"tolerations,omitempty"`
-	Annotations              map[string]string          `json:"annotations,omitempty"`
-	Labels                   map[string]string          `json:"labels,omitempty"`
-	SchedulerName            string                     `json:"schedulerName,omitempty"`
-	PriorityClassName        string                     `json:"priorityClassName,omitempty"`
-	PodSecurityContext       *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext *corev1.SecurityContext    `json:"containerSecurityContext,omitempty"`
-	RuntimeClassName         *string                    `json:"runtimeClassName,omitempty"`
-	VerifyTLS                *bool                      `json:"verifyTLS,omitempty"`
+	Type                     BackupStorageType           `json:"type"`
+	S3                       BackupStorageS3Spec         `json:"s3,omitempty"`
+	Volume                   *VolumeSpec                 `json:"volume,omitempty"`
+	NodeSelector             map[string]string           `json:"nodeSelector,omitempty"`
+	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
+	Affinity                 *corev1.Affinity            `json:"affinity,omitempty"`
+	Tolerations              []corev1.Toleration         `json:"tolerations,omitempty"`
+	Annotations              map[string]string           `json:"annotations,omitempty"`
+	Labels                   map[string]string           `json:"labels,omitempty"`
+	SchedulerName            string                      `json:"schedulerName,omitempty"`
+	PriorityClassName        string                      `json:"priorityClassName,omitempty"`
+	PodSecurityContext       *corev1.PodSecurityContext  `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
+	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
+	VerifyTLS                *bool                       `json:"verifyTLS,omitempty"`
 }
 
 type BackupStorageType string
@@ -660,11 +649,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		if cr.CompareVersionWith("1.10.0") < 0 {
-			if c.PMM != nil && c.PMM.Resources == nil {
+			if c.PMM != nil && c.PMM.Resources.Size() == 0 {
 				c.PMM.Resources = c.PXC.Resources
 			}
 
-			if c.LogCollector != nil && c.LogCollector.Resources == nil {
+			if c.LogCollector != nil && c.LogCollector.Resources.Size() == 0 {
 				c.LogCollector.Resources = c.PXC.Resources
 			}
 		}

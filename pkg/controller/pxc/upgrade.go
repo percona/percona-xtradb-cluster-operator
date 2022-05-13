@@ -12,8 +12,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-
 	"github.com/pkg/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -176,13 +174,9 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		r.log.Info("spec.pxc.forceUnsafeBootstrap option is not supported since v1.10")
 
 		if cr.CompareVersionWith("1.10.0") < 0 {
-			res, err := app.CreateResources(podSpec.Resources)
-			if err != nil {
-				return errors.Wrap(err, "create resources")
-			}
 			ic := appC.DeepCopy()
 			ic.Name = ic.Name + "-init-unsafe"
-			ic.Resources = res
+			ic.Resources = podSpec.Resources
 			ic.ReadinessProbe = nil
 			ic.LivenessProbe = nil
 			ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}

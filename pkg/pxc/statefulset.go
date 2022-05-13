@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 )
 
 // StatefulSet returns StatefulSet according for app to podSpec
@@ -81,14 +80,9 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	if podSpec.ForceUnsafeBootstrap && cr.CompareVersionWith("1.10.0") < 0 {
-		res, err := app.CreateResources(podSpec.Resources)
-		if err != nil {
-			return nil, errors.Wrap(err, "create resources")
-		}
-
 		ic := appC.DeepCopy()
 		ic.Name = ic.Name + "-init-unsafe"
-		ic.Resources = res
+		ic.Resources = podSpec.Resources
 		ic.ReadinessProbe = nil
 		ic.LivenessProbe = nil
 		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}

@@ -213,6 +213,14 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		return errors.Wrap(err, "failed to update CR")
 	}
 
+	cr.Status.ProxySQL.Version = newVersion.ProxySqlVersion
+	cr.Status.HAProxy.Version = newVersion.HAProxyVersion
+	cr.Status.PMM.Version = newVersion.PMMVersion
+	cr.Status.Backup.Version = newVersion.BackupVersion
+	cr.Status.PXC.Version = newVersion.PXCVersion
+	cr.Status.PXC.Image = newVersion.PXCImage
+	cr.Status.LogCollector.Version = newVersion.LogCollectorVersion
+
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		localCr := &apiv1.PerconaXtraDBCluster{}
 
@@ -221,13 +229,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 			return err
 		}
 
-		localCr.Status.ProxySQL.Version = newVersion.ProxySqlVersion
-		localCr.Status.HAProxy.Version = newVersion.HAProxyVersion
-		localCr.Status.PMM.Version = newVersion.PMMVersion
-		localCr.Status.Backup.Version = newVersion.BackupVersion
-		localCr.Status.PXC.Version = newVersion.PXCVersion
-		localCr.Status.PXC.Image = newVersion.PXCImage
-		localCr.Status.LogCollector.Version = newVersion.LogCollectorVersion
+		localCr.Status = cr.Status
 
 		return r.client.Status().Update(context.TODO(), localCr)
 	})

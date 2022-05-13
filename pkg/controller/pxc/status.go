@@ -61,7 +61,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		},
 	}
 
-	cr.Status.HAProxy = api.AppStatus{}
+	cr.Status.HAProxy = api.AppStatus{
+		ComponentStatus: api.ComponentStatus{
+			Version: cr.Status.HAProxy.Version,
+		},
+	}
 	if cr.HAProxyEnabled() {
 		apps = append(apps, sfsstatus{
 			app:    statefulset.NewHAProxy(cr),
@@ -70,7 +74,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		})
 	}
 
-	cr.Status.ProxySQL = api.AppStatus{}
+	cr.Status.ProxySQL = api.AppStatus{
+		ComponentStatus: api.ComponentStatus{
+			Version: cr.Status.ProxySQL.Version,
+		},
+	}
 	if cr.ProxySQLEnabled() {
 		apps = append(apps, sfsstatus{
 			app:    statefulset.NewProxy(cr),
@@ -86,6 +94,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		if err != nil {
 			return errors.Wrapf(err, "get %s status", a.app.Name())
 		}
+		status.Version = a.status.Version
 		status.Image = a.status.Image
 		// Ready count can be greater than total size in case of downscale
 		if status.Ready > status.Size {

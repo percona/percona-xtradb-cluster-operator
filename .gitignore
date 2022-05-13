@@ -81,5 +81,6 @@ e2e-tests/conf/cloud-secret.yml
 .DS_Store
 .idea/**
 e2e-tests/init-deploy/smallrun
+deploy/crds
 
 .editorconfig

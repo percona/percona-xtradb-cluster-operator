@@ -255,7 +255,7 @@ else
 fi
 
 WSREP_CLUSTER_NAME=$(grep wsrep_cluster_name  ${CFG}| cut -d '=' -f 2| tr -d ' ' )
-if [[ ! ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
+if [[ -z ${WSREP_CLUSTER_NAME} || ${WSREP_CLUSTER_NAME} == 'noname' ]]; then
   echo "Cluster name is invalid, please check DNS"
   exit 1
 fi

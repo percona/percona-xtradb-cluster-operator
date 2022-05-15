@@ -123,11 +123,18 @@ func jobName(cr *apiv1.PerconaXtraDBCluster) string {
 	return fmt.Sprintf("%s/%s", jobName, nn.String())
 }
 
-func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+func isSmartUpdate(cr *apiv1.PerconaXtraDBCluster) bool {
 	if cr.Spec.UpdateStrategy != apiv1.SmartUpdateStatefulSetStrategyType ||
 		cr.Spec.UpgradeOptions.Schedule == "" ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
 		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == disabled {
+		return false
+	}
+	return true
+}
+
+func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+	if !isSmartUpdate(cr) {
 		return nil
 	}
 
@@ -220,12 +227,17 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		}
 
 		cr.Status.ProxySQL.Version = newVersion.ProxySqlVersion
+		cr.Status.ProxySQL.Image = newVersion.ProxySqlImage
 		cr.Status.HAProxy.Version = newVersion.HAProxyVersion
+		cr.Status.HAProxy.Image = newVersion.HAProxyImage
 		cr.Status.PMM.Version = newVersion.PMMVersion
+		cr.Status.PMM.Image = newVersion.PMMImage
 		cr.Status.Backup.Version = newVersion.BackupVersion
+		cr.Status.Backup.Image = newVersion.BackupImage
 		cr.Status.PXC.Version = newVersion.PXCVersion
 		cr.Status.PXC.Image = newVersion.PXCImage
 		cr.Status.LogCollector.Version = newVersion.LogCollectorVersion
+		cr.Status.LogCollector.Image = newVersion.LogCollectorImage
 
 		return r.client.Status().Update(context.Background(), cr)
 	})

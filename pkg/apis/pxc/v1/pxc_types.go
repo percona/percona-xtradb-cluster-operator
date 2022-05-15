@@ -432,6 +432,15 @@ type PMMSpec struct {
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 }
 
+func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
+	if _, ok := secret.Data["pmmserverkey"]; !ok {
+		if _, ok := secret.Data["pmmserver"]; ok {
+			return false
+		}
+	}
+	return true
+}
+
 type BackupStorageSpec struct {
 	Type                     BackupStorageType           `json:"type"`
 	S3                       BackupStorageS3Spec         `json:"s3,omitempty"`
@@ -510,7 +519,7 @@ var NoCustomVolumeErr = errors.New("no custom volume found")
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
-	PMMContainer(spec *PMMSpec, secrets string, cr *PerconaXtraDBCluster) (*corev1.Container, error)
+	PMMContainer(spec *PMMSpec, secret *corev1.Secret, cr *PerconaXtraDBCluster) (*corev1.Container, error)
 	LogCollectorContainer(spec *LogCollectorSpec, logPsecrets string, logRsecrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
 	Volumes(podSpec *PodSpec, cr *PerconaXtraDBCluster, vg CustomVolumeGetter) (*Volume, error)
 	Labels() map[string]string

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   annotations: {}
-  generation: 1
+  generation: 2
   name: monitoring-haproxy
   ownerReferences:
     - controller: true
@@ -35,11 +35,11 @@ spec:
             - name: PMM_SERVER
               value: monitoring-service
             - name: PMM_USER
-              value: admin
+              value: api_key
             - name: PMM_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserver
+                  key: pmmserverkey
                   name: internal-monitoring
             - name: CLIENT_PORT_LISTEN
               value: "7777"
@@ -60,11 +60,11 @@ spec:
             - name: PMM_AGENT_SERVER_ADDRESS
               value: monitoring-service
             - name: PMM_AGENT_SERVER_USERNAME
-              value: admin
+              value: api_key
             - name: PMM_AGENT_SERVER_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  key: pmmserver
+                  key: pmmserverkey
                   name: internal-monitoring
             - name: PMM_AGENT_LISTEN_PORT
               value: "7777"

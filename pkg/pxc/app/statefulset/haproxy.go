@@ -93,6 +93,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
+		Resources:       spec.Resources,
 	}
 
 	if cr.CompareVersionWith("1.7.0") < 0 {
@@ -204,21 +205,10 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		})
 	}
 
-	res, err := app.CreateResources(spec.Resources)
-	if err != nil {
-		return appc, fmt.Errorf("create resources error: %v", err)
-	}
-	appc.Resources = res
-
 	return appc, nil
 }
 
 func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
-	res, err := app.CreateResources(spec.SidecarResources)
-	if err != nil {
-		return nil, fmt.Errorf("create sidecar resources error: %v", err)
-	}
-
 	container := corev1.Container{
 		Name:            "pxc-monit",
 		Image:           spec.Image,
@@ -234,7 +224,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 				Value: c.labels["app.kubernetes.io/instance"] + "-" + "pxc",
 			},
 		},
-		Resources: res,
+		Resources: spec.SidecarResources,
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "haproxy-custom",
@@ -297,12 +287,12 @@ func (c *HAProxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ str
 	return nil, nil
 }
 
-func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
 	if cr.CompareVersionWith("1.9.0") < 0 {
 		return nil, nil
 	}
 
-	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
+	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -316,7 +306,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.Percon
 		{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
 			},
 		},
 		{
@@ -326,7 +316,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.Percon
 		{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
 			},
 		},
 		{
@@ -372,11 +362,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.Percon
 		ct.Env = append(ct.Env, sidecarEnvs...)
 	}
 
-	res, err := app.CreateResources(spec.Resources)
-	if err != nil {
-		return nil, fmt.Errorf("create resources error: %v", err)
-	}
-	ct.Resources = res
+	ct.Resources = spec.Resources
 
 	return &ct, nil
 }

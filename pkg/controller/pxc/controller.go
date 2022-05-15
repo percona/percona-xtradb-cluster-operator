@@ -560,14 +560,36 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		inits = append(inits, initC)
 	}
 
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, inits, logger, r.getConfigVolume)
+	secretsName := cr.Spec.SecretsName
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		secretsName = "internal-" + cr.Name
+	}
+	secrets := new(corev1.Secret)
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name: secretsName, Namespace: cr.Namespace,
+	}, secrets)
+	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err, "get internal secret")
+	}
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, secrets, inits, logger, r.getConfigVolume)
 	if err != nil {
 		return errors.Wrap(err, "get pxc statefulset")
+	}
+	currentNodeSet := new(appsv1.StatefulSet)
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Namespace: nodeSet.Namespace,
+		Name:      nodeSet.Name,
+	}, currentNodeSet)
+	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err, "get current pxc sts")
 	}
 
 	// TODO: code duplication with updatePod function
 	if nodeSet.Spec.Template.Annotations == nil {
 		nodeSet.Spec.Template.Annotations = make(map[string]string)
+	}
+	if v, ok := currentNodeSet.Spec.Template.Annotations["last-applied-secret"]; ok {
+		nodeSet.Spec.Template.Annotations["last-applied-secret"] = v
 	}
 	if cr.CompareVersionWith("1.1.0") >= 0 {
 		hash, err := r.getConfigHash(cr, stsApp)
@@ -650,7 +672,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	// HAProxy StatefulSet
 	if cr.HAProxyEnabled() {
 		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, nil, logger, r.getConfigVolume)
+		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, nil, logger, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create HAProxy StatefulSet")
 		}
@@ -662,9 +684,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		// TODO: code duplication with updatePod function
 		if haProxySet.Spec.Template.Annotations == nil {
 			haProxySet.Spec.Template.Annotations = make(map[string]string)
-		}
-		if nodeSet.Spec.Template.Annotations == nil {
-			nodeSet.Spec.Template.Annotations = make(map[string]string)
 		}
 		hash, err := r.getConfigHash(cr, sfsHAProxy)
 		if err != nil {
@@ -721,7 +740,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, nil, logger, r.getConfigVolume)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, nil, logger, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}
@@ -729,13 +748,21 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		if err != nil {
 			return err
 		}
+		currentProxySet := new(appsv1.StatefulSet)
+		err = r.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: nodeSet.Namespace,
+			Name:      nodeSet.Name,
+		}, currentProxySet)
+		if client.IgnoreNotFound(err) != nil {
+			return errors.Wrap(err, "get current proxy sts")
+		}
 
 		// TODO: code duplication with updatePod function
 		if proxySet.Spec.Template.Annotations == nil {
 			proxySet.Spec.Template.Annotations = make(map[string]string)
 		}
-		if nodeSet.Spec.Template.Annotations == nil {
-			nodeSet.Spec.Template.Annotations = make(map[string]string)
+		if v, ok := currentProxySet.Spec.Template.Annotations["last-applied-secret"]; ok {
+			proxySet.Spec.Template.Annotations["last-applied-secret"] = v
 		}
 		if cr.CompareVersionWith("1.1.0") >= 0 {
 			hash, err := r.getConfigHash(cr, sfsProxy)

@@ -93,7 +93,7 @@ create_namespace() {
 
 	if [[ ${CLEAN_NAMESPACE} == 1 ]] && [[ -z ${skip_clean_namespace} ]]; then
 		kubectl_bin get ns \
-			| egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" \
+			| egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME|^tanzu-|^tkg-" \
 			| awk '{print$1}' \
 			| xargs kubectl delete ns &
 	fi
@@ -504,7 +504,7 @@ compare_mysql_user() {
 	fi
 
 	(run_mysql "SHOW GRANTS;" "$uri" || :) \
-		| $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+		| $sed -E "s/'(10|192|100)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
 			>$tmp_dir/$user.sql
 	diff -u $expected_result $tmp_dir/$user.sql
 }
@@ -522,7 +522,7 @@ compare_mysql_user_local() {
 	fi
 
 	(run_mysql_local "SHOW GRANTS;" "$uri" "$pod" "$container_name" || :) \
-		| $sed -E "s/'(10|192)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
+		| $sed -E "s/'(10|192|100)[.][0-9][^']*'//; s/'[^']*[.]internal'//" \
 			>$tmp_dir/$user.sql
 	diff -u $expected_result $tmp_dir/$user.sql
 }
@@ -570,7 +570,7 @@ destroy() {
 	kubectl_bin delete pxc-restore --all --all-namespaces || :
 	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
 
-	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml 2>/dev/null || :
+	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml 2>/dev/null || :
 	if [ ! -z "$OPENSHIFT" ]; then
 		oc delete --grace-period=0 --force=true project "$namespace" &
 		if [ -n "$OPERATOR_NS" ]; then

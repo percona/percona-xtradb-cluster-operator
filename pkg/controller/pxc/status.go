@@ -61,7 +61,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		},
 	}
 
-	cr.Status.HAProxy = api.AppStatus{}
+	cr.Status.HAProxy = api.AppStatus{
+		ComponentStatus: api.ComponentStatus{
+			Version: cr.Status.HAProxy.Version,
+		},
+	}
 	if cr.HAProxyEnabled() {
 		apps = append(apps, sfsstatus{
 			app:    statefulset.NewHAProxy(cr),
@@ -70,7 +74,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		})
 	}
 
-	cr.Status.ProxySQL = api.AppStatus{}
+	cr.Status.ProxySQL = api.AppStatus{
+		ComponentStatus: api.ComponentStatus{
+			Version: cr.Status.ProxySQL.Version,
+		},
+	}
 	if cr.ProxySQLEnabled() {
 		apps = append(apps, sfsstatus{
 			app:    statefulset.NewProxy(cr),

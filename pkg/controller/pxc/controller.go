@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -115,8 +114,7 @@ type ReconcilePerconaXtraDBCluster struct {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
-	return logr.New(log.NewDelegatingLogSink(log.NullLogSink{}).WithName("perconaxtradbcluster").
-		WithValues("cluster", name, "namespace", namespace))
+	return r.log.WithName("perconaxtradbcluster").WithValues("cluster", name, "namespace", namespace)
 }
 
 type lockStore struct {
@@ -599,7 +597,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
 	}
 
-	err = r.reconsileSSL(cr)
+	err = r.reconcileSSL(cr)
 	if err != nil {
 		return errors.Wrapf(err, "failed to reconcile SSL.Please create your TLS secret %s and %s manually or setup cert-manager correctly",
 			cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)

@@ -242,8 +242,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 				return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
 			}
 
-			if channel.Config.SSL && channel.Config.CA == "" {
-				return errors.Errorf("if you set ssl for channel %s, you have to indicate a path to a CA file to verify the server certificate", channel.Name)
+			if channel.Config != nil {
+				if channel.Config.SSL && channel.Config.CA == "" {
+					return errors.Errorf("if you set ssl for channel %s, you have to indicate a path to a CA file to verify the server certificate", channel.Name)
+				}
 			}
 		}
 	}

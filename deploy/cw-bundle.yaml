@@ -513,22 +513,20 @@ spec:
                         resources:
                           properties:
                             limits:
-                              properties:
-                                cpu:
-                                  type: string
-                                ephemeral-storage:
-                                  type: string
-                                memory:
-                                  type: string
+                              additionalProperties:
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
                               type: object
                             requests:
-                              properties:
-                                cpu:
-                                  type: string
-                                ephemeral-storage:
-                                  type: string
-                                memory:
-                                  type: string
+                              additionalProperties:
+                                anyOf:
+                                  - type: integer
+                                  - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
                               type: object
                           type: object
                         storageName:
@@ -1050,22 +1048,20 @@ spec:
                           resources:
                             properties:
                               limits:
-                                properties:
-                                  cpu:
-                                    type: string
-                                  ephemeral-storage:
-                                    type: string
-                                  memory:
-                                    type: string
+                                additionalProperties:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
                                 type: object
                               requests:
-                                properties:
-                                  cpu:
-                                    type: string
-                                  ephemeral-storage:
-                                    type: string
-                                  memory:
-                                    type: string
+                                additionalProperties:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
                                 type: object
                             type: object
                           runtimeClassName:
@@ -1926,22 +1922,20 @@ spec:
                     resources:
                       properties:
                         limits:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                         requests:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                       type: object
                     runtimeClassName:
@@ -2102,22 +2096,20 @@ spec:
                     sidecarResources:
                       properties:
                         limits:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                         requests:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                       type: object
                     sidecarVolumes:
@@ -3596,22 +3588,20 @@ spec:
                     resources:
                       properties:
                         limits:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                         requests:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                       type: object
                     runtimeClassName:
@@ -3697,22 +3687,20 @@ spec:
                     resources:
                       properties:
                         limits:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                         requests:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                       type: object
                     runtimeClassName:
@@ -4434,22 +4422,20 @@ spec:
                     resources:
                       properties:
                         limits:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                         requests:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                       type: object
                     runtimeClassName:
@@ -4610,22 +4596,20 @@ spec:
                     sidecarResources:
                       properties:
                         limits:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                         requests:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                       type: object
                     sidecarVolumes:
@@ -6782,22 +6766,20 @@ spec:
                     resources:
                       properties:
                         limits:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                         requests:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                       type: object
                     runtimeClassName:
@@ -6958,22 +6940,20 @@ spec:
                     sidecarResources:
                       properties:
                         limits:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                         requests:
-                          properties:
-                            cpu:
-                              type: string
-                            ephemeral-storage:
-                              type: string
-                            memory:
-                              type: string
+                          additionalProperties:
+                            anyOf:
+                              - type: integer
+                              - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           type: object
                       type: object
                     sidecarVolumes:
@@ -8984,7 +8964,7 @@ spec:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: percona-xtradb-cluster-operator
-        image: percona/percona-xtradb-cluster-operator:1.10.0
+        image: percona/percona-xtradb-cluster-operator:1.11.0
         imagePullPolicy: Always
         resources:
           limits:

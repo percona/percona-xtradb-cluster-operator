@@ -175,8 +175,11 @@ under the ``backup`` section of the `deploy/cr.yaml <https://github.com/percona/
 
 * ``enabled`` key should be set to ``true``,
 * ``storageName`` key should point to the name of the storage already configured
-  in the ``storages`` subsection (currently, only s3-compatible storages are
-  supported),
+  in the ``storages`` subsection
+  
+  .. note:: Both binlog and full backup should use s3-compatible storage to make
+     point-in-time recovery work!
+     
 * ``timeBetweenUploads`` key specifies the number of seconds between running the
   binlog uploader.
 

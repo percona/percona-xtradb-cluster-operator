@@ -123,7 +123,10 @@ func (r *ReconcilePerconaXtraDBClusterRestore) createJob(job *batchv1.Job) error
 
 		checkJob := batchv1.Job{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
-		if err != nil && !k8serrors.IsNotFound(err) {
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
 			return errors.Wrap(err, "get job status")
 		}
 		for _, cond := range checkJob.Status.Conditions {

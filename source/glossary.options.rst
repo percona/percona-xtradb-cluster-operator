@@ -93,6 +93,10 @@ The Operator options glossary
 
       :ref:`backup.storages.STORAGE_NAME.containerSecurityContext<backup-storages-containersecuritycontext>`
 
+      :ref:`haproxy.containerSecurityContext<haproxy-containersecuritycontext>`
+
+      :ref:`proxysql.containerSecurityContext<proxysql-containersecuritycontext>`
+
       :ref:`pxc.containerSecurityContext<pxc-containersecuritycontext>`
 
    cpu

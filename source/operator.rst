@@ -1693,6 +1693,36 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-containersecuritycontext:                                                     |
+|                 |                                                                                           |
+| **Key**         | `haproxy.containerSecurityContext <operator.html#haproxy-containersecuritycontext>`_      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``privileged: true``                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Container                                     |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-podsecuritycontext:                                                           |
+|                 |                                                                                           |
+| **Key**         | `haproxy.podSecurityContext <operator.html#haproxy-podsecuritycontext>`_                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``fsGroup: 1001``                                                                         |
+|                 |                                                                                           |
+|                 | ``supplementalGroups: [1001, 1002, 1003]``                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Pod                                           |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _haproxy-serviceaccountname:                                                           |
 |                 |                                                                                           |
 | **Key**         | `haproxy.serviceAccountName <operator.html#haproxy-serviceaccountname>`_                  |
@@ -2308,6 +2338,36 @@ configuration options for the ProxySQL daemon.
 | **Description** | The `Kubernetes annotations                                                               |
 |                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_        |
 |                 | metadata for the load balancer Service                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _proxysql-containersecuritycontext:                                                    |
+|                 |                                                                                           |
+| **Key**         | `proxysql.containerSecurityContext <operator.html#proxysql-containersecuritycontext>`_    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``privileged: true``                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Container                                     |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _proxysql-podsecuritycontext:                                                          |
+|                 |                                                                                           |
+| **Key**         | `proxysql.podSecurityContext <operator.html#proxysql-podsecuritycontext>`_                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``fsGroup: 1001``                                                                         |
+|                 |                                                                                           |
+|                 | ``supplementalGroups: [1001, 1002, 1003]``                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Pod                                           |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

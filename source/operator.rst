@@ -118,13 +118,7 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-
      - ``percona/percona-xtradb-cluster-operator:{{{release}}}``
      - An alternative image for the initial Operator installation
 
-   * - tls.SANs
-     - subdoc 
-     -
-     - Additional domains (SAN) to be added to the TLS certificate within the
-       extended cert-manager configuration 
-
-   * - issuerConf
+   * - tls
      - :ref:`subdoc<operator.issuerconf-section>`
      - 
      - Extended cert-manager configuration section
@@ -139,14 +133,27 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-
 `Extended cert-manager Configuration Section <operator.html#operator-issuerconf-section>`_
 ------------------------------------------------------------------------------------------
 
-The ``issuerConf`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains various configuration options for additional customization of the `TLS certificates issuer <tls.certs.certmanager>`_.
+The ``tls`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains various configuration options for additional customization of the `TLS cert-manager <tls.certs.certmanager>`_.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
 
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _issuerconf-name:                                                                      |
+|                 | .. _tls-sans:                                                                             |
 |                 |                                                                                           |
-| **Key**         | `issuerConf.name <operator.html#issuerconf-name>`_                                        |
+| **Key**         | `tls.SANs <operator.html#tls-sans>`_                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     |                                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Additional domains (SAN) to be added to the TLS certificate within the extended           |
+|                 | cert-manager configuration                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _tls-issuerconf-name:                                                                  |
+|                 |                                                                                           |
+| **Key**         | `tls.issuerConf.name <operator.html#tls-issuerconf-name>`_                                |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -156,9 +163,9 @@ The ``issuerConf`` section in the `deploy/cr.yaml <https://github.com/percona/pe
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _issuerconf-kind:                                                                      |
+|                 | .. _tls-issuerconf-kind:                                                                  |
 |                 |                                                                                           |
-| **Key**         | `issuerConf.kind <operator.html#issuerconf-kind>`_                                        |
+| **Key**         | `tls.issuerConf.kind <operator.html#tls-issuerconf-kind>`_                                |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -168,9 +175,9 @@ The ``issuerConf`` section in the `deploy/cr.yaml <https://github.com/percona/pe
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _issuerconf-group:                                                                     |
+|                 | .. _tls-issuerconf-group:                                                                 |
 |                 |                                                                                           |
-| **Key**         | `issuerConf.group <operator.html#issuerconf-group>`_                                      |
+| **Key**         | `tls.issuerConf.group <operator.html#tls-issuerconf-group>`_                              |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+

@@ -19,48 +19,45 @@ New Features
 * :jirabug:`K8SPXC-907`: Provide a way to use jemalloc for mysqld
 * :jirabug:`K8SPXC-947`: Parametrize the number of attempt operator should do for backup
 * :jirabug:`K8SPXC-936`: Hookable init scripts
-* :jirabug:`K8SPXC-935`: Add possibility to specify nodePort for PXC operator for k8s
-
+* :jirabug:`K8SPXC-935`: Add possibility to specify nodePort for the Operator
 
 
 Improvements
 ================================================================================
 
-* :jirabug:`K8SPXC-960`: document that both full backup and binlogs should be on S3
 * :jirabug:`K8SPXC-738`: Labels are not applied to Service
 * :jirabug:`K8SPXC-804`: Mark pxc container restarts in logs container output
 * :jirabug:`K8SPXC-1009`: Enable super_read_only on replicas
 * :jirabug:`K8SPXC-986`: Cleaning up users.go fo PXC privileges
-* :jirabug:`K8SPXC-966`: Add ability to set annotations through helm-chart for operator
-* :jirabug:`K8SPXC-965`: Cannot apply annotations, labels, or resource limitations to backup pods
-* :jirabug:`K8SPXC-848`: pmm container should not crash in case of issues
-* :jirabug:`K8SPXC-758`: Allow to skip TLS verification for backup storage
-* :jirabug:`K8SPXC-625`: improve logs for PITR
+* :jirabug:`K8SPXC-966`: Add ability to set annotations through helm-chart for the Operator
+* :jirabug:`K8SPXC-965`: Cannot apply annotations, labels, or resource limitations to backup Pods
+* :jirabug:`K8SPXC-848`: PMM container does not cause the crash of the whole database Pod if pmm-agent is not working properly
+* :jirabug:`K8SPXC-758`: Allow to skip TLS verification for backup storage, useful for self-hosted S3-compatible storage with a self-issued certificate
+* :jirabug:`K8SPXC-625`: Print the total number of binlogs and the number of remaining binlogs in the restore log while point-in-time recovery in progress
 
 Bugs Fixed
 ================================================================================
 
-* :jirabug:`K8SPXC-985`: PITR fails due to incorrect binlog filtering logic
-* :jirabug:`K8SPXC-899`: sql_mode=VERIFY_IDENTITY not working with HAProxy and cert-manager
-* :jirabug:`K8SPXC-750`: ProxySQL can't connect to PXC if allowUnsafeConfiguration = true
-* :jirabug:`K8SPXC-896`: [BUG] Operator cannot create ssl-internal secret if crash happens at some particular point (Thanks to srteam2020 for reporting this issue)
-* :jirabug:`K8SPXC-763`: [BUG] Proxysql statefulset, PVC and services get mistakenly deleted when reading stale proxysql information (Thanks to srteam2020 for reporting this issue)
-* :jirabug:`K8SPXC-725`: [BUG] HAproxy statefulset and services get mistakenly deleted when reading stale `spec.haproxy.enabled` (Thanks to srteam2020 for reporting this issue)
-* :jirabug:`K8SPXC-957`: replicasServiceType set in helm chart not passed through to operator (Thanks to Carlos Martell for reporting this issue)
+* :jirabug:`K8SPXC-985`: Fix a bug that caused point-in-time recovery fail due to incorrect binlog filtering logic
+* :jirabug:`K8SPXC-899`: Fix a bug due to which issued certificates didn't cover all hostnames, making VERIFY_IDENTITY client mode not working with HAProxy
+* :jirabug:`K8SPXC-750`: Fix a bug that prevented ProxySQL from connecting to Percona XtraDB Cluster after turning TLS off
+* :jirabug:`K8SPXC-896`: Fix a bug due to which the Operator was unable to create ssl-internal Secret if crash happens in the middle of a reconcile and restart (Thanks to srteam2020 for contribution)
+
+* :jirabug:`K8SPXC-725` and :jirabug:`K8SPXC-763`: Fix a bug due to which ProxySQL StatefulSet, PVC and Services where mistakenly deleted by the Operator when reading stale ProxySQL or HAProxy information (Thanks to srteam2020 for contribution)
+* :jirabug:`K8SPXC-957`: Fix a bug due to which ``pxc-db`` Helm chart didn't support setting the ``replicasServiceType`` Custom Resource option (Thanks to Carlos Martell for reporting this issue)
 * :jirabug:`K8SPXC-920`: Backup Jobs Fail Intermittently (Thanks to Dustin Falgout for reporting this issue)
-* :jirabug:`K8SPXC-534`: No servers in hostgroup 10 during pxc statefulset update (Thanks to Sergiy Prykhodko for reporting this issue)
-* :jirabug:`K8SPXC-1016`: Reconciler error due to empty SSL secret name
+* :jirabug:`K8SPXC-534`: Fix a bug that caused some SQL queries to fail during the pxc StatefulSet update (Thanks to Sergiy Prykhodko for reporting this issue)
+* :jirabug:`K8SPXC-1016`: Fix a bug due to which empty SSL secret name in Custom Resource made an error message to appear in the Operator log
 * :jirabug:`K8SPXC-994`: get-pxc-state uses root connection
-* :jirabug:`K8SPXC-961`: Operator assumes there is no other containers running on operator pod while defining initImage (Thanks to Carlos Martell for reporting this issue)
-* :jirabug:`K8SPXC-934`: Create secret for system users even if 'secretsName' option is commented in CR
-* :jirabug:`K8SPXC-926`: failed smart update for one cluster makes the operator unusable for other clusters
-* :jirabug:`K8SPXC-900`: reload startup option not working in proxysql cluster
-* :jirabug:`K8SPXC-862`: Changing resources might lead to cluster getting stuck
-* :jirabug:`K8SPXC-858`: PXC cluster is in Error status during upgrading
-* :jirabug:`K8SPXC-835`: proxysql errors when used in replica cluster
+* :jirabug:`K8SPXC-961`: Fix a bug due to which a user-defined sidecar container image in the Operator Pod could be treated as the initImage (Thanks to Carlos Martell for reporting this issue)
+* :jirabug:`K8SPXC-934`: Fix a bug due to which the Operator didn't create users Secret if the 'secretsName' option was absent in cr.yaml, making the cluster unable to start
+* :jirabug:`K8SPXC-926`: Fix a bug due to which failed Smart Update for one cluster in cluster-wide made the Operator unusable for other clusters
+* :jirabug:`K8SPXC-900`: Fix a bug that caused setting the ``--reload`` startup being ignored by ProxySQL cluster
+* :jirabug:`K8SPXC-862`: Fix a bug due to which changing resources as integer values without quotes in Custom Resource could lead to cluster getting stuck
+* :jirabug:`K8SPXC-858`: Fix a bug which could cause a single-node cluster Error status during upgrading
+* :jirabug:`K8SPXC-835`: Fix a bug which prevented using ProxySQL in a Replica cluster
 * :jirabug:`K8SPXC-814`: missing CR status when invalid option specified
 * :jirabug:`K8SPXC-687`: restore not starting after failed restore on another cluster
-* :jirabug:`K8SPXC-975`: typo `xtrabcupUser`
 
 Supported Platforms
 ================================================================================

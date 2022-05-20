@@ -38,8 +38,7 @@ compare_kubectl service/${cluster}-haproxy
 compare_kubectl service/${cluster}-haproxy-replicas
 
 desc 'check if client ip visible in mysql processlist'
-run_mysql "select sleep(15);" "-h ${service_ip} -uroot -proot_password" &
-nr_queries=$(run_mysql "show processlist;" "-h ${service_ip} -uroot -proot_password" | grep "select sleep(15)" | grep "${client_ip}" | wc -l)
+nr_queries=$(run_mysql "show processlist;" "-h ${service_ip} -uroot -proot_password" | grep "show processlist" | grep -c "${client_ip}")
 if [ ${nr_queries} -ne 1 ]; then
 	echo "Client IP ${client_ip} is not found in process list!"
 	exit 1

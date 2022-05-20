@@ -219,7 +219,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	err = r.client.Get(context.TODO(),
 		types.NamespacedName{
 			Namespace: cr.Namespace,
-			Name:      internalPrefix + cr.Name,
+			Name:      cr.Spec.SecretsName,
 		},
 		&sysUsersSecretObj,
 	)
@@ -231,6 +231,21 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		err = handleReplicaPasswordChange(primaryDB, string(sysUsersSecretObj.Data["replication"]))
 		if err != nil {
 			return errors.Wrap(err, "failed to change replication password")
+		}
+		internalSysSecretObj := new(corev1.Secret)
+		err = r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      internalPrefix + cr.Name,
+			},
+			internalSysSecretObj,
+		)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Wrap(err, "failed to get internal secret")
+		}
+		internalSysSecretObj.Data["replication"] = sysUsersSecretObj.Data["replication"]
+		if err := r.client.Update(context.TODO(), internalSysSecretObj); err != nil {
+			return errors.Wrap(err, "failed to update internal secret")
 		}
 	}
 

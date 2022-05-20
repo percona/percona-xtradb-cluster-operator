@@ -160,6 +160,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil, errors.Wrap(err, "manage sys users")
 	}
 
+	// we should update replication password in internal secret only after updating it for replication channels
+	for k, v := range sysUsersSecretObj.Data {
+		if k != "replication" {
+			internalSysSecretObj.Data[k] = v
+		}
+	}
 	internalSysSecretObj.Data = sysUsersSecretObj.Data
 	err = r.client.Update(context.TODO(), &internalSysSecretObj)
 	if err != nil {

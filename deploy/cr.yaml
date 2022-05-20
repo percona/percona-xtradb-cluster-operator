@@ -162,6 +162,8 @@ spec:
 #    replicasServiceEnabled: false
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
+#    readinessDelaySec: 15
+#    livenessDelaySec: 600
 #    configuration: |
 #
 #    the actual default configuration file can be found here https://github.com/percona/percona-docker/blob/main/haproxy/dockerdir/etc/haproxy/haproxy-global.cfg
@@ -264,6 +266,12 @@ spec:
 #      limits:
 #        memory: 2G
 #        cpu: 600m
+#    containerSecurityContext:
+#      privileged: false
+#    podSecurityContext:
+#      runAsUser: 1001
+#      runAsGroup: 1001
+#      supplementalGroups: [1001]
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
@@ -348,6 +356,8 @@ spec:
 #        ssl_p2s_key="/etc/proxysql/ssl-internal/tls.key"
 #        ssl_p2s_cipher="ECDHE-RSA-AES128-GCM-SHA256"
 #      }
+#    readinessDelaySec: 15
+#    livenessDelaySec: 600
 #    schedulerName: mycustom-scheduler
 #    imagePullSecrets:
 #      - name: private-registry-credentials
@@ -388,6 +398,12 @@ spec:
 #      limits:
 #        memory: 2G
 #        cpu: 600m
+#    containerSecurityContext:
+#      privileged: false
+#    podSecurityContext:
+#      runAsUser: 1001
+#      runAsGroup: 1001
+#      supplementalGroups: [1001]
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"

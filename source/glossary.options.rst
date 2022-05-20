@@ -305,6 +305,10 @@ The Operator options glossary
 
       :ref:`pxc.livenessDelaySec<pxc-livenessdelaysec>`
 
+      :ref:`haproxy.livenessDelaySec<haproxy-livenessdelaysec>`
+
+      :ref:`proxysql.livenessDelaySec<proxysql-livenessdelaysec>`
+
    loadBalancerSourceRanges
 
      ..
@@ -472,6 +476,10 @@ The Operator options glossary
      ..
 
       :ref:`pxc.readinessDelaySec<pxc-readinessdelaysec>`
+
+      :ref:`haproxy.readinessDelaySec<haproxy-readinessdelaysec>`
+
+      :ref:`proxysql.readinessDelaySec<proxysql-readinessdelaysec>`
 
    region
 

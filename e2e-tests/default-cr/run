@@ -86,7 +86,7 @@ function main() {
 	MONITORING_ENDPOINT=$(get_service_endpoint monitoring-service)
 	API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$MONITORING_ENDPOINT/graph/api/auth/keys" | jq .key)
 
-  kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '$API_KEY'}}'
+	kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '$API_KEY'}}'
 
 	sleep 20
 	kubectl_bin patch pxc/${cluster} --type=merge --patch '{

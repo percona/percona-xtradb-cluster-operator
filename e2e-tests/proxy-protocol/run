@@ -27,6 +27,7 @@ create_infra ${namespace}
 
 desc 'create first PXC cluster'
 spinup_pxc "${cluster}" "${tmp_dir}/${cluster}.yml" "3" "15" "${conf_dir}/secrets.yml" "${tmp_dir}/client.yml" "33062"
+sleep 120
 client_ip=$(kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].status.podIP}')
 service_ip=$(get_service_endpoint proxy-protocol-haproxy)
 

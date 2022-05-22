@@ -166,7 +166,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 			internalSysSecretObj.Data[k] = v
 		}
 	}
-	internalSysSecretObj.Data = sysUsersSecretObj.Data
 	err = r.client.Update(context.TODO(), &internalSysSecretObj)
 	if err != nil {
 		return nil, errors.Wrap(err, "update internal sys users secret")

@@ -7,7 +7,7 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="auto-tuning"
 
-RAM_SIZE=5368709120 # 5Gi
+RAM_SIZE=1073741824 # 1Gi
 RDS_MEM_INSTANCE=12582880
 
 create_infra $namespace
@@ -21,7 +21,7 @@ AUTO_CONNECTIONS=$(run_mysql \
                         'SELECT @@max_connections;' \
                         "-h $cluster-pxc -uroot -proot_password")
 
-if [[ ${AUTO_INNODB_SIZE} != $((${RAM_SIZE} * 75 / 100)) ]]; then
+if [[ ${AUTO_INNODB_SIZE} != $((${RAM_SIZE} * 50 / 100)) ]]; then
     echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with cr.pxc.limits.memory * 0.75"
     exit 1
 fi

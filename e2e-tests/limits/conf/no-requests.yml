@@ -37,6 +37,6 @@ spec:
       antiAffinityTopologyKey: none
   pmm:
     enabled: false
-    image: perconalab/pmm-client:1.17.1
+    image: -pmm
     serverHost: monitoring-service
     serverUser: pmm

@@ -54,7 +54,6 @@ Advanced Installation Guides
    Install on OpenShift <openshift.rst>
    Use private registry <custom-registry.rst>
    Deploy with Service Broker <broker.rst>
-   cluster-wide
 
 Configuration
 =============
@@ -90,6 +89,16 @@ Management
 
 .. toctree::
    :maxdepth: 1
+
+HOWTOs
+======
+
+.. toctree::
+   :maxdepth: 1
+
+
+   <cluster-wide>
+   Install Percona XtraDB Cluster in multi-namespace (cluster-wide) mode
 
 Reference
 =============

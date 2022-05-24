@@ -59,6 +59,12 @@ The Operator options glossary
 
       :ref:`pxc.autoRecovery<pxc-autorecovery>`
 
+   backofflimit
+
+     ..
+
+      :ref:`backup.backoffLimit<obackup-backofflimit>`
+
    bucket
 
      ..

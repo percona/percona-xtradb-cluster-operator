@@ -12,19 +12,21 @@ Release Highlights
 
 * With this release, the Operator turns to a simplified naming convention and
   changes its official name to **Percona Operator for MySQL based on Percona XtraDB Cluster**
+* The new :ref:`backup.backoffLimit<backup-nackofflimit>` Custom Resource option allows customizing the number of attempts the Operator should do for backup
+* The new Secrets object referenced by the :ref:`pxc.envVarsSecret<pxc-envvarssecret>` Custom Resource option can be used to pass environment variables to MySQL
 
 New Features
 ================================================================================
 
-* :jirabug:`K8SPXC-907`: Provide a way to use jemalloc for mysqld
-* :jirabug:`K8SPXC-947`: Parametrize the number of attempt operator should do for backup
-* :jirabug:`K8SPXC-936`: Hookable init scripts
-* :jirabug:`K8SPXC-935`: Add possibility to specify nodePort for the Operator
+* :jirabug:`K8SPXC-907`: Allow defining Secrets object to pass environment variables to MySQL
+
+* :jirabug:`K8SPXC-936`: Allow modifying init script via Custom Resource, which is useful for troubleshooting the Operator’s issues
 
 
 Improvements
 ================================================================================
 
+* :jirabug:`K8SPXC-947`: Parametrize the number of attempt operator should do for backup
 * :jirabug:`K8SPXC-738`: Labels are not applied to Service
 * :jirabug:`K8SPXC-804`: Mark pxc container restarts in logs container output
 * :jirabug:`K8SPXC-1009`: Enable super_read_only on replicas
@@ -34,6 +36,7 @@ Improvements
 * :jirabug:`K8SPXC-848`: PMM container does not cause the crash of the whole database Pod if pmm-agent is not working properly
 * :jirabug:`K8SPXC-758`: Allow to skip TLS verification for backup storage, useful for self-hosted S3-compatible storage with a self-issued certificate
 * :jirabug:`K8SPXC-625`: Print the total number of binlogs and the number of remaining binlogs in the restore log while point-in-time recovery in progress
+* :jirabug:`K8SPXC-920`: Backup Jobs Fail Intermittently (Thanks to Dustin Falgout for reporting this issue)
 
 Bugs Fixed
 ================================================================================
@@ -45,7 +48,6 @@ Bugs Fixed
 
 * :jirabug:`K8SPXC-725` and :jirabug:`K8SPXC-763`: Fix a bug due to which ProxySQL StatefulSet, PVC and Services where mistakenly deleted by the Operator when reading stale ProxySQL or HAProxy information (Thanks to srteam2020 for contribution)
 * :jirabug:`K8SPXC-957`: Fix a bug due to which ``pxc-db`` Helm chart didn't support setting the ``replicasServiceType`` Custom Resource option (Thanks to Carlos Martell for reporting this issue)
-* :jirabug:`K8SPXC-920`: Backup Jobs Fail Intermittently (Thanks to Dustin Falgout for reporting this issue)
 * :jirabug:`K8SPXC-534`: Fix a bug that caused some SQL queries to fail during the pxc StatefulSet update (Thanks to Sergiy Prykhodko for reporting this issue)
 * :jirabug:`K8SPXC-1016`: Fix a bug due to which empty SSL secret name in Custom Resource made an error message to appear in the Operator log
 * :jirabug:`K8SPXC-994`: get-pxc-state uses root connection
@@ -55,7 +57,6 @@ Bugs Fixed
 * :jirabug:`K8SPXC-900`: Fix a bug that caused setting the ``--reload`` startup being ignored by ProxySQL cluster
 * :jirabug:`K8SPXC-862`: Fix a bug due to which changing resources as integer values without quotes in Custom Resource could lead to cluster getting stuck
 * :jirabug:`K8SPXC-858`: Fix a bug which could cause a single-node cluster Error status during upgrading
-* :jirabug:`K8SPXC-835`: Fix a bug which prevented using ProxySQL in a Replica cluster
 * :jirabug:`K8SPXC-814`: missing CR status when invalid option specified
 * :jirabug:`K8SPXC-687`: restore not starting after failed restore on another cluster
 

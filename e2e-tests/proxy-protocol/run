@@ -7,6 +7,11 @@ cluster="proxy-protocol"
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	echo "Skipping proxy-protocol test because 5.7 doesn't support it!"
+	exit 1
+fi
+
 prepare_config() {
 	nodes=$(kubectl get nodes | grep -v "NAME" | awk '{print $1}')
 	if [ $(printf "${nodes}\n" | wc -l) -lt 3 ]; then

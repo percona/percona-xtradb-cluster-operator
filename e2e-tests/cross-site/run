@@ -6,6 +6,11 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	echo "Skipping cross-site test because 5.7 doesn't support it!"
+	exit 0
+fi
+
 main() {
 
   local source_cluster="cross-site-source"

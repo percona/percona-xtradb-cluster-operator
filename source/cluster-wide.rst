@@ -1,7 +1,7 @@
 .. _install-clusterwide:
 
-Install Percona XtraDB Cluster cluster-wide
-============================================
+Install Percona XtraDB Cluster in multi-namespace (cluster-wide) mode
+=====================================================================
 
 By default, Percona Distribution for MySQL Operator based on Percona XtraDB Cluster functions in a specific Kubernetes
 namespace. You can create one during installation (like it is shown in the 

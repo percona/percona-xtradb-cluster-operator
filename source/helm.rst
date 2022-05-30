@@ -24,7 +24,7 @@ Installation
       helm repo add percona https://percona.github.io/percona-helm-charts/
       helm repo update
 
-#. Install the Percona Distribution for MySQL Operator based on Percona XtraDB Cluster:
+#. Install the |pxcoperator|:
 
    .. code:: bash
 

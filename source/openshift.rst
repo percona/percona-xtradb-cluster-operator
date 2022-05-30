@@ -5,24 +5,24 @@ Percona Operator for Percona XtrabDB Cluster is a `Red Hat Certified Operator <h
 
 Installing Percona XtraDB Cluster on OpenShift includes two steps:
 
-* Installing the Percona Distribution for MySQL Operator,
+* Installing the |operator|,
 * Install Percona XtraDB Cluster using the Operator.
 
 Install the Operator
 --------------------
 
-You can install Percona Distribution for MySQL Operator on OpenShift using the `Red Hat Marketplace <https://marketplace.redhat.com>`_ web interface or using the command line interface.
+You can install |operator| on OpenShift using the `Red Hat Marketplace <https://marketplace.redhat.com>`_ web interface or using the command line interface.
 
 Install the Operator via the Red Hat Marketplace
 ************************************************
 
 1. login to the Red Hat Marketplace and register your cluster `following the official instructions <https://marketplace.redhat.com/en-us/workspace/clusters/add/register>`_.
 
-2. Go to the `Percona Distribution for MySQL Operator <https://marketplace.redhat.com/en-us/products/percona-kubernetes-operator-for-percona-server-for-xtradb-cluster>`_ page and click the `Free trial` button:
+2. Go to the `Percona Operator for MySQL <https://marketplace.redhat.com/en-us/products/percona-kubernetes-operator-for-percona-server-for-xtradb-cluster>`_ page and click the `Free trial` button:
 
    .. image:: img/marketplace-operator-page.png
       :align: center
-      :alt: Percona Distribution for MySQL Operator on Red Hat Marketplace
+      :alt: Percona Operator for MySQL on Red Hat Marketplace
 
    Here you can "start trial" of the Operator for 0.0 USD.
 
@@ -30,7 +30,7 @@ Install the Operator via the Red Hat Marketplace
 
    .. image:: img/marketplace-operator-install.png
       :align: center
-      :alt: Percona Distribution for MySQL Operator install button
+      :alt: Percona Operator for MySQL install button
 
    Click the ``Install Operator`` button.
 

@@ -20,17 +20,17 @@ benefits brought by Kubernetes to databases in `this blog post <https://www.perc
 
 The architecture of state-centric applications (like databases) should be
 composed in a right way to avoid crashes, data loss, or data inconsistencies
-during hardware failure. Percona Distribution for MySQL Operator
+during hardware failure. |operator|
 provides out-of-the-box functionality to automate provisioning and management of
 highly available MySQL database clusters on Kubernetes.
 
 How can I contact the developers?
 ================================================================================
 
-The best place to discuss Percona Distribution for MySQL Operator
+The best place to discuss |pxcoperator|
 with developers and other community members is the `community forum <https://forums.percona.com/categories/kubernetes-operator-percona-xtradb-cluster>`_.
 
-If you would like to report a bug, use the `Percona Distribution for MySQL Operator project in JIRA <https://jira.percona.com/projects/K8SPXC>`_.
+If you would like to report a bug, use the `Percona Operator for MySQL project in JIRA <https://jira.percona.com/projects/K8SPXC>`_.
 
 What is the difference between the Operator quickstart and advanced installation ways?
 =======================================================================================
@@ -52,10 +52,10 @@ Generally, rely on the quickstart guide if you are a beginner user of the
 specific platform and/or you are new to the Percona Distribution for MySQL
 Operator as a whole.
 
-Which versions of MySQL the Percona Distribution for MySQL Operator supports?
+Which versions of MySQL the |operator| supports?
 ================================================================================
 
-Percona Distribution for MySQL Operator provides a ready-to-use installation of the
+|pxcoperator| provides a ready-to-use installation of the
 MySQL-based Percona XtraDB Cluster inside your Kubernetes installation. It works
 with both MySQL 8.0 and 5.7 branches, and the exact version is determined by the
 Docker image in use.
@@ -70,7 +70,7 @@ Server version can be found in the release notes (`8.0 <https://www.percona.com/
 How HAProxy is better than ProxySQL?
 ================================================================================
 
-Percona Distribution for MySQL Operator supports both HAProxy and ProxySQL as a load
+|pxcoperator| supports both HAProxy and ProxySQL as a load
 balancer. HAProxy is turned on by default, but both solutions are similar in
 terms of their configuration and operation under the control of the Operator.
 
@@ -80,7 +80,7 @@ applications. ProxySQL provides similar functionality but is specific to MySQL
 clusters. As an SQL-aware solution, it is able to provide more tight
 internal integration with MySQL instances.
 
-Both projects do a really good job with Percona Distribution for MySQL Operator. The
+Both projects do a really good job with the Operator. The
 proxy choice should depend mostly on application-specific workload (including
 object-relational mapping), performance requirements, advanced routing and
 caching needs with one or another project, components already in use in the

@@ -52,10 +52,12 @@ To automate the deployment and management of the cluster components,
 the Operator requires system-level Percona XtraDB Cluster users.
 
 Credentials for these users are stored as a `Kubernetes Secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_ object.
-The Operator requires to be deployed before the Percona XtraDB Cluster is
-started. The name of the required secrets (``my-cluster-secrets`` by default)
+The Operator requires Kubernetes Secrets before Percona XtraDB Cluster is
+started. It will either use existing Secrets or create a new Secrets object with
+randomly generated passwords if it didn't exist.
+The name of the required Secrets (``my-cluster-secrets`` by default)
 should be set in the ``spec.secretsName`` option of the ``deploy/cr.yaml``
-configuration file.
+configuration file. 
 
 The following table shows system users' names and purposes.
 

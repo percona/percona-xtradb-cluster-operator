@@ -261,3 +261,38 @@ due to access restrictions. It uses the following additional `RBAC permissions <
      - update
      - patch
      - delete
+
+.. _faq-allocator:
+
+How can I use alternative memory allocator for MySQL?
+================================================================================
+
+It's often a recommended practice to try using an alternative allocator library
+for mysqld in case the memory usage is suspected to be higher than expected.
+You can pass ``LD_PRELOAD`` environment variable with the alternative allocator
+library name to mysqld. The :ref:`pxc.envVarsSecret<pxc-envvarssecret>` Custom
+Resource option :ref:`allows<faq-env>` you to specify the name of the Secret
+with the environment variable for mysqld.
+
+This allows you to use jemalloc allocator already present in Percona XtraDB
+Cluster Pods with the following environment variable:
+
+.. code:: bash
+
+   LD_PRELOAD=/usr/lib64/libjemalloc.so.1
+
+The following Secrets object can be used to set it (as you can see, environment
+variables are stored as ``data`` - i.e., base64-encoded strings):
+
+.. code:: yaml
+
+   apiVersion: v1
+   kind: Secret
+   metadata: 
+     name: my-env-var-secrets
+   type: Opaque
+   data: 
+     LD_PRELOAD: L3Vzci9saWI2NC9saWJqZW1hbGxvYy5zby4x
+
+You can find more details on setting environment variables via the :ref:`pxc.envVarsSecret<pxc-envvarssecret>`
+Custom Resource option on the :ref:`dedicated documentation page<faq-env>`. 

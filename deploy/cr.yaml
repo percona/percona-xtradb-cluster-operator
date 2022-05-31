@@ -303,7 +303,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.11.0-proxysql
+    image: perconalab/percona-xtradb-cluster-operator:psqladm-384-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"

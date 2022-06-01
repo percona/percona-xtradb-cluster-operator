@@ -956,7 +956,11 @@ function vault_tls() {
 
 	if version_gt "1.22"; then
 		CSR_API_VER="v1"
-		CSR_SIGNER="  signerName: kubernetes.io/kubelet-serving"
+		if [ "$EKS" = 1 ]; then
+			CSR_SIGNER="  signerName: beta.eks.amazonaws.com/app-serving"
+		else
+			CSR_SIGNER="  signerName: kubernetes.io/kubelet-serving"
+		fi
 	else
 		CSR_API_VER="v1beta1"
 		CSR_SIGNER=""

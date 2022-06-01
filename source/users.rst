@@ -95,7 +95,7 @@ The following table shows system users' names and purposes.
     * - PMM Server Password
       - should be set through the `operator options <operator>`__
       - pmmserver
-      - `Password used to access PMM Server <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__
+      - `Password used to access PMM Server <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__. **Password-based authorization method is deprecated since the Operator 1.11.0**. :ref:`Use token-based authorization instead<operator.monitoring.client.token>`.
     * - Operator Admin
       - operator
       - operator
@@ -126,7 +126,7 @@ it should match the following simple format:
      monitor: monitory
      clustercheck: clustercheckpassword
      proxyadmin: admin_password
-     pmmserver: supa|^|pazz
+     pmmserver: admin
      operator: operatoradmin
      replication: repl_password
 

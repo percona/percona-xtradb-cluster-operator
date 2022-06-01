@@ -378,7 +378,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		name := "pmmserverkey"
-		if !cr.Spec.PMM.UseAPI(internalSysSecretObj) {
+		if !cr.Spec.PMM.UseAPI(sysUsersSecretObj) {
 			name = "pmmserver"
 		}
 		requiredUsers = append(requiredUsers, user{

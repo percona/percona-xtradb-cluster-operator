@@ -69,7 +69,7 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-
    * - allowUnsafeConfigurations
      - boolean
      - ``false``
-     - Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with the number of Percona XtdaDB Cluster instances which is less than 3, more than 5, or is an even number, with less than 2 ProxySQL or HAProxy Pods, or without TLS/SSL certificates (if ``false``, unsafe parameters will be automatically changed to safe defaults)
+     - Prevents users from configuring a cluster with unsafe parameters such as starting the cluster with the number of Percona XtraDB Cluster instances which is less than 3, more than 5, or is an even number, with less than 2 ProxySQL or HAProxy Pods, or without TLS/SSL certificates (if ``false``, unsafe parameters will be automatically changed to safe defaults)
 
    * - enableCRValidationWebhook
      - boolean

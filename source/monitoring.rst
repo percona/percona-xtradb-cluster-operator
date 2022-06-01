@@ -16,12 +16,16 @@ a number of dashboards.
 
 That's why PMM Server and PMM Client need to be installed separately.
 
+.. _operator.monitoring.server:
+
 Installing the PMM Server
 -------------------------
 
 PMM Server runs as a *Docker image*, a *virtual appliance*, or on an *AWS instance*.
 Please refer to the `official PMM documentation <https://www.percona.com/doc/percona-monitoring-and-management/2.x/setting-up/server/index.html>`_
 for the installation instructions.
+
+.. _operator.monitoring.client:
 
 Installing the PMM Client
 -------------------------
@@ -31,17 +35,29 @@ Kubernetes-based environment:
 
 #. The PMM client installation is initiated by updating the ``pmm``
    section in the
-   `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`_
+   `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
    file.
 
    -  set ``pmm.enabled=true``
    -  set the ``pmm.serverHost`` key to your PMM Server hostname,
-   -  check that  the ``serverUser`` key contains your PMM Server user name
-      (``admin`` by default),
-   -  make sure the ``pmmserver`` key in the 
-      `deploy/secrets.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/secrets.yaml>`_
-      secrets file contains the password specified for the PMM Server during its
-      installation
+   -  authorize PMM Client within PMM Server in one of two ways:
+   
+      A. Use **token-based authorization (recommended)**. `Acquire the API Key from your PMM Server <https://docs.percona.com/percona-monitoring-and-management/details/api.html#api-keys-and-authentication>`_
+         and set ``pmmserverkey`` in the
+         `deploy/secrets.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/secrets.yaml>`__
+         secrets file to this obtained API Key value.
+   
+      B. Use **password-based authorization**. Check that  the ``serverUser``
+         key in the
+         `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
+         file contains your PMM Server user name (``admin`` by default), and
+         make sure the ``pmmserver`` key in the 
+      `deploy/secrets.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/secrets.yaml>`__
+         secrets file contains the password specified for the PMM Server during
+         its installation.
+         
+         *Password-based authorization method is deprecated since the Operator
+         1.11.0.*
 
       .. note:: You use ``deploy/secrets.yaml`` file to *create* Secrets Object.
          The file contains all values for each key/value pair in a convenient

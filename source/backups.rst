@@ -195,7 +195,7 @@ Following example shows how the ``pitr`` subsection looks like:
        timeBetweenUploads: 60
 
 .. note:: Point-in-time recovery will be done for binlogs without any
-   cluster-based filtering. Therefore it is recommend to use a separate
+   cluster-based filtering. Therefore it is recommended to use a separate
    storage, bucket, or directory to store binlogs for the cluster.
    Also, it is recommended to have empty bucket/directory which holds binlogs
    (with no binlogs or files from previous attempts or other clusters) when

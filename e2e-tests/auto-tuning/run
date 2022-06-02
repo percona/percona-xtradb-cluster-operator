@@ -15,8 +15,8 @@ create_infra $namespace
 spinup_pxc "$cluster" "${test_dir}/conf/${cluster}1.yml"
 
 AUTO_INNODB_SIZE=$(run_mysql \
-                        'SELECT @@innodb_buffer_pool_size;' \
-                        "-h $cluster-pxc -uroot -proot_password")
+	'SELECT @@innodb_buffer_pool_size;' \
+	"-h $cluster-pxc -uroot -proot_password")
 AUTO_CONNECTIONS=$(run_mysql \
 	'SELECT @@max_connections;' \
 	"-h $cluster-pxc -uroot -proot_password")

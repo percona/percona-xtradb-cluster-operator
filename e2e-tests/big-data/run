@@ -19,7 +19,7 @@ main() {
 	cluster="some-name"
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
 
-	if [[ "$IMAGE_PXC" =~ 8\.0 ]]; then
+	if [[ $IMAGE_PXC =~ 8\.0 ]]; then
 		desc 'Switch to 8.0 backup'
 		kubectl_bin apply -f "${test_dir}/conf/restore-backup.yml"
 	else

@@ -56,3 +56,51 @@ Now apply the ``deploy/cr.yaml`` file with the following command:
 
      kubectl apply -f deploy/cr.yaml
 
+.. _faq-allocator:
+
+Another example shows how to pass ``LD_PRELOAD`` environment variable with the
+alternative memory allocator library name to mysqld. It's often a recommended
+practice to try using an alternative allocator library for mysqld in case the
+memory usage is suspected to be higher than expected, and you can use jemalloc
+allocator already present in Percona XtraDB Cluster Pods with the following
+environment variable:
+
+.. code:: bash
+
+   LD_PRELOAD=/usr/lib64/libjemalloc.so.1
+
+Create a new YAML file with the contents similar to the previous example, but
+with ``LD_PRELOAD`` variable, stored as base64-encoded strings:
+
+.. code:: yaml
+
+   apiVersion: v1
+   kind: Secret
+   metadata: 
+     name: my-new-env-var-secrets
+   type: Opaque
+   data: 
+     LD_PRELOAD: L3Vzci9saWI2NC9saWJqZW1hbGxvYy5zby4x
+
+If this YAML file was named ``deploy/my-new-env-var-secret``, the command
+to apply it will be the following one:
+
+.. code:: bash
+
+   $ kubectl create -f deploy/my-new-env-secret.yaml
+
+Now put the name of this new Secret to the ``envVarsSecret`` key in ``pxc``
+section of the `deploy/cr.yaml`` configuration file:
+
+.. code:: yaml
+
+     pxc:
+       ....
+       envVarsSecret: my-new-env-var-secrets
+       ....
+
+Don't forget to apply the ``deploy/cr.yaml`` file, as usual:
+
+.. code:: bash
+
+     kubectl apply -f deploy/cr.yaml

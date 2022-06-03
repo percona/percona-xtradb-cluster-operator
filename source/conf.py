@@ -44,7 +44,7 @@ release = '1.11.0'
 pxc57recommended = '5.7.34-31.51'
 pxc80recommended = '8.0.23-14.1'
 pmm2recommended = '2.23.0'
-gkerecommended = '1.22'
+gkerecommended = '1.23'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

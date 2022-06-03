@@ -99,7 +99,7 @@ create_namespace() {
 	fi
 
 	if [ -n "$OPENSHIFT" ]; then
-		if  [ -n "$OPERATOR_NS" -a $(oc get project "$OPERATOR_NS" -o json | jq -r '.metadata.name') ]; then
+		if [ -n "$OPERATOR_NS" -a $(oc get project "$OPERATOR_NS" -o json | jq -r '.metadata.name') ]; then
 			oc delete --grace-period=0 --force=true project "$namespace" && sleep 120 || :
 		else
 			oc delete project "$namespace" && sleep 40 || :

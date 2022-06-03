@@ -52,12 +52,15 @@ Install the Operator via the command-line interface
    standard set of resources which Kubernetes “knows” about with the new
    items (in our case ones which are the core of the operator).
 
-   This step should be done only once; it does not need to be repeated
-   with the next Operator deployments, etc.
+   `Apply it <https://kubernetes.io/docs/reference/using-api/server-side-apply/>`_
+   as follows:
 
    .. code:: bash
 
-      $ oc apply -f deploy/crd.yaml
+      $ oc apply -f deploy/crd.yaml --server-side
+
+   This step should be done only once; it does not need to be repeated
+   with the next Operator deployments, etc.
 
    .. note:: Setting Custom Resource Definition requires your user to
       have cluster-admin role privileges.

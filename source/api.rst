@@ -59,7 +59,7 @@ Prerequisites
       API_SERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$KUBE_CLUSTER\")].cluster.server}" | sed -e 's#https://##')
 
       # create service account and get token
-      kubectl apply -f deploy/crd.yaml -f deploy/rbac.yaml -n default
+      kubectl apply -f deploy/crd.yaml -f deploy/rbac.yaml -n default --server-side
       KUBE_TOKEN=$(kubectl get secret $(kubectl get serviceaccount percona-xtradb-cluster-operator -o jsonpath='{.secrets[0].name}' -n default) -o jsonpath='{.data.token}' -n default | base64 --decode )
 
 Create new Percona XtraDB Cluster

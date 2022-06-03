@@ -16,14 +16,16 @@ Install Percona XtraDB Cluster on Kubernetes
 #. Now Custom Resource Definition for Percona XtraDB Cluster should be created
    from the ``deploy/crd.yaml`` file. Custom Resource Definition extends the
    standard set of resources which Kubernetes “knows” about with the new
-   items (in our case ones which are the core of the operator).
-
-   This step should be done only once; it does not need to be repeated
-   with the next Operator deployments, etc.
+   items (in our case ones which are the core of the operator). 
+   `Apply it <https://kubernetes.io/docs/reference/using-api/server-side-apply/>`_
+   as follows:
 
    .. code:: bash
 
-      $ kubectl apply -f deploy/crd.yaml
+      $ kubectl apply -f deploy/crd.yaml --server-side
+
+   This step should be done only once; it does not need to be repeated
+   with the next Operator deployments, etc.
 
 #. The next thing to do is to add the ``pxc`` namespace to Kubernetes,
    not forgetting to set the correspondent context for further steps:

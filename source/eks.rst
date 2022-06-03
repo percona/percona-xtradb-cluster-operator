@@ -102,11 +102,11 @@ Install the Operator
 
       cd percona-xtradb-cluster-operator
 
-#. Deploy the Operator with the following command:
+#. Deploy the Operator `using <https://kubernetes.io/docs/reference/using-api/server-side-apply/>`_ the following command:
 
    .. code:: bash
 
-      kubectl apply -f deploy/bundle.yaml
+      kubectl apply -f deploy/bundle.yaml --server-side
 
    The following confirmation is returned:
 

@@ -140,7 +140,7 @@ When the backup destination is configured and applied with `kubectl apply -f dep
 
 .. code:: bash
 
-   kubectl apply -f deploy/backup/backup.yaml
+   $ kubectl apply -f deploy/backup/backup.yaml
 
 .. note:: Storing backup settings in a separate file can be replaced by
    passing its content to the ``kubectl apply`` command as follows:
@@ -214,19 +214,19 @@ configures a private volume for filesystem-type storage:
 
 .. code:: yaml
 
-  ...
-  backup:
-    ...
-    storages:
-      fs-pvc:
-        type: filesystem
-        volume:
-          persistentVolumeClaim:
-            accessModes: [ "ReadWriteOnce" ]
-            resources:
-              requests:
-                storage: 6Gi
-    ...
+   ...
+   backup:
+     ...
+     storages:
+       fs-pvc:
+         type: filesystem
+         volume:
+           persistentVolumeClaim:
+             accessModes: [ "ReadWriteOnce" ]
+             resources:
+               requests:
+                 storage: 6Gi
+     ...
 
 .. note:: Please take into account that 6Gi storage size specified in this
    example may be insufficient for the real-life setups; consider using tens or
@@ -291,7 +291,7 @@ Following things are needed to restore a previously saved backup:
 
   .. code:: bash
 
-     kubectl get pxc-backup
+     $ kubectl get pxc-backup
 
   .. note:: Obviously, you can make this check only on the same cluster on
      which you have previously made the backup.
@@ -301,7 +301,7 @@ Following things are needed to restore a previously saved backup:
 
   .. code:: bash
 
-     kubectl get pxc
+     $ kubectl get pxc
 
 .. _backups-no-pitr-restore:
 
@@ -354,14 +354,14 @@ restoration can be done in the following way.
 
    .. code:: bash
 
-      kubectl apply -f deploy/backup/restore.yaml
+      $ kubectl apply -f deploy/backup/restore.yaml
 
 .. note:: Storing backup settings in a separate file can be replaced by passing
    its content to the ``kubectl apply`` command as follows:
 
    .. code:: bash
 
-      cat <<EOF | kubectl apply -f-
+      $ cat <<EOF | kubectl apply -f-
       apiVersion: "pxc.percona.com/v1"
       kind: "PerconaXtraDBClusterRestore"
       metadata:
@@ -439,14 +439,14 @@ The actual restoration process can be started as follows:
 
    .. code:: bash
 
-      kubectl apply -f deploy/backup/restore.yaml
+      $ kubectl apply -f deploy/backup/restore.yaml
 
 .. note:: Storing backup settings in a separate file can be replaced by passing
    its content to the ``kubectl apply`` command as follows:
 
    .. code:: bash
 
-      cat <<EOF | kubectl apply -f-
+      $ cat <<EOF | kubectl apply -f-
       apiVersion: "pxc.percona.com/v1"
       kind: "PerconaXtraDBClusterRestore"
       metadata:
@@ -478,13 +478,13 @@ by the following command:
 
 .. code:: bash
 
-   kubectl get pxc-backup
+   $ kubectl get pxc-backup
 
 When the name is known, backup can be deleted as follows:
 
 .. code:: bash
 
-   kubectl delete pxc-backup/<backup-name>
+   $ kubectl delete pxc-backup/<backup-name>
 
 .. _backups-copy:
 
@@ -497,23 +497,23 @@ backups returned by the following command:
 
 .. code:: bash
 
-   kubectl get pxc-backup
+   $ kubectl get pxc-backup
 
 When the name is known, backup can be downloaded to the local machine as
 follows:
 
 .. code:: bash
 
-   ./deploy/backup/copy-backup.sh <backup-name> path/to/dir
+   $ ./deploy/backup/copy-backup.sh <backup-name> path/to/dir
 
 For example, this downloaded backup can be restored to the local
 installation of Percona Server:
 
 .. code:: bash
 
-   service mysqld stop
-   rm -rf /var/lib/mysql/*
-   cat xtrabackup.stream | xbstream -x -C /var/lib/mysql
-   xtrabackup --prepare --target-dir=/var/lib/mysql
-   chown -R mysql:mysql /var/lib/mysql
-   service mysqld start
+   $ service mysqld stop
+   $ rm -rf /var/lib/mysql/*
+   $ cat xtrabackup.stream | xbstream -x -C /var/lib/mysql
+   $ xtrabackup --prepare --target-dir=/var/lib/mysql
+   $ chown -R mysql:mysql /var/lib/mysql
+   $ service mysqld start

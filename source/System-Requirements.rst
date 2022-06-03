@@ -30,7 +30,3 @@ Nodes, with the following resources:
 * 2GB of RAM,
 * 2 CPU threads per Node for Pods provisioning,
 * at least 60GB of available storage for Persistent Volumes provisioning.
-
-
-
-

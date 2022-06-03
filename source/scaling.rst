@@ -39,7 +39,7 @@ The following are the steps to increase the size:
 
    .. code:: bash
 
-      kubectl get pxc cluster1 -o yaml --export > CR_backup.yaml
+      $ kubectl get pxc cluster1 -o yaml --export > CR_backup.yaml
 
 #. Now you should delete the cluster.
 
@@ -51,17 +51,17 @@ The following are the steps to increase the size:
 
    .. code:: bash
 
-      kubectl delete -f CR_backup.yaml
+      $ kubectl delete -f CR_backup.yaml
 
 #. For each node, edit the yaml to resize the PVC object.
 
    .. code:: bash
 
-      kubectl edit pvc datadir-cluster1-pxc-0
+      $ kubectl edit pvc datadir-cluster1-pxc-0
 
    In the yaml, edit the spec.resources.requests.storage value.
 
-   .. code:: bash
+   .. code:: yaml
 
       spec:
         accessModes:
@@ -74,18 +74,18 @@ The following are the steps to increase the size:
 
    .. code:: bash
 
-      kubectl edit pvc datadir-cluster1-pxc-1
-      kubectl edit pvc datadir-cluster1-pxc-2
+      $ kubectl edit pvc datadir-cluster1-pxc-1
+      $ kubectl edit pvc datadir-cluster1-pxc-2
 
 #. In the CR configuration file, use vim or another text editor to edit
    the PVC size.
 
    .. code:: bash
 
-      vim CR_backup.yaml
+      $ vim CR_backup.yaml
 
 #. Apply the updated configuration to the cluster.
 
    .. code:: bash
 
-      kubectl apply -f CR_backup.yaml
+      $ kubectl apply -f CR_backup.yaml

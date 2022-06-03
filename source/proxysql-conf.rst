@@ -13,7 +13,7 @@ Use the following command to enable ProxySQL:
 
 .. code:: bash
 
-   kubectl patch pxc cluster1 --type=merge --patch '{
+   $ kubectl patch pxc cluster1 --type=merge --patch '{
      "spec": {
         "proxysql": {
            "enabled": true,
@@ -193,26 +193,26 @@ name, you can use the following command:
 
 .. code:: bash
 
-   kubectl get pxc
+   $ kubectl get pxc
 
 The syntax for ``kubectl create configmap`` command is:
 
 ::
 
-   kubectl create configmap <cluster-name>-proxysql <resource-type=resource-name>
+   $ kubectl create configmap <cluster-name>-proxysql <resource-type=resource-name>
 
 The following example defines ``cluster1-proxysql`` as the configmap name and
 the ``proxysql.cnf`` file as the data source:
 
 .. code:: bash
 
-   kubectl create configmap cluster1-proxysql --from-file=proxysql.cnf
+   $ kubectl create configmap cluster1-proxysql --from-file=proxysql.cnf
 
 To view the created configmap, use the following command:
 
 .. code:: bash
 
-   kubectl describe configmaps cluster1-proxysql
+   $ kubectl describe configmaps cluster1-proxysql
 
 .. _proxysql-conf-custom-secret:
 
@@ -394,12 +394,12 @@ which will have the following output::
 
 The next command will print you the needed admin password::
 
-  kubectl get secrets $(kubectl get pxc -o jsonpath='{.items[].spec.secretsName}') -o template='{{ .data.proxyadmin | base64decode }}'
+  $ kubectl get secrets $(kubectl get pxc -o jsonpath='{.items[].spec.secretsName}') -o template='{{ .data.proxyadmin | base64decode }}'
 
 When both Pod name and admin password are known, connect to the ProxySQL as
 follows, substituting ``cluster1-proxysql-0`` with the actual Pod name and
 ``admin_password`` with the actual password::
 
-  kubectl exec -it cluster1-proxysql-0 -- mysql -h127.0.0.1 -P6032 -uproxyadmin -padmin_password
+  $ kubectl exec -it cluster1-proxysql-0 -- mysql -h127.0.0.1 -P6032 -uproxyadmin -padmin_password
 
 .

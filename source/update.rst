@@ -161,7 +161,7 @@ instead.
 
       .. code:: bash
 
-         kubectl patch pxc cluster1 --type=merge --patch '{
+         $ kubectl patch pxc cluster1 --type=merge --patch '{
             "spec": {
                 "crVersion":"{{{release}}}",
                 "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc57recommended}}}" },
@@ -176,7 +176,7 @@ instead.
 
       .. code:: bash
 
-         kubectl patch pxc cluster1 --type=merge --patch '{
+         $ kubectl patch pxc cluster1 --type=merge --patch '{
             "spec": {
                 "crVersion":"{{{release}}}",
                 "pxc":{ "image": "percona/percona-xtradb-cluster:{{{pxc80recommended}}}" },
@@ -239,7 +239,6 @@ instead.
    B. For Percona XtraDB Cluster 8.0 run the following:
 
       .. code:: bash
-
 
          $ kubectl patch pxc cluster1 --type=merge --patch '{
              "spec": {

@@ -54,7 +54,7 @@ Now apply the ``deploy/cr.yaml`` file with the following command:
 
 .. code:: bash
 
-     kubectl apply -f deploy/cr.yaml
+   $ kubectl apply -f deploy/cr.yaml
 
 .. _faq-allocator:
 
@@ -103,4 +103,4 @@ Don't forget to apply the ``deploy/cr.yaml`` file, as usual:
 
 .. code:: bash
 
-     kubectl apply -f deploy/cr.yaml
+   $ kubectl apply -f deploy/cr.yaml

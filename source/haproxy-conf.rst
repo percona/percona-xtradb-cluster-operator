@@ -13,7 +13,7 @@ Use the following command to enable HAProxy:
 
 .. code:: bash
 
-   kubectl patch pxc cluster1 --type=merge --patch '{
+   $ kubectl patch pxc cluster1 --type=merge --patch '{
      "spec": {
         "haproxy": {
            "enabled": true,
@@ -151,7 +151,7 @@ name, you can use the following command:
 
 .. code:: bash
 
-   kubectl get pxc
+   $ kubectl get pxc
 
 The syntax for ``kubectl create configmap`` command is:
 
@@ -164,13 +164,13 @@ the ``haproxy.cfg`` file as the data source:
 
 .. code:: bash
 
-   kubectl create configmap cluster1-haproxy --from-file=haproxy.cfg
+   $ kubectl create configmap cluster1-haproxy --from-file=haproxy.cfg
 
 To view the created configmap, use the following command:
 
 .. code:: bash
 
-   kubectl describe configmaps cluster1-haproxy
+   $ kubectl describe configmaps cluster1-haproxy
 
 .. _haproxy-conf-custom-secrert:
 

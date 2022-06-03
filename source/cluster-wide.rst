@@ -54,8 +54,8 @@ Kubernetes.
 
    .. code:: bash
 
-      git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
-      cd percona-xtradb-cluster-operator
+      $ git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
+      $ cd percona-xtradb-cluster-operator
 
    .. only:: comment 
 

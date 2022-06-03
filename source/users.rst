@@ -149,7 +149,7 @@ with the following command:
 
 .. code:: bash
 
-   kubectl patch secret/my-cluster-name-secrets -p '{"data":{"pmmserver": '$(echo -n new_password | base64)'}}'
+   $ kubectl patch secret/my-cluster-name-secrets -p '{"data":{"pmmserver": '$(echo -n new_password | base64)'}}'
 
 Password Rotation Policies and Timing
 *************************************
@@ -189,7 +189,7 @@ monitor      ``monitor``
 clustercheck ``clustercheckpassword``
 proxyuser    ``s3cret``
 proxyadmin   ``admin_password``
-pmmserver    ``supa|^|pazz``
+pmmserver    ``admin``
 operator     ``operatoradmin``
 replication  ``repl_password``
 ============ ========================

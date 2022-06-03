@@ -7,8 +7,8 @@ Install Percona XtraDB Cluster on Kubernetes
 
    .. code:: bash
 
-      git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
-      cd percona-xtradb-cluster-operator
+      $ git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
+      $ cd percona-xtradb-cluster-operator
 
    .. note:: It is crucial to specify the right branch with ``-b``
       option while cloning the code on this step. Please be careful.

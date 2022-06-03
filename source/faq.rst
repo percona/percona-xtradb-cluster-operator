@@ -196,21 +196,21 @@ the name of your Pod):
 
 .. code:: bash
 
-   kubectl exec some-name-pxc-1 -c pxc -it -- sh -c 'ls -alh /var/lib/mysql/ | grep core'
+   $ kubectl exec some-name-pxc-1 -c pxc -it -- sh -c 'ls -alh /var/lib/mysql/ | grep core'
    -rw------- 1 mysql mysql 1.3G Jan 15 09:30 core.20210015093005 
 
 When identified, the appropriate core dump can be downloaded as follows:
 
 .. code:: bash
 
-   kubectl cp some-name-pxc-1:/var/lib/mysql/core.20210015093005  /tmp/core.20210015093005
+   $ kubectl cp some-name-pxc-1:/var/lib/mysql/core.20210015093005  /tmp/core.20210015093005
 
 .. note:: It is useful to provide Build ID and Server Version in addition to core
    dump when Creating a support ticket. Both can be found from logs:
    
    .. code:: bash
    
-      kubectl logs some-name-pxc-1 -c logs 
+      $ kubectl logs some-name-pxc-1 -c logs 
 
       [1] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259356066, {"log"=>"09:19:54 UTC - mysqld got signal 11 ;"}]
       [2] init-deploy-949.some-name-pxc-1.mysqld-error.log: [1610702394.259356829, {"log"=>"Most likely, you have hit a bug, but this error can also be caused by malfunctioning hardware."}]

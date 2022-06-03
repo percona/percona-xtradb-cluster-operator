@@ -7,6 +7,11 @@ cluster="proxy-protocol"
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	echo "Skipping proxy-protocol test because 5.7 doesn't support it!"
+	exit 0
+fi
+
 prepare_config() {
 	nodes=$(kubectl get nodes | grep -v "NAME" | awk '{print $1}')
 	if [ $(printf "${nodes}\n" | wc -l) -lt 3 ]; then
@@ -27,7 +32,14 @@ create_infra ${namespace}
 
 desc 'create first PXC cluster'
 spinup_pxc "${cluster}" "${tmp_dir}/${cluster}.yml" "3" "15" "${conf_dir}/secrets.yml" "${tmp_dir}/client.yml" "33062"
+sleep 120
+
 client_ip=$(kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].status.podIP}')
+if [ ${EKS} -eq 1 ]; then
+	node_name=$(kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].spec.nodeName}')
+	client_ip=$(kubectl_bin get nodes ${node_name} -o 'jsonpath={.status.addresses[?(@.type == "ExternalIP")].address}')
+fi
+
 service_ip=$(get_service_endpoint proxy-protocol-haproxy)
 
 desc 'check if service and statefulset created with expected config'

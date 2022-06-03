@@ -6,6 +6,11 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+	echo "Skipping cross-site test because 5.7 doesn't support it!"
+	exit 0
+fi
+
 main() {
 
   local source_cluster="cross-site-source"
@@ -23,7 +28,7 @@ main() {
 	source_endpoint1=$(get_service_ip ${source_cluster}-pxc-1)
 	source_endpoint2=$(get_service_ip ${source_cluster}-pxc-2)
 
-	source_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$source_cluster-proxysql-0")
+	source_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${source_cluster}-haproxy -p33062 -uroot -proot_password")
 	source_primary_endpoint=$(get_service_ip ${source_primary})
 
 	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
@@ -50,7 +55,7 @@ main() {
 	replica_endpoint0=$(get_service_ip ${replica_cluster}-pxc-0)
 	replica_endpoint1=$(get_service_ip ${replica_cluster}-pxc-1)
 	replica_endpoint2=$(get_service_ip ${replica_cluster}-pxc-2)
-	replica_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$replica_cluster-proxysql-0")
+	replica_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${replica_cluster}-haproxy -p33062 -uroot -proot_password")
 	replica_primary_endpoint=$(get_service_ip ${replica_primary})
 
 	run_mysql \
@@ -58,6 +63,7 @@ main() {
 		"-h $replica_primary_endpoint -uroot -proot_password"
 
 	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
+	sleep 40
 
 	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
 	sleep 15

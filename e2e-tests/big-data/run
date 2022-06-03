@@ -6,43 +6,38 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
-
 main() {
-    if [ -n "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-        echo 'Skip big-data test.'
-        exit 0
-    fi
+	if [ -n "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+		echo 'Skip big-data test.'
+		exit 0
+	fi
 
-    create_infra $namespace
-    deploy_cert_manager
+	create_infra $namespace
+	deploy_cert_manager
 
-    desc 'create first PXC cluster'
-    cluster="some-name"
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
+	desc 'create first PXC cluster'
+	cluster="some-name"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
 
-    kubectl_bin apply -f "${test_dir}/conf/crd_backup.yml"
+	if [[ $IMAGE_PXC =~ 8\.0 ]]; then
+		desc 'Switch to 8.0 backup'
+		kubectl_bin apply -f "${test_dir}/conf/restore-backup.yml"
+	else
+		kubectl_bin apply -f "${test_dir}/conf/restore-backup-57.yml"
+	fi
+	sleep 10
 
-    if [[ "$IMAGE_PXC" =~ 8\.0 ]]; then
-        desc 'Switch to 8.0 backup'
-        kubectl_bin apply -f "${test_dir}/conf/backup.yml"
-    else
-        kubectl_bin apply -f "${test_dir}/conf/backup57.yml"
-    fi
-    sleep 10
+	wait_backup_restore "restore1"
 
-    kubectl_bin apply -f "${test_dir}/conf/restore-backup.yml"
+	wait_for_running "$cluster-proxysql" 1
+	wait_for_running "$cluster-pxc" 3
 
-    wait_backup_restore "restore1"
+	kubectl_bin delete pvc/"datadir-$cluster-pxc-2" pod/"$cluster-pxc-2"
+	sleep 1
+	kubectl_bin delete pod/"$cluster-pxc-2"
 
-    wait_for_running "$cluster-proxysql" 1
-    wait_for_running "$cluster-pxc" 3
-    
-    kubectl_bin delete pvc/"datadir-$cluster-pxc-2" pod/"$cluster-pxc-2"
-    sleep 1
-    kubectl_bin delete pod/"$cluster-pxc-2"
-
-    wait_for_running "$cluster-pxc" 3 800
-    destroy $namespace
+	wait_for_running "$cluster-pxc" 3 800
+	destroy $namespace
 }
 
 main

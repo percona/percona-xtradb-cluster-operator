@@ -225,7 +225,7 @@ The Operator options glossary
 
      ..
 
-      :ref:`tls.issuerConf.group<operator.html#tls-issuerconf-group>`
+      :ref:`tls.issuerConf.group<tls-issuerconf-group>`
 
    host
 
@@ -291,7 +291,7 @@ The Operator options glossary
 
      ..
 
-      :ref:`tls.issuerConf.kind<operator.html#tls-issuerconf-kind>`
+      :ref:`tls.issuerConf.kind<tls-issuerconf-kind>`
 
    labels
 
@@ -393,7 +393,7 @@ The Operator options glossary
 
       :ref:`haproxy.sidecars.name<haproxy-sidecars-name>`
 
-      :ref:`tls.issuerConf.name<operator.html#tls-issuerconf-name>`
+      :ref:`tls.issuerConf.name<tls-issuerconf-name>`
 
       :ref:`proxysql.imagePullSecrets.name<proxysql-imagepullsecrets-name>`
 
@@ -698,7 +698,7 @@ The Operator options glossary
 
      ..
 
-      :ref:`backup.storages.STORAGE_NAME.verifyTLS<operator.html#backup-storages-verifytls>`
+      :ref:`backup.storages.STORAGE_NAME.verifyTLS<backup-storages-verifytls>`
 
    versionServiceEndpoint
 

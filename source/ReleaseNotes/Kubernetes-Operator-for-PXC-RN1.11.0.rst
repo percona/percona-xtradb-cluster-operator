@@ -12,7 +12,7 @@ Release Highlights
 
 * With this release, the Operator turns to a simplified naming convention and
   changes its official name to **Percona Operator for MySQL based on Percona XtraDB Cluster**
-* The new :ref:`backup.backoffLimit<backup-nackofflimit>` Custom Resource option allows customizing the number of attempts the Operator should make for backup
+* The new :ref:`backup.backoffLimit<backup-backofflimit>` Custom Resource option allows customizing the number of attempts the Operator should make for backup
 * The OpenAPI schema is now generated for the Operator
   :abbr:`CRD (Custom Resource Definition)`, which allows Kubernetes to validate
   Custom Resource and protects users from occasionally applying

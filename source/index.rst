@@ -96,9 +96,7 @@ HOWTOs
 .. toctree::
    :maxdepth: 1
 
-
-   <cluster-wide>
-   Install Percona XtraDB Cluster in multi-namespace (cluster-wide) mode
+   Install Percona XtraDB Cluster in multi-namespace (cluster-wide) mode <cluster-wide>
 
 Reference
 =============

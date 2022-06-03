@@ -261,4 +261,3 @@ due to access restrictions. It uses the following additional `RBAC permissions <
      - update
      - patch
      - delete
-

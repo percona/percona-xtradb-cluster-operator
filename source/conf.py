@@ -26,7 +26,7 @@ extensions=['sphinx.ext.intersphinx', 'sphinx.ext.todo',
             'sphinx-prompt',
 #            'sphinx_gitstamp', 'sphinx_copybutton', 
              'fulltoc',
-#             'psdom', 
+             'psdom', 
            ]
 
 #Extensions Configuration
@@ -72,7 +72,7 @@ exclude_patterns = ['*.txt']
 # the reST default role (used for this markup: 'text') to use for all documents.
 # default_role = none
 
-###primary_domain = 'psdom'
+primary_domain = 'psdom'
 
 # the name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
@@ -161,7 +161,7 @@ extlinks = {'bug':
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#html_theme = 'percona-theme'
+html_theme = 'percona-theme'
 #html_add_permalinks = ""
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

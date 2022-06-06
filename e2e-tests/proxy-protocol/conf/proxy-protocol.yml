@@ -33,6 +33,8 @@ spec:
     size: 3
     image: -haproxy
     serviceType: LoadBalancer
+    serviceAnnotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
     externalTrafficPolicy: Local
     resources:
       requests:

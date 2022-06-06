@@ -98,8 +98,13 @@ create_namespace() {
 			| xargs kubectl delete ns &
 	fi
 
-	if [ ! -z "$OPENSHIFT" ]; then
-		oc delete project "$namespace" && sleep 40 || :
+	if [ -n "$OPENSHIFT" ]; then
+		if [ -n "$OPERATOR_NS" -a $(oc get project "$OPERATOR_NS" -o json | jq -r '.metadata.name') ]; then
+			oc delete --grace-period=0 --force=true project "$namespace" && sleep 120 || :
+		else
+			oc delete project "$namespace" && sleep 40 || :
+		fi
+		wait_for_delete "project/$namespace"
 		oc new-project "$namespace"
 		oc project "$namespace"
 		oc adm policy add-scc-to-user hostaccess -z default || :
@@ -956,7 +961,11 @@ function vault_tls() {
 
 	if version_gt "1.22"; then
 		CSR_API_VER="v1"
-		CSR_SIGNER="  signerName: kubernetes.io/kubelet-serving"
+		if [ "$EKS" = 1 ]; then
+			CSR_SIGNER="  signerName: beta.eks.amazonaws.com/app-serving"
+		else
+			CSR_SIGNER="  signerName: kubernetes.io/kubelet-serving"
+		fi
 	else
 		CSR_API_VER="v1beta1"
 		CSR_SIGNER=""

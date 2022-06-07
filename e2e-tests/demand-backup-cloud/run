@@ -24,8 +24,8 @@ run_recovery_from_source() {
 }
 
 main() {
-	if [ -n "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-		echo "Skipping test because SKIP_BACKUPS_TO_AWS_GCP variable is set!"
+	if [ -n "$SKIP_BACKUPS_TO_AWS_GCP_AZURE" ]; then
+		echo "Skipping test because SKIP_BACKUPS_TO_AWS_GCP_AZURE variable is set!"
 		exit 0
 	else
 		create_infra $namespace
@@ -40,6 +40,9 @@ main() {
 
 		run_backup "$cluster" "on-demand-backup-gcp-cs"
 		run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
+
+        run_backup         "$cluster" "on-demand-backup-azure-blob"
+        run_recovery_check "$cluster" "on-demand-backup-azure-blob"
 
 		destroy $namespace
 	fi

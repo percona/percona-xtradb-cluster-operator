@@ -259,6 +259,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBCl
 				Destination: cr.Spec.BackupSource.Destination,
 				StorageName: cr.Spec.BackupSource.StorageName,
 				S3:          cr.Spec.BackupSource.S3,
+				Azure:       cr.Spec.BackupSource.Azure,
 			},
 		}, nil
 	}

@@ -59,6 +59,12 @@ get_backup_dest() {
 		ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
 		SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
 		export CREDENTIALS="ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY DEFAULT_REGION=$DEFAULT_REGION"
+
+		secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.azure.credentialsSecret}' 2>/dev/null)
+		AZURE_STORAGE_ACCOUNT=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AZURE_STORAGE_ACCOUNT}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
+    AZURE_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AZURE_ACCESS_KEY}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
+    AZURE_STORAGE_CLASS=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.data.storageClass}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
+		export AZURE_CREDENTIALS="AZURE_STORAGE_ACCOUNT=$AZURE_STORAGE_ACCOUNT AZURE_ACCESS_KEY=$AZURE_ACCESS_KEY AZURE_STORAGE_CLASS=$AZURE_STORAGE_CLASS"
 		$ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
 	else
 		# support direct PVC name here
@@ -103,6 +109,8 @@ check_input_destination() {
 		fi
 	elif [ "${backup_dest:0:5}" = "s3://" ]; then
 		env -i $CREDENTIALS "$xbcloud" get "${backup_dest}" xtrabackup_info 1>/dev/null
+	elif [ "${backup_dest:0:8}" = "azure://" ]; then
+		env -i $AZURE_CREDENTIALS "$xbcloud" get "${backup_dest}" xtrabackup_info 1>/dev/null
 	else
 		echo "Can't find $backup_dest backup"
 		usage

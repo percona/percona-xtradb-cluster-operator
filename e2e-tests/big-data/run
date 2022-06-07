@@ -7,10 +7,10 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
 main() {
-	if [ -n "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-		echo 'Skip big-data test.'
-		exit 0
-	fi
+    if [ -n "$SKIP_BACKUPS_TO_AWS_GCP_AZURE" ]; then
+        echo 'Skip big-data test.'
+        exit 0
+    fi
 
 	create_infra $namespace
 	deploy_cert_manager

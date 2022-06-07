@@ -90,3 +90,11 @@ spec:
           region: us-east-1
           bucket: operator-testing
           endpointUrl: https://storage.googleapis.com
+      azure-blob:
+        type: azure
+        azure:
+          credentialsSecret: azure-blob-secret
+          container: test
+          #endpoint:
+          #storageClass:
+

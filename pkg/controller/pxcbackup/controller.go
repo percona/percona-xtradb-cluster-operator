@@ -191,6 +191,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 
 	var destination string
 	var s3status *api.BackupStorageS3Spec
+	var azurestatus *api.BackupStorageAzureSpec
 
 	switch bcpStorage.Type {
 	case api.BackupStorageFilesystem:
@@ -232,6 +233,13 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 		}
 
 		s3status = &bcpStorage.S3
+	case api.BackupStorageAzure:
+		destination = "azure://" + bcpStorage.Azure.ContainerName + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
+		err := bcp.SetStorageAzure(&job.Spec, cluster, bcpStorage.Azure, destination)
+		if err != nil {
+			return rr, errors.Wrap(err, "set storage FS for Azure")
+		}
+		azurestatus = &bcpStorage.Azure
 	}
 
 	// Set PerconaXtraDBClusterBackup instance as the owner and controller
@@ -246,7 +254,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 		logger.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	}
 
-	err = r.updateJobStatus(cr, job, destination, cr.Spec.StorageName, s3status)
+	err = r.updateJobStatus(cr, job, destination, cr.Spec.StorageName, s3status, azurestatus)
 
 	return rr, err
 }
@@ -443,7 +451,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBCluster
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job,
-	destination, storageName string, s3 *api.BackupStorageS3Spec) error {
+	destination, storageName string, s3 *api.BackupStorageS3Spec, azure *api.BackupStorageAzureSpec) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
@@ -458,6 +466,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 		Destination: destination,
 		StorageName: storageName,
 		S3:          s3,
+		Azure:       azure,
 	}
 
 	switch {

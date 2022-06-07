@@ -190,6 +190,52 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 	return nil
 }
 
+func (Backup) SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, azure api.BackupStorageAzureSpec, destination string) error {
+	storageAccount := corev1.EnvVar{
+		Name: "AZURE_STORAGE_ACCOUNT",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT"),
+		},
+	}
+	accessKey := corev1.EnvVar{
+		Name: "AZURE_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_ACCESS_KEY"),
+		},
+	}
+	containerName := corev1.EnvVar{
+		Name:  "AZURE_CONTAINER_NAME",
+		Value: azure.ContainerName,
+	}
+	endpoint := corev1.EnvVar{
+		Name:  "AZURE_ENDPOINT",
+		Value: azure.Endpoint,
+	}
+	storageClass := corev1.EnvVar{
+		Name:  "AZURE_STORAGE_CLASS",
+		Value: azure.StorageClass,
+	}
+	backupPath := corev1.EnvVar{
+		Name:  "BACKUP_PATH",
+		Value: strings.TrimPrefix(destination, "azure://"+azure.ContainerName+"/"),
+	}
+	if len(job.Template.Spec.Containers) == 0 {
+		return errors.New("no containers in job spec")
+	}
+	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, storageAccount, accessKey, containerName, endpoint, storageClass, backupPath)
+
+	// add SSL volumes
+	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
+	job.Template.Spec.Volumes = []corev1.Volume{}
+
+	err := appendStorageSecret(job, cr)
+	if err != nil {
+		return errors.Wrap(err, "failed to append storage secrets")
+	}
+
+	return nil
+}
+
 func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s3 api.BackupStorageS3Spec, destination string) error {
 	accessKey := corev1.EnvVar{
 		Name: "ACCESS_KEY_ID",

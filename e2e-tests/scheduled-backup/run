@@ -204,31 +204,31 @@ main() {
 	JOB_MINIO_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_MINIO_BACKUP} | awk '{print $1}')
 	POD_MINIO_BACKUP=$(kubectl_bin get pods | grep ${JOB_MINIO_BACKUP%-*} | awk '{print $1}')
 
-	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-		FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1 | cut -d: -f1)
-		JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
-		POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*} | awk '{print $1}')
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP_AZURE" ]; then
+        FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1| cut -d: -f1)
+        JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
+        POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*}  | awk '{print $1}')
 
 		FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1 | cut -d: -f1)
 		JOB_GCP_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_GCP_BACKUP} | awk '{print $1}')
 		POD_GCP_BACKUP=$(kubectl_bin get pods | grep ${JOB_GCP_BACKUP%-*} | awk '{print $1}')
 	fi
 
-	backup_name_pvc=$(get_backup_name "pvc")
-	backup_name_minio=$(get_backup_name "minio")
-	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-		backup_name_aws=$(get_backup_name "aws-s3")
-		backup_name_gcp=$(get_backup_name "gcp-cs")
-	fi
+    backup_name_pvc=$(get_backup_name "pvc")
+    backup_name_minio=$(get_backup_name "minio")
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP_AZURE" ]; then
+        backup_name_aws=$(get_backup_name "aws-s3")
+        backup_name_gcp=$(get_backup_name "gcp-cs")
+    fi
 
 	apply_config "$test_dir/conf/${cluster}-init.yml"
 
-	run_recovery_check "$cluster" "$backup_name_pvc"
-	run_recovery_check "$cluster" "$backup_name_minio"
-	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-		run_recovery_check "$cluster" "$backup_name_aws"
-		run_recovery_check "$cluster" "$backup_name_gcp"
-	fi
+    run_recovery_check "$cluster" "$backup_name_pvc"
+    run_recovery_check "$cluster" "$backup_name_minio"
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP_AZURE" ]; then
+        run_recovery_check "$cluster" "$backup_name_aws"
+        run_recovery_check "$cluster" "$backup_name_gcp"
+    fi
 
 	unlabel_node
 	destroy $namespace

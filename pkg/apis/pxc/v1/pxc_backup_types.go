@@ -49,12 +49,13 @@ type PXCBackupSpec struct {
 }
 
 type PXCBackupStatus struct {
-	State         PXCBackupState       `json:"state,omitempty"`
-	CompletedAt   *metav1.Time         `json:"completed,omitempty"`
-	LastScheduled *metav1.Time         `json:"lastscheduled,omitempty"`
-	Destination   string               `json:"destination,omitempty"`
-	StorageName   string               `json:"storageName,omitempty"`
-	S3            *BackupStorageS3Spec `json:"s3,omitempty"`
+	State         PXCBackupState          `json:"state,omitempty"`
+	CompletedAt   *metav1.Time            `json:"completed,omitempty"`
+	LastScheduled *metav1.Time            `json:"lastscheduled,omitempty"`
+	Destination   string                  `json:"destination,omitempty"`
+	StorageName   string                  `json:"storageName,omitempty"`
+	S3            *BackupStorageS3Spec    `json:"s3,omitempty"`
+	Azure         *BackupStorageAzureSpec `json:"azure,omitempty"`
 }
 
 type PXCBackupState string

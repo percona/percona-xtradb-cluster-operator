@@ -2,6 +2,7 @@ package pxcrestore
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,16 +20,16 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 	if cluster.Backup == nil {
 		return errors.New("undefined backup section in a cluster spec")
 	}
-	if len(bcp.Status.Destination) > 6 {
-		switch {
-		case bcp.Status.Destination[:4] == "pvc/":
-			return errors.Wrap(r.restorePVC(cr, bcp, bcp.Status.Destination[4:], cluster), "pvc")
-		case bcp.Status.Destination[:5] == "s3://":
-			return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:], cluster, false), "s3")
-		}
+	switch {
+	case strings.HasPrefix(bcp.Status.Destination, "pvc/"):
+		return errors.Wrap(r.restorePVC(cr, bcp, bcp.Status.Destination[4:], cluster), "pvc")
+	case strings.HasPrefix(bcp.Status.Destination, "s3://"):
+		return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:], cluster, false), "s3")
+	case strings.HasPrefix(bcp.Status.Destination, "azure://"):
+		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination[8:], cluster), "azure")
+	default:
+		return errors.Errorf("unknown destination %s", bcp.Status.Destination)
 	}
-
-	return errors.Errorf("unknown destination %s", bcp.Status.Destination)
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) pitr(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) error {
@@ -78,6 +79,17 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBC
 		r.client.Delete(context.TODO(), svc)
 		r.client.Delete(context.TODO(), pod)
 	}()
+
+	return r.createJob(job)
+}
+func (r *ReconcilePerconaXtraDBClusterRestore) restoreAzure(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, dest string, cluster api.PerconaXtraDBClusterSpec) error {
+	job, err := backup.AzureRestoreJob(cr, bcp, cluster, dest)
+	if err != nil {
+		return err
+	}
+	if err = k8s.SetControllerReference(cr, job, r.scheme); err != nil {
+		return err
+	}
 
 	return r.createJob(job)
 }

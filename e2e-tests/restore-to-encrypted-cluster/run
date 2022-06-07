@@ -15,7 +15,7 @@ main() {
     table_must_not_be_encrypted "$cluster" "myApp"
 
     run_backup         "$cluster" "on-demand-backup-pvc"
-    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP_AZURE" ]; then
         run_backup         "$cluster" "on-demand-backup-aws-s3"
     fi
 
@@ -26,7 +26,7 @@ main() {
     keyring_plugin_must_be_in_use "$cluster"
     table_must_not_be_encrypted "$cluster" "myApp"
 
-    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP_AZURE" ]; then
         run_recovery_check "$cluster" "on-demand-backup-aws-s3"
         keyring_plugin_must_be_in_use "$cluster"
         table_must_not_be_encrypted "$cluster" "myApp"

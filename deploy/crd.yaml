@@ -9002,6 +9002,17 @@ spec:
                             additionalProperties:
                               type: string
                             type: object
+                          azure:
+                            properties:
+                              container:
+                                type: string
+                              credentialsSecret:
+                                type: string
+                              endpoint:
+                                type: string
+                              storageClass:
+                                type: string
+                            type: object
                           containerSecurityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -16737,6 +16748,17 @@ spec:
               type: object
             status:
               properties:
+                azure:
+                  properties:
+                    container:
+                      type: string
+                    credentialsSecret:
+                      type: string
+                    endpoint:
+                      type: string
+                    storageClass:
+                      type: string
+                  type: object
                 completed:
                   format: date-time
                   type: string
@@ -16818,6 +16840,17 @@ spec:
                   type: string
                 backupSource:
                   properties:
+                    azure:
+                      properties:
+                        container:
+                          type: string
+                        credentialsSecret:
+                          type: string
+                        endpoint:
+                          type: string
+                        storageClass:
+                          type: string
+                      type: object
                     completed:
                       format: date-time
                       type: string
@@ -16846,6 +16879,17 @@ spec:
                   properties:
                     backupSource:
                       properties:
+                        azure:
+                          properties:
+                            container:
+                              type: string
+                            credentialsSecret:
+                              type: string
+                            endpoint:
+                              type: string
+                            storageClass:
+                              type: string
+                          type: object
                         completed:
                           format: date-time
                           type: string

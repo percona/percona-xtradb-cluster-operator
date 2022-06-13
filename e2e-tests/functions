@@ -939,7 +939,7 @@ run_recovery_check() {
 	wait_for_running "$cluster-$proxy" 1
 	wait_for_running "$cluster-pxc" 3
 
-	sleep 35
+	sleep 60
 	desc 'check data after backup'
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
@@ -1233,7 +1233,7 @@ function check_pxc_liveness() {
 	wait_cluster_consistency "${cluster}" "${cluster_size}"
 
 	wait_for_running "${cluster}-pxc" "${cluster_size}"
-
+  sleep 60
 	for i in $(seq 0 $((cluster_size - 1))); do
 		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
 	done

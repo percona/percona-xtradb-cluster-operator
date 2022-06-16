@@ -642,7 +642,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return err
 	}
 
-	err = r.createOrUpdate(nodeSet)
+	err = r.create(nodeSet)
 	if err != nil {
 		return errors.Wrap(err, "create newStatefulSetNode")
 	}
@@ -1307,10 +1307,10 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj client.Object) error 
 	if k8serrors.IsNotFound(err) {
 		return r.client.Create(context.TODO(), obj)
 	}
-
+	oldHash := oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta().GetAnnotations()["percona.com/last-config-hash"]
 	oldObjectMeta := oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta()
 
-	if oldObjectMeta.GetAnnotations()["percona.com/last-config-hash"] != hash ||
+	if oldHash != hash ||
 		!isObjectMetaEqual(objectMeta, oldObjectMeta) {
 
 		objectMeta.SetResourceVersion(oldObjectMeta.GetResourceVersion())
@@ -1323,6 +1323,38 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj client.Object) error 
 		}
 
 		return r.client.Update(context.TODO(), obj)
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) create(obj client.Object) error {
+	metaAccessor, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		return errors.New("can't convert object to ObjectMetaAccessor")
+	}
+
+	objectMeta := metaAccessor.GetObjectMeta()
+	if objectMeta.GetAnnotations() == nil {
+		objectMeta.SetAnnotations(make(map[string]string))
+	}
+
+	objAnnotations := objectMeta.GetAnnotations()
+	delete(objAnnotations, "percona.com/last-config-hash")
+	objectMeta.SetAnnotations(objAnnotations)
+
+	hash, err := getObjectHash(obj)
+	if err != nil {
+		return errors.Wrap(err, "calculate object hash")
+	}
+
+	objAnnotations = objectMeta.GetAnnotations()
+	objAnnotations["percona.com/last-config-hash"] = hash
+	objectMeta.SetAnnotations(objAnnotations)
+
+	err = r.client.Create(context.TODO(), obj)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return errors.Wrap(err, "create object")
 	}
 
 	return nil
@@ -1358,6 +1390,9 @@ func compareMaps(x, y map[string]string) bool {
 	}
 
 	for k, v := range x {
+		if k == "percona.com/last-config-hash" {
+			continue
+		}
 		yVal, ok := y[k]
 		if !ok || yVal != v {
 			return false

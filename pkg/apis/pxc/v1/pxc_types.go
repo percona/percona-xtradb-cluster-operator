@@ -210,10 +210,6 @@ type PerconaXtraDBCluster struct {
 }
 
 func (cr *PerconaXtraDBCluster) Validate() error {
-	if len(cr.Name) > clusterNameMaxLen {
-		return errors.Errorf("cluster name (%s) too long, must be no more than %d characters", cr.Name, clusterNameMaxLen)
-	}
-
 	c := cr.Spec
 
 	if c.PXC == nil {
@@ -416,7 +412,7 @@ type LogCollectorSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
-	HookScript               string                  `json:"hookScript,omitempty"`
+	HookScript               string                      `json:"hookScript,omitempty"`
 }
 
 type PMMSpec struct {
@@ -532,8 +528,6 @@ type StatefulApp interface {
 	Service() string
 	UpdateStrategy(cr *PerconaXtraDBCluster) appsv1.StatefulSetUpdateStrategy
 }
-
-const clusterNameMaxLen = 22
 
 var defaultPXCGracePeriodSec int64 = 600
 

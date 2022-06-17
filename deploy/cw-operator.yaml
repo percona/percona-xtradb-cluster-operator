@@ -36,7 +36,7 @@ spec:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: percona-xtradb-cluster-operator
-        image: percona/percona-xtradb-cluster-operator:1.11.0
+        image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         resources:
           limits:

@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-11-0
+apiVersion: pxc.percona.com/v1-12-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -9,13 +9,13 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.11.0
+  crVersion: 1.12.0
 #  secretsName: my-cluster-secrets
 #  vaultSecretName: keyring-secret-vault
 #  sslSecretName: my-cluster-ssl
 #  sslInternalSecretName: my-cluster-ssl-internal
 #  logCollectorSecretName: my-log-collector-secrets
-#  initImage: percona/percona-xtradb-cluster-operator:1.11.0
+#  initImage: percona/percona-xtradb-cluster-operator:1.12.0
 #  enableCRValidationWebhook: true
 #  tls:
 #    SANs:
@@ -158,7 +158,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    replicasServiceEnabled: false
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
@@ -303,7 +303,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.11.0-proxysql
+    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -445,7 +445,7 @@ spec:
 #     rack: rack-23
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.11.0-logcollector
+    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -470,7 +470,7 @@ spec:
         memory: 150M
         cpu: 300m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.11.0-pxc8.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    backoffLimit: 6
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:

@@ -128,8 +128,6 @@ void installRpms() {
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
         sudo yum install -y percona-xtrabackup-80 jq | true
-        sudo yum install google-cloud-sdk-gke-gcloud-auth-plugin
-        gke-gcloud-auth-plugin --version
     '''
 }
 
@@ -183,7 +181,6 @@ pipeline {
                     source $HOME/google-cloud-sdk/path.bash.inc
                     gcloud components install alpha
                     gcloud components install kubectl
-
                     curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
                     curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
                         | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'

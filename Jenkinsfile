@@ -7,7 +7,6 @@ void CreateCluster(String CLUSTER_PREFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
-            gcloud components update
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
             gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
@@ -22,7 +21,6 @@ void ShutdownCluster(String CLUSTER_PREFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
-            gcloud components update
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
             gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX}

@@ -46,7 +46,7 @@ Kubernetes-based environment:
 
          Use **token-based authorization (recommended)**. `Acquire the API Key from your PMM Server <https://docs.percona.com/percona-monitoring-and-management/details/api.html#api-keys-and-authentication>`_
          and set ``pmmserverkey`` in the
-         `deploy/secrets.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/secrets.yaml>`__
+         `deploy/secrets.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/secrets.yaml>`__
          secrets file to this obtained API Key value.
    
       B. Use **password-based authorization**. Check that  the ``serverUser``
@@ -54,7 +54,7 @@ Kubernetes-based environment:
          `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
          file contains your PMM Server user name (``admin`` by default), and
          make sure the ``pmmserver`` key in the 
-         `deploy/secrets.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/secrets.yaml>`__
+         `deploy/secrets.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/secrets.yaml>`__
          secrets file contains the password specified for the PMM Server during
          its installation.
          

@@ -39,7 +39,7 @@ Kubernetes-based environment:
    -  check that  the ``serverUser`` key contains your PMM Server user name
       (``admin`` by default),
    -  make sure the ``pmmserver`` key in the 
-      `deploy/secrets.yaml <https://github.com/percona/percona-server-mongodb-operator/blob/main/deploy/secrets.yaml>`_
+      `deploy/secrets.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/secrets.yaml>`_
       secrets file contains the password specified for the PMM Server during its
       installation
 

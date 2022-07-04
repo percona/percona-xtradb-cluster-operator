@@ -29,7 +29,7 @@ Collected logs can be examined using the following command:
 
 .. code:: bash
 
-   kubectl logs cluster1-pxc-1 -c logs
+   $ kubectl logs cluster1-pxc-1 -c logs
 
 .. note:: Technically, logs are stored on the same Persistent Volume, which is
    used with the corresponding Percona XtraDB Cluster Pod. Therefore collected
@@ -57,13 +57,13 @@ XtraDB Cluster instance as follows:
 
 .. code:: bash
 
-   kubectl exec -it cluster1-pxc-0 -c pxc -- sh -c 'touch /var/lib/mysql/sleep-forever' 
+   $ kubectl exec -it cluster1-pxc-0 -c pxc -- sh -c 'touch /var/lib/mysql/sleep-forever' 
 
 If ``pxc`` container can't start, you can use ``logs`` container instead:
 
 .. code:: bash
 
-   kubectl exec -it cluster1-pxc-0 -c logs -- sh -c 'touch /var/lib/mysql/sleep-forever' 
+   $ kubectl exec -it cluster1-pxc-0 -c logs -- sh -c 'touch /var/lib/mysql/sleep-forever' 
 
 The instance will restart automatically and run in its usual way as soon as you
 remove this file (you can do it with a command similar to the one you have used

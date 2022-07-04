@@ -52,10 +52,12 @@ To automate the deployment and management of the cluster components,
 the Operator requires system-level Percona XtraDB Cluster users.
 
 Credentials for these users are stored as a `Kubernetes Secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_ object.
-The Operator requires to be deployed before the Percona XtraDB Cluster is
-started. The name of the required secrets (``my-cluster-secrets`` by default)
+The Operator requires Kubernetes Secrets before Percona XtraDB Cluster is
+started. It will either use existing Secrets or create a new Secrets object with
+randomly generated passwords if it didn't exist.
+The name of the required Secrets (``my-cluster-secrets`` by default)
 should be set in the ``spec.secretsName`` option of the ``deploy/cr.yaml``
-configuration file.
+configuration file. 
 
 The following table shows system users' names and purposes.
 
@@ -93,7 +95,7 @@ The following table shows system users' names and purposes.
     * - PMM Server Password
       - should be set through the `operator options <operator>`__
       - pmmserver
-      - `Password used to access PMM Server <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__
+      - `Password used to access PMM Server <https://www.percona.com/doc/percona-monitoring-and-management/security.html#pmm-security-password-protection-enabling>`__. **Password-based authorization method is deprecated since the Operator 1.11.0**. :ref:`Use token-based authorization instead<operator.monitoring.client.token>`.
     * - Operator Admin
       - operator
       - operator
@@ -124,7 +126,7 @@ it should match the following simple format:
      monitor: monitory
      clustercheck: clustercheckpassword
      proxyadmin: admin_password
-     pmmserver: supa|^|pazz
+     pmmserver: admin
      operator: operatoradmin
      replication: repl_password
 
@@ -147,7 +149,7 @@ with the following command:
 
 .. code:: bash
 
-   kubectl patch secret/my-cluster-name-secrets -p '{"data":{"pmmserver": '$(echo -n new_password | base64)'}}'
+   $ kubectl patch secret/my-cluster-name-secrets -p '{"data":{"pmmserver": '$(echo -n new_password | base64)'}}'
 
 Password Rotation Policies and Timing
 *************************************
@@ -187,7 +189,7 @@ monitor      ``monitor``
 clustercheck ``clustercheckpassword``
 proxyuser    ``s3cret``
 proxyadmin   ``admin_password``
-pmmserver    ``supa|^|pazz``
+pmmserver    ``admin``
 operator     ``operatoradmin``
 replication  ``repl_password``
 ============ ========================

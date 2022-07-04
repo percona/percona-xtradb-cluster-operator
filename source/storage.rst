@@ -1,6 +1,6 @@
 .. _storage-local:
 
-Local Storage support for the Percona Distribution for MySQL Operator
+Local Storage support for the |operator|
 =====================================================================
 
 Among the wide rage of volume types, available in Kubernetes, there are

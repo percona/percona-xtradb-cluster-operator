@@ -118,13 +118,7 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-
      - ``percona/percona-xtradb-cluster-operator:{{{release}}}``
      - An alternative image for the initial Operator installation
 
-   * - tls.SANs
-     - subdoc 
-     -
-     - Additional domains (SAN) to be added to the TLS certificate within the
-       extended cert-manager configuration 
-
-   * - issuerConf
+   * - tls
      - :ref:`subdoc<operator.issuerconf-section>`
      - 
      - Extended cert-manager configuration section
@@ -139,14 +133,27 @@ The spec part of the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-
 `Extended cert-manager Configuration Section <operator.html#operator-issuerconf-section>`_
 ------------------------------------------------------------------------------------------
 
-The ``issuerConf`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains various configuration options for additional customization of the `TLS certificates issuer <tls.certs.certmanager>`_.
+The ``tls`` section in the `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__ file contains various configuration options for additional customization of the `TLS cert-manager <tls.certs.certmanager>`_.
 
 .. tabularcolumns:: |p{2cm}|p{13.6cm}|
 
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _issuerconf-name:                                                                      |
+|                 | .. _tls-sans:                                                                             |
 |                 |                                                                                           |
-| **Key**         | `issuerConf.name <operator.html#issuerconf-name>`_                                        |
+| **Key**         | `tls.SANs <operator.html#tls-sans>`_                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     |                                                                                           |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Additional domains (SAN) to be added to the TLS certificate within the extended           |
+|                 | cert-manager configuration                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _tls-issuerconf-name:                                                                  |
+|                 |                                                                                           |
+| **Key**         | `tls.issuerConf.name <operator.html#tls-issuerconf-name>`_                                |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -156,9 +163,9 @@ The ``issuerConf`` section in the `deploy/cr.yaml <https://github.com/percona/pe
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _issuerconf-kind:                                                                      |
+|                 | .. _tls-issuerconf-kind:                                                                  |
 |                 |                                                                                           |
-| **Key**         | `issuerConf.kind <operator.html#issuerconf-kind>`_                                        |
+| **Key**         | `tls.issuerConf.kind <operator.html#tls-issuerconf-kind>`_                                |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -168,9 +175,9 @@ The ``issuerConf`` section in the `deploy/cr.yaml <https://github.com/percona/pe
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _issuerconf-group:                                                                     |
+|                 | .. _tls-issuerconf-group:                                                                 |
 |                 |                                                                                           |
-| **Key**         | `issuerConf.group <operator.html#issuerconf-group>`_                                      |
+| **Key**         | `tls.issuerConf.group <operator.html#tls-issuerconf-group>`_                              |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | string                                                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1282,6 +1289,31 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-readinessdelaysec:                                                            |
+|                 |                                                                                           |
+| **Key**         | `haproxy.readinessDelaySec <operator.html#haproxy-readinessdelaysec>`_                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``15``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Adds a delay before a run check to verify the application is ready to process traffic     |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-livenessdelaysec:                                                             |
+|                 |                                                                                           |
+| **Key**         | `haproxy.livenessDelaySec <operator.html#haproxy-livenessdelaysec>`_                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``300``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Adds a delay before the run check ensures the application is healthy and capable of       |
+|                 | processing requests                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _haproxy-configuration:                                                                |
 |                 |                                                                                           |
 | **Key**         | `haproxy.configuration <operator.html#haproxy-configuration>`_                            |
@@ -1665,9 +1697,9 @@ configuration options for the HAProxy service.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
-|                 | .. _haproxy-servicelabels:                                                                       |
+|                 | .. _haproxy-servicelabels:                                                                |
 |                 |                                                                                           |
-| **Key**         | `haproxy.serviceLabels <operator.html#haproxy-servicelabels>`_                                          |
+| **Key**         | `haproxy.serviceLabels <operator.html#haproxy-servicelabels>`_                            |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Value**       | label                                                                                     |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1690,6 +1722,36 @@ configuration options for the HAProxy service.
 | **Description** | The `Kubernetes annotations                                                               |
 |                 | <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_        |
 |                 | metadata for the load balancer Service                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-containersecuritycontext:                                                     |
+|                 |                                                                                           |
+| **Key**         | `haproxy.containerSecurityContext <operator.html#haproxy-containersecuritycontext>`_      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``privileged: true``                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Container                                     |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _haproxy-podsecuritycontext:                                                           |
+|                 |                                                                                           |
+| **Key**         | `haproxy.podSecurityContext <operator.html#haproxy-podsecuritycontext>`_                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``fsGroup: 1001``                                                                         |
+|                 |                                                                                           |
+|                 | ``supplementalGroups: [1001, 1002, 1003]``                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Pod                                           |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -1917,6 +1979,31 @@ configuration options for the ProxySQL daemon.
 | **Description** | The `Kubernetes imagePullSecrets                                                          |
 |                 | <https://kubernetes.io/docs/concepts/configuration/secret/#using-imagepullsecrets>`_ for  |
 |                 | the ProxySQL image                                                                        |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _proxysql-readinessdelaysec:                                                           |
+|                 |                                                                                           |
+| **Key**         | `proxysql.readinessDelaySec <operator.html#proxysql-readinessdelaysec>`_                  |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``15``                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Adds a delay before a run check to verify the application is ready to process traffic     |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _proxysql-livenessdelaysec:                                                            |
+|                 |                                                                                           |
+| **Key**         | `proxysql.livenessDelaySec <operator.html#proxysql-livenessdelaysec>`_                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``300``                                                                                   |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | Adds a delay before the run check ensures the application is healthy and capable of       |
+|                 | processing requests                                                                       |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
@@ -2311,6 +2398,36 @@ configuration options for the ProxySQL daemon.
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _proxysql-containersecuritycontext:                                                    |
+|                 |                                                                                           |
+| **Key**         | `proxysql.containerSecurityContext <operator.html#proxysql-containersecuritycontext>`_    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``privileged: true``                                                                      |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Container                                     |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _proxysql-podsecuritycontext:                                                          |
+|                 |                                                                                           |
+| **Key**         | `proxysql.podSecurityContext <operator.html#proxysql-podsecuritycontext>`_                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | subdoc                                                                                    |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``fsGroup: 1001``                                                                         |
+|                 |                                                                                           |
+|                 | ``supplementalGroups: [1001, 1002, 1003]``                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | A custom `Kubernetes Security Context for a Pod                                           |
+|                 | <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`_ to be used |
+|                 | instead of the default one                                                                |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
 |                 | .. _proxysql-serviceaccountname:                                                          |
 |                 |                                                                                           |
 | **Key**         | `proxysql.serviceAccountName <operator.html#proxysql-serviceaccountname>`_                |
@@ -2678,6 +2795,18 @@ Percona XtraDB Cluster backups.
 | **Example**     | ``percona/percona-xtradb-cluster-operator:{{{release}}}-backup``                                 |
 +-----------------+-------------------------------------------------------------------------------------------+
 | **Description** | The Percona XtraDB cluster Docker image to use for the backup                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                                                                                                             |
++-----------------+-------------------------------------------------------------------------------------------+
+|                 | .. _backup-backofflimit:                                                                  |
+|                 |                                                                                           |
+| **Key**         | `backup.backoffLimit <operator.html#backup-backofflimit>`_                                |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Value**       | int                                                                                       |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Example**     | ``6``                                                                                     |
++-----------------+-------------------------------------------------------------------------------------------+
+| **Description** | The number of retries to make a backup                                                    |
 +-----------------+-------------------------------------------------------------------------------------------+
 |                                                                                                             |
 +-----------------+-------------------------------------------------------------------------------------------+

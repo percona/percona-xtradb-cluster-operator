@@ -16,7 +16,7 @@ continuously restarting, and generates the following errors in the log::
 .. note:: To avoid this, shutdown your cluster correctly
    as it is written in :ref:`operator-pause`.
 
-The Percona Distribution for MySQL Operator based on Percona XtraDB Cluster provides two ways of recovery
+The |pxcoperator| provides two ways of recovery
 after a full cluster crash.
 
 The Operator is providing automatic crash recovery (by default) and semi-automatic

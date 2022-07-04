@@ -3,7 +3,7 @@
 Install Percona XtraDB Cluster on Minikube
 ============================================
 
-Installing the Percona Distribution for MySQL Operator based on Percona XtraDB Cluster on `minikube <https://github.com/kubernetes/minikube>`_
+Installing the |pxcoperator| on `minikube <https://github.com/kubernetes/minikube>`_
 is the easiest way to try it locally without a cloud provider. Minikube runs
 Kubernetes on GNU/Linux, Windows, or macOS system using a system-wide
 hypervisor, such as VirtualBox, KVM/QEMU, VMware Fusion or Hyper-V. Using it is
@@ -32,11 +32,11 @@ Minikube:
 
 #. Deploy the operator with the following command::
 
-     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/bundle.yaml
+     $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/bundle.yaml
 
 #. Deploy Percona XtraDB Cluster::
 
-     kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/cr-minimal.yaml
+     $ kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/v{{{release}}}/deploy/cr-minimal.yaml
     
    This deploys one Percona XtraDB Cluster node and one HAProxy node. 
    ``deploy/cr-minimal.yaml`` is for minimal non-production deployment. For 
@@ -49,7 +49,7 @@ Minikube:
    
    You can clone the repository with all manifests and source code by executing the following command::
    
-     git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
+     $ git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
 
 #. During previous steps, the Operator has generated several `secrets <https://kubernetes.io/docs/concepts/configuration/secret/>`_, including the
    password for the ``root`` user, which you will definitely need to access the
@@ -75,14 +75,14 @@ Minikube:
    
    .. code:: bash
 
-      kubectl run -i --rm --tty percona-client --image=percona:8.0 --restart=Never -- bash -il
+      $ kubectl run -i --rm --tty percona-client --image=percona:8.0 --restart=Never -- bash -il
    
    Now run ``mysql`` tool in the percona-client command shell using the password
    obtained from the secret:
    
    .. code:: bash
 
-      mysql -h minimal-cluster-haproxy -uroot -proot_password
+      $ mysql -h minimal-cluster-haproxy -uroot -proot_password
 
    This command will connect you to the MySQL monitor.
 

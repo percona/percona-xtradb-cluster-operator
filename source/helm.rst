@@ -21,14 +21,14 @@ Installation
 
    .. code:: bash
 
-      helm repo add percona https://percona.github.io/percona-helm-charts/
-      helm repo update
+      $ helm repo add percona https://percona.github.io/percona-helm-charts/
+      $ helm repo update
 
-#. Install the Percona Distribution for MySQL Operator based on Percona XtraDB Cluster:
+#. Install the |pxcoperator|:
 
    .. code:: bash
 
-      helm install my-op percona/pxc-operator
+      $ helm install my-op percona/pxc-operator
 
    The ``my-op`` parameter in the above example is the name of `a new release object <https://helm.sh/docs/intro/using_helm/#three-big-concepts>`_ 
    which is created for the Operator when you install its Helm chart (use any
@@ -42,7 +42,7 @@ Installation
 
    .. code:: bash
 
-      helm install my-db percona/pxc-db
+      $ helm install my-db percona/pxc-db
 
    The ``my-db`` parameter in the above example is the name of `a new release object <https://helm.sh/docs/intro/using_helm/#three-big-concepts>`_ 
    which is created for the Percona XtraDB Cluster when you install its Helm
@@ -63,7 +63,7 @@ The following example will deploy a Percona XtraDB Cluster Cluster in the
 
 .. code:: bash
 
-   helm install my-db percona/pxc-db --namespace pxc \
+   $ helm install my-db percona/pxc-db --namespace pxc \
      --set pxc.volumeSpec.resources.requests.storage=20Gi \
      --set backup.enabled=false
 

@@ -22,9 +22,27 @@ import sys, os
 sys.path.append(os.path.abspath('ext'))
 
 extensions=['sphinx.ext.intersphinx', 'sphinx.ext.todo',
-            'sphinx.ext.coverage', 'sphinx.ext.ifconfig','sphinx.ext.extlinks', 'sphinx-prompt', 'fulltoc', 'psdom', ]
+            'sphinx.ext.coverage', 'sphinx.ext.ifconfig','sphinx.ext.extlinks',
+            'sphinx-prompt',
+#            'sphinx_gitstamp', 'sphinx_copybutton', 
+             'fulltoc',
+             'psdom', 
+           ]
+
+#Extensions Configuration
+#gitstamp format
+gitstamp_fmt = "%b %d, %Y"
+# Specify the text pattern that won't be copied with the code block contents
+copybutton_prompt_text = '$'
+
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+#templates_path = ['_templates']
+templates_path = ['_static/_templates/theme']
+
+# Path to custom css files. These will override the default css attribute if they exist
+html_css_files = [
+    '../_static/css/material.css',
+]
 
 # the suffix of source filenames.
 source_suffix = '.rst'
@@ -33,18 +51,18 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster'
+project = u'Percona Operator for MySQL based on Percona XtraDB Cluster'
 copyright = u'Percona LLC and/or its affiliates 2009 - 2022'
 
 # the short X.Y version
-version = '1.10.0'
+version = '1.11.0'
 # the full version including alpha/beta/rc tags.
-release = '1.10.0'
+release = '1.11.0'
 # the PXC 5.7 and PXC 8.0 recommended versions to be used in docs
-pxc57recommended = '5.7.34-31.51'
-pxc80recommended = '8.0.23-14.1'
-pmm2recommended = '2.23.0'
-gkerecommended = '1.22'
+pxc57recommended = '5.7.36-31.55'
+pxc80recommended = '8.0.27-18.1'
+pmm2recommended = '2.28.0'
+gkerecommended = '1.23'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -54,12 +72,16 @@ exclude_patterns = ['*.txt']
 # the reST default role (used for this markup: 'text') to use for all documents.
 # default_role = none
 
-###primary_domain = 'psdom'
+primary_domain = 'psdom'
 
 # the name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
 rst_prolog = '''
+.. |operator|  replace:: Percona Operator for MySQL
+
+.. |pxcoperator|  replace:: Percona Operator for MySQL based on Percona XtraDB Cluster
+
 .. |check|  replace:: ``|[[---CHECK---]]|``
 
 .. |xtrabackup|  replace:: :program:`xtrabackup`
@@ -148,13 +170,27 @@ html_theme = 'percona-theme'
 
 # Add any paths that contain custom themes here, relative to this directory.
 html_theme_path = ['.', './percona-theme']
+#html_theme = 'sphinx_material'
 
+#html_theme_options = {
+#    'base_url': 'http://bashtage.github.io/sphinx-material/',
+#    'repo_url': 'https://github.com/percona/percona-server-mongodb-operator',
+#    'repo_name': 'percona/percona-server-mongodb-operator',
+#    'color_accent': 'grey',
+#    'color_primary': 'orange',
+#    'globaltoc_collapse': True,
+#    'version_dropdown': False,
+#}
+
+#html_context = {
+#   'edit_uri': 'edit/K8s-PSMDB-docs/source'
+#}
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = 'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster - Documentation'
+html_title = 'Percona Operator for MySQL based on Percona XtraDB Cluster - Documentation'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_short_title = 'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster - Documentation'
+html_short_title = 'Percona Operator for MySQL based on Percona XtraDB Cluster - Documentation'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
@@ -181,7 +217,10 @@ html_static_path = ['_static']
 
 # Custom sidebar templates, maps document names to template names.
 #html_sidebars = {}
-
+#html_sidebars = {
+#		'**': ['globaltoc.html', 'searchbox.html', 'localtoc.html', 'logo-text.html', 'sourcelink.html'],
+#		'using/windows': ['windowssidebar.html'],
+#				}
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
 #html_additional_pages = {}
@@ -227,7 +266,7 @@ htmlhelp_basename = 'pxcoperatorpxc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'percona-kubernetes-operator-for-mysql-pxc.tex', u'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster',
+  ('index', 'percona-kubernetes-operator-for-mysql-pxc.tex', u'Percona Operator for MySQL based on Percona XtraDB Cluster',
      u'Percona LLC and/or its affiliates 2009-2022', 'manual'),
 ]
 
@@ -264,7 +303,7 @@ latex_elements = {
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'percona-kubernetes-operator-for-mysql-pxc', u'Percona Distribution for MySQL Operator based on Percona XtraDB Cluster',
+    ('index', 'percona-kubernetes-operator-for-mysql-pxc', u'Percona Operator for MySQL based on Percona XtraDB Cluster',
      [u'Percona LLC and/or its affiliates 2009-2022'], 1)
 ]
 

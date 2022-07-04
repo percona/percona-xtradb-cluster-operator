@@ -94,19 +94,19 @@ Install the Operator
 
    .. code:: bash
 
-      git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
+      $ git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
 
    After the repository is downloaded, change the directory to run the rest of the commands in this document:
 
    .. code:: bash
 
-      cd percona-xtradb-cluster-operator
+      $ cd percona-xtradb-cluster-operator
 
 #. Deploy the Operator with the following command:
 
    .. code:: bash
 
-      kubectl apply -f deploy/bundle.yaml
+      $ kubectl apply -f deploy/bundle.yaml
 
    The following confirmation is returned:
 
@@ -152,6 +152,6 @@ Install the Operator
    
       .. code:: bash
 
-         kubectl port-forward svc/example-proxysql 3306:3306 &
-         mysql -h 127.0.0.1 -P 3306 -uroot -proot_password
+         $ kubectl port-forward svc/example-proxysql 3306:3306 &
+         $ mysql -h 127.0.0.1 -P 3306 -uroot -proot_password
 

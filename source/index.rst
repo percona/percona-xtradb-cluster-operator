@@ -1,4 +1,4 @@
-Percona Distribution for MySQL Operator based on Percona XtraDB Cluster
+|pxcoperator|
 =======================================================================
 
 Kubernetes and the OpenShift platform, based on Kubernetes, have added a way to
@@ -19,7 +19,7 @@ availability for your applications while improving security and simplifying the
 development of new applications in the most demanding public, private, and
 hybrid cloud environments.
 
-Following our best practices for deployment and configuration, `Percona Distribution for MySQL Operator  based on Percona XtraDB Cluster <https://github.com/percona/percona-xtradb-cluster-operator>`_ 
+Following our best practices for deployment and configuration, `Percona Operator for MySQL based on Percona XtraDB Cluster <https://github.com/percona/percona-xtradb-cluster-operator>`_ 
 contains everything you need to quickly and consistently deploy and scale
 Percona XtraDB Cluster instances in a Kubernetes-based environment on-premises
 or in the cloud.
@@ -30,8 +30,8 @@ Requirements
 .. toctree::
    :maxdepth: 1
 
-   System-Requirements
-   architecture
+   System Requirements <System-Requirements>
+   Design and architecture <architecture>
 
 Quickstart guides
 =================
@@ -39,10 +39,10 @@ Quickstart guides
 .. toctree::
    :maxdepth: 1
 
-   minikube
-   gke
-   eks
-   helm
+   Install with Helm <helm.rst>
+   Install on Minikube <minikube.rst>
+   Install on Google Kubernetes Engine (GKE) <gke.rst>
+   Install on Amazon Elastic Kubernetes Service (AWS EKS) <eks.rst>
 
 Advanced Installation Guides
 ============================
@@ -50,11 +50,10 @@ Advanced Installation Guides
 .. toctree::
    :maxdepth: 1
 
-   kubernetes
-   openshift
-   custom-registry
-   broker
-   cluster-wide
+   Generic Kubernetes installation <kubernetes.rst>
+   Install on OpenShift <openshift.rst>
+   Use private registry <custom-registry.rst>
+   Deploy with Service Broker <broker.rst>
 
 Configuration
 =============
@@ -62,15 +61,15 @@ Configuration
 .. toctree::
    :maxdepth: 1
 
-   users
-   storage
-   constraints
-   options
-   containers-conf
-   haproxy-conf
-   proxysql-conf
-   TLS
-   encryption
+   Local Storage support <storage.rst>
+   Anti-affinity and tolerations <constraints.rst>
+   Changing MySQL Options <options.rst>
+   Defining environment variables <containers-conf>
+   Load Balancing with HAProxy <haproxy-conf>
+   Load Balancing with ProxySQL <proxysql-conf>
+   Transport Encryption (TLS/SSL) <TLS.rst>
+   Data at rest encryption <encryption.rst>
+   Application and system users <users.rst>
 
 Management
 ==========
@@ -78,18 +77,26 @@ Management
 .. toctree::
    :maxdepth: 1
 
-   backups
-   pause
-   update
-   scaling
-   replication
-   monitoring
-   sidecar
-   recovery
-   debug
+   Backup and restore <backups.rst>
+   Upgrade Percona XtraDB Cluster and the Operator <update.rst>
+   Horizontal and vertical scaling <scaling.rst>
+   Multi-cluster and multi-region deployment <replication.rst>
+   Monitor with Percona Monitoring and Management (PMM) <monitoring.rst>
+   Add sidecar containers <sidecar.rst>
+   Restart or pause the cluster <pause.rst>
+   Crash recovery <recovery>
+   Debug and troubleshoot <debug.rst>
 
 .. toctree::
    :maxdepth: 1
+
+HOWTOs
+======
+
+.. toctree::
+   :maxdepth: 1
+
+   Install Percona XtraDB Cluster in multi-namespace (cluster-wide) mode <cluster-wide>
 
 Reference
 =============
@@ -97,8 +104,8 @@ Reference
 .. toctree::
    :maxdepth: 1
 
-   operator
-   images
-   api
-   faq
+   Custom Resource options <operator.rst>
+   Percona certified images <images.rst>
+   Operator API <api.rst>
+   Frequently Asked Questions <faq.rst>
    Release Notes <ReleaseNotes/index>

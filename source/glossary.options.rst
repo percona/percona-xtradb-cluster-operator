@@ -59,6 +59,12 @@ The Operator options glossary
 
       :ref:`pxc.autoRecovery<pxc-autorecovery>`
 
+   backofflimit
+
+     ..
+
+      :ref:`backup.backoffLimit<obackup-backofflimit>`
+
    bucket
 
      ..
@@ -92,6 +98,10 @@ The Operator options glossary
      ..
 
       :ref:`backup.storages.STORAGE_NAME.containerSecurityContext<backup-storages-containersecuritycontext>`
+
+      :ref:`haproxy.containerSecurityContext<haproxy-containersecuritycontext>`
+
+      :ref:`proxysql.containerSecurityContext<proxysql-containersecuritycontext>`
 
       :ref:`pxc.containerSecurityContext<pxc-containersecuritycontext>`
 
@@ -215,7 +225,7 @@ The Operator options glossary
 
      ..
 
-      :ref:`issuerConf.group<operator.html#issuerconf-group>`
+      :ref:`tls.issuerConf.group<tls-issuerconf-group>`
 
    host
 
@@ -281,7 +291,7 @@ The Operator options glossary
 
      ..
 
-      :ref:`issuerConf.kind<operator.html#issuerconf-kind>`
+      :ref:`tls.issuerConf.kind<tls-issuerconf-kind>`
 
    labels
 
@@ -300,6 +310,10 @@ The Operator options glossary
      ..
 
       :ref:`pxc.livenessDelaySec<pxc-livenessdelaysec>`
+
+      :ref:`haproxy.livenessDelaySec<haproxy-livenessdelaysec>`
+
+      :ref:`proxysql.livenessDelaySec<proxysql-livenessdelaysec>`
 
    loadBalancerSourceRanges
 
@@ -379,7 +393,7 @@ The Operator options glossary
 
       :ref:`haproxy.sidecars.name<haproxy-sidecars-name>`
 
-      :ref:`issuerConf.name<operator.html#issuerconf-name>`
+      :ref:`tls.issuerConf.name<tls-issuerconf-name>`
 
       :ref:`proxysql.imagePullSecrets.name<proxysql-imagepullsecrets-name>`
 
@@ -468,6 +482,10 @@ The Operator options glossary
      ..
 
       :ref:`pxc.readinessDelaySec<pxc-readinessdelaysec>`
+
+      :ref:`haproxy.readinessDelaySec<haproxy-readinessdelaysec>`
+
+      :ref:`proxysql.readinessDelaySec<proxysql-readinessdelaysec>`
 
    region
 
@@ -680,7 +698,7 @@ The Operator options glossary
 
      ..
 
-      :ref:`backup.storages.STORAGE_NAME.verifyTLS<operator.html#backup-storages-verifytls>`
+      :ref:`backup.storages.STORAGE_NAME.verifyTLS<backup-storages-verifytls>`
 
    versionServiceEndpoint
 

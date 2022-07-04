@@ -2,7 +2,7 @@
 Install Percona XtraDB Cluster on Google Kubernetes Engine (GKE)
 ==========================================================================================
 
-This quickstart shows you how to configure the Percona Distribution for MySQL Operator  based on Percona XtraDB Cluster with the Google Kubernetes Engine. The document assumes some experience with Google Kubernetes Engine (GKE). For more information on the GKE, see the `Kubernetes Engine Quickstart <https://cloud.google.com/kubernetes-engine/docs/quickstart>`_.
+This quickstart shows you how to configure the |operator| based on Percona XtraDB Cluster with the Google Kubernetes Engine. The document assumes some experience with Google Kubernetes Engine (GKE). For more information on the GKE, see the `Kubernetes Engine Quickstart <https://cloud.google.com/kubernetes-engine/docs/quickstart>`_.
 
 Prerequisites
 =============
@@ -77,19 +77,19 @@ Installing the Operator
 
    .. code:: bash
 
-      git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
+      $ git clone -b v{{{release}}} https://github.com/percona/percona-xtradb-cluster-operator
 
    After the repository is downloaded, change the directory to run the rest of the commands in this document:
 
    .. code:: bash
 
-      cd percona-xtradb-cluster-operator
+      $ cd percona-xtradb-cluster-operator
 
 #. Deploy the Operator with the following command:
 
    .. code:: bash
 
-      kubectl apply -f deploy/bundle.yaml
+      $ kubectl apply -f deploy/bundle.yaml
 
    The following confirmation is returned:
 
@@ -203,7 +203,7 @@ If ``kubectl get pods`` command had shown some errors, you can examine the probl
 
 .. code:: bash
 
-   kubectl describe pod cluster1-haproxy-2
+   $ kubectl describe pod cluster1-haproxy-2
 
 Review the detailed information for ``Warning`` statements and then correct the configuration. An example of a warning is as follows:
 
@@ -228,7 +228,7 @@ You can clean up the cluster with the ``gcloud`` command as follows:
 
 .. code:: bash
 
-   gcloud container clusters delete <cluster name>
+   $ gcloud container clusters delete <cluster name>
 
 The return statement requests your confirmation of the deletion. Type ``y`` to confirm.
 

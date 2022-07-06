@@ -45,7 +45,7 @@ contents:
      AWS_SECRET_ACCESS_KEY: UkVQTEFDRS1XSVRILUFXUy1TRUNSRVQtS0VZ
 
 .. note:: The following command can be used to get a base64-encoded string from
-   a plain text one: ``$ echo -n 'plain-text-string' | base64``
+   a plain text one: ``$ echo -n 'plain-text-string' | base64  --wrap=0``
 
 The ``name`` value is the `Kubernetes
 secret <https://kubernetes.io/docs/concepts/configuration/secret/>`__

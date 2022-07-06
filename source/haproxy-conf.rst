@@ -228,7 +228,7 @@ follows:
 
 .. code:: bash
 
-   $ cat haproxy.cfg | base64
+   $ cat haproxy.cfg | base64 --wrap=0
 
 .. note:: Similarly, you can read the list of options from a Base64 encoded
    string:

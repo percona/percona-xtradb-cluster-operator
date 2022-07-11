@@ -383,16 +383,16 @@ pipeline {
                         ShutdownCluster('cross-site')
                     }
                 }
-                stage('E2E Mysql 5.7') {
-                    steps {
-                        CreateCluster('mysql-57')
-                        runTest('users', 'mysql-57', '5.7')
-                        runTest('one-pod', 'mysql-57', '5.7')
-                        runTest('scheduled-backup', 'mysql-57', '5.7')
-                        runTest('init-deploy', 'mysql-57', '5.7')
-                        runTest('haproxy', 'mysql-57', '5.7')
-                        ShutdownCluster('mysql-57')
-                    }
+            }
+            stage('E2E Mysql 5.7') {
+                steps {
+                    CreateCluster('mysql-57')
+                    runTest('users', 'mysql-57', '5.7')
+                    runTest('one-pod', 'mysql-57', '5.7')
+                    runTest('scheduled-backup', 'mysql-57', '5.7')
+                    runTest('init-deploy', 'mysql-57', '5.7')
+                    runTest('haproxy', 'mysql-57', '5.7')
+                    ShutdownCluster('mysql-57')
                 }
             }
         }

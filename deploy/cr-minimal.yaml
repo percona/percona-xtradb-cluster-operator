@@ -1,9 +1,9 @@
-apiVersion: pxc.percona.com/v1-11-0
+apiVersion: pxc.percona.com/v1-12-0
 kind: PerconaXtraDBCluster
 metadata:
   name: minimal-cluster
 spec:
-  crVersion: 1.11.0
+  crVersion: 1.12.0
   secretsName: minimal-cluster-secrets
   allowUnsafeConfigurations: true
   upgradeOptions:
@@ -20,7 +20,7 @@ spec:
   haproxy:
     enabled: true
     size: 1
-    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.11.0-logcollector
+    image: perconalab/percona-xtradb-cluster-operator:main-logcollector

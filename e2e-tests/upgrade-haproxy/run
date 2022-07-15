@@ -134,7 +134,7 @@ function main() {
 	compare_generation "2" "${proxy}" "${CLUSTER}"
 	compare_kubectl "statefulset/${CLUSTER}-pxc"
 	compare_kubectl "statefulset/${CLUSTER}-haproxy"
-
+	sleep 60
 	desc 'check data exists after upgrade and drop database'
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-0.${CLUSTER}-pxc -uroot -proot_password"
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-1.${CLUSTER}-pxc -uroot -proot_password"

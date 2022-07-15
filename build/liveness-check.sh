@@ -33,7 +33,7 @@ else
 	MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 fi
 
-STATUS=$(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE -e 'SHOW GLOBAL STATUS LIKE "wsrep_cluster_status";' | sed -n -e '3p')
+STATUS=$(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE --init-command="SET SESSION wsrep_sync_wait=0;" -e 'SHOW GLOBAL STATUS LIKE "wsrep_cluster_status";' | sed -n -e '3p')
 set -x
 
 if [[ -n ${STATUS} && ${STATUS} == 'Primary' ]]; then

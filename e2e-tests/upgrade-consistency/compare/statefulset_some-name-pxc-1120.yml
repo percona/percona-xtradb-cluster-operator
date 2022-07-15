@@ -2,12 +2,12 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   annotations: {}
-  generation: 2
-  name: upgrade-proxysql-pxc
+  generation: 5
+  name: some-name-pxc
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: upgrade-proxysql
+      name: some-name
 spec:
   podManagementPolicy: OrderedReady
   replicas: 3
@@ -15,17 +15,17 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: pxc
-      app.kubernetes.io/instance: upgrade-proxysql
+      app.kubernetes.io/instance: some-name
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: upgrade-proxysql-pxc
+  serviceName: some-name-pxc
   template:
     metadata:
       annotations: {}
       labels:
         app.kubernetes.io/component: pxc
-        app.kubernetes.io/instance: upgrade-proxysql
+        app.kubernetes.io/instance: some-name
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -36,7 +36,7 @@ spec:
             - labelSelector:
                 matchLabels:
                   app.kubernetes.io/component: pxc
-                  app.kubernetes.io/instance: upgrade-proxysql
+                  app.kubernetes.io/instance: some-name
                   app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
                   app.kubernetes.io/name: percona-xtradb-cluster
                   app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -57,14 +57,11 @@ spec:
                   fieldPath: metadata.name
           envFrom:
             - secretRef:
-                name: upgrade-proxysql-log-collector
+                name: some-name-log-collector
                 optional: true
           imagePullPolicy: Always
           name: logs
-          resources:
-            requests:
-              cpu: 200m
-              memory: 100M
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -79,13 +76,10 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-upgrade-proxysql
+                  name: internal-some-name
           imagePullPolicy: Always
           name: logrotate
-          resources:
-            requests:
-              cpu: 200m
-              memory: 100M
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -97,24 +91,24 @@ spec:
             - /var/lib/mysql/pxc-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: upgrade-proxysql-pxc-unready
+              value: some-name-pxc-unready
             - name: MONITOR_HOST
               value: '%'
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: root
-                  name: internal-upgrade-proxysql
+                  name: internal-some-name
             - name: XTRABACKUP_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: xtrabackup
-                  name: internal-upgrade-proxysql
+                  name: internal-some-name
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-upgrade-proxysql
+                  name: internal-some-name
             - name: LOG_DATA_DIR
               value: /var/lib/mysql
             - name: IS_LOGCOLLECTOR
@@ -123,14 +117,14 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-upgrade-proxysql
+                  name: internal-some-name
             - name: LIVENESS_CHECK_TIMEOUT
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
           envFrom:
             - secretRef:
-                name: upgrade-proxysql-env-vars-pxc
+                name: some-name-env-vars-pxc
                 optional: true
           imagePullPolicy: Always
           livenessProbe:
@@ -172,9 +166,12 @@ spec:
             successThreshold: 1
             timeoutSeconds: 15
           resources:
-            requests:
-              cpu: 600m
+            limits:
+              cpu: "1"
               memory: 1G
+            requests:
+              cpu: 100m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -201,9 +198,12 @@ spec:
           imagePullPolicy: Always
           name: pxc-init
           resources:
-            requests:
-              cpu: 600m
+            limits:
+              cpu: "1"
               memory: 1G
+            requests:
+              cpu: 100m
+              memory: 100M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -223,7 +223,7 @@ spec:
           name: tmp
         - configMap:
             defaultMode: 420
-            name: upgrade-proxysql-pxc
+            name: some-name-pxc
             optional: true
           name: config
         - name: ssl-internal
@@ -238,7 +238,7 @@ spec:
             secretName: some-name-ssl
         - configMap:
             defaultMode: 420
-            name: auto-upgrade-proxysql-pxc
+            name: auto-some-name-pxc
             optional: true
           name: auto-config
         - name: vault-keyring-secret
@@ -250,9 +250,11 @@ spec:
           secret:
             defaultMode: 420
             optional: false
-            secretName: internal-upgrade-proxysql
+            secretName: internal-some-name
   updateStrategy:
-    type: OnDelete
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
   volumeClaimTemplates:
     - metadata:
         name: datadir
@@ -261,6 +263,6 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 6G
+            storage: 2Gi
       status:
         phase: Pending

@@ -39,7 +39,7 @@ spec:
       antiAffinityTopologyKey: none
   pmm:
     enabled: true
-    image: perconalab/pmm-client:1.17.1
+    image: -pmm
     imagePullPolicy: IfNotPresent
     serverHost: monitoring-service
     serverUser: pmm

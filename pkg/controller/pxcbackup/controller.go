@@ -190,8 +190,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 	}
 
 	var destination string
-	var s3status *api.BackupStorageS3Spec
-	var azurestatus *api.BackupStorageAzureSpec
+	var s3Status *api.BackupStorageS3Spec
+	var azureStatus *api.BackupStorageAzureSpec
 
 	switch bcpStorage.Type {
 	case api.BackupStorageFilesystem:
@@ -232,14 +232,14 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 			return rr, errors.Wrap(err, "set storage FS")
 		}
 
-		s3status = &bcpStorage.S3
+		s3Status = &bcpStorage.S3
 	case api.BackupStorageAzure:
 		destination = "azure://" + bcpStorage.Azure.ContainerName + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
 		err := bcp.SetStorageAzure(&job.Spec, cluster, bcpStorage.Azure, destination)
 		if err != nil {
 			return rr, errors.Wrap(err, "set storage FS for Azure")
 		}
-		azurestatus = &bcpStorage.Azure
+		azureStatus = &bcpStorage.Azure
 	}
 
 	// Set PerconaXtraDBClusterBackup instance as the owner and controller
@@ -254,7 +254,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 		logger.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	}
 
-	err = r.updateJobStatus(cr, job, destination, cr.Spec.StorageName, s3status, azurestatus)
+	err = r.updateJobStatus(cr, job, destination, cr.Spec.StorageName, s3Status, azureStatus)
 
 	return rr, err
 }

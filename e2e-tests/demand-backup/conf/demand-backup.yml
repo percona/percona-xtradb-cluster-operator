@@ -95,6 +95,4 @@ spec:
         azure:
           credentialsSecret: azure-blob-secret
           container: test
-          #endpoint:
-          #storageClass:
 

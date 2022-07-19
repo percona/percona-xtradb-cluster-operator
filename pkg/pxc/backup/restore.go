@@ -262,35 +262,35 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		}
 	}
 	azure := bcp.Status.Azure
-	storageAccount := corev1.EnvVar{
-		Name: "AZURE_STORAGE_ACCOUNT",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT"),
+	envs := []corev1.EnvVar{
+		{
+			Name: "AZURE_STORAGE_ACCOUNT",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT"),
+			},
 		},
-	}
-	accessKey := corev1.EnvVar{
-		Name: "AZURE_ACCESS_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_ACCESS_KEY"),
+		{
+			Name: "AZURE_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_ACCESS_KEY"),
+			},
 		},
-	}
-	containerName := corev1.EnvVar{
-		Name:  "AZURE_CONTAINER_NAME",
-		Value: azure.ContainerName,
-	}
-	endpoint := corev1.EnvVar{
-		Name:  "AZURE_ENDPOINT",
-		Value: azure.Endpoint,
-	}
-	storageClass := corev1.EnvVar{
-		Name:  "AZURE_STORAGE_CLASS",
-		Value: azure.StorageClass,
-	}
-	backupPath := corev1.EnvVar{
-		Name:  "BACKUP_PATH",
-		Value: strings.TrimPrefix(destination, azure.ContainerName+"/"),
-	}
-	envs := []corev1.EnvVar{storageAccount, accessKey, containerName, endpoint, storageClass, backupPath,
+		{
+			Name:  "AZURE_CONTAINER_NAME",
+			Value: azure.ContainerName,
+		},
+		{
+			Name:  "AZURE_ENDPOINT",
+			Value: azure.Endpoint,
+		},
+		{
+			Name:  "AZURE_STORAGE_CLASS",
+			Value: azure.StorageClass,
+		},
+		{
+			Name:  "BACKUP_PATH",
+			Value: strings.TrimPrefix(destination, azure.ContainerName+"/"),
+		},
 		{
 			Name:  "PXC_SERVICE",
 			Value: cr.Spec.PXCCluster + "-pxc",

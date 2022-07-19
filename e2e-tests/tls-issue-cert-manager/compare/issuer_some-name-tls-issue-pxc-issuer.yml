@@ -3,10 +3,6 @@ kind: Issuer
 metadata:
   generation: 1
   name: some-name-tls-issue-pxc-issuer
-  ownerReferences:
-    - controller: true
-      kind: PerconaXtraDBCluster
-      name: some-name-tls-issue
 spec:
   ca:
     secretName: some-name-tls-issue-ca-cert

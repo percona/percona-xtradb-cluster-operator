@@ -3,10 +3,6 @@ kind: Certificate
 metadata:
   generation: 1
   name: some-name-tls-issue-ssl
-  ownerReferences:
-    - controller: true
-      kind: PerconaXtraDBCluster
-      name: some-name-tls-issue
 spec:
   commonName: some-name-tls-issue-proxysql
   dnsNames:

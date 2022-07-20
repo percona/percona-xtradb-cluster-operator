@@ -1204,26 +1204,8 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster
 		cr.Name + "-ca-cert",
 	}
 	for _, certName := range certs {
-		secret := &corev1.Secret{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      certName,
-		}, secret)
-		if client.IgnoreNotFound(err) != nil {
-			continue
-		}
-
-		err = r.client.Delete(context.TODO(), secret,
-			&client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
-		if client.IgnoreNotFound(err) != nil {
-			return errors.Wrapf(err, "delete secret %s", certName)
-		}
-
 		cert := &cm.Certificate{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      certName,
-		}, cert)
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: certName}, cert)
 		if err != nil {
 			continue
 		}
@@ -1232,6 +1214,19 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster
 			&client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &cert.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete certificate %s", certName)
+		}
+	}
+
+	for _, certName := range certs {
+		secret := &corev1.Secret{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: certName}, secret)
+		if err != nil {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
+		if err != nil {
+			return errors.Wrapf(err, "delete secret %s", certName)
 		}
 	}
 

@@ -4,6 +4,7 @@ metadata:
   name: cluster1
   finalizers:
     - delete-pxc-pods-in-order
+#    - delete-ssl
 #    - delete-proxysql-pvc
 #    - delete-pxc-pvc
 #  annotations:

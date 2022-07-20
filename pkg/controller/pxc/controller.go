@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/pkg/errors"
@@ -228,6 +229,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		for _, fnlz := range o.GetFinalizers() {
 			var sfs api.StatefulApp
 			switch fnlz {
+			case "delete-ssl":
+				err = r.deleteCerts(o)
 			case "delete-proxysql-pvc":
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
@@ -1166,6 +1169,67 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 		err = r.client.Delete(context.TODO(), secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete secret %s", secretName)
+		}
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster) error {
+	issuers := []string{
+		cr.Name + "-pxc-ca-issuer",
+		cr.Name + "-pxc-issuer",
+	}
+	for _, issuerName := range issuers {
+		issuer := &cm.Issuer{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      issuerName,
+		}, issuer)
+		if err != nil {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), issuer, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &issuer.UID}})
+		if err != nil {
+			return errors.Wrapf(err, "delete issuer %s", issuerName)
+		}
+	}
+
+	certs := []string{
+		cr.Name + "-ssl",
+		cr.Name + "-ssl-internal",
+		cr.Name + "-ca-cert",
+	}
+	for _, certName := range certs {
+		secret := &corev1.Secret{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      certName,
+		}, secret)
+		if client.IgnoreNotFound(err) != nil {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), secret,
+			&client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
+		if client.IgnoreNotFound(err) != nil {
+			return errors.Wrapf(err, "delete secret %s", certName)
+		}
+
+		cert := &cm.Certificate{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      certName,
+		}, cert)
+		if err != nil {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), cert,
+			&client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &cert.UID}})
+		if err != nil {
+			return errors.Wrapf(err, "delete certificate %s", certName)
 		}
 	}
 

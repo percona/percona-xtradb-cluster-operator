@@ -234,7 +234,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(_ context.Context, reque
 
 		s3Status = &bcpStorage.S3
 	case api.BackupStorageAzure:
-		destination = "azure://" + bcpStorage.Azure.ContainerName + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
+		destination = bcpStorage.Azure.ContainerName + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
 		err := bcp.SetStorageAzure(&job.Spec, cluster, bcpStorage.Azure, destination)
 		if err != nil {
 			return rr, errors.Wrap(err, "set storage FS for Azure")

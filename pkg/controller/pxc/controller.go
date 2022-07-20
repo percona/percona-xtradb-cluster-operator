@@ -1197,6 +1197,8 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster
 	}
 
 	certs := []string{
+		cr.Spec.SSLSecretName,
+		cr.Spec.SSLInternalSecretName,
 		cr.Name + "-ssl",
 		cr.Name + "-ssl-internal",
 		cr.Name + "-ca-cert",

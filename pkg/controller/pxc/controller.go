@@ -1182,10 +1182,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster
 	}
 	for _, issuerName := range issuers {
 		issuer := &cm.Issuer{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      issuerName,
-		}, issuer)
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: issuerName}, issuer)
 		if err != nil {
 			continue
 		}
@@ -1202,34 +1199,44 @@ func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster
 		cr.Name + "-ca-cert",
 	}
 	for _, certName := range certs {
-		secret := &corev1.Secret{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      certName,
-		}, secret)
-		if client.IgnoreNotFound(err) != nil {
-			continue
-		}
-
-		err = r.client.Delete(context.TODO(), secret,
-			&client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
-		if client.IgnoreNotFound(err) != nil {
-			return errors.Wrapf(err, "delete secret %s", certName)
-		}
-
 		cert := &cm.Certificate{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: cr.Namespace,
-			Name:      certName,
-		}, cert)
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: certName}, cert)
 		if err != nil {
 			continue
 		}
 
-		err = r.client.Delete(context.TODO(), cert,
-			&client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &cert.UID}})
+		err = r.client.Delete(context.TODO(), cert, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &cert.UID}})
 		if err != nil {
 			return errors.Wrapf(err, "delete certificate %s", certName)
+		}
+	}
+
+	secrets := []string{
+		cr.Name + "-ca-cert",
+	}
+
+	if len(cr.Spec.SSLSecretName) > 0 {
+		secrets = append(secrets, cr.Spec.SSLSecretName)
+	} else {
+		secrets = append(secrets, cr.Name+"-ssl")
+	}
+
+	if len(cr.Spec.SSLInternalSecretName) > 0 {
+		secrets = append(secrets, cr.Spec.SSLInternalSecretName)
+	} else {
+		secrets = append(secrets, cr.Name+"-ssl-internal")
+	}
+
+	for _, secretName := range secrets {
+		secret := &corev1.Secret{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: secretName}, secret)
+		if err != nil {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
+		if err != nil {
+			return errors.Wrapf(err, "delete secret %s", secretName)
 		}
 	}
 

@@ -214,6 +214,11 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.Errorf("cluster name (%s) too long, must be no more than %d characters", cr.Name, clusterNameMaxLen)
 	}
 
+	err := cr.ValidateVersion()
+	if err != nil {
+		return errors.Wrap(err, "invalid cr version")
+	}
+
 	c := cr.Spec
 
 	if c.PXC == nil {
@@ -416,7 +421,7 @@ type LogCollectorSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
-	HookScript               string                  `json:"hookScript,omitempty"`
+	HookScript               string                      `json:"hookScript,omitempty"`
 }
 
 type PMMSpec struct {
@@ -572,15 +577,14 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
 func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion, logger logr.Logger) (err error) {
-	workloadSA := "percona-xtradb-cluster-operator-workload"
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		workloadSA = WorkloadSA
-	}
-
 	_ = cr.SetVersion()
 	err = cr.Validate()
 	if err != nil {
 		return errors.Wrap(err, "validate cr")
+	}
+	workloadSA := "percona-xtradb-cluster-operator-workload"
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		workloadSA = WorkloadSA
 	}
 
 	c := &cr.Spec
@@ -936,6 +940,11 @@ func (cr *PerconaXtraDBCluster) SetVersion() bool {
 
 	cr.Spec.CRVersion = apiVersion
 	return true
+}
+
+func (cr *PerconaXtraDBCluster) ValidateVersion() error {
+	_, err := v.NewVersion(cr.Spec.CRVersion)
+	return err
 }
 
 func (cr *PerconaXtraDBCluster) Version() *v.Version {

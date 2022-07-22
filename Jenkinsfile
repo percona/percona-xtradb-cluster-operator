@@ -84,7 +84,9 @@ void setTestsresults() {
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0") {
     def retryCount = 0
-    TEST_NAME_WITH_MYSQL_VERSION = sh(script: "echo ${TEST_NAME}-${MYSQL_VERSION} | tr '.' '-'", , returnStdout: true).trim()
+    MYSQL_VERSION_TAG="8-0"
+    TEST_NAME_WITH_MYSQL_VERSION = "${TEST_NAME}-${MYSQL_VERSION_TAG}"
+
     waitUntil {
         def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${TEST_NAME_WITH_MYSQL_VERSION}.log"
         try {

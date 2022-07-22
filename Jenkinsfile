@@ -91,6 +91,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0"
         def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${TEST_NAME_WITH_MYSQL_VERSION}.log"
         try {
             echo "The $TEST_NAME test was started!"
+            echo "MYSQL_VERSION is $MYSQL_VERSION"
             testsReportMap[TEST_NAME_WITH_MYSQL_VERSION] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME_WITH_MYSQL_VERSION")
 

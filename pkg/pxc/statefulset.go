@@ -77,6 +77,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	if podSpec.ForceUnsafeBootstrap && cr.CompareVersionWith("1.10.0") < 0 {
+		log.Info("spec.pxc.forceUnsafeBootstrap option is not supported since v1.10")
 		ic := appC.DeepCopy()
 		ic.Name = ic.Name + "-init-unsafe"
 		ic.Resources = podSpec.Resources
@@ -108,6 +109,16 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		}
 	}
 
+	customAnnotations := sfs.StatefulSet().Annotations
+	if customAnnotations == nil {
+		customAnnotations = make(map[string]string)
+	}
+	for k, v := range podSpec.Annotations {
+		if _, ok := customAnnotations[k]; !ok {
+			customAnnotations[k] = v
+		}
+	}
+
 	obj := sfs.StatefulSet()
 	obj.Spec = appsv1.StatefulSetSpec{
 		Replicas: &podSpec.Size,
@@ -118,7 +129,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      customLabels,
-				Annotations: podSpec.Annotations,
+				Annotations: customAnnotations,
 			},
 			Spec: pod,
 		},

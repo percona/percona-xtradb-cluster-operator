@@ -26,30 +26,30 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
-	currentSet := sfs.StatefulSet()
-	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
+func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, stsApp api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
+	secretsName := cr.Spec.SecretsName
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		secretsName = internalPrefix + cr.Name
+	}
+	secret := new(corev1.Secret)
+	err := r.client.Get(ctx, types.NamespacedName{
+		Name: secretsName, Namespace: cr.Namespace,
+	}, secret)
+	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err, "get internal secret")
+	}
+	sts, err := pxc.StatefulSet(stsApp, podSpec, cr, secret, initContainers, r.logger(cr.Name, cr.Namespace), r.getConfigVolume)
 	if err != nil {
+		return errors.Wrap(err, "create HAProxy StatefulSet")
+	}
+
+	currentSet := new(appsv1.StatefulSet)
+	err = r.client.Get(ctx, types.NamespacedName{Name: sts.Name, Namespace: sts.Namespace}, currentSet)
+	if client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err, "failed to get sate")
 	}
-
-	currentSet.Spec.UpdateStrategy = sfs.UpdateStrategy(cr)
-
-	// support annotation adjustements
-	pxc.MergeTemplateAnnotations(currentSet, podSpec.Annotations)
-
-	// change the pod size
-	currentSet.Spec.Replicas = &podSpec.Size
-	currentSet.Spec.Template.Spec.SecurityContext = podSpec.PodSecurityContext
-	currentSet.Spec.Template.Spec.ImagePullSecrets = podSpec.ImagePullSecrets
-
-	if currentSet.Spec.Template.Labels == nil {
-		currentSet.Spec.Template.Labels = make(map[string]string)
-	}
-
-	for k, v := range podSpec.Labels {
-		currentSet.Spec.Template.Labels[k] = v
+	if v, ok := currentSet.Spec.Template.Annotations["last-applied-secret"]; ok {
+		sts.Spec.Template.Annotations["last-applied-secret"] = v
 	}
 
 	err = r.reconcileConfigMap(cr)
@@ -58,23 +58,13 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 
 	// embed DB configuration hash
-	// TODO: code duplication with deploy function
-	configHash, err := r.getConfigHash(cr, sfs)
+	configHash, err := r.getConfigHash(cr, sts)
 	if err != nil {
 		return errors.Wrap(err, "getting config hash")
 	}
 
-	if currentSet.Spec.Template.Annotations == nil {
-		currentSet.Spec.Template.Annotations = make(map[string]string)
-	}
-
-	pxc.MergeTemplateAnnotations(currentSet, newAnnotations)
-
 	if cr.CompareVersionWith("1.1.0") >= 0 {
-		currentSet.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
-	}
-	if cr.CompareVersionWith("1.5.0") >= 0 {
-		currentSet.Spec.Template.Spec.ServiceAccountName = podSpec.ServiceAccountName
+		sts.Spec.Template.Annotations["percona.com/configuration-hash"] = configHash
 	}
 
 	// change TLS secret configuration
@@ -83,7 +73,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 	}
 	if sslHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
-		currentSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
+		sts.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
 	}
 
 	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
@@ -91,136 +81,73 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 	}
 	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
-		currentSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
+		sts.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
 	}
 
 	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
 	if err != nil {
 		return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 	}
-	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 && !isHAproxy(sfs) {
-		currentSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
+	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 && !isHAproxy(stsApp) {
+		sts.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
 	}
 
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
-		if isHAproxy(sfs) {
+		if isHAproxy(stsApp) {
 			envVarsHash, err = r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
-		} else if isProxySQL(sfs) {
+		} else if isProxySQL(stsApp) {
 			envVarsHash, err = r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
 		}
 		if err != nil {
 			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
 		}
 		if envVarsHash != "" {
-			currentSet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+			sts.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
 		}
 	}
 
-	if isHAproxy(sfs) && cr.CompareVersionWith("1.6.0") >= 0 {
-		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
-		delete(currentSet.Spec.Template.Annotations, "percona.com/ssl-hash")
+	if isHAproxy(stsApp) && cr.CompareVersionWith("1.6.0") >= 0 {
+		delete(sts.Spec.Template.Annotations, "percona.com/ssl-internal-hash")
+		delete(sts.Spec.Template.Annotations, "percona.com/ssl-hash")
 	}
 
-	var newContainers []corev1.Container
-	var newInitContainers []corev1.Container
-
-	secretsName := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secretsName = "internal-" + cr.Name
-	}
-
-	// pmm container
-	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		secret := new(corev1.Secret)
-		err := r.client.Get(context.TODO(), types.NamespacedName{
-			Name: secretsName, Namespace: cr.Namespace,
-		}, secret)
-		if client.IgnoreNotFound(err) != nil {
-			return errors.Wrap(err, "get internal secret")
-		}
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secret, cr)
-		if err != nil {
-			return errors.Wrap(err, "pmm container error")
-		}
-		if pmmC != nil {
-			newContainers = append(newContainers, *pmmC)
-		}
-	}
-
-	// log-collector container
-	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled && cr.CompareVersionWith("1.7.0") >= 0 {
-		logCollectorC, err := sfs.LogCollectorContainer(cr.Spec.LogCollector, cr.Spec.LogCollectorSecretName, secretsName, cr)
-		if err != nil {
-			return errors.Wrap(err, "logcollector container error")
-		}
-		if logCollectorC != nil {
-			newContainers = append(newContainers, logCollectorC...)
-		}
-	}
-
-	// volumes
-	sfsVolume, err := sfs.Volumes(podSpec, cr, r.getConfigVolume)
+	err = setControllerReference(cr, sts, r.scheme)
 	if err != nil {
-		return errors.Wrap(err, "volumes error")
+		return err
 	}
-
-	// application container
-	appC, err := sfs.AppContainer(podSpec, secretsName, cr, sfsVolume.Volumes)
-	if err != nil {
-		return errors.Wrap(err, "app container error")
-	}
-
-	newContainers = append(newContainers, appC)
-
-	if len(initContainers) > 0 {
-		newInitContainers = append(newInitContainers, initContainers...)
-	}
-
-	if podSpec.ForceUnsafeBootstrap {
-		r.log.Info("spec.pxc.forceUnsafeBootstrap option is not supported since v1.10")
-
-		if cr.CompareVersionWith("1.10.0") < 0 {
-			ic := appC.DeepCopy()
-			ic.Name = ic.Name + "-init-unsafe"
-			ic.Resources = podSpec.Resources
-			ic.ReadinessProbe = nil
-			ic.LivenessProbe = nil
-			ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
-			newInitContainers = append(newInitContainers, *ic)
-		}
-	}
-
-	// sidecars
-	sideC, err := sfs.SidecarContainers(podSpec, secretsName, cr)
-	if err != nil {
-		return errors.Wrap(err, "sidecar container error")
-	}
-	newContainers = append(newContainers, sideC...)
-
-	newContainers = api.AddSidecarContainers(r.logger(cr.Name, cr.Namespace), newContainers, podSpec.Sidecars)
-
-	currentSet.Spec.Template.Spec.Containers = newContainers
-	currentSet.Spec.Template.Spec.InitContainers = newInitContainers
-	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
-	if sfsVolume != nil && sfsVolume.Volumes != nil {
-		currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
-	}
-	currentSet.Spec.Template.Spec.Volumes = api.AddSidecarVolumes(r.logger(cr.Name, cr.Namespace), currentSet.Spec.Template.Spec.Volumes, podSpec.SidecarVolumes)
-	currentSet.Spec.Template.Spec.Tolerations = podSpec.Tolerations
-	err = r.createOrUpdate(currentSet)
+	err = r.createOrUpdate(sts)
 	if err != nil {
 		return errors.Wrap(err, "update error")
+	}
+
+	time.Sleep(time.Second)
+
+	err = r.client.Get(ctx, types.NamespacedName{Name: sts.Name, Namespace: sts.Namespace}, currentSet)
+	if err != nil {
+		return errors.Wrap(err, "failed to get statefulset")
+	}
+
+	// PodDisruptionBudget object for sts
+	pdb := cr.Spec.PXC.PodDisruptionBudget
+	if isHAproxy(stsApp) {
+		pdb = cr.Spec.HAProxy.PodDisruptionBudget
+	} else if isProxySQL(stsApp) {
+		pdb = cr.Spec.ProxySQL.PodDisruptionBudget
+	}
+	err = r.reconcilePDB(pdb, stsApp, cr.Namespace, currentSet)
+	if err != nil {
+		return errors.Wrapf(err, "PodDisruptionBudget for %s", sts.Name)
 	}
 
 	if cr.Spec.UpdateStrategy != api.SmartUpdateStatefulSetStrategyType {
 		return nil
 	}
 
-	return r.smartUpdate(sfs, cr)
+	return r.smartUpdate(ctx, stsApp, cr)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {
 	if !isPXC(sfs) {
 		return nil
 	}
@@ -233,7 +160,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	time.Sleep(time.Second)
 
 	currentSet := sfs.StatefulSet()
-	err := r.client.Get(context.TODO(), types.NamespacedName{
+	err := r.client.Get(ctx, types.NamespacedName{
 		Name:      currentSet.Name,
 		Namespace: currentSet.Namespace,
 	}, currentSet)
@@ -242,7 +169,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	}
 
 	list := corev1.PodList{}
-	if err := r.client.List(context.TODO(),
+	if err := r.client.List(ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     currentSet.Namespace,
@@ -671,8 +598,8 @@ func getCustomConfigHashHex(strData map[string]string, binData map[string][]byte
 	return hashHex, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp) (string, error) {
-	ls := sfs.Labels()
+func (r *ReconcilePerconaXtraDBCluster) getConfigHash(cr *api.PerconaXtraDBCluster, sts *appsv1.StatefulSet) (string, error) {
+	ls := sts.Labels
 
 	name := types.NamespacedName{
 		Namespace: cr.Namespace,

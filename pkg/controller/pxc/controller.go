@@ -180,7 +180,7 @@ func NewCronRegistry() CronRegistry {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
 	}
@@ -307,159 +307,27 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		}
 	}
 
-	err = r.deploy(o)
+	err = r.reconcileConfigMap(o)
 	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "reconcile config map")
+	}
+
+	err = r.reconcileSSL(o)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "failed to reconcile SSL.Please create your TLS secret %s and %s manually or setup cert-manager correctly",
+			o.Spec.PXC.SSLSecretName, o.Spec.PXC.SSLInternalSecretName)
+	}
+
+	if err := r.reconcilePXC(ctx, o, userReconcileResult); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	operatorPod, err := k8s.OperatorPod(r.client)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
-	}
-
-	crOwnerRef, err := OwnerRef(o, r.scheme)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "get cr owner reference")
-	}
-
-	inits := []corev1.Container{}
-	if o.CompareVersionWith("1.5.0") >= 0 {
-		var imageName string
-		if len(o.Spec.InitImage) > 0 {
-			imageName = o.Spec.InitImage
-		} else {
-			imageName, err = operatorImageName(&operatorPod)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			if o.CompareVersionWith(version.Version) != 0 {
-				imageName = strings.Split(imageName, ":")[0] + ":" + o.Spec.CRVersion
-			}
-		}
-		var initResources corev1.ResourceRequirements
-		if o.CompareVersionWith("1.6.0") >= 0 {
-			initResources = o.Spec.PXC.Resources
-		}
-		initC := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
-		inits = append(inits, initC)
-	}
-
-	pxcSet := statefulset.NewNode(o)
-	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), userReconcileResult.pxcAnnotations)
-	err = r.updatePod(pxcSet, o.Spec.PXC.PodSpec, o, inits)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
-	}
-
-	for _, pxcService := range []*corev1.Service{pxc.NewServicePXC(o), pxc.NewServicePXCUnready(o)} {
-		err := setControllerReference(o, pxcService, r.scheme)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
-		}
-
-		err = r.createOrUpdate(pxcService)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
-		}
-	}
-
-	if o.Spec.PXC.Expose.Enabled {
-		err = r.ensurePxcPodServices(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "create replication services")
-		}
-	} else {
-		err = r.removePxcPodServices(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "remove pxc pod services")
-		}
-	}
-
-	if err := r.reconcileHAProxy(o, crOwnerRef); err != nil {
+	if err := r.reconcileHAProxy(ctx, o); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	proxysqlSet := statefulset.NewProxy(o)
-	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxysqlAnnotations)
-
-	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
-		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
-		}
-
-		currentService := &corev1.Service{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: o.ProxySQLServiceNamespacedName().Name, Namespace: o.ProxySQLServiceNamespacedName().Namespace}, currentService)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to get current proxysql service sate")
-		}
-
-		ports := []corev1.ServicePort{
-			{
-				Port: 3306,
-				Name: "mysql",
-			},
-		}
-
-		if len(o.Spec.ProxySQL.ServiceType) > 0 {
-			// Upgrading service only if something is changed
-			if currentService.Spec.Type != o.Spec.ProxySQL.ServiceType {
-				currentService.Spec.Ports = ports
-				currentService.Spec.Type = o.Spec.ProxySQL.ServiceType
-			}
-			// Checking default ServiceType
-		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
-			currentService.Spec.Ports = ports
-			currentService.Spec.Type = corev1.ServiceTypeClusterIP
-		}
-
-		if currentService.Spec.Type == corev1.ServiceTypeLoadBalancer || currentService.Spec.Type == corev1.ServiceTypeNodePort {
-			if len(o.Spec.ProxySQL.ExternalTrafficPolicy) > 0 {
-				currentService.Spec.ExternalTrafficPolicy = o.Spec.ProxySQL.ExternalTrafficPolicy
-			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.ProxySQL.ExternalTrafficPolicy {
-				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
-			}
-		}
-
-		if o.CompareVersionWith("1.6.0") >= 0 {
-			currentService.Spec.Ports = append(
-				ports,
-				corev1.ServicePort{
-					Port: 33062,
-					Name: "mysql-admin",
-				},
-			)
-		}
-
-		if o.CompareVersionWith("1.9.0") >= 0 {
-			currentService.ObjectMeta.Labels["app.kubernetes.io/component"] = "proxysql"
-			currentService.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
-			currentService.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
-		}
-
-		err = r.createOrUpdate(currentService)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "ProxySQL service upgrade error")
-		}
-	} else {
-		// check if there is need to delete pvc
-		deletePVC := false
-		for _, fnlz := range o.GetFinalizers() {
-			if fnlz == "delete-proxysql-pvc" {
-				deletePVC = true
-				break
-			}
-		}
-
-		err = r.deleteStatefulSet(o, proxysqlSet, deletePVC)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		proxysqlUnreadyService := pxc.NewServiceProxySQLUnready(o)
-		err = r.deleteServices(pxc.NewServiceProxySQL(o), proxysqlUnreadyService)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	if err = r.reconcileProxySQL(ctx, o, userReconcileResult); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	if o.CompareVersionWith("1.9.0") >= 0 {
@@ -474,7 +342,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		return reconcile.Result{}, err
 	}
 
-	if err := r.fetchVersionFromPXC(o, pxcSet); err != nil {
+	if err := r.fetchVersionFromPXC(o); err != nil {
 		return rr, errors.Wrap(err, "update CR version")
 	}
 
@@ -486,65 +354,17 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
-	if !cr.HAProxyEnabled() {
-		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
-			return errors.Wrap(err, "delete HAProxy replica service")
-		}
-
-		if err := r.deleteServices(pxc.NewServiceHAProxy(cr)); err != nil {
-			return errors.Wrap(err, "delete HAProxy service")
-		}
-
-		if err := r.deleteStatefulSet(cr, statefulset.NewHAProxy(cr), false); err != nil {
-			return errors.Wrap(err, "delete HAProxy stateful set")
-		}
-
-		return nil
-	}
-
-	if err := r.updatePod(statefulset.NewHAProxy(cr), &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
-		return errors.Wrap(err, "HAProxy upgrade error")
-	}
-
-	if err := r.createOrUpdate(pxc.NewServiceHAProxy(cr, owner)); err != nil {
-		return errors.Wrap(err, "failed to create or update haproxy service")
-	}
-
-	if !cr.HAProxyReplicasServiceEnabled() {
-		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
-			return errors.Wrap(err, "delete HAProxy replica service")
-		}
-
-		return nil
-	}
-
-	if err := r.createOrUpdate(pxc.NewServiceHAProxyReplicas(cr, owner)); err != nil {
-		return errors.Wrap(err, "failed to create or update haproxy replicas")
-	}
-
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
-	stsApp := statefulset.NewNode(cr)
-	err := r.reconcileConfigMap(cr)
-	if err != nil {
-		return err
-	}
-
-	operatorPod, err := k8s.OperatorPod(r.client)
-	if err != nil {
-		return errors.Wrap(err, "get operator deployment")
-	}
-
-	logger := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) reconcilePXC(ctx context.Context, cr *api.PerconaXtraDBCluster, userReconcileResult *ReconcileUsersResult) error {
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		var imageName string
 		if len(cr.Spec.InitImage) > 0 {
 			imageName = cr.Spec.InitImage
 		} else {
+			operatorPod, err := k8s.OperatorPod(r.client)
+			if err != nil {
+				return errors.Wrap(err, "get operator deployment")
+			}
 			imageName, err = operatorImageName(&operatorPod)
 			if err != nil {
 				return err
@@ -561,258 +381,130 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		inits = append(inits, initC)
 	}
 
-	secretsName := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secretsName = "internal-" + cr.Name
-	}
-	secrets := new(corev1.Secret)
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Name: secretsName, Namespace: cr.Namespace,
-	}, secrets)
-	if client.IgnoreNotFound(err) != nil {
-		return errors.Wrap(err, "get internal secret")
-	}
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, secrets, inits, logger, r.getConfigVolume)
+	pxcSet := statefulset.NewNode(cr)
+	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), userReconcileResult.pxcAnnotations)
+	err := r.updatePod(ctx, pxcSet, cr.Spec.PXC.PodSpec, cr, inits)
 	if err != nil {
-		return errors.Wrap(err, "get pxc statefulset")
-	}
-	currentNodeSet := new(appsv1.StatefulSet)
-	err = r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: nodeSet.Namespace,
-		Name:      nodeSet.Name,
-	}, currentNodeSet)
-	if client.IgnoreNotFound(err) != nil {
-		return errors.Wrap(err, "get current pxc sts")
+		return errors.Wrap(err, "pxc upgrade error")
 	}
 
-	// TODO: code duplication with updatePod function
-	if nodeSet.Spec.Template.Annotations == nil {
-		nodeSet.Spec.Template.Annotations = make(map[string]string)
-	}
-	if v, ok := currentNodeSet.Spec.Template.Annotations["last-applied-secret"]; ok {
-		nodeSet.Spec.Template.Annotations["last-applied-secret"] = v
-	}
-	if cr.CompareVersionWith("1.1.0") >= 0 {
-		hash, err := r.getConfigHash(cr, stsApp)
+	for _, pxcService := range []*corev1.Service{pxc.NewServicePXC(cr), pxc.NewServicePXCUnready(cr)} {
+		err := setControllerReference(cr, pxcService, r.scheme)
 		if err != nil {
-			return errors.Wrap(err, "getting node config hash")
+			return errors.Wrap(err, "setControllerReference")
 		}
-		nodeSet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
-	}
 
-	err = r.reconcileSSL(cr)
-	if err != nil {
-		return errors.Wrapf(err, "failed to reconcile SSL.Please create your TLS secret %s and %s manually or setup cert-manager correctly",
-			cr.Spec.PXC.SSLSecretName, cr.Spec.PXC.SSLInternalSecretName)
-	}
-
-	sslHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLSecretName, cr.Spec.AllowUnsafeConfig)
-	if err != nil {
-		return errors.Wrap(err, "get secret hash")
-	}
-	if sslHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-	}
-
-	sslInternalHash, err := r.getSecretHash(cr, cr.Spec.PXC.SSLInternalSecretName, cr.Spec.AllowUnsafeConfig)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "get internal secret hash")
-	}
-	if sslInternalHash != "" && cr.CompareVersionWith("1.1.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
-	}
-
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		envVarsHash, err := r.getSecretHash(cr, cr.Spec.PXC.EnvVarsSecretName, true)
+		err = r.createOrUpdate(pxcService)
 		if err != nil {
-			return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-		}
-		if envVarsHash != "" {
-			nodeSet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
+			return errors.Wrap(err, "PXC service upgrade error")
 		}
 	}
 
-	vaultConfigHash, err := r.getSecretHash(cr, cr.Spec.VaultSecretName, true)
-	if err != nil {
-		return errors.Wrap(err, "get vault config hash")
-	}
-	if vaultConfigHash != "" && cr.CompareVersionWith("1.6.0") >= 0 {
-		nodeSet.Spec.Template.Annotations["percona.com/vault-config-hash"] = vaultConfigHash
-	}
-	nodeSet.Spec.Template.Spec.Tolerations = cr.Spec.PXC.Tolerations
-	err = setControllerReference(cr, nodeSet, r.scheme)
-	if err != nil {
-		return err
-	}
-
-	err = r.createOrUpdate(nodeSet)
-	if err != nil {
-		return errors.Wrap(err, "create newStatefulSetNode")
-	}
-
-	err = r.createService(cr, pxc.NewServicePXCUnready(cr))
-	if err != nil {
-		return errors.Wrap(err, "create PXC ServiceUnready")
-	}
-	err = r.createService(cr, pxc.NewServicePXC(cr))
-	if err != nil {
-		return errors.Wrap(err, "create PXC Service")
-	}
-
-	// PodDisruptionBudget object for nodes
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, nodeSet)
-	if err == nil {
-		err := r.reconcilePDB(cr.Spec.PXC.PodDisruptionBudget, stsApp, cr.Namespace, nodeSet)
+	if cr.Spec.PXC.Expose.Enabled {
+		err = r.ensurePxcPodServices(cr)
 		if err != nil {
-			return errors.Wrapf(err, "PodDisruptionBudget for %s", nodeSet.Name)
+			return errors.Wrap(err, "create replication services")
 		}
-	} else if !k8serrors.IsNotFound(err) {
-		return errors.Wrap(err, "get PXC stateful set")
+	} else {
+		err = r.removePxcPodServices(cr)
+		if err != nil {
+			return errors.Wrap(err, "remove pxc pod services")
+		}
 	}
 
-	// HAProxy StatefulSet
-	if cr.HAProxyEnabled() {
-		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, nil, logger, r.getConfigVolume)
-		if err != nil {
-			return errors.Wrap(err, "create HAProxy StatefulSet")
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) reconcileProxySQL(ctx context.Context, cr *api.PerconaXtraDBCluster, userReconcileResult *ReconcileUsersResult) error {
+	if !cr.ProxySQLEnabled() {
+		// check if there is need to delete pvc
+		deletePVC := false
+		for _, fnlz := range cr.GetFinalizers() {
+			if fnlz == "delete-proxysql-pvc" {
+				deletePVC = true
+				break
+			}
 		}
-		err = setControllerReference(cr, haProxySet, r.scheme)
+
+		err := r.deleteStatefulSet(cr, statefulset.NewProxy(cr), deletePVC)
 		if err != nil {
 			return err
 		}
-
-		// TODO: code duplication with updatePod function
-		if haProxySet.Spec.Template.Annotations == nil {
-			haProxySet.Spec.Template.Annotations = make(map[string]string)
-		}
-		hash, err := r.getConfigHash(cr, sfsHAProxy)
-		if err != nil {
-			return errors.Wrap(err, "getting HAProxy config hash")
-		}
-		haProxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
-		if cr.CompareVersionWith("1.5.0") == 0 {
-			if sslHash != "" {
-				haProxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-			}
-			if sslInternalHash != "" {
-				haProxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
-			}
-		}
-		if cr.CompareVersionWith("1.9.0") >= 0 {
-			envVarsHash, err := r.getSecretHash(cr, cr.Spec.HAProxy.EnvVarsSecretName, true)
-			if err != nil {
-				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-			}
-			if envVarsHash != "" {
-				haProxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
-			}
-		}
-		err = r.client.Create(context.TODO(), haProxySet)
-		if err != nil && !k8serrors.IsAlreadyExists(err) {
-			return errors.Wrap(err, "create newStatefulSetHAProxy")
-		}
-
-		// HAProxy Service
-		err = r.createService(cr, pxc.NewServiceHAProxy(cr))
-		if err != nil {
-			return errors.Wrap(err, "create HAProxy Service")
-		}
-
-		// HAProxyReplicas Service
-		if cr.HAProxyReplicasServiceEnabled() {
-			err = r.createService(cr, pxc.NewServiceHAProxyReplicas(cr))
-			if err != nil {
-				return errors.Wrap(err, "create HAProxyReplicas Service")
-			}
-		}
-
-		// PodDisruptionBudget object for HAProxy
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: haProxySet.Name, Namespace: haProxySet.Namespace}, haProxySet)
-		if err == nil {
-			err := r.reconcilePDB(cr.Spec.HAProxy.PodDisruptionBudget, sfsHAProxy, cr.Namespace, haProxySet)
-			if err != nil {
-				return errors.Wrapf(err, "PodDisruptionBudget for %s", haProxySet.Name)
-			}
-		} else if !k8serrors.IsNotFound(err) {
-			return errors.Wrap(err, "get HAProxy stateful set")
-		}
-	}
-
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, nil, logger, r.getConfigVolume)
-		if err != nil {
-			return errors.Wrap(err, "create ProxySQL Service")
-		}
-		err = setControllerReference(cr, proxySet, r.scheme)
+		err = r.deleteServices(pxc.NewServiceProxySQL(cr), pxc.NewServiceProxySQLUnready(cr))
 		if err != nil {
 			return err
 		}
-		currentProxySet := new(appsv1.StatefulSet)
-		err = r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: nodeSet.Namespace,
-			Name:      nodeSet.Name,
-		}, currentProxySet)
-		if client.IgnoreNotFound(err) != nil {
-			return errors.Wrap(err, "get current proxy sts")
-		}
+		return nil
+	}
 
-		// TODO: code duplication with updatePod function
-		if proxySet.Spec.Template.Annotations == nil {
-			proxySet.Spec.Template.Annotations = make(map[string]string)
-		}
-		if v, ok := currentProxySet.Spec.Template.Annotations["last-applied-secret"]; ok {
-			proxySet.Spec.Template.Annotations["last-applied-secret"] = v
-		}
-		if cr.CompareVersionWith("1.1.0") >= 0 {
-			hash, err := r.getConfigHash(cr, sfsProxy)
-			if err != nil {
-				return errors.Wrap(err, "getting proxySQL config hash")
-			}
-			proxySet.Spec.Template.Annotations["percona.com/configuration-hash"] = hash
-			if sslHash != "" {
-				proxySet.Spec.Template.Annotations["percona.com/ssl-hash"] = sslHash
-			}
-			if sslInternalHash != "" {
-				proxySet.Spec.Template.Annotations["percona.com/ssl-internal-hash"] = sslInternalHash
-			}
-		}
-		if cr.CompareVersionWith("1.9.0") >= 0 {
-			envVarsHash, err := r.getSecretHash(cr, cr.Spec.ProxySQL.EnvVarsSecretName, true)
-			if err != nil {
-				return errors.Wrap(err, "upgradePod/updateApp error: update secret error")
-			}
-			if envVarsHash != "" {
-				proxySet.Spec.Template.Annotations["percona.com/env-secret-config-hash"] = envVarsHash
-			}
-		}
-		err = r.client.Create(context.TODO(), proxySet)
-		if err != nil && !k8serrors.IsAlreadyExists(err) {
-			return errors.Wrap(err, "create newStatefulSetProxySQL")
-		}
+	proxysqlSet := statefulset.NewProxy(cr)
+	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxysqlAnnotations)
+	err := r.updatePod(ctx, proxysqlSet, cr.Spec.ProxySQL, cr, nil)
+	if err != nil {
+		return errors.Wrap(err, "ProxySQL upgrade error")
+	}
 
-		// ProxySQL Service
-		err = r.createService(cr, pxc.NewServiceProxySQL(cr))
+	for _, svc := range []*corev1.Service{pxc.NewServiceProxySQL(cr), pxc.NewServiceProxySQLUnready(cr)} {
+		err = setControllerReference(cr, svc, r.scheme)
 		if err != nil {
-			return errors.Wrap(err, "create ProxySQL Service")
+			return errors.Wrap(err, "setControllerReference")
 		}
 
-		// ProxySQL Unready Service
-		err = r.createService(cr, pxc.NewServiceProxySQLUnready(cr))
+		err = r.createOrUpdate(svc)
 		if err != nil {
-			return errors.Wrap(err, "create ProxySQL ServiceUnready")
+			return errors.Wrap(err, "ProxySQL service upgrade error")
+		}
+	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	if !cr.HAProxyEnabled() {
+		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
+			return errors.Wrap(err, "delete HAProxy replica service")
 		}
 
-		// PodDisruptionBudget object for ProxySQL
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: proxySet.Name, Namespace: proxySet.Namespace}, proxySet)
-		if err == nil {
-			err := r.reconcilePDB(cr.Spec.ProxySQL.PodDisruptionBudget, sfsProxy, cr.Namespace, proxySet)
-			if err != nil {
-				return errors.Wrapf(err, "PodDisruptionBudget for %s", proxySet.Name)
-			}
-		} else if !k8serrors.IsNotFound(err) {
-			return errors.Wrap(err, "get ProxySQL stateful set")
+		if err := r.deleteServices(pxc.NewServiceHAProxy(cr)); err != nil {
+			return errors.Wrap(err, "delete HAProxy service")
+		}
+
+		if err := r.deleteStatefulSet(cr, statefulset.NewHAProxy(cr), false); err != nil {
+			return errors.Wrap(err, "delete HAProxy stateful set")
+		}
+
+		return nil
+	}
+
+	// Statefulset
+	stsApp := statefulset.NewHAProxy(cr)
+
+	if err := r.updatePod(ctx, stsApp, &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
+		return errors.Wrap(err, "HAProxy upgrade error")
+	}
+
+	// HAProxy service
+	svc := pxc.NewServiceHAProxy(cr)
+	err := setControllerReference(cr, svc, r.scheme)
+	if err != nil {
+		return errors.Wrap(err, "setControllerReference")
+	}
+	if err = r.createOrUpdate(svc); err != nil {
+		return errors.Wrap(err, "failed to create or update haproxy service")
+	}
+
+	if cr.HAProxyReplicasServiceEnabled() {
+		svc := pxc.NewServiceHAProxyReplicas(cr)
+		err = setControllerReference(cr, svc, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "setControllerReference")
+		}
+
+		if err = r.createOrUpdate(svc); err != nil {
+			return errors.Wrap(err, "failed to create or update haproxy replicas")
+		}
+	} else {
+		if err = r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
+			return errors.Wrap(err, "delete HAProxy replica service")
 		}
 	}
 

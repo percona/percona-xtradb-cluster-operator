@@ -257,7 +257,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	return obj
 }
 
-func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerReference) *corev1.Service {
+func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
 	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ServiceType) > 0 {
 		svcType = cr.Spec.HAProxy.ServiceType
@@ -284,11 +284,10 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            cr.HaproxyServiceNamespacedName().Name,
-			Namespace:       cr.Namespace,
-			Labels:          serviceLabels,
-			Annotations:     serviceAnnotations,
-			OwnerReferences: owners,
+			Name:        cr.HaproxyServiceNamespacedName().Name,
+			Namespace:   cr.Namespace,
+			Labels:      serviceLabels,
+			Annotations: serviceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: svcType,

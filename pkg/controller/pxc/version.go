@@ -3,14 +3,16 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
-	"github.com/pkg/errors"
-	"github.com/robfig/cron/v3"
+
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -305,10 +307,10 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 	return "", errors.New("failed to reach any pod")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
+func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtraDBCluster) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	version, err := r.mysqlVersion(cr, sfs)
+	version, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
 	if err != nil {
 		if errors.Is(err, versionNotReadyErr) {
 			return nil

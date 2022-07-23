@@ -84,8 +84,8 @@ void setTestsresults() {
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0") {
     def retryCount = 0
-    MYSQL_VERSION_TAG=$MYSQL_VERSION.replaceAll('.', '-')
     echo "MYSQL_VERSION is $MYSQL_VERSION"
+    MYSQL_VERSION_TAG=MYSQL_VERSION.replaceAll('.', '-')
     echo "MYSQL_VERSION_TAG is $MYSQL_VERSION_TAG"
 
     TEST_NAME_WITH_MYSQL_VERSION = "${TEST_NAME}-${MYSQL_VERSION_TAG}"

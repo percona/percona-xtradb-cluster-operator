@@ -85,14 +85,7 @@ void setTestsresults() {
 void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0") {
     def retryCount = 0
     echo "MYSQL_VERSION is $MYSQL_VERSION"
-    switch(MYSQL_VERSION){
-        case "5.7" :
-            MYSQL_VERSION_TAG="5-7"
-            break
-        default:
-            MYSQL_VERSION_TAG="8-0"
-            break
-    }
+    MYSQL_VERSION_TAG=MYSQL_VERSION.replace(".", "-")
     echo "MYSQL_VERSION_TAG is $MYSQL_VERSION_TAG"
 
     TEST_NAME_WITH_MYSQL_VERSION = "${TEST_NAME}-${MYSQL_VERSION_TAG}"

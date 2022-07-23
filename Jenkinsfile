@@ -84,14 +84,15 @@ void setTestsresults() {
 
 void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0") {
     def retryCount = 0
-    MYSQL_VERSION_TAG="8-0"
-    TEST_NAME_WITH_MYSQL_VERSION = "${TEST_NAME}-${MYSQL_VERSION_TAG}"
+    MYSQL_VERSION_TAG=$MYSQL_VERSION.replaceAll('.', '-')
+    echo "MYSQL_VERSION is $MYSQL_VERSION"
+    echo "MYSQL_VERSION_TAG is $MYSQL_VERSION_TAG"
 
+    TEST_NAME_WITH_MYSQL_VERSION = "${TEST_NAME}-${MYSQL_VERSION_TAG}"
     waitUntil {
         def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${TEST_NAME_WITH_MYSQL_VERSION}.log"
         try {
             echo "The $TEST_NAME test was started!"
-            echo "MYSQL_VERSION is $MYSQL_VERSION"
             testsReportMap[TEST_NAME_WITH_MYSQL_VERSION] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME_WITH_MYSQL_VERSION")
 

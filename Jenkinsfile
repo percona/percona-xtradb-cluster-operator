@@ -115,6 +115,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION="8.0"
                     fi
                 """
             }
+            echo "end test url is $testUrl"
             testsReportMap[TEST_NAME_WITH_MYSQL_VERSION] = "[passed]($testUrl)"
             testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME_WITH_MYSQL_VERSION"] = 'passed'
             return true

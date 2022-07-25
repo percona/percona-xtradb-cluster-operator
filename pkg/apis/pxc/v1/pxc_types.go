@@ -375,6 +375,7 @@ type PodSpec struct {
 	ExternalTrafficPolicy         corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
 	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	LoadBalancerIP                string                                  `json:"loadBalancerIP,omitempty"`
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
 	ServiceLabels                 map[string]string                       `json:"serviceLabels,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
@@ -416,7 +417,7 @@ type LogCollectorSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
-	HookScript               string                  `json:"hookScript,omitempty"`
+	HookScript               string                      `json:"hookScript,omitempty"`
 }
 
 type PMMSpec struct {
@@ -512,10 +513,12 @@ func ContainsVolume(vs []corev1.Volume, name string) bool {
 
 const WorkloadSA = "default"
 
+// +kubebuilder:object:generate=false
 type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
 
 var NoCustomVolumeErr = errors.New("no custom volume found")
 
+// +kubebuilder:object:generate=false
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
@@ -525,6 +528,7 @@ type App interface {
 	Labels() map[string]string
 }
 
+// +kubebuilder:object:generate=false
 type StatefulApp interface {
 	App
 	Name() string

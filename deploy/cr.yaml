@@ -297,6 +297,7 @@ spec:
     gracePeriod: 30
 #    loadBalancerSourceRanges:
 #      - 10.0.0.0/8
+#    loadBalancerIP: 127.0.0.1
 #    serviceAnnotations:
 #      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
 #    serviceLabels:
@@ -440,6 +441,7 @@ spec:
     gracePeriod: 30
 #   loadBalancerSourceRanges:
 #     - 10.0.0.0/8
+#    loadBalancerIP: 127.0.0.1
 #   serviceAnnotations:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
 #   serviceLabels:

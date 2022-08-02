@@ -303,7 +303,7 @@ pipeline {
                         runTest('upgrade-haproxy', 'upgrade', '8.0', 'upgrade-haproxy-8-0')
                         ShutdownCluster('upgrade')
                         CreateCluster('upgrade')
-                        runTest('upgrade-proxysql', 'upgrade', '8.0', '8-0')
+                        runTest('upgrade-proxysql', 'upgrade', '8.0', '8-0', 'upgrade-proxysql-8-0')
                         ShutdownCluster('upgrade')
                         CreateCluster('upgrade')
                         runTest('smart-update', 'upgrade', '8.0', 'upgrade-proxysql-8-0')

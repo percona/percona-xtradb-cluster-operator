@@ -16,7 +16,7 @@ spec:
   #  sslSecretName: my-cluster-ssl
   #  sslInternalSecretName: my-cluster-ssl-internal
   #  logCollectorSecretName: my-log-collector-secrets
-  #  initImage: perconalab/percona-xtradb-cluster-operator:1.11.0-CUSTOM-116
+  #  initImage: perconalab/percona-xtradb-cluster-operator:1.11.0-custom-116
   #  enableCRValidationWebhook: true
   #  tls:
   #    SANs:
@@ -577,4 +577,4 @@ spec:
         schedule: "0 0 * * *"
         keep: 5
         storageName: fs-pvc
-  initImage: perconalab/percona-xtradb-cluster-operator:1.11.0-CUSTOM-116
+  initImage: perconalab/percona-xtradb-cluster-operator:1.11.0-custom-116

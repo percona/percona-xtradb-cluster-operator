@@ -39,7 +39,7 @@ spec:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: percona-xtradb-cluster-operator
-        image: perconalab/percona-xtradb-cluster-operator:1.11.0-CUSTOM-116
+        image: perconalab/percona-xtradb-cluster-operator:1.11.0-custom-116
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

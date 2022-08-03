@@ -51,6 +51,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: no-requests-env-vars-proxysql
@@ -101,6 +103,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: no-requests-env-vars-proxysql
@@ -134,6 +138,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: no-requests-env-vars-proxysql

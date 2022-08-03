@@ -51,6 +51,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-side-car
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: side-car-env-vars-proxysql
@@ -101,6 +103,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-side-car
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: side-car-env-vars-proxysql
@@ -140,6 +144,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-side-car
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: side-car-env-vars-proxysql

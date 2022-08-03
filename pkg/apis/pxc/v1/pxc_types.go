@@ -33,7 +33,7 @@ type PerconaXtraDBClusterSpec struct {
 	LogCollectorSecretName    string                               `json:"logCollectorSecretName,omitempty"`
 	TLS                       *TLSSpec                             `json:"tls,omitempty"`
 	PXC                       *PXCSpec                             `json:"pxc,omitempty"`
-	ProxySQL                  *PodSpec                             `json:"proxysql,omitempty"`
+	ProxySQL                  *ProxySQLSpec                        `json:"proxysql,omitempty"`
 	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
@@ -433,6 +433,12 @@ type HAProxySpec struct {
 	ReplicasLoadBalancerIP           string   `json:"replicasLoadBalancerIP,omitempty"`
 }
 
+type ProxySQLSpec struct {
+	PodSpec `json:",inline"`
+	// +kubebuilder:validation:Enum={internal,scheduler}
+	PXCHandler string `json:"pxchandler,omitempty"`
+}
+
 type PodDisruptionBudgetSpec struct {
 	MinAvailable   *intstr.IntOrString `json:"minAvailable,omitempty"`
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
@@ -802,6 +808,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if c.ProxySQLEnabled() {
 		if len(c.ProxySQL.ImagePullPolicy) == 0 {
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
+		}
+
+		if cr.CompareVersionWith("1.12.0") >= 0 && len(c.ProxySQL.PXCHandler) == 0 {
+			c.ProxySQL.PXCHandler = "internal"
 		}
 
 		c.ProxySQL.VolumeSpec.reconcileOpts()

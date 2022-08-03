@@ -145,6 +145,13 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		}
 	}
 
+	if cr.CompareVersionWith("1.12.0") >= 0 {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "PXC_HANDLER",
+			Value: cr.Spec.ProxySQL.PXCHandler,
+		})
+	}
+
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "hookscript",
@@ -233,6 +240,30 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 				},
 			},
 		},
+	}
+
+	if cr.CompareVersionWith("1.12.0") >= 0 {
+		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
+			Name:  "PXC_HANDLER",
+			Value: cr.Spec.ProxySQL.PXCHandler,
+		})
+		proxysqlMonit.Env = append(proxysqlMonit.Env, corev1.EnvVar{
+			Name:  "PXC_HANDLER",
+			Value: cr.Spec.ProxySQL.PXCHandler,
+		})
+		if cr.Spec.ProxySQL.PXCHandler == "scheduler" {
+			volMounts := []corev1.VolumeMount{
+				{
+					Name:      "ssl",
+					MountPath: "/etc/proxysql/ssl",
+				},
+				{
+					Name:      "ssl-internal",
+					MountPath: "/etc/proxysql/ssl-internal",
+				},
+			}
+			pxcMonit.VolumeMounts = volMounts
+		}
 	}
 	if cr.Spec.AllowUnsafeConfig && (cr.Spec.TLS == nil || cr.Spec.TLS.IssuerConf == nil) {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{

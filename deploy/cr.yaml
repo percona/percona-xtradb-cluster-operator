@@ -318,6 +318,7 @@ spec:
     gracePeriod: 30
   proxysql:
     enabled: false
+    pxchandler: internal
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always

@@ -62,6 +62,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-region
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: region-env-vars-proxysql
@@ -115,6 +117,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-region
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: region-env-vars-proxysql
@@ -148,6 +152,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-region
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: region-env-vars-proxysql

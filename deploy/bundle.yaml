@@ -4784,6 +4784,11 @@ spec:
                     type: object
                   priorityClassName:
                     type: string
+                  pxchandler:
+                    enum:
+                    - internal
+                    - scheduler
+                    type: string
                   readinessDelaySec:
                     format: int32
                     type: integer

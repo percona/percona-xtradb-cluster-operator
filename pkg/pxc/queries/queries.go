@@ -29,7 +29,7 @@ const (
 
 // value of writer group is hardcoded in ProxySQL config inside docker image
 // https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
-const writerID = 11
+const writerID = 100
 
 type Database struct {
 	db *sql.DB

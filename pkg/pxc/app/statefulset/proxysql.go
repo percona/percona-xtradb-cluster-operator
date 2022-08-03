@@ -165,6 +165,16 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			"-service=$(PXC_SERVICE)",
 		},
 		Resources: spec.SidecarResources,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "ssl",
+				MountPath: "/etc/proxysql/ssl",
+			},
+			{
+				Name:      "ssl-internal",
+				MountPath: "/etc/proxysql/ssl-internal",
+			},
+		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "PXC_SERVICE",

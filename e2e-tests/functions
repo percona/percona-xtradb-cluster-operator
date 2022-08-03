@@ -3,7 +3,7 @@
 GIT_COMMIT=$(git rev-parse HEAD)
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-API="pxc.percona.com/v1-11-0"
+API="pxc.percona.com/v1-12-0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0"}
 IMAGE_PMM=${IMAGE_PMM:-"perconalab/pmm-client:dev-latest"}
@@ -12,9 +12,9 @@ IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-
 IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup"}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
 SKIP_BACKUPS_TO_AWS_GCP=${SKIP_BACKUPS_TO_AWS_GCP:-1}
-PMM_SERVER_VER=$(curl https://raw.githubusercontent.com/Percona-Lab/percona-openshift/main/helm/pmm-server/Chart.yaml | awk '/^version/{print $NF}')
-IMAGE_PMM_SERVER_REPO="perconalab/pmm-server"
-IMAGE_PMM_SERVER_TAG="dev-latest"
+PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
+IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO:-"perconalab/pmm-server"}
+IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG:-"dev-latest"}
 CERT_MANAGER_VER="1.8.0"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
@@ -98,8 +98,13 @@ create_namespace() {
 			| xargs kubectl delete ns &
 	fi
 
-	if [ ! -z "$OPENSHIFT" ]; then
-		oc delete project "$namespace" && sleep 40 || :
+	if [ -n "$OPENSHIFT" ]; then
+		if [ -n "$OPERATOR_NS" -a $(oc get project "$OPERATOR_NS" -o json | jq -r '.metadata.name') ]; then
+			oc delete --grace-period=0 --force=true project "$namespace" && sleep 120 || :
+		else
+			oc delete project "$namespace" && sleep 40 || :
+		fi
+		wait_for_delete "project/$namespace"
 		oc new-project "$namespace"
 		oc project "$namespace"
 		oc adm policy add-scc-to-user hostaccess -z default || :
@@ -227,7 +232,7 @@ apply_rbac() {
 deploy_operator() {
 	desc 'start operator'
 
-	kubectl_bin apply -f ${src_dir}/deploy/crd.yaml || :
+	kubectl_bin apply --server-side --force-conflicts -f ${src_dir}/deploy/crd.yaml || :
 
 	if [ -n "$OPERATOR_NS" ]; then
 		apply_rbac cw-rbac
@@ -956,7 +961,11 @@ function vault_tls() {
 
 	if version_gt "1.22"; then
 		CSR_API_VER="v1"
-		CSR_SIGNER="  signerName: kubernetes.io/kubelet-serving"
+		if [ "$EKS" = 1 ]; then
+			CSR_SIGNER="  signerName: beta.eks.amazonaws.com/app-serving"
+		else
+			CSR_SIGNER="  signerName: kubernetes.io/kubelet-serving"
+		fi
 	else
 		CSR_API_VER="v1beta1"
 		CSR_SIGNER=""
@@ -1224,7 +1233,6 @@ function check_pxc_liveness() {
 	wait_cluster_consistency "${cluster}" "${cluster_size}"
 
 	wait_for_running "${cluster}-pxc" "${cluster_size}"
-
 	for i in $(seq 0 $((cluster_size - 1))); do
 		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
 	done
@@ -1268,7 +1276,7 @@ function deploy_operator_gh() {
 		&& [[ -n $(kubectl_bin get crd/perconaxtradbclusters.pxc.percona.com -o jsonpath='{.spec.versions[?(@.name == "'"${git_tag//\./-}"'")].name}') ]]; then
 		echo "Target CRD for ${git_tag} is in place"
 	else
-		kubectl_bin apply -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/crd.yaml" >"${tmp_dir}/crd_${git_tag}.yaml"
+		kubectl_bin apply --server-side --force-conflicts -f "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/crd.yaml" >"${tmp_dir}/crd_${git_tag}.yaml"
 	fi
 
 	local rbac_yaml="rbac"

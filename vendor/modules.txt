@@ -242,7 +242,7 @@ go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
-# golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
+# golang.org/x/crypto v0.0.0-20220507011949-2cf3adece122
 ## explicit; go 1.17
 golang.org/x/crypto/argon2
 golang.org/x/crypto/blake2b
@@ -342,7 +342,7 @@ gopkg.in/ini.v1
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
-# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+# gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
 # k8s.io/api v0.23.5

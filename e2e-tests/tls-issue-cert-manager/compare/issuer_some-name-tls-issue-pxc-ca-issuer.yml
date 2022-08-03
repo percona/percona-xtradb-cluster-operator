@@ -3,9 +3,5 @@ kind: Issuer
 metadata:
   generation: 1
   name: some-name-tls-issue-pxc-ca-issuer
-  ownerReferences:
-    - controller: true
-      kind: PerconaXtraDBCluster
-      name: some-name-tls-issue
 spec:
   selfSigned: {}

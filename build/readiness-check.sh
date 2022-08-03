@@ -28,12 +28,12 @@ if [[ -r $DEFAULTS_EXTRA_FILE ]];then
     MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql --defaults-extra-file=$DEFAULTS_EXTRA_FILE -nNE \
         --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 else
-    MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
+	MYSQL_CMDLINE="/usr/bin/timeout $TIMEOUT mysql -nNE --connect-timeout=$TIMEOUT ${EXTRA_ARGS}"
 fi
 
-WSREP_STATUS=($(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE -e "SHOW GLOBAL STATUS LIKE 'wsrep_%';"  \
-    | grep -A 1 -E 'wsrep_local_state$|wsrep_cluster_status$' \
-    | sed -n -e '2p'  -e '5p' | tr '\n' ' '))
+WSREP_STATUS=($(MYSQL_PWD="${MYSQL_PASSWORD}" $MYSQL_CMDLINE --init-command="SET SESSION wsrep_sync_wait=0;" -e "SHOW GLOBAL STATUS LIKE 'wsrep_%';" \
+	| grep -A 1 -E 'wsrep_local_state$|wsrep_cluster_status$' \
+	| sed -n -e '2p' -e '5p' | tr '\n' ' '))
 set -x
 
 if [[ ${WSREP_STATUS[1]} == 'Primary' && ( ${WSREP_STATUS[0]} -eq 4 || \

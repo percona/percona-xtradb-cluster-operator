@@ -57,7 +57,7 @@ spec:
                   fieldPath: metadata.name
           envFrom:
             - secretRef:
-                name: my-log-collector-secrets
+                name: cluster1-log-collector
                 optional: true
           imagePullPolicy: Always
           name: logs
@@ -229,12 +229,12 @@ spec:
           secret:
             defaultMode: 420
             optional: true
-            secretName: my-cluster-ssl-internal
+            secretName: cluster1-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
             optional: false
-            secretName: my-cluster-ssl
+            secretName: cluster1-ssl
         - configMap:
             defaultMode: 420
             name: auto-cluster1-pxc
@@ -244,7 +244,7 @@ spec:
           secret:
             defaultMode: 420
             optional: true
-            secretName: keyring-secret-vault
+            secretName: cluster1-vault
         - name: mysql-users-secret-file
           secret:
             defaultMode: 420

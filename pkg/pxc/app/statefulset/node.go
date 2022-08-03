@@ -143,6 +143,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			},
 		},
 		SecurityContext: spec.ContainerSecurityContext,
+		Resources:       spec.Resources,
 	}
 
 	if cr.CompareVersionWith("1.1.0") >= 0 {
@@ -285,12 +286,6 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		appc.Env = append(appc.Env, probsEnvs...)
 	}
 
-	res, err := app.CreateResources(spec.Resources)
-	if err != nil {
-		return appc, fmt.Errorf("create resources error: %v", err)
-	}
-	appc.Resources = res
-
 	return appc, nil
 }
 
@@ -299,11 +294,6 @@ func (c *Node) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Perc
 }
 
 func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets string, logRsecrets string, cr *api.PerconaXtraDBCluster) ([]corev1.Container, error) {
-	res, err := app.CreateResources(spec.Resources)
-	if err != nil {
-		return nil, fmt.Errorf("create resources error: %v", err)
-	}
-
 	logProcEnvs := []corev1.EnvVar{
 		{
 			Name:  "LOG_DATA_DIR",
@@ -347,7 +337,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Env:             logProcEnvs,
 		SecurityContext: spec.ContainerSecurityContext,
-		Resources:       res,
+		Resources:       spec.Resources,
 		EnvFrom: []corev1.EnvFromSource{
 			{
 				SecretRef: &corev1.SecretEnvSource{
@@ -372,7 +362,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		ImagePullPolicy: spec.ImagePullPolicy,
 		Env:             logRotEnvs,
 		SecurityContext: spec.ContainerSecurityContext,
-		Resources:       res,
+		Resources:       spec.Resources,
 		Args: []string{
 			"logrotate",
 		},
@@ -403,8 +393,8 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 	return []corev1.Container{logProcContainer, logRotContainer}, nil
 }
 
-func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	ct := app.PMMClient(spec, secrets, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
+func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
+	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -418,7 +408,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 		{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
 			},
 		},
 		{
@@ -445,11 +435,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secrets string, cr *api.PerconaXt
 			},
 		}
 		ct.Env = append(ct.Env, clusterEnvs...)
-		res, err := app.CreateResources(spec.Resources)
-		if err != nil {
-			return nil, fmt.Errorf("create resources error: %v", err)
-		}
-		ct.Resources = res
+		ct.Resources = spec.Resources
 	}
 	if cr.CompareVersionWith("1.7.0") >= 0 {
 		for k, v := range ct.Env {

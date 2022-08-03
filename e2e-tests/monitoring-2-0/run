@@ -18,6 +18,7 @@ if [ ! -z "$OPENSHIFT" ]; then
 	oc create sa pmm-server
 	oc adm policy add-scc-to-user privileged -z pmm-server
 	if [ -n "$OPERATOR_NS" ]; then
+		timeout 30 oc delete clusterrolebinding $(kubectl get clusterrolebinding | grep 'pmm-pxc-operator-' | awk '{print $1}') || :
 		oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
 		oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' ${OPERATOR_NS:+-n $OPERATOR_NS}
 	else
@@ -39,10 +40,19 @@ until kubectl_bin exec monitoring-0 -- bash -c "pgrep -x $SERVICE >/dev/null"; d
 	fi
 done
 ADMIN_PASSWORD=$(kubectl_bin exec monitoring-0 -- bash -c "printenv | grep ADMIN_PASSWORD | cut -d '=' -f2")
+sleep 5
 kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini admin reset-admin-password $ADMIN_PASSWORD"
 
 desc 'create PXC cluster'
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
+API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@"$(get_service_endpoint monitoring-service)"/graph/api/auth/keys" | jq .key)
+
+kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '$API_KEY'}}'
+
+sleep 5
+
+wait_for_running "$cluster-haproxy" 2
+wait_for_running "$cluster-pxc" 3
 
 desc 'check if pmm-client container enabled'
 compare_kubectl statefulset/$cluster-pxc

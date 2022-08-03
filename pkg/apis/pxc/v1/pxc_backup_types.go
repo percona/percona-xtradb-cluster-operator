@@ -26,6 +26,14 @@ func (list *PerconaXtraDBClusterBackupList) HasUnfinishedFinalizers() bool {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName="pxc-backup";"pxc-backups"
+// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".spec.pxcCluster",description="Cluster name"
+// +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".status.storageName",description="Storage name from pxc spec"
+// +kubebuilder:printcolumn:name="Destination",type="string",JSONPath=".status.destination",description="Backup destination"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state",description="Job status"
+// +kubebuilder:printcolumn:name="Completed",type="date",JSONPath=".status.completed",description="Completed time"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type PerconaXtraDBClusterBackup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`

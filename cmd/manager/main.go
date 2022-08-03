@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"k8s.io/klog/v2"
 	"os"
 	"runtime"
 	"strings"
@@ -60,6 +61,7 @@ func main() {
 	// be propagated through the whole operator, generating
 	// uniform and structured logs.
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	klog.SetLogger(ctrl.Log)
 
 	sv, err := version.Server()
 	if err != nil {

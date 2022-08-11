@@ -394,7 +394,7 @@ which will have the following output::
 
 The next command will print you the needed admin password::
 
-  $ kubectl get secrets $(kubectl get pxc -o jsonpath='{.items[].spec.secretsName}') -o template='{{ .data.proxyadmin | base64 --decode }}'
+  $ kubectl get secrets $(kubectl get pxc -o jsonpath='{.items[].spec.secretsName}') -o template='{{ .data.proxyadmin | base64decode }}'
 
 When both Pod name and admin password are known, connect to the ProxySQL as
 follows, substituting ``cluster1-proxysql-0`` with the actual Pod name and

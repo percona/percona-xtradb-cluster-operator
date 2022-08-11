@@ -53,7 +53,6 @@ Advanced Installation Guides
    Generic Kubernetes installation <kubernetes.rst>
    Install on OpenShift <openshift.rst>
    Use private registry <custom-registry.rst>
-   Deploy with Service Broker <broker.rst>
 
 Configuration
 =============

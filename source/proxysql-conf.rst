@@ -294,7 +294,7 @@ follows:
 
 .. code:: bash
 
-   $ cat proxysql.cnf | base64
+   $ cat proxysql.cnf | base64 --wrap=0
 
 .. note:: Similarly, you can read the list of options from a Base64 encoded
    string:

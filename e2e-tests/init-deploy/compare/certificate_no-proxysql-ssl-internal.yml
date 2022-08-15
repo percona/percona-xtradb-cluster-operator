@@ -3,10 +3,6 @@ kind: Certificate
 metadata:
   generation: 1
   name: no-proxysql-ssl-internal
-  ownerReferences:
-    - controller: true
-      kind: PerconaXtraDBCluster
-      name: no-proxysql
 spec:
   commonName: no-proxysql-pxc
   dnsNames:

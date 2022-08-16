@@ -1,0 +1,12 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: restore1
+spec:
+  pxcCluster: some-name
+  backupSource:
+    destination: s3://percona-jenkins-artifactory/big-data-test/cluster1-2019-15-11-19:30:13-full
+    s3:
+      credentialsSecret: aws-s3-secret
+      region: us-west-2
+      endpointUrl: https://s3.amazonaws.com

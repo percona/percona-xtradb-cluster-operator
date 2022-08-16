@@ -26,7 +26,7 @@ check_cr_config() {
         | sed -e 's/600M/1G/' \
         | sed -e 's/0.5G/1G/' \
         | kubectl_bin apply -f-
-    sleep 2
+    sleep 120
 
     # check if statefulset was updated with expected config
     compare_kubectl statefulset/$cluster-pxc "-increased"

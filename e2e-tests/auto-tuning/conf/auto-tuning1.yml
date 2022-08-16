@@ -11,7 +11,7 @@ spec:
     image: -pxc
     resources:
       limits:
-        memory: 5Gi
+        memory: 1Gi
         cpu: 1000m
     volumeSpec:
       persistentVolumeClaim:

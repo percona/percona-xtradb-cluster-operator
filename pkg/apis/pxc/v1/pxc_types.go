@@ -36,7 +36,7 @@ type PerconaXtraDBClusterSpec struct {
 	LogCollectorSecretName    string                               `json:"logCollectorSecretName,omitempty"`
 	TLS                       *TLSSpec                             `json:"tls,omitempty"`
 	PXC                       *PXCSpec                             `json:"pxc,omitempty"`
-	ProxySQL                  *PodSpec                             `json:"proxysql,omitempty"`
+	ProxySQL                  *ProxySQLSpec                        `json:"proxysql,omitempty"`
 	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
@@ -401,6 +401,11 @@ type PodSpec struct {
 type HAProxySpec struct {
 	PodSpec                `json:",inline"`
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
+}
+
+type ProxySQLSpec struct {
+	PodSpec   `json:",inline"`
+	Scheduler string `json:"scheduler,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

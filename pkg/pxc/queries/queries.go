@@ -27,10 +27,6 @@ const (
 	ReaderHostgroup = "reader_hostgroup"
 )
 
-// value of writer group is hardcoded in ProxySQL config inside docker image
-// https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
-const writerID = 100
-
 type Database struct {
 	db *sql.DB
 }
@@ -317,6 +313,14 @@ func (p *Database) PresentInHostgroups(host string) (bool, error) {
 
 func (p *Database) PrimaryHost() (string, error) {
 	var host string
+	if c.ProxySQL.Scheduler == "percona" {
+		var writerID = 100
+	} else {
+		// value of writer group is hardcoded in ProxySQL config inside docker image
+		// https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
+		var writerID = 11
+	}
+
 	err := p.db.QueryRow("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ?", writerID).Scan(&host)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

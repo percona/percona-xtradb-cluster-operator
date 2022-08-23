@@ -12548,6 +12548,8 @@ spec:
                       type: object
                     runtimeClassName:
                       type: string
+                    scheduler:
+                      type: string
                     schedulerName:
                       type: string
                     serviceAccountName:

@@ -145,6 +145,13 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		}
 	}
 
+	if cr.CompareVersionWith("1.12.0") >= 0 {
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "SCHEDULER",
+			Value: cr.Spec.ProxySQL.Scheduler,
+		})
+	}
+
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "hookscript",

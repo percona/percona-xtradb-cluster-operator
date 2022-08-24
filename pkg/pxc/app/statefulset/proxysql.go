@@ -246,10 +246,14 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 				MountPath: "/etc/proxysql/ssl-internal",
 			},
 		}
-		pxcMonit.VolumeMounts[1] = volMounts
+		pxcMonit.VolumeMounts[0] = volMounts
 	}
 	if cr.CompareVersionWith("1.12.0") >= 0 {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
+			Name:  "SCHEDULER",
+			Value: cr.ProxySQL.Scheduler,
+		})
+		proxysqlMonit.Env = append(proxysqlMonit.Env, corev1.EnvVar{
 			Name:  "SCHEDULER",
 			Value: cr.ProxySQL.Scheduler,
 		})

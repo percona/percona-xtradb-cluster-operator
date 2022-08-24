@@ -291,6 +291,10 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		if err := c.ProxySQL.VolumeSpec.validate(); err != nil {
 			return errors.Wrap(err, "ProxySQL: validate volume spec")
 		}
+
+		if c.ProxySQL.Scheduler != "percona" && c.ProxySQL.Scheduler != "proxysql-admin" {
+			return errors.New(err, "proxysql.scheduler valid values are percona or proxysql-admin")
+		}
 	}
 
 	if c.Backup != nil {

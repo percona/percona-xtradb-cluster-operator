@@ -526,10 +526,12 @@ func ContainsVolume(vs []corev1.Volume, name string) bool {
 
 const WorkloadSA = "default"
 
+// +kubebuilder:object:generate=false
 type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
 
 var NoCustomVolumeErr = errors.New("no custom volume found")
 
+// +kubebuilder:object:generate=false
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
@@ -539,6 +541,7 @@ type App interface {
 	Labels() map[string]string
 }
 
+// +kubebuilder:object:generate=false
 type StatefulApp interface {
 	App
 	Name() string

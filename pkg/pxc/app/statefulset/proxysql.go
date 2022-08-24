@@ -235,7 +235,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		},
 	}
 
-	if cr.CompareVersionWith("1.12.0") >= 0 && cr.ProxySQL.Scheduler == "percona" {
+	if cr.CompareVersionWith("1.12.0") >= 0 && cr.Spec.ProxySQL.Scheduler == "percona" {
 		volMounts := []corev1.VolumeMount{
 			{
 				Name:      "ssl",
@@ -246,16 +246,16 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 				MountPath: "/etc/proxysql/ssl-internal",
 			},
 		}
-		pxcMonit.VolumeMounts[0] = volMounts
+		pxcMonit.VolumeMounts = volMounts
 	}
 	if cr.CompareVersionWith("1.12.0") >= 0 {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 			Name:  "SCHEDULER",
-			Value: cr.ProxySQL.Scheduler,
+			Value: cr.Spec.ProxySQL.Scheduler,
 		})
 		proxysqlMonit.Env = append(proxysqlMonit.Env, corev1.EnvVar{
 			Name:  "SCHEDULER",
-			Value: cr.ProxySQL.Scheduler,
+			Value: cr.Spec.ProxySQL.Scheduler,
 		})
 	}
 	if cr.Spec.AllowUnsafeConfig && (cr.Spec.TLS == nil || cr.Spec.TLS.IssuerConf == nil) {

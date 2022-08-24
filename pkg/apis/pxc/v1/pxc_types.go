@@ -293,7 +293,7 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		}
 
 		if c.ProxySQL.Scheduler != "percona" && c.ProxySQL.Scheduler != "proxysql-admin" {
-			return errors.New(err, "proxysql.scheduler valid values are percona or proxysql-admin")
+			return errors.New("proxysql.scheduler valid values are percona or proxysql-admin")
 		}
 	}
 

@@ -750,6 +750,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
 		}
 
+		if len(c.ProxySQL.Scheduler) == 0 {
+			c.ProxySQL.Scheduler = "percona"
+		}
+
 		c.ProxySQL.VolumeSpec.reconcileOpts()
 
 		if len(c.SSLSecretName) > 0 {

@@ -42,7 +42,7 @@ function start_cluster() {
 function main() {
 	create_infra "${namespace}"
 
-	cluster="$(yq r ${deploy_dir}/cr.yaml 'metadata.name')"
+	cluster="$(yq eval '.metadata.name' ${deploy_dir}/cr.yaml)"
 
 	kubectl_bin apply -f ${deploy_dir}/secrets.yaml
 	kubectl_bin apply -f ${conf_dir}/client.yml
@@ -121,7 +121,7 @@ function main() {
 
 	kubectl_bin delete -f ${deploy_dir}/cr.yaml
 
-	cluster="$(yq r ${deploy_dir}/cr-minimal.yaml 'metadata.name')"
+	cluster="$(yq eval '.metadata.name' ${deploy_dir}/cr-minimal.yaml)"
 	kubectl_bin apply -f ${deploy_dir}/cr-minimal.yaml
 
 	pxc_size=$(kubectl_bin get pxc/${cluster} -o jsonpath={.spec.pxc.size})

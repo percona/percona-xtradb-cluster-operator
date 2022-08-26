@@ -943,6 +943,9 @@ func (cr *PerconaXtraDBCluster) SetVersion() bool {
 }
 
 func (cr *PerconaXtraDBCluster) validateVersion() error {
+	if len(cr.Spec.CRVersion) == 0 {
+		return nil
+	}
 	_, err := v.NewVersion(cr.Spec.CRVersion)
 	return err
 }

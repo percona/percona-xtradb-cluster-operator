@@ -214,7 +214,7 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.Errorf("cluster name (%s) too long, must be no more than %d characters", cr.Name, clusterNameMaxLen)
 	}
 
-	err := cr.ValidateVersion()
+	err := cr.validateVersion()
 	if err != nil {
 		return errors.Wrap(err, "invalid cr version")
 	}
@@ -942,7 +942,7 @@ func (cr *PerconaXtraDBCluster) SetVersion() bool {
 	return true
 }
 
-func (cr *PerconaXtraDBCluster) ValidateVersion() error {
+func (cr *PerconaXtraDBCluster) validateVersion() error {
 	_, err := v.NewVersion(cr.Spec.CRVersion)
 	return err
 }

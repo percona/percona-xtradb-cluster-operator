@@ -10008,6 +10008,12 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasLoadBalancerIP:
+                      type: string
+                    replicasLoadBalancerSourceRanges:
+                      items:
+                        type: string
+                      type: array
                     replicasServiceEnabled:
                       type: boolean
                     replicasServiceType:

@@ -395,8 +395,10 @@ type PodSpec struct {
 }
 
 type HAProxySpec struct {
-	PodSpec                `json:",inline"`
-	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
+	PodSpec                          `json:",inline"`
+	ReplicasServiceEnabled           *bool    `json:"replicasServiceEnabled,omitempty"`
+	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
+	ReplicasLoadBalancerIP           string   `json:"replicasLoadBalancerIP,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

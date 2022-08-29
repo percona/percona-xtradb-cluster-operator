@@ -347,9 +347,10 @@ compare_kubectl() {
 			del(.. | select(has("uid")).uid) |
 			del(.metadata.resourceVersion) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "CLUSTER_HASH")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_PATH")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_URL")) |
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
-			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.. | select(has("image")).image) |
@@ -383,13 +384,10 @@ compare_kubectl() {
 			del(.. | select(has("preemptionPolicy")).preemptionPolicy) |
 			del(.spec.ipFamilies) |
 			del(.spec.ipFamilyPolicy) |
-			del(.. | select(has("kubernetes.io/hostname"))."kubernetes.io/hostname")' - \
-		| $sed 's#^apiVersion: policy/v1beta1#apiVersion: policy/v1#' \
-		| $sed 's/name: kube-api-access-.*$/name: kube-api-access/' \
-		| $sed 's/namespace\:.*name/name/' \
-		| $sed "s/${namespace}/namespace/g" \
-			>${new_result}
-	# last but one sed is needed for backup cronjob content
+			(.. | select(. == "policy/v1beta1")) = "policy/v1" |
+			del(.. | select(has("kubernetes.io/hostname"))."kubernetes.io/hostname") |
+			(.. | select(tag == "!!str")) |= sub("init-deploy-[0-9]*", "namespace") |
+			del(.. | select(.[] == "percona-xtradb-cluster-operator-workload-token*"))' - >${new_result}
 
 	diff -u ${expected_result} ${new_result}
 }

@@ -386,7 +386,8 @@ compare_kubectl() {
 			del(.spec.ipFamilyPolicy) |
 			(.. | select(. == "policy/v1beta1")) = "policy/v1" |
 			del(.. | select(has("kubernetes.io/hostname"))."kubernetes.io/hostname") |
-			(.. | select(tag == "!!str")) |= sub("init-deploy-[0-9]*", "namespace") |
+			(.. | select(tag == "!!str")) |= sub("'$namespace'", "namespace") |
+			(.. | select(tag == "!!str")) |= sub("kube-api-access-.*", "kube-api-access") |
 			del(.. | select(.[] == "percona-xtradb-cluster-operator-workload-token*"))' - >${new_result}
 
 	diff -u ${expected_result} ${new_result}

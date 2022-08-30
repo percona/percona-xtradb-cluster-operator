@@ -35,7 +35,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.23-14.1
+    image: percona/percona-xtradb-cluster:8.0.25-15.1
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -158,7 +158,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.10.0-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.10.0-haproxy-8.0.25
 #    replicasServiceEnabled: false
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
@@ -293,7 +293,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.10.0-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.10.0-proxysql-8.0.25
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -425,7 +425,7 @@ spec:
 #     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.10.0-logcollector
+    image: percona/percona-xtradb-cluster-operator:1.10.0-logcollector-8.0.25
 #    configuration: |
 #      [OUTPUT]
 #           Name  es

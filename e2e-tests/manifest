@@ -43,7 +43,7 @@ mv "$bundle_file" "deploy/bundle.yaml"
 
 # deploy/cw-bundle.yaml
 cw_bundle_file=$(mktemp)
-yq "deploy/crd.yaml" "deploy/cw-rbac.yaml" "deploy/cw-operator.yaml" >"$cw_bundle_file"
+yq eval "deploy/crd.yaml" "deploy/cw-rbac.yaml" "deploy/cw-operator.yaml" >"$cw_bundle_file"
 mv "$cw_bundle_file" "deploy/cw-bundle.yaml"
 
 rm -rf ./deploy/crds

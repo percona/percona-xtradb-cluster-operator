@@ -1308,12 +1308,18 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(obj client.Object) error 
 		return r.client.Create(context.TODO(), obj)
 	}
 
-	oldObjectMeta := oldObject.(metav1.ObjectMetaAccessor).GetObjectMeta()
+	updateObject := false
+	if oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash ||
+		!compareMaps(oldObject.GetLabels(), obj.GetLabels()) {
+		updateObject = true
+	} else if _, ok := obj.(*corev1.Service); !ok {
+		// ignore annotations changes for Service object
+		// in case NodePort, to avoid port changing
+		updateObject = !compareMaps(oldObject.GetAnnotations(), obj.GetAnnotations())
+	}
 
-	if oldObjectMeta.GetAnnotations()["percona.com/last-config-hash"] != hash ||
-		!isObjectMetaEqual(objectMeta, oldObjectMeta) {
-
-		objectMeta.SetResourceVersion(oldObjectMeta.GetResourceVersion())
+	if updateObject {
+		obj.SetResourceVersion(oldObject.GetResourceVersion())
 		switch object := obj.(type) {
 		case *corev1.Service:
 			object.Spec.ClusterIP = oldObject.(*corev1.Service).Spec.ClusterIP

@@ -51,6 +51,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
+            - name: SCHEDULER
+              value: percona
           envFrom:
             - secretRef:
                 name: no-requests-no-limits-env-vars-proxysql
@@ -98,6 +100,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
+            - name: SCHEDULER
+              value: percona
           envFrom:
             - secretRef:
                 name: no-requests-no-limits-env-vars-proxysql
@@ -107,6 +111,11 @@ spec:
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /etc/proxysql/ssl
+              name: ssl
+            - mountPath: /etc/proxysql/ssl-internal
+              name: ssl-internal
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_proxysql_nodes.sh
@@ -131,6 +140,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-requests-no-limits
+            - name: SCHEDULER
+              value: percona
           envFrom:
             - secretRef:
                 name: no-requests-no-limits-env-vars-proxysql

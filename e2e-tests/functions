@@ -477,12 +477,18 @@ compare_mysql_cmd_local() {
 
 get_proxy_primary() {
 	local uri="$1"
-	local pod="$2"
-	local ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod" 'proxysql')
+	local cluster_name="$2"
+	local hostgroup=100
+
+	local scheduler="$(kubectl get pxc $cluster_name -ojsonpath='{.spec.proxysql.scheduler}')"
+	if [ "$scheduler" == "proxysql-admin" ]; then
+		hostgroup=11
+	fi
+	local ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id='$hostgroup' AND status="ONLINE";' "$uri" "$cluster_name-proxysql-0" 'proxysql')
 
 	while [ $(echo "$ip" | wc -l) != 1 ]; do
 		sleep 1
-		ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod" 'proxysql')
+		ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id='$hostgroup' AND status="ONLINE";' "$uri" "$cluster_name-proxysql-0" 'proxysql')
 	done
 
 	echo $ip | cut -d'.' -f1

@@ -317,9 +317,6 @@ func (p *Database) PrimaryHost(scheduler string) (string, error) {
 	// value of writer group is hardcoded in ProxySQL config inside docker image
 	// https://github.com/percona/percona-docker/blob/pxc-operator-1.3.0/proxysql/dockerdir/etc/proxysql-admin.cnf#L23
 	var writerID = 11
-	if scheduler == "percona" {
-		writerID = 100
-	}
 
 	err := p.db.QueryRow("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ?", writerID).Scan(&host)
 	if err != nil {

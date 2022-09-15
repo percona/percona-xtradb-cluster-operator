@@ -172,7 +172,7 @@ main() {
 
     kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
-    sleep 300
+    sleep 65
     apply_config "${test_dir}/conf/${cluster}3.yml"
     wait_all_backups
 

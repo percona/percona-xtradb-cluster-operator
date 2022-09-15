@@ -311,7 +311,7 @@ func (p *Database) PresentInHostgroups(host string) (bool, error) {
 	return true, nil
 }
 
-func (p *Database) PrimaryHost(scheduler string) (string, error) {
+func (p *Database) PrimaryHost() (string, error) {
 	var host string
 
 	// value of writer group is hardcoded in ProxySQL config inside docker image

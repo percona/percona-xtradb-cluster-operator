@@ -527,7 +527,7 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 		return host, nil
 	}
 
-	return database.PrimaryHost(cr.Spec.ProxySQL.Scheduler)
+	return database.PrimaryHost()
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {

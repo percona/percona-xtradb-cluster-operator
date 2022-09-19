@@ -11,9 +11,10 @@ kill_pod() {
 	local pod=$1
 
 	cat $conf_dir/chaos-pod-kill.yml \
-		| yq w - "metadata.name" "chaos-pod-kill" \
-		| yq d - "spec.selector.pods.test-namespace" \
-		| yq w - "spec.selector.pods.$namespace[0]" "$pod" \
+		| yq eval "
+			.metadata.name = \"chaos-pod-kill\" |
+			del(.spec.selector.pods.test-namespace) |
+			.spec.selector.pods.$namespace[0] = \"$pod\"" - \
 		| kubectl_bin apply -f-
 	sleep 5
 
@@ -29,9 +30,10 @@ fail_pod() {
 
 	# run chaos for Pod
 	cat $conf_dir/chaos-pod-failure.yml \
-		| yq w - "metadata.name" "chaos-pod-failure" \
-		| yq d - "spec.selector.pods.test-namespace" \
-		| yq w - "spec.selector.pods.$namespace[0]" "$pod" \
+		| yq eval "
+			.metadata.name = \"chaos-pod-failure\" |
+			del(.spec.selector.pods.test-namespace) |
+			.spec.selector.pods.$namespace[0] = \"$pod\"" - \
 		| kubectl_bin apply -f-
 	sleep 10
 
@@ -56,9 +58,10 @@ network_loss() {
 
 	# run chaos for Pod
 	cat $conf_dir/chaos-network-loss.yml \
-		| yq w - "metadata.name" "chaos-pod-network-loss" \
-		| yq d - "spec.selector.pods.test-namespace" \
-		| yq w - "spec.selector.pods.$namespace[0]" "$pod" \
+		| yq eval "
+			.metadata.name = \"chaos-pod-network-loss\" |
+			del(.spec.selector.pods.test-namespace) |
+			.spec.selector.pods.$namespace[0] = \"$pod\"" - \
 		| kubectl_bin apply -f-
 	sleep 10
 

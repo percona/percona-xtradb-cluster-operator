@@ -53,7 +53,7 @@ fi
 
 sleep 1
 
-if ! output=$(kubectl 2>&1 get pxc/simple-pxc -o yaml | yq r - spec.pxc.size); then
+if ! output=$(kubectl 2>&1 get pxc/simple-pxc -o yaml | yq eval ".spec.pxc.size" -); then
 	echo "ERROR: ${output}"
 elif ((output != replicas_num)); then
 	echo "ERROR: pxc did  ${output}"

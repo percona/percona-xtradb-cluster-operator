@@ -12,9 +12,10 @@ fail_pod() {
 	local restart_count_before=$(kubectl_bin get pod ${init_pod} --namespace="${OPERATOR_NS:-$namespace}" -ojsonpath='{.status.containerStatuses[0].restartCount}')
 
 	cat $conf_dir/chaos-pod-failure.yml \
-		| yq w - "metadata.name" "chaos-operator-pod-failure" \
-		| yq d - "spec.selector.pods.test-namespace" \
-		| yq w - "spec.selector.pods.$test_namespace[0]" "$init_pod" \
+		| yq eval "
+			.metadata.name = \"chaos-operator-pod-failure\" |
+			del(.spec.selector.pods.test-namespace) |
+			.spec.selector.pods.$test_namespace[0] = \"$init_pod\"" - \
 		| kubectl_bin apply --namespace $test_namespace -f-
 	sleep 10
 
@@ -49,9 +50,10 @@ network_loss() {
 	local pod=$(get_operator_pod)
 
 	cat $conf_dir/chaos-network-loss.yml \
-		| yq w - "metadata.name" "chaos-operator-network" \
-		| yq d - "spec.selector.pods.test-namespace" \
-		| yq w - "spec.selector.pods.$test_namespace[0]" "$init_pod" \
+		| yq eval "
+			.metadata.name = \"chaos-operator-network\" |
+			del(.spec.selector.pods.test-namespace) |
+			.spec.selector.pods.$test_namespace[0] = \"$pod\"" - \
 		| kubectl_bin apply --namespace $test_namespace -f-
 	sleep 10
 
@@ -74,9 +76,10 @@ kill_pod() {
 	local init_pod=$(get_operator_pod)
 
 	cat $conf_dir/chaos-pod-kill.yml \
-		| yq w - "metadata.name" "chaos-operator-pod-kill" \
-		| yq d - "spec.selector.pods.test-namespace" \
-		| yq w - "spec.selector.pods.$test_namespace[0]" "$init_pod" \
+		| yq eval "
+			.metadata.name = \"chaos-operator-pod-kill\" |
+			del(.spec.selector.pods.test-namespace) |
+			.spec.selector.pods.$test_namespace[0] = \"$init_pod\"" - \
 		| kubectl_bin apply --namespace $test_namespace -f-
 	sleep 10
 

@@ -7,100 +7,100 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
 run_recovery_check() {
-    local cluster=$1
-    local backup1=$2
+	local cluster=$1
+	local backup1=$2
 
-    restore_name="backup-${backup1:22:32}"
+	restore_name="backup-${backup1:22:32}"
 
-    desc 'write data after backup'
-    run_mysql \
-        'INSERT myApp.myApp (id) VALUES (100501)' \
-        "-h $cluster-proxysql -uroot -proot_password"
+	desc 'write data after backup'
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100501)' \
+		"-h $cluster-proxysql -uroot -proot_password"
 
-    sleep 20
-    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+	sleep 20
+	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 
-    desc 'recover backup'
-    cat $src_dir/deploy/backup/restore.yaml \
-        | $sed "s/pxcCluster: .*/pxcCluster: $cluster/" \
-        | $sed "s/backupName: .*/backupName: $backup1/" \
-        | $sed "s/name: .*/name: $restore_name/" \
-        | kubectl_bin apply -f -
-    wait_backup_restore ${restore_name}
+	desc 'recover backup'
+	cat $src_dir/deploy/backup/restore.yaml \
+		| $sed "s/pxcCluster: .*/pxcCluster: $cluster/" \
+		| $sed "s/backupName: .*/backupName: $backup1/" \
+		| $sed "s/name: .*/name: $restore_name/" \
+		| kubectl_bin apply -f -
+	wait_backup_restore ${restore_name}
 
-    kubectl_bin logs job/restore-job-${restore_name}-${cluster:0:16}
+	kubectl_bin logs job/restore-job-${restore_name}-${cluster:0:16}
 
-    wait_for_running "$cluster-proxysql" 1
-    wait_for_running "$cluster-pxc" 3
-    sleep 20
+	wait_for_running "$cluster-proxysql" 1
+	wait_for_running "$cluster-pxc" 3
+	sleep 20
 
-    desc 'check data after backup'
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-    compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+	desc 'check data after backup'
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
 }
 
 get_backup_name() {
-    kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
-        | grep ":$1:Succeeded" \
-        | tail -1 \
-        | cut -d ':' -f 1
+	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+		| grep ":$1:Succeeded" \
+		| tail -1 \
+		| cut -d ':' -f 1
 }
 
 wait_backup() {
-    while [ -z "$(get_backup_name $1)" ]; do
-        sleep 20
-    done
+	while [ -z "$(get_backup_name $1)" ]; do
+		sleep 20
+	done
 }
 
 get_running_backups_amount() {
-    kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
-        | grep -vE ":Succeeded|:Failed" \
-        | wc -l
+	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+		| grep -vE ":Succeeded|:Failed" \
+		| wc -l
 }
 
 get_failed_backups_amount() {
-    kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
-        | grep ":Failed" \
-        | wc -l
+	kubectl_bin get pxc-backup -o=jsonpath='{range .items[*]}{.metadata.name}{":"}{.spec.storageName}{":"}{.status.state}{"\n"}{end}' \
+		| grep ":Failed" \
+		| wc -l
 }
 
 wait_all_backups() {
-    while [[ "$(get_running_backups_amount)" -ne 0 && "$(get_failed_backups_amount)" -eq 0 ]]; do
-        wait_for_running "$cluster-pxc" 3 1
-        sleep 20
-    done
-    if [[ "$(get_failed_backups_amount)" -gt 0 ]]; then
-        echo "One or more backups have been failed!"
-        exit 1
-    fi
+	while [[ "$(get_running_backups_amount)" -ne 0 && "$(get_failed_backups_amount)" -eq 0 ]]; do
+		wait_for_running "$cluster-pxc" 3 1
+		sleep 20
+	done
+	if [[ "$(get_failed_backups_amount)" -gt 0 ]]; then
+		echo "One or more backups have been failed!"
+		exit 1
+	fi
 }
 
 label_node() {
-    LABELED_NODE=$(kubectl_bin get nodes --no-headers=true | grep -v master | head -n1 | awk '{print $1}')
+	LABELED_NODE=$(kubectl_bin get nodes --no-headers=true | grep -v master | head -n1 | awk '{print $1}')
 
-    kubectl_bin label nodes "${LABELED_NODE}" backupWorker=True --overwrite
+	kubectl_bin label nodes "${LABELED_NODE}" backupWorker=True --overwrite
 }
 
 unlabel_node() {
-    kubectl_bin label nodes "${LABELED_NODE}" backupWorker- --overwrite
+	kubectl_bin label nodes "${LABELED_NODE}" backupWorker- --overwrite
 }
 
 compare_extrafields() {
-    local resource_type="$1"
-    local resource="$2"
-    local expected_result=${test_dir}/compare/extra-fields.json
-    local new_result="${tmp_dir}/${resource//\//_}.json"
+	local resource_type="$1"
+	local resource="$2"
+	local expected_result=${test_dir}/compare/extra-fields.json
+	local new_result="${tmp_dir}/${resource//\//_}.json"
 
-    if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.json/-oc.json} ]; then
-        expected_result=${expected_result//.json/-oc.json}
-    fi
+	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.json/-oc.json} ]; then
+		expected_result=${expected_result//.json/-oc.json}
+	fi
 
-    case ${resource_type} in
-        job)
-            kubectl_bin get ${resource_type} ${resource} -o json | jq '{
+	case ${resource_type} in
+		job)
+			kubectl_bin get ${resource_type} ${resource} -o json | jq '{
                                                                             affinity: .spec.template.spec.affinity,
                                                                             annotations:
                                                                                 {
@@ -118,10 +118,10 @@ compare_extrafields() {
                                                                             schedulerName: .spec.template.spec.schedulerName,
                                                                             tolerations: (.spec.template.spec.tolerations[] | select(.key | contains("backupWorker"))),
                                                                             resources: .spec.template.spec.containers[0].resources
-                                                                        }'  > ${new_result}
-            ;;
-        pod)
-            kubectl_bin get ${resource_type} ${resource} -o json | jq '{
+                                                                        }' >${new_result}
+			;;
+		pod)
+			kubectl_bin get ${resource_type} ${resource} -o json | jq '{
                                                                             affinity: .spec.affinity,
                                                                             annotations:
                                                                             {
@@ -139,79 +139,79 @@ compare_extrafields() {
                                                                             schedulerName: .spec.schedulerName,
                                                                             tolerations: (.spec.tolerations[] | select(.key | contains("backupWorker"))),
                                                                             resources: .spec.containers[0].resources
-                                                                        }'  > ${new_result}
-            ;;
-    esac
+                                                                        }' >${new_result}
+			;;
+	esac
 
-    diff -u ${expected_result} ${new_result}
+	diff -u ${expected_result} ${new_result}
 }
 
 main() {
-    create_infra $namespace
-    start_minio
+	create_infra $namespace
+	start_minio
 
-    cluster="scheduled-backup"
+	cluster="scheduled-backup"
 
-    cat - <<-EOF | kubectl_bin apply -f -
-        apiVersion: scheduling.k8s.io/v1
-        kind: PriorityClass
-        metadata:
-            name: high-priority
-        value: 1000000
-        globalDefault: false
-        description: "This priority class should be used for backup service pods only."
+	cat - <<-EOF | kubectl_bin apply -f -
+		        apiVersion: scheduling.k8s.io/v1
+		        kind: PriorityClass
+		        metadata:
+		            name: high-priority
+		        value: 1000000
+		        globalDefault: false
+		        description: "This priority class should be used for backup service pods only."
 	EOF
 
-    spinup_pxc "$cluster" "$test_dir/conf/${cluster}1.yml"
-    sleep 20
+	spinup_pxc "$cluster" "$test_dir/conf/${cluster}1.yml"
+	sleep 20
 
-    desc 'add backups schedule, wait for the first backup'
-    apply_config "$test_dir/conf/${cluster}2.yml"
-    label_node
-    sleep 20
+	desc 'add backups schedule, wait for the first backup'
+	apply_config "$test_dir/conf/${cluster}2.yml"
+	label_node
+	sleep 20
 
-    kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
+	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 
-    sleep 300
-    apply_config "${test_dir}/conf/${cluster}3.yml"
-    wait_all_backups
+	sleep 65
+	apply_config "${test_dir}/conf/${cluster}3.yml"
+	wait_all_backups
 
-    FIRST_PVC_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep pvc | head -n1| cut -d: -f1)
-    JOB_PVC_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_PVC_BACKUP} | awk '{print $1}')
-    POD_PVC_BACKUP=$(kubectl_bin get pods | grep ${JOB_PVC_BACKUP%-*}  | awk '{print $1}')
+	FIRST_PVC_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep pvc | head -n1 | cut -d: -f1)
+	JOB_PVC_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_PVC_BACKUP} | awk '{print $1}')
+	POD_PVC_BACKUP=$(kubectl_bin get pods | grep ${JOB_PVC_BACKUP%-*} | awk '{print $1}')
 
-    FIRST_MINIO_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep minio | head -n1| cut -d: -f1)
-    JOB_MINIO_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_MINIO_BACKUP} | awk '{print $1}')
-    POD_MINIO_BACKUP=$(kubectl_bin get pods | grep ${JOB_MINIO_BACKUP%-*}  | awk '{print $1}')
+	FIRST_MINIO_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep minio | head -n1 | cut -d: -f1)
+	JOB_MINIO_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_MINIO_BACKUP} | awk '{print $1}')
+	POD_MINIO_BACKUP=$(kubectl_bin get pods | grep ${JOB_MINIO_BACKUP%-*} | awk '{print $1}')
 
-    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-        FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1| cut -d: -f1)
-        JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
-        POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*}  | awk '{print $1}')
+	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+		FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1 | cut -d: -f1)
+		JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
+		POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*} | awk '{print $1}')
 
-        FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1| cut -d: -f1)
-        JOB_GCP_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_GCP_BACKUP} | awk '{print $1}')
-        POD_GCP_BACKUP=$(kubectl_bin get pods | grep ${JOB_GCP_BACKUP%-*}  | awk '{print $1}')
-    fi
+		FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1 | cut -d: -f1)
+		JOB_GCP_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_GCP_BACKUP} | awk '{print $1}')
+		POD_GCP_BACKUP=$(kubectl_bin get pods | grep ${JOB_GCP_BACKUP%-*} | awk '{print $1}')
+	fi
 
-    backup_name_pvc=$(get_backup_name "pvc")
-    backup_name_minio=$(get_backup_name "minio")
-    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-        backup_name_aws=$(get_backup_name "aws-s3")
-        backup_name_gcp=$(get_backup_name "gcp-cs")
-    fi
+	backup_name_pvc=$(get_backup_name "pvc")
+	backup_name_minio=$(get_backup_name "minio")
+	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+		backup_name_aws=$(get_backup_name "aws-s3")
+		backup_name_gcp=$(get_backup_name "gcp-cs")
+	fi
 
-    apply_config "$test_dir/conf/${cluster}1.yml"
+	apply_config "$test_dir/conf/${cluster}1.yml"
 
-    run_recovery_check "$cluster" "$backup_name_pvc"
-    run_recovery_check "$cluster" "$backup_name_minio"
-    if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-        run_recovery_check "$cluster" "$backup_name_aws"
-        run_recovery_check "$cluster" "$backup_name_gcp"
-    fi
+	run_recovery_check "$cluster" "$backup_name_pvc"
+	run_recovery_check "$cluster" "$backup_name_minio"
+	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+		run_recovery_check "$cluster" "$backup_name_aws"
+		run_recovery_check "$cluster" "$backup_name_gcp"
+	fi
 
-    unlabel_node
-    destroy $namespace
+	unlabel_node
+	destroy $namespace
 }
 
 main

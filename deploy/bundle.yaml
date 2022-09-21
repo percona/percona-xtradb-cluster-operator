@@ -10006,8 +10006,16 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasServiceAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceEnabled:
                       type: boolean
+                    replicasServiceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceType:
                       type: string
                     resources:
@@ -12508,6 +12516,14 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasServiceAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    replicasServiceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceType:
                       type: string
                     resources:
@@ -14825,6 +14841,14 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasServiceAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    replicasServiceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceType:
                       type: string
                     replicationChannels:

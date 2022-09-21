@@ -14,53 +14,36 @@ controller-gen crd:allowDangerousTypes=true,maxDescLen=0 paths=./pkg/apis/... ou
 
 crd_ver=${1}
 if [ "${crd_ver}" == "" ]; then
-	crd_ver=$(yq r -d0 "deploy/crd.yaml" "spec.versions[-1].name")
+	crd_ver=$(yq eval "select(document_index == 0) | .spec.versions[-1].name" "deploy/crd.yaml")
 fi
 
 wip_crd=$(mktemp)
-yq r -d0 "deploy/crd.yaml" \
-	| yq d - "spec.versions(name==${crd_ver})" \
-	| yq w - "spec.versions[*].storage" false \
-		>"$wip_crd"
+yq eval 'select(document_index == 0) |
+	del(.spec.versions[] |
+	select(.name == "v1-12-0")) |
+	.spec.versions[].storage = false' "deploy/crd.yaml" >"$wip_crd"
 
-yq w -i "$wip_crd" "spec.versions[+].name" "${crd_ver}"
+yq -i eval "(.spec.versions += {\"name\": \"${crd_ver}\"})" "$wip_crd"
 
 sed '/.*- protocol/d; s/.*- containerPort/&\n&/; s/- containerPort/- protocol/' \
 	deploy/crds/pxc.percona.com_perconaxtradbclusters.yaml \
-	| yq r - "spec.versions[0]" \
-	| yq d - "name" \
+	| yq eval ".spec.versions[0] | del(.name)" - \
 	| sed 's/^/      /g' \
 		>>"$wip_crd"
 
 # deploy/crd.yaml
 crd_file=$(mktemp)
-yq r "$wip_crd" >"$crd_file"
-
-cat "deploy/crds/pxc.percona.com_perconaxtradbclusterbackups.yaml" >>"$crd_file"
-cat "deploy/crds/pxc.percona.com_perconaxtradbclusterrestores.yaml" >>"$crd_file"
-
+yq eval "$wip_crd" "deploy/crds/pxc.percona.com_perconaxtradbclusterbackups.yaml" "deploy/crds/pxc.percona.com_perconaxtradbclusterrestores.yaml" >"$crd_file"
 mv "$crd_file" "deploy/crd.yaml"
 
 # deploy/bundle.yaml
 bundle_file=$(mktemp)
-
-cat "deploy/crd.yaml" >"$bundle_file"
-echo "---" >>"$bundle_file"
-cat "deploy/rbac.yaml" >>"$bundle_file"
-echo "---" >>"$bundle_file"
-cat "deploy/operator.yaml" >>"$bundle_file"
-
+yq eval "deploy/crd.yaml" "deploy/rbac.yaml" "deploy/operator.yaml" >"$bundle_file"
 mv "$bundle_file" "deploy/bundle.yaml"
 
 # deploy/cw-bundle.yaml
 cw_bundle_file=$(mktemp)
-
-cat "deploy/crd.yaml" >"$cw_bundle_file"
-echo "---" >> "$cw_bundle_file"
-cat "deploy/cw-rbac.yaml" >>"$cw_bundle_file"
-echo "---" >>"$cw_bundle_file"
-cat "deploy/cw-operator.yaml" >>"$cw_bundle_file"
-
+yq eval "deploy/crd.yaml" "deploy/cw-rbac.yaml" "deploy/cw-operator.yaml" >"$cw_bundle_file"
 mv "$cw_bundle_file" "deploy/cw-bundle.yaml"
 
 rm -rf ./deploy/crds

@@ -340,58 +340,56 @@ compare_kubectl() {
 	fi
 
 	kubectl_bin get -o yaml ${resource} \
-		| yq d - 'metadata.managedFields' \
-		| yq d - '**.creationTimestamp' \
-		| yq d - '**.namespace' \
-		| yq d - '**.uid' \
-		| yq d - 'metadata.resourceVersion' \
-		| yq d - '**.env.(name==CLUSTER_HASH)' \
-		| yq d - 'metadata.selfLink' \
-		| yq d - 'metadata.deletionTimestamp' \
-		| yq d - 'metadata.annotations."k8s.v1.cni.cncf.io*"' \
-		| yq d - 'metadata.annotations."kubernetes.io/psp"' \
-		| yq d - 'metadata.annotations."cloud.google.com/neg"' \
-		| yq d - '**.(name==percona-xtradb-cluster-operator-workload-token*)' \
-		| yq d - '**.creationTimestamp' \
-		| yq d - '**.image' \
-		| yq d - '**.clusterIP' \
-		| yq d - '**.clusterIPs' \
-		| yq d - '**.dataSource' \
-		| yq d - '**.procMount' \
-		| yq d - '**.storageClassName' \
-		| yq d - '**.finalizers' \
-		| yq d - '**."kubernetes.io/pvc-protection"' \
-		| yq d - '**.volumeName' \
-		| yq d - '**."volume.beta.kubernetes.io/storage-provisioner"' \
-		| yq d - '**."volume.kubernetes.io/storage-provisioner"' \
-		| yq d - 'spec.volumeMode' \
-		| yq d - 'spec.nodeName' \
-		| yq d - '**."volume.kubernetes.io/selected-node"' \
-		| yq d - '**."percona.com/*"' \
-		| yq d - '**.(volumeMode==Filesystem).volumeMode' \
-		| yq d - '**.healthCheckNodePort' \
-		| yq d - '**.nodePort' \
-		| yq d - '**.imagePullSecrets' \
-		| yq d - '**.enableServiceLinks' \
-		| yq d - 'status' \
-		| yq d - '**.(name==NAMESPACE)' \
-		| yq d - '**.(name==suffix)' \
-		| yq d - '**.(name==S3_BUCKET_PATH)' \
-		| yq d - '**.(name==S3_BUCKET_URL)' \
-		| yq d - 'spec.volumeClaimTemplates.*.apiVersion' \
-		| yq d - 'spec.volumeClaimTemplates.*.kind' \
-		| yq d - 'metadata.ownerReferences.*.apiVersion' \
-		| yq d - '**.controller-uid' \
-		| yq d - '**.preemptionPolicy' \
-		| yq d - 'spec.ipFamilies' \
-		| yq d - 'spec.ipFamilyPolicy' \
-		| yq d - '**."kubernetes.io/hostname"' \
-		| $sed 's#^apiVersion: policy/v1beta1#apiVersion: policy/v1#' \
-		| $sed 's/name: kube-api-access-.*$/name: kube-api-access/' \
-		| $sed 's/namespace\:.*name/name/' \
-		| $sed "s/${namespace}/namespace/g" \
-			>${new_result}
-	# last but one sed is needed for backup cronjob content
+		| yq eval '
+			del(.metadata.managedFields) |
+			del(.. | select(has("creationTimestamp")).creationTimestamp) |
+			del(.. | select(has("namespace")).namespace) |
+			del(.. | select(has("uid")).uid) |
+			del(.metadata.resourceVersion) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "CLUSTER_HASH")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_PATH")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_URL")) |
+			del(.metadata.selfLink) |
+			del(.metadata.deletionTimestamp) |
+			del(.metadata.annotations."kubernetes.io/psp") |
+			del(.metadata.annotations."cloud.google.com/neg") |
+			del(.. | select(has("image")).image) |
+			del(.. | select(has("clusterIP")).clusterIP) |
+			del(.. | select(has("clusterIPs")).clusterIPs) |
+			del(.. | select(has("dataSource")).dataSource) |
+			del(.. | select(has("procMount")).procMount) |
+			del(.. | select(has("storageClassName")).storageClassName) |
+			del(.. | select(has("finalizers")).finalizers) |
+			del(.. | select(has("kubernetes.io/pvc-protection"))."kubernetes.io/pvc-protection") |
+			del(.. | select(has("volumeName")).volumeName) |
+			del(.. | select(has("volume.beta.kubernetes.io/storage-provisioner"))."volume.beta.kubernetes.io/storage-provisioner") |
+			del(.. | select(has("volume.kubernetes.io/storage-provisioner"))."volume.kubernetes.io/storage-provisioner") |
+			del(.spec.volumeMode) |
+			del(.spec.nodeName) |
+			del(.. | select(has("volume.kubernetes.io/selected-node"))."volume.kubernetes.io/selected-node") |
+			del(.. | select(has("percona.com/last-config-hash"))."percona.com/last-config-hash") |
+			del(.. | select(has("percona.com/configuration-hash"))."percona.com/configuration-hash") |
+			del(.. | select(has("percona.com/ssl-hash"))."percona.com/ssl-hash") |
+			del(.. | select(has("percona.com/ssl-internal-hash"))."percona.com/ssl-internal-hash") |
+			del(.spec.volumeClaimTemplates[].spec.volumeMode | select(. == "Filesystem")) |
+			del(.. | select(has("healthCheckNodePort")).healthCheckNodePort) |
+			del(.. | select(has("nodePort")).nodePort) |
+			del(.. | select(has("imagePullSecrets")).imagePullSecrets) |
+			del(.. | select(has("enableServiceLinks")).enableServiceLinks) |
+			del(.status) |
+			del(.spec.volumeClaimTemplates[].apiVersion) |
+			del(.spec.volumeClaimTemplates[].kind) |
+			del(.metadata.ownerReferences[].apiVersion) |
+			del(.. | select(has("controller-uid")).controller-uid) |
+			del(.. | select(has("preemptionPolicy")).preemptionPolicy) |
+			del(.spec.ipFamilies) |
+			del(.spec.ipFamilyPolicy) |
+			(.. | select(. == "policy/v1beta1")) = "policy/v1" |
+			del(.. | select(has("kubernetes.io/hostname"))."kubernetes.io/hostname") |
+			(.. | select(tag == "!!str")) |= sub("'$namespace'", "namespace") |
+			(.. | select(tag == "!!str")) |= sub("kube-api-access-.*", "kube-api-access") |
+			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
+			del(.. | select(.[] == "percona-xtradb-cluster-operator-workload-token*"))' - >${new_result}
 
 	diff -u ${expected_result} ${new_result}
 }
@@ -547,7 +545,7 @@ deploy_cert_manager() {
 	kubectl_bin create namespace cert-manager || :
 	kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
 	kubectl_bin apply -f "https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml" --validate=false || : 2>/dev/null
-	sleep 60
+	sleep 70
 }
 
 destroy() {
@@ -743,8 +741,9 @@ apply_config() {
 			| kubectl_bin apply -f -
 	else
 		cat_config "$1" \
-			| yq d - 'spec.backup.schedule.[1]' \
-			| yq d - 'spec.backup.schedule.[2]' \
+			| yq eval '
+				del(.spec.backup.schedule.[1]) |
+				del(.spec.backup.schedule.[2])' - \
 			| kubectl_bin apply -f -
 	fi
 }
@@ -1319,30 +1318,36 @@ function prepare_cr_yaml() {
 	# spinup function expects images to have suffix like "-pxc"
 	# to replace them with images from environment variables
 	curl -s "https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/${git_tag}/deploy/cr.yaml" \
-		| yq w - "metadata.name" "${cluster}" \
-		| yq w - "spec.secretsName" "my-cluster-secrets" \
-		| yq w - "spec.vaultSecretName" "some-name-vault" \
-		| yq w - "spec.sslSecretName" "some-name-ssl" \
-		| yq w - "spec.sslInternalSecretName" "some-name-ssl-internal" \
-		| yq w - "spec.upgradeOptions.apply" "disabled" \
-		| yq w - "spec.pxc.size" "${cluster_size}" \
-		| yq w - "spec.proxysql.size" "${cluster_size}" \
-		| yq w - "spec.haproxy.size" "${cluster_size}" \
-		| yq w - "spec.pxc.image" -- "-pxc" \
-		| yq w - "spec.proxysql.image" -- "-proxysql" \
-		| yq w - "spec.haproxy.image" -- "-haproxy" \
-		| yq w - "spec.backup.image" -- "-backup" \
-		| yq w - "spec.backup.storages.minio.s3.credentialsSecret" "minio-secret" \
-		| yq w - "spec.backup.storages.minio.s3.region" "us-east-1" \
-		| yq w - "spec.backup.storages.minio.s3.bucket" "operator-testing" \
-		| yq w - "spec.backup.storages.minio.s3.endpointUrl" "http://minio-service:9000/" \
-		| yq w - "spec.backup.storages.minio.type" "s3" >"${cr_yaml}"
+		| yq eval "
+			.metadata.name = \"${cluster}\" |
+			.spec.secretsName = \"my-cluster-secrets\" |
+			.spec.vaultSecretName = \"some-name-vault\" |
+			.spec.sslSecretName = \"some-name-ssl\" |
+			.spec.sslInternalSecretName = \"some-name-ssl-internal\" |
+			.spec.upgradeOptions.apply = \"disabled\" |
+			.spec.pxc.size = ${cluster_size} |
+			.spec.proxysql.size = ${cluster_size} |
+			.spec.haproxy.size = ${cluster_size} |
+			.spec.pxc.image = \"-pxc\" |
+			.spec.proxysql.image = \"-proxysql\" |
+			.spec.haproxy.image = \"-haproxy\" |
+			.spec.backup.image = \"-backup\" |
+			.spec.backup.storages.minio.s3.credentialsSecret = \"minio-secret\" |
+			.spec.backup.storages.minio.s3.region = \"us-east-1\" |
+			.spec.backup.storages.minio.s3.bucket = \"operator-testing\" |
+			.spec.backup.storages.minio.s3.endpointUrl = \"http://minio-service:9000/\" |
+			.spec.backup.storages.minio.type = \"s3\"
+		" - >"${cr_yaml}"
 	if [[ ${proxy} == "haproxy" ]]; then
-		yq w -i "${cr_yaml}" "spec.haproxy.enabled" "true"
-		yq w -i "${cr_yaml}" "spec.proxysql.enabled" "false"
+		yq -i eval '
+			.spec.haproxy.enabled = true |
+			.spec.proxysql.enabled = false
+		' "${cr_yaml}"
 	else
-		yq w -i "${cr_yaml}" "spec.haproxy.enabled" "false"
-		yq w -i "${cr_yaml}" "spec.proxysql.enabled" "true"
+		yq -i eval '
+			.spec.haproxy.enabled = false |
+			.spec.proxysql.enabled = true
+		' "${cr_yaml}"
 	fi
 }
 

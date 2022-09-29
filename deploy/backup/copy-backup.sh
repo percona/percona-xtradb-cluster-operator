@@ -42,6 +42,7 @@ usage() {
 
 get_backup_dest() {
 	local backup=$1
+	local secret
 
 	if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
 		BASE64_DECODE_CMD=""
@@ -54,7 +55,7 @@ get_backup_dest() {
 			exit 1
 		fi
 
-		local secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.credentialsSecret}' 2>/dev/null)
+		secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.credentialsSecret}' 2>/dev/null)
 		ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.endpointUrl}' 2>/dev/null)
 		ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
 		SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
@@ -157,7 +158,8 @@ start_tmp_pod() {
 
 copy_files_pvc() {
 	local dest_dir=$1
-	local real_dest_dir=$(
+	local real_dest_dir
+	real_dest_dir=$(
 		cd "$dest_dir"
 		pwd -P
 	)
@@ -174,7 +176,7 @@ copy_files_s3() {
 
 	echo ""
 	echo "Downloading started"
-	env -i $CREDENTIALS "$xbcloud" get "${backup_path}" --parallel=10 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
+	env -i "${CREDENTIALS}" "$xbcloud" get "${backup_path}" --parallel=10 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
 	echo "Downloading finished"
 }
 

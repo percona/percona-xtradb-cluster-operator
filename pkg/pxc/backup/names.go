@@ -41,3 +41,7 @@ func trimNameRight(name string, ln int) string {
 
 	return name[:ln]
 }
+
+func DeleteJobName(cr *api.PerconaXtraDBClusterBackup) string {
+	return "xb-delete-" + cr.Name
+}

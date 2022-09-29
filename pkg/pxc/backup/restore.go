@@ -234,8 +234,8 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 }
 
 func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec, destination string) (*batchv1.Job, error) {
-	if bcp.Status.Azure == nil {
-		return nil, errors.New("nil azure backup status")
+	if bcp.Status.Storage == nil {
+		return nil, errors.New("nil azure storage backup status")
 	}
 
 	jobPVC := corev1.Volume{
@@ -261,7 +261,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 			verifyTLS = *storage.VerifyTLS
 		}
 	}
-	azure := bcp.Status.Azure
+	azure := bcp.Status.Storage.Azure
 	envs := []corev1.EnvVar{
 		{
 			Name: "AZURE_STORAGE_ACCOUNT",
@@ -386,8 +386,8 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 
 // S3RestoreJob returns restore job object for s3
 func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec, pitr bool) (*batchv1.Job, error) {
-	if bcp.Status.S3 == nil {
-		return nil, errors.New("nil s3 backup status")
+	if bcp.Status.Storage == nil {
+		return nil, errors.New("nil s3 backup status storage")
 	}
 
 	jobPVC := corev1.Volume{
@@ -420,18 +420,18 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		},
 		{
 			Name:  "ENDPOINT",
-			Value: bcp.Status.S3.EndpointURL,
+			Value: bcp.Status.Storage.S3.EndpointURL,
 		},
 		{
 			Name:  "DEFAULT_REGION",
-			Value: bcp.Status.S3.Region,
+			Value: bcp.Status.Storage.S3.Region,
 		},
 		{
 			Name: "ACCESS_KEY_ID",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: bcp.Status.S3.CredentialsSecret,
+						Name: bcp.Status.Storage.S3.CredentialsSecret,
 					},
 					Key: "AWS_ACCESS_KEY_ID",
 				},
@@ -442,7 +442,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: bcp.Status.S3.CredentialsSecret,
+						Name: bcp.Status.Storage.S3.CredentialsSecret,
 					},
 					Key: "AWS_SECRET_ACCESS_KEY",
 				},
@@ -492,9 +492,9 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 				bucket = storage.S3.Bucket
 			}
 		}
-		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.S3 != nil {
-			storageS3 = *cr.Spec.PITR.BackupSource.S3
-			bucket = cr.Spec.PITR.BackupSource.S3.Bucket
+		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.Storage != nil {
+			storageS3 = cr.Spec.PITR.BackupSource.Storage.S3
+			bucket = storageS3.Bucket
 		}
 
 		if len(bucket) == 0 {

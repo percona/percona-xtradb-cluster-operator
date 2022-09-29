@@ -492,7 +492,8 @@ const (
 )
 
 const (
-	FinalizerDeleteS3Backup string = "delete-s3-backup"
+	FinalizerDeleteS3Backup    string = "delete-s3-backup"
+	FinalizerDeleteAzureBackup string = "delete-azure-backup"
 )
 
 type BackupStorageS3Spec struct {

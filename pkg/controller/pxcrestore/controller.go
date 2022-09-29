@@ -255,11 +255,14 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBCl
 				StorageName: cr.Spec.BackupSource.StorageName,
 			},
 			Status: api.PXCBackupStatus{
-				State:       api.BackupSucceeded,
-				Destination: cr.Spec.BackupSource.Destination,
-				StorageName: cr.Spec.BackupSource.StorageName,
-				S3:          cr.Spec.BackupSource.S3,
-				Azure:       cr.Spec.BackupSource.Azure,
+				State:                 api.BackupSucceeded,
+				Destination:           cr.Spec.BackupSource.Destination,
+				StorageName:           cr.Spec.BackupSource.StorageName,
+				Image:                 cr.Spec.BackupSource.Image,
+				Storage:               cr.Spec.BackupSource.Storage,
+				SSLSecretName:         cr.Spec.BackupSource.SSLSecretName,
+				SSLInternalSecretName: cr.Spec.BackupSource.SSLInternalSecretName,
+				VaultSecretName:       cr.Spec.BackupSource.VaultSecretName,
 			},
 		}, nil
 	}

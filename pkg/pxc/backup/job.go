@@ -105,13 +105,13 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}, nil
 }
 
-func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) error {
+func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
 	// Volume for secret
 	secretVol := corev1.Volume{
 		Name: "ssl",
 	}
 	secretVol.Secret = &corev1.SecretVolumeSource{}
-	secretVol.Secret.SecretName = cr.Spec.PXC.SSLSecretName
+	secretVol.Secret.SecretName = cr.Status.SSLSecretName
 	t := true
 	secretVol.Secret.Optional = &t
 
@@ -120,7 +120,7 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) err
 		Name: "ssl-internal",
 	}
 	secretIntVol.Secret = &corev1.SecretVolumeSource{}
-	secretIntVol.Secret.SecretName = cr.Spec.PXC.SSLInternalSecretName
+	secretIntVol.Secret.SecretName = cr.Status.SSLInternalSecretName
 	secretIntVol.Secret.Optional = &t
 
 	// Volume for vault secret
@@ -128,7 +128,7 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) err
 		Name: "vault-keyring-secret",
 	}
 	secretVaultVol.Secret = &corev1.SecretVolumeSource{}
-	secretVaultVol.Secret.SecretName = cr.Spec.PXC.VaultSecretName
+	secretVaultVol.Secret.SecretName = cr.Status.VaultSecretName
 	secretVaultVol.Secret.Optional = &t
 
 	if len(job.Template.Spec.Containers) == 0 {
@@ -159,7 +159,7 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster) err
 	return nil
 }
 
-func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, volName string) error {
+func SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, volName string) error {
 	pvc := corev1.Volume{
 		Name: "xtrabackup",
 	}
@@ -190,7 +190,11 @@ func (Backup) SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, 
 	return nil
 }
 
-func (Backup) SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, azure api.BackupStorageAzureSpec, destination string) error {
+func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
+	var azure api.BackupStorageAzureSpec
+	if cr.Status.Storage != nil {
+		azure = cr.Status.Storage.Azure
+	}
 	storageAccount := corev1.EnvVar{
 		Name: "AZURE_STORAGE_ACCOUNT",
 		ValueFrom: &corev1.EnvVarSource{
@@ -217,7 +221,7 @@ func (Backup) SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster
 	}
 	backupPath := corev1.EnvVar{
 		Name:  "BACKUP_PATH",
-		Value: strings.TrimPrefix(destination, "azure://"+azure.ContainerName+"/"),
+		Value: strings.TrimPrefix(cr.Status.Destination, "azure://"+azure.ContainerName+"/"),
 	}
 	if len(job.Template.Spec.Containers) == 0 {
 		return errors.New("no containers in job spec")
@@ -236,7 +240,11 @@ func (Backup) SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster
 	return nil
 }
 
-func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s3 api.BackupStorageS3Spec, destination string) error {
+func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
+	var s3 api.BackupStorageS3Spec
+	if cr.Status.Storage != nil {
+		s3 = cr.Status.Storage.S3
+	}
 	accessKey := corev1.EnvVar{
 		Name: "ACCESS_KEY_ID",
 		ValueFrom: &corev1.EnvVarSource{
@@ -263,7 +271,7 @@ func (Backup) SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBCluster, s
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, endpoint)
 
-	u, err := parseS3URL(destination)
+	u, err := parseS3URL(cr.Status.Destination)
 	if err != nil {
 		return errors.Wrap(err, "failed to create job")
 	}
@@ -296,4 +304,96 @@ func parseS3URL(bucketURL string) (*url.URL, error) {
 	}
 
 	return u, nil
+}
+
+func GetDeleteJob(cr *api.PerconaXtraDBClusterBackup) *batchv1.Job {
+	var one int32 = 1
+	t := true
+
+	storage := cr.Status.Storage
+	labels := make(map[string]string)
+	for key, value := range storage.Labels {
+		labels[key] = value
+	}
+	labels["type"] = "xtrabackup"
+	labels["cluster"] = cr.Spec.PXCCluster
+	labels["job-name"] = DeleteJobName(cr)
+
+	verifyTLS := true
+	if storage.VerifyTLS != nil {
+		verifyTLS = *storage.VerifyTLS
+	}
+	job := &batchv1.Job{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1",
+			Kind:       "Job",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        labels["job-name"],
+			Namespace:   cr.Namespace,
+			Labels:      labels,
+			Annotations: storage.Annotations,
+		},
+		Spec: batchv1.JobSpec{
+			Parallelism: &one,
+			Completions: &one,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					RestartPolicy:         corev1.RestartPolicyNever,
+					ShareProcessNamespace: &t,
+					SetHostnameAsFQDN:     &t,
+					Containers: []corev1.Container{
+						{
+							Name:            "xtrabackup",
+							Image:           cr.Status.Image,
+							SecurityContext: storage.ContainerSecurityContext,
+							ImagePullPolicy: corev1.PullNever,
+							Command:         []string{"xbcloud", "delete", "--parallel=10", "--curl-retriable-errors=7", cr.Status.Destination},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "VERIFY_TLS",
+									Value: strconv.FormatBool(verifyTLS),
+								},
+							},
+							Resources: storage.Resources,
+						},
+					},
+					SecurityContext:   storage.PodSecurityContext,
+					Affinity:          storage.Affinity,
+					Tolerations:       storage.Tolerations,
+					NodeSelector:      storage.NodeSelector,
+					SchedulerName:     storage.SchedulerName,
+					PriorityClassName: storage.PriorityClassName,
+					RuntimeClassName:  storage.RuntimeClassName,
+					DNSPolicy:         corev1.DNSClusterFirst,
+					//Volumes: []corev1.Volume{
+					//	{
+					//		Name: apiv1alpha1.BinVolumeName,
+					//		VolumeSource: corev1.VolumeSource{
+					//			EmptyDir: &corev1.EmptyDirVolumeSource{},
+					//		},
+					//	},
+					//	{
+					//		Name: dataVolumeName,
+					//		VolumeSource: corev1.VolumeSource{
+					//			EmptyDir: &corev1.EmptyDirVolumeSource{},
+					//		},
+					//	},
+					//	{
+					//		Name: tlsVolumeName,
+					//		VolumeSource: corev1.VolumeSource{
+					//			Secret: &corev1.SecretVolumeSource{
+					//				SecretName: cr.Status.SSLSecretName,
+					//			},
+					//		},
+					//	},
+					//},
+				},
+			},
+		},
+	}
+	return job
 }

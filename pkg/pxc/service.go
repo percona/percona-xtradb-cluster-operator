@@ -200,7 +200,7 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	loadBalancerIP := ""
 	if cr.Spec.ProxySQL != nil {
 		serviceAnnotations = cr.Spec.ProxySQL.ServiceAnnotations
-		serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.ProxySQL)
+		serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.ProxySQL.ServiceLabels)
 		loadBalancerSourceRanges = cr.Spec.ProxySQL.LoadBalancerSourceRanges
 		loadBalancerIP = cr.Spec.ProxySQL.LoadBalancerIP
 	}
@@ -278,7 +278,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster, owners ...metav1.OwnerRefer
 	loadBalancerIP := ""
 	if cr.Spec.HAProxy != nil {
 		serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
-		serviceLabels = fillServiceLabels(serviceLabels, &cr.Spec.HAProxy.PodSpec)
+		serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.PodSpec.ServiceLabels)
 		loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
 		loadBalancerIP = cr.Spec.HAProxy.LoadBalancerIP
 	}
@@ -368,8 +368,13 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster, owners ...metav1.Ow
 	loadBalancerSourceRanges := []string{}
 	loadBalancerIP := ""
 	if cr.Spec.HAProxy != nil {
-		serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
-		serviceLabels = fillServiceLabels(serviceLabels, &cr.Spec.HAProxy.PodSpec)
+		if cr.CompareVersionWith("1.12.0") >= 0 {
+			serviceAnnotations = cr.Spec.HAProxy.ReplicasServiceAnnotations
+			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.PodSpec.ReplicasServiceLabels)
+		} else {
+			serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
+			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.PodSpec.ServiceLabels)
+		}
 		if cr.Spec.HAProxy.ReplicasLoadBalancerSourceRanges != nil {
 			loadBalancerSourceRanges = cr.Spec.HAProxy.ReplicasLoadBalancerSourceRanges
 		} else {
@@ -420,8 +425,8 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster, owners ...metav1.Ow
 	return obj
 }
 
-func fillServiceLabels(labels map[string]string, pod *api.PodSpec) map[string]string {
-	for k, v := range pod.ServiceLabels {
+func fillServiceLabels(labels map[string]string, serviceLabels map[string]string) map[string]string {
+	for k, v := range serviceLabels {
 		if _, ok := labels[k]; ok {
 			continue
 		}

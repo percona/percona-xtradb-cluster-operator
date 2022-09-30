@@ -10006,8 +10006,16 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasServiceAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceEnabled:
                       type: boolean
+                    replicasServiceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceType:
                       type: string
                     resources:
@@ -12508,6 +12516,14 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasServiceAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    replicasServiceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceType:
                       type: string
                     resources:
@@ -14825,6 +14841,14 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasServiceAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    replicasServiceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceType:
                       type: string
                     replicationChannels:
@@ -16647,87 +16671,87 @@ spec:
     listKind: PerconaXtraDBClusterBackupList
     plural: perconaxtradbclusterbackups
     shortNames:
-    - pxc-backup
-    - pxc-backups
+      - pxc-backup
+      - pxc-backups
     singular: perconaxtradbclusterbackup
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: Cluster name
-      jsonPath: .spec.pxcCluster
-      name: Cluster
-      type: string
-    - description: Storage name from pxc spec
-      jsonPath: .status.storageName
-      name: Storage
-      type: string
-    - description: Backup destination
-      jsonPath: .status.destination
-      name: Destination
-      type: string
-    - description: Job status
-      jsonPath: .status.state
-      name: Status
-      type: string
-    - description: Completed time
-      jsonPath: .status.completed
-      name: Completed
-      type: date
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          priorityClassName:
-            type: string
-          schedulerName:
-            type: string
-          spec:
-            properties:
-              pxcCluster:
-                type: string
-              storageName:
-                type: string
-            type: object
-          status:
-            properties:
-              completed:
-                format: date-time
-                type: string
-              destination:
-                type: string
-              lastscheduled:
-                format: date-time
-                type: string
-              s3:
-                properties:
-                  bucket:
-                    type: string
-                  credentialsSecret:
-                    type: string
-                  endpointUrl:
-                    type: string
-                  region:
-                    type: string
-                type: object
-              state:
-                type: string
-              storageName:
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
+    - additionalPrinterColumns:
+        - description: Cluster name
+          jsonPath: .spec.pxcCluster
+          name: Cluster
+          type: string
+        - description: Storage name from pxc spec
+          jsonPath: .status.storageName
+          name: Storage
+          type: string
+        - description: Backup destination
+          jsonPath: .status.destination
+          name: Destination
+          type: string
+        - description: Job status
+          jsonPath: .status.state
+          name: Status
+          type: string
+        - description: Completed time
+          jsonPath: .status.completed
+          name: Completed
+          type: date
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            priorityClassName:
+              type: string
+            schedulerName:
+              type: string
+            spec:
+              properties:
+                pxcCluster:
+                  type: string
+                storageName:
+                  type: string
+              type: object
+            status:
+              properties:
+                completed:
+                  format: date-time
+                  type: string
+                destination:
+                  type: string
+                lastscheduled:
+                  format: date-time
+                  type: string
+                s3:
+                  properties:
+                    bucket:
+                      type: string
+                    credentialsSecret:
+                      type: string
+                    endpointUrl:
+                      type: string
+                    region:
+                      type: string
+                  type: object
+                state:
+                  type: string
+                storageName:
+                  type: string
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
 status:
   acceptedNames:
     kind: ""
@@ -16749,123 +16773,123 @@ spec:
     listKind: PerconaXtraDBClusterRestoreList
     plural: perconaxtradbclusterrestores
     shortNames:
-    - pxc-restore
-    - pxc-restores
+      - pxc-restore
+      - pxc-restores
     singular: perconaxtradbclusterrestore
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: Cluster name
-      jsonPath: .spec.pxcCluster
-      name: Cluster
-      type: string
-    - description: Job status
-      jsonPath: .status.state
-      name: Status
-      type: string
-    - description: Completed time
-      jsonPath: .status.completed
-      name: Completed
-      type: date
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          spec:
-            properties:
-              backupName:
-                type: string
-              backupSource:
-                properties:
-                  completed:
-                    format: date-time
-                    type: string
-                  destination:
-                    type: string
-                  lastscheduled:
-                    format: date-time
-                    type: string
-                  s3:
-                    properties:
-                      bucket:
-                        type: string
-                      credentialsSecret:
-                        type: string
-                      endpointUrl:
-                        type: string
-                      region:
-                        type: string
-                    type: object
-                  state:
-                    type: string
-                  storageName:
-                    type: string
-                type: object
-              pitr:
-                properties:
-                  backupSource:
-                    properties:
-                      completed:
-                        format: date-time
-                        type: string
-                      destination:
-                        type: string
-                      lastscheduled:
-                        format: date-time
-                        type: string
-                      s3:
-                        properties:
-                          bucket:
-                            type: string
-                          credentialsSecret:
-                            type: string
-                          endpointUrl:
-                            type: string
-                          region:
-                            type: string
-                        type: object
-                      state:
-                        type: string
-                      storageName:
-                        type: string
-                    type: object
-                  date:
-                    type: string
-                  gtid:
-                    type: string
-                  type:
-                    type: string
-                type: object
-              pxcCluster:
-                type: string
-            type: object
-          status:
-            properties:
-              comments:
-                type: string
-              completed:
-                format: date-time
-                type: string
-              lastscheduled:
-                format: date-time
-                type: string
-              state:
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
+    - additionalPrinterColumns:
+        - description: Cluster name
+          jsonPath: .spec.pxcCluster
+          name: Cluster
+          type: string
+        - description: Job status
+          jsonPath: .status.state
+          name: Status
+          type: string
+        - description: Completed time
+          jsonPath: .status.completed
+          name: Completed
+          type: date
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              properties:
+                backupName:
+                  type: string
+                backupSource:
+                  properties:
+                    completed:
+                      format: date-time
+                      type: string
+                    destination:
+                      type: string
+                    lastscheduled:
+                      format: date-time
+                      type: string
+                    s3:
+                      properties:
+                        bucket:
+                          type: string
+                        credentialsSecret:
+                          type: string
+                        endpointUrl:
+                          type: string
+                        region:
+                          type: string
+                      type: object
+                    state:
+                      type: string
+                    storageName:
+                      type: string
+                  type: object
+                pitr:
+                  properties:
+                    backupSource:
+                      properties:
+                        completed:
+                          format: date-time
+                          type: string
+                        destination:
+                          type: string
+                        lastscheduled:
+                          format: date-time
+                          type: string
+                        s3:
+                          properties:
+                            bucket:
+                              type: string
+                            credentialsSecret:
+                              type: string
+                            endpointUrl:
+                              type: string
+                            region:
+                              type: string
+                          type: object
+                        state:
+                          type: string
+                        storageName:
+                          type: string
+                      type: object
+                    date:
+                      type: string
+                    gtid:
+                      type: string
+                    type:
+                      type: string
+                  type: object
+                pxcCluster:
+                  type: string
+              type: object
+            status:
+              properties:
+                comments:
+                  type: string
+                completed:
+                  format: date-time
+                  type: string
+                lastscheduled:
+                  format: date-time
+                  type: string
+                state:
+                  type: string
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
 status:
   acceptedNames:
     kind: ""

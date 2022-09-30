@@ -162,18 +162,27 @@ main() {
 		        description: "This priority class should be used for backup service pods only."
 	EOF
 
-	spinup_pxc "$cluster" "$test_dir/conf/${cluster}1.yml"
+	spinup_pxc "$cluster" "$test_dir/conf/${cluster}-init.yml"
 	sleep 20
 
-	desc 'add backups schedule, wait for the first backup'
-	apply_config "$test_dir/conf/${cluster}2.yml"
-	label_node
-	sleep 20
-
+	desc 'add backups schedule for different backups'
 	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
-
-	sleep 65
-	apply_config "${test_dir}/conf/${cluster}3.yml"
+	apply_config "${test_dir}/conf/${cluster}-pvc.yml"
+	label_node
+	sleep 61
+	apply_config "${test_dir}/conf/${cluster}-disable.yml"
+	wait_all_backups
+	apply_config "${test_dir}/conf/${cluster}-aws.yml"
+	sleep 61
+	apply_config "${test_dir}/conf/${cluster}-disable.yml"
+	wait_all_backups
+	apply_config "${test_dir}/conf/${cluster}-minio.yml"
+	sleep 61
+	apply_config "${test_dir}/conf/${cluster}-disable.yml"
+	wait_all_backups
+	apply_config "${test_dir}/conf/${cluster}-gcs.yml"
+	sleep 61
+	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
 
 	FIRST_PVC_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep pvc | head -n1 | cut -d: -f1)
@@ -201,7 +210,7 @@ main() {
 		backup_name_gcp=$(get_backup_name "gcp-cs")
 	fi
 
-	apply_config "$test_dir/conf/${cluster}1.yml"
+	apply_config "$test_dir/conf/${cluster}-init.yml"
 
 	run_recovery_check "$cluster" "$backup_name_pvc"
 	run_recovery_check "$cluster" "$backup_name_minio"

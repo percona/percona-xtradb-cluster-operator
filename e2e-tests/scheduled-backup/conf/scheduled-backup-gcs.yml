@@ -161,18 +161,6 @@ spec:
         schedulerName: 'default-scheduler'
         priorityClassName: 'high-priority'
     schedule:
-      - name: each-min-pvc
-        schedule: "* * * * *"
-        keep: 30
-        storageName: pvc
-      - name: each-min-aws-s3
-        schedule: "* * * * *"
-        keep: 30
-        storageName: aws-s3
-      - name: each-min-minio
-        schedule: "* * * * *"
-        keep: 30
-        storageName: minio
       - name: each-min-gcp-cs
         schedule: "* * * * *"
         keep: 30

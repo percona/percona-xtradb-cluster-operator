@@ -575,7 +575,7 @@ destroy() {
 	kubectl_bin delete pxc-restore --all --all-namespaces || :
 	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
 
-	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml 2>/dev/null || :
+	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml 2>/dev/null || :
 	if [ ! -z "$OPENSHIFT" ]; then
 		oc delete --grace-period=0 --force=true project "$namespace" &
 		if [ -n "$OPERATOR_NS" ]; then

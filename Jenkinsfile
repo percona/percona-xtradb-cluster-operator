@@ -85,12 +85,13 @@ void setTestsresults() {
 void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION) {
     def retryCount = 0
     def testNameWithMysqlVersion = sh(script: "echo ${TEST_NAME}-${MYSQL_VERSION} | tr '.' '-'", , returnStdout: true).trim()
+    echo "$testNameWithMysqlVersion"
     waitUntil {
         def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
         echo " test url is $testUrl"
         try {
             echo "The $TEST_NAME test was started!"
-            testsReportMap[$testNameWithMysqlVersion] = "[failed]($testUrl)"
+            testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
             timeout(time: 90, unit: 'MINUTES') {
@@ -106,7 +107,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION) {
                 """
             }
             echo "end test url is $testUrl"
-            testsReportMap[$testNameWithMysqlVersion] = "[passed]($testUrl)"
+            testsReportMap["$testNameWithMysqlVersion"] = "[passed]($testUrl)"
             testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"] = 'passed'
             return true
         }
@@ -119,7 +120,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION) {
             return false
         }
         finally {
-            pushLogFile($testNameWithMysqlVersion)
+            pushLogFile("$testNameWithMysqlVersion")
             echo "The $TEST_NAME test was finished!"
         }
     }

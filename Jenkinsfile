@@ -299,40 +299,40 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             parallel {
-//                 stage('E2E Upgrade') {
-//                     steps {
-//                         CreateCluster('upgrade')
-//                         runTest('upgrade-haproxy', 'upgrade', '8.0', 'upgrade-haproxy-8-0')
-//                         ShutdownCluster('upgrade')
-//                         CreateCluster('upgrade')
-//                         runTest('upgrade-proxysql', 'upgrade', '8.0', 'upgrade-proxysql-8-0')
-//                         ShutdownCluster('upgrade')
-//                         CreateCluster('upgrade')
-//                         runTest('smart-update', 'upgrade', '8.0', 'smart-update-8-0')
-//                         runTest('upgrade-consistency', 'upgrade', '8.0', 'upgrade-consistency-8-0')
-//                         ShutdownCluster('upgrade')
-//                     }
-//                 }
-//                 stage('E2E Basic Tests') {
-//                     steps {
-//                         CreateCluster('basic')
-//                         runTest('haproxy', 'basic', '8.0', 'haproxy-8-0')
-//                         runTest('init-deploy', 'basic', '8.0', 'init-deploy-8-0')
-//                         runTest('limits', 'basic', '8.0', 'limits-8-0')
-//                         runTest('monitoring-2-0', 'basic', '8.0', 'monitoring-2-0-8-0')
-//                         runTest('affinity', 'basic', '8.0', 'affinity-8-0')
-//                         runTest('one-pod', 'basic', '8.0', 'one-pod-8-0')
-//                         runTest('auto-tuning', 'basic', '8.0', 'auto-tuning-8-0')
-//                         runTest('proxysql-sidecar-res-limits', 'basic', '8.0', 'proxysql-sidecar-res-limits-8-0')
-//                         runTest('users', 'basic', '8.0', 'users-8-0')
-//                         runTest('tls-issue-self','basic', '8.0', 'tls-issue-self-8-0')
-//                         runTest('tls-issue-cert-manager','basic', '8.0', 'tls-issue-cert-manager-8-0')
-//                         runTest('tls-issue-cert-manager-ref','basic', '8.0', 'tls-issue-cert-manager-ref-8-0')
-//                         runTest('validation-hook','basic', '8.0', 'validation-hook-8-0')
-//                         runTest('proxy-protocol','basic', '8.0', 'proxy-protocol-8-0')
-//                         ShutdownCluster('basic')
-//                     }
-//                 }
+                stage('E2E Upgrade') {
+                    steps {
+                        CreateCluster('upgrade')
+                        runTest('upgrade-haproxy', 'upgrade', '8.0')
+                        ShutdownCluster('upgrade')
+                        CreateCluster('upgrade')
+                        runTest('upgrade-proxysql', 'upgrade', '8.0')
+                        ShutdownCluster('upgrade')
+                        CreateCluster('upgrade')
+                        runTest('smart-update', 'upgrade', '8.0')
+                        runTest('upgrade-consistency', 'upgrade', '8.0')
+                        ShutdownCluster('upgrade')
+                    }
+                }
+                stage('E2E Basic Tests') {
+                    steps {
+                        CreateCluster('basic')
+                        runTest('haproxy', 'basic', '8.0')
+                        runTest('init-deploy', 'basic', '8.0')
+                        runTest('limits', 'basic', '8.0')
+                        runTest('monitoring-2-0', 'basic', '8.0')
+                        runTest('affinity', 'basic', '8.0')
+                        runTest('one-pod', 'basic', '8.0')
+                        runTest('auto-tuning', 'basic', '8.0')
+                        runTest('proxysql-sidecar-res-limits', 'basic', '8.0')
+                        runTest('users', 'basic', '8.0')
+                        runTest('tls-issue-self','basic', '8.0')
+                        runTest('tls-issue-cert-manager','basic', '8.0')
+                        runTest('tls-issue-cert-manager-ref','basic', '8.0')
+                        runTest('validation-hook','basic', '8.0')
+                        runTest('proxy-protocol','basic', '8.0')
+                        ShutdownCluster('basic')
+                    }
+                }
                 stage('E2E Scaling') {
                     steps {
                         CreateCluster('scaling')
@@ -342,62 +342,62 @@ pipeline {
                         ShutdownCluster('scaling')
                     }
                 }
-//                 stage('E2E SelfHealing') {
-//                     steps {
-//                         CreateCluster('selfhealing')
-//                         runTest('storage', 'selfhealing', '8.0', 'storage-8-0')
-//                         runTest('self-healing', 'selfhealing', '8.0', 'self-healing-8-0')
-//                         runTest('self-healing-chaos', 'selfhealing', '8.0', 'self-healing-chaos-8-0')
-//                         runTest('self-healing-advanced', 'selfhealing', '8.0', 'self-healing-advanced-8-0')
-//                         runTest('self-healing-advanced-chaos', 'selfhealing', '8.0', 'self-healing-advanced-chaos-8-0')
-//                         runTest('operator-self-healing', 'selfhealing', '8.0', 'operator-self-healing-8-0')
-//                         runTest('operator-self-healing-chaos', 'selfhealing', '8.0', 'operator-self-healing-chaos-8-0')
-//                         ShutdownCluster('selfhealing')
-//                     }
-//                 }
-//                 stage('E2E Backups') {
-//                     steps {
-//                         CreateCluster('backups')
-//                         runTest('recreate', 'backups', '8.0', 'recreate-8-0')
-//                         runTest('restore-to-encrypted-cluster', 'backups', '8.0', 'restore-to-encrypted-cluster-8-0')
-//                         runTest('demand-backup', 'backups', '8.0', 'demand-backup-8-0')
-//                         runTest('pitr', 'backups', '8.0', 'pitr-8-0')
-//                         runTest('demand-backup-encrypted-with-tls', 'backups', '8.0', 'demand-backup-encrypted-with-tls-8-0')
-//                         ShutdownCluster('backups')
-//                     }
-//                 }
-//                 stage('E2E Scheduled-backups') {
-//                     steps {
-//                         CreateCluster('scheduled-backups')
-//                         runTest('scheduled-backup', 'scheduled-backups', '8.0', 'scheduled-backup-8-0')
-//                         ShutdownCluster('scheduled-backups')
-//                     }
-//                 }
-//                 stage('E2E BigData') {
-//                     steps {
-//                         CreateCluster('bigdata')
-//                         runTest('big-data', 'bigdata', '8.0', 'big-data-8-0')
-//                         ShutdownCluster('bigdata')
-//                     }
-//                 }
-//                 stage('E2E CrossSite') {
-//                     steps {
-//                         CreateCluster('cross-site')
-//                         runTest('cross-site', 'cross-site', '8.0', 'cross-site-8-0')
-//                         ShutdownCluster('cross-site')
-//                     }
-//                 }
-//                 stage('E2E Mysql 5.7') {
-//                     steps {
-//                         CreateCluster('mysql-57')
-//                         runTest('users', 'mysql-57', '5.7', 'users-5-7')
-//                         runTest('one-pod', 'mysql-57', '5.7', 'one-pod-5-7')
-//                         runTest('scheduled-backup', 'mysql-57', '5.7', 'scheduled-backup-5-7')
-//                         runTest('init-deploy', 'mysql-57', '5.7', 'init-deploy-5-7')
-//                         runTest('haproxy', 'mysql-57', '5.7', 'haproxy-5-7')
-//                         ShutdownCluster('mysql-57')
-//                     }
-//                 }
+                stage('E2E SelfHealing') {
+                    steps {
+                        CreateCluster('selfhealing')
+                        runTest('storage', 'selfhealing', '8.0')
+                        runTest('self-healing', 'selfhealing', '8.0')
+                        runTest('self-healing-chaos', 'selfhealing', '8.0')
+                        runTest('self-healing-advanced', 'selfhealing', '8.0')
+                        runTest('self-healing-advanced-chaos', 'selfhealing', '8.0')
+                        runTest('operator-self-healing', 'selfhealing', '8.0')
+                        runTest('operator-self-healing-chaos', 'selfhealing', '8.0')
+                        ShutdownCluster('selfhealing')
+                    }
+                }
+                stage('E2E Backups') {
+                    steps {
+                        CreateCluster('backups')
+                        runTest('recreate', 'backups', '8.0')
+                        runTest('restore-to-encrypted-cluster', 'backups', '8.0')
+                        runTest('demand-backup', 'backups', '8.0')
+                        runTest('pitr', 'backups', '8.0')
+                        runTest('demand-backup-encrypted-with-tls', 'backups', '8.0')
+                        ShutdownCluster('backups')
+                    }
+                }
+                stage('E2E Scheduled-backups') {
+                    steps {
+                        CreateCluster('scheduled-backups')
+                        runTest('scheduled-backup', 'scheduled-backups', '8.0')
+                        ShutdownCluster('scheduled-backups')
+                    }
+                }
+                stage('E2E BigData') {
+                    steps {
+                        CreateCluster('bigdata')
+                        runTest('big-data', 'bigdata', '8.0')
+                        ShutdownCluster('bigdata')
+                    }
+                }
+                stage('E2E CrossSite') {
+                    steps {
+                        CreateCluster('cross-site')
+                        runTest('cross-site', 'cross-site', '8.0')
+                        ShutdownCluster('cross-site')
+                    }
+                }
+                stage('E2E Mysql 5.7') {
+                    steps {
+                        CreateCluster('mysql-57')
+                        runTest('users', 'mysql-57', '5.7')
+                        runTest('one-pod', 'mysql-57', '5.7')
+                        runTest('scheduled-backup', 'mysql-57', '5.7')
+                        runTest('init-deploy', 'mysql-57', '5.7')
+                        runTest('haproxy', 'mysql-57', '5.7')
+                        ShutdownCluster('mysql-57')
+                    }
+                }
             }
         }
     }

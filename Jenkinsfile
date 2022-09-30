@@ -299,9 +299,9 @@ pipeline {
                 stage('cluster1') {
                     steps {
                         CreateCluster('cluster1')
-                        runTest('upgrade-haproxy', 'upgrade')
-                        runTest('upgrade-proxysql', 'upgrade')
-                        ShutdownCluster('upgrade')
+                        runTest('upgrade-haproxy', 'cluster1')
+                        runTest('upgrade-proxysql', 'cluster1')
+                        ShutdownCluster('cluster1')
                     }
                 }
                 stage('cluster2') {

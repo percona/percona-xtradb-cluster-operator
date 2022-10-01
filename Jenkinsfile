@@ -351,12 +351,7 @@ pipeline {
                     steps {
                         CreateCluster('cluster6')
                         runTest('storage', 'cluster6')
-                        runTest('self-healing', 'cluster6')
                         runTest('self-healing-chaos', 'cluster6')
-                        runTest('self-healing-advanced', 'cluster6')
-                        runTest('self-healing-advanced-chaos', 'cluster6')
-                        runTest('operator-self-healing', 'cluster6')
-                        runTest('operator-self-healing-chaos', 'cluster6')
                         ShutdownCluster('cluster6')
                     }
                 }
@@ -375,6 +370,7 @@ pipeline {
                     steps {
                         CreateCluster('cluster8')
                         runTest('scheduled-backup', 'cluster8')
+                        runTest('self-healing-advanced-chaos', 'cluster6')
                         ShutdownCluster('cluster8')
                     }
                 }
@@ -382,6 +378,7 @@ pipeline {
                     steps {
                         CreateCluster('cluster9')
                         runTest('big-data', 'cluster9')
+                        runTest('operator-self-healing-chaos', 'cluster6')
                         ShutdownCluster('cluster9')
                     }
                 }

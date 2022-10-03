@@ -93,7 +93,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION) {
             testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
-            timeout(time: 60, unit: 'MINUTES') {
+            timeout(time: 65, unit: 'MINUTES') {
                 sh """
                     if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion" ]; then
                         echo Skip $TEST_NAME test
@@ -375,7 +375,7 @@ pipeline {
                 stage('cluster9') {
                     steps {
                         CreateCluster('cluster9')
-                        runTest('big-data', 'cluster9')
+                        runTest('cross-site', 'cluster9')
                         ShutdownCluster('cluster9')
                     }
                 }

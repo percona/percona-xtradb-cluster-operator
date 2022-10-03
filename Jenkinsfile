@@ -379,24 +379,28 @@ pipeline {
                         runTest('recreate', 'cluster9')
                         ShutdownCluster('cluster9')
                     }
+                }
                 stage('cluster10') {
                     steps {
                         CreateCluster('cluster10')
                         runTest('users', 'cluster10')
                         ShutdownCluster('cluster10')
                     }
+                }
                 stage('cluster11') {
                     steps {
                         CreateCluster('cluster11')
                         runTest('demand-backup', 'cluster11')
                         ShutdownCluster('cluster11')
                     }
+                }
                 stage('cluster12') {
                     steps {
                         CreateCluster('cluster12')
                         runTest('demand-backup-encrypted-with-tls', 'cluster12')
                         ShutdownCluster('cluster12')
                     }
+                }
                 stage('cluster13') {
                     steps {
                         CreateCluster('cluster13')

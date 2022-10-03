@@ -160,7 +160,6 @@ pipeline {
                 }
             }
             steps {
-                stash includes: 'vendor/**', name: 'vendorFILES'
                 installRpms()
                 script {
                     if ( AUTHOR_NAME == 'null' )  {
@@ -242,7 +241,7 @@ pipeline {
                             --rm \
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            golang:1.17 sh -c '
+                            golang:1.19 sh -c '
                                 go install -mod=readonly github.com/google/go-licenses@latest;
                                 /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
                                     | cut -d , -f 3 \
@@ -270,7 +269,7 @@ pipeline {
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
-                            golang:1.17 sh -c 'go build -v -mod=vendor -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
+                            golang:1.19 sh -c 'go build -v -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
                     "
                 '''
 
@@ -285,7 +284,6 @@ pipeline {
                         diff -u e2e-tests/license/compare/golicense golicense-new
                     """
                 }
-                unstash 'vendorFILES'
             }
         }
         stage('Run tests for operator') {

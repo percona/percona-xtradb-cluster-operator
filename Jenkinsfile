@@ -7,11 +7,18 @@ void CreateCluster(String CLUSTER_PREFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
-            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-            gcloud config set project $GCP_PROJECT
-            gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-            gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
-            kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
+            ret_num=0
+            while [ \${ret_num} -lt 15 ]; do
+                ret_val=0
+                gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+                gcloud config set project $GCP_PROJECT
+                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
+                kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
+                if [ \${ret_val} -eq 0 ]; then break; fi
+                ret_num=\$((ret_num + 1))
+            done
+            if [ \${ret_num} -eq 15 ]; then exit 1; fi
         """
    }
 }

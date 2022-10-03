@@ -100,7 +100,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION) {
             testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
-            timeout(time: 65, unit: 'MINUTES') {
+            timeout(time: 75, unit: 'MINUTES') {
                 sh """
                     if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion" ]; then
                         echo Skip $TEST_NAME test
@@ -315,20 +315,15 @@ pipeline {
                     steps {
                         CreateCluster('cluster2')
                         runTest('smart-update', 'cluster2')
-                        runTest('upgrade-consistency', 'cluster2')
                         ShutdownCluster('cluster2')
                     }
                 }
                 stage('cluster3') {
                     steps {
                         CreateCluster('cluster3')
-                        runTest('haproxy', 'cluster3')
                         runTest('init-deploy', 'cluster3')
                         runTest('limits', 'cluster3')
                         runTest('monitoring-2-0', 'cluster3')
-                        runTest('affinity', 'cluster3')
-                        runTest('one-pod', 'cluster3')
-                        runTest('auto-tuning', 'cluster3')
                         ShutdownCluster('cluster3')
                     }
                 }
@@ -336,12 +331,10 @@ pipeline {
                     steps {
                         CreateCluster('cluster4')
                         runTest('proxysql-sidecar-res-limits', 'cluster4')
-                        runTest('users', 'cluster4')
                         runTest('tls-issue-self','cluster4')
                         runTest('tls-issue-cert-manager','cluster4')
                         runTest('tls-issue-cert-manager-ref','cluster4')
                         runTest('validation-hook','cluster4')
-                        runTest('proxy-protocol','cluster4')
                         ShutdownCluster('cluster4')
                     }
                 }
@@ -358,17 +351,17 @@ pipeline {
                     steps {
                         CreateCluster('cluster6')
                         runTest('storage', 'cluster6')
+                        runTest('upgrade-consistency', 'cluster6')
+                        runTest('proxy-protocol','cluster6')
                         ShutdownCluster('cluster6')
                     }
                 }
                 stage('cluster7') {
                     steps {
                         CreateCluster('cluster7')
-                        runTest('recreate', 'cluster7')
                         runTest('restore-to-encrypted-cluster', 'cluster7')
-                        runTest('demand-backup', 'cluster7')
                         runTest('pitr', 'cluster7')
-                        runTest('demand-backup-encrypted-with-tls', 'cluster7')
+                        runTest('affinity', 'cluster7')
                         ShutdownCluster('cluster7')
                     }
                 }
@@ -383,7 +376,34 @@ pipeline {
                     steps {
                         CreateCluster('cluster9')
                         runTest('cross-site', 'cluster9')
+                        runTest('recreate', 'cluster9')
                         ShutdownCluster('cluster9')
+                    }
+                stage('cluster10') {
+                    steps {
+                        CreateCluster('cluster10')
+                        runTest('users', 'cluster10')
+                        ShutdownCluster('cluster10')
+                    }
+                stage('cluster11') {
+                    steps {
+                        CreateCluster('cluster11')
+                        runTest('demand-backup', 'cluster11')
+                        ShutdownCluster('cluster11')
+                    }
+                stage('cluster12') {
+                    steps {
+                        CreateCluster('cluster12')
+                        runTest('demand-backup-encrypted-with-tls', 'cluster12')
+                        ShutdownCluster('cluster12')
+                    }
+                stage('cluster13') {
+                    steps {
+                        CreateCluster('cluster13')
+                        runTest('haproxy', 'cluster13')
+                        runTest('one-pod', 'cluster13')
+                        runTest('auto-tuning', 'cluster13')
+                        ShutdownCluster('cluster13')
                     }
                 }
                 stage('cluster10') {

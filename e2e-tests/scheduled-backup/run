@@ -73,7 +73,11 @@ wait_all_backups() {
 		sleep 20
 	done
 	if [[ "$(get_failed_backups_amount)" -gt 0 ]]; then
-		echo "One or more backups have been failed!"
+		echo "One or more backups have been failed!\n"
+		desc "LIST OF BACKUPS"
+		kubectl_bin get pxc-backup
+		desc "LIST OF PODS"
+		kubectl_bin get pods
 		exit 1
 	fi
 }
@@ -165,21 +169,24 @@ main() {
 	spinup_pxc "$cluster" "$test_dir/conf/${cluster}-init.yml"
 	sleep 20
 
-	desc 'add backups schedule for different backups'
+	desc 'add backups schedule for pvc storage'
 	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
 	apply_config "${test_dir}/conf/${cluster}-pvc.yml"
 	label_node
 	sleep 61
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
+	desc 'add backups schedule for aws s3 storage'
 	apply_config "${test_dir}/conf/${cluster}-aws.yml"
 	sleep 61
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
+	desc 'add backups schedule for minio storage'
 	apply_config "${test_dir}/conf/${cluster}-minio.yml"
 	sleep 61
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
+	desc 'add backups schedule for gcs storage'
 	apply_config "${test_dir}/conf/${cluster}-gcs.yml"
 	sleep 61
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"

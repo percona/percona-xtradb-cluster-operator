@@ -80,63 +80,6 @@ function main() {
 	kubectl_bin patch crd perconaxtradbclusters.pxc.percona.com --type='json' -p '[{"op":"add","path":"/spec/versions/-", "value":{"name": "v9-9-9","schema": {"openAPIV3Schema": {"properties": {"spec": {"type": "object","x-kubernetes-preserve-unknown-fields": true},"status": {"type": "object", "x-kubernetes-preserve-unknown-fields": true}}, "type": "object" }}, "served": true, "storage": false, "subresources": { "status": {}}}}]'
 
 	##################################################
-	desc 'Updating ProxySQL PXC cluster'
-	cp -f "${test_dir}/conf/${CLUSTER}.yml" "${tmp_dir}/${CLUSTER}.yml"
-	yq -i eval ".spec.initImage = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}.yml"
-	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}.yml"
-
-	initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$(get_proxy ${CLUSTER})-0")
-	kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
-	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
-
-	check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
-	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
-	for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
-		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
-	done
-
-	kubectl_bin delete -f "${test_dir}/conf/${CLUSTER}.yml"
-	kubectl_bin delete pvc --all
-
-	##################################################
-	desc 'Updating HAProxy PXC cluster'
-	cp -f "${test_dir}/conf/${CLUSTER}-haproxy.yml" "${tmp_dir}/${CLUSTER}-haproxy.yml"
-	yq -i eval ".spec.initImage = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-haproxy.yml"
-	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-haproxy.yml"
-
-	initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")
-	kubectl_bin patch pxc/${CLUSTER} --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
-	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
-
-	check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
-	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
-	for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
-		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
-	done
-
-	kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-haproxy.yml"
-	kubectl_bin delete pvc --all
-
-	##################################################
-	desc 'Updating PXC cluster with version service available but disabled'
-	cp -f "${test_dir}/conf/${CLUSTER}-version-service-reachable.yml" "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
-	yq -i eval ".spec.initImage = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
-	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
-
-	initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")
-	kubectl_bin patch pxc/${CLUSTER} --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
-	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
-
-	check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
-	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
-	for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
-		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${CLUSTER}-pxc-${i}.${CLUSTER}-pxc -uroot -proot_password"
-	done
-
-	kubectl_bin delete -f "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
-	kubectl_bin delete pvc --all
-
-	##################################################
 	desc 'PXC cluster with version service offline'
 	cp -f "${test_dir}/conf/${CLUSTER}-version-service-unreachable.yml" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 	yq -i eval ".spec.initImage = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"

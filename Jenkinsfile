@@ -314,7 +314,8 @@ pipeline {
                 stage('cluster2') {
                     steps {
                         CreateCluster('cluster2')
-                        runTest('smart-update', 'cluster2')
+                        runTest('smart-update1', 'cluster2')
+                        runTest('smart-update2', 'cluster2')
                         ShutdownCluster('cluster2')
                     }
                 }

@@ -4,18 +4,18 @@ set -o errexit
 set -o xtrace
 
 test_default_replicas_service() {
-	kpatch_delete_field pxc $1 "/spec/haproxy/replicasServiceEnabled" && sleep 1
+	kpatch_delete_field pxc $1 "/spec/haproxy/replicasServiceEnabled" && sleep 5
 	compare_kubectl "service/$1-haproxy-replicas"
 }
 
 test_disable_replicas_service() {
-	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" false && sleep 1
+	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" false && sleep 5
 	wait_for_delete "svc/$1-haproxy-replicas"
 	(kubectl_bin get svc "$1-haproxy-replicas" || :) 2>&1 | grep -e "not found$" >/dev/null
 }
 
 test_enable_replicas_service() {
-	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" true && sleep 1
+	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" true && sleep 5
 	compare_kubectl "service/$1-haproxy-replicas"
 }
 

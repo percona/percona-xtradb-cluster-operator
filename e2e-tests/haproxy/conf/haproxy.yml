@@ -41,19 +41,21 @@ spec:
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
     tolerations:
-    - key: "node.alpha.kubernetes.io/unreachable"
-      operator: "Exists"
-      effect: "NoExecute"
-      tolerationSeconds: 6000
+      - key: "node.alpha.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 6000
     podDisruptionBudget:
       maxUnavailable: 2
     sidecars:
-    - image: busybox
-      command: ["/bin/sh"]
-      args: ["-c", "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;"]
-      name: my-sidecar-1
-    - image: busybox
-      name: haproxy
+      - image: busybox
+        command: ["/bin/sh"]
+        args:
+          [
+            "-c",
+            "while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;",
+          ]
+        name: my-sidecar-1
     runtimeClassName: docker-rc
     configuration: |
       global
@@ -123,7 +125,7 @@ spec:
         type: filesystem
         volume:
           persistentVolumeClaim:
-            accessModes: [ "ReadWriteOnce" ]
+            accessModes: ["ReadWriteOnce"]
             resources:
               requests:
                 storage: 1Gi

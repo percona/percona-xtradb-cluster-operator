@@ -392,6 +392,7 @@ pipeline {
                     steps {
                         CreateCluster('cluster11')
                         runTest('demand-backup', 'cluster11')
+                        runTest('demand-backup-cloud', 'cluster11')
                         ShutdownCluster('cluster11')
                     }
                 }

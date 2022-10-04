@@ -310,128 +310,127 @@ pipeline {
                 stage('cluster1') {
                     steps {
                         CreateCluster('cluster1')
-                        runTest('upgrade-haproxy', 'cluster1')
-                        runTest('upgrade-proxysql', 'cluster1')
+                        runTest('upgrade-haproxy', 'cluster1', '8.0')
+                        runTest('upgrade-proxysql', 'cluster1', '8.0')
                         ShutdownCluster('cluster1')
                     }
                 }
                 stage('cluster2') {
                     steps {
                         CreateCluster('cluster2')
-                        runTest('smart-update1', 'cluster2')
-                        runTest('smart-update2', 'cluster2')
+                        runTest('smart-update1', 'cluster2', '8.0')
+                        runTest('smart-update2', 'cluster2', '8.0')
                         ShutdownCluster('cluster2')
                     }
                 }
                 stage('cluster3') {
                     steps {
                         CreateCluster('cluster3')
-                        runTest('init-deploy', 'cluster3')
-                        runTest('limits', 'cluster3')
-                        runTest('monitoring-2-0', 'cluster3')
+                        runTest('init-deploy', 'cluster3', '8.0')
+                        runTest('limits', 'cluster3', '8.0')
+                        runTest('monitoring-2-0', 'cluster3', '8.0')
                         ShutdownCluster('cluster3')
                     }
                 }
                 stage('cluster4') {
                     steps {
                         CreateCluster('cluster4')
-                        runTest('proxysql-sidecar-res-limits', 'cluster4')
-                        runTest('tls-issue-self','cluster4')
-                        runTest('tls-issue-cert-manager','cluster4')
-                        runTest('tls-issue-cert-manager-ref','cluster4')
-                        runTest('validation-hook','cluster4')
+                        runTest('proxysql-sidecar-res-limits', 'cluster4', '8.0')
+                        runTest('tls-issue-self','cluster4', '8.0')
+                        runTest('tls-issue-cert-manager','cluster4', '8.0')
+                        runTest('tls-issue-cert-manager-ref','cluster4', '8.0')
+                        runTest('validation-hook','cluster4', '8.0')
                         ShutdownCluster('cluster4')
                     }
                 }
                 stage('cluster5') {
                     steps {
                         CreateCluster('cluster5')
-                        runTest('scaling', 'cluster5')
-                        runTest('scaling-proxysql', 'cluster5')
-                        runTest('security-context', 'cluster5')
+                        runTest('scaling', 'cluster5', '8.0')
+                        runTest('scaling-proxysql', 'cluster5', '8.0')
+                        runTest('security-context', 'cluster5', '8.0')
                         ShutdownCluster('cluster5')
                     }
                 }
                 stage('cluster6') {
                     steps {
                         CreateCluster('cluster6')
-                        runTest('storage', 'cluster6')
-                        runTest('upgrade-consistency', 'cluster6')
-                        runTest('proxy-protocol','cluster6')
+                        runTest('storage', 'cluster6', '8.0')
+                        runTest('upgrade-consistency', 'cluster6', '8.0')
+                        runTest('proxy-protocol','cluster6', '8.0')
                         ShutdownCluster('cluster6')
                     }
                 }
                 stage('cluster7') {
                     steps {
                         CreateCluster('cluster7')
-                        runTest('restore-to-encrypted-cluster', 'cluster7')
-                        runTest('pitr', 'cluster7')
-                        runTest('affinity', 'cluster7')
+                        runTest('restore-to-encrypted-cluster', 'cluster7', '8.0')
+                        runTest('pitr', 'cluster7', '8.0')
+                        runTest('affinity', 'cluster7', '8.0')
                         ShutdownCluster('cluster7')
                     }
                 }
                 stage('cluster8') {
                     steps {
                         CreateCluster('cluster8')
-                        runTest('scheduled-backup', 'cluster8')
+                        runTest('scheduled-backup', 'cluster8', '8.0')
                         ShutdownCluster('cluster8')
                     }
                 }
                 stage('cluster9') {
                     steps {
                         CreateCluster('cluster9')
-                        runTest('cross-site', 'cluster9')
-                        runTest('recreate', 'cluster9')
+                        runTest('cross-site', 'cluster9', '8.0')
+                        runTest('recreate', 'cluster9', '8.0')
                         ShutdownCluster('cluster9')
                     }
                 }
                 stage('cluster10') {
                     steps {
                         CreateCluster('cluster10')
-                        runTest('users', 'cluster10')
+                        runTest('users', 'cluster10', '8.0')
                         ShutdownCluster('cluster10')
                     }
                 }
                 stage('cluster11') {
                     steps {
                         CreateCluster('cluster11')
-                        runTest('demand-backup', 'cluster11')
-                        runTest('demand-backup-cloud', 'cluster11')
+                        runTest('demand-backup', 'cluster11', '8.0')
+                        runTest('demand-backup-cloud', 'cluster11', '8.0')
                         ShutdownCluster('cluster11')
                     }
                 }
                 stage('cluster12') {
                     steps {
                         CreateCluster('cluster12')
-                        runTest('demand-backup-encrypted-with-tls', 'cluster12')
+                        runTest('demand-backup-encrypted-with-tls', 'cluster12', '8.0')
                         ShutdownCluster('cluster12')
                     }
                 }
                 stage('cluster13') {
                     steps {
                         CreateCluster('cluster13')
-                        runTest('haproxy', 'cluster13')
-                        runTest('one-pod', 'cluster13')
-                        runTest('auto-tuning', 'cluster13')
+                        runTest('haproxy', 'cluster13', '8.0')
+                        runTest('one-pod', 'cluster13', '8.0')
+                        runTest('auto-tuning', 'cluster13', '8.0')
                         ShutdownCluster('cluster13')
                     }
                 }
-                stage('cluster10') {
+                stage('cluster14') {
                     steps {
-                        CreateCluster('cluster10')
-                        runTest('cross-site', 'cluster10')
-                        ShutdownCluster('cluster10')
+                        CreateCluster('cluster14')
+                        runTest('users', 'cluster14', '5.7')
+                        runTest('one-pod', 'cluster14', '5.7')
+                        ShutdownCluster('cluster14')
                     }
                 }
-                stage('E2E Mysql 5.7') {
+                stage('cluster15') {
                     steps {
-                        CreateCluster('mysql-57')
-                        runTest('users', 'mysql-57', '5.7')
-                        runTest('one-pod', 'mysql-57', '5.7')
-                        runTest('scheduled-backup', 'mysql-57', '5.7')
-                        runTest('init-deploy', 'mysql-57', '5.7')
-                        runTest('haproxy', 'mysql-57', '5.7')
-                        ShutdownCluster('mysql-57')
+                        CreateCluster('cluster15')
+                        runTest('scheduled-backup', 'cluster15', '5.7')
+                        runTest('init-deploy', 'cluster15', '5.7')
+                        runTest('haproxy', 'cluster15', '5.7')
+                        ShutdownCluster('cluster15')
                     }
                 }
             }

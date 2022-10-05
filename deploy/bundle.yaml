@@ -17069,7 +17069,7 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: percona-xtradb-cluster-operator
-          image: perconalab/percona-xtradb-cluster-operator:main
+          image: perconalab/percona-xtradb-cluster-operator:k8spxc-1099
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3

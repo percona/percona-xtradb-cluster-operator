@@ -83,7 +83,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	}
 
 	if reflect.DeepEqual(sysUsersSecretObj.Data, internalSysSecretObj.Data) {
-		log.Printf("AAA user secrets not changed.\n")
+		log.Printf("user secrets not changed.\n")
 		return nil, nil
 	}
 
@@ -155,6 +155,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	}
 
 	if !dataChanged {
+		log.Printf("AAA Data not changed.\n")
 		return nil, nil
 	}
 
@@ -164,6 +165,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		}
 	}
 
+	log.Printf("AAA managing users\n")
 	restarts, err := r.manageSysUsers(cr, &sysUsersSecretObj, &internalSysSecretObj)
 	if err != nil {
 		return nil, errors.Wrap(err, "manage sys users")

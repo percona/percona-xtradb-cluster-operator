@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log"
+	"reflect"
 	"strconv"
 
 	"github.com/hashicorp/go-version"
@@ -80,6 +82,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil, nil
 	}
 
+	if reflect.DeepEqual(sysUsersSecretObj.Data, internalSysSecretObj.Data) {
+		log.Printf("AAA user secrets not changed.\n")
+		return nil, nil
+	}
+
 	if cr.Status.PXC.Ready > 0 {
 		err := r.manageOperatorAdminUser(cr, &sysUsersSecretObj, &internalSysSecretObj)
 		if err != nil {
@@ -87,6 +94,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		}
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			// monitor user need more grants for work in version more then 1.6.0
+			log.Printf("AAA Updateting monitor pass from %s to %s", string(sysUsersSecretObj.Data["monitor"]), string(internalSysSecretObj.Data["monitor"]))
 			err = r.manageMonitorUser(cr, &internalSysSecretObj)
 			if err != nil {
 				return nil, errors.Wrap(err, "manage monitor user")
@@ -94,6 +102,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		}
 		if cr.CompareVersionWith("1.7.0") >= 0 {
 			// xtrabackup user need more grants for work in version more then 1.7.0
+			log.Printf("AAA Updateting xtrabackup pass from %s to %s", string(sysUsersSecretObj.Data["xtrabackup"]), string(internalSysSecretObj.Data["xtrabackup"]))
 			err = r.manageXtrabackupUser(cr, &internalSysSecretObj)
 			if err != nil {
 				return nil, errors.Wrap(err, "manage xtrabackup user")

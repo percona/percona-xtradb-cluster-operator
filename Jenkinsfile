@@ -70,6 +70,22 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
+void printKubernetesStatus(String LOCATION, String CLUSTER) {
+    sh """
+        echo "========== KUBERNETES STATUS $LOCATION TEST =========="
+        echo "CLUSTER STATUS"
+        echo "=============="
+        gcloud container clusters list|grep -E "NAME|$CLUSTER"
+        echo "NODES STATUS"
+        echo "============"
+        kubectl get nodes
+        echo "PODS STATUS"
+        echo "============"
+        kubectl get pods --all-namespaces
+        echo "======================================================"
+    """
+}
+
 TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
 testsReportMap  = [:]
 testsResultsMap = [:]
@@ -97,6 +113,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION, Inte
         echo " test url is $testUrl"
         try {
             echo "The $TEST_NAME test was started!"
+            printKubernetesStatus("BEFORE","$CLUSTER_PREFIX")
             testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
@@ -118,6 +135,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION, Inte
             return true
         }
         catch (exc) {
+            printKubernetesStatus("AFTER","$CLUSTER_PREFIX")
             if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
@@ -314,7 +332,7 @@ pipeline {
                 stage('cluster2') {
                     steps {
                         CreateCluster('cluster2')
-                        runTest('smart-update1', 'cluster2', '8.0', 60)
+                        runTest('smart-update1', 'cluster2', '8.0', 75)
                         runTest('smart-update2', 'cluster2', '8.0', 45)
                         ShutdownCluster('cluster2')
                     }

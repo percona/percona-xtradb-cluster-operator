@@ -1,10 +1,10 @@
 GKERegion='us-central1-a'
 
-void CreateCluster(String CLUSTER_PREFIX) {
+void CreateCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             NODES_NUM=3
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             ret_num=0
@@ -12,8 +12,8 @@ void CreateCluster(String CLUSTER_PREFIX) {
                 ret_val=0
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                 gcloud config set project $GCP_PROJECT
-                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade && \
+                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --no-enable-autoupgrade && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -22,15 +22,15 @@ void CreateCluster(String CLUSTER_PREFIX) {
         """
    }
 }
-void ShutdownCluster(String CLUSTER_PREFIX) {
+void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX}
+            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX}
         """
    }
 }
@@ -70,18 +70,16 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
-void printKubernetesStatus(String LOCATION, String CLUSTER) {
+void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
     sh """
-        source $HOME/google-cloud-sdk/path.bash.inc
+		export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+		export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+		source $HOME/google-cloud-sdk/path.bash.inc
         echo "========== KUBERNETES STATUS $LOCATION TEST =========="
-        echo "CLUSTER STATUS"
-        echo "=============="
-        gcloud container clusters list|grep -E "NAME|$CLUSTER"
-        echo "NODES STATUS"
-        echo "============"
+        gcloud container clusters list|grep -E "NAME|$CLUSTER_NAME-$CLUSTER_SUFFIX "
+        echo
         kubectl get nodes
-        echo "PODS STATUS"
-        echo "============"
+        echo
         kubectl get pods --all-namespaces
         echo "======================================================"
     """
@@ -106,7 +104,7 @@ void setTestsresults() {
     }
 }
 
-void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION, Integer TIMEOUT) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX, String MYSQL_VERSION, Integer TIMEOUT) {
     def retryCount = 0
     def testNameWithMysqlVersion = "$TEST_NAME-$MYSQL_VERSION".replace(".", "-")
     waitUntil {
@@ -114,7 +112,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION, Inte
         echo " test url is $testUrl"
         try {
             echo "The $TEST_NAME test was started!"
-            printKubernetesStatus("BEFORE","$CLUSTER_PREFIX")
+            printKubernetesStatus("BEFORE","$CLUSTER_SUFFIX")
             testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
@@ -123,7 +121,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION, Inte
                     if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion" ]; then
                         echo Skip $TEST_NAME test
                     else
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
                         export MYSQL_VERSION=$MYSQL_VERSION
                         source $HOME/google-cloud-sdk/path.bash.inc
                         time bash ./e2e-tests/$TEST_NAME/run
@@ -136,7 +134,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION, Inte
             return true
         }
         catch (exc) {
-            printKubernetesStatus("AFTER","$CLUSTER_PREFIX")
+            printKubernetesStatus("AFTER","$CLUSTER_SUFFIX")
             if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true

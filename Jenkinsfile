@@ -72,6 +72,7 @@ void popArtifactFile(String FILE_NAME) {
 
 void printKubernetesStatus(String LOCATION, String CLUSTER) {
     sh """
+        source $HOME/google-cloud-sdk/path.bash.inc
         echo "========== KUBERNETES STATUS $LOCATION TEST =========="
         echo "CLUSTER STATUS"
         echo "=============="

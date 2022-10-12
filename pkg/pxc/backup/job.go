@@ -221,7 +221,7 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 	}
 	backupPath := corev1.EnvVar{
 		Name:  "BACKUP_PATH",
-		Value: strings.TrimPrefix(cr.Status.Destination, "azure://"+azure.ContainerName+"/"),
+		Value: strings.TrimPrefix(cr.Status.Destination, azure.ContainerName+"/"),
 	}
 	if len(job.Template.Spec.Containers) == 0 {
 		return errors.New("no containers in job spec")

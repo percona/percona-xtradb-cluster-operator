@@ -197,14 +197,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, errors.Wrap(err, "can't create job spec")
 	}
 
-	var destination string
-
 	switch storage.Type {
 	case api.BackupStorageFilesystem:
 		pvc := backup.NewPVC(cr)
 		pvc.Spec = *storage.Volume.PersistentVolumeClaim
 
-		destination = "pvc/" + pvc.Name
+		cr.Status.Destination = "pvc/" + pvc.Name
 
 		// Set PerconaXtraDBClusterBackup instance as the owner and controller
 		if err := setControllerReference(cr, pvc, r.scheme); err != nil {
@@ -228,9 +226,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageS3:
-		destination = storage.S3.Bucket + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
+		cr.Status.Destination = storage.S3.Bucket + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
 		if !strings.HasPrefix(storage.S3.Bucket, "s3://") {
-			destination = "s3://" + destination
+			cr.Status.Destination = "s3://" + cr.Status.Destination
 		}
 
 		err := backup.SetStorageS3(&job.Spec, cr)
@@ -238,7 +236,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageAzure:
-		destination = storage.Azure.ContainerName + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
+		cr.Status.Destination = storage.Azure.ContainerName + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
 		err := backup.SetStorageAzure(&job.Spec, cr)
 		if err != nil {
 			return rr, errors.Wrap(err, "set storage FS for Azure")
@@ -257,7 +255,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		logger.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	}
 
-	err = r.updateJobStatus(cr, job, destination, cr.Spec.StorageName, storage)
+	err = r.updateJobStatus(cr, job, cr.Spec.StorageName, storage)
 
 	return rr, err
 }
@@ -477,7 +475,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBCluster
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job,
-	destination, storageName string, storage *api.BackupStorageSpec) error {
+	storageName string, storage *api.BackupStorageSpec) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
@@ -489,7 +487,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 
 	status := api.PXCBackupStatus{
 		State:                 api.BackupStarting,
-		Destination:           destination,
+		Destination:           bcp.Status.Destination,
 		StorageName:           storageName,
 		Storage:               storage,
 		Image:                 bcp.Status.Image,

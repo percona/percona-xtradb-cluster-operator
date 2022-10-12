@@ -9,7 +9,7 @@ require (
 	github.com/go-ini/ini v1.67.0
 	github.com/go-logr/logr v1.2.2
 	github.com/go-logr/zapr v1.2.3
-	github.com/go-openapi/errors v0.19.9
+	github.com/go-openapi/errors v0.20.3
 	github.com/go-openapi/runtime v0.19.20
 	github.com/go-openapi/strfmt v0.21.1
 	github.com/go-openapi/swag v0.21.1

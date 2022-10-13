@@ -1374,3 +1374,19 @@ function kpatch_set_field() {
 
 	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
 }
+
+function check_backup_deletion() {
+	path=$1
+	storage_name=$2
+	retry=0
+	until [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 403 ]] || [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 404 ]]; do
+		if [ $retry -ge 10 ]; then
+			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			echo "Backup was not removed from bucket -- $storage_name"
+			exit 1
+		fi
+		echo "waiting for backup deletion $storage_name"
+		sleep $((10 * 2 ** retry))
+		((retry += 1))
+	done
+}

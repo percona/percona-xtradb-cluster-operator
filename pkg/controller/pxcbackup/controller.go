@@ -2,6 +2,7 @@ package pxcbackup
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/minio/minio-go/v7"
@@ -311,11 +313,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			if cr.Status.Storage == nil || cr.Status.Destination == "" {
 				continue
 			}
-			var completed bool
-			completed, err = r.runAzureBackupFinalizer(ctx, cr)
-			if !completed {
-				finalizers = append(finalizers, f)
-			}
+			err = r.runAzureBackupFinalizer(ctx, cr)
 		default:
 			finalizers = append(finalizers, f)
 		}
@@ -350,45 +348,52 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
 	}
-	logger.Info("backup was removed", "name", cr.Name)
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) (bool, error) {
-	job := new(batchv1.Job)
-	err := r.client.Get(ctx, types.NamespacedName{Name: backup.DeleteJobName(cr), Namespace: cr.Namespace}, job)
-	if client.IgnoreNotFound(err) != nil {
-		return false, errors.Wrapf(err, "get job %s", backup.DeleteJobName(cr))
+func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	cli, err := r.azureClient(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "new azure client")
 	}
-	if k8sErrors.IsNotFound(err) {
-		job = backup.GetDeleteJob(cr)
-		if err = setControllerReference(cr, job, r.scheme); err != nil {
-			return false, errors.Wrapf(err, "set controller reference to Job %s/%s", job.Namespace, job.Name)
-		}
-		if err = backup.SetStorageAzure(&job.Spec, cr); err != nil {
-			return false, errors.Wrap(err, "set storage azure")
-		}
+	container := cr.Status.Storage.Azure.ContainerName
+	destination := strings.TrimPrefix(cr.Status.Destination, container+"/")
 
-		if err = r.client.Create(ctx, job); err != nil {
-			return false, errors.Wrapf(err, "create job %s/%s", job.Namespace, job.Name)
-		}
-		return false, nil
+	err = retry.OnError(retry.DefaultBackoff,
+		func(e error) bool {
+			return true
+		},
+		removeAzureBackup(ctx, cli, container, destination))
+	if err != nil {
+		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
 	}
+	return nil
+}
 
-	completed := false
-	for _, cond := range job.Status.Conditions {
-		if cond.Status != corev1.ConditionTrue {
-			continue
+func removeAzureBackup(ctx context.Context, cli *azblob.Client, container, destination string) func() error {
+	return func() error {
+		blobs, err := azureListBlobs(ctx, cli, container, destination+"/")
+		if err != nil {
+			return errors.Wrap(err, "list backup blobs")
 		}
-
-		switch cond.Type {
-		case batchv1.JobFailed:
-			return false, errors.New("job failed")
-		case batchv1.JobComplete:
-			completed = true
+		for _, blob := range blobs {
+			_, err = cli.DeleteBlob(ctx, container, blob, nil)
+			if err != nil {
+				return errors.Wrapf(err, "delete blob %s", blob)
+			}
 		}
+		blobs, err = azureListBlobs(ctx, cli, container, destination+".sst_info/")
+		if err != nil {
+			return errors.Wrap(err, "list backup blobs")
+		}
+		for _, blob := range blobs {
+			_, err = cli.DeleteBlob(ctx, container, blob, nil)
+			if err != nil {
+				return errors.Wrapf(err, "delete blob %s", blob)
+			}
+		}
+		return nil
 	}
-	return completed, nil
 }
 
 func removeS3Backup(bucket, backup string, s3cli *minio.Client) func() error {
@@ -472,6 +477,50 @@ func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBCluster
 		Secure: secure,
 		Region: cr.Status.Storage.S3.Region,
 	})
+}
+func (r *ReconcilePerconaXtraDBClusterBackup) azureClient(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) (*azblob.Client, error) {
+	secret := new(corev1.Secret)
+	err := r.client.Get(ctx, types.NamespacedName{Name: cr.Status.Storage.Azure.CredentialsSecret, Namespace: cr.Namespace}, secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get secret")
+	}
+	accountName := string(secret.Data["AZURE_STORAGE_ACCOUNT"])
+	accountKey := string(secret.Data["AZURE_ACCESS_KEY"])
+
+	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "new credentials")
+	}
+	endpoint := fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
+	if cr.Status.Storage.Azure.Endpoint != "" {
+		endpoint = cr.Status.Storage.Azure.Endpoint
+	}
+	cli, err := azblob.NewClientWithSharedKeyCredential(endpoint, credential, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "new client")
+	}
+	return cli, nil
+}
+
+func azureListBlobs(ctx context.Context, client *azblob.Client, containerName, prefix string) ([]string, error) {
+	var blobs []string
+	pager := client.NewListBlobsFlatPager(containerName, &azblob.ListBlobsFlatOptions{
+		Prefix: &prefix,
+	})
+	for pager.More() {
+		resp, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "list blobs next page")
+		}
+		if resp.Segment != nil {
+			for _, item := range resp.Segment.BlobItems {
+				if item != nil && item.Name != nil {
+					blobs = append(blobs, *item.Name)
+				}
+			}
+		}
+	}
+	return blobs, nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job,

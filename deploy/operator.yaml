@@ -39,6 +39,8 @@ spec:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: percona-xtradb-cluster-operator
+        - name: DISABLE_TELEMETRY
+          value: "false"
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

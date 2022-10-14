@@ -84,6 +84,13 @@ type TLSSpec struct {
 	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
 }
 
+const (
+	UpgradeStrategyDisabled = "disabled"
+	UpgradeStrategyNever    = "never"
+)
+
+const DefaultVersionServiceEndpoint = "https://check.percona.com"
+
 type UpgradeOptions struct {
 	VersionServiceEndpoint string `json:"versionServiceEndpoint,omitempty"`
 	Apply                  string `json:"apply,omitempty"`
@@ -804,6 +811,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if cr.Spec.EnableCRValidationWebhook == nil {
 		falseVal := false
 		cr.Spec.EnableCRValidationWebhook = &falseVal
+	}
+
+	if cr.Spec.UpgradeOptions.Apply == "" {
+		cr.Spec.UpgradeOptions.Apply = UpgradeStrategyDisabled
+	}
+
+	if cr.Spec.UpgradeOptions.VersionServiceEndpoint == "" {
+		cr.Spec.UpgradeOptions.VersionServiceEndpoint = DefaultVersionServiceEndpoint
 	}
 
 	return nil

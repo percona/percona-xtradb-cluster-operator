@@ -478,7 +478,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		return rr, errors.Wrap(err, "update CR version")
 	}
 
-	err = r.sheduleEnsurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
+	err = r.scheduleEnsurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to ensure version")
 	}

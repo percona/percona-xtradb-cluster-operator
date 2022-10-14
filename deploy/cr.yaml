@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-11-0
+apiVersion: pxc.percona.com/v1-11-1
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
@@ -9,7 +9,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.11.0
+  crVersion: 1.11.1
 #  secretsName: my-cluster-secrets
 #  vaultSecretName: keyring-secret-vault
 #  sslSecretName: my-cluster-ssl

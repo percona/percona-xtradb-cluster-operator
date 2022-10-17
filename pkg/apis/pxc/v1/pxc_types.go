@@ -291,10 +291,6 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		if err := c.ProxySQL.VolumeSpec.validate(); err != nil {
 			return errors.Wrap(err, "ProxySQL: validate volume spec")
 		}
-
-		if len(c.ProxySQL.Scheduler) > 0 && c.ProxySQL.Scheduler != "percona" && c.ProxySQL.Scheduler != "proxysql-admin" {
-			return errors.New("proxysql.scheduler valid values are percona or proxysql-admin")
-		}
 	}
 
 	if c.Backup != nil {
@@ -408,7 +404,8 @@ type HAProxySpec struct {
 }
 
 type ProxySQLSpec struct {
-	PodSpec   `json:",inline"`
+	PodSpec `json:",inline"`
+	// +kubebuilder:validation:Enum={percona,proxysql-admin}
 	Scheduler string `json:"scheduler,omitempty"`
 }
 

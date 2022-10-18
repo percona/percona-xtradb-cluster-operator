@@ -140,10 +140,10 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 	}
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if telemetryEnabled() && (!versionUpgradeEnabled(cr) || cr.Spec.UpgradeOptions.VersionServiceEndpoint != apiv1.DefaultVersionServiceEndpoint) {
-		_, err := vs.GetExactVersion(cr, apiv1.DefaultVersionServiceEndpoint, vm)
+	if telemetryEnabled() && (!versionUpgradeEnabled(cr) || cr.Spec.UpgradeOptions.VersionServiceEndpoint != apiv1.GetDefaultVersionServiceEndpoint()) {
+		_, err := vs.GetExactVersion(cr, apiv1.GetDefaultVersionServiceEndpoint(), vm)
 		if err != nil {
-			logger.Error(err, "failed to send telemetry to "+apiv1.DefaultVersionServiceEndpoint)
+			logger.Error(err, "failed to send telemetry to "+apiv1.GetDefaultVersionServiceEndpoint())
 		}
 	}
 

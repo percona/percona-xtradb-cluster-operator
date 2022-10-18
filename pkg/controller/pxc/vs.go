@@ -17,7 +17,7 @@ const productName = "pxc-operator"
 
 func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, endpoint string, vm versionMeta) (DepVersion, error) {
 	if strings.Contains(endpoint, "https://check.percona.com/versions") {
-		endpoint = api.DefaultVersionServiceEndpoint
+		endpoint = api.GetDefaultVersionServiceEndpoint()
 	}
 	requestURL, err := url.Parse(endpoint)
 	if err != nil {

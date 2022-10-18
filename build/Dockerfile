@@ -1,4 +1,4 @@
-FROM golang:1.18 AS go_builder
+FROM golang:1.19 AS go_builder
 WORKDIR /go/src/github.com/percona/percona-xtradb-cluster-operator
 
 COPY . .
@@ -11,9 +11,10 @@ ARG GOOS=linux
 ARG GOARCH=amd64
 ARG CGO_ENABLED=0
 
-RUN mkdir -p build/_output/bin \
+RUN go mod download \
+    && mkdir -p build/_output/bin \
     && GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=$CGO_ENABLED GO_LDFLAGS=$GO_LDFLAGS \
-       go build -mod=vendor -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH -X main.BuildTime=$BUILD_TIME" \
+       go build -ldflags "-w -s -X main.GitCommit=$GIT_COMMIT -X main.GitBranch=$GIT_BRANCH -X main.BuildTime=$BUILD_TIME" \
            -o build/_output/bin/percona-xtradb-cluster-operator \
                cmd/manager/main.go \
     && cp -r build/_output/bin/percona-xtradb-cluster-operator /usr/local/bin/percona-xtradb-cluster-operator

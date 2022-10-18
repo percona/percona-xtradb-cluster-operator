@@ -10,7 +10,7 @@ void CreateCluster(String CLUSTER_PREFIX) {
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
             gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-            gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.20 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
+            gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
             kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
         """
    }
@@ -82,28 +82,32 @@ void setTestsresults() {
     }
 }
 
-void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
+void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION) {
     def retryCount = 0
+    def testNameWithMysqlVersion = "$TEST_NAME-$MYSQL_VERSION".replace(".", "-")
     waitUntil {
-        def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${TEST_NAME}.log"
+        def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
+        echo " test url is $testUrl"
         try {
             echo "The $TEST_NAME test was started!"
-            testsReportMap[TEST_NAME] = "[failed]($testUrl)"
-            popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME")
+            testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
+            popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME" ]; then
+                    if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion" ]; then
                         echo Skip $TEST_NAME test
                     else
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        export MYSQL_VERSION=$MYSQL_VERSION
                         source $HOME/google-cloud-sdk/path.bash.inc
                         time bash ./e2e-tests/$TEST_NAME/run
                     fi
                 """
             }
-            testsReportMap[TEST_NAME] = "[passed]($testUrl)"
-            testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME"] = 'passed'
+            echo "end test url is $testUrl"
+            testsReportMap["$testNameWithMysqlVersion"] = "[passed]($testUrl)"
+            testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"] = 'passed'
             return true
         }
         catch (exc) {
@@ -115,7 +119,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             return false
         }
         finally {
-            pushLogFile(TEST_NAME)
+            pushLogFile("$testNameWithMysqlVersion")
             echo "The $TEST_NAME test was finished!"
         }
     }
@@ -156,7 +160,6 @@ pipeline {
                 }
             }
             steps {
-                stash includes: 'vendor/**', name: 'vendorFILES'
                 installRpms()
                 script {
                     if ( AUTHOR_NAME == 'null' )  {
@@ -238,7 +241,7 @@ pipeline {
                             --rm \
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            golang:1.17 sh -c '
+                            golang:1.19 sh -c '
                                 go install -mod=readonly github.com/google/go-licenses@latest;
                                 /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
                                     | cut -d , -f 3 \
@@ -266,7 +269,7 @@ pipeline {
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
-                            golang:1.17 sh -c 'go build -v -mod=vendor -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
+                            golang:1.19 sh -c 'go build -v -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
                     "
                 '''
 
@@ -281,7 +284,6 @@ pipeline {
                         diff -u e2e-tests/license/compare/golicense golicense-new
                     """
                 }
-                unstash 'vendorFILES'
             }
         }
         stage('Run tests for operator') {
@@ -297,89 +299,100 @@ pipeline {
                 stage('E2E Upgrade') {
                     steps {
                         CreateCluster('upgrade')
-                        runTest('upgrade-haproxy', 'upgrade')
+                        runTest('upgrade-haproxy', 'upgrade', '8.0')
                         ShutdownCluster('upgrade')
                         CreateCluster('upgrade')
-                        runTest('upgrade-proxysql', 'upgrade')
+                        runTest('upgrade-proxysql', 'upgrade', '8.0')
                         ShutdownCluster('upgrade')
                         CreateCluster('upgrade')
-                        runTest('smart-update', 'upgrade')
-                        runTest('upgrade-consistency', 'upgrade')
+                        runTest('smart-update', 'upgrade', '8.0')
+                        runTest('upgrade-consistency', 'upgrade', '8.0')
                         ShutdownCluster('upgrade')
                     }
                 }
                 stage('E2E Basic Tests') {
                     steps {
                         CreateCluster('basic')
-                        runTest('haproxy', 'basic')
-                        runTest('init-deploy', 'basic')
-                        runTest('limits', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('affinity', 'basic')
-                        runTest('one-pod', 'basic')
-                        runTest('auto-tuning', 'basic')
-                        runTest('proxysql-sidecar-res-limits', 'basic')
-                        runTest('users', 'basic')
-                        runTest('tls-issue-self','basic')
-                        runTest('tls-issue-cert-manager','basic')
-                        runTest('tls-issue-cert-manager-ref','basic')
-                        runTest('validation-hook','basic')
-                        runTest('proxy-protocol','basic')
+                        runTest('haproxy', 'basic', '8.0')
+                        runTest('init-deploy', 'basic', '8.0')
+                        runTest('limits', 'basic', '8.0')
+                        runTest('monitoring-2-0', 'basic', '8.0')
+                        runTest('affinity', 'basic', '8.0')
+                        runTest('one-pod', 'basic', '8.0')
+                        runTest('auto-tuning', 'basic', '8.0')
+                        runTest('proxysql-sidecar-res-limits', 'basic', '8.0')
+                        runTest('users', 'basic', '8.0')
+                        runTest('tls-issue-self','basic', '8.0')
+                        runTest('tls-issue-cert-manager','basic', '8.0')
+                        runTest('tls-issue-cert-manager-ref','basic', '8.0')
+                        runTest('validation-hook','basic', '8.0')
+                        runTest('proxy-protocol','basic', '8.0')
                         ShutdownCluster('basic')
                     }
                 }
                 stage('E2E Scaling') {
                     steps {
                         CreateCluster('scaling')
-                        runTest('scaling', 'scaling')
-                        runTest('scaling-proxysql', 'scaling')
-                        runTest('security-context', 'scaling')
+                        runTest('scaling', 'scaling', '8.0')
+                        runTest('scaling-proxysql', 'scaling', '8.0')
+                        runTest('security-context', 'scaling', '8.0')
                         ShutdownCluster('scaling')
                     }
                 }
                 stage('E2E SelfHealing') {
                     steps {
                         CreateCluster('selfhealing')
-                        runTest('storage', 'selfhealing')
-                        runTest('self-healing', 'selfhealing')
-                        runTest('self-healing-chaos', 'selfhealing')
-                        runTest('self-healing-advanced', 'selfhealing')
-                        runTest('self-healing-advanced-chaos', 'selfhealing')
-                        runTest('operator-self-healing', 'selfhealing')
-                        runTest('operator-self-healing-chaos', 'selfhealing')
+                        runTest('storage', 'selfhealing', '8.0')
+                        runTest('self-healing', 'selfhealing', '8.0')
+                        runTest('self-healing-chaos', 'selfhealing', '8.0')
+                        runTest('self-healing-advanced', 'selfhealing', '8.0')
+                        runTest('self-healing-advanced-chaos', 'selfhealing', '8.0')
+                        runTest('operator-self-healing', 'selfhealing', '8.0')
+                        runTest('operator-self-healing-chaos', 'selfhealing', '8.0')
                         ShutdownCluster('selfhealing')
                     }
                 }
                 stage('E2E Backups') {
                     steps {
                         CreateCluster('backups')
-                        runTest('recreate', 'backups')
-                        runTest('restore-to-encrypted-cluster', 'backups')
-                        runTest('demand-backup', 'backups')
-                        runTest('pitr', 'backups')
-                        runTest('demand-backup-encrypted-with-tls', 'backups')
+                        runTest('recreate', 'backups', '8.0')
+                        runTest('restore-to-encrypted-cluster', 'backups', '8.0')
+                        runTest('demand-backup', 'backups', '8.0')
+                        runTest('pitr', 'backups', '8.0')
+                        runTest('demand-backup-encrypted-with-tls', 'backups', '8.0')
                         ShutdownCluster('backups')
                     }
                 }
                 stage('E2E Scheduled-backups') {
                     steps {
                         CreateCluster('scheduled-backups')
-                        runTest('scheduled-backup', 'scheduled-backups')
+                        runTest('scheduled-backup', 'scheduled-backups', '8.0')
                         ShutdownCluster('scheduled-backups')
                     }
                 }
                 stage('E2E BigData') {
                     steps {
                         CreateCluster('bigdata')
-                        runTest('big-data', 'bigdata')
+                        runTest('big-data', 'bigdata', '8.0')
                         ShutdownCluster('bigdata')
                     }
                 }
                 stage('E2E CrossSite') {
                     steps {
                         CreateCluster('cross-site')
-                        runTest('cross-site', 'cross-site')
+                        runTest('cross-site', 'cross-site', '8.0')
                         ShutdownCluster('cross-site')
+                    }
+                }
+                stage('E2E Mysql 5.7') {
+                    steps {
+                        CreateCluster('mysql-57')
+                        runTest('users', 'mysql-57', '5.7')
+                        runTest('one-pod', 'mysql-57', '5.7')
+                        runTest('scheduled-backup', 'mysql-57', '5.7')
+                        runTest('init-deploy', 'mysql-57', '5.7')
+                        runTest('haproxy', 'mysql-57', '5.7')
+                        ShutdownCluster('mysql-57')
                     }
                 }
             }

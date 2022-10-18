@@ -236,6 +236,16 @@ spec:
 #    externalTrafficPolicy: Cluster
 #    replicasServiceType: ClusterIP
 #    replicasExternalTrafficPolicy: Cluster
+#    loadBalancerSourceRanges:
+#      - 10.0.0.0/8
+#    serviceAnnotations:
+#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    serviceLabels:
+#      rack: rack-23
+#    replicasServiceAnnotations:
+#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    replicasServiceLabels:
+#      rack: rack-23
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -295,12 +305,6 @@ spec:
       maxUnavailable: 1
 #      minAvailable: 0
     gracePeriod: 30
-#    loadBalancerSourceRanges:
-#      - 10.0.0.0/8
-#    serviceAnnotations:
-#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
-#    serviceLabels:
-#      rack: rack-23
   proxysql:
     enabled: false
     size: 3

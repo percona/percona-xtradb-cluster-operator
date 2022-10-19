@@ -70,6 +70,10 @@ get_failed_backups_amount() {
 wait_all_backups() {
 	while [[ "$(get_running_backups_amount)" -ne 0 && "$(get_failed_backups_amount)" -eq 0 ]]; do
 		wait_for_running "$cluster-pxc" 3 1
+		echo
+		kubectl_bin get pxc-backup
+		echo
+		kubectl_bin get pods
 		sleep 20
 	done
 	if [[ "$(get_failed_backups_amount)" -gt 0 ]]; then

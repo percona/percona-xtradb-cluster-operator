@@ -24,8 +24,8 @@ run_recovery_from_source() {
 }
 
 main() {
-	if [ -n "$SKIP_BACKUPS_TO_AWS_GCP_AZURE" ]; then
-		echo "Skipping test because SKIP_BACKUPS_TO_AWS_GCP_AZURE variable is set!"
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
 		exit 0
 	else
 		create_infra $namespace
@@ -60,7 +60,7 @@ main() {
 			exit 1
 		fi
 
-		if [ -z "$SKIP_BACKUPS_TO_AWS_GCP_AZURE" ]; then
+		if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 			backup_dest_aws="$(get_backup_dest "${backup_name_aws}")"
 			backup_dest_aws=${backup_name_aws:5} # trim "s3://"
 			backup_dest_gcp="$(get_backup_dest "${backup_name_gcp}")"

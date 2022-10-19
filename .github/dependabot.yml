@@ -20,6 +20,10 @@ updates:
     reviewers:
       - hors
       - tplavcic
+    ignore:
+      # ignore patch updates for all dependencies
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
     labels:
       - "dependencies"
   - package-ecosystem: gomod

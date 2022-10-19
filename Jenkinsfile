@@ -80,7 +80,13 @@ void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
         echo
         kubectl get nodes
         echo
+        kubectl top nodes
+        echo
         kubectl get pods --all-namespaces
+        echo
+        kubectl top pod --all-namespaces
+        echo
+        kubectl get events --field-selector type!=Normal --all-namespaces
         echo "======================================================"
     """
 }
@@ -112,7 +118,6 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX, String MYSQL_VERSION, Inte
         echo " test url is $testUrl"
         try {
             echo "The $TEST_NAME test was started!"
-            printKubernetesStatus("BEFORE","$CLUSTER_SUFFIX")
             testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 

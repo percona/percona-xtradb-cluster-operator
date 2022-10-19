@@ -1,0 +1,41 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    reviewers: 
+      - hors 
+      - egegunes
+    commit-message:
+      prefix: "CLOUD-727"
+    labels:
+      - "dependencies"
+  - package-ecosystem: docker
+    commit-message:
+      prefix: "CLOUD-727"
+    directory: /build/
+    schedule:
+      interval: monthly
+    reviewers:
+      - hors
+      - tplavcic
+    ignore:
+      # ignore patch updates for all dependencies
+      - dependency-name: "*"
+        update-types: ["version-update:semver-minor"]
+    labels:
+      - "dependencies"
+  - package-ecosystem: gomod
+    commit-message:
+      prefix: "CLOUD-727"
+    open-pull-requests-limit: 10
+    directory: /
+    reviewers:
+      - hors
+      - egegunes
+      - inelpandzic
+    labels:
+      - "dependencies"
+    schedule:
+      interval: monthly

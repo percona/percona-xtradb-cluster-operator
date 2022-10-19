@@ -86,11 +86,10 @@ type TLSSpec struct {
 }
 
 const (
-	UpgradeStrategyDisabled = "disabled"
-	UpgradeStrategyNever    = "never"
+	UpgradeStrategyDisabled       = "disabled"
+	UpgradeStrategyNever          = "never"
+	DefaultVersionServiceEndpoint = "https://check.percona.com"
 )
-
-const DefaultVersionServiceEndpoint = "https://check.percona.com"
 
 func GetDefaultVersionServiceEndpoint() string {
 	if endpoint := os.Getenv("PERCONA_VS_FALLBACK_URI"); len(endpoint) > 0 {

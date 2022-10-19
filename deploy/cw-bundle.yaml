@@ -9008,7 +9008,7 @@ spec:
                                 type: string
                               credentialsSecret:
                                 type: string
-                              endpoint:
+                              endpointUrl:
                                 type: string
                               storageClass:
                                 type: string
@@ -17130,7 +17130,7 @@ spec:
                           type: string
                         credentialsSecret:
                           type: string
-                        endpoint:
+                        endpointUrl:
                           type: string
                         storageClass:
                           type: string
@@ -17871,7 +17871,7 @@ spec:
                               type: string
                             credentialsSecret:
                               type: string
-                            endpoint:
+                            endpointUrl:
                               type: string
                             storageClass:
                               type: string
@@ -18559,7 +18559,7 @@ spec:
                                   type: string
                                 credentialsSecret:
                                   type: string
-                                endpoint:
+                                endpointUrl:
                                   type: string
                                 storageClass:
                                   type: string

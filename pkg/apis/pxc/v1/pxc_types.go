@@ -506,7 +506,7 @@ type BackupStorageS3Spec struct {
 type BackupStorageAzureSpec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
 	ContainerName     string `json:"container"`
-	Endpoint          string `json:"endpoint"`
+	Endpoint          string `json:"endpointUrl"`
 	StorageClass      string `json:"storageClass"`
 }
 

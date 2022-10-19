@@ -241,14 +241,14 @@ deploy_operator() {
 		cat ${src_dir}/deploy/cw-operator.yaml \
 			| sed -e "s^image: .*^image: ${IMAGE}^" \
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
-			| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator") | .env[] | select(.name == "DISABLE_TELEMETRY") | .value) = "true"' - \
+			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' \
 			| kubectl_bin apply -f -
 	else
 		apply_rbac rbac
 		cat ${src_dir}/deploy/operator.yaml \
 			| sed -e "s^image: .*^image: ${IMAGE}^" \
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
-			| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator") | .env[] | select(.name == "DISABLE_TELEMETRY") | .value) = "true"' - \
+			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' \
 			| kubectl_bin apply -f -
 	fi
 
@@ -1293,7 +1293,7 @@ function deploy_operator_gh() {
 
 	cat "${tmp_dir}/${operator_yaml}_${git_tag}.yaml" \
 		| sed -e "s^image: .*^image: ${IMAGE}^" \
-		| yq eval '(.spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator") | .env[] | select(.name == "DISABLE_TELEMETRY") | .value) = "true"' \
+		| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' \
 		| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
 
 	sleep 2

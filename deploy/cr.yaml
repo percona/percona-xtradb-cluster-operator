@@ -161,6 +161,9 @@ spec:
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    replicasServiceEnabled: false
+#    replicasLoadBalancerSourceRanges:
+#      - 10.0.0.0/8
+#    replicasLoadBalancerIP: 127.0.0.1
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15

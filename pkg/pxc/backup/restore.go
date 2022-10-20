@@ -18,7 +18,7 @@ import (
 var log = logf.Log.WithName("backup/restore")
 
 func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore) *corev1.Service {
-	return &corev1.Service{
+	svc := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
@@ -40,6 +40,12 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore) *corev1.Service {
 			},
 		},
 	}
+
+	if cr.Annotations["headless-service"] == "true" {
+		svc.Spec.ClusterIP = corev1.ClusterIPNone
+	}
+
+	return svc
 }
 
 func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName string, cluster api.PerconaXtraDBClusterSpec) (*corev1.Pod, error) {

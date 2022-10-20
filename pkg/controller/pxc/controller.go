@@ -289,7 +289,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	userReconcileResult := &ReconcileUsersResult{}
 
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		urr, err := r.reconcileUsers(o)
+		urr, err := r.reconcileUsers1120(o)
 		if err != nil {
 			return rr, errors.Wrap(err, "reconcile users")
 		}
@@ -298,6 +298,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		}
 	}
 
+	// Q: Now we are always syncyng proxy users, do we need this?
+	// If so, can we drop this sync when updating individual users?
 	r.resyncPXCUsersWithProxySQL(o)
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {

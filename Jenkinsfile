@@ -179,7 +179,7 @@ pipeline {
         ENABLE_LOGGING="true"
     }
     agent {
-        label 'docker'
+        label 'docker-32gb'
     }
     stages {
         stage('Prepare') {

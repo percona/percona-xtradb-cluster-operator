@@ -289,7 +289,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	userReconcileResult := &ReconcileUsersResult{}
 
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		urr, err := r.reconcileUsers1120(o)
+		urr, err := r.reconcileUsers(o)
 		if err != nil {
 			return rr, errors.Wrap(err, "reconcile users")
 		}

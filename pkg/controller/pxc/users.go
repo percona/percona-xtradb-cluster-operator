@@ -3,12 +3,12 @@ package pxc
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
 	"reflect"
 	"strconv"
-	"crypto/sha256"
 
 	"github.com/hashicorp/go-version"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -38,7 +38,7 @@ type ReconcileUsersResult struct {
 	updateReplicationPassword bool
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileUsers1120(cr *api.PerconaXtraDBCluster) (*ReconcileUsersResult, error) {
+func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) (*ReconcileUsersResult, error) {
 	secrets := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{

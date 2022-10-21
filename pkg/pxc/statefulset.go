@@ -113,6 +113,11 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	if customAnnotations == nil {
 		customAnnotations = make(map[string]string)
 	}
+	for k, v := range sfs.StatefulSet().Spec.Template.Annotations {
+		if _, ok := customAnnotations[k]; !ok {
+			customAnnotations[k] = v
+		}
+	}
 	for k, v := range podSpec.Annotations {
 		if _, ok := customAnnotations[k]; !ok {
 			customAnnotations[k] = v

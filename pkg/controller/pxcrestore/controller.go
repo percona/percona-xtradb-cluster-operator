@@ -249,7 +249,6 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBCl
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cr.Name,
 				Namespace: cr.Namespace,
-				// ClusterName: cr.ClusterName,
 			},
 			Spec: api.PXCBackupSpec{
 				PXCCluster:  cr.Spec.PXCCluster,

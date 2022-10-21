@@ -332,15 +332,15 @@ pipeline {
 //                         ShutdownCluster('basic')
 //                     }
 //                 }
-//                 stage('E2E Scaling') {
-//                     steps {
-//                         CreateCluster('scaling')
-//                         runTest('scaling', 'scaling', '8.0')
+                stage('E2E Scaling') {
+                    steps {
+                        CreateCluster('scaling')
+                        runTest('scaling', 'scaling', '8.0')
 //                         runTest('scaling-proxysql', 'scaling', '8.0')
 //                         runTest('security-context', 'scaling', '8.0')
-//                         ShutdownCluster('scaling')
-//                     }
-//                 }
+                        ShutdownCluster('scaling')
+                    }
+                }
 //                 stage('E2E SelfHealing') {
 //                     steps {
 //                         CreateCluster('selfhealing')
@@ -386,17 +386,17 @@ pipeline {
                         ShutdownCluster('cross-site')
                     }
                 }
-//                 stage('E2E Mysql 5.7') {
-//                     steps {
-//                         CreateCluster('mysql-57')
-//                         runTest('users', 'mysql-57', '5.7')
+                stage('E2E Mysql 5.7') {
+                    steps {
+                        CreateCluster('mysql-57')
+                        runTest('users', 'mysql-57', '5.7')
 //                         runTest('one-pod', 'mysql-57', '5.7')
 //                         runTest('scheduled-backup', 'mysql-57', '5.7')
 //                         runTest('init-deploy', 'mysql-57', '5.7')
-//                         runTest('haproxy', 'mysql-57', '5.7')
-//                         ShutdownCluster('mysql-57')
-//                     }
-//                 }
+                        runTest('haproxy', 'mysql-57', '5.7')
+                        ShutdownCluster('mysql-57')
+                    }
+                }
             }
         }
     }

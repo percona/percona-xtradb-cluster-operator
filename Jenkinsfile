@@ -71,7 +71,7 @@ void makeReport() {
     def wholeTestAmount=sh(script: 'cat e2e-tests/run | grep "|| fail"| wc -l', , returnStdout: true).trim()
     def startedTestAmount = testsReportMap.size()
     testsReportMap = testsReportMap.sort()
-    println($testsReportMap)
+    println(testsReportMap)
     for ( test in testsReportMap ) {
         TestsReport = TestsReport + "\r\n| ${test.key} | ${test.value} |"
     }
@@ -332,15 +332,15 @@ pipeline {
 //                         ShutdownCluster('basic')
 //                     }
 //                 }
-                stage('E2E Scaling') {
-                    steps {
-                        CreateCluster('scaling')
-                        runTest('scaling', 'scaling', '8.0')
-                        runTest('scaling-proxysql', 'scaling', '8.0')
-                        runTest('security-context', 'scaling', '8.0')
-                        ShutdownCluster('scaling')
-                    }
-                }
+//                 stage('E2E Scaling') {
+//                     steps {
+//                         CreateCluster('scaling')
+//                         runTest('scaling', 'scaling', '8.0')
+//                         runTest('scaling-proxysql', 'scaling', '8.0')
+//                         runTest('security-context', 'scaling', '8.0')
+//                         ShutdownCluster('scaling')
+//                     }
+//                 }
 //                 stage('E2E SelfHealing') {
 //                     steps {
 //                         CreateCluster('selfhealing')
@@ -365,13 +365,13 @@ pipeline {
 //                         ShutdownCluster('backups')
 //                     }
 //                 }
-                stage('E2E Scheduled-backups') {
-                    steps {
-                        CreateCluster('scheduled-backups')
-                        runTest('scheduled-backup', 'scheduled-backups', '8.0')
-                        ShutdownCluster('scheduled-backups')
-                    }
-                }
+//                 stage('E2E Scheduled-backups') {
+//                     steps {
+//                         CreateCluster('scheduled-backups')
+//                         runTest('scheduled-backup', 'scheduled-backups', '8.0')
+//                         ShutdownCluster('scheduled-backups')
+//                     }
+//                 }
                 stage('E2E BigData') {
                     steps {
                         CreateCluster('bigdata')

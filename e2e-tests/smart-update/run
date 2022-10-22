@@ -76,7 +76,7 @@ function check_telemetry_transfer() {
 	local cr_vs_channel=${2:-"disabled"}
 	local telemetry_state=${3:-"enabled"}
 
-	desc 'create PSMDB minimal cluster'
+	desc 'create PXC minimal cluster'
 	cluster="minimal-cluster"
 
 	kubectl_bin apply -f "${conf_dir}/client.yml"
@@ -112,8 +112,7 @@ function check_telemetry_transfer() {
 		'INSERT myApp.myApp (id) VALUES (100500)' \
 		"-h $proxy -uroot -proot_password -P$port"
 
-	kubectl_bin logs "$(kubectl get pods --selector=run=version-service-cr -o jsonpath='{.items[0].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS})" \
-		${OPERATOR_NS:+-n $OPERATOR_NS} \
+	kubectl_bin logs "$(kubectl get pods --selector=run=version-service-cr -o jsonpath='{.items[0].metadata.name}')" \
 		| grep -E 'server request payload|unary call' \
 		| grep -Eo '\{.*\}' \
 		| jq 'del(."grpc.request.content".msg.customResourceUid)' \
@@ -122,8 +121,7 @@ function check_telemetry_transfer() {
 		| jq 'del(."grpc.time_ms")' \
 			>"${tmp_dir}/${telemetry_state}_telemetry.version-service-cr.log.json"
 
-	kubectl_bin logs "$(kubectl get pods --selector=run=version-service -o jsonpath='{.items[0].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS})" \
-		${OPERATOR_NS:+-n $OPERATOR_NS} \
+	kubectl_bin logs "$(kubectl get pods --selector=run=version-service -o jsonpath='{.items[0].metadata.name}')" \
 		| grep -E 'server request payload|unary call' \
 		| grep -Eo '\{.*\}' \
 		| jq 'del(."grpc.request.content".msg.customResourceUid)' \
@@ -159,8 +157,8 @@ function check_telemetry_transfer() {
 		[[ -s ${tmp_dir}/disabled_telemetry.version-service.log.json ]] && exit 1
 	fi
 
-	kubectl_bin delete pod ${OPERATOR_NS:+-n $OPERATOR_NS} "$(get_operator_pod)"
 	kubectl_bin patch pxc minimal-cluster --type=merge -p '{"metadata":{"finalizers":["delete-pxc-pvc"]}}'
+	kubectl_bin delete pod ${OPERATOR_NS:+-n $OPERATOR_NS} "$(get_operator_pod)"
 	kubectl_bin delete pxc --all
 	kubectl_bin delete deploy pxc-client
 	sleep 30
@@ -173,38 +171,40 @@ function main() {
 	IMAGE_PXC=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pxc[].imagePath' | grep ":${PXC_VER}" | sort -V | tail -n3 | head -n1)
 
 	kubectl_bin patch crd perconaxtradbclusters.pxc.percona.com --type='json' -p '[{"op":"add","path":"/spec/versions/-", "value":{"name": "v9-9-9","schema": {"openAPIV3Schema": {"properties": {"spec": {"type": "object","x-kubernetes-preserve-unknown-fields": true},"status": {"type": "object", "x-kubernetes-preserve-unknown-fields": true}}, "type": "object" }}, "served": true, "storage": false, "subresources": { "status": {}}}}]'
-	kubectl_bin ${OPERATOR_NS:+-n $OPERATOR_NS} set env deploy/percona-xtradb-cluster-operator PERCONA_VS_FALLBACK_URI=http://version-service:11000
+	kubectl_bin ${OPERATOR_NS:+-n $OPERATOR_NS} set env deploy/percona-xtradb-cluster-operator "PERCONA_VS_FALLBACK_URI=http://version-service.${namespace}.svc.cluster.local:11000"
 
 	################################################
 	desc 'Starting telemetry testing'
 	$sed 's/version-service/version-service-cr/g' "${test_dir}/conf/vs.yml" \
 		| yq eval '(. | select(.kind == "Deployment") | .spec.template.spec.containers[0].image) = "'"$(yq 'select(.kind == "Deployment").spec.template.spec.containers[0].image' "${test_dir}/conf/vs.yml")"'"' \
-		| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
-	kubectl_bin delete pod -l run=version-service ${OPERATOR_NS:+-n $OPERATOR_NS}
+		| kubectl_bin apply -f -
+	kubectl_bin delete pod -l run=version-service
 	IMAGE_PREFIX="$(echo -n "$IMAGE_PXC" | sed -r 's/^.*:([0-9]+.[0-9]+).*/\1/')"
 	################################################
 	desc 'Enable telemetry on operator level'
 	kubectl_bin get deployment/percona-xtradb-cluster-operator -o yaml ${OPERATOR_NS:+-n $OPERATOR_NS} \
 		| yq '(.spec.template.spec.containers[0].env[] | select(.name == "DISABLE_TELEMETRY").value) = "false"' \
 		| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
+	sleep 30
 
 	wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
 
-	check_telemetry_transfer "http://version-service-cr:11000" "disabled" "enabled"
+	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "disabled" "enabled"
 	################################################
 	desc "Disabling telemetry on the operator level"
 
-	kubectl_bin delete pod -l run=version-service-cr ${OPERATOR_NS:+-n $OPERATOR_NS}
-	kubectl_bin delete pod -l run=version-service ${OPERATOR_NS:+-n $OPERATOR_NS}
+	kubectl_bin delete pod -l run=version-service-cr
+	kubectl_bin delete pod -l run=version-service
 	kubectl_bin get deployment/percona-xtradb-cluster-operator -o yaml ${OPERATOR_NS:+-n $OPERATOR_NS} \
 		| yq '(.spec.template.spec.containers[0].env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' \
 		| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
+	sleep 30
 	wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
 
-	check_telemetry_transfer "http://version-service-cr:11000" "${IMAGE_PREFIX}-recommended" "disabled"
-	kubectl_bin delete pod -l run=version-service-cr ${OPERATOR_NS:+-n $OPERATOR_NS}
-	kubectl_bin delete pod -l run=version-service ${OPERATOR_NS:+-n $OPERATOR_NS}
-	check_telemetry_transfer "http://version-service-cr:11000" "disabled" "disabled"
+	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "${IMAGE_PREFIX}-recommended" "disabled"
+	kubectl_bin delete pod -l run=version-service-cr
+	kubectl_bin delete pod -l run=version-service
+	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "disabled" "disabled"
 	#################################################
 	kubectl_bin delete deployment version-service-cr
 	desc 'Telemetry testing finished'

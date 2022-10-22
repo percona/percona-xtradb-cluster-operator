@@ -19,6 +19,7 @@ import (
 
 	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 )
 
 var versionNotReadyErr = errors.New("not ready to fetch version")
@@ -126,6 +127,11 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		return errors.New("cluster is not ready")
 	}
 
+	watchNs, err := k8s.GetWatchNamespace()
+	if err != nil {
+		return errors.Wrap(err, "get WATCH_NAMESPACE env variable")
+	}
+
 	vm := versionMeta{
 		Apply:               cr.Spec.UpgradeOptions.Apply,
 		Platform:            string(cr.Spec.Platform),
@@ -137,6 +143,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		BackupVersion:       cr.Status.Backup.Version,
 		LogCollectorVersion: cr.Status.LogCollector.Version,
 		CRUID:               string(cr.GetUID()),
+		ClusterWideEnabled:  watchNs == "",
 	}
 	logger := r.logger(cr.Name, cr.Namespace)
 

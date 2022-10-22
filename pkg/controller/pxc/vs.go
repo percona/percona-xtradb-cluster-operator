@@ -8,9 +8,9 @@ import (
 	"time"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient"
-	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient/models"
-	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient/version_service"
+	vsc "github.com/percona/percona-xtradb-cluster-operator/version/client"
+	"github.com/percona/percona-xtradb-cluster-operator/version/client/models"
+	"github.com/percona/percona-xtradb-cluster-operator/version/client/version_service"
 )
 
 const productName = "pxc-operator"
@@ -24,7 +24,7 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		return DepVersion{}, err
 	}
 
-	srvCl := versionserviceclient.NewHTTPClientWithConfig(nil, &versionserviceclient.TransportConfig{
+	srvCl := vsc.NewHTTPClientWithConfig(nil, &vsc.TransportConfig{
 		Host:     requestURL.Host,
 		BasePath: requestURL.Path,
 		Schemes:  []string{requestURL.Scheme},
@@ -45,6 +45,7 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		Product:             productName,
 		ProxysqlVersion:     &vm.ProxySQLVersion,
 		Context:             nil,
+		ClusterWideEnabled:  &vm.ClusterWideEnabled,
 		HTTPClient:          &http.Client{Timeout: 10 * time.Second},
 	}
 	applyParams = applyParams.WithTimeout(10 * time.Second)
@@ -156,4 +157,5 @@ type versionMeta struct {
 	HAProxyVersion      string
 	LogCollectorVersion string
 	CRUID               string
+	ClusterWideEnabled  bool
 }

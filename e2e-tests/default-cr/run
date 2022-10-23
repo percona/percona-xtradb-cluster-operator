@@ -81,7 +81,16 @@ function main() {
 	else
 		helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 	fi
-	sleep 120
+	SERVICE="postgres"
+	until kubectl_bin exec monitoring-0 -- bash -c "pgrep -x $SERVICE >/dev/null"; do
+		echo "Retry $retry"
+		sleep 5
+		let retry+=1
+		if [ $retry -ge 20 ]; then
+			echo "Max retry count $retry reached. Pmm-server can't start"
+			exit 1
+		fi
+	done
 	ADMIN_PASSWORD=$(kubectl_bin exec monitoring-0 -- bash -c "printenv | grep ADMIN_PASSWORD | cut -d '=' -f2")
 	MONITORING_ENDPOINT=$(get_service_endpoint monitoring-service)
 	API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$MONITORING_ENDPOINT/graph/api/auth/keys" | jq .key)

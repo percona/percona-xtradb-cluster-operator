@@ -605,27 +605,36 @@ desc() {
 get_service_endpoint() {
 	local service=$1
 
-	local hostname=$(
-		kubectl_bin get service/$service -o json \
-			| jq '.status.loadBalancer.ingress[].hostname' \
-			| sed -e 's/^"//; s/"$//;'
-	)
-	if [ -n "$hostname" -a "$hostname" != "null" ]; then
-		echo $hostname
-		return
-	fi
+	set +o xtrace
+	retry=0
+	while true; do
+		sleep 1
+		let retry+=1
+		if [ "$retry" -ge 180 ]; then
+			echo max retry count "$retry" reached. something went wrong with vault
+			exit 1
+		fi
+		local hostname=$(
+			kubectl_bin get service/$service -o json \
+				| jq '.status.loadBalancer.ingress[].hostname' \
+				| sed -e 's/^"//; s/"$//;'
+		)
+		if [ -n "$hostname" -a "$hostname" != "null" ]; then
+			echo $hostname
+			return
+		fi
 
-	local ip=$(
-		kubectl_bin get service/$service -o json \
-			| jq '.status.loadBalancer.ingress[].ip' \
-			| sed -e 's/^"//; s/"$//;'
-	)
-	if [ -n "$ip" -a "$ip" != "null" ]; then
-		echo $ip
-		return
-	fi
-
-	exit 1
+		local ip=$(
+			kubectl_bin get service/$service -o json \
+				| jq '.status.loadBalancer.ingress[].ip' \
+				| sed -e 's/^"//; s/"$//;'
+		)
+		if [ -n "$ip" -a "$ip" != "null" ]; then
+			echo $ip
+			return
+		fi
+	done
+	set -o xtrace
 }
 
 get_service_ip() {

@@ -31,7 +31,8 @@ prepare_config
 create_infra ${namespace}
 
 desc 'create first PXC cluster'
-spinup_pxc "${cluster}" "${tmp_dir}/${cluster}.yml" "3" "120" "${conf_dir}/secrets.yml" "${tmp_dir}/client.yml" "33062"
+spinup_pxc "${cluster}" "${tmp_dir}/${cluster}.yml" "3" "15" "${conf_dir}/secrets.yml" "${tmp_dir}/client.yml" "33062"
+sleep 120
 
 client_ip=$(kubectl_bin get pods --selector=name=pxc-client -o 'jsonpath={.items[].status.podIP}')
 if [ ${EKS} -eq 1 ]; then
@@ -39,7 +40,7 @@ if [ ${EKS} -eq 1 ]; then
 	client_ip=$(kubectl_bin get nodes ${node_name} -o 'jsonpath={.status.addresses[?(@.type == "ExternalIP")].address}')
 fi
 
-service_ip=$(retry 24 10 get_service_endpoint proxy-protocol-haproxy)
+service_ip=$(get_service_endpoint proxy-protocol-haproxy)
 
 desc 'check if service and statefulset created with expected config'
 compare_kubectl statefulset/${cluster}-pxc

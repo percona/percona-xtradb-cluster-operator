@@ -608,10 +608,9 @@ get_service_endpoint() {
 	set +o xtrace
 	retry=0
 	while true; do
-		sleep 10
+		sleep 1
 		let retry+=1
-		kubectl_bin get service/$service
-		if [ "$retry" -ge 36 ]; then
+		if [ "$retry" -ge 180 ]; then
 			echo max retry count "$retry" reached. something went wrong with vault
 			exit 1
 		fi

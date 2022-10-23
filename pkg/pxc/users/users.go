@@ -258,7 +258,7 @@ func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
 // Update1100SystemUserPrivilege grants system_user privilege for monitor and clustercheck users
 func (u *Manager) Update1100SystemUserPrivilege(user *SysUser) (err error) {
 	switch user.Name {
-	case "monitor":
+	case UserMonitor:
 		if _, err := u.db.Exec("GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'"); err != nil {
 			return errors.Wrap(err, "monitor user")
 		}

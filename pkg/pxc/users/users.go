@@ -128,7 +128,7 @@ func (u *Manager) UpdateUsersPass(users []SysUser) error {
 
 func (u *Manager) UpdateProxyUser(user *SysUser) error {
 	switch user.Name {
-	case "proxyadmin":
+	case UserProxyAdmin:
 		_, err := u.db.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='admin-admin_credentials'", "proxyadmin:"+user.Pass)
 		if err != nil {
 			return errors.Wrap(err, "update proxy admin password")

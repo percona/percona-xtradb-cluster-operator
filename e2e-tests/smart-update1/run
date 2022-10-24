@@ -1,4 +1,8 @@
 #!/bin/bash
+# CASES:
+# - Update ProxySQL PXC cluster (upgrade order and images)
+# - Update HAProxy PXC cluster (upgrade order and images)
+# - Update PXC with version service available but disabled
 
 set -o errexit
 set -o xtrace

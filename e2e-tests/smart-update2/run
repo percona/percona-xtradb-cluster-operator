@@ -1,4 +1,9 @@
 #!/bin/bash
+# CASES:
+# - Update cluster with version service offline
+# - Update cluster with recommended image by version service
+# - Update cluster with the latest image by version service
+# - Update cluster with explicitly specified image inside version service
 
 set -o errexit
 set -o xtrace

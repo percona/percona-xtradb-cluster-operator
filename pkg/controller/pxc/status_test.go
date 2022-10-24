@@ -174,7 +174,7 @@ func TestUpdateStatusReady(t *testing.T) {
 
 	r := buildFakeClient(objs)
 
-	if err := r.updateStatus(cr, nil); err != nil {
+	if err := r.updateStatus(cr, false, nil); err != nil {
 		t.Error(err)
 	}
 
@@ -194,7 +194,7 @@ func TestUpdateStatusError(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs})
 
-	if err := r.updateStatus(cr, errors.New("mock error")); err != nil {
+	if err := r.updateStatus(cr, false, errors.New("mock error")); err != nil {
 		t.Error(err)
 	}
 

@@ -167,7 +167,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsers(
 	return res, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, upRes *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	user := &users.SysUser{
 		Name:  users.UserRoot,
 		Pass:  string(secrets.Data[users.UserRoot]),
@@ -196,7 +196,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, upRes *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	user := &users.SysUser{
 		Name:  users.UserOperator,
 		Pass:  string(secrets.Data[users.UserOperator]),
@@ -221,7 +221,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 		return errors.Wrap(err, "update internal users secrets operator user password")
 	}
 
-	upRes.restartPXC = true
+	actions.restartPXC = true
 	return nil
 }
 
@@ -273,7 +273,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, upRes *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	user := &users.SysUser{
 		Name:  users.UserMonitor,
 		Pass:  string(secrets.Data[users.UserMonitor]),
@@ -329,7 +329,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		return errors.Wrap(err, "update internal users secrets monitor user password")
 	}
 
-	upRes.restartProxy = true
+	actions.restartProxy = true
 	return nil
 }
 
@@ -380,7 +380,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(cr *api.PerconaXt
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, upRes *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	user := &users.SysUser{
 		Name:  users.UserClustercheck,
 		Pass:  string(secrets.Data[users.UserClustercheck]),
@@ -428,7 +428,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, upRes *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	user := &users.SysUser{
 		Name:  users.UserXtrabackup,
 		Pass:  string(secrets.Data[users.UserXtrabackup]),
@@ -460,7 +460,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 		return errors.Wrap(err, "update internal users secrets xtrabackup user password")
 	}
 
-	upRes.restartPXC = true
+	actions.restartPXC = true
 	return nil
 }
 
@@ -510,7 +510,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.Percon
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, upRes *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		return errors.New("CR version 1.9.0 requered")
 	}
@@ -539,7 +539,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 		return errors.Wrap(err, "update internal users secrets replication user password")
 	}
 
-	upRes.updateReplicationPass = true
+	actions.updateReplicationPass = true
 	return nil
 }
 
@@ -600,7 +600,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtr
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, upRes *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		return errors.New("ProxySQL not enabled")
 	}
@@ -631,43 +631,28 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 		return errors.Wrap(err, "update internal users secrets proxyadmin user password")
 	}
 
-	upRes.restartProxy = true
+	actions.restartProxy = true
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		upRes.restartPXC = true
+		actions.restartPXC = true
 	}
 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, upRes *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		return errors.New("PMM not enabled")
 	}
 
-	name := users.UserPMMServerKey
-	if !cr.Spec.PMM.UseAPI(secrets) {
-		name = users.UserPMMServer
-	}
-	user := &users.SysUser{
-		Name: name,
-		Pass: string(secrets.Data[name]),
-	}
-
-	// update pass
-	err := r.updateUserPass(cr, secrets, internalSecrets, user)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("update %s users pass", name))
-	}
-
 	//update internalSecrets
 	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
-	err = r.client.Update(context.TODO(), internalSecrets)
+	err := r.client.Update(context.TODO(), internalSecrets)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("update internal users secrets %s user password", name))
 	}
 
-	upRes.restartPXC = true
-	upRes.restartProxy = true
+	actions.restartPXC = true
+	actions.restartProxy = true
 
 	return nil
 }

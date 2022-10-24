@@ -51,6 +51,8 @@ main() {
 
 	desc 'delete active writer and checking all haproxy pods still point to the same writer'
 	kubectl_bin delete pod $cluster-pxc-0
+	sleep 3
+	kubectl_bin get pods
 	check_haproxy_writer
 
 	desc 'check advanced options are enabled in haproxy statefulset'

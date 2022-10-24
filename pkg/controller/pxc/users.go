@@ -648,7 +648,7 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBClust
 	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
 	err := r.client.Update(context.TODO(), internalSecrets)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("update internal users secrets %s user password", name))
+		return errors.Wrap(err, "update internal users secrets pmm user password")
 	}
 
 	actions.restartPXC = true

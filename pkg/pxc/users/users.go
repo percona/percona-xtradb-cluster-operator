@@ -262,7 +262,7 @@ func (u *Manager) Update1100SystemUserPrivilege(user *SysUser) (err error) {
 		if _, err := u.db.Exec("GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'"); err != nil {
 			return errors.Wrap(err, "monitor user")
 		}
-	case "clustercheck":
+	case UserClustercheck:
 		if _, err := u.db.Exec("GRANT SYSTEM_USER ON *.* TO 'clustercheck'@'localhost'"); err != nil {
 			return errors.Wrap(err, "clustercheck user")
 		}

@@ -3,6 +3,8 @@ set -eo pipefail
 shopt -s nullglob
 set -o xtrace
 
+trap "exit" SIGTERM
+
 # if command starts with an option, prepend mysqld
 if [ "${1:0:1}" = '-' ]; then
 	set -- mysqld "$@"

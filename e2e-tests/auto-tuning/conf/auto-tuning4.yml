@@ -9,7 +9,7 @@ spec:
   pxc:
     configuration: |
         [mysqld]
-        innodb_buffer_pool_size={{containerMemoryLimit * 2}}
+        innodb_buffer_pool_size={{containerMemoryLimit * 3 / 4}}
         max_connections=200
     size: 3
     image: -pxc

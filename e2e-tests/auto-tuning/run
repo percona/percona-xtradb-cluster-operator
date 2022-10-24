@@ -78,7 +78,7 @@ INNODB_SIZE=$(run_mysql \
 	'SELECT @@innodb_buffer_pool_size;' \
 	"-h $cluster-pxc -uroot -proot_password")
 
-if [[ ${INNODB_SIZE} != $((RAM_SIZE * 2)) ]]; then
+if [[ ${INNODB_SIZE} != $((RAM_SIZE * 3 / 4)) ]]; then
 	echo "innodb_buffer_pool_size ${AUTO_INNODB_SIZE} is not set to $((RAM_SIZE * 2))"
 	exit 1
 fi

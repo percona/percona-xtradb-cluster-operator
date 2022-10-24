@@ -289,7 +289,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		}
 	}
 
-	// grant system user privilage
+	// grant system user privilege
 	if cr.CompareVersionWith("1.10.0") >= 0 {
 		mysqlVersion := cr.Status.PXC.Version
 		if mysqlVersion == "" {
@@ -387,7 +387,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 		Hosts: []string{"localhost"},
 	}
 
-	// grant system user privilage
+	// grant system user privilege
 	if cr.CompareVersionWith("1.10.0") >= 0 {
 		mysqlVersion := cr.Status.PXC.Version
 		if mysqlVersion == "" {

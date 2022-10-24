@@ -1,6 +1,7 @@
 package pxc
 
 import (
+	"bytes"
 	"container/heap"
 	"context"
 	"crypto/sha1"
@@ -14,7 +15,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,30 +39,28 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 	backupNamePrefix := backupJobClusterPrefix(cr.Name)
 
 	if cr.Spec.Backup != nil {
-
 		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause {
 			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
 			if err != nil {
 				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
 			}
-			binlogCollectorName := deployment.GetBinlogCollectorDeploymentName(cr)
+
 			currentCollector := appsv1.Deployment{}
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollectorName, Namespace: cr.Namespace}, &currentCollector)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollector.Name, Namespace: cr.Namespace}, &currentCollector)
 			if err != nil && k8serrors.IsNotFound(err) {
-				err = r.client.Create(context.TODO(), &binlogCollector)
-				if err != nil && !k8serrors.IsAlreadyExists(err) {
-					return fmt.Errorf("create binlog collector deployment for cluster '%s': %v", cr.Name, err)
+				if err := r.client.Create(context.TODO(), &binlogCollector); err != nil && !k8serrors.IsAlreadyExists(err) {
+					return errors.Wrapf(err, "create binlog collector deployment for cluster '%s'", cr.Name)
 				}
 			} else if err != nil {
-				return fmt.Errorf("get binlogCollector '%s': %v", binlogCollectorName, err)
-			} else {
-				currentCollector.Spec = binlogCollector.Spec
-				err = r.client.Update(context.TODO(), &currentCollector)
-				if err != nil {
-					return fmt.Errorf("update binlogCollector '%s': %v", binlogCollectorName, err)
-				}
+				return errors.Wrapf(err, "get binlog collector deployment '%s'", binlogCollector.Name)
+			}
+
+			currentCollector.Spec = binlogCollector.Spec
+			if err := r.client.Update(context.TODO(), &currentCollector); err != nil {
+				return errors.Wrapf(err, "update binlog collector deployment '%s'", binlogCollector.Name)
 			}
 		}
+
 		if !cr.Spec.Backup.PITR.Enabled || cr.Spec.Pause {
 			err := r.deletePITR(cr)
 			if err != nil {
@@ -292,6 +293,108 @@ func (r *ReconcilePerconaXtraDBCluster) deletePITR(cr *api.PerconaXtraDBCluster)
 	err := r.client.Delete(context.TODO(), &collectorDeployment)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrap(err, "delete pitr deployment")
+	}
+
+	return nil
+}
+
+var ErrNoBackups = errors.New("No backups found")
+
+func (r *ReconcilePerconaXtraDBCluster) getLatestSuccessfulBackup(ctx context.Context, cr *api.PerconaXtraDBCluster) (*api.PerconaXtraDBClusterBackup, error) {
+	bcpList := api.PerconaXtraDBClusterBackupList{}
+	if err := r.client.List(ctx, &bcpList, &client.ListOptions{Namespace: cr.Namespace}); err != nil {
+		return nil, errors.Wrap(err, "get backup objects")
+	}
+
+	if len(bcpList.Items) == 0 {
+		return nil, ErrNoBackups
+	}
+
+	latest := bcpList.Items[0]
+	for _, bcp := range bcpList.Items {
+		if bcp.Spec.PXCCluster != cr.Name || bcp.Status.State != api.BackupSucceeded {
+			continue
+		}
+
+		if latest.ObjectMeta.CreationTimestamp.Before(&bcp.ObjectMeta.CreationTimestamp) {
+			latest = bcp
+		}
+	}
+
+	// if there are no successful backups, don't blindly return the first item
+	if latest.Status.State != api.BackupSucceeded {
+		return nil, ErrNoBackups
+	}
+
+	return &latest, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) checkPITRErrors(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	if cr.Spec.Backup == nil || !cr.Spec.Backup.PITR.Enabled {
+		return nil
+	}
+
+	backup, err := r.getLatestSuccessfulBackup(ctx, cr)
+	if err != nil {
+		if errors.Is(err, ErrNoBackups) {
+			return nil
+		}
+		return errors.Wrap(err, "get latest successful backup")
+	}
+
+	if cond := meta.FindStatusCondition(backup.Status.Conditions, api.BackupConditionPITRReady); cond != nil {
+		if cond.Status == metav1.ConditionFalse {
+			return nil
+		}
+	}
+
+	collectorPodList := corev1.PodList{}
+	err = r.client.List(ctx, &collectorPodList,
+		&client.ListOptions{
+			Namespace: cr.Namespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":   cr.Name,
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+			}),
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "get binlog collector pods")
+	}
+
+	collectorPod := collectorPodList.Items[0]
+	stdoutBuf := &bytes.Buffer{}
+	stderrBuf := &bytes.Buffer{}
+	err = r.clientcmd.Exec(&collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/gap-detected"}, nil, stdoutBuf, stderrBuf, false)
+	if err != nil {
+		if strings.Contains(stderrBuf.String(), "No such file or directory") {
+			return nil
+		}
+		return errors.Wrapf(err, "check binlog gaps in pod %s", collectorPod.Name)
+	}
+
+	if stdoutBuf.Len() == 0 {
+		// Can we return nil here??
+		return nil
+	}
+
+	missingGTIDSet := stdoutBuf.String()
+	r.logger(cr.Name, cr.Namespace).Info("Gap detected in binary logs", "collector", collectorPod.Name, "missingGTIDSet", missingGTIDSet)
+
+	condition := metav1.Condition{
+		Type:               api.BackupConditionPITRReady,
+		Status:             metav1.ConditionFalse,
+		Reason:             "BinlogGapDetected",
+		Message:            fmt.Sprintf("Binlog with GTID set %s not found", missingGTIDSet),
+		LastTransitionTime: metav1.Now(),
+	}
+	meta.SetStatusCondition(&backup.Status.Conditions, condition)
+
+	if err := r.client.Status().Update(ctx, backup); err != nil {
+		return errors.Wrap(err, "update backup status")
 	}
 
 	return nil

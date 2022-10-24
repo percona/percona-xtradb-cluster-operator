@@ -334,7 +334,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		}
 		storageS3 := api.BackupStorageS3Spec{}
 
-		if len(cr.Spec.PITR.BackupSource.StorageName) > 0 {
+		if bs := cr.Spec.PITR.BackupSource; bs != nil && len(bs.StorageName) > 0 {
 			storage, ok := cluster.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
 			if ok {
 				storageS3 = storage.S3

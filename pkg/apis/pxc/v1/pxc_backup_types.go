@@ -55,7 +55,12 @@ type PXCBackupStatus struct {
 	Destination   string               `json:"destination,omitempty"`
 	StorageName   string               `json:"storageName,omitempty"`
 	S3            *BackupStorageS3Spec `json:"s3,omitempty"`
+	Conditions    []metav1.Condition   `json:"conditions,omitempty"`
 }
+
+const (
+	BackupConditionPITRReady = "PITRReady"
+)
 
 type PXCBackupState string
 

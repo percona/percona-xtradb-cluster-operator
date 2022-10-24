@@ -485,6 +485,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		return reconcile.Result{}, err
 	}
 
+	err = r.checkPITRErrors(context.TODO(), o)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	if err := r.fetchVersionFromPXC(o, pxcSet); err != nil {
 		return rr, errors.Wrap(err, "update CR version")
 	}

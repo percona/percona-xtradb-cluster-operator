@@ -70,8 +70,7 @@ testsResultsMap = [:]
 void makeReport() {
     def wholeTestAmount=sh(script: 'cat e2e-tests/run | grep "|| fail"| wc -l', , returnStdout: true).trim()
     def startedTestAmount = testsReportMap.size()
-//     testsReportMap = testsReportMap.sort()
-//     println(testsReportMap)
+    
     for ( test in testsReportMap.sort() ) {
         TestsReport = TestsReport + "\r\n| ${test.key} | ${test.value} |"
     }

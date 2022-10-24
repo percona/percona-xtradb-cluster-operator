@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+run_recovery_from_source() {
+	desc "aws restore with backup source"
+
+	stext=$(kubectl_bin get pxc-backup on-demand-backup-aws-s3 -o json | jq -c '.status')
+	jq --argjson s "$stext" '.spec.backupSource=$s' $test_dir/conf/restore-from-source-backup-aws-s3.json \
+		| kubectl_bin apply -f -
+	sleep 30
+	wait_for_running "$cluster-proxysql" 1
+	wait_for_running "$cluster-pxc" 3
+	sleep 30
+	desc 'check data after backup from source'
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
+	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+
+}
+
+main() {
+	if [ -n "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+		echo "Skipping test because SKIP_BACKUPS_TO_AWS_GCP variable is set!"
+		exit 0
+	else
+		create_infra $namespace
+
+		cluster="demand-backup-cloud"
+		spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+		run_backup "$cluster" "on-demand-backup-aws-s3"
+		run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+
+		run_recovery_from_source
+
+		run_backup "$cluster" "on-demand-backup-gcp-cs"
+		run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
+
+		destroy $namespace
+	fi
+}
+
+main

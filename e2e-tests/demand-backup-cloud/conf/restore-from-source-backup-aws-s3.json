@@ -5,6 +5,6 @@
         "name": "on-demand-backup-aws-s3-2"
     },
     "spec": {
-        "pxcCluster": "some-name"
+        "pxcCluster": "demand-backup-cloud"
     }
 }

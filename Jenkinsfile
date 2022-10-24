@@ -1,29 +1,36 @@
 GKERegion='us-central1-a'
 
-void CreateCluster(String CLUSTER_PREFIX) {
+void CreateCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             NODES_NUM=3
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
-            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-            gcloud config set project $GCP_PROJECT
-            gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-            gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
-            kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
+            ret_num=0
+            while [ \${ret_num} -lt 15 ]; do
+                ret_val=0
+                gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+                gcloud config set project $GCP_PROJECT
+                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=10.\$(( RANDOM % 250 )).\$(( RANDOM % 30 * 8 )).0/21 && \
+                kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
+                if [ \${ret_val} -eq 0 ]; then break; fi
+                ret_num=\$((ret_num + 1))
+            done
+            if [ \${ret_num} -eq 15 ]; then exit 1; fi
         """
    }
 }
-void ShutdownCluster(String CLUSTER_PREFIX) {
+void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX}
+            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX}
         """
    }
 }
@@ -63,14 +70,36 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
+void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
+    sh """
+		export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+		export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+		source $HOME/google-cloud-sdk/path.bash.inc
+        echo "========== KUBERNETES STATUS $LOCATION TEST =========="
+        gcloud container clusters list|grep -E "NAME|$CLUSTER_NAME-$CLUSTER_SUFFIX "
+        echo
+        kubectl get nodes
+        echo
+        kubectl top nodes
+        echo
+        kubectl get pods --all-namespaces
+        echo
+        kubectl top pod --all-namespaces
+        echo
+        kubectl get events --field-selector type!=Normal --all-namespaces
+        echo "======================================================"
+    """
+}
+
 TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
 testsReportMap  = [:]
 testsResultsMap = [:]
 
 void makeReport() {
-    def wholeTestAmount=sh(script: 'cat e2e-tests/run | grep "|| fail"| wc -l', , returnStdout: true).trim()
+    def wholeTestAmount=sh(script: 'grep "runTest(.*)$" Jenkinsfile | grep -v wholeTestAmount | wc -l', , returnStdout: true).trim().toInteger()
     def startedTestAmount = testsReportMap.size()
-    for ( test in testsReportMap ) {
+    
+    for ( test in testsReportMap.sort() ) {
         TestsReport = TestsReport + "\r\n| ${test.key} | ${test.value} |"
     }
     TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
@@ -82,7 +111,7 @@ void setTestsresults() {
     }
 }
 
-void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX, String MYSQL_VERSION, Integer TIMEOUT) {
     def retryCount = 0
     def testNameWithMysqlVersion = "$TEST_NAME-$MYSQL_VERSION".replace(".", "-")
     waitUntil {
@@ -93,12 +122,12 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION) {
             testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
-            timeout(time: 90, unit: 'MINUTES') {
+            timeout(time: TIMEOUT, unit: 'MINUTES') {
                 sh """
                     if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion" ]; then
                         echo Skip $TEST_NAME test
                     else
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
                         export MYSQL_VERSION=$MYSQL_VERSION
                         source $HOME/google-cloud-sdk/path.bash.inc
                         time bash ./e2e-tests/$TEST_NAME/run
@@ -111,7 +140,8 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX, String MYSQL_VERSION) {
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            printKubernetesStatus("AFTER","$CLUSTER_SUFFIX")
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -296,103 +326,130 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             parallel {
-                stage('E2E Upgrade') {
+                stage('cluster1') {
                     steps {
-                        CreateCluster('upgrade')
-                        runTest('upgrade-haproxy', 'upgrade', '8.0')
-                        ShutdownCluster('upgrade')
-                        CreateCluster('upgrade')
-                        runTest('upgrade-proxysql', 'upgrade', '8.0')
-                        ShutdownCluster('upgrade')
-                        CreateCluster('upgrade')
-                        runTest('smart-update', 'upgrade', '8.0')
-                        runTest('upgrade-consistency', 'upgrade', '8.0')
-                        ShutdownCluster('upgrade')
+                        CreateCluster('cluster1')
+                        runTest('upgrade-haproxy', 'cluster1', '8.0', 45)
+                        runTest('upgrade-proxysql', 'cluster1', '8.0', 45)
+                        ShutdownCluster('cluster1')
                     }
                 }
-                stage('E2E Basic Tests') {
+                stage('cluster2') {
                     steps {
-                        CreateCluster('basic')
-                        runTest('haproxy', 'basic', '8.0')
-                        runTest('init-deploy', 'basic', '8.0')
-                        runTest('limits', 'basic', '8.0')
-                        runTest('monitoring-2-0', 'basic', '8.0')
-                        runTest('affinity', 'basic', '8.0')
-                        runTest('one-pod', 'basic', '8.0')
-                        runTest('auto-tuning', 'basic', '8.0')
-                        runTest('proxysql-sidecar-res-limits', 'basic', '8.0')
-                        runTest('users', 'basic', '8.0')
-                        runTest('tls-issue-self','basic', '8.0')
-                        runTest('tls-issue-cert-manager','basic', '8.0')
-                        runTest('tls-issue-cert-manager-ref','basic', '8.0')
-                        runTest('validation-hook','basic', '8.0')
-                        runTest('proxy-protocol','basic', '8.0')
-                        ShutdownCluster('basic')
+                        CreateCluster('cluster2')
+                        runTest('smart-update1', 'cluster2', '8.0', 75)
+                        runTest('smart-update2', 'cluster2', '8.0', 45)
+                        ShutdownCluster('cluster2')
                     }
                 }
-                stage('E2E Scaling') {
+                stage('cluster3') {
                     steps {
-                        CreateCluster('scaling')
-                        runTest('scaling', 'scaling', '8.0')
-                        runTest('scaling-proxysql', 'scaling', '8.0')
-                        runTest('security-context', 'scaling', '8.0')
-                        ShutdownCluster('scaling')
+                        CreateCluster('cluster3')
+                        runTest('init-deploy', 'cluster3', '8.0', 40)
+                        runTest('limits', 'cluster3', '8.0', 30)
+                        runTest('monitoring-2-0', 'cluster3', '8.0', 30)
+                        ShutdownCluster('cluster3')
                     }
                 }
-                stage('E2E SelfHealing') {
+                stage('cluster4') {
                     steps {
-                        CreateCluster('selfhealing')
-                        runTest('storage', 'selfhealing', '8.0')
-                        runTest('self-healing', 'selfhealing', '8.0')
-                        runTest('self-healing-chaos', 'selfhealing', '8.0')
-                        runTest('self-healing-advanced', 'selfhealing', '8.0')
-                        runTest('self-healing-advanced-chaos', 'selfhealing', '8.0')
-                        runTest('operator-self-healing', 'selfhealing', '8.0')
-                        runTest('operator-self-healing-chaos', 'selfhealing', '8.0')
-                        ShutdownCluster('selfhealing')
+                        CreateCluster('cluster4')
+                        runTest('proxysql-sidecar-res-limits', 'cluster4', '8.0', 30)
+                        runTest('tls-issue-self','cluster4', '8.0', 25)
+                        runTest('tls-issue-cert-manager','cluster4', '8.0', 25)
+                        runTest('tls-issue-cert-manager-ref','cluster4', '8.0', 25)
+                        runTest('validation-hook','cluster4', '8.0', 10)
+                        ShutdownCluster('cluster4')
                     }
                 }
-                stage('E2E Backups') {
+                stage('cluster5') {
                     steps {
-                        CreateCluster('backups')
-                        runTest('recreate', 'backups', '8.0')
-                        runTest('restore-to-encrypted-cluster', 'backups', '8.0')
-                        runTest('demand-backup', 'backups', '8.0')
-                        runTest('pitr', 'backups', '8.0')
-                        runTest('demand-backup-encrypted-with-tls', 'backups', '8.0')
-                        ShutdownCluster('backups')
+                        CreateCluster('cluster5')
+                        runTest('scaling', 'cluster5', '8.0', 30)
+                        runTest('scaling-proxysql', 'cluster5', '8.0', 30)
+                        runTest('security-context', 'cluster5', '8.0', 50)
+                        ShutdownCluster('cluster5')
                     }
                 }
-                stage('E2E Scheduled-backups') {
+                stage('cluster6') {
                     steps {
-                        CreateCluster('scheduled-backups')
-                        runTest('scheduled-backup', 'scheduled-backups', '8.0')
-                        ShutdownCluster('scheduled-backups')
+                        CreateCluster('cluster6')
+                        runTest('storage', 'cluster6', '8.0', 30)
+                        runTest('upgrade-consistency', 'cluster6', '8.0', 50)
+                        runTest('proxy-protocol','cluster6', '8.0', 30)
+                        ShutdownCluster('cluster6')
                     }
                 }
-                stage('E2E BigData') {
+                stage('cluster7') {
                     steps {
-                        CreateCluster('bigdata')
-                        runTest('big-data', 'bigdata', '8.0')
-                        ShutdownCluster('bigdata')
+                        CreateCluster('cluster7')
+                        runTest('restore-to-encrypted-cluster', 'cluster7', '8.0', 50)
+                        runTest('pitr', 'cluster7', '8.0', 75)
+                        runTest('affinity', 'cluster7', '8.0', 20)
+                        ShutdownCluster('cluster7')
                     }
                 }
-                stage('E2E CrossSite') {
+                stage('cluster8') {
                     steps {
-                        CreateCluster('cross-site')
-                        runTest('cross-site', 'cross-site', '8.0')
-                        ShutdownCluster('cross-site')
+                        CreateCluster('cluster8')
+                        runTest('scheduled-backup', 'cluster8', '8.0', 60)
+                        ShutdownCluster('cluster8')
                     }
                 }
-                stage('E2E Mysql 5.7') {
+                stage('cluster9') {
                     steps {
-                        CreateCluster('mysql-57')
-                        runTest('users', 'mysql-57', '5.7')
-                        runTest('one-pod', 'mysql-57', '5.7')
-                        runTest('scheduled-backup', 'mysql-57', '5.7')
-                        runTest('init-deploy', 'mysql-57', '5.7')
-                        runTest('haproxy', 'mysql-57', '5.7')
-                        ShutdownCluster('mysql-57')
+                        CreateCluster('cluster9')
+                        runTest('cross-site', 'cluster9', '8.0', 50)
+                        runTest('recreate', 'cluster9', '8.0', 50)
+                        ShutdownCluster('cluster9')
+                    }
+                }
+                stage('cluster10') {
+                    steps {
+                        CreateCluster('cluster10')
+                        runTest('users', 'cluster10', '8.0', 75)
+                        ShutdownCluster('cluster10')
+                    }
+                }
+                stage('cluster11') {
+                    steps {
+                        CreateCluster('cluster11')
+                        runTest('demand-backup', 'cluster11', '8.0', 60)
+                        runTest('demand-backup-cloud', 'cluster11', '8.0', 60)
+                        ShutdownCluster('cluster11')
+                    }
+                }
+                stage('cluster12') {
+                    steps {
+                        CreateCluster('cluster12')
+                        runTest('demand-backup-encrypted-with-tls', 'cluster12', '8.0', 75)
+                        ShutdownCluster('cluster12')
+                    }
+                }
+                stage('cluster13') {
+                    steps {
+                        CreateCluster('cluster13')
+                        runTest('haproxy', 'cluster13', '8.0', 50)
+                        runTest('one-pod', 'cluster13', '8.0', 30)
+                        runTest('auto-tuning', 'cluster13', '8.0', 30)
+                        ShutdownCluster('cluster13')
+                    }
+                }
+                stage('cluster14') {
+                    steps {
+                        CreateCluster('cluster14')
+                        runTest('users', 'cluster14', '5.7', 75)
+                        runTest('one-pod', 'cluster14', '5.7', 30)
+                        ShutdownCluster('cluster14')
+                    }
+                }
+                stage('cluster15') {
+                    steps {
+                        CreateCluster('cluster15')
+                        runTest('scheduled-backup', 'cluster15', '5.7', 60)
+                        runTest('init-deploy', 'cluster15', '5.7', 40)
+                        runTest('haproxy', 'cluster15', '5.7', 50)
+                        ShutdownCluster('cluster15')
                     }
                 }
             }

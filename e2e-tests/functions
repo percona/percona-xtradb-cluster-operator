@@ -575,7 +575,7 @@ destroy() {
 	kubectl_bin delete pxc-restore --all --all-namespaces || :
 	kubectl_bin delete ValidatingWebhookConfiguration percona-xtradbcluster-webhook || :
 
-	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml 2>/dev/null || :
+	kubectl_bin delete -f https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml 2>/dev/null || :
 	if [ ! -z "$OPENSHIFT" ]; then
 		oc delete --grace-period=0 --force=true project "$namespace" &
 		if [ -n "$OPERATOR_NS" ]; then
@@ -921,7 +921,7 @@ run_backup() {
 	local cluster=$1
 	local backup1=$2
 
-	desc 'make backup'
+	desc "make backup $backup1"
 	kubectl_bin apply \
 		-f $test_dir/conf/$backup1.yml
 	wait_backup $backup1
@@ -932,7 +932,7 @@ run_recovery_check() {
 	local backup1=$2
 	local proxy=$(get_proxy_engine $cluster)
 
-	desc 'recover backup'
+	desc "recover backup $backup1"
 	kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
 	wait_backup_restore ${backup1}
 	kubectl_bin logs job/restore-job-${backup1}-${cluster}

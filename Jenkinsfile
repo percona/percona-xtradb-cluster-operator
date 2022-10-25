@@ -182,6 +182,9 @@ pipeline {
     agent {
         label 'docker'
     }
+    options {
+        disableConcurrentBuilds(abortPrevious: true)
+    }
     stages {
         stage('Prepare') {
             when {

@@ -63,7 +63,7 @@ func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *apiv1.Percon
 	l := r.lockers.LoadOrCreate(nn.String())
 
 	logger.Info("add new job", "schedule", cr.Spec.UpgradeOptions.Schedule)
-	id, err := r.crons.crons.AddFunc(cr.Spec.UpgradeOptions.Schedule, func() {
+	id, err := r.crons.AddFuncWithSeconds(cr.Spec.UpgradeOptions.Schedule, func() {
 		l.statusMutex.Lock()
 		defer l.statusMutex.Unlock()
 

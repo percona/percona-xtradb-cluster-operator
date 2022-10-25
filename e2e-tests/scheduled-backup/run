@@ -70,10 +70,18 @@ get_failed_backups_amount() {
 wait_all_backups() {
 	while [[ "$(get_running_backups_amount)" -ne 0 && "$(get_failed_backups_amount)" -eq 0 ]]; do
 		wait_for_running "$cluster-pxc" 3 1
+		echo
+		kubectl_bin get pxc-backup
+		echo
+		kubectl_bin get pods
 		sleep 20
 	done
 	if [[ "$(get_failed_backups_amount)" -gt 0 ]]; then
-		echo "One or more backups have been failed!"
+		echo "One or more backups have been failed!\n"
+		desc "LIST OF BACKUPS"
+		kubectl_bin get pxc-backup
+		desc "LIST OF PODS"
+		kubectl_bin get pods
 		exit 1
 	fi
 }
@@ -162,18 +170,30 @@ main() {
 		        description: "This priority class should be used for backup service pods only."
 	EOF
 
-	spinup_pxc "$cluster" "$test_dir/conf/${cluster}1.yml"
+	spinup_pxc "$cluster" "$test_dir/conf/${cluster}-init.yml"
 	sleep 20
 
-	desc 'add backups schedule, wait for the first backup'
-	apply_config "$test_dir/conf/${cluster}2.yml"
-	label_node
-	sleep 20
-
+	desc 'add backups schedule for pvc storage'
 	kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespace="$namespace"
-
-	sleep 65
-	apply_config "${test_dir}/conf/${cluster}3.yml"
+	apply_config "${test_dir}/conf/${cluster}-pvc.yml"
+	label_node
+	sleep 61
+	apply_config "${test_dir}/conf/${cluster}-disable.yml"
+	wait_all_backups
+	desc 'add backups schedule for aws s3 storage'
+	apply_config "${test_dir}/conf/${cluster}-aws.yml"
+	sleep 61
+	apply_config "${test_dir}/conf/${cluster}-disable.yml"
+	wait_all_backups
+	desc 'add backups schedule for minio storage'
+	apply_config "${test_dir}/conf/${cluster}-minio.yml"
+	sleep 61
+	apply_config "${test_dir}/conf/${cluster}-disable.yml"
+	wait_all_backups
+	desc 'add backups schedule for gcs storage'
+	apply_config "${test_dir}/conf/${cluster}-gcs.yml"
+	sleep 61
+	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
 
 	FIRST_PVC_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep pvc | head -n1 | cut -d: -f1)
@@ -201,7 +221,7 @@ main() {
 		backup_name_gcp=$(get_backup_name "gcp-cs")
 	fi
 
-	apply_config "$test_dir/conf/${cluster}1.yml"
+	apply_config "$test_dir/conf/${cluster}-init.yml"
 
 	run_recovery_check "$cluster" "$backup_name_pvc"
 	run_recovery_check "$cluster" "$backup_name_minio"

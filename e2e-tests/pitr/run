@@ -29,9 +29,9 @@ run_recovery_check_pitr() {
 	wait_backup_restore ${backup}
 	kubectl_bin logs job/restore-job-${backup}-${cluster}
 	kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
-	wait_for_running "$cluster-proxysql" 1
+	wait_for_running "$cluster-proxysql" 2
 	wait_for_running "$cluster-pxc" 3
-	sleep 35
+	sleep 40
 	desc 'check data after backup' $restore
 	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"

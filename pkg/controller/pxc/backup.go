@@ -86,7 +86,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				sch.PXCScheduledBackupSchedule.StorageName != bcp.StorageName {
 				r.log.Info("Creating or updating backup job", "name", bcp.Name, "schedule", bcp.Schedule)
 				r.deleteBackupJob(bcp.Name)
-				jobID, err := r.crons.crons.AddFunc(bcp.Schedule, r.createBackupJob(cr, bcp, strg.Type))
+				jobID, err := r.crons.AddFuncWithSeconds(bcp.Schedule, r.createBackupJob(cr, bcp, strg.Type))
 				if err != nil {
 					logger.Error(err, "can't parse cronjob schedule", "backup name", cr.Spec.Backup.Schedule[i].Name, "schedule", bcp.Schedule)
 					continue

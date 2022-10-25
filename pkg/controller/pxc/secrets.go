@@ -16,6 +16,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const internalSecretsPrefix = "internal-"
+
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtraDBCluster) error {
 	secretObj := new(corev1.Secret)
 	err := r.client.Get(context.TODO(),

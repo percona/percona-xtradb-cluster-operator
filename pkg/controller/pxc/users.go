@@ -6,8 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"log"
-	"reflect"
 	"strconv"
 
 	"github.com/hashicorp/go-version"
@@ -20,8 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
-
-const internalSecretsPrefix = "internal-"
 
 // https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
 var privSystemUserAddedIn = version.Must(version.NewVersion("8.0.16"))
@@ -39,6 +35,8 @@ type ReconcileUsersResult struct {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) (*ReconcileUsersResult, error) {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	secrets := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -106,6 +104,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		result.pxcAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
 	}
 
+	logger.Info("AAA ReconcileUserResults", "res", result)
 	return result, nil
 }
 
@@ -113,8 +112,7 @@ func sha256Hash(data []byte) string {
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateUsers(
-	cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) (*userUpdateActions, error) {
+func (r *ReconcilePerconaXtraDBCluster) updateUsers(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) (*userUpdateActions, error) {
 	res := &userUpdateActions{}
 
 	for _, u := range users.UserNames {
@@ -162,6 +160,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsers(
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	user := &users.SysUser{
 		Name:  users.UserRoot,
 		Pass:  string(secrets.Data[users.UserRoot]),
@@ -177,12 +177,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
+	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	// syncProxyUser
 	err = r.syncPXCUsersWithProxySQL(cr)
 	if err != nil {
 		return errors.Wrap(err, "sync users")
 	}
+	logger.Info(fmt.Sprintf("User %s: synced PXC users with ProxySQL", user.Name))
 
 	//update internalSecrets
 	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
@@ -190,11 +192,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return errors.Wrap(err, "update internal secrets root user password")
 	}
+	logger.Info(fmt.Sprintf("AAA User %s: internal secrets updated", user.Name))
 
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	user := &users.SysUser{
 		Name:  users.UserOperator,
 		Pass:  string(secrets.Data[users.UserOperator]),
@@ -216,6 +221,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
+	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	//update internalSecrets
 	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
@@ -223,6 +229,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets operator user password")
 	}
+	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
 	actions.restartPXC = true
 	return nil
@@ -230,6 +237,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 
 // manageOperatorAdminUser ensures that operator user is always present and with the right privileges
 func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	pass, existInSys := secrets.Data[users.UserOperator]
 	_, existInInternal := internalSecrets.Data[users.UserOperator]
 	if existInSys && !existInInternal {
@@ -274,10 +283,13 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 		return errors.Wrap(err, "update internal users secret")
 	}
 
+	logger.Info("User operator: user created and privileges granted")
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	user := &users.SysUser{
 		Name:  users.UserMonitor,
 		Pass:  string(secrets.Data[users.UserMonitor]),
@@ -325,6 +337,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
+	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	// update proxy users
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
@@ -332,6 +345,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		if err != nil {
 			return errors.Wrap(err, "update monitor users pass")
 		}
+		logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
 	}
 
 	//update internalSecrets
@@ -340,13 +354,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets monitor user password")
 	}
+	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
 	actions.restartProxy = true
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
-	// Q: Why do we need these done annotations? For other users as well?
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	annotationName := "grant-for-1.6.0-monitor-user"
 	if internalSysSecretObj.Annotations[annotationName] == "done" {
 		return nil
@@ -389,10 +405,13 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(cr *api.PerconaXt
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
 
+	logger.Info("User monitor: granted privileges")
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	user := &users.SysUser{
 		Name:  users.UserClustercheck,
 		Pass:  string(secrets.Data[users.UserClustercheck]),
@@ -433,6 +452,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 	if err != nil {
 		return errors.Wrap(err, "update clustercheck users pass")
 	}
+	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	//update internalSecrets
 	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
@@ -440,11 +460,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets clustercheck user password")
 	}
+	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	user := &users.SysUser{
 		Name:  users.UserXtrabackup,
 		Pass:  string(secrets.Data[users.UserXtrabackup]),
@@ -456,7 +479,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 
 	// Regardless of password change, always ensure xtrabackup user has the right privileges
 	if cr.CompareVersionWith("1.7.0") >= 0 {
-		// monitor user need more grants for work in version more then 1.6.0	
+		// monitor user need more grants for work in version more then 1.6.0
 		err := r.updateXtrabackupUserGrant(cr, internalSecrets)
 		if err != nil {
 			return errors.Wrap(err, "update xtrabackup user grant")
@@ -472,6 +495,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
+	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	//update internalSecrets
 	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
@@ -479,12 +503,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets xtrabackup user password")
 	}
+	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
 	actions.restartPXC = true
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	annotationName := "grant-for-1.7.0-xtrabackup-user"
 	if internalSysSecretObj.Annotations[annotationName] == "done" {
 		return nil
@@ -512,7 +539,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.Percon
 	}
 	defer um.Close()
 
-	err = um.Update170XtrabackupUser(string(internalSysSecretObj.Data["xtrabackup"]))
+	err = um.Update170XtrabackupUser(string(internalSysSecretObj.Data[users.UserXtrabackup]))
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
 	}
@@ -527,10 +554,13 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.Percon
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
 
+	logger.Info("User xtrabackup: granted privileges")
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	if cr.CompareVersionWith("1.9.0") >= 0 {
 		return errors.New("CR version 1.9.0 requered")
 	}
@@ -556,6 +586,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
+	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	//update internalSecrets
 	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
@@ -563,6 +594,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets replication user password")
 	}
+	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
 	actions.updateReplicationPass = true
 	return nil
@@ -570,6 +602,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 
 // manageReplicationUser ensures that replication user is always present and with the right privileges
 func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	pass, existInSys := sysUsersSecretObj.Data["replication"]
 	_, existInInternal := internalSysSecretObj.Data["replication"]
 	if existInSys && !existInInternal {
@@ -623,10 +657,13 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtr
 		return errors.Wrap(err, "update internal users secret")
 	}
 
+	logger.Info("User replication: user created and privileges granted")
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		return errors.New("ProxySQL not enabled")
 	}
@@ -645,18 +682,21 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
+	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	// update proxy users
 	err = r.updateProxyUser(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update Proxy users")
 	}
+	logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
 
 	// syncProxyUser
 	err = r.syncPXCUsersWithProxySQL(cr)
 	if err != nil {
 		return errors.Wrap(err, "sync proxy users")
 	}
+	logger.Info(fmt.Sprintf("User %s: synced PXC users with ProxySQL", user.Name))
 
 	//update internalSecrets
 	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
@@ -664,6 +704,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets proxyadmin user password")
 	}
+	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
 	actions.restartProxy = true
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
@@ -674,16 +715,24 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		return errors.New("PMM not enabled")
 	}
 
+	name := users.UserPMMServerKey
+	if !cr.Spec.PMM.UseAPI(secrets) {
+		name = users.UserPMMServer
+	}
+
 	//update internalSecrets
-	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
+	internalSecrets.Data[name] = secrets.Data[name]
 	err := r.client.Update(context.TODO(), internalSecrets)
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets pmm user password")
 	}
+	logger.Info(fmt.Sprintf("User %s: internal secrets updated", name))
 
 	actions.restartPXC = true
 	actions.restartProxy = true
@@ -772,6 +821,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(cr *api.PerconaXtraDBClu
 }
 
 func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, user *users.SysUser) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	annotationName := "grant-for-1.10.0-system-privilege"
 	if internalSysSecretObj.Annotations[annotationName] == "done" {
 		return nil
@@ -813,5 +864,6 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.Percona
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
 
+	logger.Info(fmt.Sprintf("User %s: system user privileges granted", user.Name))
 	return nil
 }

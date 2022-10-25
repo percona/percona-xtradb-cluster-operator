@@ -374,7 +374,7 @@ pipeline {
                 stage('cluster6') {
                     steps {
                         CreateCluster('cluster6')
-                        runTest('storage', 'cluster6', '8.0', 30)
+                        runTest('storage', 'cluster6', '8.0', 45)
                         runTest('upgrade-consistency', 'cluster6', '8.0', 50)
                         runTest('proxy-protocol','cluster6', '8.0', 30)
                         ShutdownCluster('cluster6')
@@ -392,7 +392,7 @@ pipeline {
                 stage('cluster8') {
                     steps {
                         CreateCluster('cluster8')
-                        runTest('scheduled-backup', 'cluster8', '8.0', 60)
+                        runTest('scheduled-backup', 'cluster8', '8.0', 75)
                         ShutdownCluster('cluster8')
                     }
                 }
@@ -446,7 +446,7 @@ pipeline {
                 stage('cluster15') {
                     steps {
                         CreateCluster('cluster15')
-                        runTest('scheduled-backup', 'cluster15', '5.7', 60)
+                        runTest('scheduled-backup', 'cluster15', '5.7', 75)
                         runTest('init-deploy', 'cluster15', '5.7', 40)
                         runTest('haproxy', 'cluster15', '5.7', 50)
                         ShutdownCluster('cluster15')

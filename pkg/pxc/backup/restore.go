@@ -41,7 +41,7 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore) *corev1.Service {
 		},
 	}
 
-	if cr.Annotations["headless-service"] == "true" {
+	if cr.Annotations["percona.com/headless-service"] == "true" {
 		svc.Spec.ClusterIP = corev1.ClusterIPNone
 	}
 

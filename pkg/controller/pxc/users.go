@@ -80,11 +80,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil, nil
 	}
 
-	if reflect.DeepEqual(secrets.Data, internalSecrets.Data) {
-		log.Printf("user secrets not changed.\n")
-		return nil, nil
-	}
-
 	if cr.Status.Status != api.AppStateReady {
 		return nil, nil
 	}
@@ -123,8 +118,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsers(
 	res := &userUpdateActions{}
 
 	for _, u := range users.UserNames {
-		if _, ok := secrets.Data[u]; !ok ||
-			bytes.Equal(secrets.Data[u], internalSecrets.Data[u]) {
+		if _, ok := secrets.Data[u]; !ok {
 			continue
 		}
 
@@ -174,6 +168,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 		Hosts: []string{"localhost", "%"},
 	}
 
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+		return nil
+	}
+
 	// update pass
 	err := r.updateUserPass(cr, secrets, internalSecrets, user)
 	if err != nil {
@@ -203,9 +201,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 		Hosts: []string{"localhost", "%"},
 	}
 
+	// Regardless of password change, always ensure that operator user is there with the right privileges
 	err := r.manageOperatorAdminUser(cr, secrets, internalSecrets)
 	if err != nil {
 		return errors.Wrap(err, "manage operator admin user")
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+		return nil
 	}
 
 	// update pass
@@ -225,6 +228,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	return nil
 }
 
+// manageOperatorAdminUser ensures that operator user is always present and with the right privileges
 func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) error {
 	pass, existInSys := secrets.Data[users.UserOperator]
 	_, existInInternal := internalSecrets.Data[users.UserOperator]
@@ -280,16 +284,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		Hosts: []string{"%"},
 	}
 
-	//update grants
+	// Regardless of password change, always ensure monitor user has the right privileges
 	if cr.CompareVersionWith("1.6.0") >= 0 {
-		// monitor user need more grants for work in version more then 1.6.0
 		err := r.updateMonitorUserGrant(cr, internalSecrets)
 		if err != nil {
 			return errors.Wrap(err, "update monitor user grant")
 		}
 	}
 
-	// grant system user privilege
 	if cr.CompareVersionWith("1.10.0") >= 0 {
 		mysqlVersion := cr.Status.PXC.Version
 		if mysqlVersion == "" {
@@ -314,6 +316,16 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		}
 	}
 
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+		return nil
+	}
+
+	// update pass
+	err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "update operator users pass")
+	}
+
 	// update proxy users
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		err := r.updateProxyUser(cr, internalSecrets, user)
@@ -324,7 +336,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 
 	//update internalSecrets
 	internalSecrets.Data[users.UserRoot] = secrets.Data[users.UserRoot]
-	err := r.client.Update(context.TODO(), internalSecrets)
+	err = r.client.Update(context.TODO(), internalSecrets)
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets monitor user password")
 	}
@@ -387,7 +399,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 		Hosts: []string{"localhost"},
 	}
 
-	// grant system user privilege
+	// Regardless of password change, always ensure clustercheck user has the right privileges
 	if cr.CompareVersionWith("1.10.0") >= 0 {
 		mysqlVersion := cr.Status.PXC.Version
 		if mysqlVersion == "" {
@@ -410,6 +422,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 				}
 			}
 		}
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+		return nil
 	}
 
 	// update pass
@@ -438,13 +454,17 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 		user.Hosts = []string{"%"}
 	}
 
-	//update grants
+	// Regardless of password change, always ensure xtrabackup user has the right privileges
 	if cr.CompareVersionWith("1.7.0") >= 0 {
-		// monitor user need more grants for work in version more then 1.6.0
+		// monitor user need more grants for work in version more then 1.6.0	
 		err := r.updateXtrabackupUserGrant(cr, internalSecrets)
 		if err != nil {
 			return errors.Wrap(err, "update xtrabackup user grant")
 		}
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+		return nil
 	}
 
 	// update pass
@@ -521,9 +541,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 		Hosts: []string{"%"},
 	}
 
+	// Even if there is no password change, always ensure that operator user is there handle its grants
 	err := r.manageReplicationUser(cr, secrets, internalSecrets)
 	if err != nil {
 		return errors.Wrap(err, "manage replication user")
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+		return nil
 	}
 
 	// update pass
@@ -543,6 +568,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 	return nil
 }
 
+// manageReplicationUser ensures that replication user is always present and with the right privileges
 func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) error {
 	pass, existInSys := sysUsersSecretObj.Data["replication"]
 	_, existInInternal := internalSysSecretObj.Data["replication"]
@@ -610,16 +636,24 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 		Pass: string(secrets.Data[users.UserProxyAdmin]),
 	}
 
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+		return nil
+	}
+
+	// update pass
+	err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "update operator users pass")
+	}
+
 	// update proxy users
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		err := r.updateProxyUser(cr, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "update Proxy users")
-		}
+	err = r.updateProxyUser(cr, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "update Proxy users")
 	}
 
 	// syncProxyUser
-	err := r.syncPXCUsersWithProxySQL(cr)
+	err = r.syncPXCUsersWithProxySQL(cr)
 	if err != nil {
 		return errors.Wrap(err, "sync proxy users")
 	}

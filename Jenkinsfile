@@ -13,7 +13,8 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                 gcloud config set project $GCP_PROJECT
                 gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=10.\$(( RANDOM % 250 )).\$(( RANDOM % 30 * 8 )).0/21 --labels delete-cluster-after-hours=6 && \
+                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=10.\$(( RANDOM % 250 )).\$(( RANDOM % 30 * 8 )).0/21 && \
+                gcloud container clusters update $CLUSTER_NAME-${CLUSTER_SUFFIX} --update-labels delete-cluster-after-hours=6,pxc-pr=${CHANGE_ID} --zone $GKERegion && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -31,6 +32,17 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
             gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX}
+        """
+   }
+}
+void DeleteOldClusters() {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+        sh """
+            export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+            source $HOME/google-cloud-sdk/path.bash.inc
+            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+            gcloud config set project $GCP_PROJECT
+            gcloud container clusters delete --async --quiet --zone $GKERegion \$(gcloud container clusters list --filter="resourceLabels.pxc-pr:${CHANGE_ID}" --format="csv[no-heading](name)"| tr '\n' ' ') || true
         """
    }
 }
@@ -230,6 +242,7 @@ pipeline {
                         cp $CLOUD_SECRET_FILE ./e2e-tests/conf/cloud-secret.yml
                     '''
                 }
+                DeleteOldClusters()
             }
         }
         stage('Build docker image') {

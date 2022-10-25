@@ -180,7 +180,7 @@ pipeline {
         ENABLE_LOGGING="true"
     }
     agent {
-        label 'docker'
+        label 'docker-test'
     }
     stages {
         stage('Prepare') {
@@ -327,6 +327,7 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster1')
                         runTest('upgrade-haproxy', 'cluster1', '8.0', 45)
@@ -335,6 +336,7 @@ pipeline {
                     }
                 }
                 stage('cluster2') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster2')
                         runTest('smart-update1', 'cluster2', '8.0', 75)
@@ -343,6 +345,7 @@ pipeline {
                     }
                 }
                 stage('cluster3') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster3')
                         runTest('init-deploy', 'cluster3', '8.0', 40)
@@ -352,6 +355,7 @@ pipeline {
                     }
                 }
                 stage('cluster4') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster4')
                         runTest('proxysql-sidecar-res-limits', 'cluster4', '8.0', 30)
@@ -363,6 +367,7 @@ pipeline {
                     }
                 }
                 stage('cluster5') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster5')
                         runTest('scaling', 'cluster5', '8.0', 30)
@@ -372,6 +377,7 @@ pipeline {
                     }
                 }
                 stage('cluster6') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster6')
                         runTest('storage', 'cluster6', '8.0', 30)
@@ -381,6 +387,7 @@ pipeline {
                     }
                 }
                 stage('cluster7') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster7')
                         runTest('restore-to-encrypted-cluster', 'cluster7', '8.0', 50)
@@ -390,6 +397,7 @@ pipeline {
                     }
                 }
                 stage('cluster8') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster8')
                         runTest('scheduled-backup', 'cluster8', '8.0', 60)
@@ -397,6 +405,7 @@ pipeline {
                     }
                 }
                 stage('cluster9') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster9')
                         runTest('cross-site', 'cluster9', '8.0', 50)
@@ -405,6 +414,7 @@ pipeline {
                     }
                 }
                 stage('cluster10') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster10')
                         runTest('users', 'cluster10', '8.0', 75)
@@ -412,6 +422,7 @@ pipeline {
                     }
                 }
                 stage('cluster11') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster11')
                         runTest('demand-backup', 'cluster11', '8.0', 60)
@@ -420,6 +431,7 @@ pipeline {
                     }
                 }
                 stage('cluster12') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster12')
                         runTest('demand-backup-encrypted-with-tls', 'cluster12', '8.0', 75)
@@ -427,6 +439,7 @@ pipeline {
                     }
                 }
                 stage('cluster13') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster13')
                         runTest('haproxy', 'cluster13', '8.0', 50)
@@ -436,6 +449,7 @@ pipeline {
                     }
                 }
                 stage('cluster14') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster14')
                         runTest('users', 'cluster14', '5.7', 75)
@@ -444,6 +458,7 @@ pipeline {
                     }
                 }
                 stage('cluster15') {
+                    agent { label 'docker-test' }
                     steps {
                         CreateCluster('cluster15')
                         runTest('scheduled-backup', 'cluster15', '5.7', 60)

@@ -200,6 +200,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
+	if cr.Status.PXC.Ready == 0 {
+		return nil
+	}
+
 	user := &users.SysUser{
 		Name:  users.UserOperator,
 		Pass:  string(secrets.Data[users.UserOperator]),
@@ -289,6 +293,10 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 
 func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
+
+	if cr.Status.PXC.Ready == 0 {
+		return nil
+	}
 
 	user := &users.SysUser{
 		Name:  users.UserMonitor,
@@ -412,6 +420,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(cr *api.PerconaXt
 func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
+	if cr.Status.PXC.Ready == 0 {
+		return nil
+	}
+
 	user := &users.SysUser{
 		Name:  users.UserClustercheck,
 		Pass:  string(secrets.Data[users.UserClustercheck]),
@@ -467,6 +479,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 
 func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
+
+	if cr.Status.PXC.Ready == 0 {
+		return nil
+	}
 
 	user := &users.SysUser{
 		Name:  users.UserXtrabackup,
@@ -561,8 +577,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.Percon
 func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		return errors.New("CR version 1.9.0 requered")
+	if cr.CompareVersionWith("1.9.0") < 0 {
+		return nil
+	}
+
+	if cr.Status.PXC.Ready == 0 {
+		return nil
 	}
 
 	user := &users.SysUser{

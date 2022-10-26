@@ -205,6 +205,7 @@ pipeline {
                 }
             }
             steps {
+                milestone(label: 'Prepare new build', ordinal: 1)
                 installRpms()
                 script {
                     if ( AUTHOR_NAME == 'null' )  {
@@ -242,7 +243,7 @@ pipeline {
                         cp $CLOUD_SECRET_FILE ./e2e-tests/conf/cloud-secret.yml
                     '''
                 }
-                DeleteOldClusters()
+                //DeleteOldClusters()
             }
         }
         stage('Build docker image') {

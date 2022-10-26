@@ -42,7 +42,7 @@ void DeleteOldClusters() {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --async --quiet --zone $GKERegion \$(gcloud container clusters list --filter="resourceLabels.pxc-pr:${CHANGE_ID}" --format="csv[no-heading](name)"| tr '\n' ' ') || true
+            gcloud container clusters delete --quiet --zone $GKERegion \$(gcloud container clusters list --filter="resourceLabels.pxc-pr:${CHANGE_ID}" --format="csv[no-heading](name)"| tr '\n' ' ') || true
         """
    }
 }

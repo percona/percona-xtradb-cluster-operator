@@ -347,6 +347,8 @@ pipeline {
                         CreateCluster('cluster1')
                         runTest('upgrade-haproxy', 'cluster1', '8.0', 45)
                         runTest('upgrade-proxysql', 'cluster1', '8.0', 45)
+                        runTest('demand-backup', 'cluster1', '8.0', 60)
+                        runTest('one-pod', 'cluster1', '8.0', 30)
                         ShutdownCluster('cluster1')
                     }
                 }
@@ -355,6 +357,7 @@ pipeline {
                         CreateCluster('cluster2')
                         runTest('smart-update1', 'cluster2', '8.0', 75)
                         runTest('smart-update2', 'cluster2', '8.0', 45)
+                        runTest('demand-backup-encrypted-with-tls', 'cluster2', '8.0', 75)
                         ShutdownCluster('cluster2')
                     }
                 }
@@ -364,6 +367,7 @@ pipeline {
                         runTest('init-deploy', 'cluster3', '8.0', 40)
                         runTest('limits', 'cluster3', '8.0', 30)
                         runTest('monitoring-2-0', 'cluster3', '8.0', 30)
+                        runTest('haproxy', 'cluster3', '8.0', 50)
                         ShutdownCluster('cluster3')
                     }
                 }
@@ -375,6 +379,8 @@ pipeline {
                         runTest('tls-issue-cert-manager','cluster4', '8.0', 25)
                         runTest('tls-issue-cert-manager-ref','cluster4', '8.0', 25)
                         runTest('validation-hook','cluster4', '8.0', 10)
+                        runTest('auto-tuning', 'cluster4', '8.0', 30)
+                        runTest('demand-backup-cloud', 'cluster4', '8.0', 60)
                         ShutdownCluster('cluster4')
                     }
                 }
@@ -384,6 +390,7 @@ pipeline {
                         runTest('scaling', 'cluster5', '8.0', 30)
                         runTest('scaling-proxysql', 'cluster5', '8.0', 30)
                         runTest('security-context', 'cluster5', '8.0', 50)
+                        runTest('users', 'cluster5', '5.7', 75)
                         ShutdownCluster('cluster5')
                     }
                 }
@@ -393,6 +400,7 @@ pipeline {
                         runTest('storage', 'cluster6', '8.0', 30)
                         runTest('upgrade-consistency', 'cluster6', '8.0', 50)
                         runTest('proxy-protocol','cluster6', '8.0', 30)
+                        runTest('one-pod', 'cluster6', '5.7', 30)
                         ShutdownCluster('cluster6')
                     }
                 }
@@ -408,7 +416,8 @@ pipeline {
                 stage('cluster8') {
                     steps {
                         CreateCluster('cluster8')
-                        runTest('scheduled-backup', 'cluster8', '8.0', 60)
+                        runTest('scheduled-backup', 'cluster8', '8.0', 75)
+                        runTest('scheduled-backup', 'cluster8', '5.7', 75)
                         ShutdownCluster('cluster8')
                     }
                 }
@@ -417,6 +426,7 @@ pipeline {
                         CreateCluster('cluster9')
                         runTest('cross-site', 'cluster9', '8.0', 50)
                         runTest('recreate', 'cluster9', '8.0', 50)
+                        runTest('init-deploy', 'cluster9', '5.7', 40)
                         ShutdownCluster('cluster9')
                     }
                 }
@@ -424,48 +434,8 @@ pipeline {
                     steps {
                         CreateCluster('cluster10')
                         runTest('users', 'cluster10', '8.0', 75)
+                        runTest('haproxy', 'cluster10', '5.7', 50)
                         ShutdownCluster('cluster10')
-                    }
-                }
-                stage('cluster11') {
-                    steps {
-                        CreateCluster('cluster11')
-                        runTest('demand-backup', 'cluster11', '8.0', 60)
-                        runTest('demand-backup-cloud', 'cluster11', '8.0', 60)
-                        ShutdownCluster('cluster11')
-                    }
-                }
-                stage('cluster12') {
-                    steps {
-                        CreateCluster('cluster12')
-                        runTest('demand-backup-encrypted-with-tls', 'cluster12', '8.0', 75)
-                        ShutdownCluster('cluster12')
-                    }
-                }
-                stage('cluster13') {
-                    steps {
-                        CreateCluster('cluster13')
-                        runTest('haproxy', 'cluster13', '8.0', 50)
-                        runTest('one-pod', 'cluster13', '8.0', 30)
-                        runTest('auto-tuning', 'cluster13', '8.0', 30)
-                        ShutdownCluster('cluster13')
-                    }
-                }
-                stage('cluster14') {
-                    steps {
-                        CreateCluster('cluster14')
-                        runTest('users', 'cluster14', '5.7', 75)
-                        runTest('one-pod', 'cluster14', '5.7', 30)
-                        ShutdownCluster('cluster14')
-                    }
-                }
-                stage('cluster15') {
-                    steps {
-                        CreateCluster('cluster15')
-                        runTest('scheduled-backup', 'cluster15', '5.7', 60)
-                        runTest('init-deploy', 'cluster15', '5.7', 40)
-                        runTest('haproxy', 'cluster15', '5.7', 50)
-                        ShutdownCluster('cluster15')
                     }
                 }
             }

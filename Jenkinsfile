@@ -242,7 +242,12 @@ pipeline {
                         cp $CLOUD_SECRET_FILE ./e2e-tests/conf/cloud-secret.yml
                     '''
                 }
-                DeleteOldClusters()
+                //DeleteOldClusters()
+                script {
+                    def buildNumber = env.BUILD_NUMBER as int
+                    if (buildNumber > 1) milestone(buildNumber - 1)
+                    milestone(buildNumber)
+                }
             }
         }
         stage('Build docker image') {

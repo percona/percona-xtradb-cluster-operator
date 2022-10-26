@@ -35,8 +35,6 @@ type ReconcileUsersResult struct {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBCluster) (*ReconcileUsersResult, error) {
-	logger := r.logger(cr.Name, cr.Namespace)
-
 	secrets := corev1.Secret{}
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -104,7 +102,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		result.pxcAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
 	}
 
-	logger.Info("AAA ReconcileUserResults", "res", result)
 	return result, nil
 }
 

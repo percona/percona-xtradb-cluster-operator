@@ -194,6 +194,7 @@ type AppStatus struct {
 // PerconaXtraDBCluster is the Schema for the perconaxtradbclusters API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
+// +kubebuilder:pruning:PreserveUnknownFields
 // +kubebuilder:resource:shortName="pxc";"pxcs"
 // +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".status.host"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state"
@@ -377,6 +378,8 @@ type PodSpec struct {
 	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
 	ServiceLabels                 map[string]string                       `json:"serviceLabels,omitempty"`
+	ReplicasServiceAnnotations    map[string]string                       `json:"replicasServiceAnnotations,omitempty"`
+	ReplicasServiceLabels         map[string]string                       `json:"replicasServiceLabels,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
 	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`
@@ -416,7 +419,7 @@ type LogCollectorSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
-	HookScript               string                  `json:"hookScript,omitempty"`
+	HookScript               string                      `json:"hookScript,omitempty"`
 }
 
 type PMMSpec struct {

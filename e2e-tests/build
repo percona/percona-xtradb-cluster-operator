@@ -8,7 +8,7 @@ test_dir="$(dirname $0)"
 src_dir="$(realpath ${test_dir}/..)"
 IMAGE=$(echo "$IMAGE" | sed -e 's#percona/#perconalab/#')
 
-if [[ ${DOCKER_NOCACHE:-1} == 1 ]]; then
+if [[ ${DOCKER_NOCACHE:-0} == 1 ]]; then
 	no_cache="--no-cache"
 fi
 if [[ ${DOCKER_SQUASH:-1} == 1 ]]; then

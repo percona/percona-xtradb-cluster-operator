@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"github.com/pkg/errors"
@@ -152,6 +153,17 @@ type CronRegistry struct {
 	backupJobs        *sync.Map
 }
 
+// AddFuncWithSeconds does the same as cron.AddFunc but changes the schedule so that the function will run the exact second that this method is called.
+func (r *CronRegistry) AddFuncWithSeconds(spec string, cmd func()) (cron.EntryID, error) {
+	schedule, err := cron.ParseStandard(spec)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to parse cron schedule")
+	}
+	schedule.(*cron.SpecSchedule).Second = uint64(1 << time.Now().Second())
+	id := r.crons.Schedule(schedule, cron.FuncJob(cmd))
+	return id, nil
+}
+
 type Schedule struct {
 	ID           int
 	CronSchedule string
@@ -228,6 +240,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		for _, fnlz := range o.GetFinalizers() {
 			var sfs api.StatefulApp
 			switch fnlz {
+			case "delete-ssl":
+				err = r.deleteCerts(o)
 			case "delete-proxysql-pvc":
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
@@ -1160,6 +1174,74 @@ func (r *ReconcilePerconaXtraDBCluster) deleteSecrets(cr *api.PerconaXtraDBClust
 		}
 
 		if k8serrors.IsNotFound(err) {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), secret, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &secret.UID}})
+		if err != nil {
+			return errors.Wrapf(err, "delete secret %s", secretName)
+		}
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) deleteCerts(cr *api.PerconaXtraDBCluster) error {
+	issuers := []string{
+		cr.Name + "-pxc-ca-issuer",
+		cr.Name + "-pxc-issuer",
+	}
+	for _, issuerName := range issuers {
+		issuer := &cm.Issuer{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: issuerName}, issuer)
+		if err != nil {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), issuer, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &issuer.UID}})
+		if err != nil {
+			return errors.Wrapf(err, "delete issuer %s", issuerName)
+		}
+	}
+
+	certs := []string{
+		cr.Name + "-ssl",
+		cr.Name + "-ssl-internal",
+		cr.Name + "-ca-cert",
+	}
+	for _, certName := range certs {
+		cert := &cm.Certificate{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: certName}, cert)
+		if err != nil {
+			continue
+		}
+
+		err = r.client.Delete(context.TODO(), cert, &client.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &cert.UID}})
+		if err != nil {
+			return errors.Wrapf(err, "delete certificate %s", certName)
+		}
+	}
+
+	secrets := []string{
+		cr.Name + "-ca-cert",
+	}
+
+	if len(cr.Spec.SSLSecretName) > 0 {
+		secrets = append(secrets, cr.Spec.SSLSecretName)
+	} else {
+		secrets = append(secrets, cr.Name+"-ssl")
+	}
+
+	if len(cr.Spec.SSLInternalSecretName) > 0 {
+		secrets = append(secrets, cr.Spec.SSLInternalSecretName)
+	} else {
+		secrets = append(secrets, cr.Name+"-ssl-internal")
+	}
+
+	for _, secretName := range secrets {
+		secret := &corev1.Secret{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: secretName}, secret)
+		if err != nil {
 			continue
 		}
 

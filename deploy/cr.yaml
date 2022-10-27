@@ -1,21 +1,22 @@
-apiVersion: pxc.percona.com/v1-11-0
+apiVersion: pxc.percona.com/v1-12-0
 kind: PerconaXtraDBCluster
 metadata:
   name: cluster1
   finalizers:
     - delete-pxc-pods-in-order
+#    - delete-ssl
 #    - delete-proxysql-pvc
 #    - delete-pxc-pvc
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.11.0
-#  secretsName: my-cluster-secrets
+  crVersion: 1.12.0
+#  secretsName: cluster1-secrets
 #  vaultSecretName: keyring-secret-vault
-#  sslSecretName: my-cluster-ssl
-#  sslInternalSecretName: my-cluster-ssl-internal
-#  logCollectorSecretName: my-log-collector-secrets
-#  initImage: percona/percona-xtradb-cluster-operator:1.11.0
+#  sslSecretName: cluster1-ssl
+#  sslInternalSecretName: cluster1-ssl-internal
+#  logCollectorSecretName: cluster1-log-collector-secrets
+#  initImage: percona/percona-xtradb-cluster-operator:1.12.0
 #  enableCRValidationWebhook: true
 #  tls:
 #    SANs:
@@ -158,7 +159,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.11.0-haproxy
+    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    replicasServiceEnabled: false
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
@@ -235,6 +236,16 @@ spec:
 #    externalTrafficPolicy: Cluster
 #    replicasServiceType: ClusterIP
 #    replicasExternalTrafficPolicy: Cluster
+#    loadBalancerSourceRanges:
+#      - 10.0.0.0/8
+#    serviceAnnotations:
+#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    serviceLabels:
+#      rack: rack-23
+#    replicasServiceAnnotations:
+#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    replicasServiceLabels:
+#      rack: rack-23
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -294,16 +305,10 @@ spec:
       maxUnavailable: 1
 #      minAvailable: 0
     gracePeriod: 30
-#    loadBalancerSourceRanges:
-#      - 10.0.0.0/8
-#    serviceAnnotations:
-#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
-#    serviceLabels:
-#      rack: rack-23
   proxysql:
     enabled: false
     size: 3
-    image: percona/percona-xtradb-cluster-operator:1.11.0-proxysql
+    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -445,7 +450,7 @@ spec:
 #     rack: rack-23
   logcollector:
     enabled: true
-    image: percona/percona-xtradb-cluster-operator:1.11.0-logcollector
+    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -470,7 +475,7 @@ spec:
         memory: 150M
         cpu: 300m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.11.0-pxc8.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
 #    backoffLimit: 6
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:

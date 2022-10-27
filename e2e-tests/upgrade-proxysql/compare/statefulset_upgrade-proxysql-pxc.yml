@@ -57,7 +57,7 @@ spec:
                   fieldPath: metadata.name
           envFrom:
             - secretRef:
-                name: my-log-collector-secrets
+                name: upgrade-proxysql-log-collector
                 optional: true
           imagePullPolicy: Always
           name: logs

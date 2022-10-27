@@ -97,10 +97,7 @@ func main() {
 	// Add support for MultiNamespace set in WATCH_NAMESPACE
 	if len(namespace) > 0 {
 		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder([]string{namespace, operatorNamespace})
-		if strings.Contains(namespace, ",") {
-			options.NewCache = cache.MultiNamespacedCacheBuilder(append(strings.Split(namespace, ","), operatorNamespace))
-		}
+		options.NewCache = cache.MultiNamespacedCacheBuilder(append(strings.Split(namespace, ","), operatorNamespace))
 	}
 
 	// Get a config to talk to the apiserver

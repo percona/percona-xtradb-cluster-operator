@@ -42,7 +42,7 @@ void DeleteOldClusters() {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --quiet --zone $GKERegion \$(gcloud container clusters list --filter="resourceLabels.pxc-pr:${CHANGE_ID}" --format="csv[no-heading](name)"| tr '\n' ' ') || true
+            gcloud container clusters delete --async --quiet --zone $GKERegion \$(gcloud container clusters list --filter="resourceLabels.pxc-pr:${CHANGE_ID}" --format="csv[no-heading](name)"| tr '\n' ' ') || true
         """
    }
 }
@@ -187,7 +187,7 @@ pipeline {
         OPERATOR_NS = 'pxc-operator'
         GIT_SHORT_COMMIT = sh(script: 'git describe --always --dirty', , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
-        CLUSTER_NAME = sh(script: "echo jenkins-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jen-pxc-${GIT_SHORT_COMMIT}-${env.BUILD_NUMBER} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
         AUTHOR_NAME  = sh(script: "echo ${CHANGE_AUTHOR_EMAIL} | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
         ENABLE_LOGGING="true"
     }
@@ -475,7 +475,7 @@ pipeline {
                         source $HOME/google-cloud-sdk/path.bash.inc
                         gcloud auth activate-service-account --key-file \$CLIENT_SECRET_FILE
                         gcloud config set project \$GCP_PROJECT
-                        gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                        gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --async --zone $GKERegion --quiet || true
                     fi
                     sudo docker system prune -fa
                     sudo rm -rf ./*

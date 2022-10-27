@@ -118,35 +118,35 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsers(cr *api.PerconaXtraDBCluster
 		}
 
 		switch u {
-		case users.UserRoot:
+		case users.Root:
 			if err := r.handleRootUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
-		case users.UserOperator:
+		case users.Operator:
 			if err := r.handleOperatorUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
-		case users.UserMonitor:
+		case users.Monitor:
 			if err := r.handleMonitorUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
-		case users.UserClustercheck:
+		case users.Clustercheck:
 			if err := r.handleClustercheckUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
-		case users.UserXtrabackup:
+		case users.Xtrabackup:
 			if err := r.handleXtrabackupUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
-		case users.UserReplication:
+		case users.Replication:
 			if err := r.handleReplicationUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
-		case users.UserProxyAdmin:
+		case users.ProxyAdmin:
 			if err := r.handleProxyadminUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
-		case users.UserPMMServer, users.UserPMMServerKey:
+		case users.PMMServer, users.PMMServerKey:
 			if err := r.handlePMMUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
@@ -160,8 +160,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	user := &users.SysUser{
-		Name:  users.UserRoot,
-		Pass:  string(secrets.Data[users.UserRoot]),
+		Name:  users.Root,
+		Pass:  string(secrets.Data[users.Root]),
 		Hosts: []string{"localhost", "%"},
 	}
 
@@ -204,8 +204,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	}
 
 	user := &users.SysUser{
-		Name:  users.UserOperator,
-		Pass:  string(secrets.Data[users.UserOperator]),
+		Name:  users.Operator,
+		Pass:  string(secrets.Data[users.Operator]),
 		Hosts: []string{"localhost", "%"},
 	}
 
@@ -244,13 +244,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	pass, existInSys := secrets.Data[users.UserOperator]
-	_, existInInternal := internalSecrets.Data[users.UserOperator]
+	pass, existInSys := secrets.Data[users.Operator]
+	_, existInInternal := internalSecrets.Data[users.Operator]
 	if existInSys && !existInInternal {
 		if internalSecrets.Data == nil {
 			internalSecrets.Data = make(map[string][]byte)
 		}
-		internalSecrets.Data[users.UserOperator] = pass
+		internalSecrets.Data[users.Operator] = pass
 		return nil
 	}
 	if existInSys {
@@ -265,7 +265,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
 	}
-	um, err := users.NewManager(addr, users.UserRoot, string(secrets.Data[users.UserRoot]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	um, err := users.NewManager(addr, users.Root, string(secrets.Data[users.Root]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "new users manager")
 	}
@@ -276,8 +276,8 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 		return errors.Wrap(err, "create operator user")
 	}
 
-	secrets.Data[users.UserOperator] = pass
-	internalSecrets.Data[users.UserOperator] = pass
+	secrets.Data[users.Operator] = pass
+	internalSecrets.Data[users.Operator] = pass
 
 	err = r.client.Update(context.TODO(), secrets)
 	if err != nil {
@@ -300,8 +300,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 
 	user := &users.SysUser{
-		Name:  users.UserMonitor,
-		Pass:  string(secrets.Data[users.UserMonitor]),
+		Name:  users.Monitor,
+		Pass:  string(secrets.Data[users.Monitor]),
 		Hosts: []string{"%"},
 	}
 
@@ -379,11 +379,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(cr *api.PerconaXt
 		return nil
 	}
 
-	pxcUser := users.UserRoot
-	pxcPass := string(internalSysSecretObj.Data[users.UserRoot])
-	if _, ok := internalSysSecretObj.Data[users.UserOperator]; ok {
-		pxcUser = users.UserOperator
-		pxcPass = string(internalSysSecretObj.Data[users.UserOperator])
+	pxcUser := users.Root
+	pxcPass := string(internalSysSecretObj.Data[users.Root])
+	if _, ok := internalSysSecretObj.Data[users.Operator]; ok {
+		pxcUser = users.Operator
+		pxcPass = string(internalSysSecretObj.Data[users.Operator])
 	}
 
 	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
@@ -428,8 +428,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 	}
 
 	user := &users.SysUser{
-		Name:  users.UserClustercheck,
-		Pass:  string(secrets.Data[users.UserClustercheck]),
+		Name:  users.Clustercheck,
+		Pass:  string(secrets.Data[users.Clustercheck]),
 		Hosts: []string{"localhost"},
 	}
 
@@ -490,8 +490,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 	}
 
 	user := &users.SysUser{
-		Name:  users.UserXtrabackup,
-		Pass:  string(secrets.Data[users.UserXtrabackup]),
+		Name:  users.Xtrabackup,
+		Pass:  string(secrets.Data[users.Xtrabackup]),
 		Hosts: []string{"localhost"},
 	}
 	if cr.CompareVersionWith("1.7.0") >= 0 {
@@ -540,11 +540,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.Percon
 		return nil
 	}
 
-	pxcUser := users.UserRoot
-	pxcPass := string(internalSysSecretObj.Data[users.UserRoot])
-	if _, ok := internalSysSecretObj.Data[users.UserOperator]; ok {
-		pxcUser = users.UserOperator
-		pxcPass = string(internalSysSecretObj.Data[users.UserOperator])
+	pxcUser := users.Root
+	pxcPass := string(internalSysSecretObj.Data[users.Root])
+	if _, ok := internalSysSecretObj.Data[users.Operator]; ok {
+		pxcUser = users.Operator
+		pxcPass = string(internalSysSecretObj.Data[users.Operator])
 	}
 
 	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
@@ -562,7 +562,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.Percon
 	}
 	defer um.Close()
 
-	err = um.Update170XtrabackupUser(string(internalSysSecretObj.Data[users.UserXtrabackup]))
+	err = um.Update170XtrabackupUser(string(internalSysSecretObj.Data[users.Xtrabackup]))
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
 	}
@@ -593,8 +593,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 	}
 
 	user := &users.SysUser{
-		Name:  users.UserReplication,
-		Pass:  string(secrets.Data[users.UserReplication]),
+		Name:  users.Replication,
+		Pass:  string(secrets.Data[users.Replication]),
 		Hosts: []string{"%"},
 	}
 
@@ -698,8 +698,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	}
 
 	user := &users.SysUser{
-		Name: users.UserProxyAdmin,
-		Pass: string(secrets.Data[users.UserProxyAdmin]),
+		Name: users.ProxyAdmin,
+		Pass: string(secrets.Data[users.ProxyAdmin]),
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
@@ -752,9 +752,9 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBClust
 		return errors.New("PMM not enabled")
 	}
 
-	name := users.UserPMMServerKey
+	name := users.PMMServerKey
 	if !cr.Spec.PMM.UseAPI(secrets) {
-		name = users.UserPMMServer
+		name = users.PMMServer
 	}
 
 	if bytes.Equal(secrets.Data[name], internalSecrets.Data[name]) {
@@ -813,11 +813,11 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPass(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	pxcUser := users.UserRoot
-	pxcPass := string(internalSecrets.Data[users.UserRoot])
-	if _, ok := secrets.Data[users.UserOperator]; ok {
-		pxcUser = users.UserOperator
-		pxcPass = string(internalSecrets.Data[users.UserOperator])
+	pxcUser := users.Root
+	pxcPass := string(internalSecrets.Data[users.Root])
+	if _, ok := secrets.Data[users.Operator]; ok {
+		pxcUser = users.Operator
+		pxcPass = string(internalSecrets.Data[users.Operator])
 	}
 
 	addr := cr.Name + "-pxc." + cr.Namespace
@@ -865,11 +865,11 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.Percona
 		return nil
 	}
 
-	pxcUser := users.UserRoot
-	pxcPass := string(internalSysSecretObj.Data[users.UserRoot])
-	if _, ok := internalSysSecretObj.Data[users.UserOperator]; ok {
-		pxcUser = users.UserOperator
-		pxcPass = string(internalSysSecretObj.Data[users.UserOperator])
+	pxcUser := users.Root
+	pxcPass := string(internalSysSecretObj.Data[users.Root])
+	if _, ok := internalSysSecretObj.Data[users.Operator]; ok {
+		pxcUser = users.Operator
+		pxcPass = string(internalSysSecretObj.Data[users.Operator])
 	}
 
 	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"

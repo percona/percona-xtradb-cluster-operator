@@ -58,7 +58,7 @@ void DeleteOldClusters(String FILTER) {
                         break
                     fi
                 done
-                gcloud container clusters delete --zone $GKERegion --quiet \$GKE_CLUSTER || true
+                gcloud container clusters delete --async --zone $GKERegion --quiet \$GKE_CLUSTER || true
             done
         """
    }

@@ -191,7 +191,7 @@ func NewCronRegistry() CronRegistry {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
 	}
@@ -222,15 +222,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		return reconcile.Result{}, err
 	}
 
-	if o.SetVersion() {
-		err = r.client.Update(context.TODO(), o)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "update CR Version")
-		}
-		// k8s needs some time to write the changed CR object
-		// there is some probability to get the old object if we are fetching immediately after the Update call
-		// just rerun reconcile loop to get the new object
-		return rr, nil
+	if err := r.setCRVersion(ctx, o); err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "set CR version")
 	}
 
 	reqLogger := r.logger(o.Name, o.Namespace)

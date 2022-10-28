@@ -51,7 +51,7 @@ void DeleteOldClusters(String FILTER) {
                 while [ "\$GKE_CLUSTER_STATUS" == "PROVISIONING" ]; do
                     echo "Cluster \$GKE_CLUSTER is being provisioned, waiting before delete."
                     sleep 10
-                    GKE_CLUSTER_STATUS=$(gcloud container clusters list --format='csv[no-heading](status)' --filter="\$GKE_CLUSTER")
+                    GKE_CLUSTER_STATUS=\$(gcloud container clusters list --format='csv[no-heading](status)' --filter="\$GKE_CLUSTER")
                     let retry+=1
                     if [ \$retry -ge 60 ]; then
                         echo "Cluster \$GKE_CLUSTER to delete is being provisioned for too long. Skipping..."

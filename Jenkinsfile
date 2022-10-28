@@ -45,20 +45,20 @@ void DeleteOldClusters(String FILTER) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            for GKE_CLUSTER in $(gcloud container clusters list --format='csv[no-heading](name)' --filter="$FILTER"); do
-                GKE_CLUSTER_STATUS=$(gcloud container clusters list --format='csv[no-heading](status)' --filter="$GKE_CLUSTER")
+            for GKE_CLUSTER in \$(gcloud container clusters list --format='csv[no-heading](name)' --filter="$FILTER"); do
+                GKE_CLUSTER_STATUS=\$(gcloud container clusters list --format='csv[no-heading](status)' --filter="\$GKE_CLUSTER")
                 retry=0
-                while [ "$GKE_CLUSTER_STATUS" == "PROVISIONING" ]; do
-                    echo "Cluster $GKE_CLUSTER is being provisioned, waiting before delete."
+                while [ "\$GKE_CLUSTER_STATUS" == "PROVISIONING" ]; do
+                    echo "Cluster \$GKE_CLUSTER is being provisioned, waiting before delete."
                     sleep 10
-                    GKE_CLUSTER_STATUS=$(gcloud container clusters list --format='csv[no-heading](status)' --filter="$GKE_CLUSTER")
+                    GKE_CLUSTER_STATUS=$(gcloud container clusters list --format='csv[no-heading](status)' --filter="\$GKE_CLUSTER")
                     let retry+=1
-                    if [ $retry -ge 60 ]; then
-                        echo "Cluster $GKE_CLUSTER to delete is being provisioned for too long. Skipping..."
+                    if [ \$retry -ge 60 ]; then
+                        echo "Cluster \$GKE_CLUSTER to delete is being provisioned for too long. Skipping..."
                         break
                     fi
                 done
-                gcloud container clusters delete --zone $GKERegion --quiet $GKE_CLUSTER || true
+                gcloud container clusters delete --zone $GKERegion --quiet \$GKE_CLUSTER || true
             done
         """
    }

@@ -1,0 +1,43 @@
+apiVersion: pxc.percona.com/v1-6-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: auto-tuning
+spec:
+  secretsName: my-cluster-secrets
+  sslSecretName: some-name-ssl
+  sslInternalSecretName: some-name-ssl-internal
+  pxc:
+    configuration: |
+        [mysqld]
+        innodb_buffer_pool_size={{containerMemoryLimit}}
+        max_connections=200
+    size: 3
+    image: -pxc
+    resources:
+      requests:
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 6Gi
+    affinity:
+      antiAffinityTopologyKey: none
+  proxysql:
+    enabled: true
+    size: 3
+    image: -proxysql
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 6Gi
+    affinity:
+      antiAffinityTopologyKey: none
+  pmm:
+    enabled: false
+    image: perconalab/pmm-client:1.17.1
+    serverHost: monitoring-service
+    serverUser: pmm

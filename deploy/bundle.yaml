@@ -9837,6 +9837,8 @@ spec:
                           format: int32
                           type: integer
                       type: object
+                    loadBalancerIP:
+                      type: string
                     loadBalancerSourceRanges:
                       items:
                         type: string
@@ -10007,6 +10009,12 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasLoadBalancerIP:
+                      type: string
+                    replicasLoadBalancerSourceRanges:
+                      items:
+                        type: string
+                      type: array
                     replicasServiceAnnotations:
                       additionalProperties:
                         type: string
@@ -12347,6 +12355,8 @@ spec:
                           format: int32
                           type: integer
                       type: object
+                    loadBalancerIP:
+                      type: string
                     loadBalancerSourceRanges:
                       items:
                         type: string
@@ -14672,6 +14682,8 @@ spec:
                           format: int32
                           type: integer
                       type: object
+                    loadBalancerIP:
+                      type: string
                     loadBalancerSourceRanges:
                       items:
                         type: string
@@ -17181,6 +17193,8 @@ spec:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: percona-xtradb-cluster-operator
+        - name: DISABLE_TELEMETRY
+          value: "false"
         image: perconalab/percona-xtradb-cluster-operator:main
         imagePullPolicy: Always
         livenessProbe:

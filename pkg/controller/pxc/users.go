@@ -191,7 +191,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return errors.Wrap(err, "update internal secrets root user password")
 	}
-	logger.Info(fmt.Sprintf("AAA User %s: internal secrets updated", user.Name))
+	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
 	return nil
 }

@@ -472,7 +472,7 @@ pipeline {
                         source $HOME/google-cloud-sdk/path.bash.inc
                         gcloud auth activate-service-account --key-file \$CLIENT_SECRET_FILE
                         gcloud config set project \$GCP_PROJECT
-                        gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --async --zone $GKERegion --quiet || true
+                        gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
                     fi
                     sudo docker system prune -fa
                     sudo rm -rf ./*

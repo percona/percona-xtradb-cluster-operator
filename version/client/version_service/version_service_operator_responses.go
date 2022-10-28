@@ -12,7 +12,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 
-	"github.com/percona/percona-xtradb-cluster-operator/versionserviceclient/models"
+	"github.com/percona/percona-xtradb-cluster-operator/version/client/models"
 )
 
 // VersionServiceOperatorReader is a Reader for the VersionServiceOperator structure.
@@ -46,7 +46,8 @@ func NewVersionServiceOperatorOK() *VersionServiceOperatorOK {
 	return &VersionServiceOperatorOK{}
 }
 
-/*VersionServiceOperatorOK handles this case with default header values.
+/*
+VersionServiceOperatorOK describes a response with status code 200, with default header values.
 
 A successful response.
 */
@@ -57,7 +58,6 @@ type VersionServiceOperatorOK struct {
 func (o *VersionServiceOperatorOK) Error() string {
 	return fmt.Sprintf("[GET /versions/v1/{product}/{operatorVersion}][%d] versionServiceOperatorOK  %+v", 200, o.Payload)
 }
-
 func (o *VersionServiceOperatorOK) GetPayload() *models.VersionOperatorResponse {
 	return o.Payload
 }
@@ -81,7 +81,8 @@ func NewVersionServiceOperatorDefault(code int) *VersionServiceOperatorDefault {
 	}
 }
 
-/*VersionServiceOperatorDefault handles this case with default header values.
+/*
+VersionServiceOperatorDefault describes a response with status code -1, with default header values.
 
 An unexpected error response
 */
@@ -99,7 +100,6 @@ func (o *VersionServiceOperatorDefault) Code() int {
 func (o *VersionServiceOperatorDefault) Error() string {
 	return fmt.Sprintf("[GET /versions/v1/{product}/{operatorVersion}][%d] VersionService_Operator default  %+v", o._statusCode, o.Payload)
 }
-
 func (o *VersionServiceOperatorDefault) GetPayload() *models.GooglerpcStatus {
 	return o.Payload
 }

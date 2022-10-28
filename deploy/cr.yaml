@@ -32,7 +32,7 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com
-    apply: 8.0-recommended
+    apply: disabled
     schedule: "0 4 * * *"
   pxc:
     size: 3

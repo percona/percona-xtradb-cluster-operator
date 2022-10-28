@@ -3,12 +3,11 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
 
-	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	corev1 "k8s.io/api/core/v1"
@@ -17,11 +16,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
 
-const (
-	never    = "never"
-	disabled = "disabled"
+	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 )
 
 var versionNotReadyErr = errors.New("not ready to fetch version")
@@ -31,13 +29,10 @@ func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
 	delete(r.crons.ensureVersionJobs, jobName)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) sheduleEnsurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
 	jn := jobName(cr)
 	schedule, ok := r.crons.ensureVersionJobs[jn]
-	if cr.Spec.UpdateStrategy != apiv1.SmartUpdateStatefulSetStrategyType ||
-		cr.Spec.UpgradeOptions.Schedule == "" ||
-		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
-		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == disabled {
+	if cr.Spec.UpgradeOptions.Schedule == "" || !(versionUpgradeEnabled(cr) || telemetryEnabled()) {
 		if ok {
 			r.deleteEnsureVersion(jn)
 		}
@@ -124,10 +119,7 @@ func jobName(cr *apiv1.PerconaXtraDBCluster) string {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
-	if cr.Spec.UpdateStrategy != apiv1.SmartUpdateStatefulSetStrategyType ||
-		cr.Spec.UpgradeOptions.Schedule == "" ||
-		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == never ||
-		strings.ToLower(cr.Spec.UpgradeOptions.Apply) == disabled {
+	if !(versionUpgradeEnabled(cr) || telemetryEnabled()) {
 		return nil
 	}
 
@@ -135,7 +127,12 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		return errors.New("cluster is not ready")
 	}
 
-	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, versionMeta{
+	watchNs, err := k8s.GetWatchNamespace()
+	if err != nil {
+		return errors.Wrap(err, "get WATCH_NAMESPACE env variable")
+	}
+
+	vm := versionMeta{
 		Apply:               cr.Spec.UpgradeOptions.Apply,
 		Platform:            string(cr.Spec.Platform),
 		KubeVersion:         r.serverVersion.Info.GitVersion,
@@ -146,12 +143,26 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		BackupVersion:       cr.Status.Backup.Version,
 		LogCollectorVersion: cr.Status.LogCollector.Version,
 		CRUID:               string(cr.GetUID()),
-	})
+		ClusterWideEnabled:  watchNs == "",
+	}
+	logger := r.logger(cr.Name, cr.Namespace)
+
+	if telemetryEnabled() && (!versionUpgradeEnabled(cr) || cr.Spec.UpgradeOptions.VersionServiceEndpoint != apiv1.GetDefaultVersionServiceEndpoint()) {
+		_, err := vs.GetExactVersion(cr, apiv1.GetDefaultVersionServiceEndpoint(), vm)
+		if err != nil {
+			logger.Error(err, "failed to send telemetry to "+apiv1.GetDefaultVersionServiceEndpoint())
+		}
+	}
+
+	if !versionUpgradeEnabled(cr) {
+		return nil
+	}
+
+	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, vm)
 	if err != nil {
 		return errors.Wrap(err, "failed to check version")
 	}
 
-	logger := r.logger(cr.Name, cr.Namespace)
 	patch := client.MergeFrom(cr.DeepCopy())
 
 	if cr.Spec.PXC != nil && cr.Spec.PXC.Image != newVersion.PXCImage {
@@ -337,4 +348,17 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtr
 		return errors.Wrap(err, "failed to update CR")
 	}
 	return nil
+}
+
+func telemetryEnabled() bool {
+	value, ok := os.LookupEnv("DISABLE_TELEMETRY")
+	if ok {
+		return value != "true"
+	}
+	return true
+}
+
+func versionUpgradeEnabled(cr *apiv1.PerconaXtraDBCluster) bool {
+	return strings.ToLower(cr.Spec.UpgradeOptions.Apply) != apiv1.UpgradeStrategyNever &&
+		strings.ToLower(cr.Spec.UpgradeOptions.Apply) != apiv1.UpgradeStrategyDisabled
 }

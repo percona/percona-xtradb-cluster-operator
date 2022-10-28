@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -84,6 +85,20 @@ type ReplicationSource struct {
 type TLSSpec struct {
 	SANs       []string                `json:"SANs,omitempty"`
 	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
+}
+
+const (
+	UpgradeStrategyDisabled       = "disabled"
+	UpgradeStrategyNever          = "never"
+	DefaultVersionServiceEndpoint = "https://check.percona.com"
+)
+
+func GetDefaultVersionServiceEndpoint() string {
+	if endpoint := os.Getenv("PERCONA_VS_FALLBACK_URI"); len(endpoint) > 0 {
+		return endpoint
+	}
+
+	return DefaultVersionServiceEndpoint
 }
 
 type UpgradeOptions struct {
@@ -824,6 +839,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if cr.Spec.EnableCRValidationWebhook == nil {
 		falseVal := false
 		cr.Spec.EnableCRValidationWebhook = &falseVal
+	}
+
+	if cr.Spec.UpgradeOptions.Apply == "" {
+		cr.Spec.UpgradeOptions.Apply = UpgradeStrategyDisabled
+	}
+
+	if cr.Spec.UpgradeOptions.VersionServiceEndpoint == "" {
+		cr.Spec.UpgradeOptions.VersionServiceEndpoint = DefaultVersionServiceEndpoint
 	}
 
 	return nil

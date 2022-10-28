@@ -36,10 +36,10 @@ main() {
 	apply_config "$conf_dir/client.yml"
 	kubectl_bin apply \
 		-f "$test_dir/conf/secrets.yml"
+	cat_config "$conf_dir/$cluster.yml" \
+		| yq eval '.spec.crVersion = "1.8.0"' - \
+		| kubectl_bin apply -f -
 
-	# test 1.8.0
-	API="pxc.percona.com/v1-8-0"
-	apply_config "$conf_dir/$cluster.yml"
 	wait_cluster_consistency "$cluster" 3 2
 	wait_for_sts_generation "$cluster-pxc" "1" "1"
 	compare_kubectl service/$cluster-pxc "-180"
@@ -47,8 +47,6 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-180"
 	compare_kubectl statefulset/$cluster-proxysql "-180"
 
-	# test 1.9.0
-	API="pxc.percona.com/v1-9-0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.9.0"}
     }'
@@ -59,8 +57,6 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-190"
 	compare_kubectl statefulset/$cluster-proxysql "-190"
 
-	# test 1.10.0
-	API="pxc.percona.com/v1-10-0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.10.0"}
     }'
@@ -71,8 +67,6 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-1100"
 	compare_kubectl statefulset/$cluster-proxysql "-1100"
 
-	# test 1.11.0
-	API="pxc.percona.com/v1-11-0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.11.0"}
     }'
@@ -83,8 +77,6 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-1110"
 	compare_kubectl statefulset/$cluster-proxysql "-1110"
 
-	# test 1.12.0
-	API="pxc.percona.com/v1-12-0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.12.0"}
     }'

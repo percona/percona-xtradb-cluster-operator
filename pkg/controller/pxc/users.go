@@ -347,7 +347,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
-	// update proxy users
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		err := r.updateProxyUser(cr, internalSecrets, user)
 		if err != nil {
@@ -683,7 +682,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtr
 func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled {
 		return nil
 	}
 
@@ -704,7 +703,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
-	// update proxy users
 	err = r.updateProxyUser(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update Proxy users")

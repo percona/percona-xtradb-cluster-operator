@@ -697,13 +697,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPass(cr, secrets, internalSecrets, user)
-	if err != nil {
-		return errors.Wrap(err, "update operator users pass")
-	}
-	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	// err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	// if err != nil {
+	// 	return errors.Wrap(err, "update operator users pass")
+	// }
+	// logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
-	err = r.updateProxyUser(cr, internalSecrets, user)
+	err := r.updateProxyUser(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update Proxy users")
 	}

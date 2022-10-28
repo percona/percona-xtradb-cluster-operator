@@ -3,7 +3,7 @@ kind: PerconaXtraDBCluster
 metadata:
   name: simple-pxc
 spec:
-  crVersion: 1.10.0
+  crVersion: invalid-version
   secretsName: simple-dev-secrets
   allowUnsafeConfigurations: true
   enableCRValidationWebhook: true

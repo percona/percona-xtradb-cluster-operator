@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	"github.com/flosch/pongo2/v6"
 	"github.com/go-ini/ini"
 	"github.com/go-logr/logr"
 	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -664,6 +666,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.Size = 0
 		}
 
+		if err = c.PXC.executeConfigurationTemplate(); err != nil {
+			return errors.Wrap(err, "pxc config")
+		}
+
 		if cr.CompareVersionWith("1.10.0") < 0 {
 			if c.PMM != nil && c.PMM.Resources.Size() == 0 {
 				c.PMM.Resources = c.PXC.Resources
@@ -722,6 +728,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		c.HAProxy.reconcileAffinityOpts()
 
+		if err = c.HAProxy.executeConfigurationTemplate(); err != nil {
+			return errors.Wrap(err, "haproxy config")
+		}
+
 		if c.Pause {
 			c.HAProxy.Size = 0
 		}
@@ -766,6 +776,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
+
+		if err = c.ProxySQL.executeConfigurationTemplate(); err != nil {
+			return errors.Wrap(err, "proxySQL config")
+		}
 
 		if c.Pause {
 			c.ProxySQL.Size = 0
@@ -1019,6 +1033,34 @@ func (p *PodSpec) reconcileAffinityOpts() {
 			p.Affinity.TopologyKey = &defaultAffinityTopologyKey
 		}
 	}
+}
+
+func (p *PodSpec) executeConfigurationTemplate() error {
+	var memory *resource.Quantity
+	if res := p.Resources; res.Size() > 0 {
+		if _, ok := res.Requests[corev1.ResourceMemory]; ok {
+			memory = res.Requests.Memory()
+		}
+		if _, ok := res.Limits[corev1.ResourceMemory]; ok {
+			memory = res.Limits.Memory()
+		}
+	}
+	if memory == nil {
+		if strings.Contains(p.Configuration, "{{") {
+			return errors.New("resources.limits[memory] or resources.requests[memory] should be specified for template usage in configuration")
+		}
+		return nil
+	}
+
+	tmpl, err := pongo2.FromString(p.Configuration)
+	if err != nil {
+		return errors.Wrap(err, "parse template")
+	}
+	p.Configuration, err = tmpl.Execute(pongo2.Context{"containerMemoryLimit": memory.Value()})
+	if err != nil {
+		return errors.Wrap(err, "execute template")
+	}
+	return nil
 }
 
 func (v *VolumeSpec) reconcileOpts() {

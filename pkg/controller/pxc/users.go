@@ -178,12 +178,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		err = r.syncPXCUsersWithProxySQL(cr)
-		if err != nil {
-			return errors.Wrap(err, "sync users")
-		}
-		logger.Info(fmt.Sprintf("User %s: synced PXC users with ProxySQL", user.Name))
+	err = r.syncPXCUsersWithProxySQL(cr)
+	if err != nil {
+		return errors.Wrap(err, "sync users")
 	}
 
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -697,12 +694,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	// err := r.updateUserPass(cr, secrets, internalSecrets, user)
-	// if err != nil {
-	// 	return errors.Wrap(err, "update operator users pass")
-	// }
-	// logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
-
 	err := r.updateProxyUser(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update Proxy users")
@@ -713,7 +704,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "sync proxy users")
 	}
-	logger.Info(fmt.Sprintf("User %s: synced PXC users with ProxySQL", user.Name))
 
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
 	err = r.client.Update(context.TODO(), internalSecrets)
@@ -762,6 +752,8 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled || cr.Status.PXC.Ready < 1 {
 		return nil
 	}
@@ -793,6 +785,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 		}
 	}
 
+	logger.Info("PXC users synced with ProxySQL")
 	return nil
 }
 

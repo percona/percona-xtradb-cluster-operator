@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -84,6 +85,20 @@ type ReplicationSource struct {
 type TLSSpec struct {
 	SANs       []string                `json:"SANs,omitempty"`
 	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
+}
+
+const (
+	UpgradeStrategyDisabled       = "disabled"
+	UpgradeStrategyNever          = "never"
+	DefaultVersionServiceEndpoint = "https://check.percona.com"
+)
+
+func GetDefaultVersionServiceEndpoint() string {
+	if endpoint := os.Getenv("PERCONA_VS_FALLBACK_URI"); len(endpoint) > 0 {
+		return endpoint
+	}
+
+	return DefaultVersionServiceEndpoint
 }
 
 type UpgradeOptions struct {
@@ -383,6 +398,7 @@ type PodSpec struct {
 	ExternalTrafficPolicy         corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
 	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	LoadBalancerIP                string                                  `json:"loadBalancerIP,omitempty"`
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
 	ServiceLabels                 map[string]string                       `json:"serviceLabels,omitempty"`
 	ReplicasServiceAnnotations    map[string]string                       `json:"replicasServiceAnnotations,omitempty"`
@@ -404,8 +420,10 @@ type PodSpec struct {
 }
 
 type HAProxySpec struct {
-	PodSpec                `json:",inline"`
-	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
+	PodSpec                          `json:",inline"`
+	ReplicasServiceEnabled           *bool    `json:"replicasServiceEnabled,omitempty"`
+	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
+	ReplicasLoadBalancerIP           string   `json:"replicasLoadBalancerIP,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -522,10 +540,12 @@ func ContainsVolume(vs []corev1.Volume, name string) bool {
 
 const WorkloadSA = "default"
 
+// +kubebuilder:object:generate=false
 type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
 
 var NoCustomVolumeErr = errors.New("no custom volume found")
 
+// +kubebuilder:object:generate=false
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
@@ -535,6 +555,7 @@ type App interface {
 	Labels() map[string]string
 }
 
+// +kubebuilder:object:generate=false
 type StatefulApp interface {
 	App
 	Name() string
@@ -822,6 +843,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if cr.Spec.EnableCRValidationWebhook == nil {
 		falseVal := false
 		cr.Spec.EnableCRValidationWebhook = &falseVal
+	}
+
+	if cr.Spec.UpgradeOptions.Apply == "" {
+		cr.Spec.UpgradeOptions.Apply = UpgradeStrategyDisabled
+	}
+
+	if cr.Spec.UpgradeOptions.VersionServiceEndpoint == "" {
+		cr.Spec.UpgradeOptions.VersionServiceEndpoint = DefaultVersionServiceEndpoint
 	}
 
 	return nil

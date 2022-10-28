@@ -1,0 +1,20 @@
+{
+  "system": "grpc",
+  "span.kind": "server",
+  "grpc.service": "version.VersionService",
+  "grpc.method": "Apply",
+  "grpc.request.content": {
+    "msg": {
+      "product": "pxc-operator",
+      "operatorVersion": "9.9.9",
+      "apply": "8.0-recommended",
+    }
+  }
+}
+{
+  "system": "grpc",
+  "span.kind": "server",
+  "grpc.service": "version.VersionService",
+  "grpc.method": "Apply",
+  "grpc.code": "OK"
+}

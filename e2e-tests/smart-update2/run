@@ -1,5 +1,8 @@
 #!/bin/bash
 # CASES:
+# - Check telemetry in minimal cluster with `upgradeOptions.apply: "disabled"` and `DISABLE_TELEMETRY=false` in the operator
+# - Check telemetry in minimal cluster with custom `upgradeOptions.apply` and `DISABLE_TELEMETRY=true` in the operator
+# - Check telemetry in minimal cluster with `upgradeOptions.apply: "disabled"` and `DISABLE_TELEMETRY=true` in the operator
 # - Update cluster with version service offline
 # - Update cluster with recommended image by version service
 # - Update cluster with the latest image by version service
@@ -76,6 +79,99 @@ function deploy_version_service {
 	sleep 10
 }
 
+function check_telemetry_transfer() {
+	local cr_vs_uri=${1}
+	local cr_vs_channel=${2:-"disabled"}
+	local telemetry_state=${3:-"enabled"}
+
+	desc 'create PXC minimal cluster'
+	cluster="minimal-cluster"
+
+	kubectl_bin apply -f "${conf_dir}/client.yml"
+	yq "${conf_dir}/secrets.yml" \
+		| yq eval "(. | select(.metadata.name == \"my-cluster-secrets\") | .metadata.name) = \"${cluster}\"" \
+		| kubectl_bin apply -f -
+
+	yq "${src_dir}/deploy/cr-minimal.yaml" \
+		| yq eval ".spec.upgradeOptions.versionServiceEndpoint=\"${cr_vs_uri}\"" \
+		| yq eval ".spec.upgradeOptions.apply=\"${cr_vs_channel}\"" \
+		| yq eval ".spec.initImage=\"$IMAGE\"" \
+		| yq eval '.spec.crVersion="9.9.9"' \
+		| yq eval ".spec.pxc.image=\"$IMAGE_PXC\"" \
+		| yq eval ".spec.haproxy.image=\"$IMAGE_HAPROXY\"" \
+		| yq eval ".spec.logcollector.image=\"$IMAGE_LOGCOLLECTOR\"" \
+		| kubectl_bin apply -f -
+
+	desc 'check if Pod is started'
+	wait_for_running "$cluster-pxc" "1"
+	sleep 20
+	local proxy
+	proxy=$(get_proxy "$cluster")
+	wait_for_running "$proxy" 1
+
+	desc 'write data'
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
+		encrypt='ENCRYPTION=\"Y\"'
+	fi
+	run_mysql \
+		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY) $encrypt;" \
+		"-h $proxy -uroot -proot_password -P$port"
+	run_mysql \
+		'INSERT myApp.myApp (id) VALUES (100500)' \
+		"-h $proxy -uroot -proot_password -P$port"
+
+	kubectl_bin logs "$(kubectl get pods --selector=run=version-service-cr -o jsonpath='{.items[0].metadata.name}')" \
+		| grep -E 'server request payload|unary call' \
+		| grep -Eo '\{.*\}' \
+		| jq 'del(."grpc.request.content".msg.customResourceUid)' \
+		| jq 'del(."grpc.request.content".msg.kubeVersion)' \
+		| jq 'del(."grpc.start_time")' \
+		| jq 'del(."grpc.time_ms")' \
+			>"${tmp_dir}/${telemetry_state}_telemetry.version-service-cr.log.json"
+
+	kubectl_bin logs "$(kubectl get pods --selector=run=version-service -o jsonpath='{.items[0].metadata.name}')" \
+		| grep -E 'server request payload|unary call' \
+		| grep -Eo '\{.*\}' \
+		| jq 'del(."grpc.request.content".msg.customResourceUid)' \
+		| jq 'del(."grpc.request.content".msg.kubeVersion)' \
+		| jq 'del(."grpc.start_time")' \
+		| jq 'del(."grpc.time_ms")' \
+			>"${tmp_dir}/${telemetry_state}_telemetry.version-service.log.json"
+
+	local telemetry_log_file="${telemetry_state}_telemetry.version-service${OPERATOR_NS:+-cw}.log.json"
+	# telemetry was disabled in CR but in operator not
+	if [ "${cr_vs_channel}" == 'disabled' -a "${telemetry_state}" == 'enabled' ]; then
+		# operator fallback VS should have telemetry
+		diff "${test_dir}/compare/${telemetry_log_file}" <(grep -f "${tmp_dir}/${telemetry_state}_telemetry.version-service.log.json" "${test_dir}/compare/${telemetry_log_file}")
+		# CR VS should not have telemetry
+		[[ -s "${tmp_dir}/enabled_telemetry.version-service-cr.log.json" ]] && exit 1
+	fi
+
+	local telemetry_cr_log_file="${telemetry_state}_telemetry.version-service-cr${OPERATOR_NS:+-cw}.log.json"
+	local image_prefix=${cr_vs_channel%'-recommended'}
+	# telemetry was disabled in operator but not in CR
+	if [ "${cr_vs_channel}" == "${image_prefix}-recommended" -a "${telemetry_state}" == 'disabled' ]; then
+		# cr VS should have telemetry
+		diff "${test_dir}/compare/${telemetry_cr_log_file}" <(grep -f "${tmp_dir}/${telemetry_state}_telemetry.version-service-cr.log.json" "${test_dir}/compare/${telemetry_cr_log_file}")
+		# operator VS should not have telemetry
+		[[ -s ${tmp_dir}/disabled_telemetry.version-service.log.json ]] && exit 1
+	fi
+
+	# telemetry was disabled in CR as well as in operator
+	if [ "${cr_vs_channel}" == 'disabled' -a "${telemetry_state}" == 'disabled' ]; then
+		# CR VS should not have telemetry
+		[[ -s ${tmp_dir}/disabled_telemetry.version-service-cr.log.json ]] && exit 1
+		# operator VS should not have telemetry
+		[[ -s ${tmp_dir}/disabled_telemetry.version-service.log.json ]] && exit 1
+	fi
+
+	kubectl_bin patch pxc minimal-cluster --type=merge -p '{"metadata":{"finalizers":["delete-pxc-pvc"]}}'
+	kubectl_bin delete pod ${OPERATOR_NS:+-n $OPERATOR_NS} "$(get_operator_pod)"
+	kubectl_bin delete pxc --all
+	kubectl_bin delete deploy pxc-client
+	sleep 30
+}
+
 function main() {
 	create_infra "${namespace}"
 	deploy_version_service
@@ -83,7 +179,43 @@ function main() {
 	IMAGE_PXC=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pxc[].imagePath' | grep ":${PXC_VER}" | sort -V | tail -n3 | head -n1)
 
 	kubectl_bin patch crd perconaxtradbclusters.pxc.percona.com --type='json' -p '[{"op":"add","path":"/spec/versions/-", "value":{"name": "v9-9-9","schema": {"openAPIV3Schema": {"properties": {"spec": {"type": "object","x-kubernetes-preserve-unknown-fields": true},"status": {"type": "object", "x-kubernetes-preserve-unknown-fields": true}}, "type": "object" }}, "served": true, "storage": false, "subresources": { "status": {}}}}]'
+	kubectl_bin ${OPERATOR_NS:+-n $OPERATOR_NS} set env deploy/percona-xtradb-cluster-operator "PERCONA_VS_FALLBACK_URI=http://version-service.${namespace}.svc.cluster.local:11000"
 
+	################################################
+	desc 'Starting telemetry testing'
+	$sed 's/version-service/version-service-cr/g' "${test_dir}/conf/vs.yml" \
+		| yq eval '(. | select(.kind == "Deployment") | .spec.template.spec.containers[0].image) = "'"$(yq 'select(.kind == "Deployment").spec.template.spec.containers[0].image' "${test_dir}/conf/vs.yml")"'"' \
+		| kubectl_bin apply -f -
+	kubectl_bin delete pod -l run=version-service
+	IMAGE_PREFIX="$(echo -n "$IMAGE_PXC" | sed -r 's/^.*:([0-9]+.[0-9]+).*/\1/')"
+	################################################
+	desc 'Enable telemetry on operator level'
+	kubectl_bin get deployment/percona-xtradb-cluster-operator -o yaml ${OPERATOR_NS:+-n $OPERATOR_NS} \
+		| yq '(.spec.template.spec.containers[0].env[] | select(.name == "DISABLE_TELEMETRY").value) = "false"' \
+		| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
+	sleep 30
+
+	wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
+
+	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "disabled" "enabled"
+	################################################
+	desc "Disabling telemetry on the operator level"
+
+	kubectl_bin delete pod -l run=version-service-cr
+	kubectl_bin delete pod -l run=version-service
+	kubectl_bin get deployment/percona-xtradb-cluster-operator -o yaml ${OPERATOR_NS:+-n $OPERATOR_NS} \
+		| yq '(.spec.template.spec.containers[0].env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' \
+		| kubectl_bin apply ${OPERATOR_NS:+-n $OPERATOR_NS} -f -
+	sleep 30
+	wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
+
+	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "${IMAGE_PREFIX}-recommended" "disabled"
+	kubectl_bin delete pod -l run=version-service-cr
+	kubectl_bin delete pod -l run=version-service
+	check_telemetry_transfer "http://version-service-cr.${namespace}.svc.cluster.local:11000" "disabled" "disabled"
+	#################################################
+	kubectl_bin delete deployment version-service-cr
+	desc 'Telemetry testing finished'
 	##################################################
 	desc 'PXC cluster with version service offline'
 	cp -f "${test_dir}/conf/${CLUSTER}-version-service-unreachable.yml" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"

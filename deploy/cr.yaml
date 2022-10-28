@@ -32,7 +32,7 @@ spec:
   updateStrategy: SmartUpdate
   upgradeOptions:
     versionServiceEndpoint: https://check.percona.com
-    apply: 8.0-recommended
+    apply: disabled
     schedule: "0 4 * * *"
   pxc:
     size: 3
@@ -160,7 +160,6 @@ spec:
     enabled: true
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
-#    replicasServiceEnabled: false
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
@@ -234,14 +233,19 @@ spec:
 #      failureThreshold: 4
 #    serviceType: ClusterIP
 #    externalTrafficPolicy: Cluster
-#    replicasServiceType: ClusterIP
-#    replicasExternalTrafficPolicy: Cluster
-#    loadBalancerSourceRanges:
+#    loadbalancersourceranges:
 #      - 10.0.0.0/8
+#    loadBalancerIP: 127.0.0.1
 #    serviceAnnotations:
 #      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
 #    serviceLabels:
 #      rack: rack-23
+#    replicasServiceEnabled: false
+#    replicasLoadBalancerSourceRanges:
+#      - 10.0.0.0/8
+#    replicasLoadBalancerIP: 127.0.0.1
+#    replicasServiceType: ClusterIP
+#    replicasExternalTrafficPolicy: Cluster
 #    replicasServiceAnnotations:
 #      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
 #    replicasServiceLabels:
@@ -371,6 +375,9 @@ spec:
 #    labels:
 #      rack: rack-22
 #    serviceType: ClusterIP
+#    loadbalancersourceranges:
+#      - 10.0.0.0/8
+#    loadBalancerIP: 127.0.0.1
 #    externalTrafficPolicy: Cluster
 #    runtimeClassName: image-rc
 #    sidecars:

@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"k8s.io/klog/v2"
 	"os"
 	"runtime"
 	"strings"
+
+	"k8s.io/klog/v2"
 
 	certmgrscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -77,6 +78,11 @@ func main() {
 		setupLog.Error(err, "failed to get watch namespace")
 		os.Exit(1)
 	}
+	operatorNamespace, err := k8s.GetOperatorNamespace()
+	if err != nil {
+		setupLog.Error(err, "failed to get operators' namespace")
+		os.Exit(1)
+	}
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -89,9 +95,9 @@ func main() {
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE
-	if strings.Contains(namespace, ",") {
+	if len(namespace) > 0 {
 		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
+		options.NewCache = cache.MultiNamespacedCacheBuilder(append(strings.Split(namespace, ","), operatorNamespace))
 	}
 
 	// Get a config to talk to the apiserver

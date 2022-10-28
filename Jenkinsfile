@@ -19,7 +19,10 @@ void CreateCluster(String CLUSTER_SUFFIX) {
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
             done
-            if [ \${ret_num} -eq 15 ]; then exit 1; fi
+            if [ \${ret_num} -eq 15 ]; then
+                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                exit 1
+            fi
         """
    }
 }
@@ -42,7 +45,7 @@ void DeleteOldClusters() {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --async --quiet --zone $GKERegion \$(gcloud container clusters list --filter="resourceLabels.pxc-pr:${CHANGE_ID}" --format="csv[no-heading](name)"| tr '\n' ' ') || true
+            gcloud container clusters delete --quiet --zone $GKERegion \$(gcloud container clusters list --filter="resourceLabels.pxc-pr:${CHANGE_ID}" --format="csv[no-heading](name)"| tr '\n' ' ') || true
         """
    }
 }

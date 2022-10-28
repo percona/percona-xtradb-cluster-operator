@@ -381,10 +381,10 @@ pipeline {
                 stage('cluster3') {
                     steps {
                         CreateCluster('cluster3')
+                        runTest('haproxy', 'cluster3', '8.0')
                         runTest('init-deploy', 'cluster3', '8.0')
                         runTest('limits', 'cluster3', '8.0')
                         runTest('monitoring-2-0', 'cluster3', '8.0')
-                        runTest('haproxy', 'cluster3', '8.0')
                         ShutdownCluster('cluster3')
                     }
                 }
@@ -414,11 +414,11 @@ pipeline {
                 stage('cluster6') {
                     steps {
                         CreateCluster('cluster6')
+                        runTest('haproxy', 'cluster6', '5.7')
                         runTest('storage', 'cluster6', '8.0')
                         runTest('upgrade-consistency', 'cluster6', '8.0')
                         runTest('proxy-protocol','cluster6', '8.0')
                         runTest('one-pod', 'cluster6', '5.7')
-                        runTest('haproxy', 'cluster6', '5.7')
                         ShutdownCluster('cluster6')
                     }
                 }

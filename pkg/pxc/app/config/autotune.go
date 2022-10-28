@@ -32,29 +32,30 @@ func getAutoTuneParams(cr *api.PerconaXtraDBCluster, q *res.Quantity) (string, e
 		if q.Value()-poolSize < int64(1000000000) {
 			poolSize = q.Value() / int64(100) * int64(50)
 		}
-		poolSize = poolSize + chunkSizeDefault - (poolSize % chunkSizeDefault)
-		poolSizeVal := strconv.FormatInt(poolSize, 10)
-		paramValue := "\n" + "innodb_buffer_pool_size" + " = " + poolSizeVal
-		autotuneParams += paramValue
+		if poolSize%chunkSizeDefault != 0 {
+			poolSize += chunkSizeDefault - (poolSize % chunkSizeDefault)
+		}
 
 		// Adjust innodb_buffer_pool_chunk_size
-		// If innodb_buffer_pool_size is bigger than 1G, innodb_buffer_pool_instances is set to 8.
+		// If innodb_buffer_pool_size is bigger than 1Gi, innodb_buffer_pool_instances is set to 8.
 		// By default, innodb_buffer_pool_chunk_size is 128M and innodb_buffer_pool_size needs to be
 		// multiple of innodb_buffer_pool_chunk_size * innodb_buffer_pool_instances.
 		// More info: https://dev.mysql.com/doc/refman/8.0/en/innodb-buffer-pool-resize.html
-		if poolSize > int64(1000000000) {
+		if poolSize > int64(1073741824) {
 			chunkSize := poolSize / 8
 			// round to multiple of chunkSizeMin
 			chunkSize = chunkSize + chunkSizeMin - (chunkSize % chunkSizeMin)
 
 			poolSize = chunkSize * 8
-			poolSizeVal := strconv.FormatInt(poolSize, 10)
-			autotuneParams = "\n" + "innodb_buffer_pool_size" + " = " + poolSizeVal
 
 			chunkSizeVal := strconv.FormatInt(chunkSize, 10)
-			paramValue = "\n" + "innodb_buffer_pool_chunk_size" + " = " + chunkSizeVal
+			paramValue := "\n" + "innodb_buffer_pool_chunk_size" + " = " + chunkSizeVal
 			autotuneParams += paramValue
 		}
+
+		poolSizeVal := strconv.FormatInt(poolSize, 10)
+		paramValue := "\n" + "innodb_buffer_pool_size" + " = " + poolSizeVal
+		autotuneParams += paramValue
 	}
 
 	if !maxConnConfigured {

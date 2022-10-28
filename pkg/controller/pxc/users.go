@@ -828,7 +828,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(cr *api.PerconaXtraDBClu
 	}
 
 	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
-		um, err := users.NewManager(cr.Name+"-proxysql-"+strconv.Itoa(i)+"."+cr.Name+"-proxysql-unready."+cr.Namespace+":6032", "proxyadmin", string(internalSecrets.Data["proxyadmin"]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		um, err := users.NewManager(cr.Name+"-proxysql-"+strconv.Itoa(i)+"."+cr.Name+"-proxysql-unready."+cr.Namespace+":6032", users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			return errors.Wrap(err, "new users manager")
 		}

@@ -104,28 +104,6 @@ func (u *Manager) UpdateUserPass(user *SysUser) error {
 	return nil
 }
 
-func (u *Manager) UpdateUsersPass(users []SysUser) error {
-	if len(users) == 0 {
-		return nil
-	}
-
-	for _, user := range users {
-		for _, host := range user.Hosts {
-			_, err := u.db.Exec("ALTER USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)
-			if err != nil {
-				return errors.Wrap(err, "update password")
-			}
-		}
-	}
-
-	_, err := u.db.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		return errors.Wrap(err, "flush privileges")
-	}
-
-	return nil
-}
-
 func (u *Manager) UpdateProxyUser(user *SysUser) error {
 	switch user.Name {
 	case ProxyAdmin:
@@ -159,48 +137,6 @@ func (u *Manager) UpdateProxyUser(user *SysUser) error {
 		_, err = u.db.Exec("SAVE MYSQL VARIABLES TO DISK")
 		if err != nil {
 			return errors.Wrap(err, "save to disk")
-		}
-	}
-
-	return nil
-}
-
-func (u *Manager) UpdateProxyUsers(proxyUsers []SysUser) error {
-
-	for _, user := range proxyUsers {
-		switch user.Name {
-		case ProxyAdmin:
-			_, err := u.db.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='admin-admin_credentials'", "proxyadmin:"+user.Pass)
-			if err != nil {
-				return errors.Wrap(err, "update proxy admin password")
-			}
-			_, err = u.db.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='admin-cluster_password'", user.Pass)
-			if err != nil {
-				return errors.Wrap(err, "update proxy admin password")
-			}
-			_, err = u.db.Exec("LOAD ADMIN VARIABLES TO RUNTIME")
-			if err != nil {
-				return errors.Wrap(err, "load to runtime")
-			}
-
-			_, err = u.db.Exec("SAVE ADMIN VARIABLES TO DISK")
-			if err != nil {
-				return errors.Wrap(err, "save to disk")
-			}
-		case Monitor:
-			_, err := u.db.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='mysql-monitor_password'", user.Pass)
-			if err != nil {
-				return errors.Wrap(err, "update proxy monitor password")
-			}
-			_, err = u.db.Exec("LOAD MYSQL VARIABLES TO RUNTIME")
-			if err != nil {
-				return errors.Wrap(err, "load to runtime")
-			}
-
-			_, err = u.db.Exec("SAVE MYSQL VARIABLES TO DISK")
-			if err != nil {
-				return errors.Wrap(err, "save to disk")
-			}
 		}
 	}
 

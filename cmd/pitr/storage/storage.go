@@ -33,9 +33,9 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region st
 		InsecureSkipVerify: !verifyTLS,
 	}
 	minioClient, err := minio.New(strings.TrimRight(endpoint, "/"), &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: useSSL,
-		Region: region,
+		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure:    useSSL,
+		Region:    region,
 		Transport: transport,
 	})
 	if err != nil {

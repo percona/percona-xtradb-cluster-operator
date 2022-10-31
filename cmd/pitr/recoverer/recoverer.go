@@ -33,7 +33,7 @@ type Recoverer struct {
 	recoverFlag    string
 	recoverEndTime time.Time
 	gtid           string
-	verifyTLS	   bool
+	verifyTLS      bool
 }
 
 type Config struct {

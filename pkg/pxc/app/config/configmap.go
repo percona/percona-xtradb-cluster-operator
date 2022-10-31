@@ -1,10 +1,11 @@
 package config
 
 import (
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName, filename, content string) *corev1.ConfigMap {
@@ -34,7 +35,7 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, cmName string) (*corev1.
 			memory = res.Limits.Memory()
 		}
 	}
-	autotuneParams, err := getAutoTuneParams(memory)
+	autotuneParams, err := getAutoTuneParams(cr, memory)
 	if err != nil {
 		return nil, err
 	}

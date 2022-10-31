@@ -178,11 +178,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
-	// Resincace se sljedeci put
-	// err = r.syncPXCUsersWithProxySQL(cr)
-	// if err != nil {
-	// 	return errors.Wrap(err, "sync users")
-	// }
+	err = r.syncPXCUsersWithProxySQL(cr)
+	if err != nil {
+		return errors.Wrap(err, "sync users")
+	}
 
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
 	err = r.client.Update(context.TODO(), internalSecrets)
@@ -706,7 +705,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	// if err != nil {
 	// 	return errors.Wrap(err, "sync proxy users")
 	// }
-
+	
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
 	err = r.client.Update(context.TODO(), internalSecrets)
 	if err != nil {

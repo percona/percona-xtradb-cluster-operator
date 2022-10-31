@@ -700,12 +700,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	}
 	logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
 
-	// Ovo se mora desiti prvo nakon sto se 
-	// err = r.syncPXCUsersWithProxySQL(cr)
-	// if err != nil {
-	// 	return errors.Wrap(err, "sync proxy users")
-	// }
-	
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
 	err = r.client.Update(context.TODO(), internalSecrets)
 	if err != nil {

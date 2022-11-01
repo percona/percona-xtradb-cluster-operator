@@ -14,7 +14,7 @@ jobs:
           export DOCKER_SQUASH=0
           ./e2e-tests/build
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.7.1
+        uses: aquasecurity/trivy-action@0.8.0
         with:
           image-ref: 'docker.io/perconalab/percona-xtradb-cluster-operator:${{ github.sha }}'
           format: 'table'

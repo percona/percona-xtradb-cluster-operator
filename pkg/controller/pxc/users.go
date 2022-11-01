@@ -203,7 +203,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	user := &users.SysUser{
 		Name:  users.Operator,
 		Pass:  string(secrets.Data[users.Operator]),
-		Hosts: []string{"localhost", "%"},
+		Hosts: []string{"%"},
 	}
 
 	// Regardless of password change, always ensure that operator user is there with the right privileges
@@ -340,7 +340,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 
 	err := r.updateUserPass(cr, secrets, internalSecrets, user)
 	if err != nil {
-		return errors.Wrap(err, "update operator users pass")
+		return errors.Wrap(err, "update monitor users pass")
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 

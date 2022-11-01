@@ -6,15 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	"github.com/flosch/pongo2/v6"
 	"github.com/go-ini/ini"
 	"github.com/go-logr/logr"
 	v "github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -84,6 +87,20 @@ type ReplicationSource struct {
 type TLSSpec struct {
 	SANs       []string                `json:"SANs,omitempty"`
 	IssuerConf *cmmeta.ObjectReference `json:"issuerConf,omitempty"`
+}
+
+const (
+	UpgradeStrategyDisabled       = "disabled"
+	UpgradeStrategyNever          = "never"
+	DefaultVersionServiceEndpoint = "https://check.percona.com"
+)
+
+func GetDefaultVersionServiceEndpoint() string {
+	if endpoint := os.Getenv("PERCONA_VS_FALLBACK_URI"); len(endpoint) > 0 {
+		return endpoint
+	}
+
+	return DefaultVersionServiceEndpoint
 }
 
 type UpgradeOptions struct {
@@ -196,6 +213,7 @@ type AppStatus struct {
 // PerconaXtraDBCluster is the Schema for the perconaxtradbclusters API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
+// +kubebuilder:pruning:PreserveUnknownFields
 // +kubebuilder:resource:shortName="pxc";"pxcs"
 // +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".status.host"
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.state"
@@ -214,6 +232,11 @@ type PerconaXtraDBCluster struct {
 func (cr *PerconaXtraDBCluster) Validate() error {
 	if len(cr.Name) > clusterNameMaxLen {
 		return errors.Errorf("cluster name (%s) too long, must be no more than %d characters", cr.Name, clusterNameMaxLen)
+	}
+
+	err := cr.validateVersion()
+	if err != nil {
+		return errors.Wrap(err, "invalid cr version")
 	}
 
 	c := cr.Spec
@@ -383,8 +406,11 @@ type PodSpec struct {
 	ExternalTrafficPolicy         corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
 	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	LoadBalancerIP                string                                  `json:"loadBalancerIP,omitempty"`
 	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
 	ServiceLabels                 map[string]string                       `json:"serviceLabels,omitempty"`
+	ReplicasServiceAnnotations    map[string]string                       `json:"replicasServiceAnnotations,omitempty"`
+	ReplicasServiceLabels         map[string]string                       `json:"replicasServiceLabels,omitempty"`
 	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
 	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
 	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`
@@ -402,8 +428,10 @@ type PodSpec struct {
 }
 
 type HAProxySpec struct {
-	PodSpec                `json:",inline"`
-	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
+	PodSpec                          `json:",inline"`
+	ReplicasServiceEnabled           *bool    `json:"replicasServiceEnabled,omitempty"`
+	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
+	ReplicasLoadBalancerIP           string   `json:"replicasLoadBalancerIP,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -424,7 +452,7 @@ type LogCollectorSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	ImagePullPolicy          corev1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
-	HookScript               string                  `json:"hookScript,omitempty"`
+	HookScript               string                      `json:"hookScript,omitempty"`
 }
 
 type PMMSpec struct {
@@ -520,10 +548,12 @@ func ContainsVolume(vs []corev1.Volume, name string) bool {
 
 const WorkloadSA = "default"
 
+// +kubebuilder:object:generate=false
 type CustomVolumeGetter func(nsName, cvName, cmName string, useDefaultVolume bool) (corev1.Volume, error)
 
 var NoCustomVolumeErr = errors.New("no custom volume found")
 
+// +kubebuilder:object:generate=false
 type App interface {
 	AppContainer(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster, availableVolumes []corev1.Volume) (corev1.Container, error)
 	SidecarContainers(spec *PodSpec, secrets string, cr *PerconaXtraDBCluster) ([]corev1.Container, error)
@@ -533,6 +563,7 @@ type App interface {
 	Labels() map[string]string
 }
 
+// +kubebuilder:object:generate=false
 type StatefulApp interface {
 	App
 	Name() string
@@ -580,15 +611,14 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
 func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion, logger logr.Logger) (err error) {
-	workloadSA := "percona-xtradb-cluster-operator-workload"
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		workloadSA = WorkloadSA
-	}
-
 	_ = cr.SetVersion()
 	err = cr.Validate()
 	if err != nil {
 		return errors.Wrap(err, "validate cr")
+	}
+	workloadSA := "percona-xtradb-cluster-operator-workload"
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		workloadSA = WorkloadSA
 	}
 
 	c := &cr.Spec
@@ -665,6 +695,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.PXC.Size = 0
 		}
 
+		if err = c.PXC.executeConfigurationTemplate(); err != nil {
+			return errors.Wrap(err, "pxc config")
+		}
+
 		if cr.CompareVersionWith("1.10.0") < 0 {
 			if c.PMM != nil && c.PMM.Resources.Size() == 0 {
 				c.PMM.Resources = c.PXC.Resources
@@ -723,6 +757,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		c.HAProxy.reconcileAffinityOpts()
 
+		if err = c.HAProxy.executeConfigurationTemplate(); err != nil {
+			return errors.Wrap(err, "haproxy config")
+		}
+
 		if c.Pause {
 			c.HAProxy.Size = 0
 		}
@@ -768,6 +806,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 		c.ProxySQL.reconcileAffinityOpts()
 
+		if err = c.ProxySQL.executeConfigurationTemplate(); err != nil {
+			return errors.Wrap(err, "proxySQL config")
+		}
+
 		if c.Pause {
 			c.ProxySQL.Size = 0
 		}
@@ -809,6 +851,14 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	if cr.Spec.EnableCRValidationWebhook == nil {
 		falseVal := false
 		cr.Spec.EnableCRValidationWebhook = &falseVal
+	}
+
+	if cr.Spec.UpgradeOptions.Apply == "" {
+		cr.Spec.UpgradeOptions.Apply = UpgradeStrategyDisabled
+	}
+
+	if cr.Spec.UpgradeOptions.VersionServiceEndpoint == "" {
+		cr.Spec.UpgradeOptions.VersionServiceEndpoint = DefaultVersionServiceEndpoint
 	}
 
 	return nil
@@ -946,6 +996,14 @@ func (cr *PerconaXtraDBCluster) SetVersion() bool {
 	return true
 }
 
+func (cr *PerconaXtraDBCluster) validateVersion() error {
+	if len(cr.Spec.CRVersion) == 0 {
+		return nil
+	}
+	_, err := v.NewVersion(cr.Spec.CRVersion)
+	return err
+}
+
 func (cr *PerconaXtraDBCluster) Version() *v.Version {
 	return v.Must(v.NewVersion(cr.Spec.CRVersion))
 }
@@ -1012,6 +1070,34 @@ func (p *PodSpec) reconcileAffinityOpts() {
 			p.Affinity.TopologyKey = &defaultAffinityTopologyKey
 		}
 	}
+}
+
+func (p *PodSpec) executeConfigurationTemplate() error {
+	var memory *resource.Quantity
+	if res := p.Resources; res.Size() > 0 {
+		if _, ok := res.Requests[corev1.ResourceMemory]; ok {
+			memory = res.Requests.Memory()
+		}
+		if _, ok := res.Limits[corev1.ResourceMemory]; ok {
+			memory = res.Limits.Memory()
+		}
+	}
+	if memory == nil {
+		if strings.Contains(p.Configuration, "{{") {
+			return errors.New("resources.limits[memory] or resources.requests[memory] should be specified for template usage in configuration")
+		}
+		return nil
+	}
+
+	tmpl, err := pongo2.FromString(p.Configuration)
+	if err != nil {
+		return errors.Wrap(err, "parse template")
+	}
+	p.Configuration, err = tmpl.Execute(pongo2.Context{"containerMemoryLimit": memory.Value()})
+	if err != nil {
+		return errors.Wrap(err, "execute template")
+	}
+	return nil
 }
 
 func (v *VolumeSpec) reconcileOpts() {

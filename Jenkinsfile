@@ -1,29 +1,65 @@
 GKERegion='us-central1-a'
 
-void CreateCluster(String CLUSTER_PREFIX) {
+void CreateCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             NODES_NUM=3
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
-            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-            gcloud config set project $GCP_PROJECT
-            gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_PREFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-            gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX} --cluster-version=1.20 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_PREFIX} --no-enable-autoupgrade
-            kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com
+            ret_num=0
+            while [ \${ret_num} -lt 15 ]; do
+                ret_val=0
+                gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+                gcloud config set project $GCP_PROJECT
+                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=10.\$(( RANDOM % 250 )).\$(( RANDOM % 30 * 8 )).0/21 && \
+                gcloud container clusters update $CLUSTER_NAME-${CLUSTER_SUFFIX} --update-labels delete-cluster-after-hours=6,pxc-pr=${CHANGE_ID} --zone $GKERegion && \
+                kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
+                if [ \${ret_val} -eq 0 ]; then break; fi
+                ret_num=\$((ret_num + 1))
+            done
+            if [ \${ret_num} -eq 15 ]; then
+                gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
+                exit 1
+            fi
         """
    }
 }
-void ShutdownCluster(String CLUSTER_PREFIX) {
+void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
             export USE_GKE_GCLOUD_AUTH_PLUGIN=True
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_PREFIX}
+            gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX}
+        """
+   }
+}
+void DeleteOldClusters(String FILTER) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+        sh """
+            export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+            source $HOME/google-cloud-sdk/path.bash.inc
+            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
+            gcloud config set project $GCP_PROJECT
+            for GKE_CLUSTER in \$(gcloud container clusters list --format='csv[no-heading](name)' --filter="$FILTER"); do
+                GKE_CLUSTER_STATUS=\$(gcloud container clusters list --format='csv[no-heading](status)' --filter="\$GKE_CLUSTER")
+                retry=0
+                while [ "\$GKE_CLUSTER_STATUS" == "PROVISIONING" ]; do
+                    echo "Cluster \$GKE_CLUSTER is being provisioned, waiting before delete."
+                    sleep 10
+                    GKE_CLUSTER_STATUS=\$(gcloud container clusters list --format='csv[no-heading](status)' --filter="\$GKE_CLUSTER")
+                    let retry+=1
+                    if [ \$retry -ge 60 ]; then
+                        echo "Cluster \$GKE_CLUSTER to delete is being provisioned for too long. Skipping..."
+                        break
+                    fi
+                done
+                gcloud container clusters delete --async --zone $GKERegion --quiet \$GKE_CLUSTER || true
+            done
         """
    }
 }
@@ -63,14 +99,36 @@ void popArtifactFile(String FILE_NAME) {
     }
 }
 
+void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
+    sh """
+		export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+		export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+		source $HOME/google-cloud-sdk/path.bash.inc
+        echo "========== KUBERNETES STATUS $LOCATION TEST =========="
+        gcloud container clusters list|grep -E "NAME|$CLUSTER_NAME-$CLUSTER_SUFFIX "
+        echo
+        kubectl get nodes
+        echo
+        kubectl top nodes
+        echo
+        kubectl get pods --all-namespaces
+        echo
+        kubectl top pod --all-namespaces
+        echo
+        kubectl get events --field-selector type!=Normal --all-namespaces
+        echo "======================================================"
+    """
+}
+
 TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
 testsReportMap  = [:]
 testsResultsMap = [:]
 
 void makeReport() {
-    def wholeTestAmount=sh(script: 'cat e2e-tests/run | grep "|| fail"| wc -l', , returnStdout: true).trim()
+    def wholeTestAmount=sh(script: 'grep "runTest(.*)$" Jenkinsfile | grep -v wholeTestAmount | wc -l', , returnStdout: true).trim().toInteger()
     def startedTestAmount = testsReportMap.size()
-    for ( test in testsReportMap ) {
+    
+    for ( test in testsReportMap.sort() ) {
         TestsReport = TestsReport + "\r\n| ${test.key} | ${test.value} |"
     }
     TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
@@ -82,32 +140,37 @@ void setTestsresults() {
     }
 }
 
-void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
+void runTest(String TEST_NAME, String CLUSTER_SUFFIX, String MYSQL_VERSION) {
     def retryCount = 0
+    def testNameWithMysqlVersion = "$TEST_NAME-$MYSQL_VERSION".replace(".", "-")
     waitUntil {
-        def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${TEST_NAME}.log"
+        def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
+        echo " test url is $testUrl"
         try {
             echo "The $TEST_NAME test was started!"
-            testsReportMap[TEST_NAME] = "[failed]($testUrl)"
-            popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME")
+            testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
+            popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME" ]; then
+                    if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion" ]; then
                         echo Skip $TEST_NAME test
                     else
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_PREFIX}
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+                        export MYSQL_VERSION=$MYSQL_VERSION
                         source $HOME/google-cloud-sdk/path.bash.inc
                         time bash ./e2e-tests/$TEST_NAME/run
                     fi
                 """
             }
-            testsReportMap[TEST_NAME] = "[passed]($testUrl)"
-            testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$TEST_NAME"] = 'passed'
+            echo "end test url is $testUrl"
+            testsReportMap["$testNameWithMysqlVersion"] = "[passed]($testUrl)"
+            testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"] = 'passed'
             return true
         }
         catch (exc) {
-            if (retryCount >= 2) {
+            printKubernetesStatus("AFTER","$CLUSTER_SUFFIX")
+            if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -115,7 +178,7 @@ void runTest(String TEST_NAME, String CLUSTER_PREFIX) {
             return false
         }
         finally {
-            pushLogFile(TEST_NAME)
+            pushLogFile("$testNameWithMysqlVersion")
             echo "The $TEST_NAME test was finished!"
         }
     }
@@ -141,12 +204,15 @@ pipeline {
         OPERATOR_NS = 'pxc-operator'
         GIT_SHORT_COMMIT = sh(script: 'git describe --always --dirty', , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
-        CLUSTER_NAME = sh(script: "echo jenkins-pxc-${GIT_SHORT_COMMIT} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jen-pxc-${GIT_SHORT_COMMIT}-${env.BUILD_NUMBER} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
         AUTHOR_NAME  = sh(script: "echo ${CHANGE_AUTHOR_EMAIL} | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
         ENABLE_LOGGING="true"
     }
     agent {
         label 'docker'
+    }
+    options {
+        disableConcurrentBuilds(abortPrevious: true)
     }
     stages {
         stage('Prepare') {
@@ -156,7 +222,6 @@ pipeline {
                 }
             }
             steps {
-                stash includes: 'vendor/**', name: 'vendorFILES'
                 installRpms()
                 script {
                     if ( AUTHOR_NAME == 'null' )  {
@@ -186,7 +251,7 @@ pipeline {
                     curl -s -L https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo chmod +x /usr/local/bin/yq
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
@@ -194,6 +259,7 @@ pipeline {
                         cp $CLOUD_SECRET_FILE ./e2e-tests/conf/cloud-secret.yml
                     '''
                 }
+                DeleteOldClusters("resourceLabels.pxc-pr:$CHANGE_ID")
             }
         }
         stage('Build docker image') {
@@ -238,7 +304,7 @@ pipeline {
                             --rm \
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
-                            golang:1.17 sh -c '
+                            golang:1.19 sh -c '
                                 go install -mod=readonly github.com/google/go-licenses@latest;
                                 /go/bin/go-licenses csv github.com/percona/percona-xtradb-cluster-operator/cmd/manager \
                                     | cut -d , -f 3 \
@@ -266,7 +332,7 @@ pipeline {
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
-                            golang:1.17 sh -c 'go build -v -mod=vendor -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
+                            golang:1.19 sh -c 'go build -v -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
                     "
                 '''
 
@@ -281,7 +347,6 @@ pipeline {
                         diff -u e2e-tests/license/compare/golicense golicense-new
                     """
                 }
-                unstash 'vendorFILES'
             }
         }
         stage('Run tests for operator') {
@@ -294,92 +359,94 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             parallel {
-                stage('E2E Upgrade') {
+                stage('cluster1') {
                     steps {
-                        CreateCluster('upgrade')
-                        runTest('upgrade-haproxy', 'upgrade')
-                        ShutdownCluster('upgrade')
-                        CreateCluster('upgrade')
-                        runTest('upgrade-proxysql', 'upgrade')
-                        ShutdownCluster('upgrade')
-                        CreateCluster('upgrade')
-                        runTest('smart-update', 'upgrade')
-                        runTest('upgrade-consistency', 'upgrade')
-                        ShutdownCluster('upgrade')
+                        CreateCluster('cluster1')
+                        runTest('upgrade-haproxy', 'cluster1', '8.0')
+                        runTest('upgrade-proxysql', 'cluster1', '8.0')
+                        runTest('demand-backup', 'cluster1', '8.0')
+                        runTest('one-pod', 'cluster1', '8.0')
+                        ShutdownCluster('cluster1')
                     }
                 }
-                stage('E2E Basic Tests') {
+                stage('cluster2') {
                     steps {
-                        CreateCluster('basic')
-                        runTest('haproxy', 'basic')
-                        runTest('init-deploy', 'basic')
-                        runTest('limits', 'basic')
-                        runTest('monitoring-2-0', 'basic')
-                        runTest('affinity', 'basic')
-                        runTest('one-pod', 'basic')
-                        runTest('auto-tuning', 'basic')
-                        runTest('proxysql-sidecar-res-limits', 'basic')
-                        runTest('users', 'basic')
-                        runTest('tls-issue-self','basic')
-                        runTest('tls-issue-cert-manager','basic')
-                        runTest('tls-issue-cert-manager-ref','basic')
-                        runTest('validation-hook','basic')
-                        runTest('proxy-protocol','basic')
-                        ShutdownCluster('basic')
+                        CreateCluster('cluster2')
+                        runTest('smart-update1', 'cluster2', '8.0')
+                        runTest('smart-update2', 'cluster2', '8.0')
+                        runTest('demand-backup-encrypted-with-tls', 'cluster2', '8.0')
+                        ShutdownCluster('cluster2')
                     }
                 }
-                stage('E2E Scaling') {
+                stage('cluster3') {
                     steps {
-                        CreateCluster('scaling')
-                        runTest('scaling', 'scaling')
-                        runTest('scaling-proxysql', 'scaling')
-                        runTest('security-context', 'scaling')
-                        ShutdownCluster('scaling')
+                        CreateCluster('cluster3')
+                        runTest('haproxy', 'cluster3', '8.0')
+                        runTest('init-deploy', 'cluster3', '8.0')
+                        runTest('limits', 'cluster3', '8.0')
+                        runTest('monitoring-2-0', 'cluster3', '8.0')
+                        ShutdownCluster('cluster3')
                     }
                 }
-                stage('E2E SelfHealing') {
+                stage('cluster4') {
                     steps {
-                        CreateCluster('selfhealing')
-                        runTest('storage', 'selfhealing')
-                        runTest('self-healing', 'selfhealing')
-                        runTest('self-healing-chaos', 'selfhealing')
-                        runTest('self-healing-advanced', 'selfhealing')
-                        runTest('self-healing-advanced-chaos', 'selfhealing')
-                        runTest('operator-self-healing', 'selfhealing')
-                        runTest('operator-self-healing-chaos', 'selfhealing')
-                        ShutdownCluster('selfhealing')
+                        CreateCluster('cluster4')
+                        runTest('proxysql-sidecar-res-limits', 'cluster4', '8.0')
+                        runTest('tls-issue-self','cluster4', '8.0')
+                        runTest('tls-issue-cert-manager','cluster4', '8.0')
+                        runTest('tls-issue-cert-manager-ref','cluster4', '8.0')
+                        runTest('validation-hook','cluster4', '8.0')
+                        runTest('auto-tuning', 'cluster4', '8.0')
+                        runTest('demand-backup-cloud', 'cluster4', '8.0')
+                        ShutdownCluster('cluster4')
                     }
                 }
-                stage('E2E Backups') {
+                stage('cluster5') {
                     steps {
-                        CreateCluster('backups')
-                        runTest('recreate', 'backups')
-                        runTest('restore-to-encrypted-cluster', 'backups')
-                        runTest('demand-backup', 'backups')
-                        runTest('pitr', 'backups')
-                        runTest('demand-backup-encrypted-with-tls', 'backups')
-                        ShutdownCluster('backups')
+                        CreateCluster('cluster5')
+                        runTest('scaling', 'cluster5', '8.0')
+                        runTest('scaling-proxysql', 'cluster5', '8.0')
+                        runTest('security-context', 'cluster5', '8.0')
+                        runTest('users', 'cluster5', '5.7')
+                        ShutdownCluster('cluster5')
                     }
                 }
-                stage('E2E Scheduled-backups') {
+                stage('cluster6') {
                     steps {
-                        CreateCluster('scheduled-backups')
-                        runTest('scheduled-backup', 'scheduled-backups')
-                        ShutdownCluster('scheduled-backups')
+                        CreateCluster('cluster6')
+                        runTest('haproxy', 'cluster6', '5.7')
+                        runTest('storage', 'cluster6', '8.0')
+                        runTest('upgrade-consistency', 'cluster6', '8.0')
+                        runTest('proxy-protocol','cluster6', '8.0')
+                        runTest('one-pod', 'cluster6', '5.7')
+                        ShutdownCluster('cluster6')
                     }
                 }
-                stage('E2E BigData') {
+                stage('cluster7') {
                     steps {
-                        CreateCluster('bigdata')
-                        runTest('big-data', 'bigdata')
-                        ShutdownCluster('bigdata')
+                        CreateCluster('cluster7')
+                        runTest('restore-to-encrypted-cluster', 'cluster7', '8.0')
+                        runTest('pitr', 'cluster7', '8.0')
+                        runTest('affinity', 'cluster7', '8.0')
+                        ShutdownCluster('cluster7')
                     }
                 }
-                stage('E2E CrossSite') {
+                stage('cluster8') {
                     steps {
-                        CreateCluster('cross-site')
-                        runTest('cross-site', 'cross-site')
-                        ShutdownCluster('cross-site')
+                        CreateCluster('cluster8')
+                        runTest('scheduled-backup', 'cluster8', '8.0')
+                        runTest('scheduled-backup', 'cluster8', '5.7')
+                        ShutdownCluster('cluster8')
+                    }
+                }
+                stage('cluster9') {
+                    steps {
+                        CreateCluster('cluster9')
+                        runTest('cross-site', 'cluster9', '8.0')
+                        runTest('recreate', 'cluster9', '8.0')
+                        runTest('init-deploy', 'cluster9', '5.7')
+                        runTest('users', 'cluster9', '8.0')
+                        ShutdownCluster('cluster9')
                     }
                 }
             }
@@ -413,19 +480,12 @@ pipeline {
                     pullRequest.comment(TestsReport)
                 }
             }
-            withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-                sh """
-                    if [ -f $HOME/google-cloud-sdk/path.bash.inc ]; then
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        gcloud auth activate-service-account --key-file \$CLIENT_SECRET_FILE
-                        gcloud config set project \$GCP_PROJECT
-                        gcloud container clusters list --format='csv[no-heading](name)' --filter $CLUSTER_NAME | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-                    fi
-                    sudo docker system prune -fa
-                    sudo rm -rf ./*
-                    sudo rm -rf $HOME/google-cloud-sdk
-                """
-            }
+            DeleteOldClusters("$CLUSTER_NAME")
+            sh """
+                sudo docker system prune -fa
+                sudo rm -rf ./*
+                sudo rm -rf $HOME/google-cloud-sdk
+            """
             deleteDir()
         }
     }

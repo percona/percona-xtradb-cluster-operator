@@ -7,7 +7,7 @@ spec:
   secretsName: minimal-cluster-secrets
   allowUnsafeConfigurations: true
   upgradeOptions:
-    apply: 8.0-recommended
+    apply: disabled
     schedule: "0 4 * * *"
   pxc:
     size: 1

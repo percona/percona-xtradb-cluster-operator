@@ -22,12 +22,13 @@ crash_cluster_with_kubectl() {
 
 crash_cluster_with_chaos_mesh() {
 	cat $conf_dir/chaos-pod-kill.yml \
-		| yq w - "metadata.name" "chaos-cluster-kill" \
-		| yq w - "spec.mode" "all" \
-		| yq d - "spec.selector.pods.test-namespace" \
-		| yq w - "spec.selector.pods.$namespace[0]" "$cluster-pxc-0" \
-		| yq w - "spec.selector.pods.$namespace[1]" "$cluster-pxc-1" \
-		| yq w - "spec.selector.pods.$namespace[2]" "$cluster-pxc-2" \
+		| yq eval "
+			.metadata.name = \"chaos-cluster-kill\" |
+			.spec.mode = \"all\" |
+			del(.spec.selector.pods.test-namespace) |
+			.spec.selector.pods.$namespace[0] = \"$cluster-pxc-0\" |
+			.spec.selector.pods.$namespace[1] = \"$cluster-pxc-1\" |
+			.spec.selector.pods.$namespace[2] = \"$cluster-pxc-2\"" - \
 		| kubectl_bin apply -f-
 
 	sleep 60

@@ -7,8 +7,9 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="auto-tuning"
 
-RAM_SIZE=1073741824 # 1Gi
-RDS_MEM_INSTANCE=12582880
+get_variable_from_cm() {
+	kubectl_bin get configmap auto-${cluster}-pxc -o yaml | grep -oP "$1 = \K[0-9]+"
+}
 
 create_infra $namespace
 
@@ -21,14 +22,16 @@ AUTO_CONNECTIONS=$(run_mysql \
 	'SELECT @@max_connections;' \
 	"-h $cluster-pxc -uroot -proot_password")
 
-if [[ ${AUTO_INNODB_SIZE} != $((RAM_SIZE * 50 / 100)) ]]; then
-	echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with cr.pxc.limits.memory * 0.75"
+cm_buffer_size=$(get_variable_from_cm innodb_buffer_pool_size)
+if [[ ${AUTO_INNODB_SIZE} != ${cm_buffer_size} ]]; then
+	echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with configmap value: ${cm_buffer_size}"
 	exit 1
 fi
 
-if [[ ${AUTO_CONNECTIONS} != $((${RAM_SIZE} / ${RDS_MEM_INSTANCE})) ]]; then
-    echo "max_connections is set to ${AUTO_CONNECTIONS}, which does not correlate with cr.pxc.limits.memory / ${RDS_MEM_INSTANCE}"
-    exit 1
+cm_max_connections=$(get_variable_from_cm max_connections)
+if [[ ${AUTO_CONNECTIONS} != ${cm_max_connections} ]]; then
+	echo "max_connections is set to ${AUTO_CONNECTIONS}, which does not correlate with configmap value: ${cm_max_connections}"
+	exit 1
 fi
 
 apply_config "${test_dir}/conf/${cluster}2.yml"
@@ -41,34 +44,36 @@ AUTO_CONNECTIONS=$(run_mysql \
 	'SELECT @@max_connections;' \
 	"-h $cluster-pxc -uroot -proot_password")
 
-if [[ ${AUTO_INNODB_SIZE} != $((RAM_SIZE / 2 * 50 / 100)) ]]; then
-	echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with cr.pxc.requests.memory * 0.50"
+cm_buffer_size=$(get_variable_from_cm innodb_buffer_pool_size)
+if [[ ${AUTO_INNODB_SIZE} != ${cm_buffer_size} ]]; then
+	echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with configmap value: ${cm_buffer_size}"
 	exit 1
 fi
 
-if [[ ${AUTO_CONNECTIONS} != $(( ${RAM_SIZE} / 2 / ${RDS_MEM_INSTANCE})) ]]; then
-    echo "max_connections is set to ${AUTO_CONNECTIONS}, which does not correlate with cr.pxc.requests.memory / ${RDS_MEM_INSTANCE}"
-    exit 1
+cm_max_connections=$(get_variable_from_cm max_connections)
+if [[ ${AUTO_CONNECTIONS} != ${cm_max_connections} ]]; then
+	echo "max_connections is set to ${AUTO_CONNECTIONS}, which does not correlate with configmap value: ${cm_max_connections}"
+	exit 1
 fi
 
 apply_config "${test_dir}/conf/${cluster}3.yml"
 wait_cluster_consistency "$cluster" 3
 
 INNODB_SIZE=$(run_mysql \
-                        'SELECT @@innodb_buffer_pool_size;' \
-                        "-h $cluster-pxc -uroot -proot_password")
+	'SELECT @@innodb_buffer_pool_size;' \
+	"-h $cluster-pxc -uroot -proot_password")
 CONNECTIONS=$(run_mysql \
-                        'SELECT @@max_connections;' \
-                        "-h $cluster-pxc -uroot -proot_password")
+	'SELECT @@max_connections;' \
+	"-h $cluster-pxc -uroot -proot_password")
 
 if [[ ${INNODB_SIZE} != 805306368 ]]; then
-    echo "innodb_buffer_pool_size ${AUTO_INNODB_SIZE} is not set to 805306368"
-    exit 1
+	echo "innodb_buffer_pool_size ${AUTO_INNODB_SIZE} is not set to 805306368"
+	exit 1
 fi
 
 if [[ ${CONNECTIONS} != 200 ]]; then
-    echo "max_connections ${CONNECTIONS} is not set to 200"
-    exit 1
+	echo "max_connections ${CONNECTIONS} is not set to 200"
+	exit 1
 fi
 
 destroy $namespace

@@ -1,0 +1,167 @@
+apiVersion: pxc.percona.com/v1-6-0
+kind: PerconaXtraDBCluster
+metadata:
+  name: scheduled-backup
+spec:
+  secretsName: my-cluster-secrets
+  sslSecretName: some-name-ssl
+  sslInternalSecretName: some-name-ssl-internal
+  pxc:
+    size: 3
+    image: -pxc
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+  proxysql:
+    enabled: true
+    size: 2
+    image: -proxysql
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 2Gi
+  pmm:
+    enabled: false
+  backup:
+    image: -backup
+    storages:
+      pvc:
+        nodeSelector:
+          backupWorker: 'True'
+        resources:
+          requests:
+            memory: 1G
+            cpu: 600m
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: backupWorker
+                  operator: In
+                  values:
+                  - 'True'
+        tolerations:
+          - key: "backupWorker"
+            operator: "Equal"
+            value: "True"
+            effect: "NoSchedule"
+        annotations:
+          testName: scheduled-backup
+        labels:
+          backupWorker: 'True'
+        schedulerName: 'default-scheduler'
+        priorityClassName: 'high-priority'
+        type: filesystem
+        volume:
+          persistentVolumeClaim:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 1Gi
+      aws-s3:
+        type: s3
+        s3:
+          region: us-east-1
+          bucket: operator-testing
+          credentialsSecret: aws-s3-secret
+        nodeSelector:
+          backupWorker: 'True'
+        resources:
+          requests:
+            memory: 1G
+            cpu: 600m
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: backupWorker
+                  operator: In
+                  values:
+                  - 'True'
+        tolerations:
+          - key: "backupWorker"
+            operator: "Equal"
+            value: "True"
+            effect: "NoSchedule"
+        annotations:
+          testName: scheduled-backup
+        labels:
+          backupWorker: 'True'
+        schedulerName: 'default-scheduler'
+        priorityClassName: 'high-priority'
+      minio:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: http://minio-service.#namespace:9000/
+        nodeSelector:
+          backupWorker: 'True'
+        resources:
+          requests:
+            memory: 1G
+            cpu: 600m
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: backupWorker
+                  operator: In
+                  values:
+                  - 'True'
+        tolerations:
+          - key: "backupWorker"
+            operator: "Equal"
+            value: "True"
+            effect: "NoSchedule"
+        annotations:
+          testName: scheduled-backup
+        labels:
+          backupWorker: 'True'
+        schedulerName: 'default-scheduler'
+        priorityClassName: 'high-priority'
+      gcp-cs:
+        type: s3
+        s3:
+          credentialsSecret: gcp-cs-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: https://storage.googleapis.com
+        nodeSelector:
+          backupWorker: 'True'
+        resources:
+          requests:
+            memory: 1G
+            cpu: 600m
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: backupWorker
+                  operator: In
+                  values:
+                  - 'True'
+        tolerations:
+          - key: "backupWorker"
+            operator: "Equal"
+            value: "True"
+            effect: "NoSchedule"
+        annotations:
+          testName: scheduled-backup
+        labels:
+          backupWorker: 'True'
+        schedulerName: 'default-scheduler'
+        priorityClassName: 'high-priority'
+    schedule:
+      - name: each-min-pvc
+        schedule: "* * * * *"
+        keep: 30
+        storageName: pvc

@@ -146,6 +146,7 @@ function main() {
 
 	desc 'cleanup'
 	destroy "${namespace}"
+	kubectl delete crd $(kubectl get crd | grep 'perconaxtradbcluster' | awk '{print $1}' | tr '\n' ' ') || :
 }
 
 main

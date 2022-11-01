@@ -9,6 +9,12 @@ test_dir=$(realpath $(dirname $0))
 
 create_infra $namespace
 
+output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-invalid-version.yaml")
+if [[ $output != *"invalid cr version"* ]]; then
+	echo 'invalid hook response'
+	exit 1
+fi
+
 output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-too-long-name.yaml")
 
 if [[ $output != *"too long, must be no more than 22 characters"* ]]; then
@@ -53,7 +59,7 @@ fi
 
 sleep 1
 
-if ! output=$(kubectl 2>&1 get pxc/simple-pxc -o yaml | yq r - spec.pxc.size); then
+if ! output=$(kubectl 2>&1 get pxc/simple-pxc -o yaml | yq eval ".spec.pxc.size" -); then
 	echo "ERROR: ${output}"
 elif ((output != replicas_num)); then
 	echo "ERROR: pxc did  ${output}"

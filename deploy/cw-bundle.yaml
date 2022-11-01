@@ -3,6 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   name: perconaxtradbclusters.pxc.percona.com
 spec:
+  preserveUnknownFields: false
   group: pxc.percona.com
   names:
     kind: PerconaXtraDBCluster
@@ -9836,6 +9837,8 @@ spec:
                           format: int32
                           type: integer
                       type: object
+                    loadBalancerIP:
+                      type: string
                     loadBalancerSourceRanges:
                       items:
                         type: string
@@ -10006,8 +10009,22 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasLoadBalancerIP:
+                      type: string
+                    replicasLoadBalancerSourceRanges:
+                      items:
+                        type: string
+                      type: array
+                    replicasServiceAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceEnabled:
                       type: boolean
+                    replicasServiceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceType:
                       type: string
                     resources:
@@ -12338,6 +12355,8 @@ spec:
                           format: int32
                           type: integer
                       type: object
+                    loadBalancerIP:
+                      type: string
                     loadBalancerSourceRanges:
                       items:
                         type: string
@@ -12508,6 +12527,14 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasServiceAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    replicasServiceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceType:
                       type: string
                     resources:
@@ -14655,6 +14682,8 @@ spec:
                           format: int32
                           type: integer
                       type: object
+                    loadBalancerIP:
+                      type: string
                     loadBalancerSourceRanges:
                       items:
                         type: string
@@ -14825,6 +14854,14 @@ spec:
                       type: object
                     replicasExternalTrafficPolicy:
                       type: string
+                    replicasServiceAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    replicasServiceLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     replicasServiceType:
                       type: string
                     replicationChannels:
@@ -16628,6 +16665,7 @@ spec:
                   type: string
               type: object
           type: object
+          x-kubernetes-preserve-unknown-fields: true
       served: true
       storage: true
       subresources:
@@ -16637,7 +16675,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.0
   creationTimestamp: null
   name: perconaxtradbclusterbackups.pxc.percona.com
 spec:
@@ -16647,99 +16685,93 @@ spec:
     listKind: PerconaXtraDBClusterBackupList
     plural: perconaxtradbclusterbackups
     shortNames:
-    - pxc-backup
-    - pxc-backups
+      - pxc-backup
+      - pxc-backups
     singular: perconaxtradbclusterbackup
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: Cluster name
-      jsonPath: .spec.pxcCluster
-      name: Cluster
-      type: string
-    - description: Storage name from pxc spec
-      jsonPath: .status.storageName
-      name: Storage
-      type: string
-    - description: Backup destination
-      jsonPath: .status.destination
-      name: Destination
-      type: string
-    - description: Job status
-      jsonPath: .status.state
-      name: Status
-      type: string
-    - description: Completed time
-      jsonPath: .status.completed
-      name: Completed
-      type: date
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          priorityClassName:
-            type: string
-          schedulerName:
-            type: string
-          spec:
-            properties:
-              pxcCluster:
-                type: string
-              storageName:
-                type: string
-            type: object
-          status:
-            properties:
-              completed:
-                format: date-time
-                type: string
-              destination:
-                type: string
-              lastscheduled:
-                format: date-time
-                type: string
-              s3:
-                properties:
-                  bucket:
-                    type: string
-                  credentialsSecret:
-                    type: string
-                  endpointUrl:
-                    type: string
-                  region:
-                    type: string
-                type: object
-              state:
-                type: string
-              storageName:
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+    - additionalPrinterColumns:
+        - description: Cluster name
+          jsonPath: .spec.pxcCluster
+          name: Cluster
+          type: string
+        - description: Storage name from pxc spec
+          jsonPath: .status.storageName
+          name: Storage
+          type: string
+        - description: Backup destination
+          jsonPath: .status.destination
+          name: Destination
+          type: string
+        - description: Job status
+          jsonPath: .status.state
+          name: Status
+          type: string
+        - description: Completed time
+          jsonPath: .status.completed
+          name: Completed
+          type: date
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            priorityClassName:
+              type: string
+            schedulerName:
+              type: string
+            spec:
+              properties:
+                pxcCluster:
+                  type: string
+                storageName:
+                  type: string
+              type: object
+            status:
+              properties:
+                completed:
+                  format: date-time
+                  type: string
+                destination:
+                  type: string
+                lastscheduled:
+                  format: date-time
+                  type: string
+                s3:
+                  properties:
+                    bucket:
+                      type: string
+                    credentialsSecret:
+                      type: string
+                    endpointUrl:
+                      type: string
+                    region:
+                      type: string
+                  type: object
+                state:
+                  type: string
+                storageName:
+                  type: string
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.0
   creationTimestamp: null
   name: perconaxtradbclusterrestores.pxc.percona.com
 spec:
@@ -16749,255 +16781,249 @@ spec:
     listKind: PerconaXtraDBClusterRestoreList
     plural: perconaxtradbclusterrestores
     shortNames:
-    - pxc-restore
-    - pxc-restores
+      - pxc-restore
+      - pxc-restores
     singular: perconaxtradbclusterrestore
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: Cluster name
-      jsonPath: .spec.pxcCluster
-      name: Cluster
-      type: string
-    - description: Job status
-      jsonPath: .status.state
-      name: Status
-      type: string
-    - description: Completed time
-      jsonPath: .status.completed
-      name: Completed
-      type: date
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          spec:
-            properties:
-              backupName:
-                type: string
-              backupSource:
-                properties:
-                  completed:
-                    format: date-time
-                    type: string
-                  destination:
-                    type: string
-                  lastscheduled:
-                    format: date-time
-                    type: string
-                  s3:
-                    properties:
-                      bucket:
-                        type: string
-                      credentialsSecret:
-                        type: string
-                      endpointUrl:
-                        type: string
-                      region:
-                        type: string
-                    type: object
-                  state:
-                    type: string
-                  storageName:
-                    type: string
-                type: object
-              pitr:
-                properties:
-                  backupSource:
-                    properties:
-                      completed:
-                        format: date-time
-                        type: string
-                      destination:
-                        type: string
-                      lastscheduled:
-                        format: date-time
-                        type: string
-                      s3:
-                        properties:
-                          bucket:
-                            type: string
-                          credentialsSecret:
-                            type: string
-                          endpointUrl:
-                            type: string
-                          region:
-                            type: string
-                        type: object
-                      state:
-                        type: string
-                      storageName:
-                        type: string
-                    type: object
-                  date:
-                    type: string
-                  gtid:
-                    type: string
-                  type:
-                    type: string
-                type: object
-              pxcCluster:
-                type: string
-            type: object
-          status:
-            properties:
-              comments:
-                type: string
-              completed:
-                format: date-time
-                type: string
-              lastscheduled:
-                format: date-time
-                type: string
-              state:
-                type: string
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+    - additionalPrinterColumns:
+        - description: Cluster name
+          jsonPath: .spec.pxcCluster
+          name: Cluster
+          type: string
+        - description: Job status
+          jsonPath: .status.state
+          name: Status
+          type: string
+        - description: Completed time
+          jsonPath: .status.completed
+          name: Completed
+          type: date
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              properties:
+                backupName:
+                  type: string
+                backupSource:
+                  properties:
+                    completed:
+                      format: date-time
+                      type: string
+                    destination:
+                      type: string
+                    lastscheduled:
+                      format: date-time
+                      type: string
+                    s3:
+                      properties:
+                        bucket:
+                          type: string
+                        credentialsSecret:
+                          type: string
+                        endpointUrl:
+                          type: string
+                        region:
+                          type: string
+                      type: object
+                    state:
+                      type: string
+                    storageName:
+                      type: string
+                  type: object
+                pitr:
+                  properties:
+                    backupSource:
+                      properties:
+                        completed:
+                          format: date-time
+                          type: string
+                        destination:
+                          type: string
+                        lastscheduled:
+                          format: date-time
+                          type: string
+                        s3:
+                          properties:
+                            bucket:
+                              type: string
+                            credentialsSecret:
+                              type: string
+                            endpointUrl:
+                              type: string
+                            region:
+                              type: string
+                          type: object
+                        state:
+                          type: string
+                        storageName:
+                          type: string
+                      type: object
+                    date:
+                      type: string
+                    gtid:
+                      type: string
+                    type:
+                      type: string
+                  type: object
+                pxcCluster:
+                  type: string
+              type: object
+            status:
+              properties:
+                comments:
+                  type: string
+                completed:
+                  format: date-time
+                  type: string
+                lastscheduled:
+                  format: date-time
+                  type: string
+                state:
+                  type: string
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: percona-xtradb-cluster-operator
 rules:
-- apiGroups:
-  - pxc.percona.com
-  resources:
-  - perconaxtradbclusters
-  - perconaxtradbclusters/status
-  - perconaxtradbclusterbackups
-  - perconaxtradbclusterbackups/status
-  - perconaxtradbclusterrestores
-  - perconaxtradbclusterrestores/status
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - validatingwebhookconfigurations
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  - pods/exec
-  - pods/log
-  - configmaps
-  - services
-  - persistentvolumeclaims
-  - secrets
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - replicasets
-  - statefulsets
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  - cronjobs
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - policy
-  resources:
-  - poddisruptionbudgets
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
-- apiGroups:
-  - certmanager.k8s.io
-  - cert-manager.io
-  resources:
-  - issuers
-  - certificates
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-  - deletecollection
+  - apiGroups:
+      - pxc.percona.com
+    resources:
+      - perconaxtradbclusters
+      - perconaxtradbclusters/status
+      - perconaxtradbclusterbackups
+      - perconaxtradbclusterbackups/status
+      - perconaxtradbclusterrestores
+      - perconaxtradbclusterrestores/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingwebhookconfigurations
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - pods/exec
+      - pods/log
+      - configmaps
+      - services
+      - persistentvolumeclaims
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+      - cronjobs
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - certmanager.k8s.io
+      - cert-manager.io
+    resources:
+      - issuers
+      - certificates
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -17009,9 +17035,9 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: service-account-percona-xtradb-cluster-operator
 subjects:
-- kind: ServiceAccount
-  name: percona-xtradb-cluster-operator
-  namespace: "pxc-operator"
+  - kind: ServiceAccount
+    name: percona-xtradb-cluster-operator
+    namespace: "pxc-operator"
 roleRef:
   kind: ClusterRole
   name: percona-xtradb-cluster-operator
@@ -17043,38 +17069,40 @@ spec:
     spec:
       terminationGracePeriodSeconds: 600
       containers:
-      - command:
-        - percona-xtradb-cluster-operator
-        env:
-        - name: WATCH_NAMESPACE
-          value: ""
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: OPERATOR_NAME
-          value: percona-xtradb-cluster-operator
-        image: perconalab/percona-xtradb-cluster-operator:main
-        imagePullPolicy: Always
-        resources:
-          limits:
-            cpu: 200m
-            memory: 500Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
-        livenessProbe:
-          failureThreshold: 3
-          httpGet:
-            path: /metrics
-            port: metrics
-            scheme: HTTP
-        name: percona-xtradb-cluster-operator
-        ports:
-        - containerPort: 8080
-          name: metrics
-          protocol: TCP
+        - command:
+            - percona-xtradb-cluster-operator
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: percona-xtradb-cluster-operator
+            - name: DISABLE_TELEMETRY
+              value: "false"
+          image: perconalab/percona-xtradb-cluster-operator:main
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 200m
+              memory: 500Mi
+            requests:
+              cpu: 100m
+              memory: 20Mi
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /metrics
+              port: metrics
+              scheme: HTTP
+          name: percona-xtradb-cluster-operator
+          ports:
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
       serviceAccountName: percona-xtradb-cluster-operator
 ---
 apiVersion: v1

@@ -1,0 +1,24 @@
+name: Scan docker
+on: [pull_request]
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Build an image from Dockerfile
+        run: |
+          export IMAGE=perconalab/percona-xtradb-cluster-operator:${{ github.sha }}
+          export DOCKER_PUSH=0
+          export DOCKER_SQUASH=0
+          ./e2e-tests/build
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.7.1
+        with:
+          image-ref: 'docker.io/perconalab/percona-xtradb-cluster-operator:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'

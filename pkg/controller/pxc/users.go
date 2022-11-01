@@ -376,7 +376,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 		})
 	}
 
-	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
+	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSysSecretObj) {
 		name := "pmmserverkey"
 		if !cr.Spec.PMM.UseAPI(sysUsersSecretObj) {
 			name = "pmmserver"
@@ -426,7 +426,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageSysUsers(cr *api.PerconaXtraDBClus
 	}
 
 	// clear 'isPMM flags if PMM isn't enabled
-	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
+	if cr.Spec.PMM == nil || !cr.Spec.PMM.IsEnabled(internalSysSecretObj) {
 		todo &^= rPXCifPMM | rProxyifPMM
 	}
 

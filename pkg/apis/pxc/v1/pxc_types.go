@@ -460,6 +460,22 @@ type PMMSpec struct {
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 }
 
+func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {
+	if !spec.Enabled || !spec.HasSecret(secret) {
+		return false
+	}
+	return true
+}
+
+func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
+	for _, key := range []string{"pmmserver", "pmmserverkey"} {
+		if _, ok := secret.Data[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 	if _, ok := secret.Data["pmmserverkey"]; !ok {
 		if _, ok := secret.Data["pmmserver"]; ok {

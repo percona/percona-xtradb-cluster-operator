@@ -53,12 +53,16 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secret, cr)
-		if err != nil {
-			return nil, fmt.Errorf("pmm container error: %v", err)
-		}
-		if pmmC != nil {
-			pod.Containers = append(pod.Containers, *pmmC)
+		if !cr.Spec.PMM.HasSecret(secret) {
+			log.Info(`pmm is disabled. "pmmserverkey" or "pmmserver" secret should be specified`)
+		} else {
+			pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secret, cr)
+			if err != nil {
+				return nil, errors.Wrap(err, "pmm container error")
+			}
+			if pmmC != nil {
+				pod.Containers = append(pod.Containers, *pmmC)
+			}
 		}
 	}
 

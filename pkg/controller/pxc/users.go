@@ -231,7 +231,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
-	actions.restartPXC = true
+	actions.restartProxy = true
 	return nil
 }
 

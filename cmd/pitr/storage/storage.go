@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/minio/minio-go/v7"
@@ -25,11 +27,16 @@ type S3 struct {
 }
 
 // NewS3 return new Manager, useSSL using ssl for connection with storage
-func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, useSSL bool) (*S3, error) {
+func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, useSSL, verifyTLS bool) (*S3, error) {
+	transport := http.DefaultTransport
+	transport.(*http.Transport).TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: !verifyTLS,
+	}
 	minioClient, err := minio.New(strings.TrimRight(endpoint, "/"), &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: useSSL,
-		Region: region,
+		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure:    useSSL,
+		Region:    region,
+		Transport: transport,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "new minio client")

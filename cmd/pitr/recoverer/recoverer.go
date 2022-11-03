@@ -33,6 +33,7 @@ type Recoverer struct {
 	recoverFlag    string
 	recoverEndTime time.Time
 	gtid           string
+	verifyTLS      bool
 }
 
 type Config struct {
@@ -43,6 +44,7 @@ type Config struct {
 	RecoverTime    string `env:"PITR_DATE"`
 	RecoverType    string `env:"PITR_RECOVERY_TYPE,required"`
 	GTID           string `env:"PITR_GTID"`
+	VerifyTLS      bool   `env:"VERIFY_TLS" envDefault:"true"`
 	BinlogStorage  BinlogS3
 }
 
@@ -80,12 +82,12 @@ func New(c Config) (*Recoverer, error) {
 		return nil, errors.Wrap(err, "get bucket and prefix")
 	}
 
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://"), c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucket, prefix, c.BinlogStorage.Region, strings.HasPrefix(c.BinlogStorage.Endpoint, "https"))
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.BinlogStorage.Endpoint, "https://"), "http://"), c.BinlogStorage.AccessKeyID, c.BinlogStorage.AccessKey, bucket, prefix, c.BinlogStorage.Region, strings.HasPrefix(c.BinlogStorage.Endpoint, "https"), c.VerifyTLS)
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
 
-	startGTID, err := getStartGTIDSet(c.BackupStorage)
+	startGTID, err := getStartGTIDSet(c.BackupStorage, c.VerifyTLS)
 	if err != nil {
 		return nil, errors.Wrap(err, "get start GTID")
 	}
@@ -123,6 +125,7 @@ func New(c Config) (*Recoverer, error) {
 		recoverType:    RecoverType(c.RecoverType),
 		startGTID:      startGTID,
 		gtid:           c.GTID,
+		verifyTLS:      c.VerifyTLS,
 	}, nil
 }
 
@@ -152,7 +155,7 @@ func getBucketAndPrefix(bucketURL string) (bucket string, prefix string, err err
 	return bucket, prefix, err
 }
 
-func getStartGTIDSet(c BackupS3) (string, error) {
+func getStartGTIDSet(c BackupS3, verifyTLS bool) (string, error) {
 	bucketArr := strings.Split(c.BackupDest, "/")
 	if len(bucketArr) < 2 {
 		return "", errors.New("parsing bucket")
@@ -162,7 +165,7 @@ func getStartGTIDSet(c BackupS3) (string, error) {
 	backupPrefix := prefix + "/"
 	sstPrefix := prefix + ".sst_info/"
 
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.Endpoint, "https://"), "http://"), c.AccessKeyID, c.AccessKey, bucketArr[0], sstPrefix, c.Region, strings.HasPrefix(c.Endpoint, "https"))
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.Endpoint, "https://"), "http://"), c.AccessKeyID, c.AccessKey, bucketArr[0], sstPrefix, c.Region, strings.HasPrefix(c.Endpoint, "https"), verifyTLS)
 	if err != nil {
 		return "", errors.Wrap(err, "new storage manager")
 	}

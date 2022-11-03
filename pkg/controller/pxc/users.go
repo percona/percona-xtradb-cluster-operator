@@ -719,7 +719,7 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBClust
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
-		return errors.New("PMM not enabled")
+		return nil
 	}
 
 	name := users.PMMServerKey

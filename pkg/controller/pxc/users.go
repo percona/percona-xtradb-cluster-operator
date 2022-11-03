@@ -718,7 +718,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
+	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
 		return errors.New("PMM not enabled")
 	}
 

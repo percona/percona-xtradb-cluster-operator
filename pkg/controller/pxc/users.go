@@ -722,6 +722,20 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBClust
 		return nil
 	}
 
+	if key, ok := secrets.Data[users.PMMServerKey]; ok {
+		if _, ok := internalSecrets.Data[users.PMMServerKey]; !ok {
+			internalSecrets.Data[users.PMMServerKey] = key
+
+			err := r.client.Update(context.TODO(), internalSecrets)
+			if err != nil {
+				return errors.Wrap(err, "update internal users secrets pmm user password")
+			}
+			logger.Info(fmt.Sprintf("AAAAA User %s: internal secrets updated", users.PMMServerKey))
+
+			return nil
+		}
+	}
+
 	name := users.PMMServerKey
 	if !cr.Spec.PMM.UseAPI(secrets) {
 		name = users.PMMServer

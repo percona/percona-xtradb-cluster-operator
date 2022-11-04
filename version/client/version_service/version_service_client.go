@@ -23,29 +23,31 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	VersionServiceApply(params *VersionServiceApplyParams) (*VersionServiceApplyOK, error)
+	VersionServiceApply(params *VersionServiceApplyParams, opts ...ClientOption) (*VersionServiceApplyOK, error)
 
-	VersionServiceOperator(params *VersionServiceOperatorParams) (*VersionServiceOperatorOK, error)
+	VersionServiceOperator(params *VersionServiceOperatorParams, opts ...ClientOption) (*VersionServiceOperatorOK, error)
 
-	VersionServiceProduct(params *VersionServiceProductParams) (*VersionServiceProductOK, error)
+	VersionServiceProduct(params *VersionServiceProductParams, opts ...ClientOption) (*VersionServiceProductOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-  VersionServiceApply specifics version
+VersionServiceApply specifics version
 
-  Return specific product version
+Return specific product version
 */
-func (a *Client) VersionServiceApply(params *VersionServiceApplyParams) (*VersionServiceApplyOK, error) {
+func (a *Client) VersionServiceApply(params *VersionServiceApplyParams, opts ...ClientOption) (*VersionServiceApplyOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewVersionServiceApplyParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "VersionService_Apply",
 		Method:             "GET",
 		PathPattern:        "/versions/v1/{product}/{operatorVersion}/{apply}",
@@ -56,7 +58,12 @@ func (a *Client) VersionServiceApply(params *VersionServiceApplyParams) (*Versio
 		Reader:             &VersionServiceApplyReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -70,17 +77,16 @@ func (a *Client) VersionServiceApply(params *VersionServiceApplyParams) (*Versio
 }
 
 /*
-  VersionServiceOperator products versions for specific operator version
+VersionServiceOperator products versions for specific operator version
 
-  Return product versions for specific operator
+Return product versions for specific operator
 */
-func (a *Client) VersionServiceOperator(params *VersionServiceOperatorParams) (*VersionServiceOperatorOK, error) {
+func (a *Client) VersionServiceOperator(params *VersionServiceOperatorParams, opts ...ClientOption) (*VersionServiceOperatorOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewVersionServiceOperatorParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "VersionService_Operator",
 		Method:             "GET",
 		PathPattern:        "/versions/v1/{product}/{operatorVersion}",
@@ -91,7 +97,12 @@ func (a *Client) VersionServiceOperator(params *VersionServiceOperatorParams) (*
 		Reader:             &VersionServiceOperatorReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -105,17 +116,16 @@ func (a *Client) VersionServiceOperator(params *VersionServiceOperatorParams) (*
 }
 
 /*
-  VersionServiceProduct products versions for all operator version
+VersionServiceProduct products versions for all operator version
 
-  Return product versions for all operator
+Return product versions for all operator
 */
-func (a *Client) VersionServiceProduct(params *VersionServiceProductParams) (*VersionServiceProductOK, error) {
+func (a *Client) VersionServiceProduct(params *VersionServiceProductParams, opts ...ClientOption) (*VersionServiceProductOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewVersionServiceProductParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "VersionService_Product",
 		Method:             "GET",
 		PathPattern:        "/versions/v1/{product}",
@@ -126,7 +136,12 @@ func (a *Client) VersionServiceProduct(params *VersionServiceProductParams) (*Ve
 		Reader:             &VersionServiceProductReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}

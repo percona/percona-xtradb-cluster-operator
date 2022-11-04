@@ -14,82 +14,126 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/swag"
 )
 
-// NewVersionServiceApplyParams creates a new VersionServiceApplyParams object
-// with the default values initialized.
+// NewVersionServiceApplyParams creates a new VersionServiceApplyParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewVersionServiceApplyParams() *VersionServiceApplyParams {
-	var ()
 	return &VersionServiceApplyParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewVersionServiceApplyParamsWithTimeout creates a new VersionServiceApplyParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewVersionServiceApplyParamsWithTimeout(timeout time.Duration) *VersionServiceApplyParams {
-	var ()
 	return &VersionServiceApplyParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewVersionServiceApplyParamsWithContext creates a new VersionServiceApplyParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewVersionServiceApplyParamsWithContext(ctx context.Context) *VersionServiceApplyParams {
-	var ()
 	return &VersionServiceApplyParams{
-
 		Context: ctx,
 	}
 }
 
 // NewVersionServiceApplyParamsWithHTTPClient creates a new VersionServiceApplyParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewVersionServiceApplyParamsWithHTTPClient(client *http.Client) *VersionServiceApplyParams {
-	var ()
 	return &VersionServiceApplyParams{
 		HTTPClient: client,
 	}
 }
 
-/*VersionServiceApplyParams contains all the parameters to send to the API endpoint
-for the version service apply operation typically these are written to a http.Request
+/*
+VersionServiceApplyParams contains all the parameters to send to the API endpoint
+
+	for the version service apply operation.
+
+	Typically these are written to a http.Request.
 */
 type VersionServiceApplyParams struct {
 
-	/*Apply*/
+	// Apply.
 	Apply string
-	/*BackupVersion*/
+
+	// BackupVersion.
 	BackupVersion *string
-	/*CustomResourceUID*/
+
+	// ClusterWideEnabled.
+	//
+	// Format: boolean
+	ClusterWideEnabled *bool
+
+	// CustomResourceUID.
 	CustomResourceUID *string
-	/*DatabaseVersion*/
+
+	// DatabaseVersion.
 	DatabaseVersion *string
-	/*HaproxyVersion*/
+
+	// HaproxyVersion.
 	HaproxyVersion *string
-	/*KubeVersion*/
+
+	// HashicorpVaultEnabled.
+	//
+	// Format: boolean
+	HashicorpVaultEnabled *bool
+
+	// KubeVersion.
 	KubeVersion *string
-	/*LogCollectorVersion*/
+
+	// LogCollectorVersion.
 	LogCollectorVersion *string
-	/*NamespaceUID*/
+
+	// NamespaceUID.
 	NamespaceUID *string
-	/*OperatorVersion*/
+
+	// OperatorVersion.
 	OperatorVersion string
-	/*Platform*/
+
+	// Platform.
 	Platform *string
-	/*PmmVersion*/
+
+	// PmmVersion.
 	PmmVersion *string
-	/*Product*/
+
+	// Product.
 	Product string
-	/*ProxysqlVersion*/
+
+	// ProxysqlVersion.
 	ProxysqlVersion *string
+
+	// ShardingEnabled.
+	//
+	// Format: boolean
+	ShardingEnabled *bool
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the version service apply params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *VersionServiceApplyParams) WithDefaults() *VersionServiceApplyParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the version service apply params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *VersionServiceApplyParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the version service apply params
@@ -147,6 +191,17 @@ func (o *VersionServiceApplyParams) SetBackupVersion(backupVersion *string) {
 	o.BackupVersion = backupVersion
 }
 
+// WithClusterWideEnabled adds the clusterWideEnabled to the version service apply params
+func (o *VersionServiceApplyParams) WithClusterWideEnabled(clusterWideEnabled *bool) *VersionServiceApplyParams {
+	o.SetClusterWideEnabled(clusterWideEnabled)
+	return o
+}
+
+// SetClusterWideEnabled adds the clusterWideEnabled to the version service apply params
+func (o *VersionServiceApplyParams) SetClusterWideEnabled(clusterWideEnabled *bool) {
+	o.ClusterWideEnabled = clusterWideEnabled
+}
+
 // WithCustomResourceUID adds the customResourceUID to the version service apply params
 func (o *VersionServiceApplyParams) WithCustomResourceUID(customResourceUID *string) *VersionServiceApplyParams {
 	o.SetCustomResourceUID(customResourceUID)
@@ -178,6 +233,17 @@ func (o *VersionServiceApplyParams) WithHaproxyVersion(haproxyVersion *string) *
 // SetHaproxyVersion adds the haproxyVersion to the version service apply params
 func (o *VersionServiceApplyParams) SetHaproxyVersion(haproxyVersion *string) {
 	o.HaproxyVersion = haproxyVersion
+}
+
+// WithHashicorpVaultEnabled adds the hashicorpVaultEnabled to the version service apply params
+func (o *VersionServiceApplyParams) WithHashicorpVaultEnabled(hashicorpVaultEnabled *bool) *VersionServiceApplyParams {
+	o.SetHashicorpVaultEnabled(hashicorpVaultEnabled)
+	return o
+}
+
+// SetHashicorpVaultEnabled adds the hashicorpVaultEnabled to the version service apply params
+func (o *VersionServiceApplyParams) SetHashicorpVaultEnabled(hashicorpVaultEnabled *bool) {
+	o.HashicorpVaultEnabled = hashicorpVaultEnabled
 }
 
 // WithKubeVersion adds the kubeVersion to the version service apply params
@@ -268,6 +334,17 @@ func (o *VersionServiceApplyParams) SetProxysqlVersion(proxysqlVersion *string) 
 	o.ProxysqlVersion = proxysqlVersion
 }
 
+// WithShardingEnabled adds the shardingEnabled to the version service apply params
+func (o *VersionServiceApplyParams) WithShardingEnabled(shardingEnabled *bool) *VersionServiceApplyParams {
+	o.SetShardingEnabled(shardingEnabled)
+	return o
+}
+
+// SetShardingEnabled adds the shardingEnabled to the version service apply params
+func (o *VersionServiceApplyParams) SetShardingEnabled(shardingEnabled *bool) {
+	o.ShardingEnabled = shardingEnabled
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *VersionServiceApplyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -285,112 +362,153 @@ func (o *VersionServiceApplyParams) WriteToRequest(r runtime.ClientRequest, reg 
 
 		// query param backupVersion
 		var qrBackupVersion string
+
 		if o.BackupVersion != nil {
 			qrBackupVersion = *o.BackupVersion
 		}
 		qBackupVersion := qrBackupVersion
 		if qBackupVersion != "" {
+
 			if err := r.SetQueryParam("backupVersion", qBackupVersion); err != nil {
 				return err
 			}
 		}
+	}
 
+	if o.ClusterWideEnabled != nil {
+
+		// query param clusterWideEnabled
+		var qrClusterWideEnabled bool
+
+		if o.ClusterWideEnabled != nil {
+			qrClusterWideEnabled = *o.ClusterWideEnabled
+		}
+		qClusterWideEnabled := swag.FormatBool(qrClusterWideEnabled)
+		if qClusterWideEnabled != "" {
+
+			if err := r.SetQueryParam("clusterWideEnabled", qClusterWideEnabled); err != nil {
+				return err
+			}
+		}
 	}
 
 	if o.CustomResourceUID != nil {
 
 		// query param customResourceUid
 		var qrCustomResourceUID string
+
 		if o.CustomResourceUID != nil {
 			qrCustomResourceUID = *o.CustomResourceUID
 		}
 		qCustomResourceUID := qrCustomResourceUID
 		if qCustomResourceUID != "" {
+
 			if err := r.SetQueryParam("customResourceUid", qCustomResourceUID); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if o.DatabaseVersion != nil {
 
 		// query param databaseVersion
 		var qrDatabaseVersion string
+
 		if o.DatabaseVersion != nil {
 			qrDatabaseVersion = *o.DatabaseVersion
 		}
 		qDatabaseVersion := qrDatabaseVersion
 		if qDatabaseVersion != "" {
+
 			if err := r.SetQueryParam("databaseVersion", qDatabaseVersion); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if o.HaproxyVersion != nil {
 
 		// query param haproxyVersion
 		var qrHaproxyVersion string
+
 		if o.HaproxyVersion != nil {
 			qrHaproxyVersion = *o.HaproxyVersion
 		}
 		qHaproxyVersion := qrHaproxyVersion
 		if qHaproxyVersion != "" {
+
 			if err := r.SetQueryParam("haproxyVersion", qHaproxyVersion); err != nil {
 				return err
 			}
 		}
+	}
 
+	if o.HashicorpVaultEnabled != nil {
+
+		// query param hashicorpVaultEnabled
+		var qrHashicorpVaultEnabled bool
+
+		if o.HashicorpVaultEnabled != nil {
+			qrHashicorpVaultEnabled = *o.HashicorpVaultEnabled
+		}
+		qHashicorpVaultEnabled := swag.FormatBool(qrHashicorpVaultEnabled)
+		if qHashicorpVaultEnabled != "" {
+
+			if err := r.SetQueryParam("hashicorpVaultEnabled", qHashicorpVaultEnabled); err != nil {
+				return err
+			}
+		}
 	}
 
 	if o.KubeVersion != nil {
 
 		// query param kubeVersion
 		var qrKubeVersion string
+
 		if o.KubeVersion != nil {
 			qrKubeVersion = *o.KubeVersion
 		}
 		qKubeVersion := qrKubeVersion
 		if qKubeVersion != "" {
+
 			if err := r.SetQueryParam("kubeVersion", qKubeVersion); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if o.LogCollectorVersion != nil {
 
 		// query param logCollectorVersion
 		var qrLogCollectorVersion string
+
 		if o.LogCollectorVersion != nil {
 			qrLogCollectorVersion = *o.LogCollectorVersion
 		}
 		qLogCollectorVersion := qrLogCollectorVersion
 		if qLogCollectorVersion != "" {
+
 			if err := r.SetQueryParam("logCollectorVersion", qLogCollectorVersion); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if o.NamespaceUID != nil {
 
 		// query param namespaceUid
 		var qrNamespaceUID string
+
 		if o.NamespaceUID != nil {
 			qrNamespaceUID = *o.NamespaceUID
 		}
 		qNamespaceUID := qrNamespaceUID
 		if qNamespaceUID != "" {
+
 			if err := r.SetQueryParam("namespaceUid", qNamespaceUID); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	// path param operatorVersion
@@ -402,32 +520,34 @@ func (o *VersionServiceApplyParams) WriteToRequest(r runtime.ClientRequest, reg 
 
 		// query param platform
 		var qrPlatform string
+
 		if o.Platform != nil {
 			qrPlatform = *o.Platform
 		}
 		qPlatform := qrPlatform
 		if qPlatform != "" {
+
 			if err := r.SetQueryParam("platform", qPlatform); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if o.PmmVersion != nil {
 
 		// query param pmmVersion
 		var qrPmmVersion string
+
 		if o.PmmVersion != nil {
 			qrPmmVersion = *o.PmmVersion
 		}
 		qPmmVersion := qrPmmVersion
 		if qPmmVersion != "" {
+
 			if err := r.SetQueryParam("pmmVersion", qPmmVersion); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	// path param product
@@ -439,16 +559,34 @@ func (o *VersionServiceApplyParams) WriteToRequest(r runtime.ClientRequest, reg 
 
 		// query param proxysqlVersion
 		var qrProxysqlVersion string
+
 		if o.ProxysqlVersion != nil {
 			qrProxysqlVersion = *o.ProxysqlVersion
 		}
 		qProxysqlVersion := qrProxysqlVersion
 		if qProxysqlVersion != "" {
+
 			if err := r.SetQueryParam("proxysqlVersion", qProxysqlVersion); err != nil {
 				return err
 			}
 		}
+	}
 
+	if o.ShardingEnabled != nil {
+
+		// query param shardingEnabled
+		var qrShardingEnabled bool
+
+		if o.ShardingEnabled != nil {
+			qrShardingEnabled = *o.ShardingEnabled
+		}
+		qShardingEnabled := swag.FormatBool(qrShardingEnabled)
+		if qShardingEnabled != "" {
+
+			if err := r.SetQueryParam("shardingEnabled", qShardingEnabled); err != nil {
+				return err
+			}
+		}
 	}
 
 	if len(res) > 0 {

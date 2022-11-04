@@ -6,6 +6,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -41,7 +43,6 @@ func (m *VersionOperatorVersion) Validate(formats strfmt.Registry) error {
 }
 
 func (m *VersionOperatorVersion) validateMatrix(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Matrix) { // not required
 		return nil
 	}
@@ -50,6 +51,38 @@ func (m *VersionOperatorVersion) validateMatrix(formats strfmt.Registry) error {
 		if err := m.Matrix.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("matrix")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("matrix")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this version operator version based on the context it is used
+func (m *VersionOperatorVersion) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateMatrix(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *VersionOperatorVersion) contextValidateMatrix(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Matrix != nil {
+		if err := m.Matrix.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("matrix")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("matrix")
 			}
 			return err
 		}

@@ -27,6 +27,7 @@ type Collector struct {
 	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
 	pxcUser        string // user for connection to PXC
 	pxcPass        string // password for connection to PXC
+	verifyTLS      bool
 }
 
 type Config struct {
@@ -40,6 +41,7 @@ type Config struct {
 	S3Region       string  `env:"DEFAULT_REGION,required"`
 	BufferSize     int64   `env:"BUFFER_SIZE"`
 	CollectSpanSec float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
+	VerifyTLS      bool    `env:"VERIFY_TLS" envDefault:"true"`
 }
 
 const (
@@ -54,7 +56,7 @@ func New(c Config) (*Collector, error) {
 	if len(bucketArr) > 1 {
 		prefix = strings.TrimPrefix(c.S3BucketURL, bucketArr[0]+"/") + "/"
 	}
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.S3Endpoint, "https://"), "http://"), c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], prefix, c.S3Region, strings.HasPrefix(c.S3Endpoint, "https"))
+	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.S3Endpoint, "https://"), "http://"), c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], prefix, c.S3Region, strings.HasPrefix(c.S3Endpoint, "https"), c.VerifyTLS)
 	if err != nil {
 		return nil, errors.Wrap(err, "new storage manager")
 	}
@@ -63,6 +65,7 @@ func New(c Config) (*Collector, error) {
 		storage:        s3,
 		pxcUser:        c.PXCUser,
 		pxcServiceName: c.PXCServiceName,
+		verifyTLS:      c.VerifyTLS,
 	}, nil
 }
 

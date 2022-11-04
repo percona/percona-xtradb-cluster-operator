@@ -300,9 +300,31 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		Hosts: []string{"%"},
 	}
 
+	pxcUser := users.Root
+	pxcPass := string(internalSecrets.Data[users.Root])
+	if _, ok := internalSecrets.Data[users.Operator]; ok {
+		pxcUser = users.Operator
+		pxcPass = string(internalSecrets.Data[users.Operator])
+	}
+
+	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
+	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	if err != nil {
+		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	}
+	if hasKey {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+
+	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	if err != nil {
+		return errors.Wrap(err, "new users manager for grant")
+	}
+	defer um.Close()
+
 	// Regardless of password change, always ensure monitor user has the right privileges
 	if cr.CompareVersionWith("1.6.0") >= 0 {
-		err := r.updateMonitorUserGrant(cr, internalSecrets)
+		err := r.updateMonitorUserGrant(cr, internalSecrets, &um)
 		if err != nil {
 			return errors.Wrap(err, "update monitor user grant")
 		}
@@ -325,7 +347,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 			}
 
 			if !ver.LessThan(privSystemUserAddedIn) {
-				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user); err != nil {
+				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, &um); err != nil {
 					return errors.Wrap(err, "monitor user grant system privilege")
 				}
 			}
@@ -338,7 +360,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPass(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
@@ -366,7 +388,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, um *users.Manager) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	annotationName := "grant-for-1.6.0-monitor-user"
@@ -374,29 +396,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(cr *api.PerconaXt
 		return nil
 	}
 
-	pxcUser := users.Root
-	pxcPass := string(internalSysSecretObj.Data[users.Root])
-	if _, ok := internalSysSecretObj.Data[users.Operator]; ok {
-		pxcUser = users.Operator
-		pxcPass = string(internalSysSecretObj.Data[users.Operator])
-	}
-
-	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
-	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
-	if err != nil {
-		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
-	}
-	if hasKey {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
-
-	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	if err != nil {
-		return errors.Wrap(err, "new users manager for grant")
-	}
-	defer um.Close()
-
-	err = um.Update160MonitorUserGrant(string(internalSysSecretObj.Data["monitor"]))
+	err := um.Update160MonitorUserGrant(string(internalSysSecretObj.Data["monitor"]))
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
 	}
@@ -446,7 +446,30 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 			}
 
 			if !ver.LessThan(privSystemUserAddedIn) {
-				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user); err != nil {
+
+				pxcUser := users.Root
+				pxcPass := string(internalSecrets.Data[users.Root])
+				if _, ok := internalSecrets.Data[users.Operator]; ok {
+					pxcUser = users.Operator
+					pxcPass = string(internalSecrets.Data[users.Operator])
+				}
+			
+				addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
+				hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+				if err != nil {
+					return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+				}
+				if hasKey {
+					addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+				}
+			
+				um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+				if err != nil {
+					return errors.Wrap(err, "new users manager for grant")
+				}
+				defer um.Close()
+
+				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, &um); err != nil {
 					return errors.Wrap(err, "clustercheck user grant system privilege")
 				}
 			}
@@ -843,7 +866,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(cr *api.PerconaXtraDBClu
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, user *users.SysUser) error {
+func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, user *users.SysUser, um *users.Manager) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	annotationName := "grant-for-1.10.0-system-privilege"
@@ -851,29 +874,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.Percona
 		return nil
 	}
 
-	pxcUser := users.Root
-	pxcPass := string(internalSysSecretObj.Data[users.Root])
-	if _, ok := internalSysSecretObj.Data[users.Operator]; ok {
-		pxcUser = users.Operator
-		pxcPass = string(internalSysSecretObj.Data[users.Operator])
-	}
-
-	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
-	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
-	if err != nil {
-		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
-	}
-	if hasKey {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
-
-	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	if err != nil {
-		return errors.Wrap(err, "new users manager for grant")
-	}
-	defer um.Close()
-
-	if err = um.Update1100SystemUserPrivilege(user); err != nil {
+	if err := um.Update1100SystemUserPrivilege(user); err != nil {
 		return errors.Wrap(err, "grant system user privilege")
 	}
 
@@ -882,7 +883,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.Percona
 	}
 
 	internalSysSecretObj.Annotations[annotationName] = "done"
-	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	err := r.client.Update(context.TODO(), internalSysSecretObj)
 	if err != nil {
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}

@@ -55,7 +55,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtra
 			return errors.Wrap(err, "failed to set owner to external service")
 		}
 
-		err = r.createOrUpdate(svc)
+		err = r.createOrUpdate(cr, svc)
 		if err != nil {
 			return errors.Wrap(err, "failed to ensure pxc service")
 		}

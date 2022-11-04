@@ -317,7 +317,6 @@ func (p *Database) PresentInHostgroups(host string) (bool, error) {
 
 func (p *Database) PrimaryHost() (string, error) {
 	var host string
-
 	err := p.db.QueryRow("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = ?", writerID).Scan(&host)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

@@ -90,7 +90,8 @@ const (
 	passwordMinLen = 16
 	passSymbols    = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
 		"abcdefghijklmnopqrstuvwxyz" +
-		"0123456789"
+		"0123456789" +
+		"!#$%&()*+,-.:;<=>?@[]^_{}~"
 )
 
 // generatePass generate random password

@@ -770,7 +770,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		if cr.CompareVersionWith("1.12.0") >= 0 && len(c.ProxySQL.Scheduler) == 0 {
-			c.ProxySQL.Scheduler = "percona"
+			c.ProxySQL.Scheduler = "proxysql-admin"
 		}
 
 		c.ProxySQL.VolumeSpec.reconcileOpts()

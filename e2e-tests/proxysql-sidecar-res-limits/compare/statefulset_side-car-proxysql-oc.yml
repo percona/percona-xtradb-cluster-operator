@@ -52,7 +52,7 @@ spec:
                   key: monitor
                   name: internal-side-car
             - name: SCHEDULER
-              value: percona
+              value: proxysql-admin
           envFrom:
             - secretRef:
                 name: side-car-env-vars-proxysql
@@ -104,7 +104,7 @@ spec:
                   key: monitor
                   name: internal-side-car
             - name: SCHEDULER
-              value: percona
+              value: proxysql-admin
           envFrom:
             - secretRef:
                 name: side-car-env-vars-proxysql
@@ -120,11 +120,6 @@ spec:
               memory: 1G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /etc/proxysql/ssl
-              name: ssl
-            - mountPath: /etc/proxysql/ssl-internal
-              name: ssl-internal
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_proxysql_nodes.sh
@@ -150,7 +145,7 @@ spec:
                   key: monitor
                   name: internal-side-car
             - name: SCHEDULER
-              value: percona
+              value: proxysql-admin
           envFrom:
             - secretRef:
                 name: side-car-env-vars-proxysql

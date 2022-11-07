@@ -63,7 +63,7 @@ spec:
                   key: monitor
                   name: internal-upgrade-proxysql
             - name: SCHEDULER
-              value: percona
+              value: proxysql-admin
           envFrom:
             - secretRef:
                 name: upgrade-proxysql-env-vars-proxysql
@@ -115,7 +115,7 @@ spec:
                   key: monitor
                   name: internal-upgrade-proxysql
             - name: SCHEDULER
-              value: percona
+              value: proxysql-admin
           envFrom:
             - secretRef:
                 name: upgrade-proxysql-env-vars-proxysql
@@ -125,11 +125,6 @@ spec:
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: /etc/proxysql/ssl
-              name: ssl
-            - mountPath: /etc/proxysql/ssl-internal
-              name: ssl-internal
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_proxysql_nodes.sh
@@ -155,7 +150,7 @@ spec:
                   key: monitor
                   name: internal-upgrade-proxysql
             - name: SCHEDULER
-              value: percona
+              value: proxysql-admin
           envFrom:
             - secretRef:
                 name: upgrade-proxysql-env-vars-proxysql

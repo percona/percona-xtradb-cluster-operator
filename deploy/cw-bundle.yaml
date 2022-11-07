@@ -11627,6 +11627,14 @@ spec:
                           type: object
                       type: object
                   type: object
+                ignoreAnnotations:
+                  items:
+                    type: string
+                  type: array
+                ignoreLabels:
+                  items:
+                    type: string
+                  type: array
                 initImage:
                   type: string
                 logCollectorSecretName:

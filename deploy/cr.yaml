@@ -11,6 +11,10 @@ metadata:
 #    percona.com/issue-vault-token: "true"
 spec:
   crVersion: 1.12.0
+#  ignoreAnnotations:
+#    - iam.amazonaws.com/role
+#  ignoreLabels:
+#    - rack
 #  secretsName: cluster1-secrets
 #  vaultSecretName: keyring-secret-vault
 #  sslSecretName: cluster1-ssl

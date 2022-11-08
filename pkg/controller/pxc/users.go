@@ -453,7 +453,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 					pxcUser = users.Operator
 					pxcPass = string(internalSecrets.Data[users.Operator])
 				}
-			
+
 				addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
 				hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 				if err != nil {
@@ -462,7 +462,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 				if hasKey {
 					addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
 				}
-			
+
 				um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 				if err != nil {
 					return errors.Wrap(err, "new users manager for grant")
@@ -844,7 +844,68 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPass(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "update user pass")
 	}
 
+	passPropagated, err := r.isPassPropagated(cr, user)
+	if err != nil {
+		return errors.Wrap(err, "isPassPropagated")
+	}
+
+	if passPropagated {
+		err = um.DiscardOldPassword(user)
+		if err != nil {
+			return errors.Wrap(err, "update user pass")
+		}
+	}
+
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCluster, user *users.SysUser) (bool, error) {
+	components := map[string]int32{
+		"pxc": cr.Spec.PXC.Size,
+	}
+
+	if cr.ProxySQLEnabled() {
+		components["proxysql"] = cr.Spec.ProxySQL.Size
+	} else if cr.HAProxyEnabled() {
+
+		components["haproxy"] = cr.Spec.HAProxy.Size
+	}
+
+	// TODO: wrap checking in a retry block in a way that we retry only
+	// 		 the compoment where the pass is still not propagated.
+	// 	     E.g. if we checked PXC, the the retry logic has to check only haproxy.
+
+	for component, size := range components {
+		for i := 0; int32(i) < size; i++ {
+			pod := corev1.Pod{}
+			err := r.client.Get(context.TODO(),
+				types.NamespacedName{
+					Namespace: cr.Namespace,
+					Name:      fmt.Sprintf("%s-%s-%d", cr.Name, component, i),
+				},
+				&pod,
+			)
+			if err != nil && k8serrors.IsNotFound(err) {
+				return false, err
+			} else if err != nil {
+				return false, errors.Wrap(err, fmt.Sprintf("get %s pod", component))
+			}
+			var errb, outb bytes.Buffer
+			err = r.clientcmd.Exec(&pod, component, []string{"cat", fmt.Sprintf("/etc/mysql/mysql-users-secret/%s", user.Name)}, nil, &outb, &errb, false)
+			if err != nil {
+				return false, errors.Errorf("exec cat: %v / %s / %s", err, outb.String(), errb.String())
+			}
+			if len(errb.Bytes()) > 0 {
+				return false, errors.New("cat: " + errb.String())
+			}
+
+			if outb.String() != user.Pass {
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {

@@ -84,21 +84,78 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 	return nil
 }
 
-func (u *Manager) UpdateUserPass(user *SysUser) error {
-	if user == nil {
-		return nil
+// UpdateUserPass updates user passwords but retains the current password 
+// using Dual Password feature of MySQL 8.
+func (m *Manager) UpdateUserPass(user *SysUser) error {
+	tx, err := m.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
 	}
 
 	for _, host := range user.Hosts {
-		_, err := u.db.Exec("ALTER USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)
+		_, err = tx.Exec("ALTER USER ?@? IDENTIFIED BY ? RETAIN CURRENT PASSWORD", user.Name, host, user.Pass)
 		if err != nil {
-			return errors.Wrap(err, "update password")
+			err = errors.Wrap(err, "alter user")
+
+			if errT := tx.Rollback(); errT != nil {
+				return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
+			}
+
+			return err
 		}
 	}
 
-	_, err := u.db.Exec("FLUSH PRIVILEGES")
+	_, err = tx.Exec("FLUSH PRIVILEGES")
 	if err != nil {
-		return errors.Wrap(err, "flush privileges")
+		err = errors.Wrap(err, "flush privileges")
+
+		if errT := tx.Rollback(); errT != nil {
+			return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
+		}
+
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.Wrap(err, "commit transaction")
+	}
+
+	return nil
+}
+
+// DiscardOldPassword discards old passwords of given users
+func (m *Manager) DiscardOldPassword(user *SysUser) error {
+	tx, err := m.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	for _, host := range user.Hosts {
+		_, err = tx.Exec("ALTER USER ?@? DISCARD OLD PASSWORD", user.Name, host)
+		if err != nil {
+			err = errors.Wrap(err, "alter user")
+
+			if errT := tx.Rollback(); errT != nil {
+				return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
+			}
+
+			return err
+		}
+	}
+
+	_, err = tx.Exec("FLUSH PRIVILEGES")
+	if err != nil {
+		err = errors.Wrap(err, "flush privileges")
+
+		if errT := tx.Rollback(); errT != nil {
+			return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
+		}
+
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.Wrap(err, "commit transaction")
 	}
 
 	return nil

@@ -208,7 +208,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 	currentSet.Spec.Template.Spec.Volumes = api.AddSidecarVolumes(r.logger(cr.Name, cr.Namespace), currentSet.Spec.Template.Spec.Volumes, podSpec.SidecarVolumes)
 	currentSet.Spec.Template.Spec.Tolerations = podSpec.Tolerations
-	err = r.createOrUpdate(currentSet)
+	err = r.createOrUpdate(cr, currentSet)
 	if err != nil {
 		return errors.Wrap(err, "update error")
 	}

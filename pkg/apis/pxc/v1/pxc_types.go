@@ -47,6 +47,8 @@ type PerconaXtraDBClusterSpec struct {
 	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	InitImage                 string                               `json:"initImage,omitempty"`
 	EnableCRValidationWebhook *bool                                `json:"enableCRValidationWebhook,omitempty"`
+	IgnoreAnnotations         []string                             `json:"ignoreAnnotations,omitempty"`
+	IgnoreLabels              []string                             `json:"ignoreLabels,omitempty"`
 }
 
 type PXCSpec struct {

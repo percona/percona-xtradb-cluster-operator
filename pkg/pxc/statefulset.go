@@ -54,7 +54,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 
 	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
 		if !cr.Spec.PMM.HasSecret(secret) {
-			log.Info(fmt.Sprintf(`Can't enable PMM: "pmmserverkey" key should exist in the %s secret`, cr.Spec.SecretsName))
+			log.Info(fmt.Sprintf(`Can't enable PMM: either "pmmserverkey" key doesn't exist in the %s, or %s and %s secrets are out of sync`, cr.Spec.SecretsName, cr.Spec.SecretsName, "internal-"+cr.Name))
 		} else {
 			pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secret, cr)
 			if err != nil {

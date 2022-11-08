@@ -5,5 +5,5 @@ metadata:
   finalizers:
     - delete-azure-backup
 spec:
-  pxcCluster: demand-backup
+  pxcCluster: demand-backup-cloud
   storageName: azure-blob

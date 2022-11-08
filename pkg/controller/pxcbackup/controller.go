@@ -305,21 +305,26 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 		var err error
 		switch f {
 		case api.FinalizerDeleteS3Backup:
-			if cr.Status.Storage == nil || cr.Status.Destination == "" || !strings.HasPrefix(cr.Status.Destination, "s3://") {
-				continue
-			}
-			err = r.runS3BackupFinalizer(cr)
-		case api.FinalizerDeleteAzureBackup:
 			if cr.Status.Storage == nil || cr.Status.Destination == "" {
 				continue
 			}
-			err = r.runAzureBackupFinalizer(ctx, cr)
+			switch cr.Status.Storage.Type {
+			case api.BackupStorageS3:
+				if !strings.HasPrefix(cr.Status.Destination, "s3://") {
+					continue
+				}
+				err = r.runS3BackupFinalizer(cr)
+			case api.BackupStorageAzure:
+				err = r.runAzureBackupFinalizer(ctx, cr)
+			default:
+				continue
+			}
 		default:
 			finalizers = append(finalizers, f)
 		}
 		if err != nil {
 			logger.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
-		} else if f == api.FinalizerDeleteS3Backup || f == api.FinalizerDeleteAzureBackup {
+		} else if f == api.FinalizerDeleteS3Backup {
 			logger.Info("backup was removed", "name", cr.Name)
 		}
 	}

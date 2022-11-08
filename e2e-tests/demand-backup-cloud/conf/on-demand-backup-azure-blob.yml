@@ -3,7 +3,7 @@ kind: PerconaXtraDBClusterBackup
 metadata:
   name: on-demand-backup-azure-blob
   finalizers:
-    - delete-azure-backup
+    - delete-s3-backup
 spec:
   pxcCluster: demand-backup-cloud
   storageName: azure-blob

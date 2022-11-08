@@ -187,8 +187,6 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(cr *api.PerconaXtraDBClu
 	switch storageType {
 	case api.BackupStorageS3:
 		fins = append(fins, api.FinalizerDeleteS3Backup)
-	case api.BackupStorageAzure:
-		fins = append(fins, api.FinalizerDeleteAzureBackup)
 	}
 
 	return func() {

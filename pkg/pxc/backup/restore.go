@@ -252,7 +252,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
 	}
 	pxcUser := "xtrabackup"
-	command := []string{"recovery-azure.sh"}
+	command := []string{"recovery-cloud.sh"}
 
 	verifyTLS := true
 	if cluster.Backup != nil && len(cluster.Backup.Storages) > 0 {
@@ -404,7 +404,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
 	}
 	pxcUser := "xtrabackup"
-	command := []string{"recovery-s3.sh"}
+	command := []string{"recovery-cloud.sh"}
 
 	verifyTLS := true
 	if cluster.Backup != nil && len(cluster.Backup.Storages) > 0 {

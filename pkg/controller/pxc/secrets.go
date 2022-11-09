@@ -16,7 +16,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const internalSecretsPrefix = "internal-"
+
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtraDBCluster) error {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	secretObj := new(corev1.Secret)
 	err := r.client.Get(context.TODO(),
 		types.NamespacedName{
@@ -31,7 +35,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 			return errors.Wrap(err, "set user secret defaults")
 		}
 		if isChanged {
-			return r.client.Update(context.TODO(), secretObj)
+			err := r.client.Update(context.TODO(), secretObj)
+			if err == nil {
+				logger.Info(fmt.Sprintf("User secrets updated: %s", cr.Spec.SecretsName))
+			}
+			return err
 		}
 		return nil
 	} else if !k8serror.IsNotFound(err) {
@@ -54,6 +62,8 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 	if err != nil {
 		return fmt.Errorf("create Users secret: %v", err)
 	}
+
+	logger.Info(fmt.Sprintf("Created user secrets: %s", cr.Spec.SecretsName))
 	return nil
 }
 
@@ -83,7 +93,7 @@ const (
 		"0123456789"
 )
 
-//generatePass generate random password
+// generatePass generate random password
 func generatePass() ([]byte, error) {
 	mrand.Seed(time.Now().UnixNano())
 	ln := mrand.Intn(passwordMaxLen-passwordMinLen) + passwordMinLen

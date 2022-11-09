@@ -46,7 +46,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			}
 
 			currentCollector := appsv1.Deployment{}
-			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollector.Name, Namespace: cr.Namespace}, &currentCollector)
+			err = r.client.Get(context.TODO(), types.NamespacedName{Name: binlogCollector.Name, Namespace: binlogCollector.Namespace}, &currentCollector)
 			if err != nil && k8serrors.IsNotFound(err) {
 				if err := r.client.Create(context.TODO(), &binlogCollector); err != nil && !k8serrors.IsAlreadyExists(err) {
 					return errors.Wrapf(err, "create binlog collector deployment for cluster '%s'", cr.Name)
@@ -363,6 +363,10 @@ func (r *ReconcilePerconaXtraDBCluster) checkPITRErrors(ctx context.Context, cr 
 	)
 	if err != nil {
 		return errors.Wrap(err, "get binlog collector pods")
+	}
+
+	if len(collectorPodList.Items) < 1 {
+		return nil
 	}
 
 	collectorPod := collectorPodList.Items[0]

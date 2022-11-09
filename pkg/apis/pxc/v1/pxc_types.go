@@ -473,8 +473,8 @@ func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 
 type BackupStorageSpec struct {
 	Type                     BackupStorageType           `json:"type"`
-	S3                       BackupStorageS3Spec         `json:"s3,omitempty"`
-	Azure                    BackupStorageAzureSpec      `json:"azure,omitempty"`
+	S3                       *BackupStorageS3Spec        `json:"s3,omitempty"`
+	Azure                    *BackupStorageAzureSpec     `json:"azure,omitempty"`
 	Volume                   *VolumeSpec                 `json:"volume,omitempty"`
 	NodeSelector             map[string]string           `json:"nodeSelector,omitempty"`
 	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`

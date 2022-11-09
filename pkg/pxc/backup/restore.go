@@ -262,6 +262,9 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		}
 	}
 	azure := bcp.Status.Storage.Azure
+	if azure == nil {
+		return nil, errors.New("azure storage is not specified")
+	}
 	envs := []corev1.EnvVar{
 		{
 			Name: "AZURE_STORAGE_ACCOUNT",
@@ -413,6 +416,9 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			verifyTLS = *storage.VerifyTLS
 		}
 	}
+	if bcp.Status.Storage.S3 == nil {
+		return nil, errors.New("s3 storage is not specified")
+	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "S3_BUCKET_URL",
@@ -483,7 +489,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		if cluster.Backup == nil && len(cluster.Backup.Storages) == 0 {
 			return nil, errors.New("no storage section")
 		}
-		storageS3 := api.BackupStorageS3Spec{}
+		storageS3 := new(api.BackupStorageS3Spec)
 
 		if len(cr.Spec.PITR.BackupSource.StorageName) > 0 {
 			storage, ok := cluster.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
@@ -492,7 +498,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 				bucket = storage.S3.Bucket
 			}
 		}
-		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.Storage != nil {
+		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.Storage != nil && cr.Spec.PITR.BackupSource.Storage.S3 != nil {
 			storageS3 = cr.Spec.PITR.BackupSource.Storage.S3
 			bucket = storageS3.Bucket
 		}

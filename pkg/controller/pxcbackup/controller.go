@@ -228,6 +228,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageS3:
+		if storage.S3 == nil {
+			return rr, errors.New("s3 storage is not specified")
+		}
 		cr.Status.Destination = storage.S3.Bucket + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
 		if !strings.HasPrefix(storage.S3.Bucket, "s3://") {
 			cr.Status.Destination = "s3://" + cr.Status.Destination
@@ -238,6 +241,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.Wrap(err, "set storage FS")
 		}
 	case api.BackupStorageAzure:
+		if storage.Azure == nil {
+			return rr, errors.New("azure storage is not specified")
+		}
 		cr.Status.Destination = storage.Azure.ContainerName + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
 		err := backup.SetStorageAzure(&job.Spec, cr)
 		if err != nil {
@@ -339,6 +345,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.PerconaXtraDBClusterBackup) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
+	if cr.Status.Storage.S3 == nil {
+		return errors.New("s3 storage is not specified")
+	}
+
 	s3cli, err := r.s3cli(cr)
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return errors.Wrapf(err, "failed to create s3 client for backup %s", cr.Name)
@@ -357,6 +367,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	if cr.Status.Storage.Azure == nil {
+		return errors.New("azure storage is not specified")
+	}
 	cli, err := r.azureClient(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "new azure client")

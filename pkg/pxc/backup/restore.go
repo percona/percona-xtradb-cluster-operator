@@ -269,13 +269,13 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		{
 			Name: "AZURE_STORAGE_ACCOUNT",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT"),
+				SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_NAME"),
 			},
 		},
 		{
 			Name: "AZURE_ACCESS_KEY",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_ACCESS_KEY"),
+				SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_KEY"),
 			},
 		},
 		{

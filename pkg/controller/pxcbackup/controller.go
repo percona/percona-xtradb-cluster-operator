@@ -502,8 +502,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) azureClient(ctx context.Context, c
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get secret")
 	}
-	accountName := string(secret.Data["AZURE_STORAGE_ACCOUNT"])
-	accountKey := string(secret.Data["AZURE_ACCESS_KEY"])
+	accountName := string(secret.Data["AZURE_STORAGE_ACCOUNT_NAME"])
+	accountKey := string(secret.Data["AZURE_STORAGE_ACCOUNT_KEY"])
 
 	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {

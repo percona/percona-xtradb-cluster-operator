@@ -198,13 +198,13 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 	storageAccount := corev1.EnvVar{
 		Name: "AZURE_STORAGE_ACCOUNT",
 		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT"),
+			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_NAME"),
 		},
 	}
 	accessKey := corev1.EnvVar{
 		Name: "AZURE_ACCESS_KEY",
 		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_ACCESS_KEY"),
+			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_KEY"),
 		},
 	}
 	containerName := corev1.EnvVar{

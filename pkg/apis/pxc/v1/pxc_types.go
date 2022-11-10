@@ -463,10 +463,7 @@ type PMMSpec struct {
 }
 
 func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {
-	if !spec.Enabled || !spec.HasSecret(secret) {
-		return false
-	}
-	return true
+	return spec.Enabled && spec.HasSecret(secret)
 }
 
 func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {

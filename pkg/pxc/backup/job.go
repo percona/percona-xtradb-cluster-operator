@@ -191,10 +191,10 @@ func SetStoragePVC(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup, vol
 }
 
 func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
-	azure := new(api.BackupStorageAzureSpec)
-	if cr.Status.Storage != nil && cr.Status.Storage.Azure != nil {
-		azure = cr.Status.Storage.Azure
+	if cr.Status.Azure == nil {
+		return errors.New("azure storage is not specified in backup status")
 	}
+	azure := cr.Status.Azure
 	storageAccount := corev1.EnvVar{
 		Name: "AZURE_STORAGE_ACCOUNT",
 		ValueFrom: &corev1.EnvVarSource{
@@ -241,10 +241,10 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 }
 
 func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
-	s3 := new(api.BackupStorageS3Spec)
-	if cr.Status.Storage != nil && cr.Status.Storage.S3 != nil {
-		s3 = cr.Status.Storage.S3
+	if cr.Status.S3 == nil {
+		return errors.New("s3 storage is not specified in backup status")
 	}
+	s3 := cr.Status.S3
 	accessKey := corev1.EnvVar{
 		Name: "ACCESS_KEY_ID",
 		ValueFrom: &corev1.EnvVarSource{

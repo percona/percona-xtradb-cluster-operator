@@ -179,18 +179,19 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, errors.Wrap(err, "failed to run backup")
 	}
 
-	if cr.Status.Storage == nil {
-		bcpStorage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
-		if !ok {
-			return rr, errors.Errorf("bcpStorage %s doesn't exist", cr.Spec.StorageName)
-		}
-		cr.Status.Storage = bcpStorage
+	storage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
+	if !ok {
+		return rr, errors.Errorf("storage %s doesn't exist", cr.Spec.StorageName)
+	}
+	if cr.Status.S3 == nil || cr.Status.Azure == nil {
+		cr.Status.S3 = storage.S3
+		cr.Status.Azure = storage.Azure
+		cr.Status.StorageType = storage.Type
 		cr.Status.Image = cluster.Spec.Backup.Image
 		cr.Status.SSLSecretName = cluster.Spec.PXC.SSLSecretName
 		cr.Status.SSLInternalSecretName = cluster.Spec.PXC.SSLInternalSecretName
 		cr.Status.VaultSecretName = cluster.Spec.PXC.VaultSecretName
 	}
-	storage := cr.Status.Storage
 
 	bcp := backup.New(cluster)
 	job := bcp.Job(cr, cluster)
@@ -311,10 +312,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 		var err error
 		switch f {
 		case api.FinalizerDeleteS3Backup:
-			if cr.Status.Storage == nil || cr.Status.Destination == "" {
+			if (cr.Status.S3 == nil && cr.Status.Azure == nil) || cr.Status.Destination == "" {
 				continue
 			}
-			switch cr.Status.Storage.Type {
+			switch cr.Status.StorageType {
 			case api.BackupStorageS3:
 				if !strings.HasPrefix(cr.Status.Destination, "s3://") {
 					continue
@@ -345,7 +346,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.PerconaXtraDBClusterBackup) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Status.Storage.S3 == nil {
+	if cr.Status.S3 == nil {
 		return errors.New("s3 storage is not specified")
 	}
 
@@ -359,7 +360,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 
 	spl := strings.Split(cr.Status.Destination, "/")
 	backup := spl[len(spl)-1]
-	err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeS3Backup(cr.Status.Storage.S3.Bucket, backup, s3cli))
+	err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeS3Backup(cr.Status.S3.Bucket, backup, s3cli))
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
 	}
@@ -367,14 +368,14 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
-	if cr.Status.Storage.Azure == nil {
+	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified")
 	}
 	cli, err := r.azureClient(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "new azure client")
 	}
-	container := cr.Status.Storage.Azure.ContainerName
+	container := cr.Status.Azure.ContainerName
 	destination := strings.TrimPrefix(cr.Status.Destination, container+"/")
 
 	err = retry.OnError(retry.DefaultBackoff,
@@ -468,7 +469,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXt
 func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBClusterBackup) (*minio.Client, error) {
 	sec := corev1.Secret{}
 	err := r.client.Get(context.Background(),
-		types.NamespacedName{Name: cr.Status.Storage.S3.CredentialsSecret, Namespace: cr.Namespace}, &sec)
+		types.NamespacedName{Name: cr.Status.S3.CredentialsSecret, Namespace: cr.Namespace}, &sec)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get secret")
 	}
@@ -477,11 +478,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBCluster
 	secretAccessKey := string(sec.Data["AWS_SECRET_ACCESS_KEY"])
 
 	secure := true
-	if strings.HasPrefix(cr.Status.Storage.S3.EndpointURL, "http://") {
+	if strings.HasPrefix(cr.Status.S3.EndpointURL, "http://") {
 		secure = false
 	}
 
-	ep := cr.Status.Storage.S3.EndpointURL
+	ep := cr.Status.S3.EndpointURL
 	if len(ep) == 0 {
 		ep = "s3.amazonaws.com"
 	}
@@ -493,12 +494,12 @@ func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBCluster
 	return minio.New(ep, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: secure,
-		Region: cr.Status.Storage.S3.Region,
+		Region: cr.Status.S3.Region,
 	})
 }
 func (r *ReconcilePerconaXtraDBClusterBackup) azureClient(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) (*azblob.Client, error) {
 	secret := new(corev1.Secret)
-	err := r.client.Get(ctx, types.NamespacedName{Name: cr.Status.Storage.Azure.CredentialsSecret, Namespace: cr.Namespace}, secret)
+	err := r.client.Get(ctx, types.NamespacedName{Name: cr.Status.Azure.CredentialsSecret, Namespace: cr.Namespace}, secret)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get secret")
 	}
@@ -510,8 +511,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) azureClient(ctx context.Context, c
 		return nil, errors.Wrap(err, "new credentials")
 	}
 	endpoint := fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
-	if cr.Status.Storage.Azure.Endpoint != "" {
-		endpoint = cr.Status.Storage.Azure.Endpoint
+	if cr.Status.Azure.Endpoint != "" {
+		endpoint = cr.Status.Azure.Endpoint
 	}
 	cli, err := azblob.NewClientWithSharedKeyCredential(endpoint, credential, nil)
 	if err != nil {
@@ -556,7 +557,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 		State:                 api.BackupStarting,
 		Destination:           bcp.Status.Destination,
 		StorageName:           storageName,
-		Storage:               storage,
+		S3:                    storage.S3,
+		Azure:                 storage.Azure,
+		StorageType:           storage.Type,
 		Image:                 bcp.Status.Image,
 		SSLSecretName:         bcp.Status.SSLSecretName,
 		SSLInternalSecretName: bcp.Status.SSLInternalSecretName,

@@ -93,5 +93,5 @@ spec:
       azure-blob:
         type: azure
         azure:
-          credentialsSecret: azure-blob-secret
+          credentialsSecret: azure-secret
           container: operator-testing

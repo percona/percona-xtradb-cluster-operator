@@ -382,7 +382,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
 	actions.restartProxy = true
-	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
+	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 		actions.restartPXC = true
 	}
 	return nil
@@ -741,7 +741,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Spec.PMM == nil || !cr.Spec.PMM.Enabled {
+	if cr.Spec.PMM == nil || !cr.Spec.PMM.IsEnabled(secrets) {
 		return nil
 	}
 

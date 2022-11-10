@@ -130,15 +130,15 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		secretsName = "internal-" + cr.Name
 	}
 
+	secret := new(corev1.Secret)
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name: secretsName, Namespace: cr.Namespace,
+	}, secret)
+	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err, "get internal secret")
+	}
 	// pmm container
-	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		secret := new(corev1.Secret)
-		err := r.client.Get(context.TODO(), types.NamespacedName{
-			Name: secretsName, Namespace: cr.Namespace,
-		}, secret)
-		if client.IgnoreNotFound(err) != nil {
-			return errors.Wrap(err, "get internal secret")
-		}
+	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(secret) {
 		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secret, cr)
 		if err != nil {
 			return errors.Wrap(err, "pmm container error")

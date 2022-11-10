@@ -16,28 +16,28 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
-func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) error {
-	if cluster.Backup == nil {
+func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
+	if cluster.Spec.Backup == nil {
 		return errors.New("undefined backup section in a cluster spec")
 	}
-	storage, ok := cluster.Backup.Storages[bcp.Spec.StorageName]
+	storage, ok := cluster.Spec.Backup.Storages[bcp.Spec.StorageName]
 	if !ok {
 		return errors.Errorf("storage is not found %s", bcp.Status.Destination)
 	}
 	destination := bcp.Status.Destination
 	switch storage.Type {
 	case api.BackupStorageFilesystem:
-		return errors.Wrap(r.restorePVC(cr, bcp, strings.TrimPrefix(destination, "pvc/"), cluster), "pvc")
+		return errors.Wrap(r.restorePVC(cr, bcp, strings.TrimPrefix(destination, "pvc/"), cluster.Spec), "pvc")
 	case api.BackupStorageS3:
 		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(destination, "s3://"), cluster, false), "s3")
 	case api.BackupStorageAzure:
-		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster), "azure")
+		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster.Spec), "azure")
 	default:
 		return errors.Errorf("unknown backup storage type: %s", storage.Type)
 	}
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) pitr(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) pitr(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
 	return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:], cluster, true), "PITR restore")
 }
 
@@ -99,7 +99,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restoreAzure(cr *api.PerconaXtraD
 	return r.createJob(job)
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec, pitr bool) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster *api.PerconaXtraDBCluster, pitr bool) error {
 	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster, pitr)
 	if err != nil {
 		return err

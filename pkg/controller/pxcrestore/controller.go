@@ -163,8 +163,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		return rr, errors.Wrap(err, "get backup")
 	}
 
-	cluster := api.PerconaXtraDBCluster{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, &cluster)
+	cluster := new(api.PerconaXtraDBCluster)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, cluster)
 	if err != nil {
 		err = errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
 		return rr, err
@@ -194,7 +194,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		err = errors.Wrap(err, "set status")
 		return rr, err
 	}
-	err = r.restore(cr, bcp, cluster.Spec)
+	err = r.restore(cr, bcp, cluster)
 	if err != nil {
 		err = errors.Wrap(err, "run restore")
 		return rr, err
@@ -213,7 +213,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		cluster.Spec.PXC.Size = 1
 		cluster.Spec.AllowUnsafeConfig = true
 
-		if err := r.startCluster(&cluster); err != nil {
+		if err := r.startCluster(cluster); err != nil {
 			return rr, errors.Wrap(err, "restart cluster for pitr")
 		}
 
@@ -223,7 +223,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 			return rr, errors.Wrap(err, "set status")
 		}
 
-		err = r.pitr(cr, bcp, cluster.Spec)
+		err = r.pitr(cr, bcp, cluster)
 		if err != nil {
 			return rr, errors.Wrap(err, "run pitr")
 		}

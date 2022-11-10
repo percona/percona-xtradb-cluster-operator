@@ -388,7 +388,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 }
 
 // S3RestoreJob returns restore job object for s3
-func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster api.PerconaXtraDBClusterSpec, pitr bool) (*batchv1.Job, error) {
+func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster *api.PerconaXtraDBCluster, pitr bool) (*batchv1.Job, error) {
 	if bcp.Status.Storage == nil {
 		return nil, errors.New("nil s3 backup status storage")
 	}
@@ -404,14 +404,17 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 
 	jobPVCs := []corev1.Volume{
 		jobPVC,
-		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
+		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 	}
 	pxcUser := "xtrabackup"
 	command := []string{"recovery-cloud.sh"}
+	if cluster.CompareVersionWith("1.12.0") < 0 {
+		command = []string{"recovery-s3.sh"}
+	}
 
 	verifyTLS := true
-	if cluster.Backup != nil && len(cluster.Backup.Storages) > 0 {
-		storage, ok := cluster.Backup.Storages[bcp.Spec.StorageName]
+	if cluster.Spec.Backup != nil && len(cluster.Spec.Backup.Storages) > 0 {
+		storage, ok := cluster.Spec.Backup.Storages[bcp.Spec.StorageName]
 		if ok && storage.VerifyTLS != nil {
 			verifyTLS = *storage.VerifyTLS
 		}
@@ -465,7 +468,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		{
 			Name: "PXC_PASS",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, pxcUser),
+				SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, pxcUser),
 			},
 		},
 		{
@@ -486,13 +489,13 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 	}
 	if pitr {
 		bucket := ""
-		if cluster.Backup == nil && len(cluster.Backup.Storages) == 0 {
+		if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
 			return nil, errors.New("no storage section")
 		}
 		storageS3 := new(api.BackupStorageS3Spec)
 
 		if len(cr.Spec.PITR.BackupSource.StorageName) > 0 {
-			storage, ok := cluster.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
+			storage, ok := cluster.Spec.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
 			if ok {
 				storageS3 = storage.S3
 				bucket = storage.S3.Bucket
@@ -572,40 +575,40 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: cluster.PXC.Annotations,
-					Labels:      cluster.PXC.Labels,
+					Annotations: cluster.Spec.PXC.Annotations,
+					Labels:      cluster.Spec.PXC.Labels,
 				},
 				Spec: corev1.PodSpec{
-					ImagePullSecrets: cluster.Backup.ImagePullSecrets,
-					SecurityContext:  cluster.PXC.PodSecurityContext,
+					ImagePullSecrets: cluster.Spec.Backup.ImagePullSecrets,
+					SecurityContext:  cluster.Spec.PXC.PodSecurityContext,
 					Containers: []corev1.Container{
 						{
 							Name:            "xtrabackup",
-							Image:           cluster.Backup.Image,
-							ImagePullPolicy: cluster.Backup.ImagePullPolicy,
+							Image:           cluster.Spec.Backup.Image,
+							ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
 							Command:         command,
-							SecurityContext: cluster.PXC.ContainerSecurityContext,
+							SecurityContext: cluster.Spec.PXC.ContainerSecurityContext,
 							VolumeMounts:    volumeMounts,
 							Env:             envs,
-							Resources:       cluster.PXC.Resources,
+							Resources:       cluster.Spec.PXC.Resources,
 						},
 					},
 					RestartPolicy:      corev1.RestartPolicyNever,
 					Volumes:            jobPVCs,
-					NodeSelector:       cluster.PXC.NodeSelector,
-					Affinity:           cluster.PXC.Affinity.Advanced,
-					Tolerations:        cluster.PXC.Tolerations,
-					SchedulerName:      cluster.PXC.SchedulerName,
-					PriorityClassName:  cluster.PXC.PriorityClassName,
-					ServiceAccountName: cluster.PXC.ServiceAccountName,
-					RuntimeClassName:   cluster.PXC.RuntimeClassName,
+					NodeSelector:       cluster.Spec.PXC.NodeSelector,
+					Affinity:           cluster.Spec.PXC.Affinity.Advanced,
+					Tolerations:        cluster.Spec.PXC.Tolerations,
+					SchedulerName:      cluster.Spec.PXC.SchedulerName,
+					PriorityClassName:  cluster.Spec.PXC.PriorityClassName,
+					ServiceAccountName: cluster.Spec.PXC.ServiceAccountName,
+					RuntimeClassName:   cluster.Spec.PXC.RuntimeClassName,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
 	}
 
-	useMem, k8sq, err := xbMemoryUse(cluster)
+	useMem, k8sq, err := xbMemoryUse(cluster.Spec)
 
 	if useMem != "" && err == nil {
 		job.Spec.Template.Spec.Containers[0].Env = append(

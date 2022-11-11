@@ -55,9 +55,9 @@ get_backup_dest() {
 			exit 1
 		fi
 
-		secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.storage.s3.credentialsSecret}' 2>/dev/null)
+		secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.credentialsSecret}' 2>/dev/null)
 		if [ -n "$secret" ]; then
-			ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.storage.s3.endpointUrl}' 2>/dev/null)
+			ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.endpointUrl}' 2>/dev/null)
 			ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
 			SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
 			export CREDENTIALS="ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY DEFAULT_REGION=$DEFAULT_REGION"
@@ -66,7 +66,7 @@ get_backup_dest() {
 			return
 		fi
 
-		secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.storage.azure.credentialsSecret}' 2>/dev/null)
+		secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.azure.credentialsSecret}' 2>/dev/null)
 		if [ -n "$secret" ]; then
 			AZURE_STORAGE_ACCOUNT=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AZURE_STORAGE_ACCOUNT_NAME}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
 			AZURE_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AZURE_STORAGE_ACCOUNT_KEY}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
@@ -119,7 +119,7 @@ check_input_destination() {
 			usage
 		fi
 	elif [ "${backup_dest:0:5}" = "s3://" ] || [ "${backup_dest:0:8}" = "azure://" ]; then
-		env -i "${CREDENTIALS} ${xbcloud} get ${backup_dest} xtrabackup_info" 1>/dev/null
+		env -i $CREDENTIALS "$xbcloud" get "${backup_dest}" xtrabackup_info 1>/dev/null
 	else
 		echo "Can't find $backup_dest backup"
 		usage

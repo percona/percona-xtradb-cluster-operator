@@ -18,7 +18,7 @@ AVAILABLE_WHEN_DONOR=${AVAILABLE_WHEN_DONOR:-1}
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
 
 #Timeout exists for instances where mysqld may be hung
-TIMEOUT=${READINESS_CHECK_TIMEOUT:-10}
+TIMEOUT=$((${READINESS_CHECK_TIMEOUT:-10} - 1))
 
 EXTRA_ARGS=""
 if [[ -n "$MYSQL_USERNAME" ]]; then

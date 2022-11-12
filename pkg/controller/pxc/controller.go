@@ -398,59 +398,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
-
-		currentService := &corev1.Service{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: o.ProxySQLServiceNamespacedName().Name, Namespace: o.ProxySQLServiceNamespacedName().Namespace}, currentService)
+		// ProxySQL Service
+		err = r.createOrUpdate(o, pxc.NewServiceProxySQL(o))
 		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "failed to get current proxysql service sate")
+			return reconcile.Result{}, errors.Wrap(err, "create ProxySQL Service")
 		}
 
-		ports := []corev1.ServicePort{
-			{
-				Port: 3306,
-				Name: "mysql",
-			},
-		}
-
-		if len(o.Spec.ProxySQL.ServiceType) > 0 {
-			// Upgrading service only if something is changed
-			if currentService.Spec.Type != o.Spec.ProxySQL.ServiceType {
-				currentService.Spec.Ports = ports
-				currentService.Spec.Type = o.Spec.ProxySQL.ServiceType
-			}
-			// Checking default ServiceType
-		} else if currentService.Spec.Type != corev1.ServiceTypeClusterIP {
-			currentService.Spec.Ports = ports
-			currentService.Spec.Type = corev1.ServiceTypeClusterIP
-		}
-
-		if currentService.Spec.Type == corev1.ServiceTypeLoadBalancer || currentService.Spec.Type == corev1.ServiceTypeNodePort {
-			if len(o.Spec.ProxySQL.ExternalTrafficPolicy) > 0 {
-				currentService.Spec.ExternalTrafficPolicy = o.Spec.ProxySQL.ExternalTrafficPolicy
-			} else if currentService.Spec.ExternalTrafficPolicy != o.Spec.ProxySQL.ExternalTrafficPolicy {
-				currentService.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
-			}
-		}
-
-		if o.CompareVersionWith("1.6.0") >= 0 {
-			currentService.Spec.Ports = append(
-				ports,
-				corev1.ServicePort{
-					Port: 33062,
-					Name: "mysql-admin",
-				},
-			)
-		}
-
-		if o.CompareVersionWith("1.9.0") >= 0 {
-			currentService.ObjectMeta.Labels["app.kubernetes.io/component"] = "proxysql"
-			currentService.ObjectMeta.Labels["app.kubernetes.io/managed-by"] = "percona-xtradb-cluster-operator"
-			currentService.ObjectMeta.Labels["app.kubernetes.io/part-of"] = "percona-xtradb-cluster"
-		}
-
-		err = r.createOrUpdate(o, currentService)
+		// ProxySQL Unready Service
+		err = r.createOrUpdate(o, pxc.NewServiceProxySQLUnready(o))
 		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "ProxySQL service upgrade error")
+			return reconcile.Result{}, errors.Wrap(err, "create ProxySQL ServiceUnready")
 		}
 	} else {
 		// check if there is need to delete pvc
@@ -466,8 +423,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		proxysqlUnreadyService := pxc.NewServiceProxySQLUnready(o)
-		err = r.deleteServices(pxc.NewServiceProxySQL(o), proxysqlUnreadyService)
+
+		err = r.deleteServices(pxc.NewServiceProxySQL(o), pxc.NewServiceProxySQLUnready(o))
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -778,18 +735,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		err = r.client.Create(context.TODO(), proxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return errors.Wrap(err, "create newStatefulSetProxySQL")
-		}
-
-		// ProxySQL Service
-		err = r.createOrUpdate(cr, pxc.NewServiceProxySQL(cr))
-		if err != nil {
-			return errors.Wrap(err, "create ProxySQL Service")
-		}
-
-		// ProxySQL Unready Service
-		err = r.createOrUpdate(cr, pxc.NewServiceProxySQLUnready(cr))
-		if err != nil {
-			return errors.Wrap(err, "create ProxySQL ServiceUnready")
 		}
 
 		// PodDisruptionBudget object for ProxySQL

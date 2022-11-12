@@ -328,11 +328,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
 	}
 
-	crOwnerRef, err := OwnerRef(o, r.scheme)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "get cr owner reference")
-	}
-
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
 		var imageName string
@@ -386,7 +381,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		}
 	}
 
-	if err := r.reconcileHAProxy(o, crOwnerRef); err != nil {
+	if err := r.reconcileHAProxy(o); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -398,16 +393,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
-		// ProxySQL Service
-		err = r.createOrUpdate(o, pxc.NewServiceProxySQL(o))
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "create ProxySQL Service")
-		}
+		for _, svc := range []*corev1.Service{pxc.NewServiceProxySQL(o), pxc.NewServiceProxySQLUnready(o)} {
+			err := setControllerReference(o, svc, r.scheme)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "%s setControllerReference", svc.Name)
+			}
 
-		// ProxySQL Unready Service
-		err = r.createOrUpdate(o, pxc.NewServiceProxySQLUnready(o))
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "create ProxySQL ServiceUnready")
+			err = r.createOrUpdate(o, svc)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
+			}
 		}
 	} else {
 		// check if there is need to delete pvc
@@ -454,7 +449,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCluster, owner metav1.OwnerReference) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCluster) error {
 	if !cr.HAProxyEnabled() {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -474,21 +469,24 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCl
 	if err := r.updatePod(statefulset.NewHAProxy(cr), &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
-
-	if err := r.createOrUpdate(cr, pxc.NewServiceHAProxy(cr, owner)); err != nil {
-		return errors.Wrap(err, "failed to create or update haproxy service")
-	}
-
-	if !cr.HAProxyReplicasServiceEnabled() {
+	services := []*corev1.Service{pxc.NewServiceHAProxy(cr)}
+	if cr.HAProxyReplicasServiceEnabled() {
+		services = append(services, pxc.NewServiceHAProxyReplicas(cr))
+	} else {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
 		}
-
-		return nil
 	}
+	for _, svc := range services {
+		err := setControllerReference(cr, svc, r.scheme)
+		if err != nil {
+			return errors.Wrapf(err, "%s setControllerReference", svc.Name)
+		}
 
-	if err := r.createOrUpdate(cr, pxc.NewServiceHAProxyReplicas(cr, owner)); err != nil {
-		return errors.Wrap(err, "failed to create or update haproxy replicas")
+		err = r.createOrUpdate(cr, svc)
+		if err != nil {
+			return errors.Wrapf(err, "%s upgrade error", svc.Name)
+		}
 	}
 
 	return nil

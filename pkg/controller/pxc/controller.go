@@ -661,15 +661,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return errors.Wrap(err, "create newStatefulSetNode")
 	}
 
-	err = r.createService(cr, pxc.NewServicePXCUnready(cr))
-	if err != nil {
-		return errors.Wrap(err, "create PXC ServiceUnready")
-	}
-	err = r.createService(cr, pxc.NewServicePXC(cr))
-	if err != nil {
-		return errors.Wrap(err, "create PXC Service")
-	}
-
 	// PodDisruptionBudget object for nodes
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: nodeSet.Name, Namespace: nodeSet.Namespace}, nodeSet)
 	if err == nil {
@@ -722,20 +713,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		err = r.client.Create(context.TODO(), haProxySet)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
 			return errors.Wrap(err, "create newStatefulSetHAProxy")
-		}
-
-		// HAProxy Service
-		err = r.createService(cr, pxc.NewServiceHAProxy(cr))
-		if err != nil {
-			return errors.Wrap(err, "create HAProxy Service")
-		}
-
-		// HAProxyReplicas Service
-		if cr.HAProxyReplicasServiceEnabled() {
-			err = r.createService(cr, pxc.NewServiceHAProxyReplicas(cr))
-			if err != nil {
-				return errors.Wrap(err, "create HAProxyReplicas Service")
-			}
 		}
 
 		// PodDisruptionBudget object for HAProxy
@@ -804,13 +781,13 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 
 		// ProxySQL Service
-		err = r.createService(cr, pxc.NewServiceProxySQL(cr))
+		err = r.createOrUpdate(cr, pxc.NewServiceProxySQL(cr))
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}
 
 		// ProxySQL Unready Service
-		err = r.createService(cr, pxc.NewServiceProxySQLUnready(cr))
+		err = r.createOrUpdate(cr, pxc.NewServiceProxySQLUnready(cr))
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL ServiceUnready")
 		}
@@ -828,21 +805,6 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	}
 
 	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) createService(cr *api.PerconaXtraDBCluster, svc *corev1.Service) error {
-	err := setControllerReference(cr, svc, r.scheme)
-	if err != nil {
-		return errors.Wrap(err, "setControllerReference")
-	}
-
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{})
-	if err != nil && k8serrors.IsNotFound(err) {
-		err := r.client.Create(context.TODO(), svc)
-		return errors.WithMessage(err, "create")
-	}
-
-	return errors.WithMessage(err, "check if exists")
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {

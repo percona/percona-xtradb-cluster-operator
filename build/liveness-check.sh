@@ -20,7 +20,7 @@ MYSQL_PASSWORD="${mysql_pass:-$MONITOR_PASSWORD}"
 DEFAULTS_EXTRA_FILE=${DEFAULTS_EXTRA_FILE:-/etc/my.cnf}
 NODE_IP=$(hostname -I | awk ' { print $1 } ')
 #Timeout exists for instances where mysqld may be hung
-TIMEOUT=${LIVENESS_CHECK_TIMEOUT:-5}
+TIMEOUT=$((${LIVENESS_CHECK_TIMEOUT:-5} - 1))
 
 EXTRA_ARGS=""
 if [[ -n $MYSQL_USERNAME ]]; then

@@ -170,6 +170,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 		return nil
 	}
 
+	// TODO: use same connection for updating and discarding passwords
+	// 		to, primarily, avoid potential conflicts. And resource-wise, it is better.
+
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
 	err := r.updateUserPass(cr, secrets, internalSecrets, user)
@@ -189,6 +192,20 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "update internal secrets root user password")
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+
+	passPropagated, err := r.isPassPropagated(cr, user)
+	if err != nil {
+		// Note: Should we revert secrets here, or just let the next reconcile loop try again?
+		return errors.Wrap(err, "is pass propagated")
+	}
+
+	if passPropagated {
+		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard root old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	}
 
 	return nil
 }
@@ -844,16 +861,30 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPass(cr *api.PerconaXtraDBClus
 		return errors.Wrap(err, "update user pass")
 	}
 
-	passPropagated, err := r.isPassPropagated(cr, user)
-	if err != nil {
-		return errors.Wrap(err, "isPassPropagated")
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
+	pxcUser := users.Root
+	pxcPass := string(internalSecrets.Data[users.Root])
+	if _, ok := secrets.Data[users.Operator]; ok {
+		pxcUser = users.Operator
+		pxcPass = string(internalSecrets.Data[users.Operator])
 	}
 
-	if passPropagated {
-		err = um.DiscardOldPassword(user)
-		if err != nil {
-			return errors.Wrap(err, "update user pass")
-		}
+	addr := cr.Name + "-pxc." + cr.Namespace
+	if cr.CompareVersionWith("1.6.0") >= 0 {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	if err != nil {
+		return errors.Wrap(err, "new users manager")
+	}
+	defer um.Close()
+
+	err = um.DiscardOldPassword(user)
+	if err != nil {
+		return errors.Wrap(err, "discard old user pass")
 	}
 
 	return nil

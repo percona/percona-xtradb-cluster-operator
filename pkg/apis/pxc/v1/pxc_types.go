@@ -47,6 +47,8 @@ type PerconaXtraDBClusterSpec struct {
 	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	InitImage                 string                               `json:"initImage,omitempty"`
 	EnableCRValidationWebhook *bool                                `json:"enableCRValidationWebhook,omitempty"`
+	IgnoreAnnotations         []string                             `json:"ignoreAnnotations,omitempty"`
+	IgnoreLabels              []string                             `json:"ignoreLabels,omitempty"`
 }
 
 type PXCSpec struct {
@@ -466,6 +468,19 @@ type PMMSpec struct {
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 }
 
+func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {
+	return spec.Enabled && spec.HasSecret(secret)
+}
+
+func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
+	for _, key := range []string{"pmmserver", "pmmserverkey"} {
+		if _, ok := secret.Data[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 	if _, ok := secret.Data["pmmserverkey"]; !ok {
 		if _, ok := secret.Data["pmmserver"]; ok {
@@ -477,7 +492,8 @@ func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 
 type BackupStorageSpec struct {
 	Type                     BackupStorageType           `json:"type"`
-	S3                       BackupStorageS3Spec         `json:"s3,omitempty"`
+	S3                       *BackupStorageS3Spec        `json:"s3,omitempty"`
+	Azure                    *BackupStorageAzureSpec     `json:"azure,omitempty"`
 	Volume                   *VolumeSpec                 `json:"volume,omitempty"`
 	NodeSelector             map[string]string           `json:"nodeSelector,omitempty"`
 	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -498,10 +514,11 @@ type BackupStorageType string
 const (
 	BackupStorageFilesystem BackupStorageType = "filesystem"
 	BackupStorageS3         BackupStorageType = "s3"
+	BackupStorageAzure      BackupStorageType = "azure"
 )
 
 const (
-	FinalizerDeleteS3Backup string = "delete-s3-backup"
+	FinalizerDeleteS3Backup string = "delete-s3-backup" // TODO: rename to a more appropriate name like `delete-backup`
 )
 
 type BackupStorageS3Spec struct {
@@ -509,6 +526,13 @@ type BackupStorageS3Spec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
 	Region            string `json:"region,omitempty"`
 	EndpointURL       string `json:"endpointUrl,omitempty"`
+}
+
+type BackupStorageAzureSpec struct {
+	CredentialsSecret string `json:"credentialsSecret"`
+	ContainerName     string `json:"container"`
+	Endpoint          string `json:"endpointUrl"`
+	StorageClass      string `json:"storageClass"`
 }
 
 type VolumeSpec struct {

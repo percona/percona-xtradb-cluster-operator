@@ -9002,6 +9002,17 @@ spec:
                             additionalProperties:
                               type: string
                             type: object
+                          azure:
+                            properties:
+                              container:
+                                type: string
+                              credentialsSecret:
+                                type: string
+                              endpointUrl:
+                                type: string
+                              storageClass:
+                                type: string
+                            type: object
                           containerSecurityContext:
                             properties:
                               allowPrivilegeEscalation:
@@ -11616,6 +11627,14 @@ spec:
                           type: object
                       type: object
                   type: object
+                ignoreAnnotations:
+                  items:
+                    type: string
+                  type: array
+                ignoreLabels:
+                  items:
+                    type: string
+                  type: array
                 initImage:
                   type: string
                 logCollectorSecretName:
@@ -16739,10 +16758,23 @@ spec:
               type: object
             status:
               properties:
+                azure:
+                  properties:
+                    container:
+                      type: string
+                    credentialsSecret:
+                      type: string
+                    endpointUrl:
+                      type: string
+                    storageClass:
+                      type: string
+                  type: object
                 completed:
                   format: date-time
                   type: string
                 destination:
+                  type: string
+                image:
                   type: string
                 lastscheduled:
                   format: date-time
@@ -16758,9 +16790,17 @@ spec:
                     region:
                       type: string
                   type: object
+                sslInternalSecretName:
+                  type: string
+                sslSecretName:
+                  type: string
                 state:
                   type: string
+                storage_type:
+                  type: string
                 storageName:
+                  type: string
+                vaultSecretName:
                   type: string
               type: object
           type: object
@@ -16820,10 +16860,23 @@ spec:
                   type: string
                 backupSource:
                   properties:
+                    azure:
+                      properties:
+                        container:
+                          type: string
+                        credentialsSecret:
+                          type: string
+                        endpointUrl:
+                          type: string
+                        storageClass:
+                          type: string
+                      type: object
                     completed:
                       format: date-time
                       type: string
                     destination:
+                      type: string
+                    image:
                       type: string
                     lastscheduled:
                       format: date-time
@@ -16839,19 +16892,40 @@ spec:
                         region:
                           type: string
                       type: object
+                    sslInternalSecretName:
+                      type: string
+                    sslSecretName:
+                      type: string
                     state:
                       type: string
+                    storage_type:
+                      type: string
                     storageName:
+                      type: string
+                    vaultSecretName:
                       type: string
                   type: object
                 pitr:
                   properties:
                     backupSource:
                       properties:
+                        azure:
+                          properties:
+                            container:
+                              type: string
+                            credentialsSecret:
+                              type: string
+                            endpointUrl:
+                              type: string
+                            storageClass:
+                              type: string
+                          type: object
                         completed:
                           format: date-time
                           type: string
                         destination:
+                          type: string
+                        image:
                           type: string
                         lastscheduled:
                           format: date-time
@@ -16867,9 +16941,17 @@ spec:
                             region:
                               type: string
                           type: object
+                        sslInternalSecretName:
+                          type: string
+                        sslSecretName:
+                          type: string
                         state:
                           type: string
+                        storage_type:
+                          type: string
                         storageName:
+                          type: string
+                        vaultSecretName:
                           type: string
                       type: object
                     date:

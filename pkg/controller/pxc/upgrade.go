@@ -130,15 +130,15 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 		secretsName = "internal-" + cr.Name
 	}
 
+	secret := new(corev1.Secret)
+	err = r.client.Get(context.TODO(), types.NamespacedName{
+		Name: secretsName, Namespace: cr.Namespace,
+	}, secret)
+	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err, "get internal secret")
+	}
 	// pmm container
-	if cr.Spec.PMM != nil && cr.Spec.PMM.Enabled {
-		secret := new(corev1.Secret)
-		err := r.client.Get(context.TODO(), types.NamespacedName{
-			Name: secretsName, Namespace: cr.Namespace,
-		}, secret)
-		if client.IgnoreNotFound(err) != nil {
-			return errors.Wrap(err, "get internal secret")
-		}
+	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(secret) {
 		pmmC, err := sfs.PMMContainer(cr.Spec.PMM, secret, cr)
 		if err != nil {
 			return errors.Wrap(err, "pmm container error")
@@ -208,7 +208,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(sfs api.StatefulApp, podSpec *
 	}
 	currentSet.Spec.Template.Spec.Volumes = api.AddSidecarVolumes(r.logger(cr.Name, cr.Namespace), currentSet.Spec.Template.Spec.Volumes, podSpec.SidecarVolumes)
 	currentSet.Spec.Template.Spec.Tolerations = podSpec.Tolerations
-	err = r.createOrUpdate(currentSet)
+	err = r.createOrUpdate(cr, currentSet)
 	if err != nil {
 		return errors.Wrap(err, "update error")
 	}
@@ -376,7 +376,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(cr *api.PerconaXtraDBClus
 		return nil
 	}
 
-	database, err := r.proxyDB(cr)
+	database, err := r.connectProxy(cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get proxySQL db")
 	}
@@ -405,7 +405,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 		return nil
 	}
 
-	database, err := r.proxyDB(cr)
+	database, err := r.connectProxy(cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to get proxySQL db")
 	}
@@ -465,17 +465,18 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
+// connectProxy returns a new connection through the proxy (ProxySQL or HAProxy)
+func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
 	var database queries.Database
 	var user, host string
 	var port, proxySize int32
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+	if cr.ProxySQLEnabled() {
 		user = "proxyadmin"
 		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
 		proxySize = cr.Spec.ProxySQL.Size
 		port = 6032
-	} else if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+	} else if cr.HAProxyEnabled() {
 		user = "monitor"
 		host = fmt.Sprintf("%s-haproxy.%s", cr.Name, cr.Namespace)
 		proxySize = cr.Spec.HAProxy.Size
@@ -485,18 +486,19 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 			return database, errors.Wrap(err, "check if config has proxy_protocol_networks key")
 		}
 
+		port = 3306
 		if hasKey && cr.CompareVersionWith("1.6.0") >= 0 {
 			port = 33062
-		} else {
-			port = 3306
 		}
 	} else {
 		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 	}
+
 	secrets := cr.Spec.SecretsName
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		secrets = "internal-" + cr.Name
 	}
+
 	for i := 0; ; i++ {
 		db, err := queries.New(r.client, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil && i < int(proxySize) {
@@ -513,15 +515,14 @@ func (r *ReconcilePerconaXtraDBCluster) proxyDB(cr *api.PerconaXtraDBCluster) (q
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
-	database, err := r.proxyDB(cr)
+	conn, err := r.connectProxy(cr)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to get proxySQL db")
+		return "", errors.Wrap(err, "failed to get proxy connection")
 	}
+	defer conn.Close()
 
-	defer database.Close()
-
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
-		host, err := database.Hostname()
+	if cr.HAProxyEnabled() {
+		host, err := conn.Hostname()
 		if err != nil {
 			return "", err
 		}
@@ -529,7 +530,7 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 		return host, nil
 	}
 
-	return database.PrimaryHost()
+	return conn.PrimaryHost()
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {

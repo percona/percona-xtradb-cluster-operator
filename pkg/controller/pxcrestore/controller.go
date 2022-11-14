@@ -163,8 +163,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		return rr, errors.Wrap(err, "get backup")
 	}
 
-	cluster := api.PerconaXtraDBCluster{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, &cluster)
+	cluster := new(api.PerconaXtraDBCluster)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, cluster)
 	if err != nil {
 		err = errors.Wrapf(err, "get cluster %s", cr.Spec.PXCCluster)
 		return rr, err
@@ -194,7 +194,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		err = errors.Wrap(err, "set status")
 		return rr, err
 	}
-	err = r.restore(cr, bcp, cluster.Spec)
+	err = r.restore(cr, bcp, cluster)
 	if err != nil {
 		err = errors.Wrap(err, "run restore")
 		return rr, err
@@ -213,7 +213,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		cluster.Spec.PXC.Size = 1
 		cluster.Spec.AllowUnsafeConfig = true
 
-		if err := r.startCluster(&cluster); err != nil {
+		if err := r.startCluster(cluster); err != nil {
 			return rr, errors.Wrap(err, "restart cluster for pitr")
 		}
 
@@ -223,7 +223,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 			return rr, errors.Wrap(err, "set status")
 		}
 
-		err = r.pitr(cr, bcp, cluster.Spec)
+		err = r.pitr(cr, bcp, cluster)
 		if err != nil {
 			return rr, errors.Wrap(err, "run pitr")
 		}
@@ -245,6 +245,10 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 
 func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
 	if cr.Spec.BackupSource != nil {
+		status := cr.Spec.BackupSource.DeepCopy()
+		status.State = api.BackupSucceeded
+		status.CompletedAt = nil
+		status.LastScheduled = nil
 		return &api.PerconaXtraDBClusterBackup{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cr.Name,
@@ -254,12 +258,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBCl
 				PXCCluster:  cr.Spec.PXCCluster,
 				StorageName: cr.Spec.BackupSource.StorageName,
 			},
-			Status: api.PXCBackupStatus{
-				State:       api.BackupSucceeded,
-				Destination: cr.Spec.BackupSource.Destination,
-				StorageName: cr.Spec.BackupSource.StorageName,
-				S3:          cr.Spec.BackupSource.S3,
-			},
+			Status: *status,
 		}, nil
 	}
 

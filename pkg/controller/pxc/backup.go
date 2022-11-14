@@ -183,8 +183,9 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraD
 }
 
 func (r *ReconcilePerconaXtraDBCluster) createBackupJob(cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, storageType api.BackupStorageType) func() {
-	fins := []string{}
-	if storageType == api.BackupStorageS3 {
+	var fins []string
+	switch storageType {
+	case api.BackupStorageS3:
 		fins = append(fins, api.FinalizerDeleteS3Backup)
 	}
 

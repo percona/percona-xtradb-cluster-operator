@@ -248,6 +248,19 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
+	passPropagated, err := r.isPassPropagated(cr, user)
+	if err != nil {
+		return errors.Wrap(err, "is pass propagated")
+	}
+
+	if passPropagated {
+		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard operator old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	}
+
 	actions.restartProxy = true
 	return nil
 }
@@ -398,6 +411,19 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
+	passPropagated, err := r.isPassPropagated(cr, user)
+	if err != nil {
+		return errors.Wrap(err, "is pass propagated")
+	}
+
+	if passPropagated {
+		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard monitor old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	}
+
 	actions.restartProxy = true
 	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
 		actions.restartPXC = true
@@ -512,6 +538,19 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
+	passPropagated, err := r.isPassPropagated(cr, user)
+	if err != nil {
+		return errors.Wrap(err, "is pass propagated")
+	}
+
+	if passPropagated {
+		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard clustercheck old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	}
+
 	return nil
 }
 
@@ -558,6 +597,19 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 		return errors.Wrap(err, "update internal users secrets xtrabackup user password")
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+
+	passPropagated, err := r.isPassPropagated(cr, user)
+	if err != nil {
+		return errors.Wrap(err, "is pass propagated")
+	}
+
+	if passPropagated {
+		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard xtrabackup old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	}
 
 	actions.restartPXC = true
 	return nil
@@ -654,6 +706,19 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
+	passPropagated, err := r.isPassPropagated(cr, user)
+	if err != nil {
+		return errors.Wrap(err, "is pass propagated")
+	}
+
+	if passPropagated {
+		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard replicaiton old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	}
+
 	actions.updateReplicationPass = true
 	return nil
 }
@@ -749,6 +814,19 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 		return errors.Wrap(err, "update internal users secrets proxyadmin user password")
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+
+	passPropagated, err := r.isPassPropagated(cr, user)
+	if err != nil {
+		return errors.Wrap(err, "is pass propagated")
+	}
+
+	if passPropagated {
+		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard proxyadmin old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	}
 
 	actions.restartProxy = true
 

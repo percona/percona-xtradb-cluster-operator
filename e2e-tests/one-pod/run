@@ -97,7 +97,7 @@ main() {
 	run_recovery_check "$cluster" "on-demand-backup-pvc"
 	check_pvc_md5
 
-	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		run_backup "$cluster" "on-demand-backup-aws-s3"
 		run_recovery_check "$cluster" "on-demand-backup-aws-s3"
 	fi

@@ -56,6 +56,10 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		return DepVersion{}, err
 	}
 
+	if !versionUpgradeEnabled(cr) {
+		return DepVersion{}, nil
+	}
+
 	if len(resp.Payload.Versions) == 0 {
 		return DepVersion{}, fmt.Errorf("empty versions response")
 	}

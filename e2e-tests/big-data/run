@@ -7,7 +7,7 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
 main() {
-	if [ -n "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
 		echo 'Skip big-data test.'
 		exit 0
 	fi

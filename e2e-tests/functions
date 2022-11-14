@@ -874,8 +874,10 @@ kubectl_bin() {
 	local LAST_ERR="$(mktemp)"
 	local exit_status=0
 	for i in $(seq 0 2); do
+		set +e
 		kubectl "$@" 1>"$LAST_OUT" 2>"$LAST_ERR"
 		exit_status=$?
+		set -e
 		if [[ ${exit_status} != 0 ]]; then
 			sleep "$((timeout * i))"
 		else

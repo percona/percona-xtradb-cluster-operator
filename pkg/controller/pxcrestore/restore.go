@@ -20,20 +20,16 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 	if cluster.Spec.Backup == nil {
 		return errors.New("undefined backup section in a cluster spec")
 	}
-	storage, ok := cluster.Spec.Backup.Storages[bcp.Spec.StorageName]
-	if !ok {
-		return errors.Errorf("storage is not found %s", bcp.Status.Destination)
-	}
 	destination := bcp.Status.Destination
-	switch storage.Type {
-	case api.BackupStorageFilesystem:
+	switch {
+	case strings.HasPrefix(bcp.Status.Destination, "pvc/"):
 		return errors.Wrap(r.restorePVC(cr, bcp, strings.TrimPrefix(destination, "pvc/"), cluster.Spec), "pvc")
-	case api.BackupStorageS3:
+	case strings.HasPrefix(bcp.Status.Destination, "s3://"):
 		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(destination, "s3://"), cluster, false), "s3")
-	case api.BackupStorageAzure:
+	case bcp.Status.Azure != nil:
 		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster.Spec), "azure")
 	default:
-		return errors.Errorf("unknown backup storage type: %s", storage.Type)
+		return errors.Errorf("unknown backup storage type")
 	}
 }
 

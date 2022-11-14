@@ -84,7 +84,7 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 	return nil
 }
 
-// UpdateUserPass updates user passwords but retains the current password 
+// UpdateUserPass updates user passwords but retains the current password
 // using Dual Password feature of MySQL 8.
 func (m *Manager) UpdateUserPass(user *SysUser) error {
 	tx, err := m.db.Begin()

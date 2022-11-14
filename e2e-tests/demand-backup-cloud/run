@@ -24,8 +24,8 @@ run_recovery_from_source() {
 }
 
 main() {
-	if [ -n "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
-		echo "Skipping test because SKIP_BACKUPS_TO_AWS_GCP variable is set!"
+	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+		echo "Skipping test because SKIP_REMOTE_BACKUPS variable is set!"
 		exit 0
 	else
 		create_infra $namespace
@@ -33,13 +33,32 @@ main() {
 		cluster="demand-backup-cloud"
 		spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-		run_backup "$cluster" "on-demand-backup-aws-s3"
-		run_recovery_check "$cluster" "on-demand-backup-aws-s3"
+		backup_name_aws="on-demand-backup-aws-s3"
+		backup_name_gcp="on-demand-backup-gcp-cs"
+		backup_name_azure="on-demand-backup-azure-blob"
+		run_backup "$cluster" "${backup_name_aws}"
+		run_recovery_check "$cluster" "${backup_name_aws}"
 
 		run_recovery_from_source
 
-		run_backup "$cluster" "on-demand-backup-gcp-cs"
-		run_recovery_check "$cluster" "on-demand-backup-gcp-cs"
+		run_backup "$cluster" "${backup_name_gcp}"
+		run_recovery_check "$cluster" "${backup_name_gcp}"
+
+		run_backup "$cluster" "${backup_name_azure}"
+		run_recovery_check "$cluster" "${backup_name_azure}"
+
+		kubectl_bin delete pxc-backup --all
+
+		if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
+			backup_dest_aws="$(get_backup_dest "${backup_name_aws}")"
+			backup_dest_aws=${backup_name_aws:5} # trim "s3://"
+			backup_dest_gcp="$(get_backup_dest "${backup_name_gcp}")"
+			backup_dest_gcp=${backup_name_gcp:5} # trim "s3://"
+			#backup_dest_azure="$(get_backup_dest "${backup_name_azure}")"
+			check_backup_deletion "https://s3.amazonaws.com/${backup_dest_aws}.sst_info/sst_info.00000000000000000000" "aws-s3"
+			check_backup_deletion "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
+			#check_backup_deletion "https://k8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
+		fi
 
 		destroy $namespace
 	fi

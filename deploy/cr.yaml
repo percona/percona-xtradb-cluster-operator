@@ -542,6 +542,13 @@ spec:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
           region: us-west-2
+      azure-blob:
+        type: azure
+        azure:
+          credentialsSecret: azure-secret
+          container: test
+#          endpointUrl: https://accountName.blob.core.windows.net
+#          storageClass: Hot
       fs-pvc:
         type: filesystem
         #        nodeSelector:

@@ -204,7 +204,7 @@ main() {
 	JOB_MINIO_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_MINIO_BACKUP} | awk '{print $1}')
 	POD_MINIO_BACKUP=$(kubectl_bin get pods | grep ${JOB_MINIO_BACKUP%-*} | awk '{print $1}')
 
-	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		FIRST_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1 | cut -d: -f1)
 		JOB_AWS_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AWS_BACKUP} | awk '{print $1}')
 		POD_AWS_BACKUP=$(kubectl_bin get pods | grep ${JOB_AWS_BACKUP%-*} | awk '{print $1}')
@@ -216,7 +216,7 @@ main() {
 
 	backup_name_pvc=$(get_backup_name "pvc")
 	backup_name_minio=$(get_backup_name "minio")
-	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		backup_name_aws=$(get_backup_name "aws-s3")
 		backup_name_gcp=$(get_backup_name "gcp-cs")
 	fi
@@ -225,7 +225,7 @@ main() {
 
 	run_recovery_check "$cluster" "$backup_name_pvc"
 	run_recovery_check "$cluster" "$backup_name_minio"
-	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		run_recovery_check "$cluster" "$backup_name_aws"
 		run_recovery_check "$cluster" "$backup_name_gcp"
 	fi

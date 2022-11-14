@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - command:
-            - recovery-s3.sh
+            - recovery-cloud.sh
           env:
             - name: ENDPOINT
               value: http://minio-service:9000/

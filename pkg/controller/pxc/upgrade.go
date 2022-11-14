@@ -354,7 +354,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
-	if cr.Spec.ProxySQL.Scheduler == "proxysql-admin" {
+	if cr.Spec.ProxySQL.PXCHandler == "internal" {
 		if err := r.waitHostgroups(cr, sfs.Name, pod, waitLimit, logger); err != nil {
 			return errors.Wrap(err, "failed to wait hostgroups status")
 		}

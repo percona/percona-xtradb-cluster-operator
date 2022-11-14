@@ -12577,7 +12577,7 @@ spec:
                       type: object
                     runtimeClassName:
                       type: string
-                    scheduler:
+                    pxchandler:
                       type: string
                     schedulerName:
                       type: string

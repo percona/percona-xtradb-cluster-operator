@@ -62,8 +62,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-upgrade-proxysql
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: upgrade-proxysql-env-vars-proxysql
@@ -114,8 +114,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-upgrade-proxysql
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: upgrade-proxysql-env-vars-proxysql
@@ -149,8 +149,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-upgrade-proxysql
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: upgrade-proxysql-env-vars-proxysql

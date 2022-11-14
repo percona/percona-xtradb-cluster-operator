@@ -62,8 +62,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-emptydir
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: emptydir-env-vars-proxysql
@@ -113,8 +113,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-emptydir
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: emptydir-env-vars-proxysql
@@ -148,8 +148,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-emptydir
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: emptydir-env-vars-proxysql

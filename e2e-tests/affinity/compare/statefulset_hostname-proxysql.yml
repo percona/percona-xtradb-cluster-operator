@@ -62,8 +62,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-hostname
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: hostname-env-vars-proxysql
@@ -117,8 +117,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-hostname
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: hostname-env-vars-proxysql
@@ -152,8 +152,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-hostname
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: hostname-env-vars-proxysql

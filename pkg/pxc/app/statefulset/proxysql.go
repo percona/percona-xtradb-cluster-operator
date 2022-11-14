@@ -147,8 +147,8 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 
 	if cr.CompareVersionWith("1.12.0") >= 0 {
 		appc.Env = append(appc.Env, corev1.EnvVar{
-			Name:  "SCHEDULER",
-			Value: cr.Spec.ProxySQL.Scheduler,
+			Name:  "PXC_HANDLER",
+			Value: cr.Spec.ProxySQL.PXCHandler,
 		})
 	}
 
@@ -242,7 +242,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		},
 	}
 
-	if cr.CompareVersionWith("1.12.0") >= 0 && cr.Spec.ProxySQL.Scheduler == "percona" {
+	if cr.CompareVersionWith("1.12.0") >= 0 && cr.Spec.ProxySQL.PXCHandler == "scheduler" {
 		volMounts := []corev1.VolumeMount{
 			{
 				Name:      "ssl",
@@ -257,12 +257,12 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 	}
 	if cr.CompareVersionWith("1.12.0") >= 0 {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
-			Name:  "SCHEDULER",
-			Value: cr.Spec.ProxySQL.Scheduler,
+			Name:  "PXC_HANDLER",
+			Value: cr.Spec.ProxySQL.PXCHandler,
 		})
 		proxysqlMonit.Env = append(proxysqlMonit.Env, corev1.EnvVar{
-			Name:  "SCHEDULER",
-			Value: cr.Spec.ProxySQL.Scheduler,
+			Name:  "PXC_HANDLER",
+			Value: cr.Spec.ProxySQL.PXCHandler,
 		})
 	}
 	if cr.Spec.AllowUnsafeConfig && (cr.Spec.TLS == nil || cr.Spec.TLS.IssuerConf == nil) {

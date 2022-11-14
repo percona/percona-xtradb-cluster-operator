@@ -431,7 +431,7 @@ type HAProxySpec struct {
 type ProxySQLSpec struct {
 	PodSpec `json:",inline"`
 	// +kubebuilder:validation:Enum={percona,proxysql-admin}
-	Scheduler string `json:"scheduler,omitempty"`
+	PXCHandler string `json:"pxchandler,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -793,8 +793,8 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
 		}
 
-		if cr.CompareVersionWith("1.12.0") >= 0 && len(c.ProxySQL.Scheduler) == 0 {
-			c.ProxySQL.Scheduler = "proxysql-admin"
+		if cr.CompareVersionWith("1.12.0") >= 0 && len(c.ProxySQL.PXCHandler) == 0 {
+			c.ProxySQL.PXCHandler = "internal"
 		}
 
 		c.ProxySQL.VolumeSpec.reconcileOpts()

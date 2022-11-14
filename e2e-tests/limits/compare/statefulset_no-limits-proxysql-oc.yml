@@ -183,8 +183,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-limits
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: no-limits-env-vars-proxysql
@@ -235,8 +235,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-limits
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: no-limits-env-vars-proxysql
@@ -270,8 +270,8 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-no-limits
-            - name: SCHEDULER
-              value: proxysql-admin
+            - name: PXC_HANDLER
+              value: internal
           envFrom:
             - secretRef:
                 name: no-limits-env-vars-proxysql

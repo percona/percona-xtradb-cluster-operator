@@ -980,25 +980,28 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 		components["haproxy"] = cr.Spec.HAProxy.Size
 	}
 
+	g := new(errgroup.Group)
+
 	for component, size := range components {
-		g := new(errgroup.Group)
+		comp := component
+		compCount := size
 		g.Go(func() error {
-			for i := 0; int32(i) < size; i++ {
+			for i := 0; int32(i) < compCount; i++ {
 				pod := corev1.Pod{}
 				err := r.client.Get(context.TODO(),
 					types.NamespacedName{
 						Namespace: cr.Namespace,
-						Name:      fmt.Sprintf("%s-%s-%d", cr.Name, component, i),
+						Name:      fmt.Sprintf("%s-%s-%d", cr.Name, comp, i),
 					},
 					&pod,
 				)
 				if err != nil && k8serrors.IsNotFound(err) {
 					return err
 				} else if err != nil {
-					return errors.Wrap(err, fmt.Sprintf("get %s pod", component))
+					return errors.Wrap(err, fmt.Sprintf("get %s pod", comp))
 				}
 				var errb, outb bytes.Buffer
-				err = r.clientcmd.Exec(&pod, component, []string{"cat", fmt.Sprintf("/etc/mysql/mysql-users-secret/%s", user.Name)}, nil, &outb, &errb, false)
+				err = r.clientcmd.Exec(&pod, comp, []string{"cat", fmt.Sprintf("/etc/mysql/mysql-users-secret/%s", user.Name)}, nil, &outb, &errb, false)
 				if err != nil {
 					return errors.Errorf("exec cat: %v / %s / %s", err, outb.String(), errb.String())
 				}
@@ -1014,12 +1017,10 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 			return nil
 		})
 
-		if err := g.Wait(); err != nil {
-			return false, err
-		}
+	}
 
-		return true, nil
-
+	if err := g.Wait(); err != nil {
+		return false, err
 	}
 
 	return true, nil

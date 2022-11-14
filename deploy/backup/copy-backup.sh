@@ -119,7 +119,7 @@ check_input_destination() {
 			usage
 		fi
 	elif [ "${backup_dest:0:5}" = "s3://" ] || [ "${backup_dest:0:8}" = "azure://" ]; then
-		env -i $CREDENTIALS "$xbcloud" get "${backup_dest}" xtrabackup_info 1>/dev/null
+		env -i "${CREDENTIALS} ${xbcloud} get ${backup_dest} xtrabackup_info" 1>/dev/null
 	else
 		echo "Can't find $backup_dest backup"
 		usage

@@ -82,7 +82,7 @@ spec:
           credentialsSecret: minio-secret
           region: us-east-1
           bucket: operator-testing
-          endpointUrl: http://minio-service:9000/
+          endpointUrl: http://minio-service.#namespace:9000/
       gcp-cs:
         type: s3
         s3:
@@ -90,3 +90,8 @@ spec:
           region: us-east-1
           bucket: operator-testing
           endpointUrl: https://storage.googleapis.com
+      azure-blob:
+        type: azure
+        azure:
+          credentialsSecret: azure-secret
+          container: operator-testing

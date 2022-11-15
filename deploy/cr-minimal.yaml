@@ -11,7 +11,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 1
-    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    image: percona/percona-xtradb-cluster:8.0.29-21.1
     volumeSpec:
       persistentVolumeClaim:
         resources:

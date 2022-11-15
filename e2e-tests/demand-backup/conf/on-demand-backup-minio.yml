@@ -2,6 +2,8 @@ apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterBackup
 metadata:
   name: on-demand-backup-minio
+  finalizers:
+    - delete-s3-backup
 spec:
   pxcCluster: demand-backup
   storageName: minio

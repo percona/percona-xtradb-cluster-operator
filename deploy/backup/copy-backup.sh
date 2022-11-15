@@ -42,6 +42,7 @@ usage() {
 
 get_backup_dest() {
 	local backup=$1
+	local secret
 
 	if $ctrl get "pxc-backup/$backup" 1>/dev/null 2>/dev/null; then
 		BASE64_DECODE_CMD=""
@@ -54,11 +55,27 @@ get_backup_dest() {
 			exit 1
 		fi
 
-		local secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.credentialsSecret}' 2>/dev/null)
-		ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.endpointUrl}' 2>/dev/null)
-		ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
-		SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
-		export CREDENTIALS="ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY DEFAULT_REGION=$DEFAULT_REGION"
+		secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.credentialsSecret}' 2>/dev/null)
+		if [ -n "$secret" ]; then
+			ENDPOINT=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.s3.endpointUrl}' 2>/dev/null)
+			ACCESS_KEY_ID=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_ACCESS_KEY_ID}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
+			SECRET_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AWS_SECRET_ACCESS_KEY}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
+			export CREDENTIALS="ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY DEFAULT_REGION=$DEFAULT_REGION"
+
+			$ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
+			return
+		fi
+
+		secret=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.status.azure.credentialsSecret}' 2>/dev/null)
+		if [ -n "$secret" ]; then
+			AZURE_STORAGE_ACCOUNT=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AZURE_STORAGE_ACCOUNT_NAME}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
+			AZURE_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AZURE_STORAGE_ACCOUNT_KEY}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
+			AZURE_STORAGE_CLASS=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.data.storageClass}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
+			export CREDENTIALS="AZURE_STORAGE_ACCOUNT=$AZURE_STORAGE_ACCOUNT AZURE_ACCESS_KEY=$AZURE_ACCESS_KEY AZURE_STORAGE_CLASS=$AZURE_STORAGE_CLASS"
+			echo "azure://$($ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}')"
+			return
+		fi
+
 		$ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
 	else
 		# support direct PVC name here
@@ -101,8 +118,8 @@ check_input_destination() {
 			printf "[ERROR] '%s' PVC doesn't exists.\n\n" "$backup_dest"
 			usage
 		fi
-	elif [ "${backup_dest:0:5}" = "s3://" ]; then
-		env -i $CREDENTIALS "$xbcloud" get "${backup_dest}" xtrabackup_info 1>/dev/null
+	elif [ "${backup_dest:0:5}" = "s3://" ] || [ "${backup_dest:0:8}" = "azure://" ]; then
+		env -i "${CREDENTIALS} ${xbcloud} get ${backup_dest} xtrabackup_info" 1>/dev/null
 	else
 		echo "Can't find $backup_dest backup"
 		usage
@@ -149,7 +166,8 @@ start_tmp_pod() {
 
 copy_files_pvc() {
 	local dest_dir=$1
-	local real_dest_dir=$(
+	local real_dest_dir
+	real_dest_dir=$(
 		cd "$dest_dir"
 		pwd -P
 	)
@@ -160,13 +178,13 @@ copy_files_pvc() {
 	echo "Downloading finished"
 }
 
-copy_files_s3() {
+copy_files_xbcloud() {
 	local backup_path=$1
 	local dest_dir=$2
 
 	echo ""
 	echo "Downloading started"
-	env -i $CREDENTIALS "$xbcloud" get "${backup_path}" --parallel=10 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
+	env -i "${CREDENTIALS} ${xbcloud} get ${backup_path} --parallel=10" 1>"$dest_dir/xtrabackup.stream" 2>"$dest_dir/transfer.log"
 	echo "Downloading finished"
 }
 
@@ -191,8 +209,8 @@ main() {
 		start_tmp_pod "$backup_dest"
 		copy_files_pvc "$dest_dir"
 		stop_tmp_pod
-	elif [ "${backup_dest:0:5}" = "s3://" ]; then
-		copy_files_s3 "$backup_dest" "$dest_dir"
+	elif [ "${backup_dest:0:5}" = "s3://" ] || [ "${backup_dest:0:8}" = "azure://" ]; then
+		copy_files_xbcloud "$backup_dest" "$dest_dir"
 	fi
 
 	cat - <<-EOF

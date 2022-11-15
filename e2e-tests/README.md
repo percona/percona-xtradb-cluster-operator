@@ -130,7 +130,7 @@ export CLEAN_NAMESPACE=1
 Making backups [on S3-compatible storage](https://www.percona.com/doc/kubernetes-operator-for-pxc/backups.html#making-scheduled-backups) needs creating Secrets to have the access to the S3 buckets. There is an environment variable enabled by default, which skips all tests requiring such Secrets:
 
 ```
-SKIP_BACKUPS_TO_AWS_GCP=1
+SKIP_REMOTE_BACKUPS=1
 ```
 
 The backups tests will use only [MinIO](https://min.io/) if this variable is declared,

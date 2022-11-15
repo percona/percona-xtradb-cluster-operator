@@ -35,6 +35,9 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	for key, value := range cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Labels {
 		labels[key] = value
 	}
+	if storage.S3 == nil {
+		return appsv1.Deployment{}, errors.New("s3 storage is not specified")
+	}
 	envs := []corev1.EnvVar{
 		{
 			Name: "SECRET_ACCESS_KEY",

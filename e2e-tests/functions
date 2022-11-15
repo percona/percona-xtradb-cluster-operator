@@ -13,7 +13,7 @@ IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-prox
 IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
 IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}-backup"}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
-SKIP_BACKUPS_TO_AWS_GCP=${SKIP_BACKUPS_TO_AWS_GCP:-1}
+SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO:-"perconalab/pmm-server"}
 IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG:-"dev-latest"}
@@ -39,7 +39,7 @@ if [[ ${ENABLE_LOGGING} == "true" ]]; then
 fi
 
 if [ -f "$conf_dir/cloud-secret.yml" ]; then
-	SKIP_BACKUPS_TO_AWS_GCP=''
+	SKIP_REMOTE_BACKUPS=''
 fi
 
 if oc get projects; then
@@ -730,7 +730,7 @@ cat_config() {
 }
 
 apply_secrets() {
-	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		kubectl_bin apply \
 			-f $conf_dir/minio-secret.yml \
 			-f $conf_dir/cloud-secret.yml
@@ -741,7 +741,7 @@ apply_secrets() {
 }
 
 apply_config() {
-	if [ -z "$SKIP_BACKUPS_TO_AWS_GCP" ]; then
+	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		cat_config "$1" \
 			| kubectl_bin apply -f -
 	else
@@ -1376,4 +1376,27 @@ function kpatch_set_field() {
 	local value=$4
 
 	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
+}
+
+function check_backup_deletion() {
+	path=$1
+	storage_name=$2
+	retry=0
+	until [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 403 ]] || [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 404 ]]; do
+		if [ $retry -ge 10 ]; then
+			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			echo "Backup was not removed from bucket -- $storage_name"
+			exit 1
+		fi
+		echo "waiting for backup deletion $storage_name"
+		sleep $((10 * 2 ** retry))
+		((retry += 1))
+	done
+}
+
+get_backup_dest() {
+	local backup_name=$1
+
+	kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.status.destination}' \
+		| sed -e 's/.json$//'
 }

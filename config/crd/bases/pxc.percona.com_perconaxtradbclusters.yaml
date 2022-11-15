@@ -478,6 +478,17 @@ spec:
                           additionalProperties:
                             type: string
                           type: object
+                        azure:
+                          properties:
+                            container:
+                              type: string
+                            credentialsSecret:
+                              type: string
+                            endpointUrl:
+                              type: string
+                            storageClass:
+                              type: string
+                          type: object
                         containerSecurityContext:
                           properties:
                             allowPrivilegeEscalation:

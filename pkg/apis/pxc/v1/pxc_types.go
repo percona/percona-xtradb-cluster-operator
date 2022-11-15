@@ -211,6 +211,7 @@ type AppStatus struct {
 // PerconaXtraDBCluster is the Schema for the perconaxtradbclusters API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.pxc.size,statuspath=.status.pxc.size,selectorpath=.status.pxc.labelSelector
 // +kubebuilder:pruning:PreserveUnknownFields
 // +kubebuilder:resource:shortName="pxc";"pxcs"
 // +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".status.host"

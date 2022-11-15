@@ -8753,6 +8753,10 @@ spec:
     served: true
     storage: true
     subresources:
+      scale:
+        labelSelectorPath: .status.pxc.labelSelector
+        specReplicasPath: .spec.pxc.size
+        statusReplicasPath: .status.pxc.size
       status: {}
 status:
   acceptedNames:

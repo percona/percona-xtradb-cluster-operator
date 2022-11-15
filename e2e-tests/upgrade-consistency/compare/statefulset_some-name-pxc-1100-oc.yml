@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   annotations: {}
-  generation: 3
+  generation: 1
   name: some-name-pxc
   ownerReferences:
     - controller: true

@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -349,31 +348,14 @@ func (r *ReconcilePerconaXtraDBCluster) checkPITRErrors(ctx context.Context, cr 
 		}
 	}
 
-	collectorPodList := corev1.PodList{}
-	err = r.client.List(ctx, &collectorPodList,
-		&client.ListOptions{
-			Namespace: cr.Namespace,
-			LabelSelector: labels.SelectorFromSet(map[string]string{
-				"app.kubernetes.io/name":       "percona-xtradb-cluster",
-				"app.kubernetes.io/instance":   cr.Name,
-				"app.kubernetes.io/component":  "pitr",
-				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
-			}),
-		},
-	)
+	collectorPod, err := deployment.GetBinlogCollectorPod(ctx, r.client, cr)
 	if err != nil {
-		return errors.Wrap(err, "get binlog collector pods")
+		return errors.Wrap(err, "get binlog collector pod")
 	}
 
-	if len(collectorPodList.Items) < 1 {
-		return nil
-	}
-
-	collectorPod := collectorPodList.Items[0]
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
-	err = r.clientcmd.Exec(&collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/gap-detected"}, nil, stdoutBuf, stderrBuf, false)
+	err = r.clientcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/gap-detected"}, nil, stdoutBuf, stderrBuf, false)
 	if err != nil {
 		if strings.Contains(stderrBuf.String(), "No such file or directory") {
 			return nil
@@ -382,7 +364,7 @@ func (r *ReconcilePerconaXtraDBCluster) checkPITRErrors(ctx context.Context, cr 
 	}
 
 	if stdoutBuf.Len() == 0 {
-		// Can we return nil here??
+		r.logger(cr.Name, cr.Namespace).Info("Gap detected but GTID set is empty", "collector", collectorPod.Name)
 		return nil
 	}
 
@@ -400,6 +382,10 @@ func (r *ReconcilePerconaXtraDBCluster) checkPITRErrors(ctx context.Context, cr 
 
 	if err := r.client.Status().Update(ctx, backup); err != nil {
 		return errors.Wrap(err, "update backup status")
+	}
+
+	if err := deployment.RemoveGapFile(ctx, r.clientcmd, collectorPod); err != nil {
+		return errors.Wrap(err, "remove gap file")
 	}
 
 	return nil

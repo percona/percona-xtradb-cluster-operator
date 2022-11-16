@@ -105,10 +105,10 @@ main() {
 	time_now=$(run_mysql "SELECT now();" "-h $proxy -uroot -proot_password")
 	gtid=$(run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password" | grep Gtid | grep -Eo "${GTID_PATTERN}")
 
-        if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
-             echo "Some garbage instead of legit GTID. Exiting"
-             exit 1
-        fi
+	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
+		echo "Some garbage instead of legit GTID. Exiting"
+		exit 1
+	fi
 
 	desc 'show binlog events in binlog.000005'
 	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password"

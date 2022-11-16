@@ -167,12 +167,40 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 		Hosts: []string{"localhost", "%"},
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+	annotationName := "user-root-pass-propagated"
+	passPropagated := internalSecrets.Annotations[annotationName] == "true"
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passPropagated {
 		return nil
 	}
 
-	// TODO: use same connection for updating and discarding passwords
-	// 		to, primarily, avoid potential conflicts. And resource-wise, it is better.
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passPropagated {
+
+		// This means the pass was updated, internal secrets are update, but the pass is not propagated yet
+		// We only need to check if it is propagated or not and discard the old one
+
+		passPropagated, err := r.isPassPropagated(cr, user)
+		if err != nil {
+			return errors.Wrap(err, "is pass propagated")
+		}
+		if !passPropagated {
+			return errors.New("password not yet propagated")
+		}
+
+		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard root old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+
+		internalSecrets.Annotations[annotationName] = "true"
+		err = r.client.Update(context.TODO(), internalSecrets)
+		if err != nil {
+			return errors.Wrap(err, "update internal secrets root user password")
+		}
+
+		return nil
+	}
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
@@ -188,24 +216,32 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	}
 
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
+	internalSecrets.Annotations["user-root-pass-propagated"] = "false"
 	err = r.client.Update(context.TODO(), internalSecrets)
 	if err != nil {
 		return errors.Wrap(err, "update internal secrets root user password")
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
-	passPropagated, err := r.isPassPropagated(cr, user)
+	passPropagated, err = r.isPassPropagated(cr, user)
 	if err != nil {
-		// Note: Should we revert secrets here, or just let the next reconcile loop try again?
 		return errors.Wrap(err, "is pass propagated")
 	}
 
-	if passPropagated {
-		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "discard root old pass")
-		}
-		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	if !passPropagated {
+		return errors.New("password not yet propagated")
+	}
+
+	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "discard root old pass")
+	}
+	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+
+	internalSecrets.Annotations[annotationName] = "true"
+	err = r.client.Update(context.TODO(), internalSecrets)
+	if err != nil {
+		return errors.Wrap(err, "update internal secrets root user password")
 	}
 
 	return nil
@@ -980,12 +1016,12 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 		components["haproxy"] = cr.Spec.HAProxy.Size
 	}
 
-	g := new(errgroup.Group)
+	eg := new(errgroup.Group)
 
 	for component, size := range components {
 		comp := component
 		compCount := size
-		g.Go(func() error {
+		eg.Go(func() error {
 			for i := 0; int32(i) < compCount; i++ {
 				pod := corev1.Pod{}
 				err := r.client.Get(context.TODO(),
@@ -1019,7 +1055,7 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 
 	}
 
-	if err := g.Wait(); err != nil {
+	if err := eg.Wait(); err != nil {
 		return false, err
 	}
 

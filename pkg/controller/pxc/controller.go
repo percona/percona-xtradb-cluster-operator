@@ -356,7 +356,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
 		}
 
-		err = r.createOrUpdate(o, pxcService)
+		err = r.createOrUpdateService(o, pxcService, true)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
 		}
@@ -386,16 +386,23 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
-		for _, svc := range []*corev1.Service{pxc.NewServiceProxySQL(o), pxc.NewServiceProxySQLUnready(o)} {
-			err := setControllerReference(o, svc, r.scheme)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "%s setControllerReference", svc.Name)
-			}
-
-			err = r.createOrUpdate(o, svc)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
-			}
+		svc := pxc.NewServiceProxySQL(o)
+		err := setControllerReference(o, svc, r.scheme)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "%s setControllerReference", svc.Name)
+		}
+		err = r.createOrUpdateService(o, svc, len(o.Spec.ProxySQL.ServiceLabels) == 0 && len(o.Spec.ProxySQL.ServiceAnnotations) == 0)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
+		}
+		svc = pxc.NewServiceProxySQLUnready(o)
+		err = setControllerReference(o, svc, r.scheme)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "%s setControllerReference", svc.Name)
+		}
+		err = r.createOrUpdateService(o, svc, true)
+		if err != nil {
+			return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
 		}
 	} else {
 		// check if there is need to delete pvc
@@ -462,23 +469,29 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCl
 	if err := r.updatePod(statefulset.NewHAProxy(cr), &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
-	services := []*corev1.Service{pxc.NewServiceHAProxy(cr)}
-	if cr.HAProxyReplicasServiceEnabled() {
-		services = append(services, pxc.NewServiceHAProxyReplicas(cr))
-	} else {
-		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
-			return errors.Wrap(err, "delete HAProxy replica service")
-		}
+	svc := pxc.NewServiceHAProxy(cr)
+	err := setControllerReference(cr, svc, r.scheme)
+	if err != nil {
+		return errors.Wrapf(err, "%s setControllerReference", svc.Name)
 	}
-	for _, svc := range services {
+	podSpec := cr.Spec.HAProxy.PodSpec
+	err = r.createOrUpdateService(cr, svc, len(podSpec.ServiceLabels) == 0 && len(podSpec.ServiceAnnotations) == 0)
+	if err != nil {
+		return errors.Wrapf(err, "%s upgrade error", svc.Name)
+	}
+	if cr.HAProxyReplicasServiceEnabled() {
+		svc := pxc.NewServiceHAProxyReplicas(cr)
 		err := setControllerReference(cr, svc, r.scheme)
 		if err != nil {
 			return errors.Wrapf(err, "%s setControllerReference", svc.Name)
 		}
-
-		err = r.createOrUpdate(cr, svc)
+		err = r.createOrUpdateService(cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
 		if err != nil {
 			return errors.Wrapf(err, "%s upgrade error", svc.Name)
+		}
+	} else {
+		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
+			return errors.Wrap(err, "delete HAProxy replica service")
 		}
 	}
 
@@ -1281,25 +1294,6 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(cr *api.PerconaXtraDBClus
 		return r.client.Create(context.TODO(), obj)
 	}
 
-	if _, ok := obj.(*corev1.Service); ok {
-		oldAnnotations := oldObject.GetAnnotations()
-		annotations := obj.GetAnnotations()
-		for _, annotation := range cr.Spec.IgnoreAnnotations {
-			if v, ok := oldAnnotations[annotation]; ok {
-				annotations[annotation] = v
-			}
-		}
-		obj.SetAnnotations(annotations)
-		oldLabels := oldObject.GetLabels()
-		labels := obj.GetLabels()
-		for _, label := range cr.Spec.IgnoreLabels {
-			if v, ok := oldLabels[label]; ok {
-				labels[label] = v
-			}
-		}
-		obj.SetLabels(labels)
-	}
-
 	if oldObject.GetAnnotations()["percona.com/last-config-hash"] != hash ||
 		!isObjectMetaEqual(obj, oldObject) {
 
@@ -1316,6 +1310,64 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(cr *api.PerconaXtraDBClus
 	}
 
 	return nil
+}
+
+func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject client.Object) error {
+	oldAnnotations := oldObject.GetAnnotations()
+	annotations := obj.GetAnnotations()
+	for _, annotation := range cr.Spec.IgnoreAnnotations {
+		if v, ok := oldAnnotations[annotation]; ok {
+			annotations[annotation] = v
+		}
+	}
+	obj.SetAnnotations(annotations)
+	oldLabels := oldObject.GetLabels()
+	labels := obj.GetLabels()
+	for _, label := range cr.Spec.IgnoreLabels {
+		if v, ok := oldLabels[label]; ok {
+			labels[label] = v
+		}
+	}
+	obj.SetLabels(labels)
+	return nil
+}
+
+func mergeMaps(x, y map[string]string) map[string]string {
+	if x == nil {
+		x = make(map[string]string)
+	}
+	for k, v := range y {
+		if _, ok := x[k]; !ok {
+			x[k] = v
+		}
+	}
+	return x
+}
+
+func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(cr *api.PerconaXtraDBCluster, svc *corev1.Service, saveOldMeta bool) error {
+	if !saveOldMeta && len(cr.Spec.IgnoreAnnotations) == 0 && len(cr.Spec.IgnoreLabels) == 0 {
+		return r.createOrUpdate(cr, svc)
+	}
+	oldSvc := new(corev1.Service)
+	err := r.client.Get(context.TODO(), types.NamespacedName{
+		Name:      svc.GetName(),
+		Namespace: svc.GetNamespace(),
+	}, oldSvc)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return r.createOrUpdate(cr, svc)
+		}
+		return errors.Wrap(err, "get object")
+	}
+
+	if saveOldMeta {
+		svc.SetAnnotations(mergeMaps(svc.GetAnnotations(), oldSvc.GetAnnotations()))
+		svc.SetLabels(mergeMaps(svc.GetLabels(), oldSvc.GetLabels()))
+	}
+	if err = setIgnoredAnnotationsAndLabels(cr, svc, oldSvc); err != nil {
+		return errors.Wrap(err, "set ignored annotations and labels")
+	}
+	return r.createOrUpdate(cr, svc)
 }
 
 func getObjectHash(obj runtime.Object) (string, error) {

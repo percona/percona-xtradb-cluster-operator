@@ -37,13 +37,10 @@ main() {
 	kubectl_bin apply \
 		-f "$test_dir/conf/secrets.yml"
 	cat_config "$conf_dir/$cluster.yml" \
-		| yq eval '.spec.crVersion = "1.8.0"' - \
+		| yq eval '.spec.crVersion = "1.10.0"' - \
 		| kubectl_bin apply -f -
 
 	# test 1.10.0
-	API="pxc.percona.com/v1-10-0"
-	apply_config "$conf_dir/$cluster.yml"
-
 	wait_cluster_consistency "$cluster" 3 2
 	wait_for_sts_generation "$cluster-pxc" "1" "1"
 	compare_kubectl service/$cluster-pxc "-1100"

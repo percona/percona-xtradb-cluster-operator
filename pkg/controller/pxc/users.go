@@ -266,7 +266,16 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 		return errors.Wrap(err, "manage operator admin user")
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) { // and pass is discarded
+		return nil
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) { // and pass is not discarded
+		// if the pass is not discarded that means that it is not propagated, because it will be discarded
+		// only after we see it is propagated. 
+
+		// Also we can check if it is propagated, but discarding returns error.
+		// In this case we will again check if it propagate, think that is ok for us.
 		return nil
 	}
 

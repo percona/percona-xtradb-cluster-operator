@@ -100,17 +100,6 @@ func (m *Manager) UpdateUserPass(user *SysUser) error {
 		}
 	}
 
-	_, err = tx.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		err = errors.Wrap(err, "flush privileges")
-
-		if errT := tx.Rollback(); errT != nil {
-			return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
-		}
-
-		return err
-	}
-
 	if err := tx.Commit(); err != nil {
 		return errors.Wrap(err, "commit transaction")
 	}
@@ -138,22 +127,24 @@ func (m *Manager) DiscardOldPassword(user *SysUser) error {
 		}
 	}
 
-	_, err = tx.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		err = errors.Wrap(err, "flush privileges")
-
-		if errT := tx.Rollback(); errT != nil {
-			return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
-		}
-
-		return err
-	}
-
 	if err := tx.Commit(); err != nil {
 		return errors.Wrap(err, "commit transaction")
 	}
 
 	return nil
+}
+
+// DiscardOldPassword discards old passwords of given users
+func (m *Manager) IsOldPassDiscarded(user *SysUser) (bool, error) {
+	var attributes string
+	r := m.db.QueryRow("select User_attributes from mysql.user where user =?' order by 1,2", user.Name)
+
+	err := r.Scan(attributes)
+	if err != nil && attributes == "" {
+		return false, errors.Wrap(err, "select User_attributes field")
+	}
+
+	return true, nil
 }
 
 func (u *Manager) UpdateProxyUser(user *SysUser) error {

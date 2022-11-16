@@ -101,6 +101,9 @@ main() {
 
 	write_test_data "$cluster"
 
+	desc 'show binlog events in binlog.000005'
+	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password"
+
 	proxy=$(get_proxy "$cluster")
 	time_now=$(run_mysql "SELECT now();" "-h $proxy -uroot -proot_password")
 	gtid=$(run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password" | grep Gtid | grep -Eo "${GTID_PATTERN}")
@@ -109,9 +112,6 @@ main() {
 		echo "Some garbage instead of legit GTID. Exiting"
 		exit 1
 	fi
-
-	desc 'show binlog events in binlog.000005'
-	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password"
 
 	sleep 60
 	write_data_for_pitr "$cluster"

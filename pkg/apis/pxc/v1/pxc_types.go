@@ -430,7 +430,7 @@ type HAProxySpec struct {
 
 type ProxySQLSpec struct {
 	PodSpec `json:",inline"`
-	// +kubebuilder:validation:Enum={percona,proxysql-admin}
+	// +kubebuilder:validation:Enum={internal,scheduler}
 	PXCHandler string `json:"pxchandler,omitempty"`
 }
 

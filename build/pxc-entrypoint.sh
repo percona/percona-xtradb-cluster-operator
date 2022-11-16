@@ -27,7 +27,6 @@ done
 # (will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
 #  "$XYZ_DB_PASSWORD" from a file, especially for Docker's secrets feature)
 file_env() {
-	set +o xtrace
 	local var="$1"
 	local fileVar="${var}_FILE"
 	local def="${2:-}"
@@ -45,7 +44,6 @@ file_env() {
 	fi
 	export "$var"="$val"
 	unset "$fileVar"
-	set -o xtrace
 }
 
 # usage: process_init_file FILENAME MYSQLCOMMAND...
@@ -348,7 +346,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			# no, we don't care if read finds a terminating character in this heredoc
 			# https://unix.stackexchange.com/questions/265149/why-is-set-o-errexit-breaking-this-read-heredoc-expression/265151#265151
 			read -r -d '' rootCreate <<-EOSQL || true
-				CREATE USER 'root'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '$(escape_special ${MYSQL_ROOT_PASSWORD})' ;
+				CREATE USER 'root'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '$(escape_special "${MYSQL_ROOT_PASSWORD}")' ;
 				GRANT ALL ON *.* TO 'root'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 			EOSQL
 		fi
@@ -377,28 +375,28 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			SET @@SESSION.SQL_LOG_BIN=0;
 
 			DELETE FROM mysql.user WHERE user NOT IN ('mysql.sys', 'mysqlxsys', 'root', 'mysql.infoschema', 'mysql.pxc.internal.session', 'mysql.pxc.sst.role', 'mysql.session') OR host NOT IN ('localhost') ;
-			ALTER USER 'root'@'localhost' IDENTIFIED BY '$(escape_special ${MYSQL_ROOT_PASSWORD})' ;
+			ALTER USER 'root'@'localhost' IDENTIFIED BY '$(escape_special "${MYSQL_ROOT_PASSWORD}")' ;
 			GRANT ALL ON *.* TO 'root'@'localhost' WITH GRANT OPTION ;
 			${rootCreate}
 			/*!80016 REVOKE SYSTEM_USER ON *.* FROM root */;
 
-			CREATE USER 'operator'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '$(escape_special ${OPERATOR_ADMIN_PASSWORD})' ;
+			CREATE USER 'operator'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '$(escape_special "${OPERATOR_ADMIN_PASSWORD}")' ;
 			GRANT ALL ON *.* TO 'operator'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 
-			CREATE USER 'xtrabackup'@'%' IDENTIFIED BY '$(escape_special ${XTRABACKUP_PASSWORD})';
+			CREATE USER 'xtrabackup'@'%' IDENTIFIED BY '$(escape_special "${XTRABACKUP_PASSWORD}")';
 			GRANT ALL ON *.* TO 'xtrabackup'@'%';
 
-			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '$(escape_special ${MONITOR_PASSWORD})' WITH MAX_USER_CONNECTIONS 100;
+			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '$(escape_special "${MONITOR_PASSWORD}")' WITH MAX_USER_CONNECTIONS 100;
 			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			GRANT SELECT ON performance_schema.* TO 'monitor'@'${MONITOR_HOST}';
 			${monitorConnectGrant}
 
-			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '$(escape_special ${CLUSTERCHECK_PASSWORD})';
+			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '$(escape_special "${CLUSTERCHECK_PASSWORD}")';
 			GRANT PROCESS ON *.* TO 'clustercheck'@'localhost';
 
 			${systemUserGrant}
 
-			CREATE USER 'replication'@'%' IDENTIFIED BY '$(escape_special ${REPLICATION_PASSWORD})';
+			CREATE USER 'replication'@'%' IDENTIFIED BY '$(escape_special "${REPLICATION_PASSWORD}")';
 			GRANT REPLICATION SLAVE ON *.* to 'replication'@'%';
 			DROP DATABASE IF EXISTS test;
 			FLUSH PRIVILEGES ;
@@ -564,7 +562,6 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 				|| true
 		}
 		function node_recovery() {
-			set -o xtrace
 			echo "Recovery is in progress, please wait...."
 			sed -i 's/wsrep_cluster_address=.*/wsrep_cluster_address=gcomm:\/\//g' /etc/mysql/node.cnf
 			rm -f /tmp/recovery-case
@@ -575,7 +572,6 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			exec "$@" $wsrep_start_position_opt
 		}
 		function is_manual_recovery() {
-			set +o xtrace
 			recovery_file='/var/lib/mysql/sleep-forever'
 			if [ -f "${recovery_file}" ]; then
 				echo "The $recovery_file file is detected, node is going to infinity loop"
@@ -586,7 +582,6 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 					fi
 				done
 			fi
-			set -o xtrace
 		}
 
 		is_primary_exists=$(get_primary)
@@ -600,7 +595,6 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 				seqno="-1"
 			fi
 
-			set +o xtrace
 			sleep 3
 
 			echo "#####################################################FULL_PXC_CLUSTER_CRASH:$NODE_NAME#####################################################"
@@ -620,7 +614,6 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 					exit 0
 				fi
 			done
-			set -o xtrace
 		fi
 	fi
 fi

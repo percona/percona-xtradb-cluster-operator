@@ -363,7 +363,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
 		}
 
-		err = r.createOrUpdateService(o, pxcService, false)
+		err = r.createOrUpdateService(o, pxcService, true)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
 		}
@@ -407,7 +407,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(_ context.Context, request rec
 		if err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "%s setControllerReference", svc.Name)
 		}
-		err = r.createOrUpdateService(o, svc, false)
+		err = r.createOrUpdateService(o, svc, true)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
 		}

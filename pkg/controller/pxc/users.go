@@ -257,8 +257,10 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 		return errors.Wrap(err, "generate password")
 	}
 	addr := cr.Name + "-pxc." + cr.Namespace
-	if cr.CompareVersionWith("1.6.0") >= 0 {
+	if cr.CompareVersionWith("1.6.0") >= 0 && cr.CompareVersionWith("1.12.0") < 0 {
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	} else if cr.CompareVersionWith("1.12.0") >= 0 {
+		addr = cr.Name + "-pxc." + cr.Namespace + ":33062"
 	}
 	um, err := users.NewManager(addr, users.Root, string(secrets.Data[users.Root]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
@@ -313,7 +315,11 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
 	}
 	if hasKey {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+		if cr.CompareVersionWith("1.12.0") >= 0 {
+			addr = cr.Name + "-pxc." + cr.Namespace + ":33062"
+		} else {
+			addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+		}
 	}
 
 	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
@@ -453,16 +459,20 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 					pxcUser = users.Operator
 					pxcPass = string(internalSecrets.Data[users.Operator])
 				}
-			
+
 				addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
 				hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
 				if err != nil {
 					return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
 				}
 				if hasKey {
-					addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+					if cr.CompareVersionWith("1.12.0") >= 0 {
+						addr = cr.Name + "-pxc." + cr.Namespace + ":33062"
+					} else {
+						addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+					}
 				}
-			
+
 				um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 				if err != nil {
 					return errors.Wrap(err, "new users manager for grant")
@@ -567,7 +577,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.Percon
 		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
 	}
 	if hasKey {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+		if cr.CompareVersionWith("1.12.0") >= 0 {
+			addr = cr.Name + "-pxc." + cr.Namespace + ":33062"
+		} else {
+			addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+		}
 	}
 
 	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
@@ -664,8 +678,10 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtr
 	}
 
 	addr := cr.Name + "-pxc." + cr.Namespace
-	if cr.CompareVersionWith("1.6.0") >= 0 {
+	if cr.CompareVersionWith("1.6.0") >= 0 && cr.CompareVersionWith("1.12.0") < 0 {
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	} else if cr.CompareVersionWith("1.12.0") >= 0 {
+		addr = cr.Name + "-pxc." + cr.Namespace + ":33062"
 	}
 
 	pxcUser := "root"
@@ -830,9 +846,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPass(cr *api.PerconaXtraDBClus
 	}
 
 	addr := cr.Name + "-pxc." + cr.Namespace
-	if cr.CompareVersionWith("1.6.0") >= 0 {
+	if cr.CompareVersionWith("1.6.0") >= 0 && cr.CompareVersionWith("1.12.0") < 0 {
 		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	} else if cr.CompareVersionWith("1.12.0") >= 0 {
+		addr = cr.Name + "-pxc." + cr.Namespace + ":33062"
 	}
+
 	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "new users manager")

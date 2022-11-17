@@ -759,23 +759,29 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
 	stsApp := statefulset.NewNode(cr)
 	ls := stsApp.Labels()
-	limitMemory := cr.Spec.PXC.Resources.Limits.Memory().String()
-	requestMemory := cr.Spec.PXC.Resources.Requests.Memory().String()
 
 	if cr.CompareVersionWith("1.3.0") >= 0 {
-		if limitMemory != "0" || requestMemory != "0" {
-			configMap, err := config.NewAutoTuneConfigMap(cr, "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"])
+		autotuneCm := "auto-" + ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"]
+
+		_, ok := cr.Spec.PXC.Resources.Limits[corev1.ResourceMemory]
+		if ok {
+			configMap, err := config.NewAutoTuneConfigMap(cr, cr.Spec.PXC.Resources.Limits.Memory(), autotuneCm)
 			if err != nil {
-				return errors.Wrap(err, "new auto-config map")
+				return errors.Wrap(err, "new autotune configmap")
 			}
+
 			err = setControllerReference(cr, configMap, r.scheme)
 			if err != nil {
-				return errors.Wrap(err, "set auto-config controller ref")
+				return errors.Wrap(err, "set autotune configmap controller ref")
 			}
 
 			err = createOrUpdateConfigmap(r.client, configMap)
 			if err != nil {
-				return errors.Wrap(err, "auto-config config map")
+				return errors.Wrap(err, "create or update autotune configmap")
+			}
+		} else {
+			if err := deleteConfigMapIfExists(r.client, cr, autotuneCm); err != nil {
+				return errors.Wrap(err, "delete autotune configmap")
 			}
 		}
 	}

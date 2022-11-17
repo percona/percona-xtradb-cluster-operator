@@ -177,6 +177,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		logger.Info(fmt.Sprintf("User %s: pass updated but old one not discarded", user.Name))
+
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
 			return errors.Wrap(err, "is pass propagated")
@@ -261,6 +263,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		logger.Info(fmt.Sprintf("User %s: pass updated but old one not discarded", user.Name))
+
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
 			return errors.Wrap(err, "is pass propagated")
@@ -423,6 +427,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		logger.Info(fmt.Sprintf("User %s: pass updated but old one not discarded", user.Name))
+
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
 			return errors.Wrap(err, "is pass propagated")
@@ -565,6 +571,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		logger.Info(fmt.Sprintf("User %s: pass updated but old one not discarded", user.Name))
+
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
 			return errors.Wrap(err, "is pass propagated")
@@ -648,6 +656,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		logger.Info(fmt.Sprintf("User %s: pass updated but old one not discarded", user.Name))
+
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
 			return errors.Wrap(err, "is pass propagated")
@@ -763,6 +773,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		logger.Info(fmt.Sprintf("User %s: pass updated but old one not discarded", user.Name))
+
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
 			return errors.Wrap(err, "is pass propagated")
@@ -883,6 +895,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		logger.Info(fmt.Sprintf("User %s: pass updated but old one not discarded", user.Name))
+
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
 			return errors.Wrap(err, "is pass propagated")

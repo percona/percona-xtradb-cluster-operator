@@ -79,9 +79,28 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 	return nil
 }
 
+func (u *Manager) UpdateUserPass(user *SysUser) error {
+	if user == nil {
+		return nil
+	}
+
+	for _, host := range user.Hosts {
+		_, err := u.db.Exec("ALTER USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)
+		if err != nil {
+			return errors.Wrap(err, "update password")
+		}
+	}
+
+	return nil
+}
+
 // UpdateUserPassWithRetention updates user passwords but retains the current password
 // using Dual Password feature of MySQL 8.
 func (m *Manager) UpdateUserPassWithRetention(user *SysUser) error {
+	if user == nil {
+		return nil
+	}
+
 	tx, err := m.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")
@@ -109,6 +128,10 @@ func (m *Manager) UpdateUserPassWithRetention(user *SysUser) error {
 
 // DiscardOldPassword discards old passwords of given users
 func (m *Manager) DiscardOldPassword(user *SysUser) error {
+	if user == nil {
+		return nil
+	}
+
 	tx, err := m.db.Begin()
 	if err != nil {
 		return errors.Wrap(err, "begin transaction")

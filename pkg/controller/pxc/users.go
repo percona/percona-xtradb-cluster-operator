@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
@@ -196,7 +197,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
@@ -281,7 +282,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
@@ -444,7 +445,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
@@ -587,7 +588,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update clustercheck users pass")
 	}
@@ -671,7 +672,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
@@ -787,7 +788,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
@@ -1021,14 +1022,14 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateUserPass(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
+func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	um, err := getUserManger(cr, internalSecrets)
 	if err != nil {
 		return err
 	}
 	defer um.Close()
 
-	err = um.UpdateUserPass(user)
+	err = um.UpdateUserPassWithRetention(user)
 	if err != nil {
 		return errors.Wrap(err, "update user pass")
 	}
@@ -1067,6 +1068,8 @@ func (r *ReconcilePerconaXtraDBCluster) isOldPasswordDiscarded(cr *api.PerconaXt
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCluster, user *users.SysUser) (bool, error) {
+	logger := r.logger(cr.Name, cr.Namespace)
+
 	components := map[string]int32{
 		"pxc": cr.Spec.PXC.Size,
 	}
@@ -1084,6 +1087,8 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 		compCount := size
 		eg.Go(func() error {
 			for i := 0; int32(i) < compCount; i++ {
+				logger.Info(fmt.Sprintf("AAAA checking is pass propagated - user: %s, component: %s-%d", user.Name, comp, i))
+
 				pod := corev1.Pod{}
 				err := r.client.Get(context.TODO(),
 					types.NamespacedName{
@@ -1117,6 +1122,9 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 	}
 
 	if err := eg.Wait(); err != nil {
+		if strings.Contains(err.Error(), "No such file of directory") {
+			return false, nil
+		}
 		return false, err
 	}
 

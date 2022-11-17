@@ -28,22 +28,22 @@ wait_cluster_consistency "$cluster" 3 3
 patch_secret "my-cluster-secrets" "proxyadmin" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
-compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-0" "" -c'proxysql'
-compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-1" "" -c'proxysql'
-compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-2" "" -c'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-0" "" 'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-1" "" 'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-2" "" 'proxysql'
 
 desc 'test xtrabackup'
 kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":1}}}"
 patch_secret "my-cluster-secrets" "xtrabackup" "$newpassencrypted"
 sleep 30
 wait_cluster_consistency "$cluster" 3 2
-compare_mysql_cmd_local "select-3" "SHOW DATABASES;" "-h 127.0.0.1 -uxtrabackup -p$newpass" "$cluster-pxc-0" "" -c'pxc'
+compare_mysql_cmd_local "select-3" "SHOW DATABASES;" "-h 127.0.0.1 -uxtrabackup -p$newpass" "$cluster-pxc-0" "" 'pxc'
 
 desc 'test clustercheck'
 patch_secret "my-cluster-secrets" "clustercheck" "$newpassencrypted"
 sleep 30
 wait_cluster_consistency "$cluster" 3 2
-compare_mysql_cmd_local "select-5" "SHOW DATABASES;" "-h 127.0.0.1 -uclustercheck -p$newpass" "$cluster-pxc-0" "" -c'pxc'
+compare_mysql_cmd_local "select-5" "SHOW DATABASES;" "-h 127.0.0.1 -uclustercheck -p$newpass" "$cluster-pxc-0" "" 'pxc'
 
 desc 'test monitor'
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"

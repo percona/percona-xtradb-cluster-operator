@@ -3,7 +3,8 @@
 GIT_COMMIT=$(git rev-parse HEAD)
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-API="pxc.percona.com/v1-12-0"
+API="pxc.percona.com/v1"
+OPERATOR_VERSION="1.12.0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 MYSQL_VERSION=${MYSQL_VERSION:-"8.0"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
@@ -241,14 +242,14 @@ deploy_operator() {
 		cat ${src_dir}/deploy/cw-operator.yaml \
 			| sed -e "s^image: .*^image: ${IMAGE}^" \
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
-			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' \
+			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| kubectl_bin apply -f -
 	else
 		apply_rbac rbac
 		cat ${src_dir}/deploy/operator.yaml \
 			| sed -e "s^image: .*^image: ${IMAGE}^" \
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
-			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' \
+			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| kubectl_bin apply -f -
 	fi
 
@@ -873,8 +874,10 @@ kubectl_bin() {
 	local LAST_ERR="$(mktemp)"
 	local exit_status=0
 	for i in $(seq 0 2); do
+		set +e
 		kubectl "$@" 1>"$LAST_OUT" 2>"$LAST_ERR"
 		exit_status=$?
+		set -e
 		if [[ ${exit_status} != 0 ]]; then
 			sleep "$((timeout * i))"
 		else

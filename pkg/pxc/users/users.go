@@ -76,11 +76,6 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 		return errors.Wrap(err, "grant operator user")
 	}
 
-	_, err = u.db.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		return errors.Wrap(err, "flush privileges")
-	}
-
 	return nil
 }
 
@@ -94,11 +89,6 @@ func (u *Manager) UpdateUserPass(user *SysUser) error {
 		if err != nil {
 			return errors.Wrap(err, "update password")
 		}
-	}
-
-	_, err := u.db.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		return errors.Wrap(err, "flush privileges")
 	}
 
 	return nil
@@ -162,11 +152,6 @@ func (u *Manager) Update160MonitorUserGrant(pass string) (err error) {
 		return errors.Wrapf(err, "set max connections to user monitor")
 	}
 
-	_, err = u.db.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		return errors.Wrap(err, "flush privileges")
-	}
-
 	return nil
 }
 
@@ -181,11 +166,6 @@ func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
 	_, err = u.db.Exec("GRANT ALL ON *.* TO 'xtrabackup'@'%'")
 	if err != nil {
 		return errors.Wrapf(err, "grant privileges to user xtrabackup")
-	}
-
-	_, err = u.db.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		return errors.Wrap(err, "flush privileges")
 	}
 
 	return nil
@@ -204,10 +184,6 @@ func (u *Manager) Update1100SystemUserPrivilege(user *SysUser) (err error) {
 		}
 	}
 
-	if _, err := u.db.Exec("FLUSH PRIVILEGES"); err != nil {
-		return errors.Wrap(err, "flush privileges")
-	}
-
 	return nil
 }
 
@@ -221,11 +197,6 @@ func (u *Manager) CreateReplicationUser(password string) error {
 	_, err = u.db.Exec("GRANT REPLICATION SLAVE ON *.* to 'replication'@'%'")
 	if err != nil {
 		return errors.Wrap(err, "grant replication user")
-	}
-
-	_, err = u.db.Exec("FLUSH PRIVILEGES")
-	if err != nil {
-		return errors.Wrap(err, "flush privileges")
 	}
 
 	return nil

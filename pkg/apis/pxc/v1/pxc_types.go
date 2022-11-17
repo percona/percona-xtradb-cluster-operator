@@ -75,7 +75,8 @@ type ReplicationChannelConfig struct {
 	SourceRetryCount   uint   `json:"sourceRetryCount,omitempty"`
 	SourceConnectRetry uint   `json:"sourceConnectRetry,omitempty"`
 	SSL                bool   `json:"ssl,omitempty"`
-	CA                 string `json:"ca,omitempty"`	
+	SSLSkipVerify      bool   `json:"sslSkipVerify,omitempty"`
+	CA                 string `json:"ca,omitempty"`
 }
 
 type ReplicationSource struct {

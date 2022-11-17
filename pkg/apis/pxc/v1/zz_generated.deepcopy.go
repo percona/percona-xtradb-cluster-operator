@@ -6,8 +6,9 @@
 package v1
 
 import (
-	metav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	apismetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -322,6 +323,13 @@ func (in *PXCBackupStatus) DeepCopyInto(out *PXCBackupStatus) {
 		in, out := &in.Azure, &out.Azure
 		*out = new(BackupStorageAzureSpec)
 		**out = **in
+	}
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = make([]metav1.Condition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 
@@ -1094,7 +1102,7 @@ func (in *TLSSpec) DeepCopyInto(out *TLSSpec) {
 	}
 	if in.IssuerConf != nil {
 		in, out := &in.IssuerConf, &out.IssuerConf
-		*out = new(metav1.ObjectReference)
+		*out = new(apismetav1.ObjectReference)
 		**out = **in
 	}
 }

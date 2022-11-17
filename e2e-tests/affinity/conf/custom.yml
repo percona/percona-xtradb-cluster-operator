@@ -1,4 +1,4 @@
-apiVersion: pxc.percona.com/v1-6-0
+apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: custom

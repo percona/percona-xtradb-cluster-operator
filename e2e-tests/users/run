@@ -19,7 +19,7 @@ spinup_pxc "$cluster" "$conf_dir/$cluster.yml"
 desc 'test root'
 patch_secret "my-cluster-secrets" "root" "$newpassencrypted"
 sleep 15
-compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uroot -p$newpass"
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uroot -p'$newpass'"
 
 desc 'test proxyadmin'
 kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":3}}}"
@@ -28,34 +28,34 @@ wait_cluster_consistency "$cluster" 3 3
 patch_secret "my-cluster-secrets" "proxyadmin" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
-compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-0" "" 'proxysql'
-compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-1" "" 'proxysql'
-compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p$newpass" "$cluster-proxysql-2" "" 'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-0" "" 'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-1" "" 'proxysql'
+compare_mysql_cmd_local "select-2" "SHOW TABLES;" "-h127.0.0.1 -P6032 -uproxyadmin -p'$newpass'" "$cluster-proxysql-2" "" 'proxysql'
 
 desc 'test xtrabackup'
 kubectl_bin patch pxc some-name --type=merge -p="{\"spec\":{\"proxysql\":{\"size\":1}}}"
 patch_secret "my-cluster-secrets" "xtrabackup" "$newpassencrypted"
 sleep 30
 wait_cluster_consistency "$cluster" 3 2
-compare_mysql_cmd_local "select-3" "SHOW DATABASES;" "-h 127.0.0.1 -uxtrabackup -p$newpass" "$cluster-pxc-0" "" 'pxc'
+compare_mysql_cmd_local "select-3" "SHOW DATABASES;" "-h 127.0.0.1 -uxtrabackup -p'$newpass'" "$cluster-pxc-0" "" 'pxc'
 
 desc 'test clustercheck'
 patch_secret "my-cluster-secrets" "clustercheck" "$newpassencrypted"
 sleep 30
 wait_cluster_consistency "$cluster" 3 2
-compare_mysql_cmd_local "select-5" "SHOW DATABASES;" "-h 127.0.0.1 -uclustercheck -p$newpass" "$cluster-pxc-0" "" 'pxc'
+compare_mysql_cmd_local "select-5" "SHOW DATABASES;" "-h 127.0.0.1 -uclustercheck -p'$newpass'" "$cluster-pxc-0" "" 'pxc'
 
 desc 'test monitor'
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
 sleep 30
 wait_cluster_consistency "$cluster" 3 2
-compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -umonitor -p$newpass"
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -umonitor -p'$newpass'"
 
 desc 'test operator'
 patch_secret "my-cluster-secrets" "operator" "$newpassencrypted"
 sleep 30
 wait_cluster_consistency "$cluster" 3 2
-compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p$newpass"
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'$newpass'"
 
 desc 'change secret name'
 kubectl_bin patch pxc $cluster --type merge --patch '{"spec": {"secretsName":"my-cluster-secrets-2"}}'
@@ -68,22 +68,22 @@ desc 'test new operator'
 patch_secret "my-cluster-secrets-2" "operator" "$newpassencrypted"
 sleep 30
 wait_cluster_consistency "$cluster" 3 2
-compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p$newpass"
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'$newpass'"
 
 newpass=$(getSecretData "my-cluster-secrets-2" "root")
 desc 'test new users sync'
 run_mysql \
 	"CREATE USER 'testsync'@'%' IDENTIFIED BY '$newpass';" \
-	"-h $cluster-pxc -uroot -p$newpass"
+	"-h $cluster-pxc -uroot -p'$newpass'"
 sleep 30
-compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -utestsync -p$newpass"
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -utestsync -p'$newpass'"
 
 pass=$(getSecretData "internal-some-name" "operator")
 desc 'check secret without operator'
 kubectl_bin apply \
 	-f "$test_dir/conf/secrets.yml"
 sleep 15
-compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p$pass"
+compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'$pass'"
 
 newpass="test-password2"
 newpassencrypted=$(echo -n "$newpass" | base64)
@@ -93,6 +93,6 @@ wait_cluster_consistency "$cluster" 3 3
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 3
-compare_mysql_cmd "select-3" "SHOW DATABASES;" "-h $cluster-haproxy -umonitor -p$newpass"
+compare_mysql_cmd "select-3" "SHOW DATABASES;" "-h $cluster-haproxy -umonitor -p'$newpass'"
 
 destroy "${namespace}"

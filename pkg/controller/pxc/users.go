@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
@@ -1068,15 +1067,11 @@ func (r *ReconcilePerconaXtraDBCluster) isOldPasswordDiscarded(cr *api.PerconaXt
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCluster, user *users.SysUser) (bool, error) {
-	logger := r.logger(cr.Name, cr.Namespace)
-
 	components := map[string]int32{
 		"pxc": cr.Spec.PXC.Size,
 	}
 
-	if cr.ProxySQLEnabled() {
-		components["proxysql"] = cr.Spec.ProxySQL.Size
-	} else if cr.HAProxyEnabled() {
+	if cr.HAProxyEnabled() {
 		components["haproxy"] = cr.Spec.HAProxy.Size
 	}
 
@@ -1087,8 +1082,6 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 		compCount := size
 		eg.Go(func() error {
 			for i := 0; int32(i) < compCount; i++ {
-				logger.Info(fmt.Sprintf("AAAA checking is pass propagated - user: %s, component: %s-%d", user.Name, comp, i))
-
 				pod := corev1.Pod{}
 				err := r.client.Get(context.TODO(),
 					types.NamespacedName{
@@ -1122,9 +1115,6 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 	}
 
 	if err := eg.Wait(); err != nil {
-		if strings.Contains(err.Error(), "No such file of directory") {
-			return false, nil
-		}
 		return false, err
 	}
 

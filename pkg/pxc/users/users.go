@@ -3,6 +3,7 @@ package users
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
@@ -141,7 +142,14 @@ func (m *Manager) IsOldPassDiscarded(user *SysUser) (bool, error) {
 
 	err := r.Scan(&attributes)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return true, nil
+		}
 		return false, errors.Wrap(err, "select User_attributes field")
+	}
+
+	if attributes.Valid {
+		return false, nil
 	}
 
 	return true, nil

@@ -139,7 +139,7 @@ func (m *Manager) IsOldPassDiscarded(user *SysUser) (bool, error) {
 	var attributes string
 	r := m.db.QueryRow("SELECT User_attributes FROM mysql.user WHERE user=?", user.Name)
 
-	err := r.Scan(attributes)
+	err := r.Scan(&attributes)
 	if err != nil {
 		return false, errors.Wrap(err, "select User_attributes field")
 	}

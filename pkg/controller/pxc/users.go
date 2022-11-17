@@ -235,6 +235,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
+	logger.Info(fmt.Sprintf("AAAA PXC.Ready: %d", cr.Status.PXC.Ready))
 	if cr.Status.PXC.Ready == 0 {
 		return nil
 	}
@@ -365,6 +366,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(cr *api.PerconaX
 func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
+	logger.Info(fmt.Sprintf("AAAA PXC.Ready: %d", cr.Status.PXC.Ready))
 	if cr.Status.PXC.Ready == 0 {
 		return nil
 	}
@@ -513,6 +515,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(cr *api.PerconaXt
 func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
+	logger.Info(fmt.Sprintf("AAAA PXC.Ready: %d", cr.Status.PXC.Ready))
 	if cr.Status.PXC.Ready == 0 {
 		return nil
 	}
@@ -616,6 +619,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
+	logger.Info(fmt.Sprintf("AAAA PXC.Ready: %d", cr.Status.PXC.Ready))
 	if cr.Status.PXC.Ready == 0 {
 		return nil
 	}
@@ -737,6 +741,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 		return nil
 	}
 
+	logger.Info(fmt.Sprintf("AAAA PXC.Ready: %d", cr.Status.PXC.Ready))
 	if cr.Status.PXC.Ready == 0 {
 		return nil
 	}

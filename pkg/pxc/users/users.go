@@ -3,7 +3,6 @@ package users
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"

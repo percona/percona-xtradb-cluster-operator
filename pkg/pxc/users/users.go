@@ -137,10 +137,10 @@ func (m *Manager) DiscardOldPassword(user *SysUser) error {
 // DiscardOldPassword discards old passwords of given users
 func (m *Manager) IsOldPassDiscarded(user *SysUser) (bool, error) {
 	var attributes string
-	r := m.db.QueryRow("select User_attributes from mysql.user where user =?' order by 1,2", user.Name)
+	r := m.db.QueryRow("SELECT User_attributes FROM mysql.user WHERE user=?", user.Name)
 
 	err := r.Scan(attributes)
-	if err != nil && attributes == "" {
+	if err != nil {
 		return false, errors.Wrap(err, "select User_attributes field")
 	}
 

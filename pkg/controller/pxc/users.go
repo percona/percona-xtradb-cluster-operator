@@ -167,18 +167,16 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 		Hosts: []string{"localhost", "%"},
 	}
 
-	annotationName := "user-root-pass-propagated"
-	passPropagated := internalSecrets.Annotations[annotationName] == "true"
+	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
+	if err != nil {
+		return err
+	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passPropagated {
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passDiscarded {
 		return nil
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passPropagated {
-
-		// This means the pass was updated, internal secrets are update, but the pass is not propagated yet
-		// We only need to check if it is propagated or not and discard the old one
-
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
 			return errors.Wrap(err, "is pass propagated")
@@ -189,22 +187,16 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
 		if err != nil {
-			return errors.Wrap(err, "discard root old pass")
+			return errors.Wrap(err, "discard old pass")
 		}
 		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
-
-		internalSecrets.Annotations[annotationName] = "true"
-		err = r.client.Update(context.TODO(), internalSecrets)
-		if err != nil {
-			return errors.Wrap(err, "update internal secrets root user password")
-		}
 
 		return nil
 	}
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPass(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
@@ -216,14 +208,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	}
 
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	internalSecrets.Annotations["user-root-pass-propagated"] = "false"
 	err = r.client.Update(context.TODO(), internalSecrets)
 	if err != nil {
 		return errors.Wrap(err, "update internal secrets root user password")
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
-	passPropagated, err = r.isPassPropagated(cr, user)
+	passPropagated, err := r.isPassPropagated(cr, user)
 	if err != nil {
 		return errors.Wrap(err, "is pass propagated")
 	}
@@ -234,15 +225,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 
 	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
 	if err != nil {
-		return errors.Wrap(err, "discard root old pass")
+		return errors.Wrap(err, "discard old pass")
 	}
 	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
-
-	internalSecrets.Annotations[annotationName] = "true"
-	err = r.client.Update(context.TODO(), internalSecrets)
-	if err != nil {
-		return errors.Wrap(err, "update internal secrets root user password")
-	}
 
 	return nil
 }
@@ -266,16 +251,30 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 		return errors.Wrap(err, "manage operator admin user")
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) { // and pass is discarded
+	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
+	if err != nil {
+		return err
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passDiscarded {
 		return nil
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) { // and pass is not discarded
-		// if the pass is not discarded that means that it is not propagated, because it will be discarded
-		// only after we see it is propagated. 
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		passPropagated, err := r.isPassPropagated(cr, user)
+		if err != nil {
+			return errors.Wrap(err, "is pass propagated")
+		}
+		if !passPropagated {
+			return errors.New("password not yet propagated")
+		}
 
-		// Also we can check if it is propagated, but discarding returns error.
-		// In this case we will again check if it propagate, think that is ok for us.
+		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+
 		return nil
 	}
 
@@ -376,31 +375,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		Hosts: []string{"%"},
 	}
 
-	pxcUser := users.Root
-	pxcPass := string(internalSecrets.Data[users.Root])
-	if _, ok := internalSecrets.Data[users.Operator]; ok {
-		pxcUser = users.Operator
-		pxcPass = string(internalSecrets.Data[users.Operator])
-	}
-
-	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
-	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	um, err := getUserManger(cr, internalSecrets)
 	if err != nil {
-		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
-	}
-	if hasKey {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
-
-	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	if err != nil {
-		return errors.Wrap(err, "new users manager for grant")
+		return err
 	}
 	defer um.Close()
 
 	// Regardless of password change, always ensure monitor user has the right privileges
 	if cr.CompareVersionWith("1.6.0") >= 0 {
-		err := r.updateMonitorUserGrant(cr, internalSecrets, &um)
+		err := r.updateMonitorUserGrant(cr, internalSecrets, um)
 		if err != nil {
 			return errors.Wrap(err, "update monitor user grant")
 		}
@@ -423,14 +406,37 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 			}
 
 			if !ver.LessThan(privSystemUserAddedIn) {
-				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, &um); err != nil {
+				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, um); err != nil {
 					return errors.Wrap(err, "monitor user grant system privilege")
 				}
 			}
 		}
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
+	if err != nil {
+		return err
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passDiscarded {
+		return nil
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		passPropagated, err := r.isPassPropagated(cr, user)
+		if err != nil {
+			return errors.Wrap(err, "is pass propagated")
+		}
+		if !passPropagated {
+			return errors.New("password not yet propagated")
+		}
+
+		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+
 		return nil
 	}
 
@@ -536,42 +542,49 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 
 			if !ver.LessThan(privSystemUserAddedIn) {
 
-				pxcUser := users.Root
-				pxcPass := string(internalSecrets.Data[users.Root])
-				if _, ok := internalSecrets.Data[users.Operator]; ok {
-					pxcUser = users.Operator
-					pxcPass = string(internalSecrets.Data[users.Operator])
-				}
-
-				addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
-				hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+				um, err := getUserManger(cr, internalSecrets)
 				if err != nil {
-					return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
-				}
-				if hasKey {
-					addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-				}
-
-				um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-				if err != nil {
-					return errors.Wrap(err, "new users manager for grant")
+					return err
 				}
 				defer um.Close()
 
-				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, &um); err != nil {
+				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, um); err != nil {
 					return errors.Wrap(err, "clustercheck user grant system privilege")
 				}
 			}
 		}
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
+	if err != nil {
+		return err
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passDiscarded {
+		return nil
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		passPropagated, err := r.isPassPropagated(cr, user)
+		if err != nil {
+			return errors.Wrap(err, "is pass propagated")
+		}
+		if !passPropagated {
+			return errors.New("password not yet propagated")
+		}
+
+		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+
 		return nil
 	}
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPass(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update clustercheck users pass")
 	}
@@ -625,13 +638,36 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 		}
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
+	if err != nil {
+		return err
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passDiscarded {
+		return nil
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		passPropagated, err := r.isPassPropagated(cr, user)
+		if err != nil {
+			return errors.Wrap(err, "is pass propagated")
+		}
+		if !passPropagated {
+			return errors.New("password not yet propagated")
+		}
+
+		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+
 		return nil
 	}
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPass(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
@@ -661,47 +697,31 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret) error {
+func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	annotationName := "grant-for-1.7.0-xtrabackup-user"
-	if internalSysSecretObj.Annotations[annotationName] == "done" {
+	if secrets.Annotations[annotationName] == "done" {
 		return nil
 	}
 
-	pxcUser := users.Root
-	pxcPass := string(internalSysSecretObj.Data[users.Root])
-	if _, ok := internalSysSecretObj.Data[users.Operator]; ok {
-		pxcUser = users.Operator
-		pxcPass = string(internalSysSecretObj.Data[users.Operator])
-	}
-
-	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
-	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	um, err := getUserManger(cr, secrets)
 	if err != nil {
-		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
-	}
-	if hasKey {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
-
-	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	if err != nil {
-		return errors.Wrap(err, "new users manager for grant")
+		return err
 	}
 	defer um.Close()
 
-	err = um.Update170XtrabackupUser(string(internalSysSecretObj.Data[users.Xtrabackup]))
+	err = um.Update170XtrabackupUser(string(secrets.Data[users.Xtrabackup]))
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
 	}
 
-	if internalSysSecretObj.Annotations == nil {
-		internalSysSecretObj.Annotations = make(map[string]string)
+	if secrets.Annotations == nil {
+		secrets.Annotations = make(map[string]string)
 	}
 
-	internalSysSecretObj.Annotations[annotationName] = "done"
-	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	secrets.Annotations[annotationName] = "done"
+	err = r.client.Update(context.TODO(), secrets)
 	if err != nil {
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
@@ -733,7 +753,30 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 		return errors.Wrap(err, "manage replication user")
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
+	if err != nil {
+		return err
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passDiscarded {
+		return nil
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		passPropagated, err := r.isPassPropagated(cr, user)
+		if err != nil {
+			return errors.Wrap(err, "is pass propagated")
+		}
+		if !passPropagated {
+			return errors.New("password not yet propagated")
+		}
+
+		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+
 		return nil
 	}
 
@@ -770,58 +813,46 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 }
 
 // manageReplicationUser ensures that replication user is always present and with the right privileges
-func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, internalSysSecretObj *corev1.Secret) error {
+func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtraDBCluster, sysUsersSecretObj, secrets *corev1.Secret) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	pass, existInSys := sysUsersSecretObj.Data["replication"]
-	_, existInInternal := internalSysSecretObj.Data["replication"]
+	pass, existInSys := sysUsersSecretObj.Data[users.Replication]
+	_, existInInternal := secrets.Data[users.Replication]
 	if existInSys && !existInInternal {
-		if internalSysSecretObj.Data == nil {
-			internalSysSecretObj.Data = make(map[string][]byte)
+		if secrets.Data == nil {
+			secrets.Data = make(map[string][]byte)
 		}
-		internalSysSecretObj.Data["replication"] = pass
+		secrets.Data[users.Replication] = pass
 		return nil
 	}
 	if existInSys {
 		return nil
 	}
 
-	pass, err := generatePass()
+	um, err := getUserManger(cr, secrets)
+	if err != nil {
+		return err
+	}
+	defer um.Close()
+
+	pass, err = generatePass()
 	if err != nil {
 		return errors.Wrap(err, "generate password")
 	}
-
-	addr := cr.Name + "-pxc." + cr.Namespace
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
-
-	pxcUser := "root"
-	pxcPass := string(internalSysSecretObj.Data["root"])
-	if _, ok := internalSysSecretObj.Data["operator"]; ok {
-		pxcUser = "operator"
-		pxcPass = string(internalSysSecretObj.Data["operator"])
-	}
-
-	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	if err != nil {
-		return errors.Wrap(err, "new users manager")
-	}
-	defer um.Close()
 
 	err = um.CreateReplicationUser(string(pass))
 	if err != nil {
 		return errors.Wrap(err, "create replication user")
 	}
 
-	sysUsersSecretObj.Data["replication"] = pass
-	internalSysSecretObj.Data["replication"] = pass
+	sysUsersSecretObj.Data[users.Replication] = pass
+	secrets.Data[users.Replication] = pass
 
 	err = r.client.Update(context.TODO(), sysUsersSecretObj)
 	if err != nil {
 		return errors.Wrap(err, "update sys users secret")
 	}
-	err = r.client.Update(context.TODO(), internalSysSecretObj)
+	err = r.client.Update(context.TODO(), secrets)
 	if err != nil {
 		return errors.Wrap(err, "update internal users secret")
 	}
@@ -842,13 +873,36 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 		Pass: string(secrets.Data[users.ProxyAdmin]),
 	}
 
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
+	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
+	if err != nil {
+		return err
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passDiscarded {
+		return nil
+	}
+
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
+		passPropagated, err := r.isPassPropagated(cr, user)
+		if err != nil {
+			return errors.Wrap(err, "is pass propagated")
+		}
+		if !passPropagated {
+			return errors.New("password not yet propagated")
+		}
+
+		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "discard old pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+
 		return nil
 	}
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateProxyUser(cr, internalSecrets, user)
+	err = r.updateProxyUser(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update Proxy users")
 	}
@@ -963,20 +1017,9 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPass(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	pxcUser := users.Root
-	pxcPass := string(internalSecrets.Data[users.Root])
-	if _, ok := secrets.Data[users.Operator]; ok {
-		pxcUser = users.Operator
-		pxcPass = string(internalSecrets.Data[users.Operator])
-	}
-
-	addr := cr.Name + "-pxc." + cr.Namespace
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
-	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	um, err := getUserManger(cr, internalSecrets)
 	if err != nil {
-		return errors.Wrap(err, "new users manager")
+		return err
 	}
 	defer um.Close()
 
@@ -989,20 +1032,9 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPass(cr *api.PerconaXtraDBClus
 }
 
 func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	pxcUser := users.Root
-	pxcPass := string(internalSecrets.Data[users.Root])
-	if _, ok := secrets.Data[users.Operator]; ok {
-		pxcUser = users.Operator
-		pxcPass = string(internalSecrets.Data[users.Operator])
-	}
-
-	addr := cr.Name + "-pxc." + cr.Namespace
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
-	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	um, err := getUserManger(cr, internalSecrets)
 	if err != nil {
-		return errors.Wrap(err, "new users manager")
+		return err
 	}
 	defer um.Close()
 
@@ -1012,6 +1044,21 @@ func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDB
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) isOldPasswordDiscarded(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret, user *users.SysUser) (bool, error) {
+	um, err := getUserManger(cr, secrets)
+	if err != nil {
+		return false, err
+	}
+	defer um.Close()
+
+	discarded, err := um.IsOldPassDiscarded(user)
+	if err != nil {
+		return false, errors.Wrap(err, "is old password discarded")
+	}
+
+	return discarded, nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCluster, user *users.SysUser) (bool, error) {
@@ -1114,4 +1161,29 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.Percona
 
 	logger.Info(fmt.Sprintf("User %s: system user privileges granted", user.Name))
 	return nil
+}
+
+func getUserManger(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*users.Manager, error) {
+	pxcUser := users.Root
+	pxcPass := string(secrets.Data[users.Root])
+	if _, ok := secrets.Data[users.Operator]; ok {
+		pxcUser = users.Operator
+		pxcPass = string(secrets.Data[users.Operator])
+	}
+
+	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
+	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	if err != nil {
+		return nil, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	}
+	if hasKey {
+		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	}
+
+	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	if err != nil {
+		return nil, errors.Wrap(err, "new users manager")
+	}
+
+	return &um, nil
 }

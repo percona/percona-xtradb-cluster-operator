@@ -1045,7 +1045,7 @@ func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDB
 
 	err = um.DiscardOldPassword(user)
 	if err != nil {
-		return errors.Wrap(err, "discard old user pass")
+		return errors.Wrap(err, fmt.Sprintf("discard old user %s pass", user.Name))
 	}
 
 	return nil
@@ -1098,14 +1098,14 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 				var errb, outb bytes.Buffer
 				err = r.clientcmd.Exec(&pod, comp, []string{"cat", fmt.Sprintf("/etc/mysql/mysql-users-secret/%s", user.Name)}, nil, &outb, &errb, false)
 				if err != nil {
-					return errors.Errorf("exec cat: %v / %s / %s", err, outb.String(), errb.String())
+					return errors.Errorf("exec cat on %s-%d: %v / %s / %s", comp, i, err, outb.String(), errb.String())
 				}
 				if len(errb.Bytes()) > 0 {
-					return errors.New("cat: " + errb.String())
+					return errors.Errorf("cat on %s-%d: %s", comp, i, errb.String())
 				}
 
 				if outb.String() != user.Pass {
-					return errors.New("pass not yet propagated")
+					return errors.Errorf("pass not yet propagated on %s-%d", comp, i)
 				}
 			}
 

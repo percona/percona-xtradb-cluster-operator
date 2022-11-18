@@ -75,7 +75,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserPreMYSQL8(cr *api.PerconaX
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
@@ -121,7 +121,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserPreMYSQL8(cr *api.Perc
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
@@ -207,7 +207,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserPreMYSQL8(cr *api.Perco
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
@@ -281,7 +281,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserPreMYSQL8(cr *api.
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update clustercheck users pass")
 	}
@@ -328,7 +328,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserPreMYSQL8(cr *api.Pe
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPass(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
@@ -374,7 +374,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserPreMYSQL8(cr *api.P
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPass(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
@@ -423,6 +423,21 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserPreMYSQL8(cr *api.Pe
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
 	actions.restartProxy = true
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateUserPassPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
+	um, err := getUserManger(cr, internalSecrets)
+	if err != nil {
+		return err
+	}
+	defer um.Close()
+
+	err = um.UpdateUserPassWithoutDP(user)
+	if err != nil {
+		return errors.Wrap(err, "update user pass")
+	}
 
 	return nil
 }

@@ -139,11 +139,6 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsers(cr *api.PerconaXtraDBCluster
 
 		switch u {
 		case users.Root:
-			// if mysql is < 8.0.0
-			// r.handleRootUser
-			// if err := r.handleRootUserNonDualPass(cr, secrets, internalSecrets, res); err != nil {
-			// 	return res, err
-			// }
 			if err := r.handleRootUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
@@ -1044,21 +1039,6 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateUserPass(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	um, err := getUserManger(cr, internalSecrets)
-	if err != nil {
-		return err
-	}
-	defer um.Close()
-
-	err = um.UpdateUserPass(user)
-	if err != nil {
-		return errors.Wrap(err, "update user pass")
-	}
-
-	return nil
-}
-
 func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	um, err := getUserManger(cr, internalSecrets)
 	if err != nil {
@@ -1066,7 +1046,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.Perc
 	}
 	defer um.Close()
 
-	err = um.UpdateUserPassWithRetention(user)
+	err = um.UpdateUserPass(user)
 	if err != nil {
 		return errors.Wrap(err, "update user pass")
 	}

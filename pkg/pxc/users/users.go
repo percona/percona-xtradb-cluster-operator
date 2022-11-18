@@ -79,7 +79,9 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 	return nil
 }
 
-func (u *Manager) UpdateUserPass(user *SysUser) error {
+// UpdateUserPassWithoutDP updates user pass without Dual Password
+// feature introduced in MsSQL 8
+func (u *Manager) UpdateUserPassWithoutDP(user *SysUser) error {
 	if user == nil {
 		return nil
 	}
@@ -94,9 +96,9 @@ func (u *Manager) UpdateUserPass(user *SysUser) error {
 	return nil
 }
 
-// UpdateUserPassWithRetention updates user passwords but retains the current password
+// UpdateUserPass updates user passwords but retains the current password
 // using Dual Password feature of MySQL 8.
-func (m *Manager) UpdateUserPassWithRetention(user *SysUser) error {
+func (m *Manager) UpdateUserPass(user *SysUser) error {
 	if user == nil {
 		return nil
 	}

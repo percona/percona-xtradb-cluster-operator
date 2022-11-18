@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/collector"
@@ -19,7 +21,8 @@ func main() {
 	if len(os.Args) > 1 {
 		command = os.Args[1]
 	}
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer stop()
 	switch command {
 	case "collect":
 		runCollector(ctx)

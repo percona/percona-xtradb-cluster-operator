@@ -247,7 +247,7 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 		return "", errors.Wrapf(err, "get object")
 	}
 
-	lastGTID, err := getLastBackupGTID(sstInfoObj, xtrabackupInfoObj)
+	lastGTID, err := getLastBackupGTID(ctx, sstInfoObj, xtrabackupInfoObj)
 	if err != nil {
 		return "", errors.Wrap(err, "get last backup gtid")
 	}
@@ -263,7 +263,7 @@ const (
 )
 
 func (r *Recoverer) Run(ctx context.Context) error {
-	host, err := pxc.GetPXCFirstHost(r.pxcServiceName)
+	host, err := pxc.GetPXCFirstHost(ctx, r.pxcServiceName)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
@@ -305,7 +305,7 @@ func (r *Recoverer) Run(ctx context.Context) error {
 }
 
 func (r *Recoverer) recover(ctx context.Context) (err error) {
-	err = r.db.DropCollectorFunctions()
+	err = r.db.DropCollectorFunctions(ctx)
 	if err != nil {
 		return errors.Wrap(err, "drop collector funcs")
 	}
@@ -352,13 +352,13 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 	return nil
 }
 
-func getLastBackupGTID(sstInfo, xtrabackupInfo io.Reader) (string, error) {
-	sstContent, err := getDecompressedContent(sstInfo, "sst_info")
+func getLastBackupGTID(ctx context.Context, sstInfo, xtrabackupInfo io.Reader) (string, error) {
+	sstContent, err := getDecompressedContent(ctx, sstInfo, "sst_info")
 	if err != nil {
 		return "", errors.Wrap(err, "get sst_info content")
 	}
 
-	xtrabackupContent, err := getDecompressedContent(xtrabackupInfo, "xtrabackup_info")
+	xtrabackupContent, err := getDecompressedContent(ctx, xtrabackupInfo, "xtrabackup_info")
 	if err != nil {
 		return "", errors.Wrap(err, "get xtrabackup info content")
 	}
@@ -423,10 +423,10 @@ func getGTIDFromSSTInfo(content []byte) (string, error) {
 	return string(newOut[:e]), nil
 }
 
-func getDecompressedContent(infoObj io.Reader, filename string) ([]byte, error) {
+func getDecompressedContent(ctx context.Context, infoObj io.Reader, filename string) ([]byte, error) {
 	tmpDir := os.TempDir()
 
-	cmd := exec.Command("xbstream", "-x", "--decompress")
+	cmd := exec.CommandContext(ctx, "xbstream", "-x", "--decompress")
 	cmd.Dir = tmpDir
 	cmd.Stdin = infoObj
 	var outb, errb bytes.Buffer
@@ -474,7 +474,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 		log.Println("checking current file", " name ", binlog, " gtid ", binlogGTIDSet)
 
 		if len(r.gtid) > 0 && r.recoverType == Transaction {
-			subResult, err := r.db.SubtractGTIDSet(binlogGTIDSet, r.gtid)
+			subResult, err := r.db.SubtractGTIDSet(ctx, binlogGTIDSet, r.gtid)
 			if err != nil {
 				return errors.Wrapf(err, "check if '%s' is a subset of '%s", binlogGTIDSet, r.gtid)
 			}
@@ -491,7 +491,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 		}
 
 		binlogs = append(binlogs, binlog)
-		subResult, err := r.db.SubtractGTIDSet(r.startGTID, binlogGTIDSet)
+		subResult, err := r.db.SubtractGTIDSet(ctx, r.startGTID, binlogGTIDSet)
 		log.Println("Checking sub result", " binlog gtid ", binlogGTIDSet, " sub result ", subResult)
 		if err != nil {
 			return errors.Wrapf(err, "check if '%s' is a subset of '%s", r.startGTID, binlogGTIDSet)

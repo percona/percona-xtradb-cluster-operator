@@ -99,7 +99,7 @@ func New(c Config) (*Collector, error) {
 }
 
 func (c *Collector) Run(ctx context.Context) error {
-	err := c.newDB()
+	err := c.newDB(ctx)
 	if err != nil {
 		return errors.Wrap(err, "new db connection")
 	}
@@ -133,7 +133,7 @@ func (c *Collector) lastGTIDSet(ctx context.Context, sourceID string) (string, e
 	return string(lastSet), nil
 }
 
-func (c *Collector) newDB() error {
+func (c *Collector) newDB(ctx context.Context) error {
 	file, err := os.Open("/etc/mysql/mysql-users-secret/xtrabackup")
 	if err != nil {
 		return errors.Wrap(err, "open file")
@@ -144,7 +144,7 @@ func (c *Collector) newDB() error {
 	}
 	c.pxcPass = string(pxcPass)
 
-	host, err := pxc.GetPXCOldestBinlogHost(c.pxcServiceName, c.pxcUser, c.pxcPass)
+	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
@@ -163,13 +163,13 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
-func (c *Collector) CurrentSourceID(logs []pxc.Binlog) (string, error) {
+func (c *Collector) CurrentSourceID(ctx context.Context, logs []pxc.Binlog) (string, error) {
 	var (
 		gtidSet string
 		err     error
 	)
 	for i := len(logs) - 1; i >= 0 && gtidSet == ""; i-- {
-		gtidSet, err = c.db.GetGTIDSet(logs[i].Name)
+		gtidSet, err = c.db.GetGTIDSet(ctx, logs[i].Name)
 		if err != nil {
 			return gtidSet, err
 		}
@@ -177,10 +177,10 @@ func (c *Collector) CurrentSourceID(logs []pxc.Binlog) (string, error) {
 	return strings.Split(gtidSet, ":")[0], nil
 }
 
-func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {
+func (c *Collector) removeEmptyBinlogs(ctx context.Context, logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	result := make([]pxc.Binlog, 0)
 	for _, v := range logs {
-		set, err := c.db.GetGTIDSet(v.Name)
+		set, err := c.db.GetGTIDSet(ctx, v.Name)
 		if err != nil {
 			return nil, errors.Wrap(err, "get GTID set")
 		}
@@ -194,9 +194,9 @@ func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) 
 	return result, nil
 }
 
-func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]pxc.Binlog, error) {
+func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBinlogName string) ([]pxc.Binlog, error) {
 	if lastBinlogName == "" {
-		return c.removeEmptyBinlogs(logs)
+		return c.removeEmptyBinlogs(ctx, logs)
 	}
 
 	logsLen := len(logs)
@@ -210,7 +210,7 @@ func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]p
 		return nil, nil
 	}
 
-	set, err := c.db.GetGTIDSet(logs[startIndex].Name)
+	set, err := c.db.GetGTIDSet(ctx, logs[startIndex].Name)
 	if err != nil {
 		return nil, errors.Wrap(err, "get gtid set of last uploaded binlog")
 	}
@@ -220,16 +220,16 @@ func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]p
 		startIndex++
 	}
 
-	return c.removeEmptyBinlogs(logs[startIndex:])
+	return c.removeEmptyBinlogs(ctx, logs[startIndex:])
 }
 
 func (c *Collector) CollectBinLogs(ctx context.Context) error {
-	list, err := c.db.GetBinLogList()
+	list, err := c.db.GetBinLogList(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
 
-	sourceID, err := c.CurrentSourceID(list)
+	sourceID, err := c.CurrentSourceID(ctx, list)
 	if err != nil {
 		return errors.Wrap(err, "get current source id")
 	}
@@ -248,7 +248,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 
 	if c.lastSet != "" {
 		// get last uploaded binlog file name
-		lastUploadedBinlogName, err = c.db.GetBinLogName(c.lastSet)
+		lastUploadedBinlogName, err = c.db.GetBinLogName(ctx, c.lastSet)
 		if err != nil {
 			return errors.Wrap(err, "get last uploaded binlog name by gtid set")
 		}
@@ -258,7 +258,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		}
 	}
 
-	list, err = c.filterBinLogs(list, lastUploadedBinlogName)
+	list, err = c.filterBinLogs(ctx, list, lastUploadedBinlogName)
 	if err != nil {
 		return errors.Wrap(err, "filter empty binlogs")
 	}
@@ -289,7 +289,7 @@ func mergeErrors(a, b error) error {
 }
 
 func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err error) {
-	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(binlog.Name)
+	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(ctx, binlog.Name)
 	if err != nil {
 		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
 	}

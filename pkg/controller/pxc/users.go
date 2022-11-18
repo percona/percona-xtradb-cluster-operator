@@ -82,9 +82,27 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil, nil
 	}
 
-	actions, err := r.updateUsers(cr, &secrets, &internalSecrets)
+	mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
+	if err != nil && !errors.Is(err, versionNotReadyErr) {
+		return nil, errors.Wrap(err, "retrieving pxc version")
+	}
+
+	ver, err := version.NewVersion(mysqlVersion)
 	if err != nil {
-		return nil, errors.Wrap(err, "manage sys users")
+		return nil, errors.Wrap(err, "invalid pxc version")
+	}
+
+	var actions *userUpdateActions
+	if ver.Segments()[0] == 8 {
+		actions, err = r.updateUsers(cr, &secrets, &internalSecrets)
+		if err != nil {
+			return nil, errors.Wrap(err, "manage sys users")
+		}
+	} else {
+		actions, err = r.updateUsersPreMYSQL8(cr, &secrets, &internalSecrets)
+		if err != nil {
+			return nil, errors.Wrap(err, "manage sys users")
+		}
 	}
 
 	newSysData, err := json.Marshal(secrets.Data)
@@ -121,6 +139,11 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsers(cr *api.PerconaXtraDBCluster
 
 		switch u {
 		case users.Root:
+			// if mysql is < 8.0.0
+			// r.handleRootUser
+			// if err := r.handleRootUserNonDualPass(cr, secrets, internalSecrets, res); err != nil {
+			// 	return res, err
+			// }
 			if err := r.handleRootUser(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
@@ -394,13 +417,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 
 	if cr.CompareVersionWith("1.10.0") >= 0 {
-		mysqlVersion := cr.Status.PXC.Version
-		if mysqlVersion == "" {
-			var err error
-			mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
-			if err != nil && !errors.Is(err, versionNotReadyErr) {
-				return errors.Wrap(err, "retrieving pxc version")
-			}
+		mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
+		if err != nil && !errors.Is(err, versionNotReadyErr) {
+			return errors.Wrap(err, "retrieving pxc version")
 		}
 
 		if mysqlVersion != "" {
@@ -531,13 +550,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 
 	// Regardless of password change, always ensure clustercheck user has the right privileges
 	if cr.CompareVersionWith("1.10.0") >= 0 {
-		mysqlVersion := cr.Status.PXC.Version
-		if mysqlVersion == "" {
-			var err error
-			mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
-			if err != nil && !errors.Is(err, versionNotReadyErr) {
-				return errors.Wrap(err, "retrieving pxc version")
-			}
+		mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
+		if err != nil && !errors.Is(err, versionNotReadyErr) {
+			return errors.Wrap(err, "retrieving pxc version")
 		}
 
 		if mysqlVersion != "" {
@@ -547,7 +562,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 			}
 
 			if !ver.LessThan(privSystemUserAddedIn) {
-
 				um, err := getUserManger(cr, internalSecrets)
 				if err != nil {
 					return err
@@ -1027,6 +1041,21 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 	}
 
 	logger.Info("PXC users synced with ProxySQL")
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateUserPass(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
+	um, err := getUserManger(cr, internalSecrets)
+	if err != nil {
+		return err
+	}
+	defer um.Close()
+
+	err = um.UpdateUserPass(user)
+	if err != nil {
+		return errors.Wrap(err, "update user pass")
+	}
+
 	return nil
 }
 

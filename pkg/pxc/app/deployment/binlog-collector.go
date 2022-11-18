@@ -36,6 +36,9 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 		labels[key] = value
 	}
 	envs, err := getStorageEnvs(cr)
+	if err != nil {
+		return appsv1.Deployment{}, errors.Wrap(err, "get storage envs")
+	}
 	envs = append(envs, []corev1.EnvVar{
 		{
 			Name:  "PXC_SERVICE",

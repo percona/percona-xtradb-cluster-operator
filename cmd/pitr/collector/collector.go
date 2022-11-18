@@ -2,6 +2,7 @@ package collector
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -16,7 +17,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"

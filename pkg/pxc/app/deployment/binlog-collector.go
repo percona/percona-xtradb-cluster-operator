@@ -195,7 +195,7 @@ func GetBinlogCollectorPod(ctx context.Context, c client.Client, cr *api.Percona
 	}
 
 	if len(collectorPodList.Items) < 1 {
-		return nil, errors.Wrap(err, "no binlog collector pods")
+		return nil, errors.New("no binlog collector pods")
 	}
 
 	return &collectorPodList.Items[0], nil

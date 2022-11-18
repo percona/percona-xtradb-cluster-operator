@@ -348,6 +348,14 @@ func (r *ReconcilePerconaXtraDBCluster) checkPITRErrors(ctx context.Context, cr 
 		}
 	}
 
+	err = r.client.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: deployment.GetBinlogCollectorDeploymentName(cr)}, new(appsv1.Deployment))
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Wrap(err, "get binlog collector deployment")
+	}
+
 	collectorPod, err := deployment.GetBinlogCollectorPod(ctx, r.client, cr)
 	if err != nil {
 		return errors.Wrap(err, "get binlog collector pod")

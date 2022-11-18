@@ -60,6 +60,7 @@ write_test_data() {
 		'INSERT test.test (id) VALUES (100500); INSERT test.test (id) VALUES (100501); INSERT test.test (id) VALUES (100502);' \
 		"-h $proxy -uroot -proot_password"
 	sleep 30
+	wait_for_running "$cluster-pxc" 3
 	for i in $(seq 0 $((size - 1))); do
 		compare_mysql_cmd "select-3" "SELECT * from test.test;" "-h $cluster-pxc-$i.$cluster-pxc -uroot -proot_password"
 	done

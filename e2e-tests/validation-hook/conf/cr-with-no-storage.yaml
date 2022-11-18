@@ -1,8 +1,9 @@
-apiVersion: pxc.percona.com/v1-6-0
+apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
   name: no-storage
 spec:
+  crVersion: 1.10.0
   secretsName: my-cluster-secrets
   sslSecretName: some-name-ssl
   sslInternalSecretName: some-name-ssl-internal

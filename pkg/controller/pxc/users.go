@@ -1130,16 +1130,18 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 				}
 
 				if outb.String() != user.Pass {
-					return errors.Errorf("pass not yet propagated on %s-%d", comp, i)
+					return PassNotPropagatedError
 				}
 			}
 
 			return nil
 		})
-
 	}
 
 	if err := eg.Wait(); err != nil {
+		if err == PassNotPropagatedError {
+			return false, nil
+		}
 		return false, err
 	}
 

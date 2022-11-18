@@ -52,7 +52,7 @@ func runCollector(ctx context.Context) {
 		case <-ctx.Done():
 			log.Fatalln("ERROR:", ctx.Err().Error())
 		case <-t.C:
-			break	
+			break
 		}
 	}
 }

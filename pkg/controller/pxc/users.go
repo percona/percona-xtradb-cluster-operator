@@ -24,6 +24,8 @@ import (
 // https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html#priv_system-user
 var privSystemUserAddedIn = version.Must(version.NewVersion("8.0.16"))
 
+var PassNotPropagatedError = errors.New("password not yet propagated")
+
 type userUpdateActions struct {
 	restartPXC            bool
 	restartProxy          bool
@@ -202,7 +204,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 			return errors.Wrap(err, "is pass propagated")
 		}
 		if !passPropagated {
-			return errors.New("password not yet propagated")
+			return PassNotPropagatedError
 		}
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
@@ -238,9 +240,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return errors.Wrap(err, "is pass propagated")
 	}
-
 	if !passPropagated {
-		return errors.New("password not yet propagated")
+		return PassNotPropagatedError
 	}
 
 	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
@@ -288,7 +289,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 			return errors.Wrap(err, "is pass propagated")
 		}
 		if !passPropagated {
-			return errors.New("password not yet propagated")
+			return PassNotPropagatedError
 		}
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
@@ -319,14 +320,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	if err != nil {
 		return errors.Wrap(err, "is pass propagated")
 	}
-
-	if passPropagated {
-		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "discard operator old pass")
-		}
-		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	if !passPropagated {
+		return PassNotPropagatedError
 	}
+
+	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "discard operator old pass")
+	}
+	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
 	actions.restartProxy = true
 	return nil
@@ -448,7 +450,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 			return errors.Wrap(err, "is pass propagated")
 		}
 		if !passPropagated {
-			return errors.New("password not yet propagated")
+			return PassNotPropagatedError
 		}
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
@@ -487,14 +489,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	if err != nil {
 		return errors.Wrap(err, "is pass propagated")
 	}
-
-	if passPropagated {
-		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "discard monitor old pass")
-		}
-		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	if !passPropagated {
+		return PassNotPropagatedError
 	}
+
+	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "discard monitor old pass")
+	}
+	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
 	actions.restartProxy = true
 	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
@@ -587,7 +590,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 			return errors.Wrap(err, "is pass propagated")
 		}
 		if !passPropagated {
-			return errors.New("password not yet propagated")
+			return PassNotPropagatedError
 		}
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
@@ -618,14 +621,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 	if err != nil {
 		return errors.Wrap(err, "is pass propagated")
 	}
-
-	if passPropagated {
-		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "discard clustercheck old pass")
-		}
-		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	if !passPropagated {
+		return PassNotPropagatedError
 	}
+
+	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "discard clustercheck old pass")
+	}
+	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
 	return nil
 }
@@ -672,7 +676,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 			return errors.Wrap(err, "is pass propagated")
 		}
 		if !passPropagated {
-			return errors.New("password not yet propagated")
+			return PassNotPropagatedError
 		}
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
@@ -703,14 +707,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "is pass propagated")
 	}
-
-	if passPropagated {
-		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "discard xtrabackup old pass")
-		}
-		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	if !passPropagated {
+		return PassNotPropagatedError
 	}
+
+	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "discard xtrabackup old pass")
+	}
+	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
 	actions.restartPXC = true
 	return nil
@@ -789,7 +794,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 			return errors.Wrap(err, "is pass propagated")
 		}
 		if !passPropagated {
-			return errors.New("password not yet propagated")
+			return PassNotPropagatedError
 		}
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
@@ -820,14 +825,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 	if err != nil {
 		return errors.Wrap(err, "is pass propagated")
 	}
-
-	if passPropagated {
-		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "discard replicaiton old pass")
-		}
-		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	if !passPropagated {
+		return PassNotPropagatedError
 	}
+
+	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "discard replicaiton old pass")
+	}
+	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
 	actions.updateReplicationPass = true
 	return nil
@@ -911,7 +917,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 			return errors.Wrap(err, "is pass propagated")
 		}
 		if !passPropagated {
-			return errors.New("password not yet propagated")
+			return PassNotPropagatedError
 		}
 
 		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
@@ -942,14 +948,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "is pass propagated")
 	}
-
-	if passPropagated {
-		err := r.discardOldPassword(cr, secrets, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "discard proxyadmin old pass")
-		}
-		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	if !passPropagated {
+		return PassNotPropagatedError
 	}
+
+	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
+	if err != nil {
+		return errors.Wrap(err, "discard proxyadmin old pass")
+	}
+	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
 	actions.restartProxy = true
 

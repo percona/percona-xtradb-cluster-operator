@@ -127,14 +127,9 @@ func NewAzure(storageAccount, accessKey, endpoint, container, prefix string) (*A
 	}, nil
 }
 
-var ErrBlobNotFound = errors.New("blob not found")
-
 func (a *Azure) GetObject(ctx context.Context, name string) (io.ReadCloser, error) {
 	resp, err := a.client.DownloadStream(ctx, a.container, a.prefix+name, &azblob.DownloadStreamOptions{})
 	if err != nil {
-		if strings.Contains(err.Error(), "BlobNotFound") {
-			return nil, ErrBlobNotFound
-		}
 		return nil, errors.Wrapf(err, "download stream: %s", a.prefix+name)
 	}
 	return resp.Body, nil

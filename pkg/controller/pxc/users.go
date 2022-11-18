@@ -99,7 +99,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 			return nil, errors.Wrap(err, "manage sys users")
 		}
 	} else {
-		actions, err = r.updateUsersPreMYSQL8(cr, &secrets, &internalSecrets)
+		actions, err = r.updateUsersWithoutDP(cr, &secrets, &internalSecrets)
 		if err != nil {
 			return nil, errors.Wrap(err, "manage sys users")
 		}

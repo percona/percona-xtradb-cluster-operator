@@ -14,7 +14,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updateUsersPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) (*userUpdateActions, error) {
+func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) (*userUpdateActions, error) {
 	res := &userUpdateActions{}
 
 	for _, u := range users.UserNames {
@@ -28,27 +28,27 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersPreMYSQL8(cr *api.PerconaXtra
 				return res, err
 			}
 		case users.Operator:
-			if err := r.handleOperatorUserPreMYSQL8(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleOperatorUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Monitor:
-			if err := r.handleMonitorUserPreMYSQL8(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleMonitorUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Clustercheck:
-			if err := r.handleClustercheckUserPreMYSQL8(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleClustercheckUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Xtrabackup:
-			if err := r.handleXtrabackupUserPreMYSQL8(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleXtrabackupUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Replication:
-			if err := r.handleReplicationUserPreMYSQL8(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleReplicationUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.ProxyAdmin:
-			if err := r.handleProxyadminUserPreMYSQL8(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleProxyadminUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.PMMServer, users.PMMServerKey:
@@ -75,7 +75,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserPreMYSQL8(cr *api.PerconaX
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
@@ -96,7 +96,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserPreMYSQL8(cr *api.PerconaX
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	if cr.Status.PXC.Ready == 0 {
@@ -121,7 +121,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserPreMYSQL8(cr *api.Perc
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
@@ -138,7 +138,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserPreMYSQL8(cr *api.Perc
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	if cr.Status.PXC.Ready == 0 {
@@ -207,7 +207,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserPreMYSQL8(cr *api.Perco
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
@@ -235,7 +235,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserPreMYSQL8(cr *api.Perco
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	if cr.Status.PXC.Ready == 0 {
@@ -281,7 +281,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserPreMYSQL8(cr *api.
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update clustercheck users pass")
 	}
@@ -297,7 +297,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserPreMYSQL8(cr *api.
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	if cr.Status.PXC.Ready == 0 {
@@ -328,7 +328,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserPreMYSQL8(cr *api.Pe
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err := r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
@@ -345,7 +345,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserPreMYSQL8(cr *api.Pe
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	if cr.CompareVersionWith("1.9.0") < 0 {
@@ -374,7 +374,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserPreMYSQL8(cr *api.P
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPassPreMYSQL8(cr, secrets, internalSecrets, user)
+	err = r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
@@ -391,7 +391,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserPreMYSQL8(cr *api.P
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled {
@@ -427,7 +427,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserPreMYSQL8(cr *api.Pe
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateUserPassPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
+func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	um, err := getUserManger(cr, internalSecrets)
 	if err != nil {
 		return err

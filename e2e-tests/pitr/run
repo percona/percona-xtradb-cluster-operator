@@ -33,7 +33,7 @@ run_recovery_check_pitr() {
 	kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
 	wait_for_running "$cluster-proxysql" 2
 	wait_for_running "$cluster-pxc" 3
-	sleep 80
+	sleep 40
 	desc 'check data after backup' $restore
 	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
@@ -101,12 +101,13 @@ main() {
 
 	write_test_data "$cluster"
 
-	desc 'show binlog events in binlog.000005'
-	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password"
-
+	desc 'show binlog events'
 	proxy=$(get_proxy "$cluster")
-	time_now=$(run_mysql "SELECT now();" "-h $proxy -uroot -proot_password")
-	gtid=$(run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password" | grep Gtid | grep -Eo "${GTID_PATTERN}")
+	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h ${proxy} -uroot -proot_password"
+	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000006';" "-h ${proxy} -uroot -proot_password"
+
+	time_now=$(run_mysql "SELECT now();" "-h ${proxy} -uroot -proot_password")
+	gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${proxy} -uroot -proot_password" | $sed 's/^\(.*\):[0-9]-\([0-9]*\)/\1:\2/')
 
 	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
 		echo "Some garbage instead of legit GTID. Exiting"

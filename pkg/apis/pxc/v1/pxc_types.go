@@ -1261,3 +1261,7 @@ func (cr *PerconaXtraDBCluster) CanBackup() error {
 
 	return nil
 }
+
+func (cr *PerconaXtraDBCluster) PITREnabled() bool {
+	return cr.Spec.Backup != nil && cr.Spec.Backup.PITR.Enabled
+}

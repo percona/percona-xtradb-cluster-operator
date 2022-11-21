@@ -6,6 +6,8 @@ set -o xtrace
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+GTID_PATTERN='[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}:[0-9]+'
+
 if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 	echo "Skipping PITR test because 5.7 doesn't support it!"
 	exit 1
@@ -99,12 +101,18 @@ main() {
 
 	write_test_data "$cluster"
 
+	desc 'show binlog events'
 	proxy=$(get_proxy "$cluster")
-	time_now=$(run_mysql "SELECT now();" "-h $proxy -uroot -proot_password")
-	gtid=$(run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password" | grep Gtid | tail -c 43)
+	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h ${proxy} -uroot -proot_password"
+	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000006';" "-h ${proxy} -uroot -proot_password"
 
-	desc 'show binlog events in binlog.000005'
-	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000005';" "-h $proxy -uroot -proot_password"
+	time_now=$(run_mysql "SELECT now();" "-h ${proxy} -uroot -proot_password")
+	gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${proxy} -uroot -proot_password" | $sed 's/^\(.*\):[0-9]-\([0-9]*\)/\1:\2/')
+
+	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
+		printf "Some garbage --> %s <-- instead of legit GTID. Exiting" ${gtid}
+		exit 1
+	fi
 
 	sleep 60
 	write_data_for_pitr "$cluster"

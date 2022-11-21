@@ -1,14 +1,20 @@
 package deployment
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/pkg/errors"
@@ -167,4 +173,45 @@ func getBufferSize(cluster api.PerconaXtraDBClusterSpec) (mem int64, err error) 
 	}
 
 	return memory.Value() / int64(100) * int64(75), nil
+}
+
+func GetBinlogCollectorPod(ctx context.Context, c client.Client, cr *api.PerconaXtraDBCluster) (*corev1.Pod, error) {
+	collectorPodList := corev1.PodList{}
+
+	err := c.List(ctx, &collectorPodList,
+		&client.ListOptions{
+			Namespace: cr.Namespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"app.kubernetes.io/name":       "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":   cr.Name,
+				"app.kubernetes.io/component":  "pitr",
+				"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
+				"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+			}),
+		},
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "get binlog collector pods")
+	}
+
+	if len(collectorPodList.Items) < 1 {
+		return nil, errors.New("no binlog collector pods")
+	}
+
+	return &collectorPodList.Items[0], nil
+}
+
+var GapFileNotFound = errors.New("gap file not found")
+
+func RemoveGapFile(ctx context.Context, c *clientcmd.Client, pod *corev1.Pod) error {
+	stderrBuf := &bytes.Buffer{}
+	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/gap-detected"}, nil, nil, stderrBuf, false)
+	if err != nil {
+		if strings.Contains(stderrBuf.String(), "No such file or directory") {
+			return GapFileNotFound
+		}
+		return errors.Wrapf(err, "delete gap file in collector pod %s", pod.Name)
+	}
+
+	return nil
 }

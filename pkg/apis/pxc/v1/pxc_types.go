@@ -72,8 +72,11 @@ type ReplicationChannel struct {
 }
 
 type ReplicationChannelConfig struct {
-	SourceRetryCount   uint `json:"sourceRetryCount,omitempty"`
-	SourceConnectRetry uint `json:"sourceConnectRetry,omitempty"`
+	SourceRetryCount   uint   `json:"sourceRetryCount,omitempty"`
+	SourceConnectRetry uint   `json:"sourceConnectRetry,omitempty"`
+	SSL                bool   `json:"ssl,omitempty"`
+	SSLSkipVerify      bool   `json:"sslSkipVerify,omitempty"`
+	CA                 string `json:"ca,omitempty"`
 }
 
 type ReplicationSource struct {
@@ -272,6 +275,12 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 			if len(channel.SourcesList) == 0 {
 				return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
+			}
+
+			if channel.Config != nil {
+				if channel.Config.SSL && channel.Config.CA == "" {
+					return errors.Errorf("if you set ssl for channel %s, you have to indicate a path to a CA file to verify the server certificate", channel.Name)
+				}
 			}
 		}
 	}
@@ -1268,4 +1277,8 @@ func (cr *PerconaXtraDBCluster) CanBackup() error {
 	}
 
 	return nil
+}
+
+func (cr *PerconaXtraDBCluster) PITREnabled() bool {
+	return cr.Spec.Backup != nil && cr.Spec.Backup.PITR.Enabled
 }

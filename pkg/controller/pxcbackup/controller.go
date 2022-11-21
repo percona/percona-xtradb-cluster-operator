@@ -31,7 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/deployment"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
@@ -71,10 +73,16 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		return nil, errors.Wrap(err, "failed to create logger")
 	}
 
+	cli, err := clientcmd.NewClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "create clientcmd")
+	}
+
 	return &ReconcilePerconaXtraDBClusterBackup{
 		client:              mgr.GetClient(),
 		scheme:              mgr.GetScheme(),
 		serverVersion:       sv,
+		clientcmd:           cli,
 		chLimit:             make(chan struct{}, limit),
 		bcpDeleteInProgress: new(sync.Map),
 		log:                 zapr.NewLogger(zapLog),
@@ -108,6 +116,7 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	scheme *runtime.Scheme
 
 	serverVersion       *version.ServerVersion
+	clientcmd           *clientcmd.Client
 	chLimit             chan struct{}
 	bcpDeleteInProgress *sync.Map
 	log                 logr.Logger
@@ -160,7 +169,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, nil
 	}
 
-	cluster, err := r.getClusterConfig(cr)
+	cluster, err := r.getCluster(cr)
 	if err != nil {
 		logger.Error(err, "invalid backup cluster")
 		return rr, nil
@@ -264,7 +273,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		logger.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	}
 
-	err = r.updateJobStatus(cr, job, cr.Spec.StorageName, storage)
+	err = r.updateJobStatus(cr, job, cr.Spec.StorageName, storage, cluster)
 
 	return rr, err
 }
@@ -445,25 +454,14 @@ func removeS3Backup(bucket, backup string, s3cli *minio.Client) func() error {
 	}
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) getClusterConfig(cr *api.PerconaXtraDBClusterBackup) (*api.PerconaXtraDBCluster, error) {
-	clusterList := api.PerconaXtraDBClusterList{}
-	err := r.client.List(context.TODO(),
-		&clusterList,
-		&client.ListOptions{
-			Namespace: cr.Namespace,
-		},
-	)
+func (r *ReconcilePerconaXtraDBClusterBackup) getCluster(cr *api.PerconaXtraDBClusterBackup) (*api.PerconaXtraDBCluster, error) {
+	cluster := api.PerconaXtraDBCluster{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.PXCCluster}, &cluster)
 	if err != nil {
-		return nil, errors.Wrap(err, "get clusters list")
+		return nil, errors.Wrap(err, "get PXC cluster")
 	}
 
-	for _, cluster := range clusterList.Items {
-		if cluster.Name == cr.Spec.PXCCluster {
-			return &cluster, nil
-		}
-	}
-
-	return nil, errors.Errorf("wrong cluster name: %s", cr.Spec.PXCCluster)
+	return &cluster, nil
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBClusterBackup) (*minio.Client, error) {
@@ -543,7 +541,7 @@ func azureListBlobs(ctx context.Context, client *azblob.Client, containerName, p
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXtraDBClusterBackup, job *batchv1.Job,
-	storageName string, storage *api.BackupStorageSpec) error {
+	storageName string, storage *api.BackupStorageSpec, cluster *api.PerconaXtraDBCluster) error {
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, job)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
@@ -582,6 +580,19 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 	}
 
 	bcp.Status = status
+
+	if status.State == api.BackupSucceeded && cluster.PITREnabled() {
+		collectorPod, err := deployment.GetBinlogCollectorPod(context.TODO(), r.client, cluster)
+		if err != nil {
+			return errors.Wrap(err, "get binlog collector pod")
+		}
+
+		if err := deployment.RemoveGapFile(context.TODO(), r.clientcmd, collectorPod); err != nil {
+			if !errors.Is(err, deployment.GapFileNotFound) {
+				return errors.Wrap(err, "remove gap file")
+			}
+		}
+	}
 
 	err = r.client.Status().Update(context.TODO(), bcp)
 	if err != nil {

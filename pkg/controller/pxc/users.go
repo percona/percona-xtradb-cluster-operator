@@ -399,7 +399,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		Hosts: []string{"%"},
 	}
 
-	um, err := getUserManger(cr, internalSecrets)
+	um, err := getUserManager(cr, internalSecrets)
 	if err != nil {
 		return err
 	}
@@ -469,14 +469,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		return errors.Wrap(err, "update monitor users pass")
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
-
-	// if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-	// 	err := r.updateProxyUser(cr, internalSecrets, user)
-	// 	if err != nil {
-	// 		return errors.Wrap(err, "update monitor users pass")
-	// 	}
-	// 	logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
-	// }
 
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
 	err = r.client.Update(context.TODO(), internalSecrets)
@@ -568,7 +560,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 			}
 
 			if !ver.LessThan(privSystemUserAddedIn) {
-				um, err := getUserManger(cr, internalSecrets)
+				um, err := getUserManager(cr, internalSecrets)
 				if err != nil {
 					return err
 				}
@@ -737,7 +729,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(cr *api.Percon
 		return nil
 	}
 
-	um, err := getUserManger(cr, secrets)
+	um, err := getUserManager(cr, secrets)
 	if err != nil {
 		return err
 	}
@@ -864,7 +856,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtr
 		return nil
 	}
 
-	um, err := getUserManger(cr, secrets)
+	um, err := getUserManager(cr, secrets)
 	if err != nil {
 		return err
 	}
@@ -1016,7 +1008,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	um, err := getUserManger(cr, internalSecrets)
+	um, err := getUserManager(cr, internalSecrets)
 	if err != nil {
 		return err
 	}
@@ -1031,7 +1023,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.Perc
 }
 
 func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	um, err := getUserManger(cr, internalSecrets)
+	um, err := getUserManager(cr, internalSecrets)
 	if err != nil {
 		return err
 	}
@@ -1046,7 +1038,7 @@ func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDB
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isOldPasswordDiscarded(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret, user *users.SysUser) (bool, error) {
-	um, err := getUserManger(cr, secrets)
+	um, err := getUserManager(cr, secrets)
 	if err != nil {
 		return false, err
 	}
@@ -1087,7 +1079,7 @@ func (r *ReconcilePerconaXtraDBCluster) isPassPropagated(cr *api.PerconaXtraDBCl
 				if err != nil && k8serrors.IsNotFound(err) {
 					return err
 				} else if err != nil {
-					return errors.Wrap(err, fmt.Sprintf("get %s pod", comp))
+					return errors.Wrapf(err, "get %s pod", comp)
 				}
 				var errb, outb bytes.Buffer
 				err = r.clientcmd.Exec(&pod, comp, []string{"cat", fmt.Sprintf("/etc/mysql/mysql-users-secret/%s", user.Name)}, nil, &outb, &errb, false)
@@ -1162,7 +1154,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.Percona
 	return nil
 }
 
-func getUserManger(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*users.Manager, error) {
+func getUserManager(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*users.Manager, error) {
 	pxcUser := users.Root
 	pxcPass := string(secrets.Data[users.Root])
 	if _, ok := secrets.Data[users.Operator]; ok {

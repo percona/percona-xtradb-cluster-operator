@@ -24,7 +24,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(cr *api.PerconaXtra
 
 		switch u {
 		case users.Root:
-			if err := r.handleRootUserPreMYSQL8(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleRootUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Operator:
@@ -60,7 +60,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(cr *api.PerconaXtra
 
 	return res, nil
 }
-func (r *ReconcilePerconaXtraDBCluster) handleRootUserPreMYSQL8(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	user := &users.SysUser{
@@ -262,7 +262,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 			}
 
 			if !ver.LessThan(privSystemUserAddedIn) {
-				um, err := getUserManger(cr, internalSecrets)
+				um, err := getUserManager(cr, internalSecrets)
 				if err != nil {
 					return err
 				}
@@ -428,7 +428,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.Pe
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	um, err := getUserManger(cr, internalSecrets)
+	um, err := getUserManager(cr, internalSecrets)
 	if err != nil {
 		return err
 	}

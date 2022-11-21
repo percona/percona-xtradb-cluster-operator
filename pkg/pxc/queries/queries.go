@@ -39,6 +39,9 @@ type ReplicationConfig struct {
 	Source             ReplicationChannelSource
 	SourceRetryCount   uint
 	SourceConnectRetry uint
+	SSL                bool
+	SSLSkipVerify      bool
+	CA                 string
 }
 
 type ReplicationChannelSource struct {
@@ -246,18 +249,33 @@ func (p *Database) IsReadonly() (bool, error) {
 }
 
 func (p *Database) StartReplication(replicaPass string, config ReplicationConfig) error {
+	var ca string
+	var ssl int
+	if config.SSL {
+		ssl = 1
+		ca = config.CA
+	}
+
+	var sslVerify int
+	if !config.SSLSkipVerify {
+		sslVerify = 1
+	}
+
 	_, err := p.db.Exec(`
 	CHANGE REPLICATION SOURCE TO
-    SOURCE_USER='replication',
-    SOURCE_PASSWORD=?,
-    SOURCE_HOST=?,
-	SOURCE_PORT=?,
-    SOURCE_CONNECTION_AUTO_FAILOVER=1,
-	SOURCE_AUTO_POSITION=1,
-    SOURCE_RETRY_COUNT=?,
-    SOURCE_CONNECT_RETRY=?
-    FOR CHANNEL ?
-`, replicaPass, config.Source.Host, config.Source.Port, config.SourceRetryCount, config.SourceConnectRetry, config.Source.Name)
+		SOURCE_USER='replication',
+		SOURCE_PASSWORD=?,
+		SOURCE_HOST=?,
+		SOURCE_PORT=?,
+		SOURCE_CONNECTION_AUTO_FAILOVER=1,
+		SOURCE_AUTO_POSITION=1,
+		SOURCE_RETRY_COUNT=?,
+		SOURCE_CONNECT_RETRY=?,
+		SOURCE_SSL=?,
+		SOURCE_SSL_CA=?,
+		SOURCE_SSL_VERIFY_SERVER_CERT=?
+		FOR CHANNEL ?
+`, replicaPass, config.Source.Host, config.Source.Port, config.SourceRetryCount, config.SourceConnectRetry, ssl, ca, sslVerify, config.Source.Name)
 	if err != nil {
 		return errors.Wrapf(err, "change source for channel %s", config.Source.Name)
 	}

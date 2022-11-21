@@ -233,7 +233,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 	return job, nil
 }
 
-func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec, destination string) (*batchv1.Job, error) {
+func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec, destination string, pitr bool) (*batchv1.Job, error) {
 	if bcp.Status.Azure == nil {
 		return nil, errors.New("nil azure storage backup status")
 	}
@@ -325,6 +325,73 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		},
 	}
 
+	if pitr {
+		if cluster.Backup == nil && len(cluster.Backup.Storages) == 0 {
+			return nil, errors.New("no storage section")
+		}
+		storageAzure := new(api.BackupStorageAzureSpec)
+
+		if len(cr.Spec.PITR.BackupSource.StorageName) > 0 {
+			storage, ok := cluster.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
+			if ok {
+				storageAzure = storage.Azure
+			}
+		}
+		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.Azure != nil {
+			storageAzure = cr.Spec.PITR.BackupSource.Azure
+		}
+
+		if len(storageAzure.ContainerName) == 0 {
+			return nil, errors.New("container name is not specified in storage")
+		}
+
+		command = []string{"pitr", "recover"}
+		envs = append(envs, []corev1.EnvVar{
+			{
+				Name: "BINLOG_AZURE_STORAGE_ACCOUNT",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(storageAzure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_NAME"),
+				},
+			},
+			{
+				Name: "BINLOG_AZURE_ACCESS_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(storageAzure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_KEY"),
+				},
+			},
+			{
+				Name:  "BINLOG_AZURE_STORAGE_CLASS",
+				Value: storageAzure.StorageClass,
+			},
+			{
+				Name:  "BINLOG_AZURE_CONTAINER_NAME",
+				Value: storageAzure.ContainerName,
+			},
+			{
+				Name:  "BINLOG_AZURE_ENDPOINT",
+				Value: storageAzure.Endpoint,
+			},
+			{
+				Name:  "PITR_RECOVERY_TYPE",
+				Value: cr.Spec.PITR.Type,
+			},
+			{
+				Name:  "PITR_GTID",
+				Value: cr.Spec.PITR.GTID,
+			},
+			{
+				Name:  "PITR_DATE",
+				Value: cr.Spec.PITR.Date,
+			},
+			{
+				Name:  "STORAGE_TYPE",
+				Value: "azure",
+			},
+		}...)
+		jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
+		volumeMounts = []corev1.VolumeMount{}
+		jobPVCs = []corev1.Volume{}
+	}
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -557,6 +624,10 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		envs = append(envs, corev1.EnvVar{
 			Name:  "PITR_DATE",
 			Value: cr.Spec.PITR.Date,
+		})
+		envs = append(envs, corev1.EnvVar{
+			Name:  "STORAGE_TYPE",
+			Value: "s3",
 		})
 		jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 		volumeMounts = []corev1.VolumeMount{}

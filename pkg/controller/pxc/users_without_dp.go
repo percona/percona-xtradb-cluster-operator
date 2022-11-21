@@ -61,6 +61,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(cr *api.PerconaXtra
 	return res, nil
 }
 func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	if cr.Status.Status != api.AppStateReady {
+		return nil
+	}
+
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	user := &users.SysUser{
@@ -99,20 +103,21 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaX
 func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Status.PXC.Ready == 0 {
-		return nil
-	}
-
 	user := &users.SysUser{
 		Name:  users.Operator,
 		Pass:  string(secrets.Data[users.Operator]),
 		Hosts: []string{"%"},
 	}
 
-	// Regardless of password change, always ensure that operator user is there with the right privileges
-	err := r.manageOperatorAdminUser(cr, secrets, internalSecrets)
-	if err != nil {
-		return errors.Wrap(err, "manage operator admin user")
+	if cr.Status.PXC.Ready > 0 {
+		err := r.manageOperatorAdminUser(cr, secrets, internalSecrets)
+		if err != nil {
+			return errors.Wrap(err, "manage operator admin user")
+		}
+	}
+
+	if cr.Status.Status != api.AppStateReady {
+		return nil
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
@@ -121,7 +126,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.Perc
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
@@ -141,64 +146,49 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.Perc
 func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Status.PXC.Ready == 0 {
-		return nil
-	}
-
 	user := &users.SysUser{
 		Name:  users.Monitor,
 		Pass:  string(secrets.Data[users.Monitor]),
 		Hosts: []string{"%"},
 	}
 
-	pxcUser := users.Root
-	pxcPass := string(internalSecrets.Data[users.Root])
-	if _, ok := internalSecrets.Data[users.Operator]; ok {
-		pxcUser = users.Operator
-		pxcPass = string(internalSecrets.Data[users.Operator])
-	}
-
-	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
-	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
-	if err != nil {
-		return errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
-	}
-	if hasKey {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
-
-	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	if err != nil {
-		return errors.Wrap(err, "new users manager for grant")
-	}
-	defer um.Close()
-
-	// Regardless of password change, always ensure monitor user has the right privileges
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		err := r.updateMonitorUserGrant(cr, internalSecrets, &um)
+	if cr.Status.PXC.Ready > 0 {
+		um, err := getUserManager(cr, internalSecrets)
 		if err != nil {
-			return errors.Wrap(err, "update monitor user grant")
+			return err
 		}
-	}
+		defer um.Close()
 
-	if cr.CompareVersionWith("1.10.0") >= 0 {
-		mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
-		if err != nil && !errors.Is(err, versionNotReadyErr) {
-			return errors.Wrap(err, "retrieving pxc version")
-		}
-
-		if mysqlVersion != "" {
-			ver, err := version.NewVersion(mysqlVersion)
+		if cr.CompareVersionWith("1.6.0") >= 0 {
+			err := r.updateMonitorUserGrant(cr, internalSecrets, um)
 			if err != nil {
-				return errors.Wrap(err, "invalid pxc version")
+				return errors.Wrap(err, "update monitor user grant")
+			}
+		}
+
+		if cr.CompareVersionWith("1.10.0") >= 0 {
+			mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
+			if err != nil && !errors.Is(err, versionNotReadyErr) {
+				return errors.Wrap(err, "retrieving pxc version")
 			}
 
-			if !ver.LessThan(privSystemUserAddedIn) {
-				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, &um); err != nil {
-					return errors.Wrap(err, "monitor user grant system privilege")
+			if mysqlVersion != "" {
+				ver, err := version.NewVersion(mysqlVersion)
+				if err != nil {
+					return errors.Wrap(err, "invalid pxc version")
+				}
+
+				if !ver.LessThan(privSystemUserAddedIn) {
+					if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, um); err != nil {
+						return errors.Wrap(err, "monitor user grant system privilege")
+					}
 				}
 			}
 		}
+	}
+
+	if cr.Status.Status != api.AppStateReady {
+		return nil
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
@@ -207,7 +197,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
@@ -238,41 +228,42 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Status.PXC.Ready == 0 {
-		return nil
-	}
-
 	user := &users.SysUser{
 		Name:  users.Clustercheck,
 		Pass:  string(secrets.Data[users.Clustercheck]),
 		Hosts: []string{"localhost"},
 	}
 
-	// Regardless of password change, always ensure clustercheck user has the right privileges
-	if cr.CompareVersionWith("1.10.0") >= 0 {
-		mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
-		if err != nil && !errors.Is(err, versionNotReadyErr) {
-			return errors.Wrap(err, "retrieving pxc version")
-		}
-
-		if mysqlVersion != "" {
-			ver, err := version.NewVersion(mysqlVersion)
-			if err != nil {
-				return errors.Wrap(err, "invalid pxc version")
+	if cr.Status.PXC.Ready > 0 {
+		if cr.CompareVersionWith("1.10.0") >= 0 {
+			mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
+			if err != nil && !errors.Is(err, versionNotReadyErr) {
+				return errors.Wrap(err, "retrieving pxc version")
 			}
 
-			if !ver.LessThan(privSystemUserAddedIn) {
-				um, err := getUserManager(cr, internalSecrets)
+			if mysqlVersion != "" {
+				ver, err := version.NewVersion(mysqlVersion)
 				if err != nil {
-					return err
+					return errors.Wrap(err, "invalid pxc version")
 				}
-				defer um.Close()
 
-				if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, um); err != nil {
-					return errors.Wrap(err, "clustercheck user grant system privilege")
+				if !ver.LessThan(privSystemUserAddedIn) {
+					um, err := getUserManager(cr, internalSecrets)
+					if err != nil {
+						return err
+					}
+					defer um.Close()
+
+					if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, um); err != nil {
+						return errors.Wrap(err, "clustercheck user grant system privilege")
+					}
 				}
 			}
 		}
+	}
+
+	if cr.Status.Status != api.AppStateReady {
+		return nil
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
@@ -300,10 +291,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	logger := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Status.PXC.Ready == 0 {
-		return nil
-	}
-
 	user := &users.SysUser{
 		Name:  users.Xtrabackup,
 		Pass:  string(secrets.Data[users.Xtrabackup]),
@@ -313,13 +300,18 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.Pe
 		user.Hosts = []string{"%"}
 	}
 
-	// Regardless of password change, always ensure xtrabackup user has the right privileges
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		// monitor user need more grants for work in version more then 1.6.0
-		err := r.updateXtrabackupUserGrant(cr, internalSecrets)
-		if err != nil {
-			return errors.Wrap(err, "update xtrabackup user grant")
+	if cr.Status.PXC.Ready > 0 {
+		if cr.CompareVersionWith("1.7.0") >= 0 {
+			// monitor user need more grants for work in version more then 1.6.0
+			err := r.updateXtrabackupUserGrant(cr, internalSecrets)
+			if err != nil {
+				return errors.Wrap(err, "update xtrabackup user grant")
+			}
 		}
+	}
+
+	if cr.Status.Status != api.AppStateReady {
+		return nil
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
@@ -352,7 +344,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.P
 		return nil
 	}
 
-	if cr.Status.PXC.Ready == 0 {
+	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 

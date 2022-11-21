@@ -132,7 +132,7 @@ get_operator_pod() {
 
 get_pitr_pod() {
 	local pitr_pod=$(kubectl_bin get pods --no-headers -l app.kubernetes.io/component=pitr --output=custom-columns='NAME:.metadata.name')
-	if [[ -z "${pitr_pod}" ]]; then
+	if [[ -z ${pitr_pod} ]]; then
 		echo "PITR pod is not found! Exiting..."
 		exit 1
 	else

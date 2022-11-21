@@ -110,7 +110,7 @@ main() {
 	gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${proxy} -uroot -proot_password" | $sed 's/^\(.*\):[0-9]-\([0-9]*\)/\1:\2/')
 
 	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
-		echo "Some garbage instead of legit GTID. Exiting"
+		printf "Some garbage --> %s <-- instead of legit GTID. Exiting" ${gtid}
 		exit 1
 	fi
 

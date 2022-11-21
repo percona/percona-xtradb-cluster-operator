@@ -900,38 +900,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 		Pass: string(secrets.Data[users.ProxyAdmin]),
 	}
 
-	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
-	if err != nil {
-		return err
-	}
-
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passDiscarded {
-		return nil
-	}
-
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
-		logger.Info(fmt.Sprintf("User %s: pass updated but old one not discarded", user.Name))
-
-		passPropagated, err := r.isPassPropagated(cr, user)
-		if err != nil {
-			return errors.Wrap(err, "is pass propagated")
-		}
-		if !passPropagated {
-			return PassNotPropagatedError
-		}
-
-		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "discard old pass")
-		}
-		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
-
+	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
 		return nil
 	}
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateProxyUser(cr, internalSecrets, user)
+	err := r.updateProxyUser(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update Proxy users")
 	}
@@ -943,20 +918,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 		return errors.Wrap(err, "update internal users secrets proxyadmin user password")
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
-
-	passPropagated, err := r.isPassPropagated(cr, user)
-	if err != nil {
-		return errors.Wrap(err, "is pass propagated")
-	}
-	if !passPropagated {
-		return PassNotPropagatedError
-	}
-
-	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
-	if err != nil {
-		return errors.Wrap(err, "discard proxyadmin old pass")
-	}
-	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
 	actions.restartProxy = true
 

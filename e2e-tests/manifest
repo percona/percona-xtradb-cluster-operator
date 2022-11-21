@@ -14,11 +14,11 @@ controller-gen crd:allowDangerousTypes=true,maxDescLen=0 paths=./pkg/apis/... ou
 
 crd_ver=${1}
 if [ "${crd_ver}" == "" ]; then
-	crd_ver=$(yq eval "select(document_index == 0) | .spec.versions[-1].name" "deploy/crd.yaml")
+	crd_ver=$(yq eval "select(di == 0) | .spec.versions[-1].name" "deploy/crd.yaml")
 fi
 
 wip_crd=$(mktemp)
-yq eval 'select(document_index == 0) |
+yq eval 'select(di == 0) |
 	del(.spec.versions[] |
 	select(.name == "v1-12-0")) |
 	.spec.versions[].storage = false' "deploy/crd.yaml" >"$wip_crd"
@@ -33,17 +33,17 @@ sed '/.*- protocol/d; s/.*- containerPort/&\n&/; s/- containerPort/- protocol/' 
 
 # deploy/crd.yaml
 crd_file=$(mktemp)
-yq eval "$wip_crd" "deploy/crds/pxc.percona.com_perconaxtradbclusterbackups.yaml" "deploy/crds/pxc.percona.com_perconaxtradbclusterrestores.yaml" >"$crd_file"
+cat "$wip_crd" <(echo ---) "deploy/crds/pxc.percona.com_perconaxtradbclusterbackups.yaml" <(echo ---) "deploy/crds/pxc.percona.com_perconaxtradbclusterrestores.yaml" >"$crd_file"
 mv "$crd_file" "deploy/crd.yaml"
 
 # deploy/bundle.yaml
 bundle_file=$(mktemp)
-yq eval "deploy/crd.yaml" "deploy/rbac.yaml" "deploy/operator.yaml" >"$bundle_file"
+cat "deploy/crd.yaml" <(echo ---) "deploy/rbac.yaml" <(echo ---) "deploy/operator.yaml" >"$bundle_file"
 mv "$bundle_file" "deploy/bundle.yaml"
 
 # deploy/cw-bundle.yaml
 cw_bundle_file=$(mktemp)
-yq eval "deploy/crd.yaml" "deploy/cw-rbac.yaml" "deploy/cw-operator.yaml" >"$cw_bundle_file"
+cat "deploy/crd.yaml" <(echo ---) "deploy/cw-rbac.yaml" <(echo ---) "deploy/cw-operator.yaml" >"$cw_bundle_file"
 mv "$cw_bundle_file" "deploy/cw-bundle.yaml"
 
 rm -rf ./deploy/crds

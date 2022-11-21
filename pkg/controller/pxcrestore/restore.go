@@ -27,14 +27,21 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 	case strings.HasPrefix(bcp.Status.Destination, "s3://"):
 		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(destination, "s3://"), cluster, false), "s3")
 	case bcp.Status.Azure != nil:
-		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster.Spec), "azure")
+		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster.Spec, false), "azure")
 	default:
 		return errors.Errorf("unknown backup storage type")
 	}
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) pitr(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
-	return errors.Wrap(r.restoreS3(cr, bcp, bcp.Status.Destination[5:], cluster, true), "PITR restore")
+	dest := bcp.Status.Destination
+	switch {
+	case strings.HasPrefix(dest, "s3://"):
+		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(dest, "s3://"), cluster, true), "PITR restore s3")
+	case bcp.Status.Azure != nil:
+		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster.Spec, true), "PITR restore azure")
+	}
+	return errors.Errorf("unknown storage type")
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) error {
@@ -83,8 +90,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBC
 
 	return r.createJob(job)
 }
-func (r *ReconcilePerconaXtraDBClusterRestore) restoreAzure(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, dest string, cluster api.PerconaXtraDBClusterSpec) error {
-	job, err := backup.AzureRestoreJob(cr, bcp, cluster, dest)
+func (r *ReconcilePerconaXtraDBClusterRestore) restoreAzure(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, dest string, cluster api.PerconaXtraDBClusterSpec, pitr bool) error {
+	job, err := backup.AzureRestoreJob(cr, bcp, cluster, dest, pitr)
 	if err != nil {
 		return err
 	}

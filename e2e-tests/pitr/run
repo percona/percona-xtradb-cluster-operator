@@ -131,7 +131,7 @@ check_binlog_gap_error() {
 	# check error in operator log
 	local err_text3=$(kubectl_bin logs $(get_operator_pod) | grep -c "Gap detected in binary logs")
 	if [[ $err_text3 -eq 0 ]]; then
-			echo "ERROR: Gap error text is not found in operator pod logs."
+		echo "ERROR: Gap error text is not found in operator pod logs."
 		exit 1
 	fi
 	# check backup on-pitr-minio-gap marked as unready for PITR restore

@@ -81,14 +81,18 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 		pod.InitContainers = append(pod.InitContainers, initContainers...)
 	}
 
-	if podSpec.ForceUnsafeBootstrap && cr.CompareVersionWith("1.10.0") < 0 {
-		ic := appC.DeepCopy()
-		ic.Name = ic.Name + "-init-unsafe"
-		ic.Resources = podSpec.Resources
-		ic.ReadinessProbe = nil
-		ic.LivenessProbe = nil
-		ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
-		pod.InitContainers = append(pod.InitContainers, *ic)
+	if podSpec.ForceUnsafeBootstrap {
+		log.Info("spec.pxc.forceUnsafeBootstrap option is not supported since v1.10")
+
+		if cr.CompareVersionWith("1.10.0") < 0 {
+			ic := appC.DeepCopy()
+			ic.Name = ic.Name + "-init-unsafe"
+			ic.Resources = podSpec.Resources
+			ic.ReadinessProbe = nil
+			ic.LivenessProbe = nil
+			ic.Command = []string{"/var/lib/mysql/unsafe-bootstrap.sh"}
+			pod.InitContainers = append(pod.InitContainers, *ic)
+		}
 	}
 
 	sideC, err := sfs.SidecarContainers(podSpec, secrets, cr)

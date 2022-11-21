@@ -6362,10 +6362,16 @@ spec:
                       properties:
                         configuration:
                           properties:
+                            ca:
+                              type: string
                             sourceConnectRetry:
                               type: integer
                             sourceRetryCount:
                               type: integer
+                            ssl:
+                              type: boolean
+                            sslSkipVerify:
+                              type: boolean
                           type: object
                         isSource:
                           type: boolean
@@ -8138,12 +8144,18 @@ spec:
                   replicationChannels:
                     items:
                       properties:
+                        ca:
+                          type: string
                         name:
                           type: string
                         sourceConnectRetry:
                           type: integer
                         sourceRetryCount:
                           type: integer
+                        ssl:
+                          type: boolean
+                        sslSkipVerify:
+                          type: boolean
                       type: object
                     type: array
                 type: object

@@ -255,10 +255,6 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 }
 
 func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {
-	if cr.Status.PXC.Version != "" {
-		return cr.Status.PXC.Version, nil
-	}
-
 	if cr.Status.PXC.Status != apiv1.AppStateReady {
 		return "", versionNotReadyErr
 	}

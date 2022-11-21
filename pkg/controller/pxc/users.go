@@ -84,9 +84,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 		return nil, nil
 	}
 
-	mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
-	if err != nil && !errors.Is(err, versionNotReadyErr) {
-		return nil, errors.Wrap(err, "retrieving pxc version")
+	mysqlVersion := cr.Status.PXC.Version
+	if mysqlVersion == "" {
+		var err error
+		mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
+		if err != nil && !errors.Is(err, versionNotReadyErr) {
+			return nil, errors.Wrap(err, "retrieving pxc version")
+		}
 	}
 
 	ver, err := version.NewVersion(mysqlVersion)
@@ -414,9 +418,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 
 	if cr.CompareVersionWith("1.10.0") >= 0 {
-		mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
-		if err != nil && !errors.Is(err, versionNotReadyErr) {
-			return errors.Wrap(err, "retrieving pxc version")
+		mysqlVersion := cr.Status.PXC.Version
+		if mysqlVersion == "" {
+			var err error
+			mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
+			if err != nil && !errors.Is(err, versionNotReadyErr) {
+				return errors.Wrap(err, "retrieving pxc version")
+			}
 		}
 
 		if mysqlVersion != "" {
@@ -548,9 +556,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 
 	// Regardless of password change, always ensure clustercheck user has the right privileges
 	if cr.CompareVersionWith("1.10.0") >= 0 {
-		mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
-		if err != nil && !errors.Is(err, versionNotReadyErr) {
-			return errors.Wrap(err, "retrieving pxc version")
+		mysqlVersion := cr.Status.PXC.Version
+		if mysqlVersion == "" {
+			var err error
+			mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
+			if err != nil && !errors.Is(err, versionNotReadyErr) {
+				return errors.Wrap(err, "retrieving pxc version")
+			}
 		}
 
 		if mysqlVersion != "" {

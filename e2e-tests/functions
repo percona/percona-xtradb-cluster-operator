@@ -130,6 +130,16 @@ get_operator_pod() {
 		-o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
 }
 
+get_pitr_pod() {
+	local pitr_pod=$(kubectl_bin get pods --no-headers -l app.kubernetes.io/component=pitr --output=custom-columns='NAME:.metadata.name')
+	if [[ -z "${pitr_pod}" ]]; then
+		echo "PITR pod is not found! Exiting..."
+		exit 1
+	else
+		echo "${pitr_pod}"
+	fi
+}
+
 wait_pod() {
 	local pod=$1
 	local max_retry="${2:-480}"
@@ -186,11 +196,12 @@ wait_crash_pod() {
 
 wait_backup() {
 	local backup=$1
+	local status=${2:-'Succeeded'}
 
 	set +o xtrace
 	retry=0
 	echo -n $backup
-	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
 		sleep 1
 		echo -n .
 		let retry+=1
@@ -205,11 +216,12 @@ wait_backup() {
 
 wait_backup_restore() {
 	local backup_name=$1
+	local status=${2:-'Succeeded'}
 
 	set +o xtrace
 	retry=0
 	echo -n $backup_name
-	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
 		sleep 1
 		echo -n .
 		let retry+=1

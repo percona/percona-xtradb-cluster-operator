@@ -191,6 +191,21 @@ func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]p
 	return c.removeEmptyBinlogs(logs[startIndex:])
 }
 
+func createGapFile(gtidSet string) error {
+	p := "/tmp/gap-detected"
+	f, err := os.Create(p)
+	if err != nil {
+		return errors.Wrapf(err, "create %s", p)
+	}
+
+	_, err = f.WriteString(gtidSet)
+	if err != nil {
+		return errors.Wrapf(err, "write GTID set to %s", p)
+	}
+
+	return nil
+}
+
 func (c *Collector) CollectBinLogs() error {
 	list, err := c.db.GetBinLogList()
 	if err != nil {
@@ -222,7 +237,11 @@ func (c *Collector) CollectBinLogs() error {
 		}
 
 		if lastUploadedBinlogName == "" {
-			log.Println("Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastSet)
+			log.Println("ERROR: Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+			if err := createGapFile(c.lastSet); err != nil {
+				return errors.Wrap(err, "create gap file")
+			}
 		}
 	}
 

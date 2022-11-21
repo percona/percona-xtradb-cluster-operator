@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -161,6 +162,15 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 	bcp, err := r.getBackup(cr)
 	if err != nil {
 		return rr, errors.Wrap(err, "get backup")
+	}
+
+	annotations := cr.GetAnnotations()
+	_, unsafePITR := annotations[api.AnnotationUnsafePITR]
+	cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
+	if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
+		msg := fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
+		err = errors.New(msg)
+		return reconcile.Result{}, nil
 	}
 
 	cluster := new(api.PerconaXtraDBCluster)

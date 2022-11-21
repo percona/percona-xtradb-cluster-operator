@@ -470,13 +470,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
-		err := r.updateProxyUser(cr, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "update monitor users pass")
-		}
-		logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
-	}
+	// if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+	// 	err := r.updateProxyUser(cr, internalSecrets, user)
+	// 	if err != nil {
+	// 		return errors.Wrap(err, "update monitor users pass")
+	// 	}
+	// 	logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
+	// }
 
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
 	err = r.client.Update(context.TODO(), internalSecrets)
@@ -498,6 +498,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		return errors.Wrap(err, "discard monitor old pass")
 	}
 	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+		err := r.updateProxyUser(cr, internalSecrets, user)
+		if err != nil {
+			return errors.Wrap(err, "update monitor users pass")
+		}
+		logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
+	}
 
 	actions.restartProxy = true
 	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {

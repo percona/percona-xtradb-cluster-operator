@@ -8,8 +8,12 @@ test_dir=$(realpath $(dirname $0))
 cluster="auto-tuning"
 
 does_autotune_cm_exists() {
-	kubectl_bin get configmap auto-${cluster}-pxc
-	return $?
+	local exit_status=0
+	set +e
+	kubectl_bin get configmap auto-${cluster}-pxc -o 'jsonpath={.metadata.name}'
+	exit_status=$?
+	set -e
+	return ${exit_status}
 }
 
 get_variable_from_cm() {
@@ -42,12 +46,10 @@ fi
 apply_config "${test_dir}/conf/${cluster}-with-requests.yml"
 wait_cluster_consistency "$cluster" 3
 
-set +e
 if does_autotune_cm_exists; then
 	echo "with-requests: Operator shouldn't create autotune configmap just with resource requests"
 	exit 1
 fi
-set -e
 
 apply_config "${test_dir}/conf/${cluster}-with-custom-config.yml"
 wait_cluster_consistency "$cluster" 3

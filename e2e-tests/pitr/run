@@ -115,7 +115,7 @@ create_binlog_gap() {
 	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-0"
 	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-1"
 	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-2"
-	sleep 65 # wait for next PITR collect cycle and error to appear
+	sleep 80 # wait for next PITR collect cycle and error to appear
 }
 
 check_binlog_gap_error() {

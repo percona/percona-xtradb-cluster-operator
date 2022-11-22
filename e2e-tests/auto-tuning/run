@@ -7,56 +7,51 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="auto-tuning"
 
+does_autotune_cm_exists() {
+	local exit_status=0
+	set +e
+	kubectl_bin get configmap auto-${cluster}-pxc -o 'jsonpath={.metadata.name}'
+	exit_status=$?
+	set -e
+	return ${exit_status}
+}
+
 get_variable_from_cm() {
 	kubectl_bin get configmap auto-${cluster}-pxc -o yaml | grep -oP "$1 = \K[0-9]+"
 }
 
 create_infra $namespace
 
-spinup_pxc "$cluster" "${test_dir}/conf/${cluster}1.yml"
+spinup_pxc "$cluster" "${test_dir}/conf/${cluster}-with-limits.yml"
 
-AUTO_INNODB_SIZE=$(run_mysql \
+INNODB_SIZE=$(run_mysql \
 	'SELECT @@innodb_buffer_pool_size;' \
 	"-h $cluster-pxc -uroot -proot_password")
-AUTO_CONNECTIONS=$(run_mysql \
+CONNECTIONS=$(run_mysql \
 	'SELECT @@max_connections;' \
 	"-h $cluster-pxc -uroot -proot_password")
 
 cm_buffer_size=$(get_variable_from_cm innodb_buffer_pool_size)
-if [[ ${AUTO_INNODB_SIZE} != ${cm_buffer_size} ]]; then
-	echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with configmap value: ${cm_buffer_size}"
+if [[ ${INNODB_SIZE} != ${cm_buffer_size} ]]; then
+	echo "with-limits: innodb_buffer_pool_size is set to ${INNODB_SIZE}, which does not correlate with configmap value: ${cm_buffer_size}"
 	exit 1
 fi
 
 cm_max_connections=$(get_variable_from_cm max_connections)
-if [[ ${AUTO_CONNECTIONS} != ${cm_max_connections} ]]; then
-	echo "max_connections is set to ${AUTO_CONNECTIONS}, which does not correlate with configmap value: ${cm_max_connections}"
+if [[ ${CONNECTIONS} != ${cm_max_connections} ]]; then
+	echo "with-limits: max_connections is set to ${CONNECTIONS}, which does not correlate with configmap value: ${cm_max_connections}"
 	exit 1
 fi
 
-apply_config "${test_dir}/conf/${cluster}2.yml"
+apply_config "${test_dir}/conf/${cluster}-with-requests.yml"
 wait_cluster_consistency "$cluster" 3
 
-AUTO_INNODB_SIZE=$(run_mysql \
-	'SELECT @@innodb_buffer_pool_size;' \
-	"-h $cluster-pxc -uroot -proot_password")
-AUTO_CONNECTIONS=$(run_mysql \
-	'SELECT @@max_connections;' \
-	"-h $cluster-pxc -uroot -proot_password")
-
-cm_buffer_size=$(get_variable_from_cm innodb_buffer_pool_size)
-if [[ ${AUTO_INNODB_SIZE} != ${cm_buffer_size} ]]; then
-	echo "innodb_buffer_pool_size is set to ${AUTO_INNODB_SIZE}, which does not correlate with configmap value: ${cm_buffer_size}"
+if does_autotune_cm_exists; then
+	echo "with-requests: Operator shouldn't create autotune configmap just with resource requests"
 	exit 1
 fi
 
-cm_max_connections=$(get_variable_from_cm max_connections)
-if [[ ${AUTO_CONNECTIONS} != ${cm_max_connections} ]]; then
-	echo "max_connections is set to ${AUTO_CONNECTIONS}, which does not correlate with configmap value: ${cm_max_connections}"
-	exit 1
-fi
-
-apply_config "${test_dir}/conf/${cluster}3.yml"
+apply_config "${test_dir}/conf/${cluster}-with-custom-config.yml"
 wait_cluster_consistency "$cluster" 3
 
 INNODB_SIZE=$(run_mysql \
@@ -67,12 +62,52 @@ CONNECTIONS=$(run_mysql \
 	"-h $cluster-pxc -uroot -proot_password")
 
 if [[ ${INNODB_SIZE} != 805306368 ]]; then
-	echo "innodb_buffer_pool_size ${AUTO_INNODB_SIZE} is not set to 805306368"
+	echo "with-custom-config: innodb_buffer_pool_size ${AUTO_INNODB_SIZE} should be 805306368"
 	exit 1
 fi
 
 if [[ ${CONNECTIONS} != 200 ]]; then
-	echo "max_connections ${CONNECTIONS} is not set to 200"
+	echo "with-custom-config: max_connections ${CONNECTIONS} should be 200"
+	exit 1
+fi
+
+apply_config "${test_dir}/conf/${cluster}-with-template.yml"
+wait_cluster_consistency "$cluster" 3
+
+INNODB_SIZE=$(run_mysql \
+	'SELECT @@innodb_buffer_pool_size;' \
+	"-h $cluster-pxc -uroot -proot_password")
+CONNECTIONS=$(run_mysql \
+	'SELECT @@max_connections;' \
+	"-h $cluster-pxc -uroot -proot_password")
+
+if [[ ${INNODB_SIZE} != 2147483648 ]]; then
+	echo "with-template: innodb_buffer_pool_size ${INNODB_SIZE} should be 2147483648"
+	exit 1
+fi
+
+if [[ ${CONNECTIONS} != 200 ]]; then
+	echo "with-template: max_connections ${CONNECTIONS} should be 200"
+	exit 1
+fi
+
+apply_config "${test_dir}/conf/${cluster}-with-template-transform.yml"
+wait_cluster_consistency "$cluster" 3
+
+INNODB_SIZE=$(run_mysql \
+	'SELECT @@innodb_buffer_pool_size;' \
+	"-h $cluster-pxc -uroot -proot_password")
+CONNECTIONS=$(run_mysql \
+	'SELECT @@max_connections;' \
+	"-h $cluster-pxc -uroot -proot_password")
+
+if [[ ${INNODB_SIZE} != 805306368 ]]; then
+	echo "with-template-transform: innodb_buffer_pool_size ${INNODB_SIZE} should be 805306368"
+	exit 1
+fi
+
+if [[ ${CONNECTIONS} != 200 ]]; then
+	echo "with-template-transform: max_connections ${CONNECTIONS} should be 200"
 	exit 1
 fi
 

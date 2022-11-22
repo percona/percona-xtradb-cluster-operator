@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1068,18 +1067,9 @@ func (p *PodSpec) reconcileAffinityOpts() {
 }
 
 func (p *PodSpec) executeConfigurationTemplate() error {
-	var memory *resource.Quantity
-	if res := p.Resources; res.Size() > 0 {
-		if _, ok := res.Requests[corev1.ResourceMemory]; ok {
-			memory = res.Requests.Memory()
-		}
-		if _, ok := res.Limits[corev1.ResourceMemory]; ok {
-			memory = res.Limits.Memory()
-		}
-	}
-	if memory == nil {
+	if _, ok := p.Resources.Limits[corev1.ResourceMemory]; !ok {
 		if strings.Contains(p.Configuration, "{{") {
-			return errors.New("resources.limits[memory] or resources.requests[memory] should be specified for template usage in configuration")
+			return errors.New("resources.limits[memory] should be specified for template usage in configuration")
 		}
 		return nil
 	}
@@ -1088,6 +1078,8 @@ func (p *PodSpec) executeConfigurationTemplate() error {
 	if err != nil {
 		return errors.Wrap(err, "parse template")
 	}
+
+	memory := p.Resources.Limits.Memory()
 	p.Configuration, err = tmpl.Execute(pongo2.Context{"containerMemoryLimit": memory.Value()})
 	if err != nil {
 		return errors.Wrap(err, "execute template")

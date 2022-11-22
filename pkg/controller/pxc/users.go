@@ -84,7 +84,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(cr *api.PerconaXtraDBClus
 	if mysqlVersion == "" {
 		var err error
 		mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
-		if err != nil && !errors.Is(err, versionNotReadyErr) {
+		if err != nil {
+			if errors.Is(err, versionNotReadyErr) {
+				return nil, nil
+			}
 			return nil, errors.Wrap(err, "retrieving pxc version")
 		}
 	}
@@ -419,7 +422,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 			if mysqlVersion == "" {
 				var err error
 				mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
-				if err != nil && !errors.Is(err, versionNotReadyErr) {
+				if err != nil {
+					if errors.Is(err, versionNotReadyErr) {
+						return nil
+					}
 					return errors.Wrap(err, "retrieving pxc version")
 				}
 			}
@@ -558,7 +564,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 			if mysqlVersion == "" {
 				var err error
 				mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
-				if err != nil && !errors.Is(err, versionNotReadyErr) {
+				if err != nil {
+					if errors.Is(err, versionNotReadyErr) {
+						return nil
+					}
 					return errors.Wrap(err, "retrieving pxc version")
 				}
 			}

@@ -168,7 +168,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 
 		if cr.CompareVersionWith("1.10.0") >= 0 {
 			mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
-			if err != nil && !errors.Is(err, versionNotReadyErr) {
+			if err != nil {
+				if errors.Is(err, versionNotReadyErr) {
+					return nil
+				}
 				return errors.Wrap(err, "retrieving pxc version")
 			}
 
@@ -237,7 +240,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 	if cr.Status.PXC.Ready > 0 {
 		if cr.CompareVersionWith("1.10.0") >= 0 {
 			mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
-			if err != nil && !errors.Is(err, versionNotReadyErr) {
+			if err != nil {
+				if errors.Is(err, versionNotReadyErr) {
+					return nil
+				}
 				return errors.Wrap(err, "retrieving pxc version")
 			}
 

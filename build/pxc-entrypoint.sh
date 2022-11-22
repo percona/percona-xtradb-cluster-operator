@@ -27,6 +27,7 @@ done
 # (will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
 #  "$XYZ_DB_PASSWORD" from a file, especially for Docker's secrets feature)
 file_env() {
+	set +o xtrace
 	local var="$1"
 	local fileVar="${var}_FILE"
 	local def="${2:-}"
@@ -44,6 +45,7 @@ file_env() {
 	fi
 	export "$var"="$val"
 	unset "$fileVar"
+	set -o xtrace
 }
 
 # usage: process_init_file FILENAME MYSQLCOMMAND...
@@ -562,6 +564,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 				|| true
 		}
 		function node_recovery() {
+			set -o xtrace
 			echo "Recovery is in progress, please wait...."
 			sed -i 's/wsrep_cluster_address=.*/wsrep_cluster_address=gcomm:\/\//g' /etc/mysql/node.cnf
 			rm -f /tmp/recovery-case
@@ -572,6 +575,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			exec "$@" $wsrep_start_position_opt
 		}
 		function is_manual_recovery() {
+			set +o xtrace
 			recovery_file='/var/lib/mysql/sleep-forever'
 			if [ -f "${recovery_file}" ]; then
 				echo "The $recovery_file file is detected, node is going to infinity loop"
@@ -582,6 +586,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 					fi
 				done
 			fi
+			set -o xtrace
 		}
 
 		is_primary_exists=$(get_primary)
@@ -595,6 +600,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 				seqno="-1"
 			fi
 
+			set +o xtrace
 			sleep 3
 
 			echo "#####################################################FULL_PXC_CLUSTER_CRASH:$NODE_NAME#####################################################"
@@ -614,6 +620,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 					exit 0
 				fi
 			done
+			set -o xtrace
 		fi
 	fi
 fi

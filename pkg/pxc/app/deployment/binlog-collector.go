@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -17,11 +18,9 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
-	"github.com/pkg/errors"
 )
 
 func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployment, error) {
-	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
 	binlogCollectorName := GetBinlogCollectorDeploymentName(cr)
 	pxcUser := "xtrabackup"
 	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
@@ -41,26 +40,11 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 	for key, value := range cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Labels {
 		labels[key] = value
 	}
-	if storage.S3 == nil {
-		return appsv1.Deployment{}, errors.New("s3 storage is not specified")
+	envs, err := getStorageEnvs(cr)
+	if err != nil {
+		return appsv1.Deployment{}, errors.Wrap(err, "get storage envs")
 	}
-	envs := []corev1.EnvVar{
-		{
-			Name: "SECRET_ACCESS_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(storage.S3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
-			},
-		},
-		{
-			Name: "ACCESS_KEY_ID",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(storage.S3.CredentialsSecret, "AWS_ACCESS_KEY_ID"),
-			},
-		},
-		{
-			Name:  "S3_BUCKET_URL",
-			Value: storage.S3.Bucket,
-		},
+	envs = append(envs, []corev1.EnvVar{
 		{
 			Name:  "PXC_SERVICE",
 			Value: cr.Name + "-pxc",
@@ -76,10 +60,6 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			},
 		},
 		{
-			Name:  "DEFAULT_REGION",
-			Value: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].S3.Region,
-		},
-		{
 			Name:  "COLLECT_SPAN_SEC",
 			Value: sleepTime,
 		},
@@ -87,13 +67,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			Name:  "BUFFER_SIZE",
 			Value: strconv.FormatInt(bufferSize, 10),
 		},
-	}
-	if len(storage.S3.EndpointURL) > 0 {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "ENDPOINT",
-			Value: storage.S3.EndpointURL,
-		})
-	}
+	}...)
 	container := corev1.Container{
 		Name:            "pitr",
 		Image:           cr.Spec.Backup.Image,
@@ -150,6 +124,85 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			},
 		},
 	}, nil
+}
+
+func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
+	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
+	switch storage.Type {
+	case api.BackupStorageS3:
+		if storage.S3 == nil {
+			return nil, errors.New("s3 storage is not specified")
+		}
+		envs := []corev1.EnvVar{
+			{
+				Name: "SECRET_ACCESS_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(storage.S3.CredentialsSecret, "AWS_SECRET_ACCESS_KEY"),
+				},
+			},
+			{
+				Name: "ACCESS_KEY_ID",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(storage.S3.CredentialsSecret, "AWS_ACCESS_KEY_ID"),
+				},
+			},
+			{
+				Name:  "S3_BUCKET_URL",
+				Value: storage.S3.Bucket,
+			},
+			{
+				Name:  "DEFAULT_REGION",
+				Value: storage.S3.Region,
+			},
+			{
+				Name:  "STORAGE_TYPE",
+				Value: "s3",
+			},
+		}
+		if len(storage.S3.EndpointURL) > 0 {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "ENDPOINT",
+				Value: storage.S3.EndpointURL,
+			})
+		}
+		return envs, nil
+	case api.BackupStorageAzure:
+		if storage.Azure == nil {
+			return nil, errors.New("azure storage is not specified")
+		}
+		return []corev1.EnvVar{
+			{
+				Name: "AZURE_STORAGE_ACCOUNT",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(storage.Azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_NAME"),
+				},
+			},
+			{
+				Name: "AZURE_ACCESS_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: app.SecretKeySelector(storage.Azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_KEY"),
+				},
+			},
+			{
+				Name:  "AZURE_STORAGE_CLASS",
+				Value: storage.Azure.StorageClass,
+			},
+			{
+				Name:  "AZURE_CONTAINER_NAME",
+				Value: storage.Azure.ContainerName,
+			},
+			{
+				Name:  "AZURE_ENDPOINT",
+				Value: storage.Azure.Endpoint,
+			},
+			{
+				Name:  "STORAGE_TYPE",
+				Value: "azure",
+			},
+		}, nil
+	default:
+		return nil, errors.Errorf("%s storage has unsupported type %s", cr.Spec.Backup.PITR.StorageName, storage.Type)
+	}
 }
 
 func GetBinlogCollectorDeploymentName(cr *api.PerconaXtraDBCluster) string {

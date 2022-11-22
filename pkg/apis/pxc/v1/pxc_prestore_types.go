@@ -75,8 +75,8 @@ func (cr *PerconaXtraDBClusterRestore) CheckNsetDefaults() error {
 	if cr.Spec.PXCCluster == "" {
 		return errors.New("pxcCluster can't be empty")
 	}
-	if cr.Spec.PITR != nil && cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.StorageName == "" && cr.Spec.PITR.BackupSource.S3 == nil {
-		return errors.New("PITR.BackupSource.StorageName and PITR.BackupSource.S3 can't be empty simultaneously")
+	if cr.Spec.PITR != nil && cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.StorageName == "" && cr.Spec.PITR.BackupSource.S3 == nil && cr.Spec.PITR.BackupSource.Azure == nil {
+		return errors.New("PITR.BackupSource.StorageName, PITR.BackupSource.S3 and PITR.BackupSource.Azure can't be empty simultaneously")
 	}
 	if cr.Spec.BackupName == "" && cr.Spec.BackupSource == nil {
 		return errors.New("backupName and BackupSource can't be empty simultaneously")

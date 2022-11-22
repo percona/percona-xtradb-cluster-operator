@@ -265,6 +265,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 	if azure == nil {
 		return nil, errors.New("azure storage is not specified")
 	}
+	container, _ := azure.ContainerAndPrefix()
 	envs := []corev1.EnvVar{
 		{
 			Name: "AZURE_STORAGE_ACCOUNT",
@@ -280,7 +281,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		},
 		{
 			Name:  "AZURE_CONTAINER_NAME",
-			Value: azure.ContainerName,
+			Value: container,
 		},
 		{
 			Name:  "AZURE_ENDPOINT",
@@ -292,7 +293,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		},
 		{
 			Name:  "BACKUP_PATH",
-			Value: strings.TrimPrefix(destination, azure.ContainerName+"/"),
+			Value: strings.TrimPrefix(destination, container+"/"),
 		},
 		{
 			Name:  "PXC_SERVICE",
@@ -341,7 +342,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 			storageAzure = cr.Spec.PITR.BackupSource.Azure
 		}
 
-		if len(storageAzure.ContainerName) == 0 {
+		if len(storageAzure.ContainerPath) == 0 {
 			return nil, errors.New("container name is not specified in storage")
 		}
 
@@ -364,8 +365,8 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 				Value: storageAzure.StorageClass,
 			},
 			{
-				Name:  "BINLOG_AZURE_CONTAINER_NAME",
-				Value: storageAzure.ContainerName,
+				Name:  "BINLOG_AZURE_CONTAINER_PATH",
+				Value: storageAzure.ContainerPath,
 			},
 			{
 				Name:  "BINLOG_AZURE_ENDPOINT",

@@ -532,9 +532,16 @@ type BackupStorageS3Spec struct {
 
 type BackupStorageAzureSpec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
-	ContainerName     string `json:"container"`
+	ContainerPath     string `json:"container"`
 	Endpoint          string `json:"endpointUrl"`
 	StorageClass      string `json:"storageClass"`
+}
+
+// ContainerAndPrefix returns container name and backup prefix from ContainerPath.
+// BackupStorageAzureSpec.ContainerPath can contain backup path in format `<container-name>/<backup-prefix>`.
+func (b *BackupStorageAzureSpec) ContainerAndPrefix() (string, string) {
+	container, prefix, _ := strings.Cut(b.ContainerPath, "/")
+	return container, prefix
 }
 
 type VolumeSpec struct {

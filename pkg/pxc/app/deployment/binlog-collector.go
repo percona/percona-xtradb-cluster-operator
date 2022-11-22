@@ -188,8 +188,8 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 				Value: storage.Azure.StorageClass,
 			},
 			{
-				Name:  "AZURE_CONTAINER_NAME",
-				Value: storage.Azure.ContainerName,
+				Name:  "AZURE_CONTAINER_PATH",
+				Value: storage.Azure.ContainerPath,
 			},
 			{
 				Name:  "AZURE_ENDPOINT",

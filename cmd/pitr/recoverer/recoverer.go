@@ -118,7 +118,7 @@ type BinlogS3 struct {
 
 type BinlogAzure struct {
 	Endpoint      string `env:"BINLOG_AZURE_ENDPOINT,required"`
-	ContainerPath string `env:"BINLOG_AZURE_CONTAINER_NAME,required"`
+	ContainerPath string `env:"BINLOG_AZURE_CONTAINER_PATH,required"`
 	StorageClass  string `env:"BINLOG_AZURE_STORAGE_CLASS"`
 	AccountName   string `env:"BINLOG_AZURE_STORAGE_ACCOUNT,required"`
 	AccountKey    string `env:"BINLOG_AZURE_ACCESS_KEY,required"`

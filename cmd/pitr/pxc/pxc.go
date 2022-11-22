@@ -1,6 +1,7 @@
 package pxc
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"os/exec"
@@ -53,22 +54,22 @@ func (p *PXC) GetHost() string {
 }
 
 // GetGTIDSet return GTID set by binary log file name
-func (p *PXC) GetGTIDSet(binlogName string) (string, error) {
+func (p *PXC) GetGTIDSet(ctx context.Context, binlogName string) (string, error) {
 	//select name from mysql.func where name='get_gtid_set_by_binlog'
 	var existFunc string
-	nameRow := p.db.QueryRow("select name from mysql.func where name='get_gtid_set_by_binlog'")
+	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_gtid_set_by_binlog'")
 	err := nameRow.Scan(&existFunc)
 	if err != nil && err != sql.ErrNoRows {
 		return "", errors.Wrap(err, "get udf name")
 	}
 	if len(existFunc) == 0 {
-		_, err = p.db.Exec("CREATE FUNCTION get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
+		_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_gtid_set_by_binlog RETURNS STRING SONAME 'binlog_utils_udf.so'")
 		if err != nil {
 			return "", errors.Wrap(err, "create function")
 		}
 	}
 	var binlogSet string
-	row := p.db.QueryRow("SELECT get_gtid_set_by_binlog(?)", binlogName)
+	row := p.db.QueryRowContext(ctx, "SELECT get_gtid_set_by_binlog(?)", binlogName)
 	err = row.Scan(&binlogSet)
 	if err != nil && !strings.Contains(err.Error(), "Binary log does not exist") {
 		return "", errors.Wrap(err, "scan set")
@@ -85,8 +86,8 @@ type Binlog struct {
 }
 
 // GetBinLogList return binary log files list
-func (p *PXC) GetBinLogList() ([]Binlog, error) {
-	rows, err := p.db.Query("SHOW BINARY LOGS")
+func (p *PXC) GetBinLogList(ctx context.Context) ([]Binlog, error) {
+	rows, err := p.db.QueryContext(ctx, "SHOW BINARY LOGS")
 	if err != nil {
 		return nil, errors.Wrap(err, "show binary logs")
 	}
@@ -100,7 +101,7 @@ func (p *PXC) GetBinLogList() ([]Binlog, error) {
 		binlogs = append(binlogs, b)
 	}
 
-	_, err = p.db.Exec("FLUSH BINARY LOGS")
+	_, err = p.db.ExecContext(ctx, "FLUSH BINARY LOGS")
 	if err != nil {
 		return nil, errors.Wrap(err, "flush binary logs")
 	}
@@ -109,8 +110,8 @@ func (p *PXC) GetBinLogList() ([]Binlog, error) {
 }
 
 // GetBinLogList return binary log files list
-func (p *PXC) GetBinLogNamesList() ([]string, error) {
-	rows, err := p.db.Query("SHOW BINARY LOGS")
+func (p *PXC) GetBinLogNamesList(ctx context.Context) ([]string, error) {
+	rows, err := p.db.QueryContext(ctx, "SHOW BINARY LOGS")
 	if err != nil {
 		return nil, errors.Wrap(err, "show binary logs")
 	}
@@ -129,24 +130,24 @@ func (p *PXC) GetBinLogNamesList() ([]string, error) {
 }
 
 // GetBinLogName returns name of the binary log file by given GTID set
-func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
+func (p *PXC) GetBinLogName(ctx context.Context, gtidSet string) (string, error) {
 	if len(gtidSet) == 0 {
 		return "", nil
 	}
 	var existFunc string
-	nameRow := p.db.QueryRow("select name from mysql.func where name='get_binlog_by_gtid_set'")
+	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_binlog_by_gtid_set'")
 	err := nameRow.Scan(&existFunc)
 	if err != nil && err != sql.ErrNoRows {
 		return "", errors.Wrap(err, "get udf name")
 	}
 	if len(existFunc) == 0 {
-		_, err = p.db.Exec("CREATE FUNCTION get_binlog_by_gtid_set RETURNS STRING SONAME 'binlog_utils_udf.so'")
+		_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_binlog_by_gtid_set RETURNS STRING SONAME 'binlog_utils_udf.so'")
 		if err != nil {
 			return "", errors.Wrap(err, "create function")
 		}
 	}
 	var binlog sql.NullString
-	row := p.db.QueryRow("SELECT get_binlog_by_gtid_set(?)", gtidSet)
+	row := p.db.QueryRowContext(ctx, "SELECT get_binlog_by_gtid_set(?)", gtidSet)
 
 	err = row.Scan(&binlog)
 	if err != nil {
@@ -157,21 +158,21 @@ func (p *PXC) GetBinLogName(gtidSet string) (string, error) {
 }
 
 // GetBinLogFirstTimestamp return binary log file first timestamp
-func (p *PXC) GetBinLogFirstTimestamp(binlog string) (string, error) {
+func (p *PXC) GetBinLogFirstTimestamp(ctx context.Context, binlog string) (string, error) {
 	var existFunc string
-	nameRow := p.db.QueryRow("select name from mysql.func where name='get_first_record_timestamp_by_binlog'")
+	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_first_record_timestamp_by_binlog'")
 	err := nameRow.Scan(&existFunc)
 	if err != nil && err != sql.ErrNoRows {
 		return "", errors.Wrap(err, "get udf name")
 	}
 	if len(existFunc) == 0 {
-		_, err = p.db.Exec("CREATE FUNCTION get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
+		_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_first_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
 		if err != nil {
 			return "", errors.Wrap(err, "create function")
 		}
 	}
 	var timestamp string
-	row := p.db.QueryRow("SELECT get_first_record_timestamp_by_binlog(?) DIV 1000000", binlog)
+	row := p.db.QueryRowContext(ctx, "SELECT get_first_record_timestamp_by_binlog(?) DIV 1000000", binlog)
 
 	err = row.Scan(&timestamp)
 	if err != nil {
@@ -181,9 +182,9 @@ func (p *PXC) GetBinLogFirstTimestamp(binlog string) (string, error) {
 	return timestamp, nil
 }
 
-func (p *PXC) SubtractGTIDSet(set, subSet string) (string, error) {
+func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, error) {
 	var result string
-	row := p.db.QueryRow("SELECT GTID_SUBTRACT(?,?)", set, subSet)
+	row := p.db.QueryRowContext(ctx, "SELECT GTID_SUBTRACT(?,?)", set, subSet)
 	err := row.Scan(&result)
 	if err != nil {
 		return "", errors.Wrap(err, "scan gtid subtract result")
@@ -192,8 +193,8 @@ func (p *PXC) SubtractGTIDSet(set, subSet string) (string, error) {
 	return result, nil
 }
 
-func getNodesByServiceName(pxcServiceName string) ([]string, error) {
-	cmd := exec.Command("peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
+func getNodesByServiceName(ctx context.Context, pxcServiceName string) ([]string, error) {
+	cmd := exec.CommandContext(ctx, "peer-list", "-on-start=/usr/bin/get-pxc-state", "-service="+pxcServiceName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, errors.Wrap(err, "get peer-list output")
@@ -201,8 +202,8 @@ func getNodesByServiceName(pxcServiceName string) ([]string, error) {
 	return strings.Split(string(out), "node:"), nil
 }
 
-func GetPXCFirstHost(pxcServiceName string) (string, error) {
-	nodes, err := getNodesByServiceName(pxcServiceName)
+func GetPXCFirstHost(ctx context.Context, pxcServiceName string) (string, error) {
+	nodes, err := getNodesByServiceName(ctx, pxcServiceName)
 	if err != nil {
 		return "", errors.Wrap(err, "get nodes by service name")
 	}
@@ -222,8 +223,8 @@ func GetPXCFirstHost(pxcServiceName string) (string, error) {
 	return lastHost, nil
 }
 
-func GetPXCOldestBinlogHost(pxcServiceName, user, pass string) (string, error) {
-	nodes, err := getNodesByServiceName(pxcServiceName)
+func GetPXCOldestBinlogHost(ctx context.Context, pxcServiceName, user, pass string) (string, error) {
+	nodes, err := getNodesByServiceName(ctx, pxcServiceName)
 	if err != nil {
 		return "", errors.Wrap(err, "get nodes by service name")
 	}
@@ -233,7 +234,7 @@ func GetPXCOldestBinlogHost(pxcServiceName, user, pass string) (string, error) {
 	for _, node := range nodes {
 		if strings.Contains(node, "wsrep_ready:ON:wsrep_connected:ON:wsrep_local_state_comment:Synced:wsrep_cluster_status:Primary") {
 			nodeArr := strings.Split(node, ":")
-			binlogTime, err := getBinlogTime(nodeArr[0], user, pass)
+			binlogTime, err := getBinlogTime(ctx, nodeArr[0], user, pass)
 			if err != nil {
 				log.Printf("ERROR: get binlog time %v", err)
 				continue
@@ -253,13 +254,13 @@ func GetPXCOldestBinlogHost(pxcServiceName, user, pass string) (string, error) {
 	return oldestHost, nil
 }
 
-func getBinlogTime(host, user, pass string) (int64, error) {
+func getBinlogTime(ctx context.Context, host, user, pass string) (int64, error) {
 	db, err := NewPXC(host, user, pass)
 	if err != nil {
 		return 0, errors.Errorf("creating connection for host %s: %v", host, err)
 	}
 	defer db.Close()
-	list, err := db.GetBinLogNamesList()
+	list, err := db.GetBinLogNamesList(ctx)
 	if err != nil {
 		return 0, errors.Errorf("get binlog list for host %s: %v", host, err)
 	}
@@ -268,7 +269,7 @@ func getBinlogTime(host, user, pass string) (int64, error) {
 	}
 	var binlogTime int64
 	for _, binlogName := range list {
-		binlogTime, err = getBinlogTimeByName(db, binlogName)
+		binlogTime, err = getBinlogTimeByName(ctx, db, binlogName)
 		if err != nil {
 			log.Printf("ERROR: get binlog timestamp for binlog %s host %s: %v", binlogName, host, err)
 			continue
@@ -284,8 +285,8 @@ func getBinlogTime(host, user, pass string) (int64, error) {
 	return binlogTime, nil
 }
 
-func getBinlogTimeByName(db *PXC, binlogName string) (int64, error) {
-	ts, err := db.GetBinLogFirstTimestamp(binlogName)
+func getBinlogTimeByName(ctx context.Context, db *PXC, binlogName string) (int64, error) {
+	ts, err := db.GetBinLogFirstTimestamp(ctx, binlogName)
 	if err != nil {
 		return 0, errors.Wrap(err, "get binlog first timestamp")
 	}
@@ -297,17 +298,17 @@ func getBinlogTimeByName(db *PXC, binlogName string) (int64, error) {
 	return binlogTime, nil
 }
 
-func (p *PXC) DropCollectorFunctions() error {
-	_, err := p.db.Exec("DROP FUNCTION IF EXISTS get_first_record_timestamp_by_binlog")
+func (p *PXC) DropCollectorFunctions(ctx context.Context) error {
+	_, err := p.db.ExecContext(ctx, "DROP FUNCTION IF EXISTS get_first_record_timestamp_by_binlog")
 	if err != nil {
 		return errors.Wrap(err, "drop get_first_record_timestamp_by_binlog function")
 	}
-	_, err = p.db.Exec("DROP FUNCTION IF EXISTS get_binlog_by_gtid_set")
+	_, err = p.db.ExecContext(ctx, "DROP FUNCTION IF EXISTS get_binlog_by_gtid_set")
 	if err != nil {
 		return errors.Wrap(err, "drop get_binlog_by_gtid_set function")
 	}
 
-	_, err = p.db.Exec("DROP FUNCTION IF EXISTS get_gtid_set_by_binlog")
+	_, err = p.db.ExecContext(ctx, "DROP FUNCTION IF EXISTS get_gtid_set_by_binlog")
 	if err != nil {
 		return errors.Wrap(err, "drop get_gtid_set_by_binlog function")
 	}

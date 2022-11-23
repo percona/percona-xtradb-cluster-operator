@@ -436,7 +436,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
-			return errors.Wrap(err, "is pass propagated")
+			return errors.Wrap(err, "is password propagated")
 		}
 		if !passPropagated {
 			return PassNotPropagatedError

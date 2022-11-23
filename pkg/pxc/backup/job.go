@@ -207,9 +207,10 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_KEY"),
 		},
 	}
+	container, _ := azure.ContainerAndPrefix()
 	containerName := corev1.EnvVar{
 		Name:  "AZURE_CONTAINER_NAME",
-		Value: azure.ContainerName,
+		Value: container,
 	}
 	endpoint := corev1.EnvVar{
 		Name:  "AZURE_ENDPOINT",
@@ -221,7 +222,7 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 	}
 	backupPath := corev1.EnvVar{
 		Name:  "BACKUP_PATH",
-		Value: strings.TrimPrefix(cr.Status.Destination, azure.ContainerName+"/"),
+		Value: strings.TrimPrefix(cr.Status.Destination, container+"/"),
 	}
 	if len(job.Template.Spec.Containers) == 0 {
 		return errors.New("no containers in job spec")

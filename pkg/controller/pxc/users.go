@@ -246,7 +246,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 
 	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
 	if err != nil {
-		return errors.Wrap(err, "discard old pass")
+		return errors.Wrap(err, "discard old password")
 	}
 	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 

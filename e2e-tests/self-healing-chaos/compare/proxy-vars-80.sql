@@ -40,7 +40,7 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.4.4-percona-1.1
+admin-version	2.4.4-percona-1.2
 admin-web_enabled	false
 admin-web_port	6080
 admin-web_verbosity	0
@@ -92,7 +92,7 @@ mysql-have_compress	true
 mysql-have_ssl	true
 mysql-hostgroup_manager_verbose	1
 mysql-init_connect	
-mysql-interfaces	0.0.0.0:3306;0.0.0.0:33062
+mysql-interfaces	0.0.0.0:3306
 mysql-keep_multiplexing_variables	tx_isolation,transaction_isolation,version
 mysql-kill_backend_connection_when_disconnect	true
 mysql-ldap_user_variable	

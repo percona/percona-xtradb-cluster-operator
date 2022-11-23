@@ -237,7 +237,7 @@ spec:
 #      failureThreshold: 4
 #    serviceType: ClusterIP
 #    externalTrafficPolicy: Cluster
-#    loadbalancersourceranges:
+#    loadBalancerSourceRanges:
 #      - 10.0.0.0/8
 #    loadBalancerIP: 127.0.0.1
 #    serviceAnnotations:
@@ -379,7 +379,7 @@ spec:
 #    labels:
 #      rack: rack-22
 #    serviceType: ClusterIP
-#    loadbalancersourceranges:
+#    loadBalancerSourceRanges:
 #      - 10.0.0.0/8
 #    loadBalancerIP: 127.0.0.1
 #    externalTrafficPolicy: Cluster

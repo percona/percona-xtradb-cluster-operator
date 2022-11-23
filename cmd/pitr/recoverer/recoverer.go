@@ -77,7 +77,7 @@ func (c Config) storages() (storage.Storage, storage.Storage, error) {
 	case "azure":
 		var err error
 		container, prefix := getContainerAndPrefix(c.BinlogStorageAzure.ContainerPath)
-		binlogStorage, err = storage.NewAzure(c.BinlogStorageAzure.AccountName, c.BinlogStorageAzure.AccountKey, c.BinlogStorageAzure.Endpoint, container, prefix+"/")
+		binlogStorage, err = storage.NewAzure(c.BinlogStorageAzure.AccountName, c.BinlogStorageAzure.AccountKey, c.BinlogStorageAzure.Endpoint, container, prefix)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new azure storage")
 		}
@@ -187,6 +187,9 @@ func New(ctx context.Context, c Config) (*Recoverer, error) {
 
 func getContainerAndPrefix(s string) (string, string) {
 	container, prefix, _ := strings.Cut(s, "/")
+	if prefix != "" {
+		prefix += "/"
+	}
 	return container, prefix
 }
 

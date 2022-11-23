@@ -115,7 +115,7 @@ create_binlog_gap() {
 	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-0"
 	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-1"
 	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-2"
-	sleep 80 # wait for next PITR collect cycle and error to appear
+	sleep 65 # wait for next PITR collect cycle and error to appear
 }
 
 check_binlog_gap_error() {
@@ -129,7 +129,7 @@ check_binlog_gap_error() {
 		exit 1
 	fi
 	# check error in operator log
-	local err_text3=$(kubectl_bin logs $(get_operator_pod) | grep -c "Gap detected in binary logs")
+	local err_text3=$(kubectl_bin logs ${OPERATOR_NS:+-n$OPERATOR_NS} $(get_operator_pod) | grep -c "Gap detected in binary logs")
 	if [[ $err_text3 -eq 0 ]]; then
 		echo "ERROR: Gap error text is not found in operator pod logs."
 		exit 1

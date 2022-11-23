@@ -312,7 +312,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 
 	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
 	if err != nil {
-		return errors.Wrap(err, "discard operator old pass")
+		return errors.Wrap(err, "discard operator old password")
 	}
 	logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 

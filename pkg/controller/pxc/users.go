@@ -432,7 +432,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
-		logger.Info(fmt.Sprintf("User %s: pass updated but old one not discarded", user.Name))
+		logger.Info(fmt.Sprintf("User %s: password updated but old one not discarded", user.Name))
 
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {

@@ -54,7 +54,7 @@ type BackupS3 struct {
 
 type BackupAzure struct {
 	Endpoint      string `env:"AZURE_ENDPOINT,required"`
-	ContainerName string `env:"AZURE_CONTAINER_NAME,required"`
+	ContainerPath string `env:"AZURE_CONTAINER_PATH,required"`
 	StorageClass  string `env:"AZURE_STORAGE_CLASS"`
 	AccountName   string `env:"AZURE_STORAGE_ACCOUNT,required"`
 	AccountKey    string `env:"AZURE_ACCESS_KEY,required"`
@@ -81,7 +81,7 @@ func New(c Config) (*Collector, error) {
 			return nil, errors.Wrap(err, "new storage manager")
 		}
 	case "azure":
-		container, prefix, _ := strings.Cut(c.BackupStorageAzure.ContainerName, "/")
+		container, prefix, _ := strings.Cut(c.BackupStorageAzure.ContainerPath, "/")
 		s, err = storage.NewAzure(c.BackupStorageAzure.AccountName, c.BackupStorageAzure.AccountKey, c.BackupStorageAzure.Endpoint, container, prefix+"/")
 		if err != nil {
 			return nil, errors.Wrap(err, "new azure storage")

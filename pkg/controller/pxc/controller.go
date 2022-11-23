@@ -294,10 +294,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	urr, err := r.reconcileUsers(o)
 	if err != nil {
-		if errors.Is(err, PassNotPropagatedError) {
-			err = nil
-			return rr, nil
-		}
 		return rr, errors.Wrap(err, "reconcile users")
 	}
 	if urr != nil {

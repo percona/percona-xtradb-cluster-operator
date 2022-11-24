@@ -3,7 +3,8 @@
 GIT_COMMIT=$(git rev-parse HEAD)
 BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_BRANCH=${VERSION:-$(git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')}
-API="pxc.percona.com/v1-12-0"
+API="pxc.percona.com/v1"
+OPERATOR_VERSION="1.12.0"
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 MYSQL_VERSION=${MYSQL_VERSION:-"8.0"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
@@ -129,6 +130,16 @@ get_operator_pod() {
 		-o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
 }
 
+get_pitr_pod() {
+	local pitr_pod=$(kubectl_bin get pods --no-headers -l app.kubernetes.io/component=pitr --output=custom-columns='NAME:.metadata.name')
+	if [[ -z ${pitr_pod} ]]; then
+		echo "PITR pod is not found! Exiting..."
+		exit 1
+	else
+		echo "${pitr_pod}"
+	fi
+}
+
 wait_pod() {
 	local pod=$1
 	local max_retry="${2:-480}"
@@ -185,11 +196,12 @@ wait_crash_pod() {
 
 wait_backup() {
 	local backup=$1
+	local status=${2:-'Succeeded'}
 
 	set +o xtrace
 	retry=0
 	echo -n $backup
-	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
 		sleep 1
 		echo -n .
 		let retry+=1
@@ -204,11 +216,12 @@ wait_backup() {
 
 wait_backup_restore() {
 	local backup_name=$1
+	local status=${2:-'Succeeded'}
 
 	set +o xtrace
 	retry=0
 	echo -n $backup_name
-	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
 		sleep 1
 		echo -n .
 		let retry+=1
@@ -241,14 +254,14 @@ deploy_operator() {
 		cat ${src_dir}/deploy/cw-operator.yaml \
 			| sed -e "s^image: .*^image: ${IMAGE}^" \
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
-			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' \
+			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| kubectl_bin apply -f -
 	else
 		apply_rbac rbac
 		cat ${src_dir}/deploy/operator.yaml \
 			| sed -e "s^image: .*^image: ${IMAGE}^" \
 			| sed -e "s^failureThreshold: .*^failureThreshold: 10^" \
-			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' \
+			| yq eval '(select(.kind == "Deployment").spec.template.spec.containers[] | select(.name == "percona-xtradb-cluster-operator").env[] | select(.name == "DISABLE_TELEMETRY").value) = "true"' - \
 			| kubectl_bin apply -f -
 	fi
 
@@ -875,14 +888,21 @@ kubectl_bin() {
 	local LAST_ERR="$(mktemp)"
 	local exit_status=0
 	for i in $(seq 0 2); do
+		set +e
 		kubectl "$@" 1>"$LAST_OUT" 2>"$LAST_ERR"
 		exit_status=$?
+		set -e
 		if [[ ${exit_status} != 0 ]]; then
 			sleep "$((timeout * i))"
 		else
 			break
 		fi
 	done
+	if [[ ${exit_status} > 0 ]]; then
+		set +e
+		kubectl get pods
+		set -e
+	fi
 	cat "$LAST_OUT"
 	cat "$LAST_ERR" >&2
 	rm "$LAST_OUT" "$LAST_ERR"

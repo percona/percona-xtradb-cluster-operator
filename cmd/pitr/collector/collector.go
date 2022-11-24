@@ -2,6 +2,7 @@ package collector
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 
@@ -31,17 +33,31 @@ type Collector struct {
 }
 
 type Config struct {
-	PXCServiceName string  `env:"PXC_SERVICE,required"`
-	PXCUser        string  `env:"PXC_USER,required"`
-	PXCPass        string  `env:"PXC_PASS,required"`
-	S3Endpoint     string  `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
-	S3AccessKeyID  string  `env:"ACCESS_KEY_ID,required"`
-	S3AccessKey    string  `env:"SECRET_ACCESS_KEY,required"`
-	S3BucketURL    string  `env:"S3_BUCKET_URL,required"`
-	S3Region       string  `env:"DEFAULT_REGION,required"`
-	BufferSize     int64   `env:"BUFFER_SIZE"`
-	CollectSpanSec float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
-	VerifyTLS      bool    `env:"VERIFY_TLS" envDefault:"true"`
+	PXCServiceName     string `env:"PXC_SERVICE,required"`
+	PXCUser            string `env:"PXC_USER,required"`
+	PXCPass            string `env:"PXC_PASS,required"`
+	StorageType        string `env:"STORAGE_TYPE,required"`
+	BackupStorageS3    BackupS3
+	BackupStorageAzure BackupAzure
+	BufferSize         int64   `env:"BUFFER_SIZE"`
+	CollectSpanSec     float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
+	VerifyTLS          bool    `env:"VERIFY_TLS" envDefault:"true"`
+}
+
+type BackupS3 struct {
+	Endpoint    string `env:"ENDPOINT" envDefault:"s3.amazonaws.com"`
+	AccessKeyID string `env:"ACCESS_KEY_ID,required"`
+	AccessKey   string `env:"SECRET_ACCESS_KEY,required"`
+	BucketURL   string `env:"S3_BUCKET_URL,required"`
+	Region      string `env:"DEFAULT_REGION,required"`
+}
+
+type BackupAzure struct {
+	Endpoint      string `env:"AZURE_ENDPOINT,required"`
+	ContainerPath string `env:"AZURE_CONTAINER_PATH,required"`
+	StorageClass  string `env:"AZURE_STORAGE_CLASS"`
+	AccountName   string `env:"AZURE_STORAGE_ACCOUNT,required"`
+	AccountKey    string `env:"AZURE_ACCESS_KEY,required"`
 }
 
 const (
@@ -50,27 +66,43 @@ const (
 )
 
 func New(c Config) (*Collector, error) {
-	bucketArr := strings.Split(c.S3BucketURL, "/")
-	prefix := ""
-	// if c.S3BucketURL looks like "my-bucket/data/more-data" we need prefix to be "data/more-data/"
-	if len(bucketArr) > 1 {
-		prefix = strings.TrimPrefix(c.S3BucketURL, bucketArr[0]+"/") + "/"
-	}
-	s3, err := storage.NewS3(strings.TrimPrefix(strings.TrimPrefix(c.S3Endpoint, "https://"), "http://"), c.S3AccessKeyID, c.S3AccessKey, bucketArr[0], prefix, c.S3Region, strings.HasPrefix(c.S3Endpoint, "https"), c.VerifyTLS)
-	if err != nil {
-		return nil, errors.Wrap(err, "new storage manager")
+	var s storage.Storage
+	var err error
+	switch c.StorageType {
+	case "s3":
+		bucketArr := strings.Split(c.BackupStorageS3.BucketURL, "/")
+		prefix := ""
+		// if c.S3BucketURL looks like "my-bucket/data/more-data" we need prefix to be "data/more-data/"
+		if len(bucketArr) > 1 {
+			prefix = strings.TrimPrefix(c.BackupStorageS3.BucketURL, bucketArr[0]+"/") + "/"
+		}
+		s, err = storage.NewS3(c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS)
+		if err != nil {
+			return nil, errors.Wrap(err, "new storage manager")
+		}
+	case "azure":
+		container, prefix, _ := strings.Cut(c.BackupStorageAzure.ContainerPath, "/")
+		if prefix != "" {
+			prefix += "/"
+		}
+		s, err = storage.NewAzure(c.BackupStorageAzure.AccountName, c.BackupStorageAzure.AccountKey, c.BackupStorageAzure.Endpoint, container, prefix)
+		if err != nil {
+			return nil, errors.Wrap(err, "new azure storage")
+		}
+	default:
+		return nil, errors.New("unknown STORAGE_TYPE")
 	}
 
 	return &Collector{
-		storage:        s3,
+		storage:        s,
 		pxcUser:        c.PXCUser,
 		pxcServiceName: c.PXCServiceName,
 		verifyTLS:      c.VerifyTLS,
 	}, nil
 }
 
-func (c *Collector) Run() error {
-	err := c.newDB()
+func (c *Collector) Run(ctx context.Context) error {
+	err := c.newDB(ctx)
 	if err != nil {
 		return errors.Wrap(err, "new db connection")
 	}
@@ -80,7 +112,7 @@ func (c *Collector) Run() error {
 	// read it from aws file
 	c.lastSet = ""
 
-	err = c.CollectBinLogs()
+	err = c.CollectBinLogs(ctx)
 	if err != nil {
 		return errors.Wrap(err, "collect binlog files")
 	}
@@ -88,10 +120,13 @@ func (c *Collector) Run() error {
 	return nil
 }
 
-func (c *Collector) lastGTIDSet(sourceID string) (string, error) {
+func (c *Collector) lastGTIDSet(ctx context.Context, sourceID string) (string, error) {
 	// get last binlog set stored on S3
-	lastSetObject, err := c.storage.GetObject(lastSetFilePrefix + sourceID)
+	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+sourceID)
 	if err != nil {
+		if bloberror.HasCode(errors.Cause(err), bloberror.BlobNotFound) {
+			return "", nil
+		}
 		return "", errors.Wrap(err, "get last set content")
 	}
 	lastSet, err := ioutil.ReadAll(lastSetObject)
@@ -101,7 +136,7 @@ func (c *Collector) lastGTIDSet(sourceID string) (string, error) {
 	return string(lastSet), nil
 }
 
-func (c *Collector) newDB() error {
+func (c *Collector) newDB(ctx context.Context) error {
 	file, err := os.Open("/etc/mysql/mysql-users-secret/xtrabackup")
 	if err != nil {
 		return errors.Wrap(err, "open file")
@@ -112,7 +147,7 @@ func (c *Collector) newDB() error {
 	}
 	c.pxcPass = string(pxcPass)
 
-	host, err := pxc.GetPXCOldestBinlogHost(c.pxcServiceName, c.pxcUser, c.pxcPass)
+	host, err := pxc.GetPXCOldestBinlogHost(ctx, c.pxcServiceName, c.pxcUser, c.pxcPass)
 	if err != nil {
 		return errors.Wrap(err, "get host")
 	}
@@ -131,13 +166,13 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
-func (c *Collector) CurrentSourceID(logs []pxc.Binlog) (string, error) {
+func (c *Collector) CurrentSourceID(ctx context.Context, logs []pxc.Binlog) (string, error) {
 	var (
 		gtidSet string
 		err     error
 	)
 	for i := len(logs) - 1; i >= 0 && gtidSet == ""; i-- {
-		gtidSet, err = c.db.GetGTIDSet(logs[i].Name)
+		gtidSet, err = c.db.GetGTIDSet(ctx, logs[i].Name)
 		if err != nil {
 			return gtidSet, err
 		}
@@ -145,10 +180,10 @@ func (c *Collector) CurrentSourceID(logs []pxc.Binlog) (string, error) {
 	return strings.Split(gtidSet, ":")[0], nil
 }
 
-func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) {
+func (c *Collector) removeEmptyBinlogs(ctx context.Context, logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	result := make([]pxc.Binlog, 0)
 	for _, v := range logs {
-		set, err := c.db.GetGTIDSet(v.Name)
+		set, err := c.db.GetGTIDSet(ctx, v.Name)
 		if err != nil {
 			return nil, errors.Wrap(err, "get GTID set")
 		}
@@ -162,9 +197,9 @@ func (c *Collector) removeEmptyBinlogs(logs []pxc.Binlog) ([]pxc.Binlog, error) 
 	return result, nil
 }
 
-func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]pxc.Binlog, error) {
+func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBinlogName string) ([]pxc.Binlog, error) {
 	if lastBinlogName == "" {
-		return c.removeEmptyBinlogs(logs)
+		return c.removeEmptyBinlogs(ctx, logs)
 	}
 
 	logsLen := len(logs)
@@ -178,7 +213,7 @@ func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]p
 		return nil, nil
 	}
 
-	set, err := c.db.GetGTIDSet(logs[startIndex].Name)
+	set, err := c.db.GetGTIDSet(ctx, logs[startIndex].Name)
 	if err != nil {
 		return nil, errors.Wrap(err, "get gtid set of last uploaded binlog")
 	}
@@ -188,16 +223,31 @@ func (c *Collector) filterBinLogs(logs []pxc.Binlog, lastBinlogName string) ([]p
 		startIndex++
 	}
 
-	return c.removeEmptyBinlogs(logs[startIndex:])
+	return c.removeEmptyBinlogs(ctx, logs[startIndex:])
 }
 
-func (c *Collector) CollectBinLogs() error {
-	list, err := c.db.GetBinLogList()
+func createGapFile(gtidSet string) error {
+	p := "/tmp/gap-detected"
+	f, err := os.Create(p)
+	if err != nil {
+		return errors.Wrapf(err, "create %s", p)
+	}
+
+	_, err = f.WriteString(gtidSet)
+	if err != nil {
+		return errors.Wrapf(err, "write GTID set to %s", p)
+	}
+
+	return nil
+}
+
+func (c *Collector) CollectBinLogs(ctx context.Context) error {
+	list, err := c.db.GetBinLogList(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
 
-	sourceID, err := c.CurrentSourceID(list)
+	sourceID, err := c.CurrentSourceID(ctx, list)
 	if err != nil {
 		return errors.Wrap(err, "get current source id")
 	}
@@ -207,7 +257,7 @@ func (c *Collector) CollectBinLogs() error {
 		return nil
 	}
 
-	c.lastSet, err = c.lastGTIDSet(sourceID)
+	c.lastSet, err = c.lastGTIDSet(ctx, sourceID)
 	if err != nil {
 		return errors.Wrap(err, "get last uploaded gtid set")
 	}
@@ -216,17 +266,21 @@ func (c *Collector) CollectBinLogs() error {
 
 	if c.lastSet != "" {
 		// get last uploaded binlog file name
-		lastUploadedBinlogName, err = c.db.GetBinLogName(c.lastSet)
+		lastUploadedBinlogName, err = c.db.GetBinLogName(ctx, c.lastSet)
 		if err != nil {
 			return errors.Wrap(err, "get last uploaded binlog name by gtid set")
 		}
 
 		if lastUploadedBinlogName == "" {
-			log.Println("Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastSet)
+			log.Println("ERROR: Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
+			if err := createGapFile(c.lastSet); err != nil {
+				return errors.Wrap(err, "create gap file")
+			}
 		}
 	}
 
-	list, err = c.filterBinLogs(list, lastUploadedBinlogName)
+	list, err = c.filterBinLogs(ctx, list, lastUploadedBinlogName)
 	if err != nil {
 		return errors.Wrap(err, "filter empty binlogs")
 	}
@@ -237,7 +291,7 @@ func (c *Collector) CollectBinLogs() error {
 	}
 
 	for _, binlog := range list {
-		err = c.manageBinlog(binlog)
+		err = c.manageBinlog(ctx, binlog)
 		if err != nil {
 			return errors.Wrap(err, "manage binlog")
 		}
@@ -256,9 +310,8 @@ func mergeErrors(a, b error) error {
 	return b
 }
 
-func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
-
-	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(binlog.Name)
+func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err error) {
+	binlogTmstmp, err := c.db.GetBinLogFirstTimestamp(ctx, binlog.Name)
 	if err != nil {
 		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
 	}
@@ -283,7 +336,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	}
 
 	errBuf := &bytes.Buffer{}
-	cmd := exec.Command("mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, binlog.Name)
+	cmd := exec.CommandContext(ctx, "mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, binlog.Name)
 	cmd.Env = append(cmd.Env, "MYSQL_PWD="+c.pxcPass)
 	cmd.Dir = os.TempDir()
 	cmd.Stderr = errBuf
@@ -318,7 +371,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 
 	go readBinlog(file, pw, errBuf, binlog.Name)
 
-	err = c.storage.PutObject(binlogName, pr, -1)
+	err = c.storage.PutObject(ctx, binlogName, pr, -1)
 	if err != nil {
 		return errors.Wrapf(err, "put %s object", binlog.Name)
 	}
@@ -330,7 +383,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 		return errors.Wrap(err, "wait mysqlbinlog command error:"+errBuf.String())
 	}
 
-	err = c.storage.PutObject(binlogName+gtidPostfix, &setBuffer, int64(setBuffer.Len()))
+	err = c.storage.PutObject(ctx, binlogName+gtidPostfix, &setBuffer, int64(setBuffer.Len()))
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
@@ -338,7 +391,7 @@ func (c *Collector) manageBinlog(binlog pxc.Binlog) (err error) {
 	// nolint:errcheck
 	setBuffer.WriteString(binlog.GTIDSet)
 
-	err = c.storage.PutObject(lastSetFilePrefix+strings.Split(binlog.GTIDSet, ":")[0], &setBuffer, int64(setBuffer.Len()))
+	err = c.storage.PutObject(ctx, lastSetFilePrefix+strings.Split(binlog.GTIDSet, ":")[0], &setBuffer, int64(setBuffer.Len()))
 	if err != nil {
 		return errors.Wrap(err, "put last-set object")
 	}

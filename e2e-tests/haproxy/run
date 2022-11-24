@@ -76,13 +76,13 @@ main() {
 
 	compare_mysql_cmd_local "ping_timeout_server" \
 		"SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
-		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "" -c'proxysql'
+		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "" 'proxysql'
 	apply_config "$test_dir/conf/config-secret-proxysql.yaml"
 	wait_cluster_consistency "$cluster" 3 2
 	compare_kubectl statefulset/$cluster-proxysql "-secret"
 	compare_mysql_cmd_local "ping_timeout_server" \
 		"SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
-		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "-secret" -c'proxysql'
+		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "-secret" 'proxysql'
 	wait_cluster_consistency "$cluster" 3 2
 
 	desc 're-enable haproxy'

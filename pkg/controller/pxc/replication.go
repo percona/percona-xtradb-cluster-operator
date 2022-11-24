@@ -55,7 +55,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtra
 			return errors.Wrap(err, "failed to set owner to external service")
 		}
 
-		err = r.createOrUpdate(cr, svc)
+		err = r.createOrUpdateService(cr, svc, len(cr.Spec.PXC.Expose.Annotations) == 0)
 		if err != nil {
 			return errors.Wrap(err, "failed to ensure pxc service")
 		}
@@ -405,6 +405,9 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 		},
 		SourceRetryCount:   channel.Config.SourceRetryCount,
 		SourceConnectRetry: channel.Config.SourceConnectRetry,
+		SSL:                channel.Config.SSL,
+		SSLSkipVerify:      channel.Config.SSLSkipVerify,
+		CA:                 channel.Config.CA,
 	})
 }
 

@@ -427,8 +427,8 @@ pipeline {
                 stage('cluster7') {
                     steps {
                         CreateCluster('cluster7')
-                        runTest('restore-to-encrypted-cluster', 'cluster7', '8.0')
                         runTest('pitr', 'cluster7', '8.0')
+                        runTest('restore-to-encrypted-cluster', 'cluster7', '8.0')
                         runTest('affinity', 'cluster7', '8.0')
                         ShutdownCluster('cluster7')
                     }

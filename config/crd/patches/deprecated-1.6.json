@@ -1,0 +1,48 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/versions/4",
+    "value": {
+      "additionalPrinterColumns": [
+        {
+          "jsonPath": ".status.host",
+          "name": "ENDPOINT",
+          "type": "string"
+        },
+        {
+          "jsonPath": ".status.state",
+          "name": "Status",
+          "type": "string"
+        },
+        {
+          "jsonPath": ".metadata.creationTimestamp",
+          "name": "Age",
+          "type": "date"
+        }
+      ],
+      "deprecated": true,
+      "deprecationWarning": "pxc.percona.com/v1-6-0 PerconaXtraDBCluster is deprecated and will be removed in v1.16.0; see v1.12.0 release notes for instructions to migrate to pxc.percona.com/v1",
+      "name": "v1-6-0",
+      "schema": {
+        "openAPIV3Schema": {
+          "properties": {
+            "spec": {
+              "type": "object",
+              "x-kubernetes-preserve-unknown-fields": true
+            },
+            "status": {
+              "type": "object",
+              "x-kubernetes-preserve-unknown-fields": true
+            }
+          },
+          "type": "object"
+        }
+      },
+      "served": false,
+      "storage": false,
+      "subresources": {
+        "status": {}
+      }
+    }
+  }
+]

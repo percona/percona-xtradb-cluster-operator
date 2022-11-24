@@ -3,9 +3,7 @@
 package v1
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -17,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -74,8 +71,11 @@ type ReplicationChannel struct {
 }
 
 type ReplicationChannelConfig struct {
-	SourceRetryCount   uint `json:"sourceRetryCount,omitempty"`
-	SourceConnectRetry uint `json:"sourceConnectRetry,omitempty"`
+	SourceRetryCount   uint   `json:"sourceRetryCount,omitempty"`
+	SourceConnectRetry uint   `json:"sourceConnectRetry,omitempty"`
+	SSL                bool   `json:"ssl,omitempty"`
+	SSLSkipVerify      bool   `json:"sslSkipVerify,omitempty"`
+	CA                 string `json:"ca,omitempty"`
 }
 
 type ReplicationSource struct {
@@ -213,6 +213,7 @@ type AppStatus struct {
 // PerconaXtraDBCluster is the Schema for the perconaxtradbclusters API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.pxc.size,statuspath=.status.pxc.size,selectorpath=.status.pxc.labelSelector
 // +kubebuilder:pruning:PreserveUnknownFields
 // +kubebuilder:resource:shortName="pxc";"pxcs"
 // +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".status.host"
@@ -273,6 +274,12 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 
 			if len(channel.SourcesList) == 0 {
 				return errors.Errorf("sources list for replication channel %s should be empty, because it's replica", channel.Name)
+			}
+
+			if channel.Config != nil {
+				if channel.Config.SSL && channel.Config.CA == "" {
+					return errors.Errorf("if you set ssl for channel %s, you have to indicate a path to a CA file to verify the server certificate", channel.Name)
+				}
 			}
 		}
 	}
@@ -530,9 +537,16 @@ type BackupStorageS3Spec struct {
 
 type BackupStorageAzureSpec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
-	ContainerName     string `json:"container"`
+	ContainerPath     string `json:"container"`
 	Endpoint          string `json:"endpointUrl"`
 	StorageClass      string `json:"storageClass"`
+}
+
+// ContainerAndPrefix returns container name and backup prefix from ContainerPath.
+// BackupStorageAzureSpec.ContainerPath can contain backup path in format `<container-name>/<backup-prefix>`.
+func (b *BackupStorageAzureSpec) ContainerAndPrefix() (string, string) {
+	container, prefix, _ := strings.Cut(b.ContainerPath, "/")
+	return container, prefix
 }
 
 type VolumeSpec struct {
@@ -633,7 +647,6 @@ func (cr *PerconaXtraDBCluster) ShouldWaitForTokenIssue() bool {
 // and checks if other options' values are allowable
 // returned "changed" means CR should be updated on cluster
 func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerVersion, logger logr.Logger) (err error) {
-	_ = cr.SetVersion()
 	err = cr.Validate()
 	if err != nil {
 		return errors.Wrap(err, "validate cr")
@@ -998,30 +1011,6 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 	}
 }
 
-// SetVersion sets the API version of a PXC resource.
-// The new (semver-matching) version is determined either by the CR's API version or an API version specified via the CR's fields.
-// If the CR's API version is an empty string and last-applied-configuration from k8s is empty, it returns current operator version.
-func (cr *PerconaXtraDBCluster) SetVersion() bool {
-	if len(cr.Spec.CRVersion) > 0 {
-		return false
-	}
-
-	apiVersion := version.Version
-
-	if lastCR, ok := cr.Annotations["kubectl.kubernetes.io/last-applied-configuration"]; ok {
-		var newCR PerconaXtraDBCluster
-		err := json.Unmarshal([]byte(lastCR), &newCR)
-		if err != nil {
-			log.Printf("failed to unmarshal cr: %v", err)
-		} else if len(newCR.APIVersion) > 0 {
-			apiVersion = strings.Replace(strings.TrimPrefix(newCR.APIVersion, "pxc.percona.com/v"), "-", ".", -1)
-		}
-	}
-
-	cr.Spec.CRVersion = apiVersion
-	return true
-}
-
 func (cr *PerconaXtraDBCluster) validateVersion() error {
 	if len(cr.Spec.CRVersion) == 0 {
 		return nil
@@ -1037,10 +1026,6 @@ func (cr *PerconaXtraDBCluster) Version() *v.Version {
 // CompareVersionWith compares given version to current version.
 // Returns -1, 0, or 1 if given version is smaller, equal, or larger than the current version, respectively.
 func (cr *PerconaXtraDBCluster) CompareVersionWith(ver string) int {
-	if len(cr.Spec.CRVersion) == 0 {
-		_ = cr.SetVersion()
-	}
-
 	return cr.Version().Compare(v.Must(v.NewVersion(ver)))
 }
 
@@ -1099,18 +1084,9 @@ func (p *PodSpec) reconcileAffinityOpts() {
 }
 
 func (p *PodSpec) executeConfigurationTemplate() error {
-	var memory *resource.Quantity
-	if res := p.Resources; res.Size() > 0 {
-		if _, ok := res.Requests[corev1.ResourceMemory]; ok {
-			memory = res.Requests.Memory()
-		}
-		if _, ok := res.Limits[corev1.ResourceMemory]; ok {
-			memory = res.Limits.Memory()
-		}
-	}
-	if memory == nil {
+	if _, ok := p.Resources.Limits[corev1.ResourceMemory]; !ok {
 		if strings.Contains(p.Configuration, "{{") {
-			return errors.New("resources.limits[memory] or resources.requests[memory] should be specified for template usage in configuration")
+			return errors.New("resources.limits[memory] should be specified for template usage in configuration")
 		}
 		return nil
 	}
@@ -1119,6 +1095,8 @@ func (p *PodSpec) executeConfigurationTemplate() error {
 	if err != nil {
 		return errors.Wrap(err, "parse template")
 	}
+
+	memory := p.Resources.Limits.Memory()
 	p.Configuration, err = tmpl.Execute(pongo2.Context{"containerMemoryLimit": memory.Value()})
 	if err != nil {
 		return errors.Wrap(err, "execute template")
@@ -1308,4 +1286,8 @@ func (cr *PerconaXtraDBCluster) CanBackup() error {
 	}
 
 	return nil
+}
+
+func (cr *PerconaXtraDBCluster) PITREnabled() bool {
+	return cr.Spec.Backup != nil && cr.Spec.Backup.PITR.Enabled
 }

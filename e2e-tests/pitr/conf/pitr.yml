@@ -67,7 +67,7 @@ spec:
         type: filesystem
         volume:
           persistentVolumeClaim:
-            accessModes: [ "ReadWriteOnce" ]
+            accessModes: ["ReadWriteOnce"]
             resources:
               requests:
                 storage: 1Gi
@@ -105,3 +105,13 @@ spec:
           region: us-east-1
           bucket: operator-testing/binlog-cluster1
           endpointUrl: https://storage.googleapis.com
+      azure-blob:
+        type: azure
+        azure:
+          credentialsSecret: azure-secret
+          container: operator-testing
+      azure-blob-binlogs:
+        type: azure
+        azure:
+          credentialsSecret: azure-secret
+          container: operator-testing/binlogs

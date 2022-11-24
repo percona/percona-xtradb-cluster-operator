@@ -61,7 +61,12 @@ type PXCBackupStatus struct {
 	SSLSecretName         string                  `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName string                  `json:"sslInternalSecretName,omitempty"`
 	VaultSecretName       string                  `json:"vaultSecretName,omitempty"`
+	Conditions            []metav1.Condition      `json:"conditions,omitempty"`
 }
+
+const (
+	BackupConditionPITRReady = "PITRReady"
+)
 
 type PXCBackupState string
 

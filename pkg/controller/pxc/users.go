@@ -200,6 +200,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 		Hosts: []string{"localhost", "%"},
 	}
 
+	if cr.Status.Status != api.AppStateReady {
+		return nil
+	}
+
 	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
 	if err != nil {
 		return err
@@ -216,10 +220,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 		}
 		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
-		return nil
-	}
-
-	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 
@@ -269,6 +269,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 		}
 	}
 
+	if cr.Status.Status != api.AppStateReady {
+		return nil
+	}
+
 	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
 	if err != nil {
 		return err
@@ -285,10 +289,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 		}
 		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
-		return nil
-	}
-
-	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 
@@ -422,6 +422,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		}
 	}
 
+	if cr.Status.Status != api.AppStateReady {
+		return nil
+	}
+
 	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
 	if err != nil {
 		return err
@@ -453,10 +457,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		}
 		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
-		return nil
-	}
-
-	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 
@@ -577,6 +577,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 		}
 	}
 
+	if cr.Status.Status != api.AppStateReady {
+		return nil
+	}
+
 	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
 	if err != nil {
 		return err
@@ -593,10 +597,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 		}
 		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
-		return nil
-	}
-
-	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 
@@ -648,6 +648,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 		}
 	}
 
+	if cr.Status.Status != api.AppStateReady {
+		return nil
+	}
+
 	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
 	if err != nil {
 		return err
@@ -664,10 +668,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 		}
 		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
-		return nil
-	}
-
-	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 
@@ -743,10 +743,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 		Hosts: []string{"%"},
 	}
 
-	// Even if there is no password change, always ensure that operator user is there handle its grants
-	err := r.manageReplicationUser(cr, secrets, internalSecrets)
-	if err != nil {
-		return errors.Wrap(err, "manage replication user")
+	if cr.Status.PXC.Ready > 0 {
+		err := r.manageReplicationUser(cr, secrets, internalSecrets)
+		if err != nil {
+			return errors.Wrap(err, "manage replication user")
+		}
+	}
+
+	if cr.Status.Status != api.AppStateReady {
+		return nil
 	}
 
 	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
@@ -765,10 +770,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 		}
 		logger.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
 
-		return nil
-	}
-
-	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 

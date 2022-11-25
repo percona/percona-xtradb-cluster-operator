@@ -21,16 +21,33 @@ is_old_password_discarded() {
 wait_for_password_propagation() {
 	local secret=$1
 	local user=$2
+	local max_retry="${3:-240}"
 	local root_pass=$(getSecretData "${secret}" "root")
 
+	if [[ $IMAGE_PXC =~ 5\.7 ]]; then
+		echo "Skipping dual password feature doesn't work for 5.7. PXC 5.7 doesn't support it!"
+		return
+	fi
+	retry=0
 	until is_password_updated "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
 		echo "waiting for password update"
 		sleep 1
+		let retry+=1
+		if [[ $retry -ge $max_retry ]]; then
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
 	done
 
+	retry=0
 	until is_old_password_discarded "${user}" "-h ${cluster}-pxc -uroot -p'${root_pass}'"; do
 		echo "waiting for password propagation"
 		sleep 1
+		let retry+=1
+		if [[ $retry -ge $max_retry ]]; then
+			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
+			exit 1
+		fi
 	done
 }
 

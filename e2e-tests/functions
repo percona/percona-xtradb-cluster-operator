@@ -896,11 +896,6 @@ kubectl_bin() {
 			break
 		fi
 	done
-	if [[ ${exit_status} > 0 ]]; then
-		set +e
-		kubectl get pods
-		set -e
-	fi
 	cat "$LAST_OUT"
 	cat "$LAST_ERR" >&2
 	rm "$LAST_OUT" "$LAST_ERR"

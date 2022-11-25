@@ -52,11 +52,6 @@ main() {
     backup_dest_gcp=$(kubectl_bin get pxc-backup "$backup_name_gcp" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
     backup_dest_azure=$(kubectl_bin get pxc-backup "$backup_name_azure" -o jsonpath='{.status.destination}' | sed -e 's/.json$//')
 
-		desc "Backup names print"
-		echo "$backup_dest_aws"
-		echo "$backup_dest_gcp"
-		echo "$backup_dest_azure"
-
 		kubectl_bin delete pxc-backup --all
 
 		if [ -z "$SKIP_REMOTE_BACKUPS" ]; then

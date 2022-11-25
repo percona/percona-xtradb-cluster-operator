@@ -973,7 +973,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.Percona
 		}
 	}
 
-	logger.Info("PXC users synced with ProxySQL")
+	logger.V(1).Info("PXC users synced with ProxySQL")
 	return nil
 }
 

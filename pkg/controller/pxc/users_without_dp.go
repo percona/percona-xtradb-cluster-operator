@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
@@ -90,8 +91,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaX
 		return errors.Wrap(err, "sync users")
 	}
 
+	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Update(context.TODO(), internalSecrets)
+	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal secrets root user password")
 	}
@@ -132,8 +134,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.Perc
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
+	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Update(context.TODO(), internalSecrets)
+	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets operator user password")
 	}
@@ -167,12 +170,16 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 		}
 
 		if cr.CompareVersionWith("1.10.0") >= 0 {
-			mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
-			if err != nil {
-				if errors.Is(err, versionNotReadyErr) {
-					return nil
+			mysqlVersion := cr.Status.PXC.Version
+			if mysqlVersion == "" {
+				var err error
+				mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
+				if err != nil {
+					if errors.Is(err, versionNotReadyErr) {
+						return nil
+					}
+					return errors.Wrap(err, "retrieving pxc version")
 				}
-				return errors.Wrap(err, "retrieving pxc version")
 			}
 
 			if mysqlVersion != "" {
@@ -214,17 +221,19 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 		logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
 	}
 
+	actions.restartProxy = true
+	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
+		actions.restartPXC = true
+	}
+
+	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Update(context.TODO(), internalSecrets)
+	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets monitor user password")
 	}
 	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
 
-	actions.restartProxy = true
-	if cr.Spec.PMM != nil && cr.Spec.PMM.IsEnabled(internalSecrets) {
-		actions.restartPXC = true
-	}
 	return nil
 }
 
@@ -239,12 +248,16 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 
 	if cr.Status.PXC.Ready > 0 {
 		if cr.CompareVersionWith("1.10.0") >= 0 {
-			mysqlVersion, err := r.mysqlVersion(cr, statefulset.NewNode(cr))
-			if err != nil {
-				if errors.Is(err, versionNotReadyErr) {
-					return nil
+			mysqlVersion := cr.Status.PXC.Version
+			if mysqlVersion == "" {
+				var err error
+				mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
+				if err != nil {
+					if errors.Is(err, versionNotReadyErr) {
+						return nil
+					}
+					return errors.Wrap(err, "retrieving pxc version")
 				}
-				return errors.Wrap(err, "retrieving pxc version")
 			}
 
 			if mysqlVersion != "" {
@@ -284,8 +297,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
+	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Update(context.TODO(), internalSecrets)
+	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets clustercheck user password")
 	}
@@ -302,6 +316,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.Pe
 		Pass:  string(secrets.Data[users.Xtrabackup]),
 		Hosts: []string{"localhost"},
 	}
+
 	if cr.CompareVersionWith("1.7.0") >= 0 {
 		user.Hosts = []string{"%"}
 	}
@@ -332,8 +347,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.Pe
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
+	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Update(context.TODO(), internalSecrets)
+	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets xtrabackup user password")
 	}
@@ -360,10 +376,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.P
 		Hosts: []string{"%"},
 	}
 
-	// Even if there is no password change, always ensure that operator user is there handle its grants
-	err := r.manageReplicationUser(cr, secrets, internalSecrets)
-	if err != nil {
-		return errors.Wrap(err, "manage replication user")
+	if cr.Status.PXC.Ready > 0 {
+		err := r.manageReplicationUser(cr, secrets, internalSecrets)
+		if err != nil {
+			return errors.Wrap(err, "manage replication user")
+		}
+	}
+
+	if cr.Status.Status != api.AppStateReady {
+		return nil
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
@@ -372,14 +393,15 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.P
 
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
-	err = r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
 	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
+	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Update(context.TODO(), internalSecrets)
+	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets replication user password")
 	}
@@ -405,6 +427,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.Pe
 		return nil
 	}
 
+	if cr.Status.Status != api.AppStateReady {
+		return nil
+	}
+
 	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
 	err := r.updateProxyUser(cr, internalSecrets, user)
@@ -413,8 +439,9 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.Pe
 	}
 	logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
 
+	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Update(context.TODO(), internalSecrets)
+	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets proxyadmin user password")
 	}

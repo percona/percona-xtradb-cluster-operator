@@ -115,7 +115,7 @@ newpassencrypted=$(echo -n "$newpass" | base64)
 patch_secret "my-cluster-secrets-2" "operator" "$newpassencrypted"
 sleep 15
 wait_cluster_consistency "$cluster" 3 2
-sleep 10 # give some time for proxy-admin --syncusers
+sleep 20 # give some time for proxy-admin --syncusers
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -uoperator -p'$newpass'"
 
 newpass=$(getSecretData "my-cluster-secrets-2" "root")
@@ -123,7 +123,7 @@ desc 'test new users sync'
 run_mysql \
 	"CREATE USER 'testsync'@'%' IDENTIFIED BY '$newpass';" \
 	"-h $cluster-pxc -uroot -p'$newpass'"
-sleep 30
+sleep 40
 compare_mysql_cmd "select-4" "SHOW TABLES;" "-h $cluster-proxysql -utestsync -p'$newpass'"
 
 pass=$(getSecretData "internal-some-name" "operator")

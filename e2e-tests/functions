@@ -96,7 +96,7 @@ create_namespace() {
 
 	if [[ ${CLEAN_NAMESPACE} == 1 ]] && [[ -z ${skip_clean_namespace} ]]; then
 		kubectl_bin get ns \
-			| egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" \
+			| egrep -v "^kube-|^default$|Terminating|pxc-operator|openshift|^NAME" \
 			| awk '{print$1}' \
 			| xargs kubectl delete ns &
 	fi

@@ -1405,9 +1405,3 @@ function check_backup_deletion() {
 		((retry += 1))
 	done
 }
-
-function get_backup_dest() {
-	local backup_name=$1
-	kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.status.destination}' \
-		| sed -e 's/.json$//'
-}

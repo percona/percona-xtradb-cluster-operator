@@ -1390,7 +1390,7 @@ function kpatch_set_field() {
 	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
 }
 
-function check_backup_existance() {
+function check_backup_existence() {
 	path=$1
 	storage_name=$2
 	retry=0

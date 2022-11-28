@@ -82,7 +82,10 @@ func New(c Config) (*Collector, error) {
 		}
 	case "azure":
 		container, prefix, _ := strings.Cut(c.BackupStorageAzure.ContainerPath, "/")
-		s, err = storage.NewAzure(c.BackupStorageAzure.AccountName, c.BackupStorageAzure.AccountKey, c.BackupStorageAzure.Endpoint, container, prefix+"/")
+		if prefix != "" {
+			prefix += "/"
+		}
+		s, err = storage.NewAzure(c.BackupStorageAzure.AccountName, c.BackupStorageAzure.AccountKey, c.BackupStorageAzure.Endpoint, container, prefix)
 		if err != nil {
 			return nil, errors.Wrap(err, "new azure storage")
 		}

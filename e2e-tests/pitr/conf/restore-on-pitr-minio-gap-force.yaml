@@ -1,0 +1,13 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  annotations:
+    percona.com/unsafe-pitr: "true"
+  name: on-pitr-minio-gap-force
+spec:
+  pxcCluster: pitr
+  backupName: on-pitr-minio-gap
+  pitr:
+    type: latest
+    backupSource:
+      storageName: "minio-binlogs"

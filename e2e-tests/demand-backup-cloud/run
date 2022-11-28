@@ -59,10 +59,10 @@ main() {
 
 		kubectl_bin delete pxc-backup --all
 
-    desc "Check backup deletion"
-    check_backup_deletion "https://s3.amazonaws.com/${backup_dest_aws}.sst_info/sst_info.00000000000000000000" "aws-s3"
-    check_backup_deletion "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
-    check_backup_deletion "https://engk8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
+		desc "Check backup deletion"
+		check_backup_deletion "https://s3.amazonaws.com/${backup_dest_aws}.sst_info/sst_info.00000000000000000000" "aws-s3"
+		check_backup_deletion "https://storage.googleapis.com/${backup_dest_gcp}.sst_info/sst_info.00000000000000000000" "gcp-cs"
+		check_backup_deletion "https://engk8soperators.blob.core.windows.net/${backup_dest_azure}.sst_info/sst_info.00000000000000000000" "azure-blob"
 
 		destroy $namespace
 	fi

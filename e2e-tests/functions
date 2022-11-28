@@ -96,7 +96,7 @@ create_namespace() {
 
 	if [[ ${CLEAN_NAMESPACE} == 1 ]] && [[ -z ${skip_clean_namespace} ]]; then
 		kubectl_bin get ns \
-			| egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" \
+			| egrep -v "^kube-|^default$|Terminating|pxc-operator|openshift|^NAME" \
 			| awk '{print$1}' \
 			| xargs kubectl delete ns &
 	fi
@@ -128,6 +128,16 @@ get_operator_pod() {
 	kubectl_bin get pods \
 		--selector=${label_prefix}name=percona-xtradb-cluster-operator \
 		-o 'jsonpath={.items[].metadata.name}' ${OPERATOR_NS:+-n $OPERATOR_NS}
+}
+
+get_pitr_pod() {
+	local pitr_pod=$(kubectl_bin get pods --no-headers -l app.kubernetes.io/component=pitr --output=custom-columns='NAME:.metadata.name')
+	if [[ -z ${pitr_pod} ]]; then
+		echo "PITR pod is not found! Exiting..."
+		exit 1
+	else
+		echo "${pitr_pod}"
+	fi
 }
 
 wait_pod() {
@@ -186,11 +196,12 @@ wait_crash_pod() {
 
 wait_backup() {
 	local backup=$1
+	local status=${2:-'Succeeded'}
 
 	set +o xtrace
 	retry=0
 	echo -n $backup
-	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
 		sleep 1
 		echo -n .
 		let retry+=1
@@ -205,11 +216,12 @@ wait_backup() {
 
 wait_backup_restore() {
 	local backup_name=$1
+	local status=${2:-'Succeeded'}
 
 	set +o xtrace
 	retry=0
 	echo -n $backup_name
-	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep 'Succeeded'; do
+	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
 		sleep 1
 		echo -n .
 		let retry+=1
@@ -784,7 +796,7 @@ spinup_pxc() {
 	desc 'create first PXC cluster'
 	kubectl_bin apply -f $secretsFile
 	apply_config "$pxcClientFile"
-	if [[ $IMAGE_PXC =~ 5\.7 ]] && [ "$cluster" == 'demand-backup' ]; then
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$cluster" == 'demand-backup' || "$cluster" == 'demand-backup-cloud' ]]; then
 		cat_config "$config" \
 			| $sed '/\[sst\]/,+1d' \
 			| $sed 's|compress=lz4|compress|' \
@@ -1378,11 +1390,27 @@ function kpatch_set_field() {
 	kubectl_bin patch $type $name --type=json -p "[{\"op\": \"replace\", \"path\": \"$path\", \"value\": $value}]" >/dev/null
 }
 
+function check_backup_existence() {
+	path=$1
+	storage_name=$2
+	retry=0
+	until [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 200 ]]; do
+		if [ $retry -ge 10 ]; then
+			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
+			echo "Backup was not found in bucket -- $storage_name"
+			exit 1
+		fi
+		echo "waiting for backup in $storage_name"
+		sleep $((10 * 2 ** retry))
+		((retry += 1))
+	done
+}
+
 function check_backup_deletion() {
 	path=$1
 	storage_name=$2
 	retry=0
-	until [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 403 ]] || [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 404 ]]; do
+	until [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 403 ]] || [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 404 ]] || [[ $(curl -sw '%{http_code}' -o /dev/null "$path") -eq 400 ]]; do
 		if [ $retry -ge 10 ]; then
 			echo "max retry count $retry reached. something went wrong with operator or kubernetes cluster"
 			echo "Backup was not removed from bucket -- $storage_name"
@@ -1392,11 +1420,4 @@ function check_backup_deletion() {
 		sleep $((10 * 2 ** retry))
 		((retry += 1))
 	done
-}
-
-get_backup_dest() {
-	local backup_name=$1
-
-	kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.status.destination}' \
-		| sed -e 's/.json$//'
 }

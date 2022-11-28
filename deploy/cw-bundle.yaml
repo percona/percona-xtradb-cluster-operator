@@ -9058,6 +9058,10 @@ spec:
       - command:
         - percona-xtradb-cluster-operator
         env:
+        - name: LOG_STRUCTURED
+          value: 'false'
+        - name: LOG_LEVEL
+          value: INFO
         - name: WATCH_NAMESPACE
           value: ""
         - name: POD_NAME
@@ -9069,7 +9073,7 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
-        image: perconalab/percona-xtradb-cluster-operator:main
+        image: percona/percona-xtradb-cluster-operator:1.12.0
         imagePullPolicy: Always
         resources:
           limits:

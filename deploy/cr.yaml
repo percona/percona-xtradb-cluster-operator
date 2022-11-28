@@ -40,7 +40,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    image: percona/percona-xtradb-cluster:8.0.29-21.1
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -163,7 +163,7 @@ spec:
   haproxy:
     enabled: true
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-haproxy
+    image: percona/percona-xtradb-cluster-operator:1.12.0-haproxy
 #    imagePullPolicy: Always
 #    schedulerName: mycustom-scheduler
 #    readinessDelaySec: 15
@@ -316,7 +316,7 @@ spec:
   proxysql:
     enabled: false
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
+    image: percona/percona-xtradb-cluster-operator:1.12.0-proxysql
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"
@@ -461,7 +461,7 @@ spec:
 #     rack: rack-23
   logcollector:
     enabled: true
-    image: perconalab/percona-xtradb-cluster-operator:main-logcollector
+    image: percona/percona-xtradb-cluster-operator:1.12.0-logcollector
 #    configuration: |
 #      [OUTPUT]
 #           Name  es
@@ -476,7 +476,7 @@ spec:
         cpu: 200m
   pmm:
     enabled: false
-    image: percona/pmm-client:2.28.0
+    image: percona/pmm-client:2.32.0
     serverHost: monitoring-service
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
@@ -486,7 +486,7 @@ spec:
         memory: 150M
         cpu: 300m
   backup:
-    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup
+    image: percona/percona-xtradb-cluster-operator:1.12.0-pxc8.0-backup
 #    backoffLimit: 6
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:

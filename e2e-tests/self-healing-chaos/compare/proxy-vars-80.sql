@@ -92,7 +92,7 @@ mysql-have_compress	true
 mysql-have_ssl	true
 mysql-hostgroup_manager_verbose	1
 mysql-init_connect	
-mysql-interfaces	0.0.0.0:3306
+mysql-interfaces	0.0.0.0:3306;0.0.0.0:33062
 mysql-keep_multiplexing_variables	tx_isolation,transaction_isolation,version
 mysql-kill_backend_connection_when_disconnect	true
 mysql-ldap_user_variable	

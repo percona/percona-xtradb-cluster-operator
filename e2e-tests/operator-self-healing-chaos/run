@@ -11,12 +11,11 @@ fail_pod() {
 	local init_pod=$(get_operator_pod)
 	local restart_count_before=$(kubectl_bin get pod ${init_pod} --namespace="${OPERATOR_NS:-$namespace}" -ojsonpath='{.status.containerStatuses[0].restartCount}')
 
-	cat $conf_dir/chaos-pod-failure.yml \
-		| yq eval "
-			.metadata.name = \"chaos-operator-pod-failure\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$test_namespace[0] = \"$init_pod\"" - \
-		| kubectl_bin apply --namespace $test_namespace -f-
+	yq eval '
+		.metadata.name = "chaos-operator-pod-failure" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$test_namespace'[0] = "'$init_pod'"' $conf_dir/chaos-pod-failure.yml \
+		| kubectl_bin apply --namespace $test_namespace -f -
 	sleep 10
 
 	desc 'check if operator works fine: scale down from 5 to 3'
@@ -49,12 +48,11 @@ fail_pod() {
 network_loss() {
 	local pod=$(get_operator_pod)
 
-	cat $conf_dir/chaos-network-loss.yml \
-		| yq eval "
-			.metadata.name = \"chaos-operator-network\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$test_namespace[0] = \"$pod\"" - \
-		| kubectl_bin apply --namespace $test_namespace -f-
+	yq eval '
+		.metadata.name = "chaos-operator-network" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$test_namespace'[0] = "'$pod'"' $conf_dir/chaos-network-loss.yml \
+		| kubectl_bin apply --namespace $test_namespace -f -
 	sleep 10
 
 	desc 'check if operator works fine: scale up from 3 to 5'
@@ -75,12 +73,11 @@ network_loss() {
 kill_pod() {
 	local init_pod=$(get_operator_pod)
 
-	cat $conf_dir/chaos-pod-kill.yml \
-		| yq eval "
-			.metadata.name = \"chaos-operator-pod-kill\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$test_namespace[0] = \"$init_pod\"" - \
-		| kubectl_bin apply --namespace $test_namespace -f-
+	yq eval '
+		.metadata.name = "chaos-operator-pod-kill" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$test_namespace'[0] = "'$init_pod'"' $conf_dir/chaos-pod-kill.yml \
+		| kubectl_bin apply --namespace $test_namespace -f -
 	sleep 10
 
 	local pod=$(get_operator_pod)

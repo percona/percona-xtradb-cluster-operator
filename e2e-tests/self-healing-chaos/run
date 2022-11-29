@@ -14,7 +14,7 @@ kill_pod() {
 		.metadata.name = "chaos-pod-kill" |
 		del(.spec.selector.pods.test-namespace) |
 		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-kill.yml \
-	| kubectl_bin apply -f -
+		| kubectl_bin apply -f -
 	sleep 5
 
 	# check if all 3 Pods started
@@ -32,7 +32,7 @@ fail_pod() {
 		.metadata.name = "chaos-pod-failure" |
 		del(.spec.selector.pods.test-namespace) |
 		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-failure.yml \
-	| kubectl_bin apply -f -
+		| kubectl_bin apply -f -
 	sleep 10
 
 	# write data
@@ -59,7 +59,7 @@ network_loss() {
 		.metadata.name = "chaos-pod-network-loss" |
 		del(.spec.selector.pods.test-namespace) |
 		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-network-loss.yml \
-	| kubectl_bin apply -f -
+		| kubectl_bin apply -f -
 	sleep 10
 
 	# write data

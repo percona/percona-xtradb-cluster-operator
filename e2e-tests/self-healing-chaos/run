@@ -13,6 +13,11 @@ kill_pod() {
 	yq eval '
 		.metadata.name = "chaos-pod-kill" |
 		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-kill.yml
+
+	yq eval '
+		.metadata.name = "chaos-pod-kill" |
+		del(.spec.selector.pods.test-namespace) |
 		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-kill.yml \
 		| kubectl_bin apply -f -
 	sleep 5

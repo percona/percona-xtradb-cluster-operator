@@ -1193,11 +1193,7 @@ deploy_chaos_mesh() {
 
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	if version_gt "1.19"; then
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.1.5 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
-	else
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set dashboard.create=false --version 2.1.5 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
-	fi
+	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.4.3 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
 	sleep 10
 }
 
@@ -1212,6 +1208,9 @@ destroy_chaos_mesh() {
 	timeout 30 kubectl delete crd $(kubectl get crd | grep 'chaos-mesh.org' | awk '{print $1}') || :
 	timeout 30 kubectl delete clusterrolebinding $(kubectl get clusterrolebinding | grep 'chaos-mesh' | awk '{print $1}') || :
 	timeout 30 kubectl delete clusterrole $(kubectl get clusterrole | grep 'chaos-mesh' | awk '{print $1}') || :
+	timeout 30 kubectl delete MutatingWebhookConfiguration $(kubectl get MutatingWebhookConfiguration | grep 'chaos-mesh' | awk '{print $1}') || :
+	timeout 30 kubectl delete ValidatingWebhookConfiguration $(kubectl get ValidatingWebhookConfiguration | grep 'chaos-mesh' | awk '{print $1}') || :
+	timeout 30 kubectl delete ValidatingWebhookConfiguration $(kubectl get ValidatingWebhookConfiguration | grep 'validate-auth' | awk '{print $1}') || :
 }
 
 patch_secret() {

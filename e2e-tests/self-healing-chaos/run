@@ -19,7 +19,7 @@ kill_pod() {
 		.metadata.name = "chaos-pod-kill" |
 		del(.spec.selector.pods.test-namespace) |
 		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-kill.yml \
-		| kubectl_bin apply -f -
+		| kubectl apply -f -
 	sleep 5
 
 	# check if all 3 Pods started
@@ -37,7 +37,7 @@ fail_pod() {
 		.metadata.name = "chaos-pod-failure" |
 		del(.spec.selector.pods.test-namespace) |
 		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-failure.yml \
-		| kubectl_bin apply -f -
+		| kubectl apply -f -
 	sleep 10
 
 	# write data
@@ -64,7 +64,7 @@ network_loss() {
 		.metadata.name = "chaos-pod-network-loss" |
 		del(.spec.selector.pods.test-namespace) |
 		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-network-loss.yml \
-		| kubectl_bin apply -f -
+		| kubectl apply -f -
 	sleep 10
 
 	# write data
@@ -105,7 +105,7 @@ recreate() {
 	diff -u $expected_result $tmp_dir/proxy-vars1.sql
 
 	# delete cluster
-	kubectl_bin delete \
+	kubectl delete \
 		-f $conf_dir/$cluster.yml
 	wait_for_delete pod/$cluster-pxc-2
 	wait_for_delete pod/$cluster-pxc-1

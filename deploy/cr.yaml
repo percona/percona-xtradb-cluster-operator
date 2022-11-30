@@ -61,8 +61,7 @@ spec:
 #        SSL: false
 #        SSLSkipVerify: true
 #        CA: '/etc/mysql/ssl/ca.crt'
-#
-    #      sourcesList:
+#      sourcesList:
 #      - host: 10.95.251.101
 #        port: 3306
 #        weight: 100

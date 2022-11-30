@@ -58,9 +58,9 @@ spec:
 #      configuration:
 #        sourceRetryCount: 3
 #        sourceConnectRetry: 60
-#        SSL: false
-#        SSLSkipVerify: true
-#        CA: '/etc/mysql/ssl/ca.crt'
+#        ssl: false
+#        sslSkipVerify: true
+#        ca: '/etc/mysql/ssl/ca.crt'
 #      sourcesList:
 #      - host: 10.95.251.101
 #        port: 3306
@@ -594,10 +594,10 @@ spec:
               requests:
                 storage: 6G
     schedule:
-      - name: "sat-night-backup"
-        schedule: "0 0 * * 6"
-        keep: 3
-        storageName: s3-us-west
+#      - name: "sat-night-backup"
+#        schedule: "0 0 * * 6"
+#        keep: 3
+#        storageName: s3-us-west
       - name: "daily-backup"
         schedule: "0 0 * * *"
         keep: 5

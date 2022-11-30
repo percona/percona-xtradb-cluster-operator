@@ -191,7 +191,7 @@ One option which should be mentioned separately is
 ``credentialsSecret`` which is a `Kubernetes
 secret <https://kubernetes.io/docs/concepts/configuration/secret/>`_
 for backups. Value of this key should be the same as the name used to
-create the secret object (``my-cluster-name-backup-s3`` in the last
+create the secret object (``my-cluster-azure-secret`` in the last
 example).
 
 .. _backups-manual:

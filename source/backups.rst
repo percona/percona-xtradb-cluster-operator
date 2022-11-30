@@ -32,8 +32,7 @@ Backups schedule is defined in the ``backup`` section of the
 `deploy/cr.yaml <https://github.com/percona/percona-xtradb-cluster-operator/blob/main/deploy/cr.yaml>`__
 file. This section contains following subsections:
 
-* ``storages`` subsection contains data needed to access the S3-compatible cloud
-  to store backups.
+* ``storages`` subsection contains data and configuration needed to store backups.
 * ``schedule`` subsection allows to actually schedule backups (the schedule is
   specified in crontab format).
 

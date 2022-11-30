@@ -58,6 +58,9 @@ spec:
 #      configuration:
 #        sourceRetryCount: 3
 #        sourceConnectRetry: 60
+#        SSL: false
+#        SSLSkipVerify: true
+#        CA: '/etc/mysql/ssl/ca.crt'
 #      sourcesList:
 #      - host: 10.95.251.101
 #        port: 3306

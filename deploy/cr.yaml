@@ -593,12 +593,12 @@ spec:
             resources:
               requests:
                 storage: 6G
-    schedule:
-      - name: "sat-night-backup"
-        schedule: "0 0 * * 6"
-        keep: 3
-        storageName: s3-us-west
-      - name: "daily-backup"
-        schedule: "0 0 * * *"
-        keep: 5
-        storageName: fs-pvc
+#    schedule:
+#      - name: "sat-night-backup"
+#        schedule: "0 0 * * 6"
+#        keep: 3
+#        storageName: s3-us-west
+#      - name: "daily-backup"
+#        schedule: "0 0 * * *"
+#        keep: 5
+#        storageName: fs-pvc

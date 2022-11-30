@@ -350,7 +350,9 @@ compare_kubectl() {
 		expected_result=${expected_result//.yml/-80.yml}
 	fi
 
-	if version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
+	if version_gt "1.24" && [ -f ${expected_result//.yml/-k124.yml} ]; then
+		expected_result=${expected_result//.yml/-k124.yml}
+	elif version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
 		expected_result=${expected_result//.yml/-k122.yml}
 	elif version_gt "1.21" && [ -f ${expected_result//.yml/-k121.yml} ]; then
 		expected_result=${expected_result//.yml/-k121.yml}
@@ -369,6 +371,7 @@ compare_kubectl() {
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
 			del(.metadata.annotations."kubernetes.io/psp") |
+			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.. | select(has("image")).image) |
 			del(.. | select(has("clusterIP")).clusterIP) |

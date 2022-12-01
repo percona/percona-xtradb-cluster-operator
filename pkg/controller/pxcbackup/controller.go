@@ -3,6 +3,7 @@ package pxcbackup
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"reflect"
 	"strconv"
@@ -340,6 +341,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 		}
 		if err != nil {
 			logger.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
+			finalizers = append(finalizers, f)
 		} else if f == api.FinalizerDeleteS3Backup {
 			logger.Info("backup was removed", "name", cr.Name)
 		}
@@ -405,7 +407,7 @@ func removeAzureBackup(ctx context.Context, cli *azblob.Client, container, desti
 			return errors.Wrap(err, "list backup blobs")
 		}
 		for _, blob := range blobs {
-			_, err = cli.DeleteBlob(ctx, container, blob, nil)
+			_, err = cli.DeleteBlob(ctx, container, url.QueryEscape(blob), nil)
 			if err != nil {
 				return errors.Wrapf(err, "delete blob %s", blob)
 			}
@@ -415,7 +417,7 @@ func removeAzureBackup(ctx context.Context, cli *azblob.Client, container, desti
 			return errors.Wrap(err, "list backup blobs")
 		}
 		for _, blob := range blobs {
-			_, err = cli.DeleteBlob(ctx, container, blob, nil)
+			_, err = cli.DeleteBlob(ctx, container, url.QueryEscape(blob), nil)
 			if err != nil {
 				return errors.Wrapf(err, "delete blob %s", blob)
 			}

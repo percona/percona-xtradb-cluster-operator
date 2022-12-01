@@ -523,8 +523,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) azureClient(ctx context.Context, c
 
 func azureListBlobs(ctx context.Context, client *azblob.Client, containerName, prefix string) ([]string, error) {
 	var blobs []string
+	escapedPrefix := url.QueryEscape(prefix)
 	pager := client.NewListBlobsFlatPager(containerName, &azblob.ListBlobsFlatOptions{
-		Prefix: &prefix,
+		Prefix: &escapedPrefix,
 	})
 	for pager.More() {
 		resp, err := pager.NextPage(ctx)

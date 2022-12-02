@@ -145,7 +145,7 @@ func (a *Azure) PutObject(ctx context.Context, name string, data io.Reader, _ in
 }
 
 func (a *Azure) ListObjects(ctx context.Context, prefix string) ([]string, error) {
-	listPrefix := url.QueryEscape(a.prefix + prefix)
+	listPrefix := a.prefix + prefix
 	pg := a.client.NewListBlobsFlatPager(a.container, &container.ListBlobsFlatOptions{
 		Prefix: &listPrefix,
 	})

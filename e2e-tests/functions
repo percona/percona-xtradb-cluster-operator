@@ -335,12 +335,6 @@ compare_kubectl() {
 	local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
 	local new_result="${tmp_dir}/${resource//\//_}.yml"
 
-	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
-		expected_result=${expected_result//.yml/-oc.yml}
-		if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
-			expected_result=${expected_result//-oc.yml/-4-oc.yml}
-		fi
-	fi
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
 		expected_result=${expected_result//.yml/-eks.yml}
@@ -356,6 +350,17 @@ compare_kubectl() {
 		expected_result=${expected_result//.yml/-k122.yml}
 	elif version_gt "1.21" && [ -f ${expected_result//.yml/-k121.yml} ]; then
 		expected_result=${expected_result//.yml/-k121.yml}
+	fi
+
+	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
+		expected_result=${expected_result//.yml/-oc.yml}
+		if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
+			expected_result=${expected_result//-oc.yml/-4-oc.yml}
+		fi
+	fi
+
+	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
+		expected_result=${expected_result//.yml/-eks.yml}
 	fi
 
 	kubectl_bin get -o yaml ${resource} \

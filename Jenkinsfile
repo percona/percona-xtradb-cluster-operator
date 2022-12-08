@@ -204,7 +204,7 @@ pipeline {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
         OPERATOR_NS = 'pxc-operator'
-        GIT_SHORT_COMMIT = sh(script: 'git describe --always --dirty', , returnStdout: true).trim()
+        GIT_SHORT_COMMIT = sh(script: 'git rev-parse --short HEAD', , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
         CLUSTER_NAME = sh(script: "echo jen-pxc-${env.CHANGE_ID}-${GIT_SHORT_COMMIT}-${env.BUILD_NUMBER} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
         AUTHOR_NAME  = sh(script: "echo ${CHANGE_AUTHOR_EMAIL} | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
@@ -361,7 +361,7 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             parallel {
-                stage('cluster1') {
+                stage('1 UpH UpP DemB OneP') {
                     steps {
                         CreateCluster('cluster1')
                         runTest('upgrade-haproxy', 'cluster1', '8.0')
@@ -371,7 +371,7 @@ pipeline {
                         ShutdownCluster('cluster1')
                     }
                 }
-                stage('cluster2') {
+                stage('2 SmU1 SmU2 DemBETls') {
                     steps {
                         CreateCluster('cluster2')
                         runTest('smart-update1', 'cluster2', '8.0')
@@ -380,7 +380,7 @@ pipeline {
                         ShutdownCluster('cluster2')
                     }
                 }
-                stage('cluster3') {
+                stage('3 HaP Init Lim Mon') {
                     steps {
                         CreateCluster('cluster3')
                         runTest('haproxy', 'cluster3', '8.0')
@@ -390,7 +390,7 @@ pipeline {
                         ShutdownCluster('cluster3')
                     }
                 }
-                stage('cluster4') {
+                stage('4 ProxySideRLim TLS ValH AutoT DemBC') {
                     steps {
                         CreateCluster('cluster4')
                         runTest('proxysql-sidecar-res-limits', 'cluster4', '8.0')
@@ -403,7 +403,7 @@ pipeline {
                         ShutdownCluster('cluster4')
                     }
                 }
-                stage('cluster5') {
+                stage('5 Sca ScaPx SecCon Users57') {
                     steps {
                         CreateCluster('cluster5')
                         runTest('scaling', 'cluster5', '8.0')
@@ -413,7 +413,7 @@ pipeline {
                         ShutdownCluster('cluster5')
                     }
                 }
-                stage('cluster6') {
+                stage('6 HaP57 Stor UpCon PP OneP57') {
                     steps {
                         CreateCluster('cluster6')
                         runTest('haproxy', 'cluster6', '5.7')
@@ -424,7 +424,7 @@ pipeline {
                         ShutdownCluster('cluster6')
                     }
                 }
-                stage('cluster7') {
+                stage('7 Pitr ResEnc Aff') {
                     steps {
                         CreateCluster('cluster7')
                         runTest('pitr', 'cluster7', '8.0')
@@ -433,7 +433,7 @@ pipeline {
                         ShutdownCluster('cluster7')
                     }
                 }
-                stage('cluster8') {
+                stage('8 SchedBackup') {
                     steps {
                         CreateCluster('cluster8')
                         runTest('scheduled-backup', 'cluster8', '8.0')
@@ -441,7 +441,7 @@ pipeline {
                         ShutdownCluster('cluster8')
                     }
                 }
-                stage('cluster9') {
+                stage('9 Cross Recr Init57 Users') {
                     steps {
                         CreateCluster('cluster9')
                         runTest('cross-site', 'cluster9', '8.0')

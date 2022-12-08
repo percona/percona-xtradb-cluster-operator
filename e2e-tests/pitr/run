@@ -204,18 +204,6 @@ main() {
 	write_data_for_pitr "$cluster"
 	sleep 80 # need to wait while collector catch new data
 
-	desc 'binlog gap test'
-	echo 'create binlog gap backup (will be marked as PITR unready)'
-	run_mysql \
-		"CREATE DATABASE IF NOT EXISTS test; use test; CREATE TABLE IF NOT EXISTS gap (id int PRIMARY KEY);" \
-		"-h $proxy -uroot -proot_password"
-	run_backup "$cluster" "on-pitr-minio-gap"
-	create_binlog_gap
-	check_binlog_gap_error
-	check_binlog_gap_restore "error"
-	check_binlog_gap_restore "force"
-	echo "done binlog gap test"
-
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-gtid" "on-pitr-minio" "select-2" "" "" "$gtid"
 	echo "done gtid type"
 
@@ -234,6 +222,18 @@ main() {
 	dest=$(sed 's,/,\\/,g' <<<$(kubectl get pxc-backup on-pitr-minio1 -o jsonpath='{.status.destination}'))
 	sleep 80 # need to wait while collector catch new data
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio1" "on-pitr-minio1" "select-5" "" "$dest" ""
+
+	desc 'binlog gap test'
+	echo 'create binlog gap backup (will be marked as PITR unready)'
+	run_mysql \
+		"CREATE DATABASE IF NOT EXISTS test; use test; CREATE TABLE IF NOT EXISTS gap (id int PRIMARY KEY);" \
+		"-h $proxy -uroot -proot_password"
+	run_backup "$cluster" "on-pitr-minio-gap"
+	create_binlog_gap
+	check_binlog_gap_error
+	check_binlog_gap_restore "error"
+	check_binlog_gap_restore "force"
+	echo "done binlog gap test"
 
 	destroy $namespace
 }

@@ -1,0 +1,86 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations: {}
+  generation: 1
+  labels:
+    job-name: restore-job-restore-pvc-sec-context
+  name: restore-job-restore-pvc-sec-context
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBClusterRestore
+      name: restore-pvc
+spec:
+  backoffLimit: 4
+  completionMode: NonIndexed
+  completions: 1
+  parallelism: 1
+  selector:
+    matchLabels: {}
+  suspend: false
+  template:
+    metadata:
+      annotations:
+        openshift.io/scc: privileged
+      labels:
+        job-name: restore-job-restore-pvc-sec-context
+    spec:
+      containers:
+        - command:
+            - recovery-pvc-joiner.sh
+          env:
+            - name: RESTORE_SRC_SERVICE
+              value: restore-src-restore-pvc-sec-context
+            - name: XB_USE_MEMORY
+              value: "750000000"
+          imagePullPolicy: Always
+          name: xtrabackup
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              memory: 1G
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /datadir
+              name: datadir
+            - mountPath: /etc/mysql/ssl
+              name: ssl
+            - mountPath: /etc/mysql/ssl-internal
+              name: ssl-internal
+            - mountPath: /etc/mysql/vault-keyring-secret
+              name: vault-keyring-secret
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1001
+        runAsUser: 1001
+        supplementalGroups:
+          - 1001
+      serviceAccount: percona-xtradb-cluster-operator-workload
+      serviceAccountName: percona-xtradb-cluster-operator-workload
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: datadir
+          persistentVolumeClaim:
+            claimName: datadir-sec-context-pxc-0
+        - name: ssl-internal
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-ssl-internal
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: some-name-ssl
+        - name: vault-keyring-secret
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: sec-context-vault

@@ -1,8 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+  annotations: {}
   labels:
     app.kubernetes.io/component: haproxy
     app.kubernetes.io/instance: proxy-protocol

@@ -105,9 +105,14 @@ function main() {
 
 	desc 'write data directly, read from all'
 	run_mysql \
+		"CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS myApp (id int PRIMARY KEY);" \
+		"-h ${cluster}-pxc-2.${cluster}-pxc -uroot -proot_password"
+	run_mysql \
 		'INSERT myApp.myApp (id) VALUES (100501)' \
 		"-h ${cluster}-pxc-2.${cluster}-pxc -uroot -proot_password"
-	for i in seq 0 2; do
+	sleep 20
+
+	for i in $(seq 0 $((pxc_size - 1))); do
 		compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
 	done
 

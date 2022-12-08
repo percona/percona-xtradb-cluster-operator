@@ -10,7 +10,7 @@ cluster="self-healing-advanced"
 crash_cluster_with_kubectl() {
 	# run chaos for Pods
 	for _ in $(seq 1 5); do
-		kubectl_bin delete pod $cluster-pxc-0 $cluster-pxc-1 $cluster-pxc-2 --grace-period=0 --force || :
+		kubectl delete pod $cluster-pxc-0 $cluster-pxc-1 $cluster-pxc-2 --grace-period=0 --force || :
 	done
 
 	sleep 60
@@ -21,15 +21,14 @@ crash_cluster_with_kubectl() {
 }
 
 crash_cluster_with_chaos_mesh() {
-	cat $conf_dir/chaos-pod-kill.yml \
-		| yq eval "
-			.metadata.name = \"chaos-cluster-kill\" |
-			.spec.mode = \"all\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$namespace[0] = \"$cluster-pxc-0\" |
-			.spec.selector.pods.$namespace[1] = \"$cluster-pxc-1\" |
-			.spec.selector.pods.$namespace[2] = \"$cluster-pxc-2\"" - \
-		| kubectl_bin apply -f-
+	yq eval '
+		.metadata.name = "chaos-cluster-kill" |
+		.spec.mode = "all" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$namespace'[0] = "'$cluster'-pxc-0" |
+		.spec.selector.pods.'$namespace'[1] = "'$cluster'-pxc-1" |
+		.spec.selector.pods.'$namespace'[2] = "'$cluster'-pxc-2"' $conf_dir/chaos-pod-kill.yml \
+		| kubectl apply -f -
 
 	sleep 60
 
@@ -57,7 +56,7 @@ main() {
 
 	cat_config "$test_dir/conf/$cluster.yml" \
 		| sed -e 's/autoRecovery: false/autoRecovery: true/' \
-		| kubectl_bin apply -f-
+		| kubectl apply -f-
 
 	wait_for_running $cluster-pxc 3
 	sleep 240

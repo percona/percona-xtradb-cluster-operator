@@ -1,0 +1,267 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations: {}
+  generation: 3
+  name: some-name-pxc
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBCluster
+      name: some-name
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: pxc
+      app.kubernetes.io/instance: some-name
+      app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+      app.kubernetes.io/name: percona-xtradb-cluster
+      app.kubernetes.io/part-of: percona-xtradb-cluster
+  serviceName: some-name-pxc
+  template:
+    metadata:
+      annotations: {}
+      labels:
+        app.kubernetes.io/component: pxc
+        app.kubernetes.io/instance: some-name
+        app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+        app.kubernetes.io/name: percona-xtradb-cluster
+        app.kubernetes.io/part-of: percona-xtradb-cluster
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: pxc
+                  app.kubernetes.io/instance: some-name
+                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                  app.kubernetes.io/name: percona-xtradb-cluster
+                  app.kubernetes.io/part-of: percona-xtradb-cluster
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - env:
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: POD_NAMESPASE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: some-name-log-collector
+                optional: true
+          imagePullPolicy: Always
+          name: logs
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
+        - args:
+            - logrotate
+          env:
+            - name: SERVICE_TYPE
+              value: mysql
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-some-name
+          imagePullPolicy: Always
+          name: logrotate
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
+        - args:
+            - mysqld
+          command:
+            - /var/lib/mysql/pxc-entrypoint.sh
+          env:
+            - name: PXC_SERVICE
+              value: some-name-pxc-unready
+            - name: MONITOR_HOST
+              value: '%'
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: root
+                  name: internal-some-name
+            - name: XTRABACKUP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup
+                  name: internal-some-name
+            - name: MONITOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: monitor
+                  name: internal-some-name
+            - name: LOG_DATA_DIR
+              value: /var/lib/mysql
+            - name: IS_LOGCOLLECTOR
+              value: "yes"
+            - name: OPERATOR_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: operator
+                  name: internal-some-name
+            - name: LIVENESS_CHECK_TIMEOUT
+              value: "5"
+            - name: READINESS_CHECK_TIMEOUT
+              value: "15"
+          envFrom:
+            - secretRef:
+                name: some-name-env-vars-pxc
+                optional: true
+          imagePullPolicy: Always
+          livenessProbe:
+            exec:
+              command:
+                - /var/lib/mysql/liveness-check.sh
+            failureThreshold: 3
+            initialDelaySeconds: 300
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+          name: pxc
+          ports:
+            - containerPort: 3306
+              name: mysql
+              protocol: TCP
+            - containerPort: 4444
+              name: sst
+              protocol: TCP
+            - containerPort: 4567
+              name: write-set
+              protocol: TCP
+            - containerPort: 4568
+              name: ist
+              protocol: TCP
+            - containerPort: 33062
+              name: mysql-admin
+              protocol: TCP
+            - containerPort: 33060
+              name: mysqlx
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /var/lib/mysql/readiness-check.sh
+            failureThreshold: 5
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 15
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 100m
+              memory: 100M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
+            - mountPath: /etc/percona-xtradb-cluster.conf.d
+              name: config
+            - mountPath: /tmp
+              name: tmp
+            - mountPath: /etc/mysql/ssl
+              name: ssl
+            - mountPath: /etc/mysql/ssl-internal
+              name: ssl-internal
+            - mountPath: /etc/mysql/mysql-users-secret
+              name: mysql-users-secret-file
+            - mountPath: /etc/my.cnf.d
+              name: auto-config
+            - mountPath: /etc/mysql/vault-keyring-secret
+              name: vault-keyring-secret
+      dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /pxc-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: pxc-init
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 100m
+              memory: 100M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        supplementalGroups:
+          - 1001
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 600
+      volumes:
+        - emptyDir: {}
+          name: tmp
+        - configMap:
+            defaultMode: 420
+            name: some-name-pxc
+            optional: true
+          name: config
+        - name: ssl-internal
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-ssl-internal
+        - name: ssl
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: some-name-ssl
+        - configMap:
+            defaultMode: 420
+            name: auto-some-name-pxc
+            optional: true
+          name: auto-config
+        - name: vault-keyring-secret
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-vault
+        - name: mysql-users-secret-file
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: internal-some-name
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+    - metadata:
+        name: datadir
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+      status:
+        phase: Pending

@@ -68,6 +68,16 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-1120"
 	compare_kubectl statefulset/$cluster-proxysql "-1120"
 
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "spec": {"crVersion":"1.13.0"}
+    }'
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "3" "1"
+	compare_kubectl service/$cluster-pxc "-1130"
+	compare_kubectl service/$cluster-proxysql "-1130"
+	compare_kubectl statefulset/$cluster-pxc "-1130"
+	compare_kubectl statefulset/$cluster-proxysql "-1130"
+
 	destroy "${namespace}"
 }
 

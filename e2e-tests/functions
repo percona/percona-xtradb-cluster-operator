@@ -96,7 +96,7 @@ create_namespace() {
 
 	if [[ ${CLEAN_NAMESPACE} == 1 ]] && [[ -z ${skip_clean_namespace} ]]; then
 		kubectl_bin get ns \
-			| egrep -v "^kube-|^default|Terminating|pxc-operator|openshift|^NAME" \
+			| egrep -v "^kube-|^default$|Terminating|pxc-operator|openshift|^NAME" \
 			| awk '{print$1}' \
 			| xargs kubectl delete ns &
 	fi
@@ -335,12 +335,6 @@ compare_kubectl() {
 	local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
 	local new_result="${tmp_dir}/${resource//\//_}.yml"
 
-	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
-		expected_result=${expected_result//.yml/-oc.yml}
-		if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
-			expected_result=${expected_result//-oc.yml/-4-oc.yml}
-		fi
-	fi
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
 		expected_result=${expected_result//.yml/-eks.yml}
@@ -350,10 +344,23 @@ compare_kubectl() {
 		expected_result=${expected_result//.yml/-80.yml}
 	fi
 
-	if version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
+	if version_gt "1.24" && [ -f ${expected_result//.yml/-k124.yml} ]; then
+		expected_result=${expected_result//.yml/-k124.yml}
+	elif version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
 		expected_result=${expected_result//.yml/-k122.yml}
 	elif version_gt "1.21" && [ -f ${expected_result//.yml/-k121.yml} ]; then
 		expected_result=${expected_result//.yml/-k121.yml}
+	fi
+
+	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
+		expected_result=${expected_result//.yml/-oc.yml}
+		if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
+			expected_result=${expected_result//-oc.yml/-4-oc.yml}
+		fi
+	fi
+
+	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
+		expected_result=${expected_result//.yml/-eks.yml}
 	fi
 
 	kubectl_bin get -o yaml ${resource} \
@@ -369,6 +376,7 @@ compare_kubectl() {
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
 			del(.metadata.annotations."kubernetes.io/psp") |
+			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.. | select(has("image")).image) |
 			del(.. | select(has("clusterIP")).clusterIP) |
@@ -1193,11 +1201,7 @@ deploy_chaos_mesh() {
 
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	if version_gt "1.19"; then
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.1.5 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
-	else
-		helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set dashboard.create=false --version 2.1.5 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
-	fi
+	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.4.3 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
 	sleep 10
 }
 
@@ -1212,6 +1216,9 @@ destroy_chaos_mesh() {
 	timeout 30 kubectl delete crd $(kubectl get crd | grep 'chaos-mesh.org' | awk '{print $1}') || :
 	timeout 30 kubectl delete clusterrolebinding $(kubectl get clusterrolebinding | grep 'chaos-mesh' | awk '{print $1}') || :
 	timeout 30 kubectl delete clusterrole $(kubectl get clusterrole | grep 'chaos-mesh' | awk '{print $1}') || :
+	timeout 30 kubectl delete MutatingWebhookConfiguration $(kubectl get MutatingWebhookConfiguration | grep 'chaos-mesh' | awk '{print $1}') || :
+	timeout 30 kubectl delete ValidatingWebhookConfiguration $(kubectl get ValidatingWebhookConfiguration | grep 'chaos-mesh' | awk '{print $1}') || :
+	timeout 30 kubectl delete ValidatingWebhookConfiguration $(kubectl get ValidatingWebhookConfiguration | grep 'validate-auth' | awk '{print $1}') || :
 }
 
 patch_secret() {

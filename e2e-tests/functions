@@ -736,7 +736,6 @@ EOF
 
 cat_config() {
 	cat "$1" \
-		| $sed -e "s#apiVersion: pxc.percona.com/v.*\$#apiVersion: $API#" \
 		| $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
 		| $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
 		| $sed -e "s#initImage:.*-init\$#initImage: $IMAGE#" \

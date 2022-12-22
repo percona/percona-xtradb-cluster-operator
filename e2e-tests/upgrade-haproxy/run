@@ -98,7 +98,7 @@ function main() {
 		echo 'Operator image has not been updated'
 		exit 1
 	fi
-	compare_generation "2" "${proxy}" "${CLUSTER}"
+	compare_generation "1" "${proxy}" "${CLUSTER}"
 
 	desc 'patch pxc images and upgrade'
 	kubectl_bin patch pxc "${CLUSTER}" --type=merge --patch '{

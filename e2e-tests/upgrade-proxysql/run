@@ -8,7 +8,6 @@ test_dir=$(realpath $(dirname $0))
 
 CLUSTER="upgrade-proxysql"
 CLUSTER_SIZE=3
-TARGET_API="${API}"
 TARGET_OPERATOR_VER="${OPERATOR_VERSION}"
 TARGET_IMAGE="${IMAGE}"
 TARGET_IMAGE_PXC="${IMAGE_PXC}"
@@ -31,7 +30,6 @@ fi
 GIT_TAG="v${INIT_OPERATOR_VER}"
 INIT_OPERATOR_IMAGES=$(curl -s "https://check.percona.com/versions/v1/pxc-operator/${INIT_OPERATOR_VER}/latest?databaseVersion=${PXC_VER}")
 OPERATOR_NAME="percona-xtradb-cluster-operator"
-API="pxc.percona.com/v${INIT_OPERATOR_VER//./-}"
 IMAGE=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.operator[].imagePath')
 # we use the starting image from the same repo so we don't need to use initImage option
 if [[ "$(echo ${TARGET_IMAGE} | cut -d'/' -f1)" == "perconalab" ]]; then
@@ -42,11 +40,6 @@ IMAGE_PMM=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.pmm[].ima
 IMAGE_PROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.proxysql[].imagePath')
 IMAGE_HAPROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.haproxy[].imagePath')
 IMAGE_BACKUP=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.backup[].imagePath')
-
-if [[ ${TARGET_API} == "${API}" ]]; then
-	echo "API and TARGET_API variables are the same: ${API}! Something is wrong!"
-	exit 1
-fi
 
 function main() {
 	deploy_cert_manager

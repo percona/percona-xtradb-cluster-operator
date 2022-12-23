@@ -42,6 +42,11 @@ IMAGE_PROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.proxysq
 IMAGE_HAPROXY=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.haproxy[].imagePath')
 IMAGE_BACKUP=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.backup[].imagePath')
 
+if [[ ${TARGET_OPERATOR_VER} == "${INIT_OPERATOR_VER}" ]]; then
+	echo "INIT_OPERATOR_VER and TARGET_OPERATOR_VER variables are the same: ${INIT_OPERATOR_VER}! Something is wrong!"
+	exit 1
+fi
+
 function main() {
 	deploy_cert_manager
 

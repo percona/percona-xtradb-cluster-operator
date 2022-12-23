@@ -1258,7 +1258,7 @@ function check_pxc_liveness() {
 	wait_cluster_consistency "${cluster}" "${cluster_size}"
 
 	wait_for_running "${cluster}-pxc" "${cluster_size}"
-	sleep 120
+
 	for i in $(seq 0 $((cluster_size - 1))); do
 		compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
 	done

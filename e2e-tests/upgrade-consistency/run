@@ -17,8 +17,6 @@ wait_for_sts_generation() {
 	retry=0
 	until [[ "$(kubectl_bin get sts $name -o jsonpath='{.status.observedGeneration}')" == "${desired_generation}" &&
 	"$(kubectl_bin get sts $name -o jsonpath='{.status.readyReplicas}')" -ge ${size} ]]; do
-		kubectl_bin get sts $name -o jsonpath='{.status.observedGeneration}'
-		kubectl_bin get sts $name -o jsonpath='{.status.readyReplicas}'
 		sleep 1
 		echo -n .
 		let retry+=1

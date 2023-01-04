@@ -78,6 +78,7 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 		"timeout":           timeoutStr,
 		"readTimeout":       timeoutStr,
 		"writeTimeout":      timeoutStr,
+		"tls":               "preferred",
 	}
 
 	db, err := sql.Open("mysql", config.FormatDSN())

@@ -255,7 +255,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 }
 
 func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {
-	if cr.Status.PXC.Status != apiv1.AppStateReady {
+	if cr.Status.PXC.Ready < 1 {
 		return "", versionNotReadyErr
 	}
 
@@ -297,6 +297,10 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 	logger := r.logger(cr.Name, cr.Namespace)
 
 	for _, pod := range list.Items {
+		if !isPodReady(pod) {
+			continue
+		}
+
 		database, err := queries.New(r.client, cr.Namespace, secrets, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			logger.Error(err, "failed to create db instance")
@@ -319,6 +323,10 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 
 func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
 	logger := r.logger(cr.Name, cr.Namespace)
+
+	if cr.Status.PXC.Status != apiv1.AppStateReady {
+		return nil
+	}
 
 	version, err := r.mysqlVersion(cr, sfs)
 	if err != nil {

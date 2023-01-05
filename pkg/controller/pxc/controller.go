@@ -292,14 +292,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	userReconcileResult := &ReconcileUsersResult{}
 
-	if o.CompareVersionWith("1.5.0") >= 0 {
-		urr, err := r.reconcileUsers(o)
-		if err != nil {
-			return rr, errors.Wrap(err, "reconcile users")
-		}
-		if urr != nil {
-			userReconcileResult = urr
-		}
+	urr, err := r.reconcileUsers(o)
+	if err != nil {
+		return rr, errors.Wrap(err, "reconcile users")
+	}
+	if urr != nil {
+		userReconcileResult = urr
 	}
 
 	r.resyncPXCUsersWithProxySQL(o)

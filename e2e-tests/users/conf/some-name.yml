@@ -42,7 +42,7 @@ spec:
       maxUnavailable: 2
   proxysql:
     enabled: false
-    size: 1
+    size: 2
     image: -proxysql
     resources:
       requests:

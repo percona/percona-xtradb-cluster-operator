@@ -49,6 +49,7 @@ func NewManager(addr string, user, pass string, timeout int32) (Manager, error) 
 		"timeout":           timeoutStr,
 		"readTimeout":       timeoutStr,
 		"writeTimeout":      timeoutStr,
+		"tls":               "preferred",
 	}
 
 	mysqlDB, err := sql.Open("mysql", config.FormatDSN())
@@ -79,7 +80,9 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 	return nil
 }
 
-func (u *Manager) UpdateUserPass(user *SysUser) error {
+// UpdateUserPassWithoutDP updates user pass without Dual Password
+// feature introduced in MsSQL 8
+func (u *Manager) UpdateUserPassWithoutDP(user *SysUser) error {
 	if user == nil {
 		return nil
 	}
@@ -92,6 +95,89 @@ func (u *Manager) UpdateUserPass(user *SysUser) error {
 	}
 
 	return nil
+}
+
+// UpdateUserPass updates user passwords but retains the current password
+// using Dual Password feature of MySQL 8.
+func (m *Manager) UpdateUserPass(user *SysUser) error {
+	if user == nil {
+		return nil
+	}
+
+	tx, err := m.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	for _, host := range user.Hosts {
+		_, err = tx.Exec("ALTER USER ?@? IDENTIFIED BY ? RETAIN CURRENT PASSWORD", user.Name, host, user.Pass)
+		if err != nil {
+			err = errors.Wrap(err, "alter user")
+
+			if errT := tx.Rollback(); errT != nil {
+				return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
+			}
+
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.Wrap(err, "commit transaction")
+	}
+
+	return nil
+}
+
+// DiscardOldPassword discards old passwords of given users
+func (m *Manager) DiscardOldPassword(user *SysUser) error {
+	if user == nil {
+		return nil
+	}
+
+	tx, err := m.db.Begin()
+	if err != nil {
+		return errors.Wrap(err, "begin transaction")
+	}
+
+	for _, host := range user.Hosts {
+		_, err = tx.Exec("ALTER USER ?@? DISCARD OLD PASSWORD", user.Name, host)
+		if err != nil {
+			err = errors.Wrap(err, "alter user")
+
+			if errT := tx.Rollback(); errT != nil {
+				return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
+			}
+
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.Wrap(err, "commit transaction")
+	}
+
+	return nil
+}
+
+// DiscardOldPassword discards old passwords of given users
+func (m *Manager) IsOldPassDiscarded(user *SysUser) (bool, error) {
+	var attributes sql.NullString
+	r := m.db.QueryRow("SELECT User_attributes FROM mysql.user WHERE user=?", user.Name)
+
+	err := r.Scan(&attributes)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return true, nil
+		}
+		return false, errors.Wrap(err, "select User_attributes field")
+	}
+
+	if attributes.Valid {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func (u *Manager) UpdateProxyUser(user *SysUser) error {

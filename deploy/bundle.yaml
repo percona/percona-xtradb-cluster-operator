@@ -8879,7 +8879,7 @@ spec:
     storage: true
     subresources:
       scale:
-        labelSelectorPath: .status.pxc.labelSelector
+        labelSelectorPath: .status.pxc.labelSelectorPath
         specReplicasPath: .spec.pxc.size
         statusReplicasPath: .status.pxc.size
       status: {}
@@ -9050,6 +9050,10 @@ spec:
       - command:
         - percona-xtradb-cluster-operator
         env:
+        - name: LOG_STRUCTURED
+          value: 'false'
+        - name: LOG_LEVEL
+          value: INFO
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:

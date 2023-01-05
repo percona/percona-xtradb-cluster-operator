@@ -3,7 +3,7 @@ kind: PerconaXtraDBCluster
 metadata:
   name: minimal-cluster
 spec:
-  crVersion: 1.12.0
+  crVersion: 1.13.0
   secretsName: minimal-cluster-secrets
   allowUnsafeConfigurations: true
   upgradeOptions:

@@ -561,15 +561,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 				if err != nil {
 					return errors.Wrap(err, "invalid pxc version")
 				}
-				if hasKey {
-					addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-				}
-
-				um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-				if err != nil {
-					return errors.Wrap(err, "new users manager for grant")
-				}
-				defer um.Close()
 
 				if !ver.LessThan(privSystemUserAddedIn) {
 					um, err := getUserManager(cr, internalSecrets)

@@ -40,7 +40,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.29-21.1
+    image: percona/percona-xtradb-cluster:8.0.30-22.1
     autoRecovery: true
 #    expose:
 #      enabled: true

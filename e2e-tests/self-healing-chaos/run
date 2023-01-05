@@ -10,12 +10,11 @@ cluster="some-name"
 kill_pod() {
 	local pod=$1
 
-	cat $conf_dir/chaos-pod-kill.yml \
-		| yq eval "
-			.metadata.name = \"chaos-pod-kill\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$namespace[0] = \"$pod\"" - \
-		| kubectl_bin apply -f-
+	yq eval '
+		.metadata.name = "chaos-pod-kill" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-kill.yml \
+		| kubectl apply -f -
 	sleep 5
 
 	# check if all 3 Pods started
@@ -29,12 +28,11 @@ fail_pod() {
 	local pod=$1
 
 	# run chaos for Pod
-	cat $conf_dir/chaos-pod-failure.yml \
-		| yq eval "
-			.metadata.name = \"chaos-pod-failure\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$namespace[0] = \"$pod\"" - \
-		| kubectl_bin apply -f-
+	yq eval '
+		.metadata.name = "chaos-pod-failure" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-failure.yml \
+		| kubectl apply -f -
 	sleep 10
 
 	# write data
@@ -57,12 +55,11 @@ network_loss() {
 	local pod=$1
 
 	# run chaos for Pod
-	cat $conf_dir/chaos-network-loss.yml \
-		| yq eval "
-			.metadata.name = \"chaos-pod-network-loss\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$namespace[0] = \"$pod\"" - \
-		| kubectl_bin apply -f-
+	yq eval '
+		.metadata.name = "chaos-pod-network-loss" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-network-loss.yml \
+		| kubectl apply -f -
 	sleep 10
 
 	# write data
@@ -103,7 +100,7 @@ recreate() {
 	diff -u $expected_result $tmp_dir/proxy-vars1.sql
 
 	# delete cluster
-	kubectl_bin delete \
+	kubectl delete \
 		-f $conf_dir/$cluster.yml
 	wait_for_delete pod/$cluster-pxc-2
 	wait_for_delete pod/$cluster-pxc-1
@@ -117,7 +114,7 @@ recreate() {
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password" "-3rd"
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password" "-3rd"
 
-	sleep 60
+	sleep 90
 	run_mysql_local \
 		'SELECT * FROM global_variables ORDER BY variable_name' \
 		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \

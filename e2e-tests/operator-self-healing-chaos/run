@@ -9,14 +9,13 @@ cluster="operator-chaos"
 
 fail_pod() {
 	local init_pod=$(get_operator_pod)
-	local restart_count_before=$(kubectl_bin get pod ${init_pod} --namespace="${OPERATOR_NS:-$namespace}" -ojsonpath='{.status.containerStatuses[0].restartCount}')
+	local restart_count_before=$(kubectl get pod ${init_pod} --namespace="${OPERATOR_NS:-$namespace}" -ojsonpath='{.status.containerStatuses[0].restartCount}')
 
-	cat $conf_dir/chaos-pod-failure.yml \
-		| yq eval "
-			.metadata.name = \"chaos-operator-pod-failure\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$test_namespace[0] = \"$init_pod\"" - \
-		| kubectl_bin apply --namespace $test_namespace -f-
+	yq eval '
+		.metadata.name = "chaos-operator-pod-failure" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$test_namespace'[0] = "'$init_pod'"' $conf_dir/chaos-pod-failure.yml \
+		| kubectl apply --namespace $test_namespace -f -
 	sleep 10
 
 	desc 'check if operator works fine: scale down from 5 to 3'
@@ -24,7 +23,7 @@ fail_pod() {
 	sleep 60
 
 	local pod=$(get_operator_pod)
-	local restart_count_after=$(kubectl_bin get pod ${pod} --namespace="${OPERATOR_NS:-$namespace}" -ojsonpath='{.status.containerStatuses[0].restartCount}')
+	local restart_count_after=$(kubectl get pod ${pod} --namespace="${OPERATOR_NS:-$namespace}" -ojsonpath='{.status.containerStatuses[0].restartCount}')
 	if [ "$init_pod" != "$pod" ]; then
 		echo "Operator pod was killed, when it should have just been restarted."
 		echo "Pod name before: $init_pod , pod name after test: $pod"
@@ -36,11 +35,11 @@ fail_pod() {
 	fi
 
 	if [ -n "$OPERATOR_NS" ]; then
-		kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
+		kubectl config set-context $(kubectl config current-context) --namespace="$OPERATOR_NS"
 	fi
 	# check if Pod started
 	wait_pod $pod
-	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
+	kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
 
 	# check scale down
 	wait_for_delete pod/$cluster-pxc-3
@@ -49,12 +48,11 @@ fail_pod() {
 network_loss() {
 	local pod=$(get_operator_pod)
 
-	cat $conf_dir/chaos-network-loss.yml \
-		| yq eval "
-			.metadata.name = \"chaos-operator-network\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$test_namespace[0] = \"$pod\"" - \
-		| kubectl_bin apply --namespace $test_namespace -f-
+	yq eval '
+		.metadata.name = "chaos-operator-network" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$test_namespace'[0] = "'$pod'"' $conf_dir/chaos-network-loss.yml \
+		| kubectl apply --namespace $test_namespace -f -
 	sleep 10
 
 	desc 'check if operator works fine: scale up from 3 to 5'
@@ -62,11 +60,11 @@ network_loss() {
 	sleep 10
 
 	if [ -n "$OPERATOR_NS" ]; then
-		kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
+		kubectl config set-context $(kubectl config current-context) --namespace="$OPERATOR_NS"
 	fi
 	# check if Pod started
 	wait_pod $pod
-	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
+	kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
 
 	# check scale up
 	wait_for_running "$cluster-pxc" 5
@@ -75,12 +73,11 @@ network_loss() {
 kill_pod() {
 	local init_pod=$(get_operator_pod)
 
-	cat $conf_dir/chaos-pod-kill.yml \
-		| yq eval "
-			.metadata.name = \"chaos-operator-pod-kill\" |
-			del(.spec.selector.pods.test-namespace) |
-			.spec.selector.pods.$test_namespace[0] = \"$init_pod\"" - \
-		| kubectl_bin apply --namespace $test_namespace -f-
+	yq eval '
+		.metadata.name = "chaos-operator-pod-kill" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$test_namespace'[0] = "'$init_pod'"' $conf_dir/chaos-pod-kill.yml \
+		| kubectl apply --namespace $test_namespace -f -
 	sleep 10
 
 	local pod=$(get_operator_pod)
@@ -94,11 +91,11 @@ kill_pod() {
 	sleep 10
 
 	if [ -n "$OPERATOR_NS" ]; then
-		kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$OPERATOR_NS"
+		kubectl config set-context $(kubectl config current-context) --namespace="$OPERATOR_NS"
 	fi
 	# check if Pod started
 	wait_pod $pod
-	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
+	kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
 
 	# check scale up
 	wait_for_running "$cluster-pxc" 5
@@ -109,8 +106,8 @@ main() {
 
 	test_namespace=$namespace
 	if [ -n "$OPERATOR_NS" ]; then
-		kubectl_bin patch clusterrole percona-xtradb-cluster-operator --type=json -p '[{"op":"remove","path":"/rules/1"}]'
-		kubectl_bin delete validatingwebhookconfigurations.admissionregistration.k8s.io percona-xtradbcluster-webhook
+		kubectl patch clusterrole percona-xtradb-cluster-operator --type=json -p '[{"op":"remove","path":"/rules/1"}]'
+		kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io percona-xtradbcluster-webhook
 		test_namespace=$OPERATOR_NS
 	fi
 	deploy_chaos_mesh $test_namespace

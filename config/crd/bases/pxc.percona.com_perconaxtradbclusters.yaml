@@ -8179,7 +8179,7 @@ spec:
     storage: true
     subresources:
       scale:
-        labelSelectorPath: .status.pxc.labelSelector
+        labelSelectorPath: .status.pxc.labelSelectorPath
         specReplicasPath: .spec.pxc.size
         statusReplicasPath: .status.pxc.size
       status: {}

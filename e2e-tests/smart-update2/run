@@ -147,8 +147,8 @@ function check_telemetry_transfer() {
 		[[ -s "${tmp_dir}/enabled_telemetry.version-service-cr.log.json" ]] && exit 1
 	fi
 
-	local telemetry_cr_log_file="${telemetry_state}_telemetry.version-service-cr${OPERATOR_NS:+-cw}.log.json"
 	local image_prefix=${cr_vs_channel%'-recommended'}
+	local telemetry_cr_log_file="${telemetry_state}_telemetry.version-service-cr-${image_prefix}${OPERATOR_NS:+-cw}.log.json"
 	# telemetry was disabled in operator but not in CR
 	if [ "${cr_vs_channel}" == "${image_prefix}-recommended" -a "${telemetry_state}" == 'disabled' ]; then
 		# cr VS should have telemetry

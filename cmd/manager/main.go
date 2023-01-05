@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"k8s.io/klog/v2"
 
 	certmgrscheme "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/scheme"
+	"github.com/go-logr/logr"
+	uzap "go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -52,7 +56,8 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 
 	opts := zap.Options{
-		Development: false,
+		Encoder: getLogEncoder(setupLog),
+		Level:   getLogLevel(setupLog),
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -163,5 +168,44 @@ func main() {
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "manager exited non-zero")
 		os.Exit(1)
+	}
+}
+
+func getLogEncoder(log logr.Logger) zapcore.Encoder {
+	consoleEnc := zapcore.NewConsoleEncoder(uzap.NewDevelopmentEncoderConfig())
+
+	s, found := os.LookupEnv("LOG_STRUCTURED")
+	if !found {
+		return consoleEnc
+	}
+
+	useJson, err := strconv.ParseBool(s)
+	if err != nil {
+		log.Info(fmt.Sprintf("can't parse LOG_STRUCTURED env var: %s, using console logger", s))
+		return consoleEnc
+	}
+	if !useJson {
+		return consoleEnc
+	}
+
+	return zapcore.NewJSONEncoder(uzap.NewProductionEncoderConfig())
+}
+
+func getLogLevel(log logr.Logger) zapcore.LevelEnabler {
+	l, found := os.LookupEnv("LOG_LEVEL")
+	if !found {
+		return zapcore.InfoLevel
+	}
+
+	switch strings.ToUpper(l) {
+	case "DEBUG":
+		return zapcore.DebugLevel
+	case "INFO":
+		return zapcore.InfoLevel
+	case "ERROR":
+		return zapcore.ErrorLevel
+	default:
+		log.Info(fmt.Sprintf("unsupported log level: %s, using INFO level", l))
+		return zapcore.InfoLevel
 	}
 }

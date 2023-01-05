@@ -10,7 +10,7 @@ metadata:
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
-  crVersion: 1.12.0
+  crVersion: 1.13.0
 #  ignoreAnnotations:
 #    - iam.amazonaws.com/role
 #  ignoreLabels:
@@ -20,7 +20,7 @@ spec:
 #  sslSecretName: cluster1-ssl
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
-#  initImage: percona/percona-xtradb-cluster-operator:1.12.0
+#  initImage: percona/percona-xtradb-cluster-operator:1.13.0
 #  enableCRValidationWebhook: true
 #  tls:
 #    SANs:
@@ -40,7 +40,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.27-18.1
+    image: percona/percona-xtradb-cluster:8.0.29-21.1
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -58,6 +58,9 @@ spec:
 #      configuration:
 #        sourceRetryCount: 3
 #        sourceConnectRetry: 60
+#        ssl: false
+#        sslSkipVerify: true
+#        ca: '/etc/mysql/ssl/ca.crt'
 #      sourcesList:
 #      - host: 10.95.251.101
 #        port: 3306
@@ -477,7 +480,7 @@ spec:
         cpu: 200m
   pmm:
     enabled: false
-    image: percona/pmm-client:2.28.0
+    image: percona/pmm-client:2.32.0
     serverHost: monitoring-service
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
@@ -592,10 +595,10 @@ spec:
               requests:
                 storage: 6G
     schedule:
-      - name: "sat-night-backup"
-        schedule: "0 0 * * 6"
-        keep: 3
-        storageName: s3-us-west
+#      - name: "sat-night-backup"
+#        schedule: "0 0 * * 6"
+#        keep: 3
+#        storageName: s3-us-west
       - name: "daily-backup"
         schedule: "0 0 * * *"
         keep: 5

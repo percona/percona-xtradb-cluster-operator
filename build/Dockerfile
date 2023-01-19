@@ -22,8 +22,8 @@ RUN go mod download \
 RUN go build -o build/_output/bin/peer-list cmd/peer-list/main.go \
     && cp -r build/_output/bin/peer-list /usr/local/bin/
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal AS ubi8
-RUN microdnf update && microdnf clean all
+FROM registry.access.redhat.com/ubi9/ubi-minimal AS ubi9
+RUN microdnf -y update && microdnf clean all
 
 LABEL name="Percona XtraDB Cluster Operator" \
       vendor="Percona" \

@@ -49,6 +49,7 @@ func NewManager(addr string, user, pass string, timeout int32) (Manager, error) 
 		"timeout":           timeoutStr,
 		"readTimeout":       timeoutStr,
 		"writeTimeout":      timeoutStr,
+		"tls":               "preferred",
 	}
 
 	mysqlDB, err := sql.Open("mysql", config.FormatDSN())

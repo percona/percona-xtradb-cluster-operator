@@ -20,7 +20,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -93,7 +92,7 @@ func main() {
 
 	// If domain is not provided, try to get it from resolv.conf
 	if *domain == "" {
-		resolvConfBytes, err := ioutil.ReadFile("/etc/resolv.conf")
+		resolvConfBytes, err := os.ReadFile("/etc/resolv.conf")
 		resolvConf := string(resolvConfBytes)
 		if err != nil {
 			log.Fatal("Unable to read /etc/resolv.conf")

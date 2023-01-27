@@ -66,7 +66,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaX
 		return nil
 	}
 
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	user := &users.SysUser{
 		Name:  users.Root,
@@ -78,13 +78,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaX
 		return nil
 	}
 
-	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
+	log.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
 	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
-	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	err = r.syncPXCUsersWithProxySQL(cr)
 	if err != nil {
@@ -97,13 +97,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaX
 	if err != nil {
 		return errors.Wrap(err, "update internal secrets root user password")
 	}
-	logger.Info("Internal secrets updated", "user", user.Name)
+	log.Info("Internal secrets updated", "user", user.Name)
 
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	user := &users.SysUser{
 		Name:  users.Operator,
@@ -126,13 +126,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.Perc
 		return nil
 	}
 
-	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
+	log.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
 	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
-	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -140,14 +140,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.Perc
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets operator user password")
 	}
-	logger.Info("Internal secrets updated", "user", user.Name)
+	log.Info("Internal secrets updated", "user", user.Name)
 
 	actions.restartProxy = true
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	user := &users.SysUser{
 		Name:  users.Monitor,
@@ -205,20 +205,20 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 		return nil
 	}
 
-	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
+	log.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
 	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
-	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		err := r.updateProxyUser(cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "update monitor users pass")
 		}
-		logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
+		log.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
 	}
 
 	actions.restartProxy = true
@@ -232,13 +232,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets monitor user password")
 	}
-	logger.Info("Internal secrets updated", "user", user.Name)
+	log.Info("Internal secrets updated", "user", user.Name)
 
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	user := &users.SysUser{
 		Name:  users.Clustercheck,
@@ -289,13 +289,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 		return nil
 	}
 
-	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
+	log.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
 	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update clustercheck users pass")
 	}
-	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -303,13 +303,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets clustercheck user password")
 	}
-	logger.Info("Internal secrets updated", "user", user.Name)
+	log.Info("Internal secrets updated", "user", user.Name)
 
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	user := &users.SysUser{
 		Name:  users.Xtrabackup,
@@ -339,13 +339,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.Pe
 		return nil
 	}
 
-	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
+	log.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
 	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
-	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -353,14 +353,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.Pe
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets xtrabackup user password")
 	}
-	logger.Info("Internal secrets updated", "user", user.Name)
+	log.Info("Internal secrets updated", "user", user.Name)
 
 	actions.restartPXC = true
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	if cr.CompareVersionWith("1.9.0") < 0 {
 		return nil
@@ -391,13 +391,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.P
 		return nil
 	}
 
-	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
+	log.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
 	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
-	logger.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -405,14 +405,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.P
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets replication user password")
 	}
-	logger.Info("Internal secrets updated", "user", user.Name)
+	log.Info("Internal secrets updated", "user", user.Name)
 
 	actions.updateReplicationPass = true
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled {
 		return nil
@@ -431,13 +431,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.Pe
 		return nil
 	}
 
-	logger.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
+	log.Info(fmt.Sprintf("User %s: password changed, updating user", user.Name))
 
 	err := r.updateProxyUser(cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update Proxy users")
 	}
-	logger.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
+	log.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -445,7 +445,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.Pe
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets proxyadmin user password")
 	}
-	logger.Info("Internal secrets updated", "user", user.Name)
+	log.Info("Internal secrets updated", "user", user.Name)
 
 	actions.restartProxy = true
 

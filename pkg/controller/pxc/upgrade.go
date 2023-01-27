@@ -262,22 +262,22 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
-	logger.Info("statefulSet was changed, run smart update")
+	log.Info("statefulSet was changed, run smart update")
 
 	running, err := r.isBackupRunning(cr)
 	if err != nil {
-		logger.Error(err, "can't start 'SmartUpdate'")
+		log.Error(err, "can't start 'SmartUpdate'")
 		return nil
 	}
 	if running {
-		logger.Info("can't start/continue 'SmartUpdate': backup is running")
+		log.Info("can't start/continue 'SmartUpdate': backup is running")
 		return nil
 	}
 
 	if currentSet.Status.ReadyReplicas < currentSet.Status.Replicas {
-		logger.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
+		log.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
 		return nil
 	}
 
@@ -292,7 +292,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		}
 	}
 
-	logger.Info("primary pod", "pod name", primary)
+	log.Info("primary pod", "pod name", primary)
 
 	waitLimit := 2 * 60 * 60 // 2 hours
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
@@ -309,19 +309,19 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)) {
 			primaryPod = pod
 		} else {
-			logger.Info("apply changes to secondary pod", "pod name", pod.Name)
+			log.Info("apply changes to secondary pod", "pod name", pod.Name)
 			if err := r.applyNWait(cr, currentSet, &pod, waitLimit); err != nil {
 				return errors.Wrap(err, "failed to apply changes")
 			}
 		}
 	}
 
-	logger.Info("apply changes to primary pod", "pod name", primaryPod.Name)
+	log.Info("apply changes to primary pod", "pod name", primaryPod.Name)
 	if err := r.applyNWait(cr, currentSet, &primaryPod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to apply changes")
 	}
 
-	logger.Info("smart update finished")
+	log.Info("smart update finished")
 
 	return nil
 }

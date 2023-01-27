@@ -226,7 +226,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, errors.Wrap(err, "set CR version")
 	}
 
-	reqLogger := r.logger(o.Name, o.Namespace)
+	reqLog := r.logger(o.Name, o.Namespace)
 
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
@@ -262,18 +262,18 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	// wait until token issued to run PXC in data encrypted mode.
 	if o.ShouldWaitForTokenIssue() {
-		reqLogger.Info("wait for token issuing")
+		reqLog.Info("wait for token issuing")
 		return rr, nil
 	}
 
 	defer func() {
 		uerr := r.updateStatus(o, false, err)
 		if uerr != nil {
-			reqLogger.Error(uerr, "Update status")
+			reqLog.Error(uerr, "Update status")
 		}
 	}()
 
-	err = o.CheckNSetDefaults(r.serverVersion, reqLogger)
+	err = o.CheckNSetDefaults(r.serverVersion, reqLog)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
 	}
@@ -281,7 +281,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
 		err = r.recoverFullClusterCrashIfNeeded(o)
 		if err != nil {
-			reqLogger.Info("Failed to check if cluster needs to recover", "err", err.Error())
+			reqLog.Info("Failed to check if cluster needs to recover", "err", err.Error())
 		}
 	}
 
@@ -305,7 +305,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
 		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
 		if err != nil {
-			reqLogger.Info("failed to ensure version, running with default", "error", err)
+			reqLog.Info("failed to ensure version, running with default", "error", err)
 		}
 	}
 
@@ -426,7 +426,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if o.CompareVersionWith("1.9.0") >= 0 {
 		err = r.reconcileReplication(o, userReconcileResult.updateReplicationPassword)
 		if err != nil {
-			reqLogger.Info("reconcile replication error", "err", err.Error())
+			reqLog.Info("reconcile replication error", "err", err.Error())
 		}
 	}
 
@@ -513,7 +513,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return errors.Wrap(err, "get operator deployment")
 	}
 
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		var imageName string
@@ -547,7 +547,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	if client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err, "get internal secret")
 	}
-	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, secrets, inits, logger, r.getConfigVolume)
+	nodeSet, err := pxc.StatefulSet(stsApp, cr.Spec.PXC.PodSpec, cr, secrets, inits, log, r.getConfigVolume)
 	if err != nil {
 		return errors.Wrap(err, "get pxc statefulset")
 	}
@@ -639,7 +639,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 	// HAProxy StatefulSet
 	if cr.HAProxyEnabled() {
 		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, nil, logger, r.getConfigVolume)
+		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, nil, log, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create HAProxy StatefulSet")
 		}
@@ -693,7 +693,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, nil, logger, r.getConfigVolume)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, nil, log, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}

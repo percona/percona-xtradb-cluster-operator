@@ -97,7 +97,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaX
 	if err != nil {
 		return errors.Wrap(err, "update internal secrets root user password")
 	}
-	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+	logger.Info("Internal secrets updated", "user", user.Name)
 
 	return nil
 }
@@ -140,7 +140,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.Perc
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets operator user password")
 	}
-	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+	logger.Info("Internal secrets updated", "user", user.Name)
 
 	actions.restartProxy = true
 	return nil
@@ -232,7 +232,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets monitor user password")
 	}
-	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+	logger.Info("Internal secrets updated", "user", user.Name)
 
 	return nil
 }
@@ -303,7 +303,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets clustercheck user password")
 	}
-	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+	logger.Info("Internal secrets updated", "user", user.Name)
 
 	return nil
 }
@@ -353,7 +353,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.Pe
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets xtrabackup user password")
 	}
-	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+	logger.Info("Internal secrets updated", "user", user.Name)
 
 	actions.restartPXC = true
 	return nil
@@ -405,7 +405,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.P
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets replication user password")
 	}
-	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+	logger.Info("Internal secrets updated", "user", user.Name)
 
 	actions.updateReplicationPass = true
 	return nil
@@ -445,7 +445,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.Pe
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets proxyadmin user password")
 	}
-	logger.Info(fmt.Sprintf("User %s: internal secrets updated", user.Name))
+	logger.Info("Internal secrets updated", "user", user.Name)
 
 	actions.restartProxy = true
 

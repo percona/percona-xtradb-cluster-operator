@@ -22,7 +22,7 @@ import (
 const internalSecretsPrefix = "internal-"
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtraDBCluster) error {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	secretObj := new(corev1.Secret)
 	err := r.client.Get(context.TODO(),
@@ -43,7 +43,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 		if isChanged {
 			err := r.client.Update(context.TODO(), secretObj)
 			if err == nil {
-				logger.Info(fmt.Sprintf("User secrets updated: %s", cr.Spec.SecretsName))
+				log.Info("User secrets updated", "secrets", cr.Spec.SecretsName)
 			}
 			return err
 		}
@@ -69,7 +69,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtra
 		return fmt.Errorf("create Users secret: %v", err)
 	}
 
-	logger.Info(fmt.Sprintf("Created user secrets: %s", cr.Spec.SecretsName))
+	log.Info("Created user secrets", "secrets", cr.Spec.SecretsName)
 	return nil
 }
 

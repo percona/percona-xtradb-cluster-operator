@@ -266,6 +266,8 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		return nil, errors.New("azure storage is not specified")
 	}
 	container, _ := azure.ContainerAndPrefix()
+	destination = strings.TrimPrefix(destination, "azure://"+container+"/")
+	destination = strings.TrimPrefix(destination, container+"/")
 	envs := []corev1.EnvVar{
 		{
 			Name: "AZURE_STORAGE_ACCOUNT",
@@ -293,7 +295,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		},
 		{
 			Name:  "BACKUP_PATH",
-			Value: strings.TrimPrefix(destination, container+"/"),
+			Value: destination,
 		},
 		{
 			Name:  "PXC_SERVICE",

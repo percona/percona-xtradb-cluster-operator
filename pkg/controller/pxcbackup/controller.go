@@ -256,6 +256,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.New("azure storage is not specified")
 		}
 		cr.Status.Destination = storage.Azure.ContainerPath + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
+		if !strings.HasPrefix(storage.Azure.ContainerPath, "azure://") {
+			cr.Status.Destination = "azure://" + cr.Status.Destination
+		}
+
 		err := backup.SetStorageAzure(&job.Spec, cr)
 		if err != nil {
 			return rr, errors.Wrap(err, "set storage FS for Azure")

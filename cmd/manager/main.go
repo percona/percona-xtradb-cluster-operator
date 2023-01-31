@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"runtime"
 	"strconv"
@@ -176,7 +175,7 @@ func getLogEncoder(log logr.Logger) zapcore.Encoder {
 
 	useJson, err := strconv.ParseBool(s)
 	if err != nil {
-	log.Info("Cant't parse LOG_STRUCTURED env var, using console logger", "envVar", s)
+		log.Info("Can't parse LOG_STRUCTURED env var, using console logger", "envVar", s)
 		return consoleEnc
 	}
 	if !useJson {

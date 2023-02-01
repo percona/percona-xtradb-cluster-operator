@@ -10,7 +10,7 @@ run_recovery_check() {
 	local cluster=$1
 	local backup1=$2
 
-	restore_name="backup-${backup1:22:32}"
+	restore_name="${backup1:22:32}"
 
 	desc 'write data after backup'
 	run_mysql \
@@ -195,6 +195,12 @@ main() {
 	sleep 61
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
+	desc 'add backups schedule for azure storage'
+	apply_config "${test_dir}/conf/${cluster}-azure.yml"
+	sleep 61
+	apply_config "${test_dir}/conf/${cluster}-disable.yml"
+	wait_all_backups
+
 
 	FIRST_PVC_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep pvc | head -n1 | cut -d: -f1)
 	JOB_PVC_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_PVC_BACKUP} | awk '{print $1}')
@@ -212,6 +218,52 @@ main() {
 		FIRST_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1 | cut -d: -f1)
 		JOB_GCP_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_GCP_BACKUP} | awk '{print $1}')
 		POD_GCP_BACKUP=$(kubectl_bin get pods | grep ${JOB_GCP_BACKUP%-*} | awk '{print $1}')
+
+		FIRST_AZURE_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep azure | head -n1 | cut -d: -f1)
+		JOB_AZURE_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_AZURE_BACKUP} | awk '{print $1}')
+		POD_AZURE_BACKUP=$(kubectl_bin get pods | grep ${JOB_AZURE_BACKUP%-*} | awk '{print $1}')
+
+		BACKUP_DEST_AWS=$(kubectl_bin get pxc-backup "$FIRST_AWS_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+		BACKUP_DEST_GCP=$(kubectl_bin get pxc-backup "$FIRST_GCP_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
+		BACKUP_DEST_AZURE=$(kubectl_bin get pxc-backup "$FIRST_AZURE_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//')
+
+		desc "Check backup existence"
+		check_backup_existence "https://s3.amazonaws.com/${BACKUP_DEST_AWS}.sst_info/sst_info.00000000000000000000" "aws-s3"
+		check_backup_existence "https://storage.googleapis.com/${BACKUP_DEST_GCP}.sst_info/sst_info.00000000000000000000" "gcp-cs"
+		check_backup_existence "https://engk8soperators.blob.core.windows.net/${BACKUP_DEST_AZURE}.sst_info/sst_info.00000000000000000000" "azure-blob"
+
+
+	  desc "Check that KEEP option saves correct backup's amount (1 for our settings)"
+
+	  desc 'add backups schedule for gcs storage'
+    apply_config "${test_dir}/conf/${cluster}-gcs.yml"
+    sleep 110
+    apply_config "${test_dir}/conf/${cluster}-disable.yml"
+    wait_all_backups
+    desc 'add backups schedule for azure storage'
+    apply_config "${test_dir}/conf/${cluster}-azure.yml"
+    sleep 110
+    apply_config "${test_dir}/conf/${cluster}-disable.yml"
+    wait_all_backups
+    desc 'add backups schedule for aws s3 storage'
+    apply_config "${test_dir}/conf/${cluster}-aws.yml"
+    sleep 110
+    apply_config "${test_dir}/conf/${cluster}-disable.yml"
+    wait_all_backups
+
+		SECOND_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1 | cut -d: -f1)
+		SECOND_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1 | cut -d: -f1)
+		SECOND_AZURE_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep azure | head -n1 | cut -d: -f1)
+
+		if [[ "$FIRST_GCP_BACKUP" == "$SECOND_GCP_BACKUP" || "$FIRST_AZURE_BACKUP" == "$SECOND_AZURE_BACKUP" || "$FIRST_AWS_BACKUP" == "$SECOND_AWS_BACKUP" ]]; then
+		  echo "Something got wrong: First $FIRST_GCP_BACKUP and Second backup $SECOND_GCP_BACKUP for GCP or first $FIRST_AZURE_BACKUP and second backup $SECOND_AZURE_BACKUP for AZURE or first $FIRST_AWS_BACKUP and second backup $SECOND_AWS_BACKUP for AWS are the same"
+		  exit 1
+		fi
+
+		desc "Check backup deletion"
+		check_backup_deletion "https://s3.amazonaws.com/${BACKUP_DEST_AWS}.sst_info/sst_info.00000000000000000000" "aws-s3"
+		check_backup_deletion "https://storage.googleapis.com/${BACKUP_DEST_GCP}.sst_info/sst_info.00000000000000000000" "gcp-cs"
+		check_backup_deletion "https://engk8soperators.blob.core.windows.net/${BACKUP_DEST_AZURE}.sst_info/sst_info.00000000000000000000" "azure-blob"
 	fi
 
 	backup_name_pvc=$(get_backup_name "pvc")
@@ -219,6 +271,7 @@ main() {
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		backup_name_aws=$(get_backup_name "aws-s3")
 		backup_name_gcp=$(get_backup_name "gcp-cs")
+		backup_name_azure=$(get_backup_name "azure-blob")
 	fi
 
 	apply_config "$test_dir/conf/${cluster}-init.yml"
@@ -228,6 +281,7 @@ main() {
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		run_recovery_check "$cluster" "$backup_name_aws"
 		run_recovery_check "$cluster" "$backup_name_gcp"
+		run_recovery_check "$cluster" "$backup_name_azure"
 	fi
 
 	unlabel_node

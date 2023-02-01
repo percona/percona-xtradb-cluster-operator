@@ -201,7 +201,6 @@ main() {
 	apply_config "${test_dir}/conf/${cluster}-disable.yml"
 	wait_all_backups
 
-
 	FIRST_PVC_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep pvc | head -n1 | cut -d: -f1)
 	JOB_PVC_BACKUP=$(kubectl_bin get jobs | grep ${FIRST_PVC_BACKUP} | awk '{print $1}')
 	POD_PVC_BACKUP=$(kubectl_bin get pods | grep ${JOB_PVC_BACKUP%-*} | awk '{print $1}')
@@ -232,32 +231,31 @@ main() {
 		check_backup_existence "https://storage.googleapis.com/${BACKUP_DEST_GCP}.sst_info/sst_info.00000000000000000000" "gcp-cs"
 		check_backup_existence "https://engk8soperators.blob.core.windows.net/${BACKUP_DEST_AZURE}.sst_info/sst_info.00000000000000000000" "azure-blob"
 
+		desc "Check that KEEP option saves correct backup's amount (1 for our settings)"
 
-	  desc "Check that KEEP option saves correct backup's amount (1 for our settings)"
-
-	  desc 'add backups schedule for gcs storage'
-    apply_config "${test_dir}/conf/${cluster}-gcs.yml"
-    sleep 110
-    apply_config "${test_dir}/conf/${cluster}-disable.yml"
-    wait_all_backups
-    desc 'add backups schedule for azure storage'
-    apply_config "${test_dir}/conf/${cluster}-azure.yml"
-    sleep 110
-    apply_config "${test_dir}/conf/${cluster}-disable.yml"
-    wait_all_backups
-    desc 'add backups schedule for aws s3 storage'
-    apply_config "${test_dir}/conf/${cluster}-aws.yml"
-    sleep 110
-    apply_config "${test_dir}/conf/${cluster}-disable.yml"
-    wait_all_backups
+		desc 'add backups schedule for gcs storage'
+		apply_config "${test_dir}/conf/${cluster}-gcs.yml"
+		sleep 110
+		apply_config "${test_dir}/conf/${cluster}-disable.yml"
+		wait_all_backups
+		desc 'add backups schedule for azure storage'
+		apply_config "${test_dir}/conf/${cluster}-azure.yml"
+		sleep 110
+		apply_config "${test_dir}/conf/${cluster}-disable.yml"
+		wait_all_backups
+		desc 'add backups schedule for aws s3 storage'
+		apply_config "${test_dir}/conf/${cluster}-aws.yml"
+		sleep 110
+		apply_config "${test_dir}/conf/${cluster}-disable.yml"
+		wait_all_backups
 
 		SECOND_AWS_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep aws | head -n1 | cut -d: -f1)
 		SECOND_GCP_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep gcp | head -n1 | cut -d: -f1)
 		SECOND_AZURE_BACKUP=$(kubectl_bin get pxc-backup -o jsonpath='{range .items[*]}{.metadata.name}:{.spec.storageName}:{.status.state}{"\n"}{end}' | grep Succeeded | grep azure | head -n1 | cut -d: -f1)
 
-		if [[ "$FIRST_GCP_BACKUP" == "$SECOND_GCP_BACKUP" || "$FIRST_AZURE_BACKUP" == "$SECOND_AZURE_BACKUP" || "$FIRST_AWS_BACKUP" == "$SECOND_AWS_BACKUP" ]]; then
-		  echo "Something got wrong: First $FIRST_GCP_BACKUP and Second backup $SECOND_GCP_BACKUP for GCP or first $FIRST_AZURE_BACKUP and second backup $SECOND_AZURE_BACKUP for AZURE or first $FIRST_AWS_BACKUP and second backup $SECOND_AWS_BACKUP for AWS are the same"
-		  exit 1
+		if [[ $FIRST_GCP_BACKUP == "$SECOND_GCP_BACKUP" || $FIRST_AZURE_BACKUP == "$SECOND_AZURE_BACKUP" || $FIRST_AWS_BACKUP == "$SECOND_AWS_BACKUP" ]]; then
+			echo "Something got wrong: First $FIRST_GCP_BACKUP and Second backup $SECOND_GCP_BACKUP for GCP or first $FIRST_AZURE_BACKUP and second backup $SECOND_AZURE_BACKUP for AZURE or first $FIRST_AWS_BACKUP and second backup $SECOND_AWS_BACKUP for AWS are the same"
+			exit 1
 		fi
 
 		desc "Check backup deletion"

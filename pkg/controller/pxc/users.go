@@ -218,7 +218,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
-		log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+		log.Info("Old password discarded", "user", user.Name)
 
 		return nil
 	}
@@ -229,7 +229,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
-	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info("Password updated", "user", user.Name)
 
 	err = r.syncPXCUsersWithProxySQL(cr)
 	if err != nil {
@@ -248,7 +248,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(cr *api.PerconaXtraDBClus
 	if err != nil {
 		return errors.Wrap(err, "discard old password")
 	}
-	log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	log.Info("Old password discarded", "user", user.Name)
 
 	return nil
 }
@@ -287,7 +287,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
-		log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+		log.Info("Old password discarded", "user", user.Name)
 
 		return nil
 	}
@@ -298,7 +298,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
-	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info("Password updated", "user", user.Name)
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -314,7 +314,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(cr *api.PerconaXtraDB
 	if err != nil {
 		return errors.Wrap(err, "discard operator old password")
 	}
-	log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	log.Info("Old password discarded", "user", user.Name)
 
 	return nil
 }
@@ -436,7 +436,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
-		log.Info(fmt.Sprintf("User %s: password updated but old one not discarded", user.Name))
+		log.Info("Password updated but old one not discarded", "user", user.Name)
 
 		passPropagated, err := r.isPassPropagated(cr, user)
 		if err != nil {
@@ -455,7 +455,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
-		log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+		log.Info("Old password discarded", "user", user.Name)
 
 		return nil
 	}
@@ -466,14 +466,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
-	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info("Password updated", "user", user.Name)
 
 	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
 		err := r.updateProxyUser(cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "update monitor users pass")
 		}
-		log.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
+		log.Info("Proxy user updated", "user", user.Name)
 	}
 
 	actions.restartProxy = true
@@ -501,7 +501,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	if err != nil {
 		return errors.Wrap(err, "discard monitor old password")
 	}
-	log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	log.Info("Old password discarded", "user", user.Name)
 
 	return nil
 }
@@ -595,7 +595,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
-		log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+		log.Info("Old password discarded", "user", user.Name)
 
 		return nil
 	}
@@ -606,7 +606,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 	if err != nil {
 		return errors.Wrap(err, "update clustercheck users pass")
 	}
-	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info("Password updated", "user", user.Name)
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -620,7 +620,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(cr *api.PerconaXt
 	if err != nil {
 		return errors.Wrap(err, "discard clustercheck old pass")
 	}
-	log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	log.Info("Old password discarded", "user", user.Name)
 
 	return nil
 }
@@ -666,7 +666,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
-		log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+		log.Info("Old password discarded", "user", user.Name)
 
 		return nil
 	}
@@ -677,7 +677,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
-	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info("Password updated", "user", user.Name)
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -691,7 +691,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "discard xtrabackup old pass")
 	}
-	log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	log.Info("Old password discarded", "user", user.Name)
 
 	actions.restartPXC = true
 	return nil
@@ -768,7 +768,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 		if err != nil {
 			return errors.Wrap(err, "discard old pass")
 		}
-		log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+		log.Info("Old password discarded", "user", user.Name)
 
 		return nil
 	}
@@ -779,7 +779,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
-	log.Info(fmt.Sprintf("User %s: password updated", user.Name))
+	log.Info("Password updated", "user", user.Name)
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -793,7 +793,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(cr *api.PerconaXtr
 	if err != nil {
 		return errors.Wrap(err, "discard replicaiton old pass")
 	}
-	log.Info(fmt.Sprintf("User %s: old password discarded", user.Name))
+	log.Info("Old password discarded", "user", user.Name)
 
 	actions.updateReplicationPass = true
 	return nil
@@ -874,7 +874,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtra
 	if err != nil {
 		return errors.Wrap(err, "update Proxy users")
 	}
-	log.Info(fmt.Sprintf("User %s: proxy user updated", user.Name))
+	log.Info("Proxy user updated", "user", user.Name)
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -904,7 +904,7 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBClust
 			if err != nil {
 				return errors.Wrap(err, "update internal users secrets pmm user password")
 			}
-			log.Info(fmt.Sprintf("User %s: internal secrets updated", users.PMMServerKey))
+			log.Info("Internal secrets updated", "user", users.PMMServerKey)
 
 			return nil
 		}
@@ -923,7 +923,7 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBClust
 		return nil
 	}
 
-	log.Info(fmt.Sprintf("User %s: password changed, updating user", name))
+	log.Info("Password changed, updating user", "user", name)
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[name] = secrets.Data[name]
@@ -931,7 +931,7 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBClust
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets pmm user password")
 	}
-	log.Info(fmt.Sprintf("User %s: internal secrets updated", name))
+	log.Info("Internal secrets updated", "user", name)
 
 	actions.restartPXC = true
 	actions.restartProxy = true
@@ -1120,7 +1120,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(cr *api.Percona
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
 
-	log.Info(fmt.Sprintf("User %s: system user privileges granted", user.Name))
+	log.Info("System user privileges granted", "user", user.Name)
 	return nil
 }
 

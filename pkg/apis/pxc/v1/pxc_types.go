@@ -539,7 +539,8 @@ type BackupStorageAzureSpec struct {
 // ContainerAndPrefix returns container name and backup prefix from ContainerPath.
 // BackupStorageAzureSpec.ContainerPath can contain backup path in format `<container-name>/<backup-prefix>`.
 func (b *BackupStorageAzureSpec) ContainerAndPrefix() (string, string) {
-	container, prefix, _ := strings.Cut(b.ContainerPath, "/")
+	destination := strings.TrimPrefix(b.ContainerPath, "azure://")
+	container, prefix, _ := strings.Cut(destination, "/")
 	return container, prefix
 }
 

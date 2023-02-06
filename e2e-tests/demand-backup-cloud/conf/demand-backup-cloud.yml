@@ -95,3 +95,4 @@ spec:
         azure:
           credentialsSecret: azure-secret
           container: operator-testing
+          storageClass: Cool

@@ -327,14 +327,14 @@ pipeline {
                 sh '''
                     mkdir -p $WORKSPACE/src/github.com/percona
                     ln -s $WORKSPACE $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator
-                    sudo git config --global --add safe.directory /go/src/github.com/percona/percona-xtradb-cluster-operator
                     sg docker -c "
                         docker run \
                             --rm \
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
-                            golang:1.19 sh -c 'go build -buildvcs=false -v -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
+                            -e GOFLAGS='-buildvcs=false' \
+                            golang:1.19 sh -c 'go build -v -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
                     "
                 '''
 

@@ -327,6 +327,7 @@ pipeline {
                 sh '''
                     mkdir -p $WORKSPACE/src/github.com/percona
                     ln -s $WORKSPACE $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator
+                    git config --global --add safe.directory /go/src/github.com/percona/percona-xtradb-cluster-operator
                     sg docker -c "
                         docker run \
                             --rm \

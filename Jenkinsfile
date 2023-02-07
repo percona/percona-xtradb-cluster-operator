@@ -333,6 +333,7 @@ pipeline {
                             -v $WORKSPACE/src/github.com/percona/percona-xtradb-cluster-operator:/go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -w /go/src/github.com/percona/percona-xtradb-cluster-operator \
                             -e GO111MODULE=on \
+                            -e GOFLAGS='-buildvcs=false' \
                             golang:1.19 sh -c 'go build -v -o percona-xtradb-cluster-operator github.com/percona/percona-xtradb-cluster-operator/cmd/manager'
                     "
                 '''

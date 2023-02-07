@@ -371,10 +371,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 	} else if k8sErrors.IsNotFound(err) {
 		return nil
 	}
-	logger.Info("deleting backup from s3", "name", cr.Name)
-
 	spl := strings.Split(cr.Status.Destination, "/")
 	backup := spl[len(spl)-1]
+
+	logger.Info("deleting backup from s3", "name", cr.Name, "bucket", cr.Status.S3.Bucket, "backupName", backup)
 	err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeS3Backup(cr.Status.S3.Bucket, backup, s3cli))
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
@@ -383,6 +383,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	logger := r.logger(cr.Name, cr.Namespace)
 	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified")
 	}
@@ -391,8 +392,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 		return errors.Wrap(err, "new azure client")
 	}
 	container, _ := cr.Status.Azure.ContainerAndPrefix()
-	destination := strings.TrimPrefix(cr.Status.Destination, container+"/")
+	destination := strings.TrimPrefix(cr.Status.Destination, "azure://"+container+"/")
+	destination = strings.TrimPrefix(destination, container+"/")
 
+	logger.Info("deleting backup from azure", "name", cr.Name, "containerName", container, "destination", destination)
 	err = retry.OnError(retry.DefaultBackoff,
 		func(e error) bool {
 			return true

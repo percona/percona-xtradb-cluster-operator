@@ -10,7 +10,7 @@ run_recovery_from_source() {
 	local storage_type=${1:-s3}
 	local backup_name=${2:-on-demand-backup-aws-s3}
 	local remove_bucket_or_container_name=${3:-""}
-    local remove_prefix_from_destination=${4:-""}
+	local remove_prefix_from_destination=${4:-""}
 
 	remove_options=""
 	if [ -n "$remove_bucket_or_container_name" ]; then

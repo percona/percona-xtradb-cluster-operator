@@ -262,22 +262,22 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		return nil
 	}
 
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
-	logger.Info("statefulSet was changed, run smart update")
+	log.Info("statefulSet was changed, run smart update")
 
 	running, err := r.isBackupRunning(cr)
 	if err != nil {
-		logger.Error(err, "can't start 'SmartUpdate'")
+		log.Error(err, "can't start 'SmartUpdate'")
 		return nil
 	}
 	if running {
-		logger.Info("can't start/continue 'SmartUpdate': backup is running")
+		log.Info("can't start/continue 'SmartUpdate': backup is running")
 		return nil
 	}
 
 	if currentSet.Status.ReadyReplicas < currentSet.Status.Replicas {
-		logger.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
+		log.Info("can't start/continue 'SmartUpdate': waiting for all replicas are ready")
 		return nil
 	}
 
@@ -292,7 +292,7 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		}
 	}
 
-	logger.Info("primary pod", "pod name", primary)
+	log.Info("primary pod", "pod name", primary)
 
 	waitLimit := 2 * 60 * 60 // 2 hours
 	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
@@ -309,28 +309,28 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 		if strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)) {
 			primaryPod = pod
 		} else {
-			logger.Info("apply changes to secondary pod", "pod name", pod.Name)
+			log.Info("apply changes to secondary pod", "pod name", pod.Name)
 			if err := r.applyNWait(cr, currentSet, &pod, waitLimit); err != nil {
 				return errors.Wrap(err, "failed to apply changes")
 			}
 		}
 	}
 
-	logger.Info("apply changes to primary pod", "pod name", primaryPod.Name)
+	log.Info("apply changes to primary pod", "pod name", primaryPod.Name)
 	if err := r.applyNWait(cr, currentSet, &primaryPod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to apply changes")
 	}
 
-	logger.Info("smart update finished")
+	log.Info("smart update finished")
 
 	return nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster, sfs *appsv1.StatefulSet, pod *corev1.Pod, waitLimit int) error {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	if pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
-		logger.Info("pod is already updated", "pod name", pod.Name)
+		log.Info("pod already updated", "pod name", pod.Name)
 	} else {
 		if err := r.client.Delete(context.TODO(), pod); err != nil {
 			return errors.Wrap(err, "failed to delete pod")
@@ -342,11 +342,11 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return errors.Errorf("compute pod order err, sfs name: %s, pod name: %s", sfs.Name, pod.Name)
 	}
 	if int32(orderInSts) >= *sfs.Spec.Replicas {
-		logger.Info(fmt.Sprintf("sfs %s is scaled down, pod %s will not be started ", sfs.Name, pod.Name))
+		log.Info("sfs scaled down, pod will not be started", "sfs", sfs.Name, "pod", pod.Name)
 		return nil
 	}
 
-	if err := r.waitPodRestart(cr, sfs.Status.UpdateRevision, pod, waitLimit, logger); err != nil {
+	if err := r.waitPodRestart(cr, sfs.Status.UpdateRevision, pod, waitLimit, log); err != nil {
 		return errors.Wrap(err, "failed to wait pod")
 	}
 
@@ -354,11 +354,11 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
-	if err := r.waitHostgroups(cr, sfs.Name, pod, waitLimit, logger); err != nil {
+	if err := r.waitHostgroups(cr, sfs.Name, pod, waitLimit, log); err != nil {
 		return errors.Wrap(err, "failed to wait hostgroups status")
 	}
 
-	if err := r.waitUntilOnline(cr, sfs.Name, pod, waitLimit, logger); err != nil {
+	if err := r.waitUntilOnline(cr, sfs.Name, pod, waitLimit, log); err != nil {
 		return errors.Wrap(err, "failed to wait pxc status")
 	}
 

@@ -133,7 +133,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) logger(name, namespace string) log
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	logger := r.logger(request.Name, request.Namespace)
+	log := r.logger(request.Name, request.Namespace)
 
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
@@ -172,11 +172,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	cluster, err := r.getCluster(cr)
 	if err != nil {
-		logger.Error(err, "invalid backup cluster")
+		log.Error(err, "invalid backup cluster")
 		return rr, nil
 	}
 
-	err = cluster.CheckNSetDefaults(r.serverVersion, logger)
+	err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
 		return rr, errors.Wrap(err, "wrong PXC options")
 	}
@@ -225,7 +225,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		// Check if this PVC already exists
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, pvc)
 		if err != nil && k8sErrors.IsNotFound(err) {
-			logger.Info("Creating a new volume for backup", "Namespace", pvc.Namespace, "Name", pvc.Name)
+			log.Info("Creating a new volume for backup", "Namespace", pvc.Namespace, "Name", pvc.Name)
 			err = r.client.Create(context.TODO(), pvc)
 			if err != nil {
 				return rr, errors.Wrap(err, "create backup pvc")
@@ -275,7 +275,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 	if err != nil && !k8sErrors.IsAlreadyExists(err) {
 		return rr, errors.Wrap(err, "create backup job")
 	} else if err == nil {
-		logger.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
+		log.Info("Created a new backup job", "Namespace", job.Namespace, "Name", job.Name)
 	}
 
 	err = r.updateJobStatus(cr, job, cr.Spec.StorageName, storage, cluster)
@@ -314,7 +314,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	defer func() {
 		r.bcpDeleteInProgress.Delete(cr.Name)
@@ -344,22 +344,22 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			finalizers = append(finalizers, f)
 		}
 		if err != nil {
-			logger.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
+			log.Info("failed to delete backup", "backup path", cr.Status.Destination, "error", err.Error())
 			finalizers = append(finalizers, f)
 		} else if f == api.FinalizerDeleteS3Backup {
-			logger.Info("backup was removed", "name", cr.Name)
+			log.Info("backup was removed", "name", cr.Name)
 		}
 	}
 	cr.SetFinalizers(finalizers)
 
 	err := r.client.Update(ctx, cr)
 	if err != nil {
-		logger.Error(err, "failed to update finalizers for backup", "backup", cr.Name)
+		log.Error(err, "failed to update finalizers for backup", "backup", cr.Name)
 	}
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.PerconaXtraDBClusterBackup) error {
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	if cr.Status.S3 == nil {
 		return errors.New("s3 storage is not specified")
@@ -371,10 +371,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 	} else if k8sErrors.IsNotFound(err) {
 		return nil
 	}
+
 	spl := strings.Split(cr.Status.Destination, "/")
 	backup := spl[len(spl)-1]
 
-	logger.Info("deleting backup from s3", "name", cr.Name, "bucket", cr.Status.S3.Bucket, "backupName", backup)
+	log.Info("deleting backup from s3", "name", cr.Name, "bucket", cr.Status.S3.Bucket, "backupName", backup)
 	err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeS3Backup(cr.Status.S3.Bucket, backup, s3cli))
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
@@ -395,7 +396,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 	destination := strings.TrimPrefix(cr.Status.Destination, "azure://"+container+"/")
 	destination = strings.TrimPrefix(destination, container+"/")
 
-	logger.Info("deleting backup from azure", "name", cr.Name, "containerName", container, "destination", destination)
+	log.Info("deleting backup from azure", "name", cr.Name, "containerName", container, "destination", destination)
 	err = retry.OnError(retry.DefaultBackoff,
 		func(e error) bool {
 			return true

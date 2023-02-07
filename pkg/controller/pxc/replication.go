@@ -101,7 +101,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return nil
 	}
 
-	logger := r.logger(cr.Name, cr.Namespace)
+	log := r.logger(cr.Name, cr.Namespace)
 
 	sfs := statefulset.NewNode(cr)
 
@@ -142,7 +142,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	if primaryPod == nil {
-		logger.Info("Unable to find primary pod for replication. No pod with name or ip like this", "primary name", primary)
+		log.Info("Unable to find primary pod for replication. No pod with name or ip like this", "primary name", primary)
 		return nil
 	}
 

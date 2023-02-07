@@ -88,7 +88,7 @@ main() {
 
 		desc 'Run recovery from azure source without container option'
 		run_recovery_from_source 'azure' "${backup_name_azure}" 'remove_container_name'
-		 compare_kubectl job.batch/xb-"${backup_name_azure}"
+		compare_kubectl job.batch/xb-"${backup_name_azure}"
 		compare_kubectl job.batch/restore-job-on-demand-backup-azure-demand-backup-cloud
 
 		backup_dest_aws=$(kubectl_bin get pxc-backup "$backup_name_aws" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)

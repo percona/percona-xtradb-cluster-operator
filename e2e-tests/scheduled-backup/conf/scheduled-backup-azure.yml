@@ -62,6 +62,37 @@ spec:
             resources:
               requests:
                 storage: 1Gi
+      azure-blob:
+        type: azure
+        azure:
+          credentialsSecret: azure-secret
+          container: operator-testing
+        nodeSelector:
+          backupWorker: 'True'
+        resources:
+          requests:
+            memory: 1G
+            cpu: 600m
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+              - matchExpressions:
+                - key: backupWorker
+                  operator: In
+                  values:
+                  - 'True'
+        tolerations:
+          - key: "backupWorker"
+            operator: "Equal"
+            value: "True"
+            effect: "NoSchedule"
+        annotations:
+          testName: scheduled-backup
+        labels:
+          backupWorker: 'True'
+        schedulerName: 'default-scheduler'
+        priorityClassName: 'high-priority'
       aws-s3:
         type: s3
         s3:
@@ -94,39 +125,6 @@ spec:
           backupWorker: 'True'
         schedulerName: 'default-scheduler'
         priorityClassName: 'high-priority'
-      azure-blob:
-        type: azure
-        labels:
-          test: testLabel
-        azure:
-          credentialsSecret: azure-secret
-          container: operator-testing
-        nodeSelector:
-          backupWorker: 'True'
-        resources:
-          requests:
-            memory: 1G
-            cpu: 600m
-        affinity:
-          nodeAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-              - matchExpressions:
-                - key: backupWorker
-                  operator: In
-                  values:
-                  - 'True'
-          tolerations:
-            - key: "backupWorker"
-              operator: "Equal"
-              value: "True"
-              effect: "NoSchedule"
-          annotations:
-            testName: scheduled-backup
-          labels:
-            backupWorker: 'True'
-          schedulerName: 'default-scheduler'
-          priorityClassName: 'high-priority'
       minio:
         type: s3
         s3:
@@ -194,7 +192,7 @@ spec:
         schedulerName: 'default-scheduler'
         priorityClassName: 'high-priority'
     schedule:
-      - name: each-min-aws-s3
+      - name: "each-min-azure-every"
         schedule: "* * * * *"
         keep: 1
-        storageName: aws-s3
+        storageName: azure-blob

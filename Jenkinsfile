@@ -1,5 +1,44 @@
 GKERegion='us-central1-a'
 
+tests = [
+    1:[name: "affinity", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    2:[name: "auto-tuning", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    3:[name: "cross-site", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    4:[name: "demand-backup-cloud", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    5:[name: "demand-backup-encrypted-with-tls", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    6:[name: "demand-backup", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    7:[name: "haproxy", mysql_ver: "5.7", cluster: "NA", result:"NA"],
+    8:[name: "haproxy", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    9:[name: "init-deploy", mysql_ver: "5.7", cluster: "NA", result:"NA"],
+    10:[name: "init-deploy", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    11:[name: "limits", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    12:[name: "monitoring-2-0", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    13:[name: "one-pod", mysql_ver: "5.7", cluster: "NA", result:"NA"],
+    14:[name: "one-pod", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    15:[name: "pitr", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    16:[name: "proxy-protocol", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    17:[name: "proxysql-sidecar-res-limits", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    18:[name: "recreate", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    19:[name: "restore-to-encrypted-cluster", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    20:[name: "scaling-proxysql", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    21:[name: "scaling", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    22:[name: "scheduled-backup", mysql_ver: "5.7", cluster: "NA", result:"NA"],
+    23:[name: "scheduled-backup", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    24:[name: "security-context", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    25:[name: "smart-update1", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    26:[name: "smart-update2", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    27:[name: "storage", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    28:[name: "tls-issue-cert-manager-ref", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    29:[name: "tls-issue-cert-manager", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    30:[name: "tls-issue-self", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    31:[name: "upgrade-consistency", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    32:[name: "upgrade-haproxy", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    33:[name: "upgrade-proxysql", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    34:[name: "users", mysql_ver: "5.7", cluster: "NA", result:"NA"],
+    35:[name: "users", mysql_ver: "8.0", cluster: "NA", result:"NA"],
+    36:[name: "validation-hook", mysql_ver: "8.0", cluster: "NA", result:"NA"]
+]
+
 void CreateCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -141,32 +180,47 @@ void setTestsresults() {
     }
 }
 
-void runTest(String TEST_NAME, String CLUSTER_SUFFIX, String MYSQL_VERSION) {
+void clusterRunner(String cluster) {
+    for (int entry=1; entry<=tests.size(); entry++) {
+        if (tests[entry]["result"] == "NA") {
+            tests[entry]["result"] = "failed"
+            tests[entry]["cluster"] = cluster
+            runTest(entry, tests[entry]["cluster"])
+        }
+    }
+}
+
+void runTest(Integer TEST_ID, String CLUSTER_SUFFIX) {
     def retryCount = 0
-    def testNameWithMysqlVersion = "$TEST_NAME-$MYSQL_VERSION".replace(".", "-")
+    def testName = tests[TEST_ID]["name"]
+    def mysqlVer = tests[TEST_ID]["mysql_ver"]
+    def testNameWithMysqlVersion = "$testName-$mysqlVer".replace(".", "-")
+
     waitUntil {
         def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
         echo " test url is $testUrl"
         try {
-            echo "The $TEST_NAME test was started!"
+            echo "The $testName test was started!"
             testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
+            tests[TEST_ID]["result"] = "failed"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
                     if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion" ]; then
-                        echo Skip $TEST_NAME test
+                        echo Skip $testName test
                     else
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-                        export MYSQL_VERSION=$MYSQL_VERSION
+                        export MYSQL_VERSION=$mysqlVer
                         source $HOME/google-cloud-sdk/path.bash.inc
-                        time bash ./e2e-tests/$TEST_NAME/run
+                        time bash ./e2e-tests/$testName/run
                     fi
                 """
             }
             echo "end test url is $testUrl"
             testsReportMap["$testNameWithMysqlVersion"] = "[passed]($testUrl)"
             testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"] = 'passed'
+            tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
@@ -180,7 +234,7 @@ void runTest(String TEST_NAME, String CLUSTER_SUFFIX, String MYSQL_VERSION) {
         }
         finally {
             pushLogFile("$testNameWithMysqlVersion")
-            echo "The $TEST_NAME test was finished!"
+            echo "The $testName test was finished!"
         }
     }
 }
@@ -361,93 +415,66 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             parallel {
-                stage('1 UpH UpP DemB OneP') {
+                stage('cluster1') {
                     steps {
                         CreateCluster('cluster1')
-                        runTest('upgrade-haproxy', 'cluster1', '8.0')
-                        runTest('upgrade-proxysql', 'cluster1', '8.0')
-                        runTest('demand-backup', 'cluster1', '8.0')
-                        runTest('one-pod', 'cluster1', '8.0')
+                        clusterRunner('cluster1')
                         ShutdownCluster('cluster1')
                     }
                 }
-                stage('2 SmU1 SmU2 DemBETls') {
+                stage('cluster2') {
                     steps {
                         CreateCluster('cluster2')
-                        runTest('smart-update1', 'cluster2', '8.0')
-                        runTest('smart-update2', 'cluster2', '8.0')
-                        runTest('demand-backup-encrypted-with-tls', 'cluster2', '8.0')
+                        clusterRunner('cluster2')
                         ShutdownCluster('cluster2')
                     }
                 }
-                stage('3 HaP Init Lim Mon') {
+                stage('cluster3') {
                     steps {
                         CreateCluster('cluster3')
-                        runTest('haproxy', 'cluster3', '8.0')
-                        runTest('init-deploy', 'cluster3', '8.0')
-                        runTest('limits', 'cluster3', '8.0')
-                        runTest('monitoring-2-0', 'cluster3', '8.0')
+                        clusterRunner('cluster3')
                         ShutdownCluster('cluster3')
                     }
                 }
-                stage('4 ProxySideRLim TLS ValH AutoT DemBC') {
+                stage('cluster4') {
                     steps {
                         CreateCluster('cluster4')
-                        runTest('proxysql-sidecar-res-limits', 'cluster4', '8.0')
-                        runTest('tls-issue-self','cluster4', '8.0')
-                        runTest('tls-issue-cert-manager','cluster4', '8.0')
-                        runTest('tls-issue-cert-manager-ref','cluster4', '8.0')
-                        runTest('validation-hook','cluster4', '8.0')
-                        runTest('auto-tuning', 'cluster4', '8.0')
-                        runTest('demand-backup-cloud', 'cluster4', '8.0')
+                        clusterRunner('cluster4')
                         ShutdownCluster('cluster4')
                     }
                 }
-                stage('5 Sca ScaPx SecCon Users57') {
+                stage('cluster5') {
                     steps {
                         CreateCluster('cluster5')
-                        runTest('scaling', 'cluster5', '8.0')
-                        runTest('scaling-proxysql', 'cluster5', '8.0')
-                        runTest('security-context', 'cluster5', '8.0')
-                        runTest('users', 'cluster5', '5.7')
+                        clusterRunner('cluster5')
                         ShutdownCluster('cluster5')
                     }
                 }
-                stage('6 HaP57 Stor UpCon PP OneP57') {
+                stage('cluster6') {
                     steps {
                         CreateCluster('cluster6')
-                        runTest('haproxy', 'cluster6', '5.7')
-                        runTest('storage', 'cluster6', '8.0')
-                        runTest('upgrade-consistency', 'cluster6', '8.0')
-                        runTest('proxy-protocol','cluster6', '8.0')
-                        runTest('one-pod', 'cluster6', '5.7')
+                        clusterRunner('cluster6')
                         ShutdownCluster('cluster6')
                     }
                 }
-                stage('7 Pitr ResEnc Aff') {
+                stage('cluster7') {
                     steps {
                         CreateCluster('cluster7')
-                        runTest('pitr', 'cluster7', '8.0')
-                        runTest('restore-to-encrypted-cluster', 'cluster7', '8.0')
-                        runTest('affinity', 'cluster7', '8.0')
+                        clusterRunner('cluster7')
                         ShutdownCluster('cluster7')
                     }
                 }
-                stage('8 SchedBackup') {
+                stage('cluster8') {
                     steps {
                         CreateCluster('cluster8')
-                        runTest('scheduled-backup', 'cluster8', '8.0')
-                        runTest('scheduled-backup', 'cluster8', '5.7')
+                        clusterRunner('cluster8')
                         ShutdownCluster('cluster8')
                     }
                 }
-                stage('9 Cross Recr Init57 Users') {
+                stage('cluster9') {
                     steps {
                         CreateCluster('cluster9')
-                        runTest('cross-site', 'cluster9', '8.0')
-                        runTest('recreate', 'cluster9', '8.0')
-                        runTest('init-deploy', 'cluster9', '5.7')
-                        runTest('users', 'cluster9', '8.0')
+                        clusterRunner('cluster9')
                         ShutdownCluster('cluster9')
                     }
                 }
@@ -457,6 +484,7 @@ pipeline {
     post {
         always {
             script {
+                echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
                 setTestsresults()
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS' && currentBuild.nextBuild == null) {
 

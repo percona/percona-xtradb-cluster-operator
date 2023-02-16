@@ -65,6 +65,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
         """
    }
 }
+
 void ShutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -77,6 +78,7 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
         """
    }
 }
+
 void DeleteOldClusters(String FILTER) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -104,6 +106,7 @@ void DeleteOldClusters(String FILTER) {
         """
    }
 }
+
 void pushLogFile(String FILE_NAME) {
     LOG_FILE_PATH="e2e-tests/logs/${FILE_NAME}.log"
     LOG_FILE_NAME="${FILE_NAME}.log"
@@ -116,6 +119,7 @@ void pushLogFile(String FILE_NAME) {
         """
     }
 }
+
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -129,22 +133,31 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-void popArtifactFile(String FILE_NAME) {
-    echo "Try to get $FILE_NAME file from S3!"
+void populatePassedTests() {
+    echo "Populating passed tests into the tests map!"
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/\$(git rev-parse --short HEAD)
-            aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
+            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/" || :
         """
+
+        for (int id=1; id<=tests.size(); id++) {
+            def testNameWithMysqlVersion = tests[id]["name"] +"-"+ tests[id]["mysql_ver"].replace(".", "-")
+            def file="${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
+            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+
+            if (retFileExists == 0) {
+                tests[id]["result"] = "passed"
+            }
+        }
     }
 }
 
 void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
     sh """
-		export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-		export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-		source $HOME/google-cloud-sdk/path.bash.inc
+        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+        source $HOME/google-cloud-sdk/path.bash.inc
         echo "========== KUBERNETES STATUS $LOCATION TEST =========="
         gcloud container clusters list|grep -E "NAME|$CLUSTER_NAME-$CLUSTER_SUFFIX "
         echo
@@ -212,18 +225,13 @@ void runTest(Integer TEST_ID, String CLUSTER_SUFFIX) {
         try {
             echo "The $testName test was started!"
             tests[TEST_ID]["result"] = "failed"
-            popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    if [ -f "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion" ]; then
-                        echo Skip $testName test
-                    else
-                        export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-                        export MYSQL_VERSION=$mysqlVer
-                        source $HOME/google-cloud-sdk/path.bash.inc
-                        time bash ./e2e-tests/$testName/run
-                    fi
+                    export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+                    export MYSQL_VERSION=$mysqlVer
+                    source $HOME/google-cloud-sdk/path.bash.inc
+                    time bash ./e2e-tests/$testName/run
                 """
             }
             echo "end test url is $testUrl"
@@ -285,6 +293,7 @@ pipeline {
             }
             steps {
                 installRpms()
+                populatePassedTests()
                 script {
                     if ( AUTHOR_NAME == 'null' )  {
                         AUTHOR_NAME = sh(script: "git show -s --pretty=%ae | awk -F'@' '{print \$1}'", , returnStdout: true).trim()

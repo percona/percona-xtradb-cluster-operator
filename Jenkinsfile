@@ -1,4 +1,5 @@
 GKERegion='us-central1-a'
+testUrlPrefix="https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator"
 
 tests = [
     1:[name: "affinity", mysql_ver: "8.0", cluster: "NA", result:"NA"],
@@ -161,31 +162,40 @@ void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
 }
 
 TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
-testsReportMap  = [:]
-testsResultsMap = [:]
 
 void makeReport() {
-    def wholeTestAmount=sh(script: 'grep "runTest(.*)$" Jenkinsfile | grep -v wholeTestAmount | wc -l', , returnStdout: true).trim().toInteger()
-    def startedTestAmount = testsReportMap.size()
+    def wholeTestAmount=tests.size()
+    def startedTestAmount = 0
     
-    for ( test in testsReportMap.sort() ) {
-        TestsReport = TestsReport + "\r\n| ${test.key} | ${test.value} |"
+    for (int id=1; id<=tests.size(); id++) {
+        def testNameWithMysqlVersion = tests[id]["name"] +"-"+ tests[id]["mysql_ver"].replace(".", "-")
+        def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
+
+        if (tests[id]["result"] != "NA") {
+            startedTestAmount++
+        }
+        TestsReport = TestsReport + "\r\n| "+ testNameWithMysqlVersion +" | ["+ tests[id]["result"] +"]("+ testUrl +") |"
     }
     TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
 }
 
-void setTestsresults() {
-    testsResultsMap.each { file ->
-        pushArtifactFile("${file.key}")
+void setTestsResults() {
+    for (int id=1; id<=tests.size(); id++) {
+        def testNameWithMysqlVersion = tests[id]["name"] +"-"+ tests[id]["mysql_ver"].replace(".", "-")
+        def file="${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
+
+        if (tests[id]["result"] == "passed") {
+            pushArtifactFile(file)
+        }
     }
 }
 
 void clusterRunner(String cluster) {
-    for (int entry=1; entry<=tests.size(); entry++) {
-        if (tests[entry]["result"] == "NA") {
-            tests[entry]["result"] = "failed"
-            tests[entry]["cluster"] = cluster
-            runTest(entry, tests[entry]["cluster"])
+    for (int id=1; id<=tests.size(); id++) {
+        if (tests[id]["result"] == "NA") {
+            tests[id]["result"] = "failed"
+            tests[id]["cluster"] = cluster
+            runTest(id, tests[id]["cluster"])
         }
     }
 }
@@ -197,11 +207,10 @@ void runTest(Integer TEST_ID, String CLUSTER_SUFFIX) {
     def testNameWithMysqlVersion = "$testName-$mysqlVer".replace(".", "-")
 
     waitUntil {
-        def testUrl = "https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
+        def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
         echo " test url is $testUrl"
         try {
             echo "The $testName test was started!"
-            testsReportMap["$testNameWithMysqlVersion"] = "[failed]($testUrl)"
             tests[TEST_ID]["result"] = "failed"
             popArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
 
@@ -218,8 +227,6 @@ void runTest(Integer TEST_ID, String CLUSTER_SUFFIX) {
                 """
             }
             echo "end test url is $testUrl"
-            testsReportMap["$testNameWithMysqlVersion"] = "[passed]($testUrl)"
-            testsResultsMap["${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"] = 'passed'
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -485,7 +492,7 @@ pipeline {
         always {
             script {
                 echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-                setTestsresults()
+                setTestsResults()
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS' && currentBuild.nextBuild == null) {
 
                     try {

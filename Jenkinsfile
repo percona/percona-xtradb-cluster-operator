@@ -1,44 +1,6 @@
 GKERegion='us-central1-a'
 testUrlPrefix="https://percona-jenkins-artifactory-public.s3.amazonaws.com/cloud-pxc-operator"
-
-tests = [
-    1:[name: "affinity", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    2:[name: "auto-tuning", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    3:[name: "cross-site", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    4:[name: "demand-backup-cloud", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    5:[name: "demand-backup-encrypted-with-tls", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    6:[name: "demand-backup", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    7:[name: "haproxy", mysql_ver: "5.7", cluster: "NA", result:"NA"],
-    8:[name: "haproxy", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    9:[name: "init-deploy", mysql_ver: "5.7", cluster: "NA", result:"NA"],
-    10:[name: "init-deploy", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    11:[name: "limits", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    12:[name: "monitoring-2-0", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    13:[name: "one-pod", mysql_ver: "5.7", cluster: "NA", result:"NA"],
-    14:[name: "one-pod", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    15:[name: "pitr", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    16:[name: "proxy-protocol", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    17:[name: "proxysql-sidecar-res-limits", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    18:[name: "recreate", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    19:[name: "restore-to-encrypted-cluster", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    20:[name: "scaling-proxysql", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    21:[name: "scaling", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    22:[name: "scheduled-backup", mysql_ver: "5.7", cluster: "NA", result:"NA"],
-    23:[name: "scheduled-backup", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    24:[name: "security-context", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    25:[name: "smart-update1", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    26:[name: "smart-update2", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    27:[name: "storage", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    28:[name: "tls-issue-cert-manager-ref", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    29:[name: "tls-issue-cert-manager", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    30:[name: "tls-issue-self", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    31:[name: "upgrade-consistency", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    32:[name: "upgrade-haproxy", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    33:[name: "upgrade-proxysql", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    34:[name: "users", mysql_ver: "5.7", cluster: "NA", result:"NA"],
-    35:[name: "users", mysql_ver: "8.0", cluster: "NA", result:"NA"],
-    36:[name: "validation-hook", mysql_ver: "8.0", cluster: "NA", result:"NA"]
-]
+tests = [:]
 
 void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
@@ -133,8 +95,21 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-void populatePassedTests() {
-    echo "Populating passed tests into the tests map!"
+void initTests() {
+    echo "Populating tests into the tests map!"
+
+    def records = readCSV file: 'e2e-tests/run-pr.csv'
+
+    for (int id=0; id<records.size(); id++) {
+        tests[id+1]["name"] = records[id][0]
+        tests[id+1]["mysql_ver"] = records[id][1]
+        tests[id+1]["cluster"] = "NA"
+        tests[id+1]["result"] = "NA"
+    }
+}
+
+void markPassedTests() {
+    echo "Marking passed tests in the tests map!"
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
@@ -303,7 +278,8 @@ pipeline {
             }
             steps {
                 installRpms()
-                populatePassedTests()
+                initTests()
+                markPassedTests()
                 script {
                     if ( AUTHOR_NAME == 'null' )  {
                         AUTHOR_NAME = sh(script: "git show -s --pretty=%ae | awk -F'@' '{print \$1}'", , returnStdout: true).trim()

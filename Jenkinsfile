@@ -40,7 +40,7 @@ tests = [
     36:[name: "validation-hook", mysql_ver: "8.0", cluster: "NA", result:"NA"]
 ]
 
-void CreateCluster(String CLUSTER_SUFFIX) {
+void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             NODES_NUM=3
@@ -66,7 +66,7 @@ void CreateCluster(String CLUSTER_SUFFIX) {
    }
 }
 
-void ShutdownCluster(String CLUSTER_SUFFIX) {
+void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
@@ -79,7 +79,7 @@ void ShutdownCluster(String CLUSTER_SUFFIX) {
    }
 }
 
-void DeleteOldClusters(String FILTER) {
+void deleteOldClusters(String FILTER) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             if [ -f $HOME/google-cloud-sdk/path.bash.inc ]; then
@@ -138,13 +138,13 @@ void populatePassedTests() {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/" || :
+            aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${env.GIT_SHORT_COMMIT}/" || :
         """
 
         for (int id=1; id<=tests.size(); id++) {
             def testNameWithMysqlVersion = tests[id]["name"] +"-"+ tests[id]["mysql_ver"].replace(".", "-")
             def file="${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
-            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+            def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${env.GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
             if (retFileExists == 0) {
                 tests[id]["result"] = "passed"
@@ -204,12 +204,22 @@ void setTestsResults() {
 }
 
 void clusterRunner(String cluster) {
+    def clusterCreated=0
+
     for (int id=1; id<=tests.size(); id++) {
         if (tests[id]["result"] == "NA") {
             tests[id]["result"] = "failed"
             tests[id]["cluster"] = cluster
+            if (clusterCreated == 0) {
+                createCluster(cluster)
+                clusterCreated++
+            }
             runTest(id, tests[id]["cluster"])
         }
+    }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
     }
 }
 
@@ -330,7 +340,7 @@ pipeline {
                         cp $CLOUD_SECRET_FILE ./e2e-tests/conf/cloud-secret.yml
                     '''
                 }
-                DeleteOldClusters("jen-pxc-$CHANGE_ID")
+                deleteOldClusters("jen-pxc-$CHANGE_ID")
             }
         }
         stage('Build docker image') {
@@ -433,65 +443,47 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     steps {
-                        CreateCluster('cluster1')
                         clusterRunner('cluster1')
-                        ShutdownCluster('cluster1')
                     }
                 }
                 stage('cluster2') {
                     steps {
-                        CreateCluster('cluster2')
                         clusterRunner('cluster2')
-                        ShutdownCluster('cluster2')
                     }
                 }
                 stage('cluster3') {
                     steps {
-                        CreateCluster('cluster3')
                         clusterRunner('cluster3')
-                        ShutdownCluster('cluster3')
                     }
                 }
                 stage('cluster4') {
                     steps {
-                        CreateCluster('cluster4')
                         clusterRunner('cluster4')
-                        ShutdownCluster('cluster4')
                     }
                 }
                 stage('cluster5') {
                     steps {
-                        CreateCluster('cluster5')
                         clusterRunner('cluster5')
-                        ShutdownCluster('cluster5')
                     }
                 }
                 stage('cluster6') {
                     steps {
-                        CreateCluster('cluster6')
                         clusterRunner('cluster6')
-                        ShutdownCluster('cluster6')
                     }
                 }
                 stage('cluster7') {
                     steps {
-                        CreateCluster('cluster7')
                         clusterRunner('cluster7')
-                        ShutdownCluster('cluster7')
                     }
                 }
                 stage('cluster8') {
                     steps {
-                        CreateCluster('cluster8')
                         clusterRunner('cluster8')
-                        ShutdownCluster('cluster8')
                     }
                 }
                 stage('cluster9') {
                     steps {
-                        CreateCluster('cluster9')
                         clusterRunner('cluster9')
-                        ShutdownCluster('cluster9')
                     }
                 }
             }
@@ -526,7 +518,7 @@ pipeline {
                     pullRequest.comment(TestsReport)
                 }
             }
-            DeleteOldClusters("$CLUSTER_NAME")
+            deleteOldClusters("$CLUSTER_NAME")
             sh """
                 sudo docker system prune -fa
                 sudo rm -rf ./*

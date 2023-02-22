@@ -100,12 +100,11 @@ void initTests() {
 
     records = readCSV file: 'e2e-tests/run-pr.csv'
 
-    for (int id=0; id<tests.size(); id++) {
-        tests[id][0] = records[id][0]
-        tests[id][1] = records[id][1]
-        tests[id][2] = "NA"
-        tests[id][3] = "NA"
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "mysql_ver": records[i][1], "cluster": "NA", "result": "NA"])
     }
+
+    markPassedTests()
 }
 
 void markPassedTests() {
@@ -116,13 +115,13 @@ void markPassedTests() {
             aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${env.GIT_SHORT_COMMIT}/" || :
         """
 
-        for (int id=0; id<tests.size(); id++) {
-            def testNameWithMysqlVersion = tests[id][0] +"-"+ tests[id][1].replace(".", "-")
+        for (int i=0; i<tests.size(); i++) {
+            def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
             def file="${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
             def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${env.GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
 
             if (retFileExists == 0) {
-                tests[id][3] = "passed"
+                tests[i]["result"] = "passed"
             }
         }
     }
@@ -155,24 +154,24 @@ void makeReport() {
     def wholeTestAmount=tests.size()+1
     def startedTestAmount = 0
     
-    for (int id=0; id<tests.size(); id++) {
-        def testNameWithMysqlVersion = tests[id][0] +"-"+ tests[id][1].replace(".", "-")
+    for (int i=0; i<tests.size(); i++) {
+        def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
         def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
 
-        if (tests[id][3] != "NA") {
+        if (tests[i]["result"] != "NA") {
             startedTestAmount++
         }
-        TestsReport = TestsReport + "\r\n| "+ testNameWithMysqlVersion +" | ["+ tests[id][3] +"]("+ testUrl +") |"
+        TestsReport = TestsReport + "\r\n| "+ testNameWithMysqlVersion +" | ["+ tests[i]["result"] +"]("+ testUrl +") |"
     }
     TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
 }
 
 void setTestsResults() {
-    for (int id=0; id<tests.size(); id++) {
-        def testNameWithMysqlVersion = tests[id][0] +"-"+ tests[id][1].replace(".", "-")
+    for (int i=0; i<tests.size(); i++) {
+        def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
         def file="${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
 
-        if (tests[id][3] == "passed") {
+        if (tests[i]["result"] == "passed") {
             pushArtifactFile(file)
         }
     }
@@ -181,15 +180,15 @@ void setTestsResults() {
 void clusterRunner(String cluster) {
     def clusterCreated=0
 
-    for (int id=0; id<tests.size(); id++) {
-        if (tests[id][3] == "NA") {
-            tests[id][3] = "failed"
-            tests[id][2] = cluster
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "NA") {
+            tests[i]["result"] = "failed"
+            tests[i]["cluster"] = cluster
             if (clusterCreated == 0) {
                 createCluster(cluster)
                 clusterCreated++
             }
-            runTest(id, tests[id][2])
+            runTest(i)
         }
     }
 
@@ -198,10 +197,11 @@ void clusterRunner(String cluster) {
     }
 }
 
-void runTest(Integer TEST_ID, String CLUSTER_SUFFIX) {
+void runTest(Integer TEST_ID) {
     def retryCount = 0
-    def testName = tests[TEST_ID][0]
-    def mysqlVer = tests[TEST_ID][1]
+    def testName = tests[TEST_ID]["name"]
+    def mysqlVer = tests[TEST_ID]["mysql_ver"]
+    def clusterSuffix = tests[TEST_ID]["cluster"]
     def testNameWithMysqlVersion = "$testName-$mysqlVer".replace(".", "-")
 
     waitUntil {
@@ -209,22 +209,22 @@ void runTest(Integer TEST_ID, String CLUSTER_SUFFIX) {
         echo " test url is $testUrl"
         try {
             echo "The $testName test was started!"
-            tests[TEST_ID][3] = "failed"
+            tests[TEST_ID]["result"] = "failed"
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
+                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export MYSQL_VERSION=$mysqlVer
                     source $HOME/google-cloud-sdk/path.bash.inc
                     time bash ./e2e-tests/$testName/run
                 """
             }
             echo "end test url is $testUrl"
-            tests[TEST_ID][3] = "passed"
+            tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
-            printKubernetesStatus("AFTER","$CLUSTER_SUFFIX")
+            printKubernetesStatus("AFTER","$clusterSuffix")
             if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
@@ -279,7 +279,6 @@ pipeline {
             steps {
                 installRpms()
                 initTests()
-                markPassedTests()
                 script {
                     if ( AUTHOR_NAME == 'null' )  {
                         AUTHOR_NAME = sh(script: "git show -s --pretty=%ae | awk -F'@' '{print \$1}'", , returnStdout: true).trim()

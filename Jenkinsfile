@@ -70,8 +70,8 @@ void deleteOldClusters(String FILTER) {
 }
 
 void pushLogFile(String FILE_NAME) {
-    LOG_FILE_PATH="e2e-tests/logs/${FILE_NAME}.log"
-    LOG_FILE_NAME="${FILE_NAME}.log"
+    def LOG_FILE_PATH="e2e-tests/logs/${FILE_NAME}.log"
+    def LOG_FILE_NAME="${FILE_NAME}.log"
     echo "Push logfile $LOG_FILE_NAME file to S3!"
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
@@ -98,7 +98,7 @@ void pushArtifactFile(String FILE_NAME) {
 void initTests() {
     echo "Populating tests into the tests array!"
 
-    records = readCSV file: 'e2e-tests/run-pr.csv'
+    def records = readCSV file: 'e2e-tests/run-pr.csv'
 
     for (int i=0; i<records.size(); i++) {
         tests.add(["name": records[i][0], "mysql_ver": records[i][1], "cluster": "NA", "result": "NA"])
@@ -151,7 +151,7 @@ void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
 TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
 
 void makeReport() {
-    def wholeTestAmount=tests.size()+1
+    def wholeTestAmount=tests.size()
     def startedTestAmount = 0
     
     for (int i=0; i<tests.size(); i++) {
@@ -239,14 +239,6 @@ void runTest(Integer TEST_ID) {
     }
 }
 
-void installRpms() {
-    sh '''
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 jq | true
-    '''
-}
-
 def skipBranchBuilds = true
 if ( env.CHANGE_URL ) {
     skipBranchBuilds = false
@@ -260,8 +252,8 @@ pipeline {
         GIT_SHORT_COMMIT = sh(script: 'git rev-parse --short HEAD', , returnStdout: true).trim()
         VERSION = "${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}"
         CLUSTER_NAME = sh(script: "echo jen-pxc-${env.CHANGE_ID}-${GIT_SHORT_COMMIT}-${env.BUILD_NUMBER} | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        AUTHOR_NAME  = sh(script: "echo ${CHANGE_AUTHOR_EMAIL} | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
-        ENABLE_LOGGING="true"
+        AUTHOR_NAME = sh(script: "echo ${CHANGE_AUTHOR_EMAIL} | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
+        ENABLE_LOGGING = "true"
     }
     agent {
         label 'docker'
@@ -277,7 +269,6 @@ pipeline {
                 }
             }
             steps {
-                installRpms()
                 initTests()
                 script {
                     if ( AUTHOR_NAME == 'null' )  {
@@ -292,6 +283,10 @@ pipeline {
                     }
                 }
                 sh '''
+                    sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+                    sudo percona-release enable-only tools
+                    sudo yum install -y percona-xtrabackup-80 jq | true
+
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
                         curl https://sdk.cloud.google.com | bash

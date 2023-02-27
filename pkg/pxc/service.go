@@ -349,6 +349,10 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		)
 	}
 
+	if cr.Spec.HAProxy.Annotations["percona.com/headless-service"] == "true" && svcType == corev1.ServiceTypeClusterIP {
+		obj.Spec.ClusterIP = corev1.ClusterIPNone
+	}
+
 	return obj
 }
 

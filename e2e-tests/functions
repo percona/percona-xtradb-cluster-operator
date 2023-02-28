@@ -1201,7 +1201,7 @@ deploy_chaos_mesh() {
 
 	desc 'install chaos-mesh'
 	helm repo add chaos-mesh https://charts.chaos-mesh.org
-	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.4.3 --set clusterScoped=false --set controllerManager.targetNamespace=${chaos_mesh_ns}
+	helm install chaos-mesh chaos-mesh/chaos-mesh --namespace=${chaos_mesh_ns} --set chaosDaemon.runtime=containerd --set chaosDaemon.socketPath=/run/containerd/containerd.sock --set dashboard.create=false --version 2.5.1
 	sleep 10
 }
 

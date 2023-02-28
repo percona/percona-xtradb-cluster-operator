@@ -33,7 +33,7 @@ type BackupScheduleJob struct {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCluster) error {
-	logger := r.logger("backup", cr.Namespace)
+	log := r.logger("backup", cr.Namespace)
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
 	backupNamePrefix := backupJobClusterPrefix(cr.Name)
 
@@ -72,7 +72,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			backups[bcp.Name] = bcp
 			strg, ok := cr.Spec.Backup.Storages[bcp.StorageName]
 			if !ok {
-				logger.Info("invalid storage name for backup", "backup name", cr.Spec.Backup.Schedule[i].Name, "storage name", bcp.StorageName)
+				log.Info("invalid storage name for backup", "backup name", cr.Spec.Backup.Schedule[i].Name, "storage name", bcp.StorageName)
 				continue
 			}
 
@@ -88,7 +88,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 				r.deleteBackupJob(bcp.Name)
 				jobID, err := r.crons.AddFuncWithSeconds(bcp.Schedule, r.createBackupJob(cr, bcp, strg.Type))
 				if err != nil {
-					logger.Error(err, "can't parse cronjob schedule", "backup name", cr.Spec.Backup.Schedule[i].Name, "schedule", bcp.Schedule)
+					log.Error(err, "can't parse cronjob schedule", "backup name", cr.Spec.Backup.Schedule[i].Name, "schedule", bcp.Schedule)
 					continue
 				}
 
@@ -109,14 +109,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 			if spec.Keep > 0 {
 				oldjobs, err := r.oldScheduledBackups(cr, item.Name, spec.Keep)
 				if err != nil {
-					logger.Error(err, "failed to list old backups", "job name", item.Name)
+					log.Error(err, "failed to list old backups", "job name", item.Name)
 					return true
 				}
 
 				for _, todel := range oldjobs {
 					err = r.client.Delete(context.TODO(), &todel)
 					if err != nil {
-						logger.Error(err, "failed to delete old backup", "backup name", todel.Name)
+						log.Error(err, "failed to delete old backup", "backup name", todel.Name)
 					}
 				}
 
@@ -185,7 +185,7 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraD
 func (r *ReconcilePerconaXtraDBCluster) createBackupJob(cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, storageType api.BackupStorageType) func() {
 	var fins []string
 	switch storageType {
-	case api.BackupStorageS3:
+	case api.BackupStorageS3, api.BackupStorageAzure:
 		fins = append(fins, api.FinalizerDeleteS3Backup)
 	}
 

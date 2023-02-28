@@ -17,9 +17,6 @@
 - [ ] Does the Jira ticket link to the proper milestone (Fix Version field)?
 
 **Tests**
-- [ ] Are E2E tests passing?
-- [ ] Are unit tests passing?
-- [ ] Are linting tests passing?
 - [ ] Is an E2E test/test case added for the new feature/change?
 - [ ] Are unit tests added where appropriate?
 - [ ] Are OpenShift compare files changed for E2E tests (`compare/*-oc.yml`)?

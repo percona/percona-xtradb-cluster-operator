@@ -40,7 +40,6 @@ admin-stats_system_memory	60
 admin-telnet_admin_ifaces	(null)
 admin-telnet_stats_ifaces	(null)
 admin-vacuum_stats	true
-admin-version	2.4.4-percona-1.2
 admin-web_enabled	false
 admin-web_port	6080
 admin-web_verbosity	0
@@ -120,6 +119,9 @@ mysql-monitor_groupreplication_healthcheck_timeout	800
 mysql-monitor_groupreplication_max_transactions_behind_count	3
 mysql-monitor_groupreplication_max_transactions_behind_for_read_only	1
 mysql-monitor_history	60000
+mysql-monitor_local_dns_cache_refresh_interval	60000
+mysql-monitor_local_dns_cache_ttl	300000
+mysql-monitor_local_dns_resolver_queue_maxsize	128
 mysql-monitor_password	monitor
 mysql-monitor_ping_interval	10000
 mysql-monitor_ping_max_failures	3
@@ -142,6 +144,7 @@ mysql-monitor_username	monitor
 mysql-monitor_wait_timeout	true
 mysql-monitor_writer_is_also_reader	true
 mysql-multiplexing	true
+mysql-parse_failure_logs_digest	false
 mysql-ping_interval_server_msec	10000
 mysql-ping_timeout_server	200
 mysql-poll_timeout	2000
@@ -163,7 +166,6 @@ mysql-query_processor_iterations	0
 mysql-query_retries_on_failure	1
 mysql-reset_connection_algorithm	2
 mysql-server_capabilities	571947
-mysql-server_version	5.7.39
 mysql-servers_stats	true
 mysql-session_idle_ms	1
 mysql-session_idle_show_processlist	true

@@ -468,7 +468,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(cr *api.PerconaXtraDBC
 	}
 	log.Info("Password updated", "user", user.Name)
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+	if cr.Spec.ProxySQLEnabled() {
 		err := r.updateProxyUser(cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "update monitor users pass")
@@ -851,7 +851,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(cr *api.PerconaXtr
 func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	log := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled {
+	if !cr.Spec.ProxySQLEnabled() {
 		return nil
 	}
 
@@ -942,7 +942,7 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(cr *api.PerconaXtraDBClust
 func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) error {
 	log := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled || cr.Status.PXC.Ready < 1 {
+	if !cr.Spec.ProxySQLEnabled() || cr.Status.PXC.Ready < 1 {
 		return nil
 	}
 	if cr.Status.Status != api.AppStateReady || cr.Status.ProxySQL.Status != api.AppStateReady {

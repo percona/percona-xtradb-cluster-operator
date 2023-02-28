@@ -208,7 +208,7 @@ void runTest(Integer TEST_ID) {
         def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
         echo " test url is $testUrl"
         try {
-            echo "The $testName test was started!"
+            echo "The $testName-$mysqlVer test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
             tests[TEST_ID]["result"] = "failed"
 
             timeout(time: 90, unit: 'MINUTES') {
@@ -234,7 +234,7 @@ void runTest(Integer TEST_ID) {
         }
         finally {
             pushLogFile("$testNameWithMysqlVersion")
-            echo "The $testName test was finished!"
+            echo "The $testName-$mysqlVer test was finished!"
         }
     }
 }

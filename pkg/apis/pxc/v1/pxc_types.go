@@ -297,18 +297,17 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.Wrap(err, "PXC: validate volume spec")
 	}
 
-	if c.HAProxy != nil && c.HAProxy.Enabled &&
-		c.ProxySQL != nil && c.ProxySQL.Enabled {
+	if c.HAProxyEnabled() && c.ProxySQLEnabled() {
 		return errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
 	}
 
-	if c.HAProxy != nil && c.HAProxy.Enabled {
+	if c.HAProxyEnabled() {
 		if c.HAProxy.Image == "" {
 			return errors.New("haproxy.Image can't be empty")
 		}
 	}
 
-	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+	if c.ProxySQLEnabled() {
 		if c.ProxySQL.Image == "" {
 			return errors.New("proxysql.Image can't be empty")
 		}
@@ -352,8 +351,8 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	}
 
 	if c.UpdateStrategy == SmartUpdateStatefulSetStrategyType &&
-		(c.ProxySQL == nil || !c.ProxySQL.Enabled) &&
-		(c.HAProxy == nil || !c.HAProxy.Enabled) {
+		!c.ProxySQLEnabled() &&
+		!c.HAProxyEnabled() {
 		return errors.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
 	}
 
@@ -754,7 +753,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
-	if c.HAProxy != nil && c.HAProxy.Enabled {
+	if c.HAProxyEnabled() {
 		if c.HAProxy.ReplicasServiceEnabled == nil {
 			t := true
 			c.HAProxy.ReplicasServiceEnabled = &t
@@ -794,7 +793,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
-	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+	if c.ProxySQLEnabled() {
 		if len(c.ProxySQL.ImagePullPolicy) == 0 {
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
 		}
@@ -927,7 +926,7 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 		cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 15
 	}
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+	if cr.Spec.HAProxyEnabled() {
 		if cr.Spec.HAProxy.ReadinessInitialDelaySeconds != nil {
 			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.ReadinessInitialDelaySeconds
 		} else if cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds == 0 {
@@ -983,7 +982,7 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 		spec.PXC.Size++
 	}
 
-	if spec.ProxySQL != nil && spec.ProxySQL.Enabled {
+	if spec.ProxySQLEnabled() {
 		if spec.ProxySQL.Size < minSafeProxySize {
 			log.Info("Setting safe defaults, updating ProxySQL size",
 				"oldSize", spec.ProxySQL.Size, "newSize", minSafeProxySize)
@@ -991,7 +990,7 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 		}
 	}
 
-	if spec.HAProxy != nil && spec.HAProxy.Enabled {
+	if spec.HAProxyEnabled() {
 		if spec.HAProxy.Size < minSafeProxySize {
 			log.Info("Setting safe defaults, updating HAProxy size",
 				"oldSize", spec.HAProxy.Size, "newSize", minSafeProxySize)
@@ -1279,4 +1278,12 @@ func (cr *PerconaXtraDBCluster) CanBackup() error {
 
 func (cr *PerconaXtraDBCluster) PITREnabled() bool {
 	return cr.Spec.Backup != nil && cr.Spec.Backup.PITR.Enabled
+}
+
+func (s *PerconaXtraDBClusterSpec) HAProxyEnabled() bool {
+	return s.HAProxy != nil && s.HAProxy.Enabled
+}
+
+func (s *PerconaXtraDBClusterSpec) ProxySQLEnabled() bool {
+	return s.ProxySQL != nil && s.ProxySQL.Enabled
 }

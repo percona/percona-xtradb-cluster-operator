@@ -166,17 +166,6 @@ void makeReport() {
     TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
 }
 
-void setTestsResults() {
-    for (int i=0; i<tests.size(); i++) {
-        def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
-        def file="${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
-
-        if (tests[i]["result"] == "passed") {
-            pushArtifactFile(file)
-        }
-    }
-}
-
 void clusterRunner(String cluster) {
     def clusterCreated=0
 
@@ -220,6 +209,7 @@ void runTest(Integer TEST_ID) {
                 """
             }
             echo "end test url is $testUrl"
+            pushArtifactFile("$testNameWithMysqlVersion")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -463,7 +453,6 @@ pipeline {
         always {
             script {
                 echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-                setTestsResults()
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS' && currentBuild.nextBuild == null) {
 
                     try {

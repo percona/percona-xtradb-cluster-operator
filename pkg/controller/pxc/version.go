@@ -193,7 +193,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		cr.Spec.PMM.Image = newVersion.PMMImage
 	}
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Image != newVersion.ProxySqlImage {
+	if cr.Spec.ProxySQLEnabled() && cr.Spec.ProxySQL.Image != newVersion.ProxySqlImage {
 		if cr.Status.ProxySQL.Version == "" {
 			log.Info("set ProxySQL version to " + newVersion.ProxySqlVersion)
 		} else {
@@ -202,7 +202,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		cr.Spec.ProxySQL.Image = newVersion.ProxySqlImage
 	}
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled && cr.Spec.HAProxy.Image != newVersion.HAProxyImage {
+	if cr.Spec.HAProxyEnabled() && cr.Spec.HAProxy.Image != newVersion.HAProxyImage {
 		if cr.Status.HAProxy.Version == "" {
 			log.Info("set HAProxy version to " + newVersion.HAProxyVersion)
 		} else {

@@ -34,6 +34,10 @@ curl https://sdk.cloud.google.com | bash
 Also, you need a Kubernetes platform of [supported version](https://www.percona.com/doc/kubernetes-operator-for-pxc/System-Requirements.html#officially-supported-platforms), available via [EKS](https://www.percona.com/doc/kubernetes-operator-for-pxc/eks.html), [GKE](https://www.percona.com/doc/kubernetes-operator-for-pxc/gke.html), [OpenShift](https://www.percona.com/doc/kubernetes-operator-for-pxc/openshift.html) or [minikube](https://www.percona.com/doc/kubernetes-operator-for-pxc/minikube.html) to run the Operator.
 
 **Note:** there is no need to build an image if you are going to test some already-released version.
+**minikube:** minikube already includes kubectl and you can create a symbolic link to minikube's binary named `kubectl`:
+```
+ln -s $(which minikube) /usr/local/bin/kubectl`
+```
 
 ## Building and testing the Operator
 

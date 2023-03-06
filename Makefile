@@ -4,6 +4,10 @@ IMAGE_TAG_BASE ?= $(IMAGE_TAG_OWNER)/$(NAME)
 VERSION ?= $(shell git rev-parse --abbrev-ref HEAD | sed -e 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
 IMAGE ?= $(IMAGE_TAG_BASE):$(VERSION)
 DEPLOYDIR = ./deploy
+BUNDLEDIR = $(DEPLOYDIR)/csv/redhat
+BUNDLE_CHANNELS := --channels=stable
+BUNDLE_DEFAULT_CHANNEL := --default-channel=stable
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 all: build
 
@@ -47,6 +51,12 @@ deploy: ## Deploy operator
 
 undeploy: ## Undeploy operator
 	kubectl delete -f $(DEPLOYDIR)/operator.yaml
+
+csv-bundle: ## Create CSV
+	mkdir -p $(BUNDLEDIR)/$(VERSION)
+	cd $(BUNDLEDIR) && \
+	cat $(shell pwd)/$(DEPLOYDIR)/bundle.yaml | operator-sdk generate bundle -q --output-dir $(VERSION) --package $(NAME) --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) && \
+	mv ./bundle.Dockerfile ./bundle-$(VERSION).Dockerfile
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))

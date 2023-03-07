@@ -242,9 +242,11 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
 	}
 
-	if cr.Spec.ProxySQL.ServiceAnnotations["percona.com/headless-service"] == "true" && svcType == corev1.ServiceTypeClusterIP {
-		obj.Annotations["percona.com/headless-service"] = "true"
-		obj.Spec.ClusterIP = corev1.ClusterIPNone
+	if cr.Spec.ProxySQL.ServiceAnnotations != nil {
+		if cr.Spec.ProxySQL.ServiceAnnotations["percona.com/headless-service"] == "true" && svcType == corev1.ServiceTypeClusterIP {
+			obj.Annotations["percona.com/headless-service"] = "true"
+			obj.Spec.ClusterIP = corev1.ClusterIPNone
+		}
 	}
 
 	if cr.CompareVersionWith("1.6.0") >= 0 {
@@ -354,9 +356,11 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		)
 	}
 
-	if cr.Spec.HAProxy.ServiceAnnotations["percona.com/headless-service"] == "true" && svcType == corev1.ServiceTypeClusterIP {
-		obj.Annotations["percona.com/headless-service"] = "true"
-		obj.Spec.ClusterIP = corev1.ClusterIPNone
+	if cr.Spec.HAProxy.ServiceAnnotations != nil {
+		if cr.Spec.HAProxy.ServiceAnnotations["percona.com/headless-service"] == "true" && svcType == corev1.ServiceTypeClusterIP {
+			obj.Annotations["percona.com/headless-service"] = "true"
+			obj.Spec.ClusterIP = corev1.ClusterIPNone
+		}
 	}
 
 	return obj
@@ -430,9 +434,11 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
 	}
 
-	if cr.Spec.HAProxy.ReplicasServiceAnnotations["percona.com/headless-service"] == "true" && svcType == corev1.ServiceTypeClusterIP {
-		obj.Annotations["percona.com/headless-service"] = "true"
-		obj.Spec.ClusterIP = corev1.ClusterIPNone
+	if cr.Spec.HAProxy.ReplicasServiceAnnotations != nil {
+		if cr.Spec.HAProxy.ReplicasServiceAnnotations["percona.com/headless-service"] == "true" && svcType == corev1.ServiceTypeClusterIP {
+			obj.Annotations["percona.com/headless-service"] = "true"
+			obj.Spec.ClusterIP = corev1.ClusterIPNone
+		}
 	}
 
 	return obj

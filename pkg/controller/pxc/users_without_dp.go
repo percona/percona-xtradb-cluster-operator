@@ -212,7 +212,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 	}
 	log.Info("User password updated", "user", user.Name)
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+	if cr.Spec.ProxySQLEnabled() {
 		err := r.updateProxyUser(cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "update monitor users pass")
@@ -413,7 +413,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.P
 func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	log := r.logger(cr.Name, cr.Namespace)
 
-	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled {
+	if !cr.Spec.ProxySQLEnabled() {
 		return nil
 	}
 

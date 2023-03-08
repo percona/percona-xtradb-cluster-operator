@@ -9,7 +9,7 @@ if [ -f /tmp/recovery-case ] || [ -f '/var/lib/mysql/sleep-forever' ]; then
 	exit 0
 fi
 
-if [[ -f '/var/lib/mysql/sst_in_progress' ]] || [[ -f '/var/lib/mysql/wsrep_recovery_verbose.log' ]]; then
+if  ps -ef | grep -q "mysql.*sst" || [[ -f '/var/lib/mysql/wsrep_recovery_verbose.log' ]]; then
 	exit 0
 fi
 

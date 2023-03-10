@@ -52,7 +52,7 @@ deploy: ## Deploy operator
 undeploy: ## Undeploy operator
 	kubectl delete -f $(DEPLOYDIR)/operator.yaml
 
-csv-bundle: ## Create CSV
+csv-bundle: manifests ## Create CSV
 	mkdir -p $(BUNDLEDIR)/$(VERSION)
 	cd $(BUNDLEDIR) && \
 	cat $(shell pwd)/$(DEPLOYDIR)/bundle.yaml | operator-sdk generate bundle -q --output-dir $(VERSION) --package $(NAME) --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) && \

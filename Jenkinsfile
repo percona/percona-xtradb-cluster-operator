@@ -101,7 +101,7 @@ void initTests() {
     def records = readCSV file: 'e2e-tests/run-pr.csv'
 
     for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "mysql_ver": records[i][1], "cluster": "NA", "result": "NA"])
+        tests.add(["name": records[i][0], "mysql_ver": records[i][1], "cluster": "NA", "result": "NA", "time": "0"])
     }
 
     markPassedTests()
@@ -149,12 +149,15 @@ void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
 }
 
 TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
+TestsReportXML = '<testsuite name=\\"PXC\\">\n'
 
 void makeReport() {
     def wholeTestAmount=tests.size()
     def startedTestAmount = 0
     
     for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
         def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
         def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
 
@@ -162,8 +165,10 @@ void makeReport() {
             startedTestAmount++
         }
         TestsReport = TestsReport + "\r\n| "+ testNameWithMysqlVersion +" | ["+ tests[i]["result"] +"]("+ testUrl +") |"
+        TestsReportXML = TestsReportXML + '<testcase name=\\"' + testNameWithMysqlVersion + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
+    TestsReportXML = TestsReportXML + '</testsuite>\n'
 }
 
 void clusterRunner(String cluster) {
@@ -171,7 +176,7 @@ void clusterRunner(String cluster) {
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "NA") {
-            tests[i]["result"] = "failed"
+            tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
             if (clusterCreated == 0) {
                 createCluster(cluster)
@@ -194,11 +199,10 @@ void runTest(Integer TEST_ID) {
     def testNameWithMysqlVersion = "$testName-$mysqlVer".replace(".", "-")
 
     waitUntil {
-        def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
-        echo " test url is $testUrl"
+        def timeStart = new Date().getTime()
         try {
             echo "The $testName-$mysqlVer test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
-            tests[TEST_ID]["result"] = "failed"
+            tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
@@ -208,7 +212,6 @@ void runTest(Integer TEST_ID) {
                     time bash ./e2e-tests/$testName/run
                 """
             }
-            echo "end test url is $testUrl"
             pushArtifactFile("$testNameWithMysqlVersion")
             tests[TEST_ID]["result"] = "passed"
             return true
@@ -223,6 +226,9 @@ void runTest(Integer TEST_ID) {
             return false
         }
         finally {
+            def timeStop = new Date().getTime()
+            def durationSec = (timeStop - timeStart) / 1000
+            tests[TEST_ID]["time"] = durationSec
             pushLogFile("$testNameWithMysqlVersion")
             echo "The $testName-$mysqlVer test was finished!"
         }
@@ -471,6 +477,12 @@ pipeline {
                         }
                     }
                     makeReport()
+                    sh """
+                        echo "${TestsReportXML}" > TestsReport.xml
+                    """
+                    step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                    archiveArtifacts '*.xml'
+
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"

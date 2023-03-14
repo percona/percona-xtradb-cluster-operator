@@ -212,7 +212,7 @@ void runTest(Integer TEST_ID) {
                     time bash ./e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("$testNameWithMysqlVersion")
+            pushArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
             tests[TEST_ID]["result"] = "passed"
             return true
         }

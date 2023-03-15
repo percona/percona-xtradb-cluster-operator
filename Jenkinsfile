@@ -101,7 +101,7 @@ void initTests() {
     def records = readCSV file: 'e2e-tests/run-pr.csv'
 
     for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "mysql_ver": records[i][1], "cluster": "NA", "result": "NA", "time": "0"])
+        tests.add(["name": records[i][0], "mysql_ver": records[i][1], "cluster": "NA", "result": "skipped", "time": "0"])
     }
 
     markPassedTests()
@@ -161,7 +161,7 @@ void makeReport() {
         def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
         def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
 
-        if (tests[i]["result"] != "NA") {
+        if (tests[i]["result"] != "skipped") {
             startedTestAmount++
         }
         TestsReport = TestsReport + "\r\n| "+ testNameWithMysqlVersion +" | ["+ tests[i]["result"] +"]("+ testUrl +") |"
@@ -175,7 +175,7 @@ void clusterRunner(String cluster) {
     def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "NA" && currentBuild.nextBuild == null) {
+        if (tests[i]["result"] == "skipped" && currentBuild.nextBuild == null) {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
             if (clusterCreated == 0) {

@@ -175,6 +175,8 @@ void clusterRunner(String cluster) {
     def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
+        echo currentBuild.currentResult
+        echo currentBuild.result
         if (tests[i]["result"] == "skipped" && currentBuild.nextBuild == null) {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
@@ -217,6 +219,8 @@ void runTest(Integer TEST_ID) {
             return true
         }
         catch (exc) {
+            echo currentBuild.currentResult
+            echo currentBuild.result
             printKubernetesStatus("AFTER","$clusterSuffix")
             if (retryCount >= 1 || currentBuild.nextBuild != null) {
                 currentBuild.result = 'FAILURE'

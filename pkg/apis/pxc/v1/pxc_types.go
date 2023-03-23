@@ -3,7 +3,6 @@
 package v1
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
@@ -298,18 +297,17 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 		return errors.Wrap(err, "PXC: validate volume spec")
 	}
 
-	if c.HAProxy != nil && c.HAProxy.Enabled &&
-		c.ProxySQL != nil && c.ProxySQL.Enabled {
+	if c.HAProxyEnabled() && c.ProxySQLEnabled() {
 		return errors.New("can't enable both HAProxy and ProxySQL please only select one of them")
 	}
 
-	if c.HAProxy != nil && c.HAProxy.Enabled {
+	if c.HAProxyEnabled() {
 		if c.HAProxy.Image == "" {
 			return errors.New("haproxy.Image can't be empty")
 		}
 	}
 
-	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+	if c.ProxySQLEnabled() {
 		if c.ProxySQL.Image == "" {
 			return errors.New("proxysql.Image can't be empty")
 		}
@@ -353,8 +351,8 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	}
 
 	if c.UpdateStrategy == SmartUpdateStatefulSetStrategyType &&
-		(c.ProxySQL == nil || !c.ProxySQL.Enabled) &&
-		(c.HAProxy == nil || !c.HAProxy.Enabled) {
+		!c.ProxySQLEnabled() &&
+		!c.HAProxyEnabled() {
 		return errors.Errorf("ProxySQL or HAProxy should be enabled if SmartUpdate set")
 	}
 
@@ -755,7 +753,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
-	if c.HAProxy != nil && c.HAProxy.Enabled {
+	if c.HAProxyEnabled() {
 		if c.HAProxy.ReplicasServiceEnabled == nil {
 			t := true
 			c.HAProxy.ReplicasServiceEnabled = &t
@@ -795,7 +793,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 	}
 
-	if c.ProxySQL != nil && c.ProxySQL.Enabled {
+	if c.ProxySQLEnabled() {
 		if len(c.ProxySQL.ImagePullPolicy) == 0 {
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
 		}
@@ -928,7 +926,7 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 		cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 15
 	}
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.Enabled {
+	if cr.Spec.HAProxyEnabled() {
 		if cr.Spec.HAProxy.ReadinessInitialDelaySeconds != nil {
 			cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.ReadinessInitialDelaySeconds
 		} else if cr.Spec.HAProxy.ReadinessProbes.InitialDelaySeconds == 0 {
@@ -968,34 +966,34 @@ func setSafeDefaults(spec *PerconaXtraDBClusterSpec, log logr.Logger) {
 		return
 	}
 
-	loginfo := func(msg string, args ...interface{}) {
-		log.Info(fmt.Sprintf(msg, args...))
-		log.Info("Set allowUnsafeConfigurations=true to disable safe configuration")
-	}
-
 	if spec.PXC.Size < 3 {
-		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, 3)
+		log.Info("Setting safe defaults, updating cluster size",
+			"oldSize", spec.PXC.Size, "newSize", 3)
 		spec.PXC.Size = 3
 	} else if spec.PXC.Size > maxSafePXCSize {
-		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, maxSafePXCSize)
+		log.Info("Setting safe defaults, updating cluster size",
+			"oldSize", spec.PXC.Size, "newSize", maxSafePXCSize)
 		spec.PXC.Size = maxSafePXCSize
 	}
 
 	if spec.PXC.Size%2 == 0 {
-		loginfo("Cluster size will be changed from %d to %d due to safe config", spec.PXC.Size, spec.PXC.Size+1)
+		log.Info("Setting safe defaults, increasing cluster size to have a odd number of replicas",
+			"oldSize", spec.PXC.Size, "newSize", spec.PXC.Size+1)
 		spec.PXC.Size++
 	}
 
-	if spec.ProxySQL != nil && spec.ProxySQL.Enabled {
+	if spec.ProxySQLEnabled() {
 		if spec.ProxySQL.Size < minSafeProxySize {
-			loginfo("ProxySQL size will be changed from %d to %d due to safe config", spec.ProxySQL.Size, minSafeProxySize)
+			log.Info("Setting safe defaults, updating ProxySQL size",
+				"oldSize", spec.ProxySQL.Size, "newSize", minSafeProxySize)
 			spec.ProxySQL.Size = minSafeProxySize
 		}
 	}
 
-	if spec.HAProxy != nil && spec.HAProxy.Enabled {
+	if spec.HAProxyEnabled() {
 		if spec.HAProxy.Size < minSafeProxySize {
-			loginfo("HAProxy size will be changed from %d to %d due to safe config", spec.HAProxy.Size, minSafeProxySize)
+			log.Info("Setting safe defaults, updating HAProxy size",
+				"oldSize", spec.HAProxy.Size, "newSize", minSafeProxySize)
 			spec.HAProxy.Size = minSafeProxySize
 		}
 	}
@@ -1120,7 +1118,7 @@ func (v *VolumeSpec) validate() error {
 	return nil
 }
 
-func AddSidecarContainers(logger logr.Logger, existing, sidecars []corev1.Container) []corev1.Container {
+func AddSidecarContainers(log logr.Logger, existing, sidecars []corev1.Container) []corev1.Container {
 	if len(sidecars) == 0 {
 		return existing
 	}
@@ -1132,7 +1130,7 @@ func AddSidecarContainers(logger logr.Logger, existing, sidecars []corev1.Contai
 
 	for _, c := range sidecars {
 		if _, ok := names[c.Name]; ok {
-			logger.Info(fmt.Sprintf("Sidecar container name cannot be %s. It's skipped", c.Name))
+			log.Info("Wrong sidecar container name, it is skipped", "containerName", c.Name)
 			continue
 		}
 
@@ -1142,45 +1140,45 @@ func AddSidecarContainers(logger logr.Logger, existing, sidecars []corev1.Contai
 	return existing
 }
 
-func AddSidecarVolumes(logger logr.Logger, existing, sidecarVolumes []corev1.Volume) []corev1.Volume {
+func AddSidecarVolumes(log logr.Logger, existing, sidecarVolumes []corev1.Volume) []corev1.Volume {
 	if len(sidecarVolumes) == 0 {
 		return existing
 	}
 
 	names := make(map[string]struct{}, len(existing))
-	for _, c := range existing {
-		names[c.Name] = struct{}{}
+	for _, v := range existing {
+		names[v.Name] = struct{}{}
 	}
 
-	for _, c := range sidecarVolumes {
-		if _, ok := names[c.Name]; ok {
-			logger.Info(fmt.Sprintf("Sidecar volume name cannot be %s. It's skipped", c.Name))
+	for _, v := range sidecarVolumes {
+		if _, ok := names[v.Name]; ok {
+			log.Info("Wrong sidecar volume name, it is skipped", "volumeName", v.Name)
 			continue
 		}
 
-		existing = append(existing, c)
+		existing = append(existing, v)
 	}
 
 	return existing
 }
 
-func AddSidecarPVCs(logger logr.Logger, existing, sidecarPVCs []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
+func AddSidecarPVCs(log logr.Logger, existing, sidecarPVCs []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
 	if len(sidecarPVCs) == 0 {
 		return existing
 	}
 
 	names := make(map[string]struct{}, len(existing))
-	for _, c := range existing {
-		names[c.Name] = struct{}{}
+	for _, p := range existing {
+		names[p.Name] = struct{}{}
 	}
 
-	for _, c := range sidecarPVCs {
-		if _, ok := names[c.Name]; ok {
-			logger.Info(fmt.Sprintf("Sidecar PVC name cannot be %s. It's skipped", c.Name))
+	for _, p := range sidecarPVCs {
+		if _, ok := names[p.Name]; ok {
+			log.Info("Wrong sidecar PVC name, it is skipped", "PVCName", p.Name)
 			continue
 		}
 
-		existing = append(existing, c)
+		existing = append(existing, p)
 	}
 
 	return existing
@@ -1280,4 +1278,12 @@ func (cr *PerconaXtraDBCluster) CanBackup() error {
 
 func (cr *PerconaXtraDBCluster) PITREnabled() bool {
 	return cr.Spec.Backup != nil && cr.Spec.Backup.PITR.Enabled
+}
+
+func (s *PerconaXtraDBClusterSpec) HAProxyEnabled() bool {
+	return s.HAProxy != nil && s.HAProxy.Enabled
+}
+
+func (s *PerconaXtraDBClusterSpec) ProxySQLEnabled() bool {
+	return s.ProxySQL != nil && s.ProxySQL.Enabled
 }

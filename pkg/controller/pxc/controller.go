@@ -379,7 +379,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	proxysqlSet := statefulset.NewProxy(o)
 	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxysqlAnnotations)
 
-	if o.Spec.ProxySQL != nil && o.Spec.ProxySQL.Enabled {
+	if o.Spec.ProxySQLEnabled() {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
@@ -691,7 +691,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		}
 	}
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled {
+	if cr.Spec.ProxySQLEnabled() {
 		sfsProxy := statefulset.NewProxy(cr)
 		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, nil, log, r.getConfigVolume)
 		if err != nil {
@@ -858,7 +858,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 
 	proxysqlConfigName := ls["app.kubernetes.io/instance"] + "-proxysql"
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.Enabled && cr.Spec.ProxySQL.Configuration != "" {
+	if cr.Spec.ProxySQLEnabled() && cr.Spec.ProxySQL.Configuration != "" {
 		configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
 		if err != nil {
@@ -1208,7 +1208,7 @@ func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference,
 
 // resyncPXCUsersWithProxySQL calls the method of synchronizing users and makes sure that only one Goroutine works at a time
 func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) {
-	if cr.Spec.ProxySQL == nil || !cr.Spec.ProxySQL.Enabled {
+	if !cr.Spec.ProxySQLEnabled() {
 		return
 	}
 	if cr.Status.Status != api.AppStateReady || !atomic.CompareAndSwapInt32(&r.syncUsersState, stateFree, stateLocked) {

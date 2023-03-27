@@ -223,7 +223,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 
 func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
-	
+
 	if !isPXC(sfs) {
 		return nil
 	}

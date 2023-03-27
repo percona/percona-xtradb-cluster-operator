@@ -87,8 +87,8 @@ type ReconcilePerconaXtraDBClusterRestore struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	log := logf.FromContext(ctx)	
-	
+	log := logf.FromContext(ctx)
+
 	rr := reconcile.Result{}
 
 	cr := &api.PerconaXtraDBClusterRestore{}

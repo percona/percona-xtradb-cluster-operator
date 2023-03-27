@@ -122,7 +122,7 @@ func jobName(cr *apiv1.PerconaXtraDBCluster) string {
 
 func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
 	log := logf.FromContext(ctx)
-	
+
 	if !(versionUpgradeEnabled(cr) || telemetryEnabled()) {
 		return nil
 	}
@@ -258,7 +258,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr
 
 func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {
 	log := logf.FromContext(ctx)
-	
+
 	if cr.Status.PXC.Ready < 1 {
 		return "", versionNotReadyErr
 	}
@@ -297,7 +297,6 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 		port = int32(33062)
 		secrets = "internal-" + cr.Name
 	}
-
 
 	for _, pod := range list.Items {
 		if !isPodReady(pod) {

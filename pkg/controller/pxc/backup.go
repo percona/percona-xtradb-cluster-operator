@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 
@@ -34,7 +35,7 @@ type BackupScheduleJob struct {
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
-	
+
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
 	backupNamePrefix := backupJobClusterPrefix(cr.Name)
 
@@ -185,7 +186,7 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraD
 
 func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, storageType api.BackupStorageType) func() {
 	log := logf.FromContext(ctx)
-	
+
 	var fins []string
 	switch storageType {
 	case api.BackupStorageS3, api.BackupStorageAzure:
@@ -334,7 +335,7 @@ func (r *ReconcilePerconaXtraDBCluster) getLatestSuccessfulBackup(ctx context.Co
 
 func (r *ReconcilePerconaXtraDBCluster) checkPITRErrors(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
-	
+
 	if cr.Spec.Backup == nil || !cr.Spec.Backup.PITR.Enabled {
 		return nil
 	}

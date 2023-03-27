@@ -490,7 +490,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 
 func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
-	
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
 	if err != nil {

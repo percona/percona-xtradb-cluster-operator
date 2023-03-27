@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
@@ -30,7 +31,9 @@ func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
 	delete(r.crons.ensureVersionJobs, jobName)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+	log := logf.FromContext(ctx)
+
 	jn := jobName(cr)
 	schedule, ok := r.crons.ensureVersionJobs[jn]
 	if cr.Spec.UpgradeOptions.Schedule == "" || !(versionUpgradeEnabled(cr) || telemetryEnabled()) {
@@ -43,8 +46,6 @@ func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(cr *apiv1.Perco
 	if ok && schedule.CronSchedule == cr.Spec.UpgradeOptions.Schedule {
 		return nil
 	}
-
-	log := r.logger(cr.Name, cr.Namespace)
 
 	if ok {
 		log.Info("remove job because of new", "old", schedule.CronSchedule, "new", cr.Spec.UpgradeOptions.Schedule)
@@ -85,13 +86,13 @@ func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(cr *apiv1.Perco
 			return
 		}
 
-		err = localCr.CheckNSetDefaults(r.serverVersion, r.logger(cr.Name, cr.Namespace))
+		err = localCr.CheckNSetDefaults(r.serverVersion, log)
 		if err != nil {
 			log.Error(err, "failed to set defaults for CR")
 			return
 		}
 
-		err = r.ensurePXCVersion(localCr, vs)
+		err = r.ensurePXCVersion(ctx, localCr, vs)
 		if err != nil {
 			log.Error(err, "failed to ensure version")
 		}
@@ -119,7 +120,9 @@ func jobName(cr *apiv1.PerconaXtraDBCluster) string {
 	return fmt.Sprintf("%s/%s", jobName, nn.String())
 }
 
-func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+	log := logf.FromContext(ctx)
+	
 	if !(versionUpgradeEnabled(cr) || telemetryEnabled()) {
 		return nil
 	}
@@ -146,7 +149,6 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		CRUID:               string(cr.GetUID()),
 		ClusterWideEnabled:  watchNs == "",
 	}
-	log := r.logger(cr.Name, cr.Namespace)
 
 	if telemetryEnabled() && (!versionUpgradeEnabled(cr) || cr.Spec.UpgradeOptions.VersionServiceEndpoint != apiv1.GetDefaultVersionServiceEndpoint()) {
 		_, err := vs.GetExactVersion(cr, apiv1.GetDefaultVersionServiceEndpoint(), vm)
@@ -254,7 +256,9 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {
+	log := logf.FromContext(ctx)
+	
 	if cr.Status.PXC.Ready < 1 {
 		return "", versionNotReadyErr
 	}
@@ -294,7 +298,6 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 		secrets = "internal-" + cr.Name
 	}
 
-	log := r.logger(cr.Name, cr.Namespace)
 
 	for _, pod := range list.Items {
 		if !isPodReady(pod) {
@@ -321,14 +324,14 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 	return "", errors.New("failed to reach any pod")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
+	log := logf.FromContext(ctx)
 
 	if cr.Status.PXC.Status != apiv1.AppStateReady {
 		return nil
 	}
 
-	version, err := r.mysqlVersion(cr, sfs)
+	version, err := r.mysqlVersion(ctx, cr, sfs)
 	if err != nil {
 		if errors.Is(err, versionNotReadyErr) {
 			return nil
@@ -387,7 +390,7 @@ func (r *ReconcilePerconaXtraDBCluster) setCRVersion(ctx context.Context, cr *ap
 		return errors.Wrap(err, "patch CR")
 	}
 
-	r.logger(cr.Name, cr.Namespace).Info("Set CR version", "version", cr.Spec.CRVersion)
+	logf.FromContext(ctx).Info("Set CR version", "version", cr.Spec.CRVersion)
 
 	return nil
 }

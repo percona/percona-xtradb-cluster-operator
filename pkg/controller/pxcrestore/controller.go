@@ -6,10 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -21,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -47,23 +45,17 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		return nil, fmt.Errorf("get version: %v", err)
 	}
 
-	zapLog, err := zap.NewProduction()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create logger")
-	}
-
 	return &ReconcilePerconaXtraDBClusterRestore{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
 		serverVersion: sv,
-		log:           zapr.NewLogger(zapLog),
 	}, nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("perconaxtradbclusterrestore-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("pxcrestore-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -87,11 +79,6 @@ type ReconcilePerconaXtraDBClusterRestore struct {
 	scheme *runtime.Scheme
 
 	serverVersion *version.ServerVersion
-	log           logr.Logger
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) logger(name, namespace string) logr.Logger {
-	return r.log.WithName("perconaxtradbclusterrestore").WithValues("restore", name, "namespace", namespace)
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterRestore object and makes changes based on the state read
@@ -99,7 +86,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) logger(name, namespace string) lo
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	log := logf.FromContext(ctx)	
+	
 	rr := reconcile.Result{}
 
 	cr := &api.PerconaXtraDBClusterRestore{}
@@ -116,8 +105,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		return rr, nil
 	}
 
-	lgr := r.logger(request.Name, request.Namespace)
-	lgr.Info("backup restore request")
+	log.Info("backup restore request")
 
 	err = r.setStatus(cr, api.RestoreStarting, "")
 	if err != nil {
@@ -181,12 +169,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 	}
 	clusterOrig := cluster.DeepCopy()
 
-	err = cluster.CheckNSetDefaults(r.serverVersion, r.log)
+	err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
 	}
 
-	lgr.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
+	log.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
 	err = r.setStatus(cr, api.RestoreStopCluster, "")
 	if err != nil {
 		err = errors.Wrap(err, "set status")
@@ -198,7 +186,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		return rr, err
 	}
 
-	lgr.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
+	log.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
 	err = r.setStatus(cr, api.RestoreRestore, "")
 	if err != nil {
 		err = errors.Wrap(err, "set status")
@@ -210,7 +198,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		return rr, err
 	}
 
-	lgr.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+	log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
 	err = r.setStatus(cr, api.RestoreStartCluster, "")
 	if err != nil {
 		err = errors.Wrap(err, "set status")
@@ -227,7 +215,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 			return rr, errors.Wrap(err, "restart cluster for pitr")
 		}
 
-		lgr.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
+		log.Info("point-in-time recovering", "cluster", cr.Spec.PXCCluster)
 		err = r.setStatus(cr, api.RestorePITR, "")
 		if err != nil {
 			return rr, errors.Wrap(err, "set status")
@@ -248,7 +236,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(_ context.Context, requ
 		return rr, err
 	}
 
-	lgr.Info(returnMsg)
+	log.Info(returnMsg)
 
 	return rr, err
 }

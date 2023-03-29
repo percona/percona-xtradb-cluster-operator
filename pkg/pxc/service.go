@@ -8,6 +8,11 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
+const (
+	// HeadlessServiceAnnotation is the annotation key for headless service
+	HeadlessServiceAnnotation = "percona.com/headless-service"
+)
+
 func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -242,6 +247,13 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
 	}
 
+	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.ServiceAnnotations != nil {
+		if cr.Spec.ProxySQL.ServiceAnnotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+			obj.Annotations[HeadlessServiceAnnotation] = "true"
+			obj.Spec.ClusterIP = corev1.ClusterIPNone
+		}
+	}
+
 	if cr.CompareVersionWith("1.6.0") >= 0 {
 		obj.Spec.Ports = append(
 			obj.Spec.Ports,
@@ -349,6 +361,13 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		)
 	}
 
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.ServiceAnnotations != nil {
+		if cr.Spec.HAProxy.ServiceAnnotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+			obj.Annotations[HeadlessServiceAnnotation] = "true"
+			obj.Spec.ClusterIP = corev1.ClusterIPNone
+		}
+	}
+
 	return obj
 }
 
@@ -418,6 +437,13 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		}
 
 		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
+	}
+
+	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.ReplicasServiceAnnotations != nil {
+		if cr.Spec.HAProxy.ReplicasServiceAnnotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+			obj.Annotations[HeadlessServiceAnnotation] = "true"
+			obj.Spec.ClusterIP = corev1.ClusterIPNone
+		}
 	}
 
 	return obj

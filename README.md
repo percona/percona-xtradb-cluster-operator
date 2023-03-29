@@ -1,6 +1,13 @@
 ![Percona Operator for MySQL based on Percona XtraDB Cluster](operator.png)
+<div align="center">
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+![Docker Pulls](https://img.shields.io/docker/pulls/percona/percona-xtradb-cluster-operator)
+![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/percona/percona-xtradb-cluster-operator)
+![GitHub tag (latest by date)](https://img.shields.io/github/v/tag/percona/percona-xtradb-cluster-operator)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/percona/percona-xtradb-cluster-operator)
+[![Go Report Card](https://goreportcard.com/badge/github.com/percona/percona-xtradb-cluster-operator)](https://goreportcard.com/report/github.com/percona/percona-xtradb-cluster-operator)
+</div>
 
 [Percona XtraDB Cluster](https://www.percona.com/software/mysql-database/percona-xtradb-cluster) (PXC) is an open-source enterprise MySQL solution that helps you to ensure data availability for your applications while improving security and simplifying the development of new applications in the most demanding public, private, and hybrid cloud environments.
 

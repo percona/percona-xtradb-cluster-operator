@@ -24,7 +24,7 @@ main() {
 	apply_secrets
 	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
 	sleep 60
-  desc "get main cluster services endpoints"
+	desc "get main cluster services endpoints"
 	source_endpoint0=$(get_service_ip ${source_cluster}-pxc-0)
 	source_endpoint1=$(get_service_ip ${source_cluster}-pxc-1)
 	source_endpoint2=$(get_service_ip ${source_cluster}-pxc-2)

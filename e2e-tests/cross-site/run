@@ -31,9 +31,9 @@ main() {
 
 	source_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${source_cluster}-haproxy -p33062 -uroot -proot_password")
 	source_primary_endpoint=$(get_service_ip ${source_primary})
-  desc "patch source cluster with replicationChannels settings"
+	desc "patch source cluster with replicationChannels settings"
 	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
-  desc "patch main cluster secrets with replication user"
+	desc "patch main cluster secrets with replication user"
 	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
 	sleep 15
 	wait_cluster_consistency "$source_cluster" 3 2
@@ -65,7 +65,7 @@ main() {
 		'DELETE FROM myApp.myApp WHERE id=100500' \
 		"-h $replica_primary_endpoint -uroot -proot_password"
 
-  desc "patch replica cluster with replicationChannels settings"
+	desc "patch replica cluster with replicationChannels settings"
 	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
 	sleep 40
 

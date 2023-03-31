@@ -11,8 +11,8 @@ main() {
 	create_infra $namespace
 	cluster="some-name-tls-issueref"
 
-  desc 'deploy cert manager'
-  deploy_cert_manager
+	desc 'deploy cert manager'
+	deploy_cert_manager
 
   desc 'create issuer'
   apply_config "$test_dir/conf/issuer.yml"
@@ -28,8 +28,8 @@ main() {
   desc 'check if issuer created'
   compare_kubectl clusterissuer/special-selfsigned-issuer
 
-  desc 'check if issuer used during certificate creation'
-  compare_kubectl certificate/$cluster-ssl
+	desc 'check if issuer used during certificate creation'
+	compare_kubectl certificate/$cluster-ssl
 
 	destroy $namespace
 	desc "test passed"

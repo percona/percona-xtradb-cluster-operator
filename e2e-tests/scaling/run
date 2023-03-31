@@ -49,7 +49,7 @@ compare_kubectl pvc/datadir-$cluster-pxc-4
 
 desc 'check if Pod deleted from ProxySQL'
 run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | ( grep "$cluster-pxc-3" && exit 1 || :)
+	| (grep "$cluster-pxc-3" && exit 1 || :)
 run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
 	| (grep "$cluster-pxc-4" && exit 1 || :)
 

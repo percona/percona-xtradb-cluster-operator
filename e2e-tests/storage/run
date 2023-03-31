@@ -30,8 +30,8 @@ main() {
         -f $conf_dir/secrets.yml \
         -f $test_dir/conf/hostpath-helper.yml
 
-    desc 'check emptydir'
-    check_cr_config "emptydir"
+	desc 'check emptydir'
+	check_cr_config "emptydir"
 
 	desc 'check hostpath'
 	check_cr_config "hostpath"

@@ -20,7 +20,7 @@ spec:
 #  sslSecretName: cluster1-ssl
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
-#  initImage: perconalab/percona-server-mongodb-operator:1.13.0
+#  initImage: perconalab/percona-xtradb-cluster-operator:1.13.0
 #  enableCRValidationWebhook: true
 #  tls:
 #    SANs:

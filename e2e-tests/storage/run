@@ -8,18 +8,18 @@ test_dir=$(realpath $(dirname $0))
 set_debug
 
 check_cr_config() {
-    local cluster="$1"
+	local cluster="$1"
 
-    desc "apply cr config"
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+	desc "apply cr config"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-    desc "check if statefulset created with expected config"
-    compare_kubectl statefulset/$cluster-pxc
-    compare_kubectl statefulset/$cluster-proxysql
+	desc "check if statefulset created with expected config"
+	compare_kubectl statefulset/$cluster-pxc
+	compare_kubectl statefulset/$cluster-proxysql
 
-    desc "delete cluster"
-    kubectl_bin delete \
-        -f $test_dir/conf/$cluster.yml
+	desc "delete cluster"
+	kubectl_bin delete \
+		-f $test_dir/conf/$cluster.yml
 }
 
 main() {
@@ -36,8 +36,8 @@ main() {
     desc 'check hostpath'
     check_cr_config "hostpath"
 
-    destroy $namespace
-    desc "test passed"
+	destroy $namespace
+	desc "test passed"
 }
 
 main

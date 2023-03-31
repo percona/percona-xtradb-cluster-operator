@@ -50,7 +50,7 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-1100"
 	compare_kubectl statefulset/$cluster-proxysql "-1100"
 
-  desc "test 1.11.0"
+	desc "test 1.11.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.11.0"}
     }'
@@ -62,7 +62,7 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-1110"
 	compare_kubectl statefulset/$cluster-proxysql "-1110"
 
-  desc "test 1.12.0"
+	desc "test 1.12.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.12.0"}
     }'
@@ -74,7 +74,7 @@ main() {
 	compare_kubectl statefulset/$cluster-pxc "-1120"
 	compare_kubectl statefulset/$cluster-proxysql "-1120"
 
-  desc "test 1.13.0"
+	desc "test 1.13.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.13.0"}
     }'

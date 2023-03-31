@@ -8,8 +8,8 @@ test_dir=$(realpath $(dirname $0))
 set_debug
 
 main() {
-  create_infra $namespace
-  cluster="some-name-tls-issueref"
+	create_infra $namespace
+	cluster="some-name-tls-issueref"
 
   desc 'deploy cert manager'
   deploy_cert_manager
@@ -31,8 +31,8 @@ main() {
   desc 'check if issuer used during certificate creation'
   compare_kubectl certificate/$cluster-ssl
 
-  destroy $namespace
-  desc "test passed"
+	destroy $namespace
+	desc "test passed"
 }
 
 main

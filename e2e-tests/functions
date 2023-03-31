@@ -315,7 +315,7 @@ wait_for_running() {
 	local name="$1"
 	let last_pod="$(($2 - 1))" || :
 	local max_retry="${3:-480}"
-  desc "wait for running cluster"
+	desc "wait for running cluster"
 	for i in $(seq 0 $last_pod); do
 		wait_pod ${name}-${i} ${max_retry}
 	done
@@ -345,7 +345,7 @@ compare_kubectl() {
 	local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
 	local new_result="${tmp_dir}/${resource//\//_}.yml"
 
-  desc "compare $resource-$postfix"
+	desc "compare $resource-$postfix"
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
 		expected_result=${expected_result//.yml/-eks.yml}
 	fi
@@ -575,7 +575,7 @@ run_pumba() {
 }
 
 deploy_cert_manager() {
-  desc 'deploy cert manager'
+	desc 'deploy cert manager'
 	kubectl_bin create namespace cert-manager || :
 	kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
 	kubectl_bin apply -f "https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml" --validate=false || : 2>/dev/null
@@ -586,7 +586,7 @@ destroy() {
 	local namespace="$1"
 	local ignore_logs="${2:-true}"
 
-  desc 'destroy cluster/operator and all other resources'
+	desc 'destroy cluster/operator and all other resources'
 	if [ ${ignore_logs} == "false" -o "${DEBUG_TESTS}" == 1 ]; then
 		kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
 			| grep -v 'level=info' \
@@ -760,7 +760,7 @@ cat_config() {
 }
 
 apply_secrets() {
-  desc 'create secrets for cloud storages'
+	desc 'create secrets for cloud storages'
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		kubectl_bin apply \
 			-f $conf_dir/minio-secret.yml \
@@ -876,7 +876,7 @@ function table_must_not_be_encrypted() {
 }
 
 function table_must_be_encrypted() {
-  desc "check table encryption"
+	desc "check table encryption"
 	local cluster=$1
 	local table=$2
 	if ! is_table_encrypted "$cluster" "$table"; then

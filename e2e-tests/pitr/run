@@ -75,7 +75,7 @@ write_data_for_pitr() {
 	local cluster=$1
 	local proxy=$(get_proxy "$cluster")
 
-  desc "write data for pitr"
+	desc "write data for pitr"
 	run_mysql \
 		'INSERT test.test (id) VALUES (100503); INSERT test.test (id) VALUES (100504); INSERT test.test (id) VALUES (100505);' \
 		"-h $proxy -uroot -proot_password"
@@ -84,7 +84,7 @@ write_data_for_pitr() {
 write_more_data() {
 	local cluster=$1
 	local proxy=$(get_proxy "$cluster")
-  desc "write extra data"
+	desc "write extra data"
 	run_mysql \
 		'INSERT test.test (id) VALUES (100506); INSERT test.test (id) VALUES (100507); INSERT test.test (id) VALUES (100508); INSERT test.test (id) VALUES (100509); INSERT test.test (id) VALUES (100510);' \
 		"-h $proxy -uroot -proot_password"

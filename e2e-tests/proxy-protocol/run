@@ -14,7 +14,7 @@ if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 fi
 
 prepare_config() {
-  desc "prepare config"
+	desc "prepare config"
 	nodes=$(kubectl get nodes | grep -v "NAME" | grep -v 'master' | awk '{print $1}')
 	if [ $(printf "${nodes}\n" | wc -l) -lt 3 ]; then
 		echo "3 nodes are expected for this test to run."

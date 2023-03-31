@@ -8,36 +8,36 @@ test_dir=$(realpath $(dirname $0))
 set_debug
 
 main() {
-	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
-		echo 'Skip big-data test.'
-		exit 0
-	fi
+  if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
+    echo 'Skip big-data test.'
+    exit 0
+  fi
 
-	create_infra $namespace
-	deploy_cert_manager
+  create_infra $namespace
+  deploy_cert_manager
 
-	desc 'create first PXC cluster'
-	cluster="some-name"
-	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
+  desc 'create first PXC cluster'
+  cluster="some-name"
+  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" "3" "10" "${conf_dir}/secrets_without_tls.yml"
 
-	if [[ $IMAGE_PXC =~ 8\.0 ]]; then
-		desc 'Switch to 8.0 backup'
-		kubectl_bin apply -f "${test_dir}/conf/restore-backup.yml"
-	else
-		kubectl_bin apply -f "${test_dir}/conf/restore-backup-57.yml"
-	fi
-	sleep 10
-	wait_backup_restore "restore1"
-	wait_for_running "$cluster-proxysql" 1
-	wait_for_running "$cluster-pxc" 3
+  if [[ $IMAGE_PXC =~ 8\.0 ]]; then
+    desc 'Switch to 8.0 backup'
+    kubectl_bin apply -f "${test_dir}/conf/restore-backup.yml"
+  else
+    kubectl_bin apply -f "${test_dir}/conf/restore-backup-57.yml"
+  fi
+  sleep 10
+  wait_backup_restore "restore1"
+  wait_for_running "$cluster-proxysql" 1
+  wait_for_running "$cluster-pxc" 3
   desc "delete pvc and pod for pxc-2"
-	kubectl_bin delete pvc/"datadir-$cluster-pxc-2" pod/"$cluster-pxc-2"
-	sleep 1
-	kubectl_bin delete pod/"$cluster-pxc-2"
+  kubectl_bin delete pvc/"datadir-$cluster-pxc-2" pod/"$cluster-pxc-2"
+  sleep 1
+  kubectl_bin delete pod/"$cluster-pxc-2"
 
-	wait_for_running "$cluster-pxc" 3 800
-	destroy $namespace
-	desc "test passed"
+  wait_for_running "$cluster-pxc" 3 800
+  destroy $namespace
+  desc "test passed"
 }
 
 main

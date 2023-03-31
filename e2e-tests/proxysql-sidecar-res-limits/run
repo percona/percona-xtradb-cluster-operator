@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 create_infra $namespace
 deploy_cert_manager
@@ -18,3 +19,4 @@ compare_kubectl service/$cluster-proxysql
 compare_kubectl statefulset/$cluster-proxysql
 
 destroy $namespace
+desc "test passed"

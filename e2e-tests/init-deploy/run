@@ -1,10 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
+
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 create_infra $namespace
 deploy_cert_manager
@@ -36,13 +38,13 @@ compare_mysql_user "-h $cluster-pxc -umonitor -pmonitor"
 compare_mysql_user "-h $cluster-pxc -uproxyuser -ps3cret"
 compare_mysql_user_local "-uxtrabackup -pbackup_password" "$cluster-pxc-0" "" "pxc"
 compare_mysql_user_local "-uclustercheck -pclustercheckpassword" "$cluster-pxc-0" "" "pxc"
-# check that pmm server user don't have access
+desc "check that pmm server user don't have access"
 compare_mysql_user "-h $cluster-pxc -upmmserver -pmonitor"
 
 desc 'check if ProxySQL users created'
 compare_mysql_user "-h $cluster-proxysql -uroot -proot_password"
 compare_mysql_user "-h $cluster-proxysql -umonitor -pmonitor"
-# check that pmm server user don't have access
+desc "check that pmm server user don't have access"
 compare_mysql_user "-h $cluster-proxysql -uproxyuser -ps3cret" "-proxysql"
 compare_mysql_user "-h $cluster-proxysql -upmmserver -pmonitor" "-proxysql"
 
@@ -100,3 +102,4 @@ compare_mysql_cmd "max_allowed_packet-2" "SELECT @@max_allowed_packet;" "-h $clu
 kubectl_bin delete -f $test_dir/conf/$cluster3.yml
 
 destroy $namespace
+desc "test passed"

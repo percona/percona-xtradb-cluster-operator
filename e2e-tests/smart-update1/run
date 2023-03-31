@@ -5,10 +5,11 @@
 # - Update PXC with version service available but disabled
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 API='pxc.percona.com/v9-9-9'
 TARGET_IMAGE_PXC=${IMAGE_PXC}
@@ -81,6 +82,7 @@ function main() {
 	deploy_cert_manager
 	IMAGE_PXC=$(kubectl_bin exec -ti "$(get_operator_pod)" ${OPERATOR_NS:+-n $OPERATOR_NS} -- curl -s "${VS_URL}.${namespace}.svc.cluster.local:${VS_PORT}/versions/v1/pxc-operator/9.9.9" | jq -r '.versions[].matrix.pxc[].imagePath' | grep ":${PXC_VER}" | sort -V | tail -n3 | head -n1)
 
+  desc "patch crd"
 	kubectl_bin patch crd perconaxtradbclusters.pxc.percona.com --type='json' -p '[{"op":"add","path":"/spec/versions/-", "value":{"name": "v9-9-9","schema": {"openAPIV3Schema": {"properties": {"spec": {"type": "object","x-kubernetes-preserve-unknown-fields": true},"status": {"type": "object", "x-kubernetes-preserve-unknown-fields": true}}, "type": "object" }}, "served": true, "storage": false, "subresources": { "status": {}}}}]'
 
 	##################################################
@@ -93,6 +95,7 @@ function main() {
 	kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
+  desc "check last pod to update"
 	check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
 	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
 	for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
@@ -112,6 +115,7 @@ function main() {
 	kubectl_bin patch pxc/${CLUSTER} --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
+  desc "check last pod to update"
 	check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
 	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
 	for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
@@ -131,6 +135,7 @@ function main() {
 	kubectl_bin patch pxc/${CLUSTER} --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 
+  desc "check last pod to update"
 	check_last_pod_to_update "${CLUSTER}" "${initial_primary}" "${CLUSTER_SIZE}" "${TARGET_IMAGE_PXC}"
 	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"
 	for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
@@ -143,6 +148,7 @@ function main() {
 	desc 'cleanup'
 	kubectl_bin delete -f "${test_dir}/conf/vs.yml"
 	destroy "${namespace}"
+	desc "test passed"
 }
 
 main

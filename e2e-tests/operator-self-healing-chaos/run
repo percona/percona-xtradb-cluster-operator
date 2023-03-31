@@ -1,11 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="operator-chaos"
+
+set_debug
 
 fail_pod() {
 	local init_pod=$(get_operator_pod)
@@ -37,11 +38,11 @@ fail_pod() {
 	if [ -n "$OPERATOR_NS" ]; then
 		kubectl config set-context $(kubectl config current-context) --namespace="$OPERATOR_NS"
 	fi
-	# check if Pod started
+	desc "check if Pod started"
 	wait_pod $pod
 	kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
 
-	# check scale down
+	desc "check scale down"
 	wait_for_delete pod/$cluster-pxc-3
 }
 
@@ -62,11 +63,11 @@ network_loss() {
 	if [ -n "$OPERATOR_NS" ]; then
 		kubectl config set-context $(kubectl config current-context) --namespace="$OPERATOR_NS"
 	fi
-	# check if Pod started
+	desc "check if Pod started"
 	wait_pod $pod
 	kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
 
-	# check scale up
+	desc "check scale up"
 	wait_for_running "$cluster-pxc" 5
 }
 
@@ -93,11 +94,11 @@ kill_pod() {
 	if [ -n "$OPERATOR_NS" ]; then
 		kubectl config set-context $(kubectl config current-context) --namespace="$OPERATOR_NS"
 	fi
-	# check if Pod started
+	desc "check if Pod started"
 	wait_pod $pod
 	kubectl config set-context $(kubectl config current-context) --namespace="$namespace"
 
-	# check scale up
+	desc "check scale up"
 	wait_for_running "$cluster-pxc" 5
 }
 
@@ -126,6 +127,7 @@ main() {
 
 	destroy_chaos_mesh
 	destroy $namespace
+	desc "test passed"
 }
 
 main

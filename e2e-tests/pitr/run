@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 GTID_PATTERN='[A-F0-9a-f]{8}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{4}-[A-F0-9a-f]{12}:[0-9]+'
 
@@ -50,7 +51,7 @@ write_test_data() {
 
 	local proxy=$(get_proxy "$cluster")
 
-	desc 'write data'
+	desc 'write test data'
 	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$(is_keyring_plugin_in_use "$cluster")" ]]; then
 		encrypt='ENCRYPTION=\"Y\"'
 	fi
@@ -74,6 +75,7 @@ write_data_for_pitr() {
 	local cluster=$1
 	local proxy=$(get_proxy "$cluster")
 
+  desc "write data for pitr"
 	run_mysql \
 		'INSERT test.test (id) VALUES (100503); INSERT test.test (id) VALUES (100504); INSERT test.test (id) VALUES (100505);' \
 		"-h $proxy -uroot -proot_password"
@@ -82,7 +84,7 @@ write_data_for_pitr() {
 write_more_data() {
 	local cluster=$1
 	local proxy=$(get_proxy "$cluster")
-
+  desc "write extra data"
 	run_mysql \
 		'INSERT test.test (id) VALUES (100506); INSERT test.test (id) VALUES (100507); INSERT test.test (id) VALUES (100508); INSERT test.test (id) VALUES (100509); INSERT test.test (id) VALUES (100510);' \
 		"-h $proxy -uroot -proot_password"
@@ -205,14 +207,14 @@ main() {
 	sleep 80 # need to wait while collector catch new data
 
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-gtid" "on-pitr-minio" "select-2" "" "" "$gtid"
-	echo "done gtid type"
+	desc "done gtid type"
 
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3" "$time_now" "" ""
-	echo "done date type"
+	desc "done date type"
 
 	dest=$(sed 's,/,\\/,g' <<<$(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.destination}'))
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" ""
-	echo "done latest type"
+	desc "done latest type"
 
 	desc 'check second backup/restore data from binlogs'
 	kubectl patch pxc pitr --type=merge -p '{"spec":{"backup":{"pitr":{"enabled":true}}}}'
@@ -224,7 +226,7 @@ main() {
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio1" "on-pitr-minio1" "select-5" "" "$dest" ""
 
 	desc 'binlog gap test'
-	echo 'create binlog gap backup (will be marked as PITR unready)'
+	desc 'create binlog gap backup (will be marked as PITR unready)'
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS test; use test; CREATE TABLE IF NOT EXISTS gap (id int PRIMARY KEY);" \
 		"-h $proxy -uroot -proot_password"
@@ -233,9 +235,10 @@ main() {
 	check_binlog_gap_error
 	check_binlog_gap_restore "error"
 	check_binlog_gap_restore "force"
-	echo "done binlog gap test"
+	desc "done binlog gap test"
 
 	destroy $namespace
+	desc "test passed"
 }
 
 main

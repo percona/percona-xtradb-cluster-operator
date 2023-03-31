@@ -1,8 +1,8 @@
 #!/bin/bash
 
-set -o xtrace
 set -o errexit
 
+set_debug
 dir=$(realpath "$(dirname "$0")")
 
 fail() {

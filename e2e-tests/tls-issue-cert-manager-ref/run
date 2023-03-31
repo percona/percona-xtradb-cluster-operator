@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 main() {
   create_infra $namespace
@@ -31,6 +32,7 @@ main() {
   compare_kubectl certificate/$cluster-ssl
 
   destroy $namespace
+  desc "test passed"
 }
 
 main

@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 create_infra $namespace
 
@@ -62,3 +63,4 @@ run_mysql_local 'SELECT hostname FROM runtime_proxysql_servers;' "-h127.0.0.1 -P
 	| (grep $pod2 && exit 1 || :)
 
 destroy $namespace
+desc "test passed"

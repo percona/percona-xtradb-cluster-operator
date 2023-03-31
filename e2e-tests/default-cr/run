@@ -1,11 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 deploy_dir=$(realpath $(dirname $0)/../../deploy)
 . ${test_dir}/../functions
+
+set_debug
 
 function stop_cluster() {
 	local cluster_name=$1
@@ -89,6 +90,7 @@ function main() {
 	kubectl_bin patch secret ${cluster}-secrets --type merge --patch '{"stringData": {"pmmserverkey": '$API_KEY'}}'
 
 	sleep 20
+	desc "enable pmm"
 	kubectl_bin patch pxc/${cluster} --type=merge --patch '{
 			"spec": {"pmm":{"enabled":true}}
 		}'
@@ -96,6 +98,7 @@ function main() {
 	# since pxc cluster won't work without pmm server running consistency check would be enough
 	wait_cluster_consistency ${cluster} ${pxc_size} ${proxy_size}
 
+  desc "disable pmm"
 	kubectl_bin patch pxc/${cluster} --type=merge --patch '{
 			"spec": {"pmm":{"enabled":false}}
 		}'
@@ -115,17 +118,19 @@ function main() {
 	for i in $(seq 0 $((pxc_size - 1))); do
 		compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
 	done
-
+  desc "stop cluster"
 	stop_cluster ${cluster}
+	desc "start cluster"
 	start_cluster ${cluster}
 	wait_cluster_consistency ${cluster} ${pxc_size} ${proxy_size}
 
+  desc "compare data"
 	for i in $(seq 0 $((pxc_size - 1))); do
 		compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
 	done
 
 	kubectl_bin delete -f ${deploy_dir}/cr.yaml
-
+  desc "run cr-minimal"
 	cluster="$(yq eval '.metadata.name' ${deploy_dir}/cr-minimal.yaml)"
 	kubectl_bin apply -f ${deploy_dir}/cr-minimal.yaml
 
@@ -144,6 +149,7 @@ function main() {
 	compare_kubectl service/$(get_proxy ${cluster})-replicas
 
 	destroy $namespace
+	desc "test passed"
 }
 
 main

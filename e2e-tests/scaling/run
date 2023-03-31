@@ -1,11 +1,13 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
+
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="scaling"
+
+set_debug
 
 create_infra $namespace
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
@@ -53,3 +55,4 @@ run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE
     | ( grep "$cluster-pxc-4" && exit 1 || :)
 
 destroy $namespace
+desc "test passed"

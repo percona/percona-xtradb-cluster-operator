@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 check_verify_identity() {
 	local host="$1"
@@ -47,6 +48,7 @@ main() {
 	check_verify_identity "$cluster-haproxy"
 
 	destroy $namespace
+	desc "test passed"
 }
 
 main

@@ -69,7 +69,7 @@ main() {
 	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
 	sleep 40
 
-  desc "patch replica cluster secrets with replication user"
+	desc "patch replica cluster secrets with replication user"
 	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
 	sleep 15
 	wait_cluster_consistency "$replica_cluster" 3 2

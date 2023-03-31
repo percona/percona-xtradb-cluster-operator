@@ -25,8 +25,8 @@ main() {
   desc 'check if certificates issued with certmanager'
   tlsSecretsShouldExist "$cluster-ssl"
 
-  desc 'check if issuer created'
-  compare_kubectl clusterissuer/special-selfsigned-issuer
+	desc 'check if issuer created'
+	compare_kubectl clusterissuer/special-selfsigned-issuer
 
 	desc 'check if issuer used during certificate creation'
 	compare_kubectl certificate/$cluster-ssl

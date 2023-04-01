@@ -17,10 +17,10 @@ main() {
 	desc 'create issuer'
 	apply_config "$test_dir/conf/issuer.yml"
 
-  sleep 10
+	sleep 10
 
-  desc 'create pxc cluster'
-  spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml" "$test_dir/conf/client.yml"
+	desc 'create pxc cluster'
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 10 "$conf_dir/secrets_without_tls.yml" "$test_dir/conf/client.yml"
 
 	desc 'check if certificates issued with certmanager'
 	tlsSecretsShouldExist "$cluster-ssl"

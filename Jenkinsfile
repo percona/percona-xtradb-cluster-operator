@@ -197,15 +197,16 @@ void runTest(Integer TEST_ID) {
     def mysqlVer = tests[TEST_ID]["mysql_ver"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
     def testNameWithMysqlVersion = "$testName-$mysqlVer".replace(".", "-")
-    sh """
-            if [ $retryCount -eq 0 ]; then
-                export DEBUG_TESTS=0
-            else
-                export DEBUG_TESTS=1
-            fi
-    """
+
     waitUntil {
         def timeStart = new Date().getTime()
+        sh """
+                    if [ $retryCount -eq 0 ]; then
+                        export DEBUG_TESTS=0
+                    else
+                        export DEBUG_TESTS=1
+                    fi
+        """
         try {
             echo "The $testName-$mysqlVer test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
             tests[TEST_ID]["result"] = "failure"

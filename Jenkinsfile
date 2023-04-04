@@ -200,19 +200,17 @@ void runTest(Integer TEST_ID) {
 
     waitUntil {
         def timeStart = new Date().getTime()
-        sh """
-                    if [ $retryCount -eq 0 ]; then
-                        export DEBUG_TESTS=0
-                    else
-                        export DEBUG_TESTS=1
-                    fi
-        """
         try {
             echo "The $testName-$mysqlVer test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
+                    if [ $retryCount -eq 0 ]; then
+                        export DEBUG_TESTS=0
+                    else
+                        export DEBUG_TESTS=1
+                    fi
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export MYSQL_VERSION=$mysqlVer
                     source $HOME/google-cloud-sdk/path.bash.inc

@@ -239,7 +239,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
 				// because we never reach this point without finalizers
-				err = r.deleteStatefulSet(o, sfs, true, true)
+				err = r.deleteStatefulSet(o, sfs, true, false)
 			case "delete-pxc-pvc":
 				sfs = statefulset.NewNode(o)
 				err = r.deleteStatefulSet(o, sfs, true, true)

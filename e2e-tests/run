@@ -2,7 +2,6 @@
 
 set -o errexit
 
-set_debug
 dir=$(realpath "$(dirname "$0")")
 
 fail() {

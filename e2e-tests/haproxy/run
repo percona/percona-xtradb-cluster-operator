@@ -2,8 +2,6 @@
 
 set -o errexit
 
-set_debug
-
 test_default_replicas_service() {
 	kpatch_delete_field pxc $1 "/spec/haproxy/replicasServiceEnabled" && sleep 1
 	compare_kubectl "service/$1-haproxy-replicas"
@@ -22,6 +20,8 @@ test_enable_replicas_service() {
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 check_haproxy_writer() {
 	for i in $(seq 0 2); do

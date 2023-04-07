@@ -41,8 +41,8 @@ main() {
     create_infra $namespace
     kubectl_bin apply -f $conf_dir/secrets.yml
 
-    desc 'check if possible to create cluster without CPU/Memory limits'
-    check_cr_config "no-limits"
+	desc 'check if possible to create cluster without CPU/Memory limits'
+	check_cr_config "no-limits"
 
 	desc 'check if possible to create cluster without CPU/Memory requests'
 	check_cr_config "no-requests"

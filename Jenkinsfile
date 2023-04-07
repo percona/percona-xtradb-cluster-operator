@@ -447,16 +447,16 @@ pipeline {
                         clusterRunner('cluster7')
                     }
                 }
-                stage('cluster8') {
-                    steps {
-                        clusterRunner('cluster8')
-                    }
-                }
-                stage('cluster9') {
-                    steps {
-                        clusterRunner('cluster9')
-                    }
-                }
+//                 stage('cluster8') {
+//                     steps {
+//                         clusterRunner('cluster8')
+//                     }
+//                 }
+//                 stage('cluster9') {
+//                     steps {
+//                         clusterRunner('cluster9')
+//                     }
+//                 }
             }
         }
     }

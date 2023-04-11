@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 create_infra $namespace
 desc 'create first PXC cluster'
@@ -27,6 +28,7 @@ cat_config "$conf_dir/$cluster.yml" \
 wait_for_running "$cluster-proxysql" 1
 wait_for_running "$cluster-pxc" 3
 
+desc "check data"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
@@ -68,3 +70,4 @@ compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-3.$cl
 compare_mysql_cmd "select-3" "SELECT * from myApp.myApp;" "-h $cluster-pxc-4.$cluster-pxc -uroot -proot_password"
 
 destroy $namespace
+desc "test passed"

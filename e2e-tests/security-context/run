@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 create_infra $namespace
 deploy_cert_manager
@@ -80,3 +81,4 @@ if [[ -n ${OPENSHIFT} ]]; then
 	oc adm policy remove-scc-from-user privileged -z percona-xtradb-cluster-operator-workload
 fi
 destroy $namespace
+desc "test passed"

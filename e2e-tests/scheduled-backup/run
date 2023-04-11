@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 run_recovery_check() {
 	local cluster=$1
@@ -284,6 +285,7 @@ main() {
 
 	unlabel_node
 	destroy $namespace
+	desc "test passed"
 }
 
 main

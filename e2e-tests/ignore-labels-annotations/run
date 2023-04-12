@@ -183,7 +183,7 @@ check_service() {
   desc "check if ignored labels and annotations are deleted from $svc_name"
   compare_kubectl "service/$svc_name" "-no-ignored-meta"
 }
-# uncomment after https://jira.percona.com/browse/K8SPXC-927 https://jira.percona.com/browse/CLOUD-766
+# TODO: uncomment after https://jira.percona.com/browse/K8SPXC-927 https://jira.percona.com/browse/CLOUD-766
 #check_service "pxc"
 
 check_service "haproxy"

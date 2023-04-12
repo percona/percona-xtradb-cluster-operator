@@ -266,7 +266,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		return nil, errors.New("azure storage is not specified")
 	}
 	container, _ := azure.ContainerAndPrefix()
-	destination = strings.TrimPrefix(destination, "azure://"+container+"/")
+	destination = strings.TrimPrefix(destination, api.AzureBlobStoragePrefix+container+"/")
 	destination = strings.TrimPrefix(destination, container+"/")
 	envs := []corev1.EnvVar{
 		{

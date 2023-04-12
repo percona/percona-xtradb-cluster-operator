@@ -242,8 +242,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.New("s3 storage is not specified")
 		}
 		cr.Status.Destination = storage.S3.Bucket + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
-		if !strings.HasPrefix(storage.S3.Bucket, "s3://") {
-			cr.Status.Destination = "s3://" + cr.Status.Destination
+		if !strings.HasPrefix(storage.S3.Bucket, api.AwsBlobStoragePrefix) {
+			cr.Status.Destination = api.AwsBlobStoragePrefix + cr.Status.Destination
 		}
 
 		err := backup.SetStorageS3(&job.Spec, cr)
@@ -255,8 +255,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.New("azure storage is not specified")
 		}
 		cr.Status.Destination = storage.Azure.ContainerPath + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
-		if !strings.HasPrefix(storage.Azure.ContainerPath, "azure://") {
-			cr.Status.Destination = "azure://" + cr.Status.Destination
+		if !strings.HasPrefix(storage.Azure.ContainerPath, api.AzureBlobStoragePrefix) {
+			cr.Status.Destination = api.AzureBlobStoragePrefix + cr.Status.Destination
 		}
 
 		err := backup.SetStorageAzure(&job.Spec, cr)
@@ -330,7 +330,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			}
 			switch cr.Status.StorageType {
 			case api.BackupStorageS3:
-				if !strings.HasPrefix(cr.Status.Destination, "s3://") {
+				if !strings.HasPrefix(cr.Status.Destination, api.AwsBlobStoragePrefix) {
 					continue
 				}
 				err = r.runS3BackupFinalizer(cr)
@@ -392,7 +392,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 		return errors.Wrap(err, "new azure client")
 	}
 	container, _ := cr.Status.Azure.ContainerAndPrefix()
-	destination := strings.TrimPrefix(cr.Status.Destination, "azure://"+container+"/")
+	destination := strings.TrimPrefix(cr.Status.Destination, api.AzureBlobStoragePrefix+container+"/")
 	destination = strings.TrimPrefix(destination, container+"/")
 
 	log.Info("deleting backup from azure", "name", cr.Name, "containerName", container, "destination", destination)

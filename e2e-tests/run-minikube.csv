@@ -1,0 +1,8 @@
+affinity
+auto-tuning
+limits
+one-pod
+operator-self-healing-chaos
+scaling
+self-healing-advanced-chaos
+validation-hook

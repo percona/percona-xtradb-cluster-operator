@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 function jq_filter() {
 	local vault_root=$1
@@ -77,6 +78,7 @@ secrets = [ $transition_keys ]
 	done
 
 	destroy $namespace
+	desc "test passed"
 }
 
 main

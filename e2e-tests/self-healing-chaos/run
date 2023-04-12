@@ -1,11 +1,23 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="some-name"
+
+set_debug
+
+check_pod_restarted() {
+	local pod=$1
+	local nr_restarts=$(kubectl get pod $pod -ojson | jq '.status.containerStatuses[] | select(.name == "pxc").restartCount')
+
+	if [ $nr_restarts -eq 0 ]; then
+		echo "Chaos mesh didn't work for some reason. Please check!!!"
+		echo "Pod $pod restarts: $nr_restarts, but it should have been more!"
+		exit 1
+	fi
+}
 
 kill_pod() {
 	local pod=$1
@@ -19,7 +31,8 @@ kill_pod() {
 
 	# check if all 3 Pods started
 	wait_for_running $cluster-pxc 3
-	sleep 10
+	wait_cluster_consistency "$cluster" 3 2
+
 	desc 'check data consistency for chaosed Pod'
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-pxc -uroot -proot_password"
 }
@@ -45,7 +58,9 @@ fail_pod() {
 
 	# check if all 3 Pods started
 	wait_for_running $cluster-pxc 3
-	sleep 10
+	wait_cluster_consistency "$cluster" 3 2
+
+	check_pod_restarted $pod
 
 	desc 'check data consistency for chaosed Pod'
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-pxc -uroot -proot_password" "-2nd"
@@ -72,7 +87,7 @@ network_loss() {
 
 	# check if all 3 Pods started
 	wait_for_running $cluster-pxc 3
-	sleep 10
+	wait_cluster_consistency "$cluster" 3 2
 
 	desc 'check data consistency for chaosed Pod'
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $pod.$cluster-pxc -uroot -proot_password" "-3rd"
@@ -93,39 +108,35 @@ recreate() {
 		| grep -v ssor_regex \
 			>$tmp_dir/proxy-vars1.sql
 
-	local expected_result=$test_dir/compare/proxy-vars.sql
-	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f $test_dir/compare/proxy-vars-80.sql ]; then
-		expected_result=$test_dir/compare/proxy-vars-80.sql
-	fi
-	diff -u $expected_result $tmp_dir/proxy-vars1.sql
+	$sed -i "/admin-version/d" $tmp_dir/proxy-vars1.sql
+	$sed -i "/mysql-server_version/d" $tmp_dir/proxy-vars1.sql
+	diff -u $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars1.sql
 
-	# delete cluster
+	desc "delete cluster"
 	kubectl delete \
 		-f $conf_dir/$cluster.yml
 	wait_for_delete pod/$cluster-pxc-2
 	wait_for_delete pod/$cluster-pxc-1
 	wait_for_delete pod/$cluster-pxc-0
 
-	# recreate cluster
+	desc "recreate cluster"
 	apply_config "$conf_dir/$cluster.yml"
 
 	wait_for_running $cluster-pxc 3
+	wait_cluster_consistency "$cluster" 3 2
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password" "-3rd"
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password" "-3rd"
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password" "-3rd"
 
-	sleep 90
 	run_mysql_local \
 		'SELECT * FROM global_variables ORDER BY variable_name' \
 		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
 		| grep -v ssor_regex \
 			>$tmp_dir/proxy-vars2.sql
 
-	local expected_result=$test_dir/compare/proxy-vars.sql
-	if [[ $IMAGE_PXC =~ 8\.0 ]] && [ -f $test_dir/compare/proxy-vars-80.sql ]; then
-		expected_result=$test_dir/compare/proxy-vars-80.sql
-	fi
-	diff -u $expected_result $tmp_dir/proxy-vars2.sql
+	$sed -i "/admin-version/d" $tmp_dir/proxy-vars2.sql
+	$sed -i "/mysql-server_version/d" $tmp_dir/proxy-vars2.sql
+	diff -u $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars2.sql
 }
 
 main() {
@@ -149,6 +160,7 @@ main() {
 
 	destroy_chaos_mesh
 	destroy $namespace
+	desc "test passed"
 }
 
 main

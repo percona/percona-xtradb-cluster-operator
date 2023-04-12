@@ -6,7 +6,7 @@ demand-backup-encrypted-with-tls,8.0
 demand-backup,8.0
 haproxy,5.7
 haproxy,8.0
-ignore-annotations,8.0
+ignore-labels-annotations,8.0
 init-deploy,5.7
 init-deploy,8.0
 limits,8.0

@@ -18,6 +18,7 @@ $dir/demand-backup-encrypted-with-tls/run || fail "demand-backup-encrypted-with-
 $dir/demand-backup/run || fail "demand-backup"
 $dir/demand-backup-cloud/run || fail "demand-backup-cloud"
 $dir/haproxy/run || fail "haproxy"
+$dir/ignore-annotations/run || fail "ignore-annotations"
 $dir/init-deploy/run || fail "init-deploy"
 $dir/limits/run || fail "limits"
 $dir/monitoring-2-0/run || fail "monitoring-2-0"

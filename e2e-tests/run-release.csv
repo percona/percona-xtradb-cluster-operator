@@ -7,6 +7,7 @@ demand-backup
 demand-backup-cloud
 demand-backup-encrypted-with-tls
 haproxy
+ignore-annotations
 init-deploy
 limits
 monitoring-2-0

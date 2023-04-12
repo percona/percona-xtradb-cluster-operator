@@ -1,0 +1,212 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+create_infra $namespace
+
+desc 'create PXC cluster'
+
+cluster="ignore-annotations"
+
+create_infra $namespace
+kubectl_bin apply -f $conf_dir/secrets.yml
+spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+check_service() {
+  service_type=$1
+
+	local expose_path
+	local svc_name
+	case $service_type in
+
+		"pxc")
+			expose_path="/spec/pxc/expose"
+			svc_name="$cluster-pxc-0"
+			annotation_path="annotations"
+			label_path="labels"
+			;;
+
+		"haproxy")
+			expose_path="/spec/haproxy"
+			svc_name="$cluster-haproxy"
+			annotation_path="serviceAnnotations"
+			label_path="serviceLabels"
+			;;
+
+		"proxysql")
+			expose_path="/spec/proxysql"
+			svc_name="$cluster-proxysql"
+			annotation_path="serviceAnnotations"
+			label_path="serviceLabels"
+			;;
+
+		*)
+			desc 'unknown check_service argument'
+			exit 1
+			;;
+	esac
+	desc "add labels and annotation manually to service $svc_name"
+	# `notIgnoredLabel` and `notIgnoredAnnotation` should be deleted
+	kubectl_bin patch "service/$svc_name" --type=json --patch '[
+        {
+            "op": "add",
+            "path": "/metadata/labels",
+            "value": {
+                "notIgnoredLabel": "true",
+                "ignoredLabel": "true"
+            }
+        },
+        {
+            "op": "add",
+            "path": "/metadata/annotations",
+            "value": {
+                "notIgnoredAnnotation": "true",
+                "ignoredAnnotation": "true"
+            }
+        }]'
+
+	sleep 10 # waiting for reconcile. 5 seconds it is not enough in some cases.
+	desc "check if annotations/labels are not deleted from service $svc_name"
+	compare_kubectl "service/$svc_name" "-manual"
+
+	desc "adding ignoreAnnotations and ignoreLabels"
+	kubectl_bin patch pxc "$cluster" --type=json --patch '[
+        {
+            "op": "add",
+            "path": "/spec/ignoreAnnotations",
+            "value": ["ignoredAnnotation"]
+        },
+        {
+            "op": "add",
+            "path": "/spec/ignoreLabels",
+            "value": ["ignoredLabel"]
+        }
+    ]'
+	sleep 10
+	desc "check if annotations/labels are not deleted from service $svc_name"
+	compare_kubectl "service/$svc_name" "-manual"
+
+	desc "adding serviceLabels and serviceAnnotations to $expose_path"
+	kubectl_bin patch pxc ${cluster} --type=json --patch '[
+        {
+            "op": "replace",
+            "path": "'$expose_path'/'$label_path'",
+			"value": {
+				"crLabel": "true",
+			}
+        },
+        {
+            "op": "replace",
+            "path": "'$expose_path'/'$annotation_path'",
+			"value": {
+				"crAnnotation": "true",
+			}
+        }]'
+	sleep 10
+	desc "check if not ignored labels and annotations are deleted from service $svc_name"
+	compare_kubectl "service/$svc_name" "-crmeta"
+
+	desc "removing serviceLabels and serviceAnnotations from $expose_path"
+	kubectl_bin patch pxc ${cluster} --type=json --patch '[
+        {
+            "op": "remove",
+            "path": "'$expose_path'/'$annotation_path'"
+        }]'
+  if [ ${service_type} != "pxc" ]; then
+    kubectl_bin patch pxc ${cluster} --type=json --patch '[
+          {
+              "op": "remove",
+              "path": "'$expose_path'/'$label_path'"
+          }]'
+  fi
+	sleep 10
+	desc "check if labels and annotations are not deleted from service $svc_name"
+	compare_kubectl "service/$svc_name" "-crmeta"
+
+	desc "adding other serviceLabels and serviceAnnotations to $expose_path"
+	kubectl_bin patch pxc ${cluster} --type=json --patch '[
+        {
+            "op": "replace",
+            "path": "'$expose_path'/'$label_path'",
+			"value": {
+				"otherCrLabel": "true",
+				"secondCrLabel": "true",
+			}
+        },
+		{
+            "op": "replace",
+            "path": "'$expose_path'/'$annotation_path'",
+			"value": {
+				"otherCrAnnotation": "true",
+				"secondCrAnnotation": "true",
+			}
+		}]'
+	sleep 25
+	desc "check if not previous service labels and annotations is deleted from $svc_name"
+	compare_kubectl "service/$svc_name" "-two-service-labels-annotations"
+
+	desc "adding removing one serviceLabels from $expose_path"
+	kubectl_bin patch pxc ${cluster} --type=json --patch '[
+        {
+            "op": "replace",
+            "path": "'$expose_path'/'$label_path'",
+			"value": {
+				"otherCrLabel": "true",
+			}
+        },
+        {
+            "op": "replace",
+            "path": "'$expose_path'/'$annotation_path'",
+			"value": {
+				"otherCrAnnotation": "true",
+			}
+        }]'
+	sleep 10
+	desc "check if removed service label is deleted from $svc_name"
+	compare_kubectl "service/$svc_name" "-one-service-label-annotation"
+
+	desc "removing ignoreLabels and ignoreAnnotations"
+	# When `serviceLabels` and `serviceAnnotations` are not set, old metadata should stay
+	kubectl_bin patch pxc ${cluster} --type=json --patch '[
+        {
+            "op": "remove",
+            "path": "/spec/ignoreAnnotations",
+        },
+        {
+            "op": "remove",
+            "path": "/spec/ignoreLabels",
+        }]'
+
+	sleep 10 # waiting for reconcile
+	desc "check if ignored labels and annotations are deleted from $svc_name"
+	compare_kubectl "service/$svc_name" "-no-ignored-meta"
+}
+# uncomment after https://jira.percona.com/browse/K8SPXC-927 https://jira.percona.com/browse/CLOUD-766
+#check_service "pxc"
+
+check_service "haproxy"
+
+desc "Switch cluster from haproxy to proxysql"
+kubectl_bin patch pxc ${cluster} --type=json --patch '[
+        {
+            "op": "replace",
+            "path": "/spec/haproxy/enabled",
+            "value":false,
+        },
+        {
+            "op": "replace",
+            "path": "/spec/proxysql/enabled",
+            "value":true
+        }]'
+
+wait_cluster_consistency "${cluster}" 3 2
+
+check_service "proxysql"
+
+destroy "${namespace}"
+desc "test passed"

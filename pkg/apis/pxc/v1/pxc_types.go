@@ -538,6 +538,7 @@ const (
 	AzureBlobStoragePrefix string = "azure://"
 	AwsBlobStoragePrefix   string = "s3://"
 )
+
 // ContainerAndPrefix returns container name and backup prefix from ContainerPath.
 // BackupStorageAzureSpec.ContainerPath can contain backup path in format `<container-name>/<backup-prefix>`.
 func (b *BackupStorageAzureSpec) ContainerAndPrefix() (string, string) {

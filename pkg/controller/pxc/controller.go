@@ -239,10 +239,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
 				// because we never reach this point without finalizers
-				err = r.deleteStatefulSet(o, sfs, true)
+				err = r.deleteStatefulSet(o, sfs, true, false)
 			case "delete-pxc-pvc":
 				sfs = statefulset.NewNode(o)
-				err = r.deleteStatefulSet(o, sfs, true)
+				err = r.deleteStatefulSet(o, sfs, true, true)
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
 			case "delete-pxc-pods-in-order":
@@ -412,7 +412,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			}
 		}
 
-		err = r.deleteStatefulSet(o, proxysqlSet, deletePVC)
+		err = r.deleteStatefulSet(o, proxysqlSet, deletePVC, false)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -462,7 +462,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCl
 			return errors.Wrap(err, "delete HAProxy service")
 		}
 
-		if err := r.deleteStatefulSet(cr, statefulset.NewHAProxy(cr), false); err != nil {
+		if err := r.deleteStatefulSet(cr, statefulset.NewHAProxy(cr), false, false); err != nil {
 			return errors.Wrap(err, "delete HAProxy stateful set")
 		}
 
@@ -997,7 +997,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	return errors.New("waiting for pods to be deleted")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp, deletePVC bool) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp, deletePVC, deleteSecrets bool) error {
 	sfsWithOwner := appsv1.StatefulSet{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      sfs.StatefulSet().Name,
@@ -1024,7 +1024,9 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 		if err != nil {
 			return errors.Wrapf(err, "delete pvc: %s", sfs.StatefulSet().Name)
 		}
+	}
 
+	if deleteSecrets {
 		err = r.deleteSecrets(cr)
 		if err != nil {
 			return errors.Wrap(err, "delete secrets")

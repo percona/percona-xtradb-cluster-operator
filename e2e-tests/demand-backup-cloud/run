@@ -8,10 +8,24 @@ test_dir=$(realpath $(dirname $0))
 set_debug
 
 run_recovery_from_source() {
-	desc "aws restore with backup source"
+	local storage_type=${1:-s3}
+	local backup_name=${2:-on-demand-backup-aws-s3}
+	local remove_bucket_or_container_name=${3:-""}
+	local remove_prefix_from_destination=${4:-""}
 
-	stext=$(kubectl_bin get pxc-backup on-demand-backup-aws-s3 -o json | jq -c '.status')
-	jq --argjson s "$stext" '.spec.backupSource=$s' $test_dir/conf/restore-from-source-backup-aws-s3.json \
+	remove_options=""
+	if [ -n "$remove_bucket_or_container_name" ]; then
+		remove_options=", .$storage_type.bucket, .$storage_type.container"
+	fi
+
+	remove_prefix='test'
+	if [ -n "${remove_prefix_from_destination}" -a -z "${remove_bucket_or_container_name}" ]; then
+		remove_prefix="$storage_type"
+	fi
+
+	desc "$storage_type restore with backup source"
+	stext=$(kubectl_bin get pxc-backup $backup_name -o json | jq -c '.status | {'"$storage_type"', destination} | del(.'"$storage_type"'.endpointUrl, .'"$storage_type"'.storageClass '"$remove_options"')' | $sed "s|$remove_prefix://||")
+	jq --argjson s "$stext" --arg restore_name "on-demand-backup-$storage_type" '.spec.backupSource=$s | .metadata.name=$restore_name' $test_dir/conf/restore-from-source-backup.json \
 		| kubectl_bin apply -f -
 	sleep 30
 	wait_for_running "$cluster-proxysql" 1
@@ -38,20 +52,49 @@ main() {
 		backup_name_gcp="on-demand-backup-gcp-cs"
 		backup_name_azure="on-demand-backup-azure-blob"
 
+		desc "Run backup ${backup_name_aws} for $cluster cluster"
 		run_backup "$cluster" "${backup_name_aws}"
+
+		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_aws}"
 
+		desc "Run recovery from s3 source with defult optoins"
 		run_recovery_from_source
 
+		desc 'Run recovery from s3 source without s3:// prefix in destination'
+		run_recovery_from_source 's3' "${backup_name_aws}" '' 'remove_prefix_from_destination'
+
+		desc 'Run recovery from s3 source without bucket option'
+		run_recovery_from_source 's3' "${backup_name_aws}" 'remove_bucket_name'
+		compare_kubectl job.batch/xb-"${backup_name_aws}"
+		compare_kubectl job.batch/restore-job-on-demand-backup-s3-demand-backup-cloud
+
+		desc "Run backup ${backup_name_gcp} for $cluster cluster"
 		run_backup "$cluster" "${backup_name_gcp}"
+
+		desc "Run recovery from s3 for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_gcp}"
 
+		desc "Run backup ${backup_name_azure} for $cluster cluster"
 		run_backup "$cluster" "${backup_name_azure}"
+
+		desc "Run recovery from azure for $cluster cluster"
 		run_recovery_check "$cluster" "${backup_name_azure}"
+
+		desc "Run recovery from azure source with defult optoins"
+		run_recovery_from_source 'azure' "${backup_name_azure}"
+
+		desc 'Run recovery from azure source without azure:// prefix in destination'
+		run_recovery_from_source 'azure' "${backup_name_azure}" '' 'remove_prefix_from_destination'
+
+		desc 'Run recovery from azure source without container option'
+		run_recovery_from_source 'azure' "${backup_name_azure}" 'remove_container_name'
+		compare_kubectl job.batch/xb-"${backup_name_azure}"
+		compare_kubectl job.batch/restore-job-on-demand-backup-azure-demand-backup-cloud
 
 		backup_dest_aws=$(kubectl_bin get pxc-backup "$backup_name_aws" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
 		backup_dest_gcp=$(kubectl_bin get pxc-backup "$backup_name_gcp" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
-		backup_dest_azure=$(kubectl_bin get pxc-backup "$backup_name_azure" -o jsonpath='{.status.destination}' | sed -e 's/.json$//')
+		backup_dest_azure=$(kubectl_bin get pxc-backup "$backup_name_azure" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
 
 		desc "Check backup existence"
 		check_backup_existence "https://s3.amazonaws.com/${backup_dest_aws}.sst_info/sst_info.00000000000000000000" "aws-s3"

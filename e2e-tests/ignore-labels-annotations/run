@@ -143,7 +143,7 @@ check_service() {
 				"secondCrAnnotation": "true",
 			}
 		}]'
-  sleep 25
+  sleep 25 # we need more time to update proxysql service
   desc "check if not previous service labels and annotations is deleted from $svc_name"
   compare_kubectl "service/$svc_name" "-two-service-labels-annotations"
 

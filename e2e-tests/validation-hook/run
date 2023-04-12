@@ -10,33 +10,34 @@ test_dir=$(realpath $(dirname $0))
 create_infra $namespace
 
 set +e # don't exit on errors, we're expecting them
+desc "cr with invalid version"
 output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-invalid-version.yaml")
 if [[ $output != *"invalid cr version"* ]]; then
 	echo 'invalid hook response'
 	exit 1
 fi
-
+desc "cr with too long name"
 output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-too-long-name.yaml")
 
 if [[ $output != *"too long, must be no more than 22 characters"* ]]; then
 	echo 'invalid hook response'
 	exit 1
 fi
-
+desc "cr with haproxy and proxysql"
 output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-haproxy-and-proxysql.yaml")
 
 if [[ $output != *"can't enable both HAProxy and ProxySQL"* ]]; then
 	echo 'invalid hook response'
 	exit 1
 fi
-
+desc "cr with no storage"
 output=$(kubectl 2>&1 apply -f "$test_dir/conf/cr-with-no-storage.yaml")
 
 if [[ $output != *"PXC: volumeSpec should be specified"* ]]; then
 	echo 'invalid hook response'
 	exit 1
 fi
-
+desc "cr simple"
 if ! kubectl apply -f "$test_dir/conf/cr-simple.yaml"; then
 	echo "ERROR: unable to apply simple CR"
 	exit 1
@@ -67,3 +68,4 @@ elif ((output != replicas_num)); then
 fi
 
 destroy $namespace
+desc "test passed"

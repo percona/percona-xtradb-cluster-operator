@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_default_replicas_service() {
 	kpatch_delete_field pxc $1 "/spec/haproxy/replicasServiceEnabled" && sleep 1
@@ -21,6 +20,8 @@ test_enable_replicas_service() {
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 check_haproxy_writer() {
 	for i in $(seq 0 2); do
@@ -105,6 +106,7 @@ main() {
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn-secret.txt
 	desc 'clean up'
 	destroy $namespace
+	desc "test passed"
 }
 
 main

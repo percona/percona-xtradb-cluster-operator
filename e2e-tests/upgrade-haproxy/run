@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 CLUSTER="upgrade-haproxy"
 CLUSTER_SIZE=3
@@ -146,6 +147,7 @@ function main() {
 	desc 'cleanup'
 	destroy "${namespace}"
 	kubectl delete crd $(kubectl get crd | grep 'perconaxtradbcluster' | awk '{print $1}' | tr '\n' ' ') || :
+	desc "test passed"
 }
 
 main

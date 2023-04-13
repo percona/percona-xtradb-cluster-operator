@@ -321,6 +321,25 @@ wait_for_running() {
 	done
 }
 
+wait_for_generation() {
+	local resource="$1"
+	local target_generation="$2"
+
+	echo "Waiting for $resource to reach generation $target_generation..."
+
+	while true; do
+		current_generation=$(kubectl get "$resource" -o jsonpath='{.metadata.generation}')
+
+		if [ "$current_generation" -eq "$target_generation" ]; then
+			echo "Resource $resource has reached generation $target_generation."
+			break
+		else
+			echo "Resource $resource is at generation $current_generation. Waiting..."
+			sleep 5
+		fi
+	done
+}
+
 wait_for_delete() {
 	local res="$1"
 
@@ -388,6 +407,7 @@ compare_kubectl() {
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
 			del(.metadata.annotations."cloud.google.com/neg") |
+			del(.spec.template.metadata.annotations."last-applied-secret") |
 			del(.. | select(has("image")).image) |
 			del(.. | select(has("clusterIP")).clusterIP) |
 			del(.. | select(has("clusterIPs")).clusterIPs) |
@@ -685,8 +705,12 @@ get_metric_values() {
 	local end=$($date -u "+%s")
 	local endpoint=$(get_service_endpoint monitoring-service)
 
-	curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=min%28$metric%7Bnode_name%3D%7E%22$instance%22%7d%20or%20$metric%7Bnode_name%3D%7E%22$instance%22%7D%29&start=$start&end=$end&step=60" \
-		| jq '.data.result[0].values[][1]' \
+	local result=$(curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=min%28$metric%7Bnode_name%3D%7E%22$instance%22%7d%20or%20$metric%7Bnode_name%3D%7E%22$instance%22%7D%29&start=$start&end=$end&step=60" | jq '.data.result[0]')
+	if [ "$result" = "null" ]; then
+		echo "no values for metric $metric"
+		exit 1
+	fi
+	echo -n "$result" | jq '.values[][1]' \
 		| grep '^"[0-9]'
 
 }
@@ -815,7 +839,7 @@ spinup_pxc() {
 	desc 'create first PXC cluster'
 	kubectl_bin apply -f $secretsFile
 	apply_config "$pxcClientFile"
-	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$cluster" == 'demand-backup' || "$cluster" == 'demand-backup-cloud' ]]; then
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ $cluster == 'demand-backup' || $cluster == 'demand-backup-cloud' ]]; then
 		cat_config "$config" \
 			| $sed '/\[sst\]/,+1d' \
 			| $sed 's|compress=lz4|compress|' \

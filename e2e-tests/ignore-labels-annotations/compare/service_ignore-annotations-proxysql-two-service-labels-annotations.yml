@@ -20,7 +20,6 @@ metadata:
       kind: PerconaXtraDBCluster
       name: ignore-annotations
 spec:
-  internalTrafficPolicy: Cluster
   ports:
     - name: mysql
       port: 3306

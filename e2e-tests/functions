@@ -160,7 +160,7 @@ wait_pod() {
 	local ns=$3
 	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
 
-  set +o xtrace
+	set +o xtrace
 	retry=0
 	echo -n $pod
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
@@ -187,7 +187,7 @@ wait_crash_pod() {
 	local ns=$3
 	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
 
-  set +o xtrace
+	set +o xtrace
 	retry=0
 	echo -n $pod
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
@@ -212,7 +212,7 @@ wait_backup() {
 	local backup=$1
 	local status=${2:-'Succeeded'}
 
-  set +o xtrace
+	set +o xtrace
 	retry=0
 	echo -n $backup
 	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
@@ -232,7 +232,7 @@ wait_backup_restore() {
 	local backup_name=$1
 	local status=${2:-'Succeeded'}
 	desc "wait backup restore"
-  set +o xtrace
+	set +o xtrace
 	retry=0
 	echo -n $backup_name
 	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
@@ -447,7 +447,7 @@ run_mysql() {
 	wait_pod $client_pod 1>&2
   set +o xtrace
 	kubectl_bin exec $client_pod -- \
-		bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
+	set +o xtrace
 		| sed -e 's/mysql: //' \
 		| (grep -v 'Using a password on the command line interface can be insecure.' || :)
 
@@ -461,7 +461,7 @@ run_mysql_local() {
 	local container_name="$4"
   set +o xtrace
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
-		bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
+	set +o xtrace
 		| sed -e 's/mysql: //' \
 		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
 	set_debug

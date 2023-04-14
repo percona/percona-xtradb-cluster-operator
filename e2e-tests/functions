@@ -447,7 +447,7 @@ run_mysql() {
 	wait_pod $client_pod 1>&2
   set +o xtrace
 	kubectl_bin exec $client_pod -- \
-	set +o xtrace
+	  bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| (grep -v 'Using a password on the command line interface can be insecure.' || :)
 
@@ -461,7 +461,7 @@ run_mysql_local() {
 	local container_name="$4"
   set +o xtrace
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
-	set +o xtrace
+    bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
 	set_debug

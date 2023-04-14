@@ -450,6 +450,7 @@ run_mysql() {
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| (grep -v 'Using a password on the command line interface can be insecure.' || :)
+
 	set_debug
 }
 

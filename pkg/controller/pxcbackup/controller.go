@@ -370,7 +370,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(ctx context.C
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
-	log := r.logger(cr.Name, cr.Namespace)
+	log := logf.FromContext(ctx)
+
 	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified")
 	}

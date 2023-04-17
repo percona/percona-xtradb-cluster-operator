@@ -38,7 +38,7 @@ Contributions to the source tree should follow the workflow described below:
    ```
    git add .
    git commit -m "K8SPXC-622 fixed by ......"
-   git push -u origin K8SPXC-622-fix-feature X
+   git push -u origin K8SPXC-622-fix-feature-X
    ```
 
 3. Create a pull request to the main repository on GitHub.

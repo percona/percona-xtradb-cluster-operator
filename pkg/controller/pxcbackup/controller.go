@@ -3,7 +3,6 @@ package pxcbackup
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"reflect"
 	"strconv"
@@ -230,8 +229,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.New("s3 storage is not specified")
 		}
 		cr.Status.Destination = storage.S3.Bucket + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
-		if !strings.HasPrefix(storage.S3.Bucket, "s3://") {
-			cr.Status.Destination = "s3://" + cr.Status.Destination
+		if !strings.HasPrefix(storage.S3.Bucket, api.AwsBlobStoragePrefix) {
+			cr.Status.Destination = api.AwsBlobStoragePrefix + cr.Status.Destination
 		}
 
 		err := backup.SetStorageS3(&job.Spec, cr)
@@ -243,6 +242,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.New("azure storage is not specified")
 		}
 		cr.Status.Destination = storage.Azure.ContainerPath + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
+		if !strings.HasPrefix(storage.Azure.ContainerPath, api.AzureBlobStoragePrefix) {
+			cr.Status.Destination = api.AzureBlobStoragePrefix + cr.Status.Destination
+		}
+
 		err := backup.SetStorageAzure(&job.Spec, cr)
 		if err != nil {
 			return rr, errors.Wrap(err, "set storage FS for Azure")
@@ -314,7 +317,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			}
 			switch cr.Status.StorageType {
 			case api.BackupStorageS3:
-				if !strings.HasPrefix(cr.Status.Destination, "s3://") {
+				if !strings.HasPrefix(cr.Status.Destination, api.AwsBlobStoragePrefix) {
 					continue
 				}
 				err = r.runS3BackupFinalizer(ctx, cr)
@@ -354,10 +357,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(ctx context.C
 	} else if k8sErrors.IsNotFound(err) {
 		return nil
 	}
-	log.Info("deleting backup from s3", "name", cr.Name)
 
 	spl := strings.Split(cr.Status.Destination, "/")
 	backup := spl[len(spl)-1]
+
+	log.Info("deleting backup from s3", "name", cr.Name, "bucket", cr.Status.S3.Bucket, "backupName", backup)
 	err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeS3Backup(cr.Status.S3.Bucket, backup, s3cli))
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
@@ -366,6 +370,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(ctx context.C
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	log := r.logger(cr.Name, cr.Namespace)
 	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified")
 	}
@@ -374,8 +379,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 		return errors.Wrap(err, "new azure client")
 	}
 	container, _ := cr.Status.Azure.ContainerAndPrefix()
-	destination := strings.TrimPrefix(cr.Status.Destination, container+"/")
+	destination := strings.TrimPrefix(cr.Status.Destination, api.AzureBlobStoragePrefix+container+"/")
+	destination = strings.TrimPrefix(destination, container+"/")
 
+	log.Info("deleting backup from azure", "name", cr.Name, "containerName", container, "destination", destination)
 	err = retry.OnError(retry.DefaultBackoff,
 		func(e error) bool {
 			return true
@@ -394,7 +401,7 @@ func removeAzureBackup(ctx context.Context, cli *azblob.Client, container, desti
 			return errors.Wrap(err, "list backup blobs")
 		}
 		for _, blob := range blobs {
-			_, err = cli.DeleteBlob(ctx, container, url.QueryEscape(blob), nil)
+			_, err = cli.DeleteBlob(ctx, container, blob, nil)
 			if err != nil {
 				return errors.Wrapf(err, "delete blob %s", blob)
 			}
@@ -404,7 +411,7 @@ func removeAzureBackup(ctx context.Context, cli *azblob.Client, container, desti
 			return errors.Wrap(err, "list backup blobs")
 		}
 		for _, blob := range blobs {
-			_, err = cli.DeleteBlob(ctx, container, url.QueryEscape(blob), nil)
+			_, err = cli.DeleteBlob(ctx, container, blob, nil)
 			if err != nil {
 				return errors.Wrapf(err, "delete blob %s", blob)
 			}

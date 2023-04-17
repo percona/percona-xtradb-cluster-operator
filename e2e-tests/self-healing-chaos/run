@@ -1,11 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="some-name"
+
+set_debug
 
 check_pod_restarted() {
 	local pod=$1
@@ -111,14 +112,14 @@ recreate() {
 	$sed -i "/mysql-server_version/d" $tmp_dir/proxy-vars1.sql
 	diff -u $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars1.sql
 
-	# delete cluster
+	desc "delete cluster"
 	kubectl delete \
 		-f $conf_dir/$cluster.yml
 	wait_for_delete pod/$cluster-pxc-2
 	wait_for_delete pod/$cluster-pxc-1
 	wait_for_delete pod/$cluster-pxc-0
 
-	# recreate cluster
+	desc "recreate cluster"
 	apply_config "$conf_dir/$cluster.yml"
 
 	wait_for_running $cluster-pxc 3
@@ -159,6 +160,7 @@ main() {
 
 	destroy_chaos_mesh
 	destroy $namespace
+	desc "test passed"
 }
 
 main

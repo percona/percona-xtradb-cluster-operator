@@ -23,11 +23,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 	destination := bcp.Status.Destination
 	switch {
 	case strings.HasPrefix(bcp.Status.Destination, "pvc/"):
-		return errors.Wrap(r.restorePVC(cr, bcp, strings.TrimPrefix(destination, "pvc/"), cluster.Spec), "pvc")
+		return errors.Wrap(r.restorePVC(cr, bcp, strings.TrimPrefix(destination, "pvc/"), cluster), "pvc")
 	case strings.HasPrefix(bcp.Status.Destination, api.AwsBlobStoragePrefix):
 		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(destination, api.AwsBlobStoragePrefix), cluster, false), "s3")
 	case bcp.Status.Azure != nil:
-		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster.Spec, false), "azure")
+		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster, false), "azure")
 	default:
 		return errors.Errorf("unknown backup storage type")
 	}
@@ -39,12 +39,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) pitr(cr *api.PerconaXtraDBCluster
 	case strings.HasPrefix(dest, api.AwsBlobStoragePrefix):
 		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(dest, api.AwsBlobStoragePrefix), cluster, true), "PITR restore s3")
 	case bcp.Status.Azure != nil:
-		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster.Spec, true), "PITR restore azure")
+		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster, true), "PITR restore azure")
 	}
 	return errors.Errorf("unknown storage type")
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster api.PerconaXtraDBClusterSpec) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster *api.PerconaXtraDBCluster) error {
 	svc := backup.PVCRestoreService(cr)
 	k8s.SetControllerReference(cr, svc, r.scheme)
 	pod, err := backup.PVCRestorePod(cr, bcp.Status.StorageName, pvcName, cluster)
@@ -53,7 +53,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBC
 	}
 	k8s.SetControllerReference(cr, pod, r.scheme)
 
-	job, err := backup.PVCRestoreJob(cr, cluster)
+	job, err := backup.PVCRestoreJob(cr, cluster, bcp)
 	if err != nil {
 		return errors.Wrap(err, "restore job")
 	}
@@ -90,7 +90,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBC
 
 	return r.createJob(job)
 }
-func (r *ReconcilePerconaXtraDBClusterRestore) restoreAzure(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, dest string, cluster api.PerconaXtraDBClusterSpec, pitr bool) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) restoreAzure(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, dest string, cluster *api.PerconaXtraDBCluster, pitr bool) error {
 	job, err := backup.AzureRestoreJob(cr, bcp, cluster, dest, pitr)
 	if err != nil {
 		return err

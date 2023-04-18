@@ -6,7 +6,7 @@ metadata:
     - delete-pxc-pods-in-order
 #    - delete-ssl
 #    - delete-proxysql-pvc
-#    - delete-pxc-pvc
+    - delete-pxc-pvc
 #  annotations:
 #    percona.com/issue-vault-token: "true"
 spec:
@@ -40,7 +40,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.29-21.1
+    image: percona/percona-xtradb-cluster:invalid
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -498,13 +498,6 @@ spec:
       enabled: false
       storageName: STORAGE-NAME-HERE
       timeBetweenUploads: 60
-#      resources:
-#        requests:
-#          memory: 0.1G
-#          cpu: 100m
-#        limits:
-#          memory: 1G
-#          cpu: 700m
     storages:
       s3-us-west:
         type: s3

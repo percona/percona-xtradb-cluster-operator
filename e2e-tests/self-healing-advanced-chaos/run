@@ -1,11 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . "${test_dir}"/../functions
 cluster="self-healing-advanced"
+
+set_debug
 
 crash_cluster_with_kubectl() {
 	# run chaos for Pods
@@ -74,6 +75,7 @@ main() {
 
 	destroy_chaos_mesh
 	destroy "$namespace"
+	desc "test passed"
 }
 
 main

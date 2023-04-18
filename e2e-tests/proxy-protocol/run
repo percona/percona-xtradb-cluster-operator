@@ -1,11 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 cluster="proxy-protocol"
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 	echo "Skipping proxy-protocol test because 5.7 doesn't support it!"
@@ -13,6 +14,7 @@ if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 fi
 
 prepare_config() {
+	desc "prepare config"
 	nodes=$(kubectl get nodes | grep -v "NAME" | grep -v 'master' | awk '{print $1}')
 	if [ $(printf "${nodes}\n" | wc -l) -lt 3 ]; then
 		echo "3 nodes are expected for this test to run."
@@ -63,3 +65,4 @@ fi
 desc 'cleanup'
 kubectl_bin delete -f ${test_dir}/conf/${cluster}.yml
 destroy ${namespace}
+desc "test passed"

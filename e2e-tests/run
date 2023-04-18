@@ -1,6 +1,5 @@
 #!/bin/bash
 
-set -o xtrace
 set -o errexit
 
 dir=$(realpath "$(dirname "$0")")

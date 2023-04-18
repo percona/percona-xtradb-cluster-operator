@@ -1,6 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
+  annotations: {}
   generation: 1
   labels:
     job-name: restore-job-on-demand-backup-s3-demand-backup-cloud

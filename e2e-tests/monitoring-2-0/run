@@ -82,8 +82,7 @@ compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-haproxy
 
 desc 'verify clients agents statuses'
-diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace} )
-
+diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace})
 
 desc 'check mysql metrics'
 get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin

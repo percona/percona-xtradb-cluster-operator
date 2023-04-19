@@ -19,7 +19,7 @@ EOF
 	curl -s -k -H "Authorization: Bearer ${api_key}" -XPOST -d @payload.json "https://$endpoint/v1/management/Service/List" \
 		| jq 'walk(if type=="object" then with_entries(select(.key | test("service_id|node_id|agent_id|created_at|updated_at|service_name") | not)) else . end)' \
 		| jq 'walk(if type == "array" then sort_by(.agent_type) else . end)' \
-		>${tmp_dir}/active_pmm_agents.json
+			>${tmp_dir}/active_pmm_agents.json
 
 	# Pmm server is serving one namespace only, so stripping the namespace name out
 	$sed -i 's/'${namespace}'-//g' ${tmp_dir}/active_pmm_agents.json

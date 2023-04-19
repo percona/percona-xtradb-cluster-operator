@@ -161,6 +161,7 @@ wait_pod() {
 	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
 
 	set +o xtrace
+	kubectl_bin wait --for=condition=Ready pod/${pod} --timeout="${max_retry}s" ${ns:+-n $ns} || true
 	retry=0
 	echo -n $pod
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
@@ -280,6 +281,12 @@ deploy_operator() {
 	fi
 
 	sleep 10
+
+	kubectl_bin wait \
+		--for=condition=Ready \
+		pods \
+		-l app.kubernetes.io/component=operator,app.kubernetes.io/instance=percona-xtradb-cluster-operator,app.kubernetes.io/name=percona-xtradb-cluster-operator \
+		--timeout=30s || true
 
 	wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
 	sleep 3
@@ -833,6 +840,7 @@ spinup_pxc() {
 
 	desc 'check if all 3 Pods started'
 	local proxy=$(get_proxy "$cluster")
+	kubectl_bin wait --for=condition=Ready pod -l app.kubernetes.io/instance=monitoring,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator --timeout=300s -n ${namespace} || true
 	wait_for_running "$proxy" 1
 	wait_for_running "$cluster-pxc" "$size"
 	sleep $sleep

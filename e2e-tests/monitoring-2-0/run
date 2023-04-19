@@ -7,6 +7,27 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+function get_mgmnt_service_list() {
+	local api_key=$1
+	local endpoint=$2
+	local namespace=$3
+
+	cat >${tmp_dir}/payload.json <<EOF
+{}
+EOF
+
+	curl -s -k -H "Authorization: Bearer ${api_key}" -XPOST -d @payload.json "https://$endpoint/v1/management/Service/List" \
+		| jq 'walk(if type=="object" then with_entries(select(.key | test("service_id|node_id|agent_id|created_at|updated_at|service_name") | not)) else . end)' \
+		| jq 'walk(if type == "array" then sort_by(.agent_type) else . end)' \
+		>${tmp_dir}/active_pmm_agents.json
+
+	# Pmm server is serving one namespace only, so stripping the namespace name out
+	$sed -i 's/'${namespace}'-//g' ${tmp_dir}/active_pmm_agents.json
+	cat ${tmp_dir}/active_pmm_agents.json | jq '.services | sort_by(.node_name)' > ${tmp_dir}/active_pmm_agents_sorted.json
+
+	echo "${tmp_dir}/active_pmm_agents_sorted.json"
+}
+
 cluster="monitoring"
 
 create_infra $namespace
@@ -31,6 +52,7 @@ if [ ! -z "$OPENSHIFT" ]; then
 else
 	helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 fi
+kubectl_bin wait --for=condition=Ready pod/${cluster}-0 --timeout=120s
 SERVICE="postgres"
 until kubectl_bin exec monitoring-0 -- bash -c "pgrep -x $SERVICE >/dev/null"; do
 	echo "Retry $retry"
@@ -47,18 +69,21 @@ kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/graf
 
 desc 'create PXC cluster'
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
-API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@"$(get_service_endpoint monitoring-service)"/graph/api/auth/keys" | jq .key)
+API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@"$(get_service_endpoint monitoring-service)"/graph/api/auth/keys" | jq -r .key)
 
-kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '$API_KEY'}}'
+kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": "'${API_KEY}'"}}'
 
 sleep 5
 
-wait_for_running "$cluster-haproxy" 2
-wait_for_running "$cluster-pxc" 3
+wait_cluster_consistency ${cluster} 3 2
 
 desc 'check if pmm-client container enabled'
 compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-haproxy
+
+desc 'verify clients agents statuses'
+diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace} )
+
 
 desc 'check mysql metrics'
 get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin

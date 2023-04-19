@@ -23,7 +23,7 @@ EOF
 
 	# Pmm server is serving one namespace only, so stripping the namespace name out
 	$sed -i 's/'${namespace}'-//g' ${tmp_dir}/active_pmm_agents.json
-	cat ${tmp_dir}/active_pmm_agents.json | jq '.services | sort_by(.node_name)' > ${tmp_dir}/active_pmm_agents_sorted.json
+	cat ${tmp_dir}/active_pmm_agents.json | jq '.services | sort_by(.node_name)' >${tmp_dir}/active_pmm_agents_sorted.json
 
 	echo "${tmp_dir}/active_pmm_agents_sorted.json"
 }

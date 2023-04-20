@@ -579,6 +579,15 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(cr *api.PerconaXtraDBClus
 			for _, container := range pod.Status.ContainerStatuses {
 				if container.Name == "pxc" {
 					ready = container.Ready
+
+					if container.State.Waiting != nil {
+						switch container.State.Waiting.Reason {
+						case "ImagePullBackOff", "ErrImagePull":
+							return false, errors.Errorf("pod %s is in %s state", pod.Name, container.State.Waiting.Reason)
+						default:
+							logger.Info("pod is waiting", "pod name", pod.Name, "reason", container.State.Waiting.Reason)
+						}
+					}
 				}
 			}
 

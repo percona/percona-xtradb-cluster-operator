@@ -160,6 +160,7 @@ wait_pod() {
 	local ns=$3
 	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
 
+	set +o xtrace
 	retry=0
 	echo -n $pod
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
@@ -186,6 +187,7 @@ wait_crash_pod() {
 	local ns=$3
 	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
 
+	set +o xtrace
 	retry=0
 	echo -n $pod
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
@@ -210,6 +212,7 @@ wait_backup() {
 	local backup=$1
 	local status=${2:-'Succeeded'}
 
+	set +o xtrace
 	retry=0
 	echo -n $backup
 	until kubectl_bin get pxc-backup/$backup -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
@@ -229,7 +232,7 @@ wait_backup_restore() {
 	local backup_name=$1
 	local status=${2:-'Succeeded'}
 	desc "wait backup restore"
-
+	set +o xtrace
 	retry=0
 	echo -n $backup_name
 	until kubectl_bin get pxc-restore/$backup_name -o jsonpath='{.status.state}' 2>/dev/null | grep $status; do
@@ -325,6 +328,7 @@ wait_for_delete() {
 	local res="$1"
 
 	echo -n "$res - "
+	set +o xtrace
 	retry=0
 	until (kubectl_bin get $res || :) 2>&1 | grep NotFound; do
 		sleep 1
@@ -382,7 +386,9 @@ compare_kubectl() {
 			del(.metadata.resourceVersion) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "CLUSTER_HASH")) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_PATH")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "BACKUP_PATH")) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_URL")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "AZURE_CONTAINER_NAME")) |
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
 			del(.metadata.annotations."kubernetes.io/psp") |
@@ -441,11 +447,12 @@ run_mysql() {
 
 	client_pod=$(get_client_pod)
 	wait_pod $client_pod 1>&2
-
+    set +o xtrace
 	kubectl_bin exec $client_pod -- \
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| (grep -v 'Using a password on the command line interface can be insecure.' || :)
+
 	set_debug
 }
 
@@ -454,7 +461,7 @@ run_mysql_local() {
 	local uri="$2"
 	local pod="$3"
 	local container_name="$4"
-
+	set +o xtrace
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
 		bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \

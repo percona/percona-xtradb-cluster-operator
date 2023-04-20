@@ -72,7 +72,8 @@ get_backup_dest() {
 			AZURE_ACCESS_KEY=$($ctrl get "secret/$secret" -o 'jsonpath={.data.AZURE_STORAGE_ACCOUNT_KEY}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
 			AZURE_STORAGE_CLASS=$($ctrl get "pxc-backup/$backup" -o 'jsonpath={.data.storageClass}' 2>/dev/null | eval "${BASE64_DECODE_CMD}")
 			export CREDENTIALS="AZURE_STORAGE_ACCOUNT=$AZURE_STORAGE_ACCOUNT AZURE_ACCESS_KEY=$AZURE_ACCESS_KEY AZURE_STORAGE_CLASS=$AZURE_STORAGE_CLASS"
-			echo "azure://$($ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}')"
+
+			$ctrl get "pxc-backup/$backup" -o jsonpath='{.status.destination}'
 			return
 		fi
 

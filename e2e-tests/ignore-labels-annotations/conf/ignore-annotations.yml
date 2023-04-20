@@ -1,27 +1,18 @@
-apiVersion: pxc.percona.com/v1-6-0
+apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBCluster
 metadata:
-  name: demand-backup-cloud
+  name: ignore-annotations
   finalizers:
     - delete-pxc-pods-in-order
-  # annotations:
-  #   percona.com/issue-vault-token: "true"
 spec:
   secretsName: my-cluster-secrets
-  vaultSecretName: some-name-vault
   pause: false
   pxc:
     size: 3
     image: -pxc
-    configuration: |
-      [mysqld]
-      wsrep_log_conflicts
-      log_error_verbosity=3
-      wsrep_debug=1
-      [sst]
-      xbstream-opts=--decompress
-      [xtrabackup]
-      compress=lz4
+    expose:
+      enabled: true
+      type: ClusterIP
     resources:
       requests:
         memory: 0.1G
@@ -36,9 +27,21 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
-  proxysql:
+  haproxy:
     enabled: true
-    size: 1
+    size: 3
+    image: -haproxy
+
+    affinity:
+      antiAffinityTopologyKey: "kubernetes.io/hostname"
+    tolerations:
+    - key: "node.alpha.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 6000
+  proxysql:
+    enabled: false
+    size: 2
     image: -proxysql
     resources:
       requests:
@@ -54,6 +57,9 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
+  logcollector:
+    enabled: true
+    image: -logcollector
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1
@@ -82,7 +88,7 @@ spec:
           credentialsSecret: minio-secret
           region: us-east-1
           bucket: operator-testing
-          endpointUrl: http://minio-service.#namespace:9000/
+          endpointUrl: http://minio-service:9000/
       gcp-cs:
         type: s3
         s3:
@@ -90,9 +96,3 @@ spec:
           region: us-east-1
           bucket: operator-testing
           endpointUrl: https://storage.googleapis.com
-      azure-blob:
-        type: azure
-        azure:
-          credentialsSecret: azure-secret
-          container: operator-testing
-          storageClass: Cool

@@ -228,6 +228,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	reqLog := r.logger(o.Name, o.Namespace)
 
+	err = o.CheckNSetDefaults(r.serverVersion, reqLog)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
+	}
+
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
 		for _, fnlz := range o.GetFinalizers() {
@@ -272,11 +277,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			reqLog.Error(uerr, "Update status")
 		}
 	}()
-
-	err = o.CheckNSetDefaults(r.serverVersion, reqLog)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
-	}
 
 	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
 		err = r.recoverFullClusterCrashIfNeeded(o)
@@ -372,12 +372,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	if err := r.reconcileHAProxy(o); err != nil {
+	if err := r.reconcileHAProxy(o, userReconcileResult.proxyAnnotations); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
-	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxysqlAnnotations)
+	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxyAnnotations)
 
 	if o.Spec.ProxySQLEnabled() {
 		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
@@ -452,7 +452,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCluster, annotations map[string]string) error {
 	if !cr.HAProxyEnabled() {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -468,8 +468,10 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCl
 
 		return nil
 	}
+	sts := statefulset.NewHAProxy(cr)
+	pxc.MergeTemplateAnnotations(sts.StatefulSet(), annotations)
 
-	if err := r.updatePod(statefulset.NewHAProxy(cr), &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
+	if err := r.updatePod(sts, &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 	svc := pxc.NewServiceHAProxy(cr)

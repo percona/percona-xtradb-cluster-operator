@@ -228,6 +228,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	reqLog := r.logger(o.Name, o.Namespace)
 
+	err = o.CheckNSetDefaults(r.serverVersion, reqLog)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
+	}
+
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
 		for _, fnlz := range o.GetFinalizers() {
@@ -272,11 +277,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			reqLog.Error(uerr, "Update status")
 		}
 	}()
-
-	err = o.CheckNSetDefaults(r.serverVersion, reqLog)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
-	}
 
 	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
 		err = r.recoverFullClusterCrashIfNeeded(o)

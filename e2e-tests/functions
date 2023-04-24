@@ -165,10 +165,16 @@ wait_pod() {
 	echo -n $pod
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
 		&& kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
-		&& ! kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q LAST_LINE; do
+		&& ! IS_FULL_CRUSH=$(kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep LAST_LINE); do
 		sleep 1
 		echo -n .
 		let retry+=1
+
+		if [[ -n "$IS_FULL_CRUSH" ]]; then
+			echo 'full cluster crush detected'
+			exit 1
+		fi
+
 		if [[ $retry -ge $max_retry ]]; then
 			kubectl_bin describe pod/$pod
 			kubectl_bin logs $pod

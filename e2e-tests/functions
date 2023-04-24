@@ -170,7 +170,7 @@ wait_pod() {
 		echo -n .
 		let retry+=1
 
-		if [[ -n "$IS_FULL_CRUSH" ]]; then
+		if [[ -n $IS_FULL_CRUSH ]]; then
 			echo 'full cluster crush detected'
 			exit 1
 		fi

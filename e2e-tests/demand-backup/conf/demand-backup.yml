@@ -77,11 +77,4 @@ spec:
           region: us-east-1
           bucket: operator-testing
           endpointUrl: http://minio-service.#namespace:9000/
-        resources:
-          requests:
-            memory: 0.5G
-            cpu: 500m
-          limits:
-            memory: "2G"
-            cpu: "1"
 

@@ -215,9 +215,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, errors.Wrap(err, "set CR version")
 	}
 
-	reqLog := r.logger(o.Name, o.Namespace)
-
-	err = o.CheckNSetDefaults(r.serverVersion, reqLog)
+	err = o.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
 	}
@@ -361,7 +359,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	if err := r.reconcileHAProxy(o, userReconcileResult.proxyAnnotations); err != nil {
+	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -441,7 +439,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCluster, annotations map[string]string) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, annotations map[string]string) error {
 	if !cr.HAProxyEnabled() {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -460,7 +458,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCl
 	sts := statefulset.NewHAProxy(cr)
 	pxc.MergeTemplateAnnotations(sts.StatefulSet(), annotations)
 
-	if err := r.updatePod(sts, &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
+	if err := r.updatePod(ctx, sts, &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 	svc := pxc.NewServiceHAProxy(cr)

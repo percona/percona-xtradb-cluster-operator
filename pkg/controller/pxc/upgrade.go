@@ -586,7 +586,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *
 						case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff":
 							return false, errors.Errorf("pod %s is in %s state", pod.Name, container.State.Waiting.Reason)
 						default:
-							logger.Info("pod is waiting", "pod name", pod.Name, "reason", container.State.Waiting.Reason)
+							logf.FromContext(ctx).Info("pod is waiting", "pod name", pod.Name, "reason", container.State.Waiting.Reason)
 						}
 					}
 				}

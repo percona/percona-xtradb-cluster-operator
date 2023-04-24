@@ -47,14 +47,28 @@ kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/graf
 
 desc 'create PXC cluster'
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
-API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@"$(get_service_endpoint monitoring-service)"/graph/api/auth/keys" | jq .key)
 
-kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '$API_KEY'}}'
+desc 'add PMM API key to secret'
+API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq .key)
+kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '"$API_KEY"'}}'
 
-sleep 5
+wait_for_generation "sts/$cluster-pxc" 2
+wait_for_generation "sts/$cluster-haproxy" 2
+sleep 10
+kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
 
-wait_for_running "$cluster-haproxy" 2
-wait_for_running "$cluster-pxc" 3
+desc 'add new PMM API key to secret'
+API_KEY_NEW=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator-new", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq .key)
+kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '"$API_KEY_NEW"'}}'
+
+desc 'delete old PMM key'
+ID_API_KEY_OLD=$(curl --insecure -X GET "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq '.[] | select( .name == "operator").id')
+curl --insecure -X DELETE "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys/$ID_API_KEY_OLD"
+
+wait_for_generation "sts/$cluster-pxc" 3
+wait_for_generation "sts/$cluster-haproxy" 3
+sleep 10
+kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
 
 desc 'check if pmm-client container enabled'
 compare_kubectl statefulset/$cluster-pxc
@@ -64,12 +78,12 @@ desc 'check mysql metrics'
 get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin
 get_metric_values mysql_global_status_uptime $namespace-$cluster-pxc-0 admin:admin
 
+# wait for QAN and metrics
+sleep 90
+
 desc 'check haproxy metrics'
 get_metric_values haproxy_backend_status $namespace-$cluster-haproxy-0 admin:admin
 get_metric_values haproxy_backend_active_servers $namespace-$cluster-haproxy-0 admin:admin
-
-# wait for QAN
-sleep 90
 
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 admin:admin

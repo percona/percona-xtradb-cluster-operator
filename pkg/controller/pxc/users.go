@@ -38,7 +38,7 @@ type userUpdateActions struct {
 
 type ReconcileUsersResult struct {
 	pxcAnnotations            map[string]string
-	proxysqlAnnotations       map[string]string
+	proxyAnnotations          map[string]string
 	updateReplicationPassword bool
 }
 
@@ -128,7 +128,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *
 
 	if actions.restartProxy {
 		log.Info("Proxy pods will be restarted", "last-applied-secret", newSecretDataHash)
-		result.proxysqlAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
+		result.proxyAnnotations = map[string]string{"last-applied-secret": newSecretDataHash}
 	}
 	if actions.restartPXC {
 		log.Info("PXC pods will be restarted", "last-applied-secret", newSecretDataHash)

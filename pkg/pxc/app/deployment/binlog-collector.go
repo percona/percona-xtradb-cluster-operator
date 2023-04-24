@@ -128,12 +128,21 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 
 func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 	storage := cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName]
+	verifyTLS := "true"
+	if storage.VerifyTLS != nil && !*storage.VerifyTLS {
+		verifyTLS = "false"
+	}
+
 	switch storage.Type {
 	case api.BackupStorageS3:
 		if storage.S3 == nil {
 			return nil, errors.New("s3 storage is not specified")
 		}
 		envs := []corev1.EnvVar{
+			{
+				Name:  "VERIFY_TLS",
+				Value: verifyTLS,
+			},
 			{
 				Name: "SECRET_ACCESS_KEY",
 				ValueFrom: &corev1.EnvVarSource{
@@ -171,6 +180,10 @@ func getStorageEnvs(cr *api.PerconaXtraDBCluster) ([]corev1.EnvVar, error) {
 			return nil, errors.New("azure storage is not specified")
 		}
 		return []corev1.EnvVar{
+			{
+				Name:  "VERIFY_TLS",
+				Value: verifyTLS,
+			},
 			{
 				Name: "AZURE_STORAGE_ACCOUNT",
 				ValueFrom: &corev1.EnvVarSource{

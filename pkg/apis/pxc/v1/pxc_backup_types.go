@@ -1,7 +1,6 @@
 package v1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -50,20 +49,19 @@ type PXCBackupSpec struct {
 }
 
 type PXCBackupStatus struct {
-	State                 PXCBackupState              `json:"state,omitempty"`
-	CompletedAt           *metav1.Time                `json:"completed,omitempty"`
-	LastScheduled         *metav1.Time                `json:"lastscheduled,omitempty"`
-	Destination           string                      `json:"destination,omitempty"`
-	StorageName           string                      `json:"storageName,omitempty"`
-	S3                    *BackupStorageS3Spec        `json:"s3,omitempty"`
-	Azure                 *BackupStorageAzureSpec     `json:"azure,omitempty"`
-	StorageType           BackupStorageType           `json:"storage_type"`
-	Image                 string                      `json:"image,omitempty"`
-	SSLSecretName         string                      `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName string                      `json:"sslInternalSecretName,omitempty"`
-	VaultSecretName       string                      `json:"vaultSecretName,omitempty"`
-	Resources             corev1.ResourceRequirements `json:"resources,omitempty"`
-	Conditions            []metav1.Condition          `json:"conditions,omitempty"`
+	State                 PXCBackupState          `json:"state,omitempty"`
+	CompletedAt           *metav1.Time            `json:"completed,omitempty"`
+	LastScheduled         *metav1.Time            `json:"lastscheduled,omitempty"`
+	Destination           string                  `json:"destination,omitempty"`
+	StorageName           string                  `json:"storageName,omitempty"`
+	S3                    *BackupStorageS3Spec    `json:"s3,omitempty"`
+	Azure                 *BackupStorageAzureSpec `json:"azure,omitempty"`
+	StorageType           BackupStorageType       `json:"storage_type"`
+	Image                 string                  `json:"image,omitempty"`
+	SSLSecretName         string                  `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName string                  `json:"sslInternalSecretName,omitempty"`
+	VaultSecretName       string                  `json:"vaultSecretName,omitempty"`
+	Conditions            []metav1.Condition      `json:"conditions,omitempty"`
 }
 
 const (

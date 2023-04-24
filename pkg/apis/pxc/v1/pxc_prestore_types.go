@@ -3,15 +3,17 @@ package v1
 import (
 	"errors"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PerconaXtraDBClusterRestoreSpec defines the desired state of PerconaXtraDBClusterRestore
 type PerconaXtraDBClusterRestoreSpec struct {
-	PXCCluster   string           `json:"pxcCluster"`
-	BackupName   string           `json:"backupName"`
-	BackupSource *PXCBackupStatus `json:"backupSource,omitempty"`
-	PITR         *PITR            `json:"pitr,omitempty"`
+	PXCCluster   string                      `json:"pxcCluster"`
+	BackupName   string                      `json:"backupName"`
+	BackupSource *PXCBackupStatus            `json:"backupSource,omitempty"`
+	PITR         *PITR                       `json:"pitr,omitempty"`
+	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore

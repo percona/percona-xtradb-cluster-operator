@@ -103,7 +103,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 							MountPath: "/etc/mysql/vault-keyring-secret",
 						},
 					},
-					Resources: cluster.Spec.Backup.Storages[bcpStorageName].Resources,
+					Resources: cr.Spec.Resources,
 				},
 			},
 			Volumes: []corev1.Volume{
@@ -192,7 +192,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtra
 					ImagePullSecrets: cluster.Spec.Backup.ImagePullSecrets,
 					SecurityContext:  cluster.Spec.PXC.PodSecurityContext,
 					Containers: []corev1.Container{
-						xtrabackupContainer(cluster, command, volumeMounts, envs, bcp.Status.Resources),
+						xtrabackupContainer(cr, cluster, command, volumeMounts, envs),
 					},
 					RestartPolicy:      corev1.RestartPolicyNever,
 					Volumes:            jobPVCs,
@@ -392,7 +392,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 				Spec: corev1.PodSpec{
 					ImagePullSecrets:   cluster.Spec.Backup.ImagePullSecrets,
 					SecurityContext:    cluster.Spec.PXC.PodSecurityContext,
-					Containers:         []corev1.Container{xtrabackupContainer(cluster, command, volumeMounts, envs, bcp.Status.Resources)},
+					Containers:         []corev1.Container{xtrabackupContainer(cr, cluster, command, volumeMounts, envs)},
 					RestartPolicy:      corev1.RestartPolicyNever,
 					Volumes:            jobPVCs,
 					NodeSelector:       cluster.Spec.PXC.NodeSelector,
@@ -609,7 +609,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 				Spec: corev1.PodSpec{
 					ImagePullSecrets:   cluster.Spec.Backup.ImagePullSecrets,
 					SecurityContext:    cluster.Spec.PXC.PodSecurityContext,
-					Containers:         []corev1.Container{xtrabackupContainer(cluster, command, volumeMounts, envs, bcp.Status.Resources)},
+					Containers:         []corev1.Container{xtrabackupContainer(cr, cluster, command, volumeMounts, envs)},
 					RestartPolicy:      corev1.RestartPolicyNever,
 					Volumes:            jobPVCs,
 					NodeSelector:       cluster.Spec.PXC.NodeSelector,
@@ -628,7 +628,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 	return job, nil
 }
 
-func xtrabackupContainer(cluster *api.PerconaXtraDBCluster, cmd []string, volumeMounts []corev1.VolumeMount, envs []corev1.EnvVar, resources corev1.ResourceRequirements) corev1.Container {
+func xtrabackupContainer(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, cmd []string, volumeMounts []corev1.VolumeMount, envs []corev1.EnvVar) corev1.Container {
 	container := corev1.Container{
 		Name:            "xtrabackup",
 		Image:           cluster.Spec.Backup.Image,
@@ -637,21 +637,21 @@ func xtrabackupContainer(cluster *api.PerconaXtraDBCluster, cmd []string, volume
 		SecurityContext: cluster.Spec.PXC.ContainerSecurityContext,
 		VolumeMounts:    volumeMounts,
 		Env:             envs,
-		Resources:       *resources.DeepCopy(),
+		Resources:       *cr.Spec.Resources.DeepCopy(),
 	}
 	if cluster.CompareVersionWith("1.13.0") < 0 {
 		container.Resources = cluster.Spec.PXC.Resources
 	}
 
-	useMem, k8sq, err := xbMemoryUse(container.Resources)
-	if useMem != "" && err == nil {
-		container.Env = append(
-			container.Env,
-			corev1.EnvVar{
-				Name:  "XB_USE_MEMORY",
-				Value: useMem,
-			},
-		)
+	useMem, k8sq := xbMemoryUse(container.Resources)
+	container.Env = append(
+		container.Env,
+		corev1.EnvVar{
+			Name:  "XB_USE_MEMORY",
+			Value: useMem,
+		},
+	)
+	if k8sq.Value() > 0 {
 		container.Resources.Requests = corev1.ResourceList{
 			corev1.ResourceMemory: k8sq,
 		}
@@ -659,21 +659,19 @@ func xtrabackupContainer(cluster *api.PerconaXtraDBCluster, cmd []string, volume
 	return container
 }
 
-func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity resource.Quantity, err error) {
-	if res.Size() > 0 {
-		if _, ok := res.Requests[corev1.ResourceMemory]; ok {
-			k8sQuantity = *res.Requests.Memory()
-		}
-		if _, ok := res.Limits[corev1.ResourceMemory]; ok {
-			k8sQuantity = *res.Limits.Memory()
-		}
-
-		useMem75 := k8sQuantity.Value() / int64(100) * int64(75)
-		useMem = strconv.FormatInt(useMem75, 10)
-
-		// transform Gi/Mi/etc to G/M
-		useMem = strings.ReplaceAll(useMem, "i", "")
+func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity resource.Quantity) {
+	if _, ok := res.Requests[corev1.ResourceMemory]; ok {
+		k8sQuantity = *res.Requests.Memory()
+	}
+	if _, ok := res.Limits[corev1.ResourceMemory]; ok {
+		k8sQuantity = *res.Limits.Memory()
 	}
 
-	return useMem, k8sQuantity, err
+	useMem = "2GB"
+	if k8sQuantity.Value() > 0 {
+		useMem75 := k8sQuantity.Value() / int64(100) * int64(75)
+		useMem = strconv.FormatInt(useMem75, 10)
+	}
+
+	return useMem, k8sQuantity
 }

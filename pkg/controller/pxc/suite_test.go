@@ -40,7 +40,7 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	
+
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
@@ -69,20 +69,21 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-// func reconciler() *ReconcilePerconaXtraDBCluster {
-// 	cli, _ := clientcmd.NewClient()
-//
-// 	return (&ReconcilePerconaXtraDBCluster{
-// 		client:    k8sClient,
-// 		scheme:    k8sClient.Scheme(),
-// 		crons:     NewCronRegistry(),
-// 		lockers:   newLockStore(),
-// 		clientcmd: cli,
-// 		serverVersion: &version.ServerVersion{
-// 			Platform: version.PlatformKubernetes,
-// 		},
-// 	})
-// }
+// nolint:all
+func reconciler() *ReconcilePerconaXtraDBCluster {
+	cli, _ := clientcmd.NewClient()
+
+	return (&ReconcilePerconaXtraDBCluster{
+		client:    k8sClient,
+		scheme:    k8sClient.Scheme(),
+		crons:     NewCronRegistry(),
+		lockers:   newLockStore(),
+		clientcmd: cli,
+		serverVersion: &version.ServerVersion{
+			Platform: version.PlatformKubernetes,
+		},
+	})
+}
 
 func readDefaultCR(name, namespace string) (*api.PerconaXtraDBCluster, error) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "cr.yaml"))

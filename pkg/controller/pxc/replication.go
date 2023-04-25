@@ -213,7 +213,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		if err != nil {
 			return errors.Wrap(err, "add label to main replica pod")
 		}
-		logf.FromContext(ctx).Info("Replication pod has changed", "new replication pod", primaryPod.Name)
+		log.Info("Replication pod has changed", "new replication pod", primaryPod.Name)
 	}
 
 	sysUsersSecretObj := corev1.Secret{}

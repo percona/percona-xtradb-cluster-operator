@@ -1293,3 +1293,7 @@ func (s *PerconaXtraDBClusterSpec) HAProxyEnabled() bool {
 func (s *PerconaXtraDBClusterSpec) ProxySQLEnabled() bool {
 	return s.ProxySQL != nil && s.ProxySQL.Enabled
 }
+
+func (s *PerconaXtraDBClusterSpec) TLSEnabled() bool {
+	return !s.AllowUnsafeConfig || (s.TLS != nil && s.TLS.IssuerConf != nil)
+}

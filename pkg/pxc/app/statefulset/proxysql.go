@@ -234,7 +234,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			},
 		},
 	}
-	if cr.Spec.AllowUnsafeConfig && (cr.Spec.TLS == nil || cr.Spec.TLS.IssuerConf == nil) {
+	if cr.Spec.TLSEnabled() {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 			Name:  "SSL_DIR",
 			Value: "/dev/null",

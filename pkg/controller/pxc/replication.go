@@ -147,9 +147,15 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	user := "operator"
+	host := primaryPod.Name + "." + cr.Name + "-pxc." + cr.Namespace
 	port := int32(33062)
 
-	primaryDB, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, user, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	operatorPass, err := r.getUserPassword(cr, user)
+	if err != nil {
+		return errors.Wrapf(err, "get %s password", user)
+	}
+
+	primaryDB, err := queries.New(user, operatorPass, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds, cr.Spec.TLSEnabled())
 	if err != nil {
 		return errors.Wrapf(err, "failed to connect to pod %s", primaryPod.Name)
 	}
@@ -170,7 +176,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return errors.Wrap(err, "remove outdated replication channels")
 	}
 
-	err = checkReadonlyStatus(cr.Spec.PXC.ReplicationChannels, podList, cr, r.client)
+	err = r.checkReadonlyStatus(cr, cr.Spec.PXC.ReplicationChannels, podList)
 	if err != nil {
 		return errors.Wrap(err, "failed to ensure cluster readonly status")
 	}
@@ -189,10 +195,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 			continue
 		}
 		if _, ok := pod.Labels[replicationPodLabel]; ok {
-			db, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+			host := pod.Name + "." + cr.Name + "-pxc." + cr.Namespace
+			db, err := queries.New(user, operatorPass, host, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds, cr.Spec.TLSEnabled())
 			if err != nil {
 				return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
 			}
+
 			err = db.StopAllReplication()
 			db.Close()
 			if err != nil {
@@ -266,18 +274,27 @@ func handleReplicaPasswordChange(db queries.Database, newPass string) error {
 	return nil
 }
 
-func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {
+func (r *ReconcilePerconaXtraDBCluster) checkReadonlyStatus(cr *api.PerconaXtraDBCluster, channels []api.ReplicationChannel, pods []corev1.Pod) error {
 	isReplica := false
 	if len(channels) > 0 {
 		isReplica = !channels[0].IsSource
 	}
 
+	user := "operator"
+	operatorPass, err := r.getUserPassword(cr, user)
+	if err != nil {
+		return errors.Wrapf(err, "get %s password", user)
+	}
+
 	for _, pod := range pods {
-		db, err := queries.New(client, cr.Namespace, internalSecretsPrefix+cr.Name, "operator", pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		host := pod.Name + "." + cr.Name + "-pxc." + cr.Namespace
+
+		db, err := queries.New(user, operatorPass, host, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds, cr.Spec.TLSEnabled())
 		if err != nil {
 			return errors.Wrapf(err, "connect to pod %s", pod.Name)
 		}
 		defer db.Close()
+
 		readonly, err := db.IsReadonly()
 		if err != nil {
 			return errors.Wrap(err, "check readonly status")

@@ -10,6 +10,7 @@ import (
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxctls"
 	corev1 "k8s.io/api/core/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
@@ -18,9 +19,10 @@ import (
 )
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(cr *api.PerconaXtraDBCluster) error {
-	if cr.Spec.AllowUnsafeConfig && (cr.Spec.TLS == nil || cr.Spec.TLS.IssuerConf == nil) {
+	if !cr.Spec.TLSEnabled() {
 		return nil
 	}
+
 	secretObj := corev1.Secret{}
 	secretInternalObj := corev1.Secret{}
 	errSecret := r.client.Get(context.TODO(),
@@ -44,10 +46,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(cr *api.PerconaXtraDBCluste
 	} else if errInternalSecret != nil && !k8serr.IsNotFound(errInternalSecret) {
 		return fmt.Errorf("get internal secret: %v", errInternalSecret)
 	}
+
 	// don't create secret ssl-internal if secret ssl is not created by operator
 	if errSecret == nil && !metav1.IsControlledBy(&secretObj, cr) {
 		return nil
 	}
+
 	err := r.createSSLByCertManager(cr)
 	if err != nil {
 		if cr.Spec.TLS != nil && cr.Spec.TLS.IssuerConf != nil {
@@ -58,6 +62,19 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileSSL(cr *api.PerconaXtraDBCluste
 			return fmt.Errorf("create ssl internally: %v", err)
 		}
 	}
+
+	// TODO: What if secret ssl is not created by operator
+	ca, cert, key, err := r.GetCertificates(context.TODO(), cr)
+	if err != nil {
+		return errors.Wrap(err, "get certificates")
+	}
+
+	r.logger(cr.Name, cr.Namespace).Info("Registering TLS config")
+
+	if err := queries.RegisterTLSConfig("operator", ca, cert, key); err != nil {
+		return errors.Wrap(err, "register TLS config")
+	}
+
 	return nil
 }
 
@@ -279,7 +296,9 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 	}
 	pxcHosts := []string{
 		cr.Name + "-pxc",
+		cr.Name + "-pxc." + cr.Namespace,
 		"*." + cr.Name + "-pxc",
+		"*." + cr.Name + "-pxc." + cr.Namespace,
 		cr.Name + "-haproxy-replicas." + cr.Namespace + ".svc.cluster.local",
 		cr.Name + "-haproxy-replicas." + cr.Namespace,
 		cr.Name + "-haproxy-replicas",
@@ -311,4 +330,19 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 		return fmt.Errorf("create TLS internal secret: %v", err)
 	}
 	return nil
+}
+
+// GetCertificates returns CA, TLS cert and TLS key
+func (r *ReconcilePerconaXtraDBCluster) GetCertificates(ctx context.Context, cr *api.PerconaXtraDBCluster) ([]byte, []byte, []byte, error) {
+	secret := corev1.Secret{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: cr.Spec.PXC.SSLInternalSecretName, Namespace: cr.Namespace}, &secret)
+	if err != nil {
+		return nil, nil, nil, errors.Wrapf(err, "get secret %s", cr.Spec.PXC.SSLInternalSecretName)
+	}
+
+	ca := secret.Data["ca.crt"]
+	cert := secret.Data["tls.crt"]
+	key := secret.Data["tls.key"]
+
+	return ca, cert, key, nil
 }

@@ -466,7 +466,7 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 // connectProxy returns a new connection through the proxy (ProxySQL or HAProxy)
 func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
 	var database queries.Database
-	var user, host string
+	var user, host, pass string
 	var port, proxySize int32
 
 	if cr.ProxySQLEnabled() {
@@ -474,6 +474,12 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluste
 		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
 		proxySize = cr.Spec.ProxySQL.Size
 		port = 6032
+
+		var err error
+		pass, err = r.getUserPassword(cr, user)
+		if err != nil {
+			return database, errors.Wrapf(err, "get %s password", user)
+		}
 	} else if cr.HAProxyEnabled() {
 		user = "monitor"
 		host = fmt.Sprintf("%s-haproxy.%s", cr.Name, cr.Namespace)
@@ -488,17 +494,17 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluste
 		if hasKey && cr.CompareVersionWith("1.6.0") >= 0 {
 			port = 33062
 		}
+
+		pass, err = r.getUserPassword(cr, user)
+		if err != nil {
+			return database, errors.Wrapf(err, "get %s password", user)
+		}
 	} else {
 		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
 	}
 
-	secrets := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secrets = "internal-" + cr.Name
-	}
-
 	for i := 0; ; i++ {
-		db, err := queries.New(r.client, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		db, err := queries.New(user, pass, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds, cr.Spec.TLSEnabled())
 		if err != nil && i < int(proxySize) {
 			time.Sleep(time.Second)
 		} else if err != nil && i == int(proxySize) {
@@ -533,14 +539,14 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {
 	user := "root"
-	secrets := cr.Spec.SecretsName
-	port := int32(3306)
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secrets = "internal-" + cr.Name
-		port = int32(33062)
+	port := int32(33062)
+
+	pass, err := r.getUserPassword(cr, user)
+	if err != nil {
+		return errors.Wrapf(err, "get %s password", user)
 	}
 
-	database, err := queries.New(r.client, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	database, err := queries.New(user, pass, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds, cr.Spec.TLSEnabled())
 	if err != nil {
 		return errors.Wrap(err, "failed to access PXC database")
 	}

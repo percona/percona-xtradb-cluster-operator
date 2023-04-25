@@ -1,17 +1,16 @@
 package queries
 
 import (
-	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/go-sql-driver/mysql"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ReplicationStatus int8
@@ -53,32 +52,28 @@ type ReplicationChannelSource struct {
 
 var ErrNotFound = errors.New("not found")
 
-func New(client client.Client, namespace, secretName, user, host string, port int32, timeout int32) (Database, error) {
-	secretObj := corev1.Secret{}
-	err := client.Get(context.TODO(),
-		types.NamespacedName{
-			Namespace: namespace,
-			Name:      secretName,
-		},
-		&secretObj,
-	)
-	if err != nil {
-		return Database{}, err
-	}
-
-	timeoutStr := fmt.Sprintf("%ds", timeout)
+func New(user, password, host string, port, timeout int32, useTLS bool) (Database, error) {
 	config := mysql.NewConfig()
+
 	config.User = user
-	config.Passwd = string(secretObj.Data[user])
+	config.Passwd = password
 	config.Net = "tcp"
 	config.DBName = "mysql"
 	config.Addr = fmt.Sprintf("%s:%d", host, port)
-	config.Params = map[string]string{
-		"interpolateParams": "true",
-		"timeout":           timeoutStr,
-		"readTimeout":       timeoutStr,
-		"writeTimeout":      timeoutStr,
-		"tls":               "preferred",
+	config.InterpolateParams = true
+
+	t, err := time.ParseDuration(fmt.Sprintf("%ds", timeout))
+	if err != nil {
+		return Database{}, errors.Wrap(err, "parse timeout duration")
+	}
+	config.Timeout = t
+	config.ReadTimeout = t
+	config.WriteTimeout = t
+
+	if useTLS {
+		config.TLSConfig = "operator"
+	} else {
+		config.TLSConfig = "preferred"
 	}
 
 	db, err := sql.Open("mysql", config.FormatDSN())
@@ -94,6 +89,29 @@ func New(client client.Client, namespace, secretName, user, host string, port in
 	return Database{
 		db: db,
 	}, nil
+}
+
+// RegisterTLSConfig registers tls.Config to be used for database connections
+func RegisterTLSConfig(name string, ca, cert, key []byte) error {
+	rootCertPool := x509.NewCertPool()
+
+	if ok := rootCertPool.AppendCertsFromPEM(ca); !ok {
+		return errors.New("failed to append CA cert to pool")
+	}
+
+	clientCert := make([]tls.Certificate, 0, 1)
+	pair, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return errors.Wrap(err, "get X509 key pair")
+	}
+	clientCert = append(clientCert, pair)
+
+	mysql.RegisterTLSConfig(name, &tls.Config{
+		RootCAs:      rootCertPool,
+		Certificates: clientCert,
+	})
+
+	return nil
 }
 
 func (p *Database) CurrentReplicationChannels() ([]string, error) {

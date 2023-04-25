@@ -287,11 +287,11 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 	}
 
 	user := "root"
-	port := int32(3306)
-	secrets := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		port = int32(33062)
-		secrets = "internal-" + cr.Name
+	port := int32(33062)
+
+	pass, err := r.getUserPassword(cr, user)
+	if err != nil {
+		return "", errors.Wrapf(err, "get %s password", user)
 	}
 
 	log := r.logger(cr.Name, cr.Namespace)
@@ -301,7 +301,8 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 			continue
 		}
 
-		database, err := queries.New(r.client, cr.Namespace, secrets, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		host := pod.Name + "." + cr.Name + "-pxc." + cr.Namespace
+		database, err := queries.New(user, pass, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds, cr.Spec.TLSEnabled())
 		if err != nil {
 			log.Error(err, "failed to create db instance")
 			continue

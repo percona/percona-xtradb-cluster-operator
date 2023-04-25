@@ -91,6 +91,27 @@ func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
 	return
 }
 
+func (r *ReconcilePerconaXtraDBCluster) getUserPassword(cr *api.PerconaXtraDBCluster, username string) (string, error) {
+	secret := corev1.Secret{}
+	err := r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      internalSecretsPrefix + cr.Name,
+		},
+		&secret,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	pass, ok := secret.Data[username]
+	if !ok {
+		return "", errors.Errorf("password not found for %s in the secret", username)
+	}
+
+	return string(pass), nil
+}
+
 const (
 	passwordMaxLen = 20
 	passwordMinLen = 16

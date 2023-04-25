@@ -69,20 +69,20 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-func reconciler() *ReconcilePerconaXtraDBCluster {
-	cli, _ := clientcmd.NewClient()
-
-	return (&ReconcilePerconaXtraDBCluster{
-		client:    k8sClient,
-		scheme:    k8sClient.Scheme(),
-		crons:     NewCronRegistry(),
-		lockers:   newLockStore(),
-		clientcmd: cli,
-		serverVersion: &version.ServerVersion{
-			Platform: version.PlatformKubernetes,
-		},
-	})
-}
+// func reconciler() *ReconcilePerconaXtraDBCluster {
+// 	cli, _ := clientcmd.NewClient()
+//
+// 	return (&ReconcilePerconaXtraDBCluster{
+// 		client:    k8sClient,
+// 		scheme:    k8sClient.Scheme(),
+// 		crons:     NewCronRegistry(),
+// 		lockers:   newLockStore(),
+// 		clientcmd: cli,
+// 		serverVersion: &version.ServerVersion{
+// 			Platform: version.PlatformKubernetes,
+// 		},
+// 	})
+// }
 
 func readDefaultCR(name, namespace string) (*api.PerconaXtraDBCluster, error) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "..", "deploy", "cr.yaml"))

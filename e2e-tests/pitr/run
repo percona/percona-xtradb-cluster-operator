@@ -114,7 +114,7 @@ main() {
 	fi
 
 	write_data_for_pitr "$cluster"
-	sleep 120 # need to wait while collector catch new data
+	sleep 180 # need to wait while collector catch new data
 
 	timeout=60
 	binlogs_exist=0

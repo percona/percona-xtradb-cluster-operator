@@ -180,6 +180,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return reconcile.Result{}, nil
 	}
 
+	err = r.validate(ctx, cr, bcp, cluster)
+	if err != nil {
+		err = errors.Wrap(err, "failed to validate restore job")
+		return rr, err
+	}
+
 	log.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
 	err = r.setStatus(cr, api.RestoreStopCluster, "")
 	if err != nil {
@@ -198,7 +204,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		err = errors.Wrap(err, "set status")
 		return rr, err
 	}
-	err = r.restore(cr, bcp, cluster)
+
+	err = r.restore(ctx, cr, bcp, cluster)
 	if err != nil {
 		err = errors.Wrap(err, "run restore")
 		return rr, err
@@ -227,7 +234,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			return rr, errors.Wrap(err, "set status")
 		}
 
-		err = r.pitr(cr, bcp, cluster)
+		err = r.pitr(ctx, cr, bcp, cluster)
 		if err != nil {
 			return rr, errors.Wrap(err, "run pitr")
 		}

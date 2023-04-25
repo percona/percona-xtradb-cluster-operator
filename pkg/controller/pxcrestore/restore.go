@@ -10,110 +10,135 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 )
 
-func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBClusterRestore) restore(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
+	log := logf.FromContext(ctx)
+
 	if cluster.Spec.Backup == nil {
 		return errors.New("undefined backup section in a cluster spec")
 	}
-	destination := bcp.Status.Destination
-	switch {
-	case strings.HasPrefix(bcp.Status.Destination, "pvc/"):
-		return errors.Wrap(r.restorePVC(cr, bcp, strings.TrimPrefix(destination, "pvc/"), cluster), "pvc")
-	case strings.HasPrefix(bcp.Status.Destination, api.AwsBlobStoragePrefix):
-		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(destination, api.AwsBlobStoragePrefix), cluster, false), "s3")
-	case bcp.Status.Azure != nil:
-		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster, false), "azure")
-	default:
-		return errors.Errorf("unknown backup storage type")
-	}
-}
 
-func (r *ReconcilePerconaXtraDBClusterRestore) pitr(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
-	dest := bcp.Status.Destination
-	switch {
-	case strings.HasPrefix(dest, api.AwsBlobStoragePrefix):
-		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(dest, api.AwsBlobStoragePrefix), cluster, true), "PITR restore s3")
-	case bcp.Status.Azure != nil:
-		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster, true), "PITR restore azure")
-	}
-	return errors.Errorf("unknown storage type")
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, pvcName string, cluster *api.PerconaXtraDBCluster) error {
-	svc := backup.PVCRestoreService(cr)
-	k8s.SetControllerReference(cr, svc, r.scheme)
-	pod, err := backup.PVCRestorePod(cr, bcp.Status.StorageName, pvcName, cluster)
+	storageRestore, err := r.getStorageRestore(cr, bcp, cluster, false)
 	if err != nil {
-		return errors.Wrap(err, "restore pod")
+		return errors.Wrap(err, "failed to get storage")
 	}
-	k8s.SetControllerReference(cr, pod, r.scheme)
-
-	job, err := backup.PVCRestoreJob(cr, cluster, bcp)
+	job, err := storageRestore.Job()
 	if err != nil {
-		return errors.Wrap(err, "restore job")
-	}
-	k8s.SetControllerReference(cr, job, r.scheme)
-
-	r.client.Delete(context.TODO(), svc)
-	r.client.Delete(context.TODO(), pod)
-
-	err = r.client.Create(context.TODO(), svc)
-	if err != nil {
-		return errors.Wrap(err, "create service")
-	}
-	err = r.client.Create(context.TODO(), pod)
-	if err != nil {
-		return errors.Wrap(err, "create pod")
-	}
-
-	for {
-		time.Sleep(time.Second * 1)
-
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
-		if err != nil {
-			return errors.Wrap(err, "get pod status")
-		}
-		if pod.Status.Phase == corev1.PodRunning {
-			break
-		}
-	}
-
-	defer func() {
-		r.client.Delete(context.TODO(), svc)
-		r.client.Delete(context.TODO(), pod)
-	}()
-
-	return r.createJob(job)
-}
-func (r *ReconcilePerconaXtraDBClusterRestore) restoreAzure(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, dest string, cluster *api.PerconaXtraDBCluster, pitr bool) error {
-	job, err := backup.AzureRestoreJob(cr, bcp, cluster, dest, pitr)
-	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get restore job")
 	}
 	if err = k8s.SetControllerReference(cr, job, r.scheme); err != nil {
 		return err
 	}
 
-	return r.createJob(job)
+	if err = storageRestore.Init(ctx); err != nil {
+		return errors.Wrap(err, "failed to init restore")
+	}
+	defer func() {
+		if derr := storageRestore.Finalize(ctx); derr != nil {
+			log.Error(derr, "failed to finalize restore")
+		}
+	}()
+
+	return r.createJob(ctx, job)
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster *api.PerconaXtraDBCluster, pitr bool) error {
-	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster, pitr)
+func (r *ReconcilePerconaXtraDBClusterRestore) pitr(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
+	log := logf.FromContext(ctx)
+
+	storageRestore, err := r.getStorageRestore(cr, bcp, cluster, true)
 	if err != nil {
+		return errors.Wrap(err, "failed to get storage")
+	}
+	job, err := storageRestore.Job()
+	if err != nil {
+		return errors.Wrap(err, "failed to create pitr restore job")
+	}
+	if err := k8s.SetControllerReference(cr, job, r.scheme); err != nil {
 		return err
 	}
-	k8s.SetControllerReference(cr, job, r.scheme)
+	if err = storageRestore.Init(ctx); err != nil {
+		return errors.Wrap(err, "failed to init storage")
+	}
+	defer func() {
+		if derr := storageRestore.Finalize(ctx); derr != nil {
+			log.Error(derr, "failed to finalize restore")
+		}
+	}()
 
-	return r.createJob(job)
+	return r.createJob(ctx, job)
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) createJob(job *batchv1.Job) error {
-	err := r.client.Create(context.TODO(), job)
+func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
+	storageRestore, err := r.getStorageRestore(cr, bcp, cluster, false)
+	if err != nil {
+		return errors.Wrap(err, "failed to get storage")
+	}
+	job, err := storageRestore.Job()
+	if err != nil {
+		return errors.Wrap(err, "failed to create pitr restore job")
+	}
+	if err := r.validateJob(ctx, job); err != nil {
+		return errors.Wrap(err, "failed to validate job")
+	}
+
+	if cr.Spec.PITR != nil {
+		storageRestore, err := r.getStorageRestore(cr, bcp, cluster, true)
+		if err != nil {
+			return errors.Wrap(err, "failed to get storage")
+		}
+		job, err := storageRestore.Job()
+		if err != nil {
+			return errors.Wrap(err, "failed to create pitr restore job")
+		}
+		if err := r.validateJob(ctx, job); err != nil {
+			return errors.Wrap(err, "failed to validate job")
+		}
+	}
+
+	if err := storageRestore.Validate(ctx); err != nil {
+		return errors.Wrap(err, "failed to validate backup existence")
+	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterRestore) validateJob(ctx context.Context, job *batchv1.Job) error {
+	secrets := []string{}
+	for _, container := range job.Spec.Template.Spec.Containers {
+		for _, env := range container.Env {
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name != "" {
+				secrets = append(secrets, env.ValueFrom.SecretKeyRef.Name)
+			}
+		}
+	}
+
+	notExistingSecrets := []string{}
+	for _, secret := range secrets {
+		err := r.client.Get(ctx, types.NamespacedName{
+			Name:      secret,
+			Namespace: job.Namespace,
+		}, new(corev1.Secret))
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				notExistingSecrets = append(notExistingSecrets, secret)
+				continue
+			}
+			return err
+		}
+	}
+	if len(notExistingSecrets) > 0 {
+		return errors.Errorf("secrets %s not found", strings.Join(notExistingSecrets, ", "))
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterRestore) createJob(ctx context.Context, job *batchv1.Job) error {
+	err := r.client.Create(ctx, job)
 	if err != nil {
 		return errors.Wrap(err, "create job")
 	}
@@ -122,7 +147,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) createJob(job *batchv1.Job) error
 		time.Sleep(time.Second * 1)
 
 		checkJob := batchv1.Job{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
+		err := r.client.Get(ctx, types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				return nil

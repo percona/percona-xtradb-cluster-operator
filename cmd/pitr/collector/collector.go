@@ -13,13 +13,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/go-sql-driver/mysql"
-	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
 type Collector struct {
@@ -122,13 +120,13 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 	// get last binlog set stored on S3
 	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+suffix)
 	if err != nil {
-		if bloberror.HasCode(errors.Cause(err), bloberror.BlobNotFound) {
+		if err == storage.ErrObjectNotFound {
 			return pxc.GTIDSet{}, nil
 		}
 		return pxc.GTIDSet{}, errors.Wrap(err, "get last set content")
 	}
 	lastSet, err := io.ReadAll(lastSetObject)
-	if err != nil && minio.ToErrorResponse(errors.Cause(err)).Code != "NoSuchKey" {
+	if err != nil {
 		return pxc.GTIDSet{}, errors.Wrap(err, "read last gtid set")
 	}
 	return pxc.NewGTIDSet(string(lastSet)), nil
@@ -355,7 +353,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrap(err, "remove temp file")
 	}
 
-	err = syscall.Mkfifo(tmpDir+binlog.Name, 0666)
+	err = syscall.Mkfifo(tmpDir+binlog.Name, 0o666)
 	if err != nil {
 		return errors.Wrap(err, "make named pipe file error")
 	}
@@ -428,7 +426,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 }
 
 func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlogName string) {
-	b := make([]byte, 10485760) //alloc buffer for 10mb
+	b := make([]byte, 10485760) // alloc buffer for 10mb
 
 	// in case of binlog is slow and hasn't written anything to the file yet
 	// we have to skip this error and try to read again until some data appears

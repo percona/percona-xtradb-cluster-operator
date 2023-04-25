@@ -35,7 +35,7 @@ var (
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "PS Suite")
+	RunSpecs(t, "PXC Suite")
 }
 
 var _ = BeforeSuite(func() {

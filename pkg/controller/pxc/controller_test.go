@@ -13,7 +13,7 @@ import (
 var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
 	ctx := context.Background()
 
-	const ns = "xtradb"
+	const ns = "pxc"
 
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

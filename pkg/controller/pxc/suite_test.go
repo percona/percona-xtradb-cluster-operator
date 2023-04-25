@@ -40,7 +40,7 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	Expect(os.Setenv("KUBEBUILDER_ASSETS", "/Users/inelpandzic//Library/Application Support/io.kubebuilder.envtest/k8s/1.26.1-darwin-arm64")).To(Succeed())
+	
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},

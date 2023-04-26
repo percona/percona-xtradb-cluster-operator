@@ -638,16 +638,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(cr *api.PerconaXtra
 		user.Hosts = []string{"%"}
 	}
 
-	// if cr.Status.PXC.Ready > 0 {
-	// 	if cr.CompareVersionWith("1.7.0") >= 0 {
-	// 		// monitor user need more grants for work in version more then 1.6.0
-	// 		err := r.updateXtrabackupUserGrant(cr, internalSecrets)
-	// 		if err != nil {
-	// 			return errors.Wrap(err, "update xtrabackup user grant")
-	// 		}
-	// 	}
-	// }
-
 	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}

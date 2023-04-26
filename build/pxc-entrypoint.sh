@@ -27,7 +27,7 @@ done
 # (will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
 #  "$XYZ_DB_PASSWORD" from a file, especially for Docker's secrets feature)
 file_env() {
-	set +o xtrace
+	{ set +x; } 2>/dev/null
 	local var="$1"
 	local fileVar="${var}_FILE"
 	local def="${2:-}"
@@ -45,7 +45,6 @@ file_env() {
 	fi
 	export "$var"="$val"
 	unset "$fileVar"
-	set -o xtrace
 }
 
 # usage: process_init_file FILENAME MYSQLCOMMAND...
@@ -150,6 +149,7 @@ function join {
 }
 
 escape_special() {
+	{ set +x; } 2>/dev/null
 	echo "$1" \
 		| sed 's/\\/\\\\/g' \
 		| sed 's/'\''/'\\\\\''/g' \
@@ -339,7 +339,6 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			MYSQL_ROOT_PASSWORD="$(pwmake 128)"
 			echo "GENERATED ROOT PASSWORD: $MYSQL_ROOT_PASSWORD"
 		fi
-		set -x
 
 		rootCreate=
 		# default root to listen for connections from anywhere

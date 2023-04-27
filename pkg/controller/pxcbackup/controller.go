@@ -11,12 +11,9 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -68,11 +66,6 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		limit = envLim
 	}
 
-	zapLog, err := zap.NewProduction()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create logger")
-	}
-
 	cli, err := clientcmd.NewClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "create clientcmd")
@@ -85,14 +78,13 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		clientcmd:           cli,
 		chLimit:             make(chan struct{}, limit),
 		bcpDeleteInProgress: new(sync.Map),
-		log:                 zapr.NewLogger(zapLog),
 	}, nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("perconaxtradbclusterbackup-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("pxcbackup-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -119,11 +111,6 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	clientcmd           *clientcmd.Client
 	chLimit             chan struct{}
 	bcpDeleteInProgress *sync.Map
-	log                 logr.Logger
-}
-
-func (r *ReconcilePerconaXtraDBClusterBackup) logger(name, namespace string) logr.Logger {
-	return r.log.WithName("perconaxtradbclusterbackup").WithValues("backup", name, "namespace", namespace)
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read
@@ -132,7 +119,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) logger(name, namespace string) log
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	log := r.logger(request.Name, request.Namespace)
+	log := logf.FromContext(ctx)
 
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
@@ -304,7 +291,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context
 				return true
 			})
 
-			r.logger(cr.Name, cr.Namespace).Info("all workers are busy - skip backup deletion for now",
+			logf.FromContext(ctx).Info("all workers are busy - skip backup deletion for now",
 				"backup", cr.Name, "in progress", strings.Join(inprog, ", "))
 		}
 	}
@@ -313,7 +300,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) {
-	log := r.logger(cr.Name, cr.Namespace)
+	log := logf.FromContext(ctx)
 
 	defer func() {
 		r.bcpDeleteInProgress.Delete(cr.Name)
@@ -333,7 +320,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 				if !strings.HasPrefix(cr.Status.Destination, api.AwsBlobStoragePrefix) {
 					continue
 				}
-				err = r.runS3BackupFinalizer(cr)
+				err = r.runS3BackupFinalizer(ctx, cr)
 			case api.BackupStorageAzure:
 				err = r.runAzureBackupFinalizer(ctx, cr)
 			default:
@@ -357,8 +344,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 	}
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.PerconaXtraDBClusterBackup) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	log := logf.FromContext(ctx)
 
 	if cr.Status.S3 == nil {
 		return errors.New("s3 storage is not specified")
@@ -383,7 +370,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
-	log := r.logger(cr.Name, cr.Namespace)
+	log := logf.FromContext(ctx)
+
 	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified")
 	}

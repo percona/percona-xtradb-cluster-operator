@@ -359,6 +359,20 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			read -r -d '' monitorConnectGrant <<-EOSQL || true
 				GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			EOSQL
+
+			read -r -d '' xtrabackupUserGrant <<-EOSQL || true
+				GRANT BACKUP_ADMIN, RESOURCE_GROUP_USER, SERVICE_CONNECTION_ADMIN ON *.* TO 'xtrabackup'@'%';
+				GRANT SELECT ON performance_schema.log_status TO 'xtrabackup'@'%';
+			EOSQL
+		fi
+
+		# performance_schema.keyring_component_status table since 8.0.24
+		# https://dev.mysql.com/doc/refman/8.0/en/performance-schema-keyring-component-status-table.html
+		if [[ $MYSQL_VERSION == "8.0" ]] && ((MYSQL_PATCH_VERSION >= 24)); then
+			xtrabackupUserGrant+="$(cat <<-EOSQL
+				GRANT SELECT ON performance_schema.keyring_component_status TO 'xtrabackup'@'%';
+			EOSQL
+			)"
 		fi
 
 		# SYSTEM_USER since 8.0.16
@@ -385,9 +399,8 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			GRANT ALL ON *.* TO 'operator'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 
 			CREATE USER 'xtrabackup'@'%' IDENTIFIED BY '$(escape_special "${XTRABACKUP_PASSWORD}")';
-			GRANT BACKUP_ADMIN, RESOURCE_GROUP_USER, SERVICE_CONNECTION_ADMIN, PROCESS, RELOAD, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'xtrabackup'@'%';
-			GRANT SELECT ON performance_schema.log_status TO 'xtrabackup'@'%';
-			GRANT SELECT ON performance_schema.keyring_component_status TO 'xtrabackup'@'%';
+			GRANT PROCESS, RELOAD, LOCK TABLES, REPLICATION CLIENT ON *.* TO 'xtrabackup'@'%';
+			${xtrabackupUserGrant}
 
 			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '$(escape_special "${MONITOR_PASSWORD}")' WITH MAX_USER_CONNECTIONS 100;
 			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';

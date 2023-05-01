@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -22,7 +23,7 @@ var (
 
 const logPrefix = `#####################################################LAST_LINE`
 
-func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(ctx context.Context, cr *v1.PerconaXtraDBCluster) error {
 	if cr.Spec.PXC.Size <= 0 {
 		return nil
 	}
@@ -41,7 +42,7 @@ func (r *ReconcilePerconaXtraDBCluster) recoverFullClusterCrashIfNeeded(cr *v1.P
 	}
 
 	if isWaiting {
-		return r.doFullCrashRecovery(cr.Name, cr.Namespace, int(cr.Spec.PXC.Size))
+		return r.doFullCrashRecovery(ctx, cr.Name, cr.Namespace, int(cr.Spec.PXC.Size))
 	}
 
 	return nil
@@ -81,7 +82,7 @@ func parseSequence(log string) (int64, error) {
 	return seq, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace string, pxcSize int) error {
+func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(ctx context.Context, crName, namespace string, pxcSize int) error {
 	maxSeq := int64(-100)
 	maxSeqPod := ""
 
@@ -101,7 +102,7 @@ func (r *ReconcilePerconaXtraDBCluster) doFullCrashRecovery(crName, namespace st
 			maxSeqPod = podName
 		}
 	}
-	log := r.logger(crName, namespace)
+	log := logf.FromContext(ctx)
 	log.Info("We are in full cluster crash, starting recovery")
 	log.Info("Results of scanning sequences", "pod", maxSeqPod, "maxSeq", maxSeq)
 

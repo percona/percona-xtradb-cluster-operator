@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 
@@ -32,8 +33,9 @@ type BackupScheduleJob struct {
 	JobID cron.EntryID
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCluster) error {
-	log := r.logger("backup", cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	log := logf.FromContext(ctx)
+
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
 	backupNamePrefix := backupJobClusterPrefix(cr.Name)
 
@@ -84,9 +86,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 
 			if !ok || sch.PXCScheduledBackupSchedule.Schedule != bcp.Schedule ||
 				sch.PXCScheduledBackupSchedule.StorageName != bcp.StorageName {
-				r.log.Info("Creating or updating backup job", "name", bcp.Name, "schedule", bcp.Schedule)
+				log.Info("Creating or updating backup job", "name", bcp.Name, "schedule", bcp.Schedule)
 				r.deleteBackupJob(bcp.Name)
-				jobID, err := r.crons.AddFuncWithSeconds(bcp.Schedule, r.createBackupJob(cr, bcp, strg.Type))
+				jobID, err := r.crons.AddFuncWithSeconds(bcp.Schedule, r.createBackupJob(ctx, cr, bcp, strg.Type))
 				if err != nil {
 					log.Error(err, "can't parse cronjob schedule", "backup name", cr.Spec.Backup.Schedule[i].Name, "schedule", bcp.Schedule)
 					continue
@@ -122,7 +124,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(cr *api.PerconaXtraDBCl
 
 			}
 		} else {
-			r.log.Info("deleting outdated backup job", "name", item.Name)
+			log.Info("deleting outdated backup job", "name", item.Name)
 			r.deleteBackupJob(item.Name)
 		}
 
@@ -182,7 +184,9 @@ func (r *ReconcilePerconaXtraDBCluster) oldScheduledBackups(cr *api.PerconaXtraD
 	return ret, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) createBackupJob(cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, storageType api.BackupStorageType) func() {
+func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr *api.PerconaXtraDBCluster, backupJob api.PXCScheduledBackupSchedule, storageType api.BackupStorageType) func() {
+	log := logf.FromContext(ctx)
+
 	var fins []string
 	switch storageType {
 	case api.BackupStorageS3, api.BackupStorageAzure:
@@ -193,7 +197,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(cr *api.PerconaXtraDBClu
 		localCr := &api.PerconaXtraDBCluster{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if k8serrors.IsNotFound(err) {
-			r.log.Info("cluster is not found, deleting the job",
+			log.Info("cluster is not found, deleting the job",
 				"job name", jobName, "cluster", cr.Name, "namespace", cr.Namespace)
 			r.deleteBackupJob(backupJob.Name)
 			return
@@ -217,7 +221,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(cr *api.PerconaXtraDBClu
 		}
 		err = r.client.Create(context.TODO(), bcp)
 		if err != nil {
-			r.log.Error(err, "failed to create backup")
+			log.Error(err, "failed to create backup")
 		}
 	}
 }
@@ -330,6 +334,8 @@ func (r *ReconcilePerconaXtraDBCluster) getLatestSuccessfulBackup(ctx context.Co
 }
 
 func (r *ReconcilePerconaXtraDBCluster) checkPITRErrors(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	log := logf.FromContext(ctx)
+
 	if cr.Spec.Backup == nil || !cr.Spec.Backup.PITR.Enabled {
 		return nil
 	}
@@ -372,12 +378,12 @@ func (r *ReconcilePerconaXtraDBCluster) checkPITRErrors(ctx context.Context, cr 
 	}
 
 	if stdoutBuf.Len() == 0 {
-		r.logger(cr.Name, cr.Namespace).Info("Gap detected but GTID set is empty", "collector", collectorPod.Name)
+		log.Info("Gap detected but GTID set is empty", "collector", collectorPod.Name)
 		return nil
 	}
 
 	missingGTIDSet := stdoutBuf.String()
-	r.logger(cr.Name, cr.Namespace).Info("Gap detected in binary logs", "collector", collectorPod.Name, "missingGTIDSet", missingGTIDSet)
+	log.Info("Gap detected in binary logs", "collector", collectorPod.Name, "missingGTIDSet", missingGTIDSet)
 
 	condition := metav1.Condition{
 		Type:               api.BackupConditionPITRReady,

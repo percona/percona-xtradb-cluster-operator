@@ -8,13 +8,14 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) (*userUpdateActions, error) {
+func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret) (*userUpdateActions, error) {
 	res := &userUpdateActions{}
 
 	for _, u := range users.UserNames {
@@ -24,35 +25,35 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(cr *api.PerconaXtra
 
 		switch u {
 		case users.Root:
-			if err := r.handleRootUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleRootUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Operator:
-			if err := r.handleOperatorUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleOperatorUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Monitor:
-			if err := r.handleMonitorUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleMonitorUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Clustercheck:
-			if err := r.handleClustercheckUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleClustercheckUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Xtrabackup:
-			if err := r.handleXtrabackupUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleXtrabackupUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.Replication:
-			if err := r.handleReplicationUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleReplicationUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.ProxyAdmin:
-			if err := r.handleProxyadminUserWithoutDP(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handleProxyadminUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		case users.PMMServer, users.PMMServerKey:
-			if err := r.handlePMMUser(cr, secrets, internalSecrets, res); err != nil {
+			if err := r.handlePMMUser(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
 		}
@@ -60,12 +61,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(cr *api.PerconaXtra
 
 	return res, nil
 }
-func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	if cr.Status.Status != api.AppStateReady {
 		return nil
 	}
 
-	log := r.logger(cr.Name, cr.Namespace)
+	log := logf.FromContext(ctx)
 
 	user := &users.SysUser{
 		Name:  users.Root,
@@ -85,7 +86,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaX
 	}
 	log.Info("User password updated", "user", user.Name)
 
-	err = r.syncPXCUsersWithProxySQL(cr)
+	err = r.syncPXCUsersWithProxySQL(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "sync users")
 	}
@@ -101,8 +102,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(cr *api.PerconaX
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	log := logf.FromContext(ctx)
 
 	user := &users.SysUser{
 		Name:  users.Operator,
@@ -111,7 +112,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.Perc
 	}
 
 	if cr.Status.PXC.Ready > 0 {
-		err := r.manageOperatorAdminUser(cr, secrets, internalSecrets)
+		err := r.manageOperatorAdminUser(ctx, cr, secrets, internalSecrets)
 		if err != nil {
 			return errors.Wrap(err, "manage operator admin user")
 		}
@@ -145,8 +146,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(cr *api.Perc
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	log := logf.FromContext(ctx)
 
 	user := &users.SysUser{
 		Name:  users.Monitor,
@@ -162,7 +163,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 		defer um.Close()
 
 		if cr.CompareVersionWith("1.6.0") >= 0 {
-			err := r.updateMonitorUserGrant(cr, internalSecrets, um)
+			err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um)
 			if err != nil {
 				return errors.Wrap(err, "update monitor user grant")
 			}
@@ -172,7 +173,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 			mysqlVersion := cr.Status.PXC.Version
 			if mysqlVersion == "" {
 				var err error
-				mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
+				mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
 				if err != nil {
 					if errors.Is(err, versionNotReadyErr) {
 						return nil
@@ -188,7 +189,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 				}
 
 				if !ver.LessThan(privSystemUserAddedIn) {
-					if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, um); err != nil {
+					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, user, um); err != nil {
 						return errors.Wrap(err, "monitor user grant system privilege")
 					}
 				}
@@ -236,8 +237,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(cr *api.Perco
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	log := logf.FromContext(ctx)
 
 	user := &users.SysUser{
 		Name:  users.Clustercheck,
@@ -250,7 +251,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 			mysqlVersion := cr.Status.PXC.Version
 			if mysqlVersion == "" {
 				var err error
-				mysqlVersion, err = r.mysqlVersion(cr, statefulset.NewNode(cr))
+				mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
 				if err != nil {
 					if errors.Is(err, versionNotReadyErr) {
 						return nil
@@ -272,7 +273,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 					}
 					defer um.Close()
 
-					if err := r.grantSystemUserPrivilege(cr, internalSecrets, user, um); err != nil {
+					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, user, um); err != nil {
 						return errors.Wrap(err, "clustercheck user grant system privilege")
 					}
 				}
@@ -307,8 +308,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(cr *api.
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	log := logf.FromContext(ctx)
 
 	user := &users.SysUser{
 		Name:  users.Xtrabackup,
@@ -323,7 +324,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.Pe
 	if cr.Status.PXC.Ready > 0 {
 		if cr.CompareVersionWith("1.7.0") >= 0 {
 			// monitor user need more grants for work in version more then 1.6.0
-			err := r.updateXtrabackupUserGrant(cr, internalSecrets)
+			err := r.updateXtrabackupUserGrant(ctx, cr, internalSecrets)
 			if err != nil {
 				return errors.Wrap(err, "update xtrabackup user grant")
 			}
@@ -358,8 +359,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(cr *api.Pe
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	log := logf.FromContext(ctx)
 
 	if cr.CompareVersionWith("1.9.0") < 0 {
 		return nil
@@ -376,7 +377,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.P
 	}
 
 	if cr.Status.PXC.Ready > 0 {
-		err := r.manageReplicationUser(cr, secrets, internalSecrets)
+		err := r.manageReplicationUser(ctx, cr, secrets, internalSecrets)
 		if err != nil {
 			return errors.Wrap(err, "manage replication user")
 		}
@@ -410,8 +411,8 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(cr *api.P
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
+	log := logf.FromContext(ctx)
 
 	if !cr.Spec.ProxySQLEnabled() {
 		return nil

@@ -2,8 +2,9 @@ package pxcbackup
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
-	"net/url"
+	"net/http"
 	"os"
 	"reflect"
 	"strconv"
@@ -12,12 +13,9 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
-	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -69,11 +68,6 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		limit = envLim
 	}
 
-	zapLog, err := zap.NewProduction()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create logger")
-	}
-
 	cli, err := clientcmd.NewClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "create clientcmd")
@@ -86,14 +80,13 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		clientcmd:           cli,
 		chLimit:             make(chan struct{}, limit),
 		bcpDeleteInProgress: new(sync.Map),
-		log:                 zapr.NewLogger(zapLog),
 	}, nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("perconaxtradbclusterbackup-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("pxcbackup-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -120,11 +113,6 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	clientcmd           *clientcmd.Client
 	chLimit             chan struct{}
 	bcpDeleteInProgress *sync.Map
-	log                 logr.Logger
-}
-
-func (r *ReconcilePerconaXtraDBClusterBackup) logger(name, namespace string) logr.Logger {
-	return r.log.WithName("perconaxtradbclusterbackup").WithValues("backup", name, "namespace", namespace)
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read
@@ -133,7 +121,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) logger(name, namespace string) log
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	log := r.logger(request.Name, request.Namespace)
+	log := logf.FromContext(ctx)
 
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
@@ -201,6 +189,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.SSLSecretName = cluster.Spec.PXC.SSLSecretName
 		cr.Status.SSLInternalSecretName = cluster.Spec.PXC.SSLInternalSecretName
 		cr.Status.VaultSecretName = cluster.Spec.PXC.VaultSecretName
+		cr.Status.VerifyTLS = storage.VerifyTLS
 	}
 
 	bcp := backup.New(cluster)
@@ -243,8 +232,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.New("s3 storage is not specified")
 		}
 		cr.Status.Destination = storage.S3.Bucket + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
-		if !strings.HasPrefix(storage.S3.Bucket, "s3://") {
-			cr.Status.Destination = "s3://" + cr.Status.Destination
+		if !strings.HasPrefix(storage.S3.Bucket, api.AwsBlobStoragePrefix) {
+			cr.Status.Destination = api.AwsBlobStoragePrefix + cr.Status.Destination
 		}
 
 		err := backup.SetStorageS3(&job.Spec, cr)
@@ -256,6 +245,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 			return rr, errors.New("azure storage is not specified")
 		}
 		cr.Status.Destination = storage.Azure.ContainerPath + "/" + cr.Spec.PXCCluster + "-" + cr.CreationTimestamp.Time.Format("2006-01-02-15:04:05") + "-full"
+		if !strings.HasPrefix(storage.Azure.ContainerPath, api.AzureBlobStoragePrefix) {
+			cr.Status.Destination = api.AzureBlobStoragePrefix + cr.Status.Destination
+		}
+
 		err := backup.SetStorageAzure(&job.Spec, cr)
 		if err != nil {
 			return rr, errors.Wrap(err, "set storage FS for Azure")
@@ -301,7 +294,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context
 				return true
 			})
 
-			r.logger(cr.Name, cr.Namespace).Info("all workers are busy - skip backup deletion for now",
+			logf.FromContext(ctx).Info("all workers are busy - skip backup deletion for now",
 				"backup", cr.Name, "in progress", strings.Join(inprog, ", "))
 		}
 	}
@@ -310,7 +303,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) tryRunBackupFinalizers(ctx context
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) {
-	log := r.logger(cr.Name, cr.Namespace)
+	log := logf.FromContext(ctx)
 
 	defer func() {
 		r.bcpDeleteInProgress.Delete(cr.Name)
@@ -327,10 +320,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			}
 			switch cr.Status.StorageType {
 			case api.BackupStorageS3:
-				if !strings.HasPrefix(cr.Status.Destination, "s3://") {
+				if !strings.HasPrefix(cr.Status.Destination, api.AwsBlobStoragePrefix) {
 					continue
 				}
-				err = r.runS3BackupFinalizer(cr)
+				err = r.runS3BackupFinalizer(ctx, cr)
 			case api.BackupStorageAzure:
 				err = r.runAzureBackupFinalizer(ctx, cr)
 			default:
@@ -354,8 +347,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 	}
 }
 
-func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.PerconaXtraDBClusterBackup) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	log := logf.FromContext(ctx)
 
 	if cr.Status.S3 == nil {
 		return errors.New("s3 storage is not specified")
@@ -367,10 +360,11 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 	} else if k8sErrors.IsNotFound(err) {
 		return nil
 	}
-	log.Info("deleting backup from s3", "name", cr.Name)
 
 	spl := strings.Split(cr.Status.Destination, "/")
 	backup := spl[len(spl)-1]
+
+	log.Info("deleting backup from s3", "name", cr.Name, "bucket", cr.Status.S3.Bucket, "backupName", backup)
 	err = retry.OnError(retry.DefaultBackoff, func(e error) bool { return true }, removeS3Backup(cr.Status.S3.Bucket, backup, s3cli))
 	if err != nil {
 		return errors.Wrapf(err, "failed to delete backup %s", cr.Name)
@@ -379,6 +373,8 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(cr *api.Perco
 }
 
 func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) error {
+	log := logf.FromContext(ctx)
+
 	if cr.Status.Azure == nil {
 		return errors.New("azure storage is not specified")
 	}
@@ -387,8 +383,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 		return errors.Wrap(err, "new azure client")
 	}
 	container, _ := cr.Status.Azure.ContainerAndPrefix()
-	destination := strings.TrimPrefix(cr.Status.Destination, container+"/")
+	destination := strings.TrimPrefix(cr.Status.Destination, api.AzureBlobStoragePrefix+container+"/")
+	destination = strings.TrimPrefix(destination, container+"/")
 
+	log.Info("deleting backup from azure", "name", cr.Name, "containerName", container, "destination", destination)
 	err = retry.OnError(retry.DefaultBackoff,
 		func(e error) bool {
 			return true
@@ -407,7 +405,7 @@ func removeAzureBackup(ctx context.Context, cli *azblob.Client, container, desti
 			return errors.Wrap(err, "list backup blobs")
 		}
 		for _, blob := range blobs {
-			_, err = cli.DeleteBlob(ctx, container, url.QueryEscape(blob), nil)
+			_, err = cli.DeleteBlob(ctx, container, blob, nil)
 			if err != nil {
 				return errors.Wrapf(err, "delete blob %s", blob)
 			}
@@ -417,7 +415,7 @@ func removeAzureBackup(ctx context.Context, cli *azblob.Client, container, desti
 			return errors.Wrap(err, "list backup blobs")
 		}
 		for _, blob := range blobs {
-			_, err = cli.DeleteBlob(ctx, container, url.QueryEscape(blob), nil)
+			_, err = cli.DeleteBlob(ctx, container, blob, nil)
 			if err != nil {
 				return errors.Wrapf(err, "delete blob %s", blob)
 			}
@@ -486,15 +484,25 @@ func (r *ReconcilePerconaXtraDBClusterBackup) s3cli(cr *api.PerconaXtraDBCluster
 	if len(ep) == 0 {
 		ep = "s3.amazonaws.com"
 	}
+	verifyTLS := true
+	if cr.Status.VerifyTLS != nil && !*cr.Status.VerifyTLS {
+		verifyTLS = false
+	}
 
 	ep = strings.TrimPrefix(ep, "https://")
 	ep = strings.TrimPrefix(ep, "http://")
 	ep = strings.TrimSuffix(ep, "/")
 
+	transport := http.DefaultTransport
+	transport.(*http.Transport).TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: !verifyTLS,
+	}
+
 	return minio.New(ep, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: secure,
-		Region: cr.Status.S3.Region,
+		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure:    secure,
+		Region:    cr.Status.S3.Region,
+		Transport: transport,
 	})
 }
 func (r *ReconcilePerconaXtraDBClusterBackup) azureClient(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) (*azblob.Client, error) {
@@ -564,6 +572,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 		SSLSecretName:         bcp.Status.SSLSecretName,
 		SSLInternalSecretName: bcp.Status.SSLInternalSecretName,
 		VaultSecretName:       bcp.Status.VaultSecretName,
+		VerifyTLS:             storage.VerifyTLS,
 	}
 
 	switch {

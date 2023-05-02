@@ -24,8 +24,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 	switch {
 	case strings.HasPrefix(bcp.Status.Destination, "pvc/"):
 		return errors.Wrap(r.restorePVC(cr, bcp, strings.TrimPrefix(destination, "pvc/"), cluster.Spec), "pvc")
-	case strings.HasPrefix(bcp.Status.Destination, "s3://"):
-		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(destination, "s3://"), cluster, false), "s3")
+	case strings.HasPrefix(bcp.Status.Destination, api.AwsBlobStoragePrefix):
+		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(destination, api.AwsBlobStoragePrefix), cluster, false), "s3")
 	case bcp.Status.Azure != nil:
 		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster.Spec, false), "azure")
 	default:
@@ -36,8 +36,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(cr *api.PerconaXtraDBClus
 func (r *ReconcilePerconaXtraDBClusterRestore) pitr(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
 	dest := bcp.Status.Destination
 	switch {
-	case strings.HasPrefix(dest, "s3://"):
-		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(dest, "s3://"), cluster, true), "PITR restore s3")
+	case strings.HasPrefix(dest, api.AwsBlobStoragePrefix):
+		return errors.Wrap(r.restoreS3(cr, bcp, strings.TrimPrefix(dest, api.AwsBlobStoragePrefix), cluster, true), "PITR restore s3")
 	case bcp.Status.Azure != nil:
 		return errors.Wrap(r.restoreAzure(cr, bcp, bcp.Status.Destination, cluster.Spec, true), "PITR restore azure")
 	}
@@ -123,7 +123,10 @@ func (r *ReconcilePerconaXtraDBClusterRestore) createJob(job *batchv1.Job) error
 
 		checkJob := batchv1.Job{}
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
-		if err != nil && !k8serrors.IsNotFound(err) {
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil
+			}
 			return errors.Wrap(err, "get job status")
 		}
 		for _, cond := range checkJob.Status.Conditions {

@@ -534,10 +534,16 @@ type BackupStorageAzureSpec struct {
 	StorageClass      string `json:"storageClass"`
 }
 
+const (
+	AzureBlobStoragePrefix string = "azure://"
+	AwsBlobStoragePrefix   string = "s3://"
+)
+
 // ContainerAndPrefix returns container name and backup prefix from ContainerPath.
 // BackupStorageAzureSpec.ContainerPath can contain backup path in format `<container-name>/<backup-prefix>`.
 func (b *BackupStorageAzureSpec) ContainerAndPrefix() (string, string) {
-	container, prefix, _ := strings.Cut(b.ContainerPath, "/")
+	destination := strings.TrimPrefix(b.ContainerPath, AzureBlobStoragePrefix)
+	container, prefix, _ := strings.Cut(destination, "/")
 	return container, prefix
 }
 
@@ -1228,7 +1234,7 @@ func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress, deleted bool) App
 	switch {
 	case deleted || s.PXC.Status == AppStateStopping || s.ProxySQL.Status == AppStateStopping || s.HAProxy.Status == AppStateStopping:
 		return AppStateStopping
-	case s.PXC.Status == AppStatePaused, !inProgress && s.PXC.Status == AppStateReady:
+	case s.PXC.Status == AppStatePaused, !inProgress && s.PXC.Status == AppStateReady && s.Host != "":
 		if s.HAProxy.Status != "" && s.HAProxy.Status != s.PXC.Status {
 			return s.HAProxy.Status
 		}

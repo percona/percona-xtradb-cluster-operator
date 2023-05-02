@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 is_password_updated() {
 	local username=$1
@@ -146,3 +147,4 @@ wait_cluster_consistency "$cluster" 3 3
 compare_mysql_cmd "select-3" "SHOW DATABASES;" "-h $cluster-haproxy -umonitor -p'$newpass'"
 
 destroy "${namespace}"
+desc "test passed"

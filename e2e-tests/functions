@@ -42,7 +42,7 @@ if [ -f "$conf_dir/cloud-secret.yml" ]; then
 	SKIP_REMOTE_BACKUPS=''
 fi
 
-if oc get projects; then
+if oc get projects 2>/dev/null; then
 	# Guessing Openshift version from master node API version
 	case "$(oc get nodes --no-headers=true | grep master | head -n1 | grep -Eo 'v[0-9]+\.[0-9]+')" in
 		"v1.11") OPENSHIFT=3.11 ;;
@@ -58,13 +58,21 @@ fi
 
 KUBE_VERSION=$(kubectl version -o json | jq -r '.serverVersion.major + "." + .serverVersion.minor' | $sed -r 's/[^0-9.]+//g')
 
+set_debug() {
+	if [[ ${DEBUG_TESTS} == 1 ]]; then
+		set -o xtrace
+	else
+		set +o xtrace
+	fi
+}
+
 HELM_VERSION=$(helm version -c | $sed -re 's/.*SemVer:"([^"]+)".*/\1/; s/.*\bVersion:"([^"]+)".*/\1/')
 if [ "${HELM_VERSION:0:2}" == "v2" ]; then
 	HELM_ARGS="--name"
 fi
 
 version_gt() {
-	# return true if kubernetes version equal or greater than desired
+	desc "return true if kubernetes version equal or greater than desired"
 	if [ $(echo "${KUBE_VERSION} >= $1" | bc -l) -eq 1 ]; then
 		return 0
 	else
@@ -80,7 +88,7 @@ wait_cluster_consistency() {
 	if [ -z "${proxy_size}" ]; then
 		proxy_size=${cluster_size}
 	fi
-
+	desc "wait cluster consistency"
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 	until [[ "$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.state}')" == "ready" &&
 	"$(kubectl_bin get pxc "${cluster_name}" -o jsonpath='{.status.pxc.ready}')" == "${cluster_size}" &&
@@ -95,6 +103,7 @@ create_namespace() {
 	local skip_clean_namespace="$2"
 
 	if [[ ${CLEAN_NAMESPACE} == 1 ]] && [[ -z ${skip_clean_namespace} ]]; then
+		desc 'cleaned up all old namespaces'
 		kubectl_bin get ns \
 			| egrep -v "^kube-|^default$|Terminating|pxc-operator|openshift|^NAME" \
 			| awk '{print$1}' \
@@ -102,18 +111,23 @@ create_namespace() {
 	fi
 
 	if [ -n "$OPENSHIFT" ]; then
+		desc 'cleaned up all old namespaces'
 		if [ -n "$OPERATOR_NS" -a $(oc get project "$OPERATOR_NS" -o json | jq -r '.metadata.name') ]; then
 			oc delete --grace-period=0 --force=true project "$namespace" && sleep 120 || :
 		else
 			oc delete project "$namespace" && sleep 40 || :
 		fi
 		wait_for_delete "project/$namespace"
+
+		desc "create namespace $namespace"
 		oc new-project "$namespace"
 		oc project "$namespace"
 		oc adm policy add-scc-to-user hostaccess -z default || :
 	else
+		desc "cleaned up old namespaces $namespace"
 		kubectl_bin delete namespace "$namespace" || :
 		wait_for_delete "namespace/$namespace"
+		desc "create namespace $namespace"
 		kubectl_bin create namespace "$namespace"
 		kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
 	fi
@@ -151,10 +165,16 @@ wait_pod() {
 	echo -n $pod
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
 		&& kubectl_bin get ${ns:+-n $ns} pod/$pod | grep -q "^$pod" \
-		&& ! kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep -q LAST_LINE; do
+		&& ! IS_FULL_CRASH=$(kubectl_bin logs --tail=1 ${ns:+-n $ns} pod/$pod ${container:+ -c $container} | grep LAST_LINE); do
 		sleep 1
 		echo -n .
 		let retry+=1
+
+		if [[ -n $IS_FULL_CRASH ]]; then
+			echo 'full cluster crash detected'
+			exit 1
+		fi
+
 		if [[ $retry -ge $max_retry ]]; then
 			kubectl_bin describe pod/$pod
 			kubectl_bin logs $pod
@@ -164,7 +184,7 @@ wait_pod() {
 		fi
 	done
 	echo ".Ok"
-	set -o xtrace
+	set_debug
 }
 
 wait_crash_pod() {
@@ -191,7 +211,7 @@ wait_crash_pod() {
 		fi
 	done
 	echo ".Ok"
-	set -o xtrace
+	set_debug
 }
 
 wait_backup() {
@@ -211,13 +231,13 @@ wait_backup() {
 			exit 1
 		fi
 	done
-	set -o xtrace
+	set_debug
 }
 
 wait_backup_restore() {
 	local backup_name=$1
 	local status=${2:-'Succeeded'}
-
+	desc "wait backup restore"
 	set +o xtrace
 	retry=0
 	echo -n $backup_name
@@ -232,7 +252,7 @@ wait_backup_restore() {
 		fi
 	done
 	echo
-	set -o xtrace
+	set_debug
 }
 
 apply_rbac() {
@@ -245,7 +265,7 @@ apply_rbac() {
 }
 
 deploy_operator() {
-	desc 'start operator'
+	desc 'start PXC operator'
 
 	kubectl_bin apply --server-side --force-conflicts -f ${src_dir}/deploy/crd.yaml || :
 
@@ -304,17 +324,36 @@ wait_for_running() {
 	local name="$1"
 	let last_pod="$(($2 - 1))" || :
 	local max_retry="${3:-480}"
-
+	desc "wait for running cluster"
 	for i in $(seq 0 $last_pod); do
 		wait_pod ${name}-${i} ${max_retry}
+	done
+}
+
+wait_for_generation() {
+	local resource="$1"
+	local target_generation="$2"
+
+	echo "Waiting for $resource to reach generation $target_generation..."
+
+	while true; do
+		current_generation=$(kubectl get "$resource" -o jsonpath='{.metadata.generation}')
+
+		if [ "$current_generation" -eq "$target_generation" ]; then
+			echo "Resource $resource has reached generation $target_generation."
+			break
+		else
+			echo "Resource $resource is at generation $current_generation. Waiting..."
+			sleep 5
+		fi
 	done
 }
 
 wait_for_delete() {
 	local res="$1"
 
-	set +o xtrace
 	echo -n "$res - "
+	set +o xtrace
 	retry=0
 	until (kubectl_bin get $res || :) 2>&1 | grep NotFound; do
 		sleep 1
@@ -326,7 +365,7 @@ wait_for_delete() {
 			exit 1
 		fi
 	done
-	set -o xtrace
+	set_debug
 }
 
 compare_kubectl() {
@@ -335,7 +374,7 @@ compare_kubectl() {
 	local expected_result=${test_dir}/compare/${resource//\//_}${postfix}.yml
 	local new_result="${tmp_dir}/${resource//\//_}.yml"
 
-
+	desc "compare $resource-$postfix"
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
 		expected_result=${expected_result//.yml/-eks.yml}
 	fi
@@ -372,12 +411,15 @@ compare_kubectl() {
 			del(.metadata.resourceVersion) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "CLUSTER_HASH")) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_PATH")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "BACKUP_PATH")) |
 			del(.spec.template.spec.containers[].env[] | select(.name == "S3_BUCKET_URL")) |
+			del(.spec.template.spec.containers[].env[] | select(.name == "AZURE_CONTAINER_NAME")) |
 			del(.metadata.selfLink) |
 			del(.metadata.deletionTimestamp) |
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
 			del(.metadata.annotations."cloud.google.com/neg") |
+			del(.spec.template.metadata.annotations."last-applied-secret") |
 			del(.. | select(has("image")).image) |
 			del(.. | select(has("clusterIP")).clusterIP) |
 			del(.. | select(has("clusterIPs")).clusterIPs) |
@@ -431,13 +473,13 @@ run_mysql() {
 
 	client_pod=$(get_client_pod)
 	wait_pod $client_pod 1>&2
-
 	set +o xtrace
 	kubectl_bin exec $client_pod -- \
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| (grep -v 'Using a password on the command line interface can be insecure.' || :)
-	set -o xtrace
+
+	set_debug
 }
 
 run_mysql_local() {
@@ -445,13 +487,12 @@ run_mysql_local() {
 	local uri="$2"
 	local pod="$3"
 	local container_name="$4"
-
 	set +o xtrace
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
 		bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
-	set -o xtrace
+	set_debug
 }
 
 compare_mysql_cmd() {
@@ -567,6 +608,7 @@ run_pumba() {
 }
 
 deploy_cert_manager() {
+	desc 'deploy cert manager'
 	kubectl_bin create namespace cert-manager || :
 	kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
 	kubectl_bin apply -f "https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml" --validate=false || : 2>/dev/null
@@ -575,9 +617,10 @@ deploy_cert_manager() {
 
 destroy() {
 	local namespace="$1"
-	local ignore_logs="${2:-false}"
+	local ignore_logs="${2:-true}"
 
-	if [[ ${ignore_logs} == "false" ]]; then
+	desc 'destroy cluster/operator and all other resources'
+	if [ ${ignore_logs} == "false" -o "${DEBUG_TESTS}" == 1 ]; then
 		kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod) \
 			| grep -v 'level=info' \
 			| grep -v 'the object has been modified' \
@@ -622,7 +665,7 @@ desc() {
 	printf "\n\n-----------------------------------------------------------------------------------\n"
 	printf "$msg"
 	printf "\n-----------------------------------------------------------------------------------\n\n"
-	set -o xtrace
+	set_debug
 }
 
 get_service_endpoint() {
@@ -675,8 +718,12 @@ get_metric_values() {
 	local end=$($date -u "+%s")
 	local endpoint=$(get_service_endpoint monitoring-service)
 
-	curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=min%28$metric%7Bnode_name%3D%7E%22$instance%22%7d%20or%20$metric%7Bnode_name%3D%7E%22$instance%22%7D%29&start=$start&end=$end&step=60" \
-		| jq '.data.result[0].values[][1]' \
+	local result=$(curl -s -k "https://${user_pass}@$endpoint/graph/api/datasources/proxy/1/api/v1/query_range?query=min%28$metric%7Bnode_name%3D%7E%22$instance%22%7d%20or%20$metric%7Bnode_name%3D%7E%22$instance%22%7D%29&start=$start&end=$end&step=60" | jq '.data.result[0]')
+	if [ "$result" = "null" ]; then
+		echo "no values for metric $metric"
+		exit 1
+	fi
+	echo -n "$result" | jq '.values[][1]' \
 		| grep '^"[0-9]'
 
 }
@@ -750,6 +797,7 @@ cat_config() {
 }
 
 apply_secrets() {
+	desc 'create secrets for cloud storages'
 	if [ -z "$SKIP_REMOTE_BACKUPS" ]; then
 		kubectl_bin apply \
 			-f $conf_dir/minio-secret.yml \
@@ -804,7 +852,7 @@ spinup_pxc() {
 	desc 'create first PXC cluster'
 	kubectl_bin apply -f $secretsFile
 	apply_config "$pxcClientFile"
-	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ "$cluster" == 'demand-backup' || "$cluster" == 'demand-backup-cloud' ]]; then
+	if [[ $IMAGE_PXC =~ 5\.7 ]] && [[ $cluster == 'demand-backup' || $cluster == 'demand-backup-cloud' ]]; then
 		cat_config "$config" \
 			| $sed '/\[sst\]/,+1d' \
 			| $sed 's|compress=lz4|compress|' \
@@ -865,6 +913,7 @@ function table_must_not_be_encrypted() {
 }
 
 function table_must_be_encrypted() {
+	desc "check table encryption"
 	local cluster=$1
 	local table=$2
 	if ! is_table_encrypted "$cluster" "$table"; then
@@ -875,6 +924,7 @@ function table_must_be_encrypted() {
 
 function keyring_plugin_must_be_in_use() {
 	local cluster=$1
+	desc "check keyring plugin usage"
 	if ! is_keyring_plugin_in_use "$cluster"; then
 		echo "error: keyring_plugin is not used"
 		exit 1
@@ -898,7 +948,7 @@ kubectl_bin() {
 		kubectl "$@" 1>"$LAST_OUT" 2>"$LAST_ERR"
 		exit_status=$?
 		set -e
-		if [[ ${exit_status} != 0 ]]; then
+		if [ ${exit_status} != 0 ] && [ "${DEBUG_TESTS}" == 1 ]; then
 			sleep "$((timeout * i))"
 		else
 			break
@@ -1135,7 +1185,7 @@ storage \"file\" {
 			exit 1
 		fi
 	done
-	set -o xtrace
+	set_debug
 
 	kubectl_bin exec -it $name-0 -- vault operator init -tls-skip-verify -key-shares=1 -key-threshold=1 -format=json >"$tmp_dir/$name"
 	unsealKey=$(jq -r ".unseal_keys_b64[]" <"$tmp_dir/$name")
@@ -1169,21 +1219,36 @@ storage \"file\" {
 
 start_minio() {
 	deploy_helm $namespace
+	local cert_secret="$1"
+
+	local endpoint="http://minio-service:9000"
+	local minio_args=(
+		--version 8.0.5
+		--set accessKey=some-access-key
+		--set secretKey=some-secret-key
+		--set service.type=ClusterIP
+		--set configPathmc=/tmp/.minio/
+		--set securityContext.enabled=false
+		--set persistence.size=2G
+		--set environment.MINIO_REGION=us-east-1
+		--set environment.MINIO_HTTP_TRACE=/tmp/trace.log
+	)
+	if [[ -n $cert_secret ]]; then
+		endpoint="https://minio-service:9000"
+		minio_args+=(
+			--set tls.enabled=true
+			--set tls.certSecret="$cert_secret"
+			--set tls.publicCrt=tls.crt
+			--set tls.privateKey=tls.key
+		)
+	fi
 
 	desc 'install Minio'
 	helm uninstall minio-service || :
 	retry 10 60 helm install \
 		$HELM_ARGS \
 		minio-service \
-		--version 8.0.5 \
-		--set accessKey=some-access-key \
-		--set secretKey=some-secret-key \
-		--set service.type=ClusterIP \
-		--set configPathmc=/tmp/.minio/ \
-		--set securityContext.enabled=false \
-		--set persistence.size=2G \
-		--set environment.MINIO_REGION=us-east-1 \
-		--set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
+		"${minio_args[@]}" \
 		minio/minio
 	sleep 30
 	MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
@@ -1191,7 +1256,7 @@ start_minio() {
 
 	kubectl_bin run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 		/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-		/usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
+		/usr/bin/aws --endpoint-url "$endpoint" --no-verify-ssl s3 mb s3://operator-testing
 }
 
 deploy_chaos_mesh() {
@@ -1297,7 +1362,7 @@ function apply_rbac_gh() {
 function deploy_operator_gh() {
 	local git_tag="$1"
 
-	desc 'start operator'
+	desc 'start PXC operator'
 	if [[ -n $(kubectl_bin get crds -o jsonpath='{.items[?(@.metadata.name == "perconaxtradbclusters.pxc.percona.com")].metadata.name}') ]] \
 		&& [[ -n $(kubectl_bin get crd/perconaxtradbclusters.pxc.percona.com -o jsonpath='{.spec.versions[?(@.name == "'"${git_tag//\./-}"'")].name}') ]]; then
 		echo "Target CRD for ${git_tag} is in place"

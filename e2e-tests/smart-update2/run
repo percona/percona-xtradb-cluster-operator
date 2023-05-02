@@ -9,10 +9,11 @@
 # - Update cluster with explicitly specified image inside version service
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 API='pxc.percona.com/v9-9-9'
 TARGET_IMAGE_PXC=${IMAGE_PXC}
@@ -139,29 +140,29 @@ function check_telemetry_transfer() {
 			>"${tmp_dir}/${telemetry_state}_telemetry.version-service.log.json"
 
 	local telemetry_log_file="${telemetry_state}_telemetry.version-service${OPERATOR_NS:+-cw}.log.json"
-	# telemetry was disabled in CR but in operator not
+	desc "telemetry was disabled in CR but in operator not"
 	if [ "${cr_vs_channel}" == 'disabled' -a "${telemetry_state}" == 'enabled' ]; then
-		# operator fallback VS should have telemetry
+		desc "operator fallback VS should have telemetry"
 		diff "${test_dir}/compare/${telemetry_log_file}" <(grep -f "${tmp_dir}/${telemetry_state}_telemetry.version-service.log.json" "${test_dir}/compare/${telemetry_log_file}")
-		# CR VS should not have telemetry
+		desc "CR VS should not have telemetry"
 		[[ -s "${tmp_dir}/enabled_telemetry.version-service-cr.log.json" ]] && exit 1
 	fi
 
 	local image_prefix=${cr_vs_channel%'-recommended'}
 	local telemetry_cr_log_file="${telemetry_state}_telemetry.version-service-cr-${image_prefix}${OPERATOR_NS:+-cw}.log.json"
-	# telemetry was disabled in operator but not in CR
+	desc "telemetry was disabled in operator but not in CR"
 	if [ "${cr_vs_channel}" == "${image_prefix}-recommended" -a "${telemetry_state}" == 'disabled' ]; then
-		# cr VS should have telemetry
+		desc "cr VS should have telemetry"
 		diff "${test_dir}/compare/${telemetry_cr_log_file}" <(grep -f "${tmp_dir}/${telemetry_state}_telemetry.version-service-cr.log.json" "${test_dir}/compare/${telemetry_cr_log_file}")
-		# operator VS should not have telemetry
+		desc "operator VS should not have telemetry"
 		[[ -s ${tmp_dir}/disabled_telemetry.version-service.log.json ]] && exit 1
 	fi
 
-	# telemetry was disabled in CR as well as in operator
+	desc "telemetry was disabled in CR as well as in operator"
 	if [ "${cr_vs_channel}" == 'disabled' -a "${telemetry_state}" == 'disabled' ]; then
-		# CR VS should not have telemetry
+		desc "CR VS should not have telemetry"
 		[[ -s ${tmp_dir}/disabled_telemetry.version-service-cr.log.json ]] && exit 1
-		# operator VS should not have telemetry
+		desc "operator VS should not have telemetry"
 		[[ -s ${tmp_dir}/disabled_telemetry.version-service.log.json ]] && exit 1
 	fi
 
@@ -284,6 +285,7 @@ function main() {
 	desc 'cleanup'
 	kubectl_bin delete -f "${test_dir}/conf/vs.yml"
 	destroy "${namespace}"
+	desc "test passed"
 }
 
 main

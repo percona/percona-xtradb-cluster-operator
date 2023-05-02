@@ -473,7 +473,7 @@ run_mysql() {
 
 	client_pod=$(get_client_pod)
 	wait_pod $client_pod 1>&2
-    set +o xtrace
+	set +o xtrace
 	kubectl_bin exec $client_pod -- \
 		bash -c "printf '%s\n' \"${command}\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
@@ -1219,21 +1219,36 @@ storage \"file\" {
 
 start_minio() {
 	deploy_helm $namespace
+	local cert_secret="$1"
+
+	local endpoint="http://minio-service:9000"
+	local minio_args=(
+		--version 8.0.5
+		--set accessKey=some-access-key
+		--set secretKey=some-secret-key
+		--set service.type=ClusterIP
+		--set configPathmc=/tmp/.minio/
+		--set securityContext.enabled=false
+		--set persistence.size=2G
+		--set environment.MINIO_REGION=us-east-1
+		--set environment.MINIO_HTTP_TRACE=/tmp/trace.log
+	)
+	if [[ -n $cert_secret ]]; then
+		endpoint="https://minio-service:9000"
+		minio_args+=(
+			--set tls.enabled=true
+			--set tls.certSecret="$cert_secret"
+			--set tls.publicCrt=tls.crt
+			--set tls.privateKey=tls.key
+		)
+	fi
 
 	desc 'install Minio'
 	helm uninstall minio-service || :
 	retry 10 60 helm install \
 		$HELM_ARGS \
 		minio-service \
-		--version 8.0.5 \
-		--set accessKey=some-access-key \
-		--set secretKey=some-secret-key \
-		--set service.type=ClusterIP \
-		--set configPathmc=/tmp/.minio/ \
-		--set securityContext.enabled=false \
-		--set persistence.size=2G \
-		--set environment.MINIO_REGION=us-east-1 \
-		--set environment.MINIO_HTTP_TRACE=/tmp/trace.log \
+		"${minio_args[@]}" \
 		minio/minio
 	sleep 30
 	MINIO_POD=$(kubectl_bin get pods --selector=release=minio-service -o 'jsonpath={.items[].metadata.name}')
@@ -1241,7 +1256,7 @@ start_minio() {
 
 	kubectl_bin run -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 		/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-		/usr/bin/aws --endpoint-url http://minio-service:9000 s3 mb s3://operator-testing
+		/usr/bin/aws --endpoint-url "$endpoint" --no-verify-ssl s3 mb s3://operator-testing
 }
 
 deploy_chaos_mesh() {

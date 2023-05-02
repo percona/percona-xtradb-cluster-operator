@@ -10,4 +10,4 @@ jobs:
           go-version: '^1.19'
       - uses: actions/checkout@v3
       - name: go test
-        run: go test -v ./...
+        run: make test

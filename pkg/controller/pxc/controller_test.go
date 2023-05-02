@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -46,6 +48,16 @@ var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("Should reconcile PerconaXtraDBCluster", func() {
+			_, err := reconciler().Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      crName,
+					Namespace: ns,
+				},
+			})
+			Expect(err).To(Succeed())
 		})
 	})
 })

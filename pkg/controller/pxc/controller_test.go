@@ -219,8 +219,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 
 		o := &api.PerconaXtraDBCluster{}
 		sfsWithOwner := appsv1.StatefulSet{}
-		var sfs api.StatefulApp
-		sfs = statefulset.NewProxy(o)
+		sfs := statefulset.NewProxy(o)
 
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -351,8 +350,7 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 
 		o := &api.PerconaXtraDBCluster{}
 		sfsWithOwner := appsv1.StatefulSet{}
-		var sfs api.StatefulApp
-		sfs = statefulset.NewNode(o)
+		sfs := statefulset.NewNode(o)
 
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())

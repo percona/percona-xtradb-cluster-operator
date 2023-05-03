@@ -10,8 +10,6 @@ import (
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -217,9 +215,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 		cr.Spec.ProxySQL.Enabled = true
 		os.Setenv("DISABLE_TELEMETRY", "true")
 
-		o := &api.PerconaXtraDBCluster{}
 		sfsWithOwner := appsv1.StatefulSet{}
-		sfs := statefulset.NewProxy(o)
 
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -229,7 +225,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
 
-		It("should reconcile once to create user secret", func() {
+		It("should reconcile once to create user secret and pvc", func() {
 			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -248,6 +244,23 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 				Namespace: cr.Namespace,
 				Name:      cr.Spec.SecretsName,
 			}, secret)).Should(Succeed())
+		})
+
+		It("controller should create pvc for proxysql", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			pvcList := corev1.PersistentVolumeClaimList{}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, &pvcList, &client.ListOptions{
+					Namespace: cr.Namespace,
+					LabelSelector: labels.SelectorFromSet(map[string]string{
+						"app.kubernetes.io/component": "proxysql",
+					}),
+				})
+				return err == nil
+			}, time.Second*15, time.Millisecond*250).Should(BeTrue())
+			Expect(len(pvcList.Items)).Should(Equal(3))
 		})
 
 		When("PXC cluster is deleted with delete-proxysql-pvc finalizer sts and pvc should be removed and secrets kept", func() {
@@ -269,20 +282,22 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 
 			})
 
-			It("controller should remove pvc", func() {
-				list := corev1.PersistentVolumeClaimList{}
+			It("controller should remove pvc for proxysql", func() {
+				pvcList := corev1.PersistentVolumeClaimList{}
 				Eventually(func() bool {
-					err := k8sClient.List(ctx,
-						&list,
-						&client.ListOptions{
-							Namespace:     cr.Namespace,
-							LabelSelector: labels.SelectorFromSet(sfs.Labels()),
-						})
-					fmt.Println(err)
+					err := k8sClient.List(ctx, &pvcList, &client.ListOptions{
+						Namespace: cr.Namespace,
+						LabelSelector: labels.SelectorFromSet(map[string]string{
+							"app.kubernetes.io/component": "proxysql",
+						}),
+					})
 					return err == nil
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 
-				Expect(list.Items).Should(BeEmpty())
+				for _, pvc := range pvcList.Items {
+					By(fmt.Sprintf("checking pvc/%s", pvc.Name))
+					Expect(pvc.DeletionTimestamp).ShouldNot(BeNil())
+				}
 			})
 
 			It("controller should keep secrets", func() {
@@ -293,7 +308,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 						Name:      cr.Spec.SecretsName,
 					}, secret)
 
-					fmt.Println(err)
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeFalse())
 
@@ -348,9 +362,7 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 		cr.Spec.SecretsName = "cluster1-secrets"
 		os.Setenv("DISABLE_TELEMETRY", "true")
 
-		o := &api.PerconaXtraDBCluster{}
 		sfsWithOwner := appsv1.StatefulSet{}
-		sfs := statefulset.NewNode(o)
 
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -381,6 +393,24 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 			}, secret)).Should(Succeed())
 		})
 
+		It("controller should create pvc for pxc", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+
+			pvcList := corev1.PersistentVolumeClaimList{}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, &pvcList, &client.ListOptions{
+					Namespace: cr.Namespace,
+					LabelSelector: labels.SelectorFromSet(map[string]string{
+						"app.kubernetes.io/component": "pxc",
+					}),
+				})
+				return err == nil
+			}, time.Second*15, time.Millisecond*250).Should(BeTrue())
+
+			Expect(len(pvcList.Items)).Should(Equal(3))
+		})
+
 		When("PXC cluster is deleted with delete-pxc-pvc finalizer sts, pvc, and secrets should be removed", func() {
 			It("should delete PXC cluster and reconcile changes", func() {
 				Expect(k8sClient.Delete(ctx, cr)).Should(Succeed())
@@ -400,20 +430,22 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 
 			})
 
-			It("controller should remove pvc", func() {
-				list := corev1.PersistentVolumeClaimList{}
+			It("controller should remove pvc for pxc", func() {
+				pvcList := corev1.PersistentVolumeClaimList{}
 				Eventually(func() bool {
-					err := k8sClient.List(ctx,
-						&list,
-						&client.ListOptions{
-							Namespace:     cr.Namespace,
-							LabelSelector: labels.SelectorFromSet(sfs.Labels()),
-						})
-					fmt.Println(err)
+					err := k8sClient.List(ctx, &pvcList, &client.ListOptions{
+						Namespace: cr.Namespace,
+						LabelSelector: labels.SelectorFromSet(map[string]string{
+							"app.kubernetes.io/component": "pxc",
+						}),
+					})
 					return err == nil
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 
-				Expect(list.Items).Should(BeEmpty())
+				for _, pvc := range pvcList.Items {
+					By(fmt.Sprintf("checking pvc/%s", pvc.Name))
+					Expect(pvc.DeletionTimestamp).ShouldNot(BeNil())
+				}
 			})
 
 			It("controller should delete secrets", func() {
@@ -424,7 +456,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 						Name:      cr.Spec.SecretsName,
 					}, secret)
 
-					fmt.Println(err)
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 

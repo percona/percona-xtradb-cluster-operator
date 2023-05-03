@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -348,9 +350,8 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 		cr.Spec.SecretsName = "cluster1-secrets"
 		os.Setenv("DISABLE_TELEMETRY", "true")
 
-		o := &api.PerconaXtraDBCluster{}
 		sfsWithOwner := appsv1.StatefulSet{}
-		sfs := statefulset.NewNode(o)
+		sfs := statefulset.NewNode(cr)
 
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -381,6 +382,41 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 			}, secret)).Should(Succeed())
 		})
 
+		It("should create PVC", func() {
+			for _, claim := range sfsWithOwner.Spec.VolumeClaimTemplates {
+				for i := 0; i < int(*sfsWithOwner.Spec.Replicas); i++ {
+					pvc := claim.DeepCopy()
+					pvc.Labels = sfs.Labels()
+					pvc.Name = strings.Join([]string{pvc.Name, sfsWithOwner.Name, strconv.Itoa(i)}, "-")
+					pvc.Namespace = ns
+					Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+				}
+			}
+		})
+
+		list := corev1.PersistentVolumeClaimList{}
+		It("controller should have pvc", func() {
+			Eventually(func() bool {
+				err := k8sClient.List(ctx,
+					&list,
+					&client.ListOptions{
+						Namespace:     cr.Namespace,
+						LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+					})
+				return err == nil
+			}, time.Second*15, time.Millisecond*250).Should(BeTrue())
+			Expect(list.Items).ShouldNot(BeEmpty())
+		})
+
+		It("should remove pvc finalizers", func() {
+			for _, pvc := range list.Items {
+				pvcPatch := pvc.DeepCopy()
+				pvcPatch.Finalizers = []string{}
+				err := k8sClient.Patch(ctx, pvcPatch, client.MergeFrom(&pvc))
+				Expect(err).To(Succeed())
+			}
+		})
+
 		When("PXC cluster is deleted with delete-pxc-pvc finalizer sts, pvc, and secrets should be removed", func() {
 			It("should delete PXC cluster and reconcile changes", func() {
 				Expect(k8sClient.Delete(ctx, cr)).Should(Succeed())
@@ -409,7 +445,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 							Namespace:     cr.Namespace,
 							LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 						})
-					fmt.Println(err)
 					return err == nil
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 
@@ -436,7 +471,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
-
 			})
 		})
 	})

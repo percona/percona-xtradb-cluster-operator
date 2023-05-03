@@ -99,5 +99,8 @@ func readDefaultCR(name, namespace string) (*api.PerconaXtraDBCluster, error) {
 
 	cr.Name = name
 	cr.Namespace = namespace
+	cr.Spec.InitImage = "perconalab/percona-xtradb-cluster-operator:main"
+	b := false
+	cr.Spec.PXC.AutoRecovery = &b
 	return cr, nil
 }

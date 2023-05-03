@@ -21,6 +21,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -33,6 +34,8 @@ var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
 			Namespace: ns,
 		},
 	}
+	crName := ns + "-reconciler"
+	crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
 
 	BeforeAll(func() {
 		By("Creating the Namespace to perform the tests")
@@ -48,9 +51,6 @@ var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
 	})
 
 	Context("Create Percona XtraDB cluster", func() {
-		crName := ns + "-reconciler"
-		// crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
-
 		cr, err := readDefaultCR(crName, ns)
 		It("should read defautl cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -59,6 +59,13 @@ var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
+	})
+
+	It("Should reconcile PerconaXtraDBCluster", func() {
+		_, err := reconciler().Reconcile(ctx, reconcile.Request{
+			NamespacedName: crNamespacedName,
+		})
+		Expect(err).To(Succeed())
 	})
 })
 
@@ -233,7 +240,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{
 				Name:      cr.Name + "-proxysql",
 				Namespace: cr.Namespace,
-			}, &sfsWithOwner)).ShouldNot(BeNil())
+			}, &sfsWithOwner)).Should(Succeed())
 		})
 
 		It("Should create secrets", func() {
@@ -299,6 +306,138 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 
 					return k8serrors.IsNotFound(err)
 				}, time.Second*15, time.Millisecond*250).Should(BeFalse())
+
+			})
+		})
+	})
+})
+
+var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
+	ctx := context.Background()
+
+	const crName = "del-pxc-pvc-fnlz"
+	const ns = "del-pxc-pvc-fnlz"
+	crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ns,
+			Namespace: ns,
+		},
+	}
+
+	BeforeAll(func() {
+		By("Creating the Namespace to perform the tests")
+		err := k8sClient.Create(ctx, namespace)
+		Expect(err).To(Not(HaveOccurred()))
+
+		_, err = envtest.InstallCRDs(cfg, envtest.CRDInstallOptions{
+			Paths: []string{filepath.Join("testdata", "cert-manager.yaml")},
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterAll(func() {
+		By("Deleting the Namespace to perform the tests")
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	Context("delete-pxc-pvc finalizer specified", Ordered, func() {
+
+		cr, err := readDefaultCR(crName, ns)
+		cr.Finalizers = append(cr.Finalizers, "delete-pxc-pvc")
+		cr.Spec.SecretsName = "cluster1-secrets"
+		os.Setenv("DISABLE_TELEMETRY", "true")
+
+		o := &api.PerconaXtraDBCluster{}
+		sfsWithOwner := appsv1.StatefulSet{}
+		var sfs api.StatefulApp
+		sfs = statefulset.NewNode(o)
+
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should create PerconaXtraDBCluster", func() {
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile once to create user secret", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should create pxc sts", func() {
+
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      cr.Name + "-pxc",
+				Namespace: cr.Namespace,
+			}, &sfsWithOwner)).Should(Succeed())
+		})
+
+		It("Should create secrets", func() {
+			secret := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      cr.Spec.SecretsName,
+			}, secret)).Should(Succeed())
+		})
+
+		When("PXC cluster is deleted with delete-pxc-pvc finalizer sts, pvc, and secrets should be removed", func() {
+			It("should delete PXC cluster and reconcile changes", func() {
+				Expect(k8sClient.Delete(ctx, cr)).Should(Succeed())
+
+				_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("controller should remove sts", func() {
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Name:      cr.Name + "-pxc",
+						Namespace: cr.Namespace,
+					}, &sfsWithOwner)
+					return k8serrors.IsNotFound(err)
+				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
+
+			})
+
+			It("controller should remove pvc", func() {
+				list := corev1.PersistentVolumeClaimList{}
+				Eventually(func() bool {
+					err := k8sClient.List(ctx,
+						&list,
+						&client.ListOptions{
+							Namespace:     cr.Namespace,
+							LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+						})
+					fmt.Println(err)
+					return err == nil
+				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
+
+				Expect(list.Items).Should(BeEmpty())
+			})
+
+			It("controller should delete secrets", func() {
+				secret := &corev1.Secret{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Namespace: cr.Namespace,
+						Name:      cr.Spec.SecretsName,
+					}, secret)
+
+					fmt.Println(err)
+					return k8serrors.IsNotFound(err)
+				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
+
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{
+						Namespace: cr.Namespace,
+						Name:      "internal-" + cr.Name,
+					}, secret)
+
+					return k8serrors.IsNotFound(err)
+				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 
 			})
 		})

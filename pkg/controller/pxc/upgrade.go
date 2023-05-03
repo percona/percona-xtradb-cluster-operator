@@ -719,6 +719,9 @@ func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(name types.NamespacedNa
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBCluster, secretName string, allowNonExistingSecret bool) (string, error) {
+	if allowNonExistingSecret && secretName == "" {
+		return "", nil
+	}
 	secretObj := corev1.Secret{}
 	if err := r.client.Get(context.TODO(),
 		types.NamespacedName{

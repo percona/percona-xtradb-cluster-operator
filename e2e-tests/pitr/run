@@ -209,7 +209,7 @@ main() {
 	fi
 
 	write_data_for_pitr "$cluster"
-	sleep 80 # need to wait while collector catch new data
+	sleep 120 # need to wait while collector catch new data
 	binlogs_exist=$(
 		kubectl_bin run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 			/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \

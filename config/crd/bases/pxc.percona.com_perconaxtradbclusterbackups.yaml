@@ -145,6 +145,8 @@ spec:
                 type: string
               vaultSecretName:
                 type: string
+              verifyTLS:
+                type: boolean
             type: object
         type: object
     served: true

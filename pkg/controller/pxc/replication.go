@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const replicationPodLabel = "percona.com/replicationPod"
@@ -96,12 +97,12 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtraDBCluster, replicaPassUpdated bool) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context, cr *api.PerconaXtraDBCluster, replicaPassUpdated bool) error {
+	log := logf.FromContext(ctx)
+
 	if cr.Status.PXC.Ready < 1 || cr.Spec.Pause {
 		return nil
 	}
-
-	log := r.logger(cr.Name, cr.Namespace)
 
 	sfs := statefulset.NewNode(cr)
 
@@ -212,7 +213,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		if err != nil {
 			return errors.Wrap(err, "add label to main replica pod")
 		}
-		r.logger(cr.Name, cr.Namespace).Info("Replication pod has changed", "new replication pod", primaryPod.Name)
+		log.Info("Replication pod has changed", "new replication pod", primaryPod.Name)
 	}
 
 	sysUsersSecretObj := corev1.Secret{}
@@ -241,7 +242,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 
 		currConf := currentReplicaConfig(channel.Name, cr.Status.PXCReplication)
 
-		err = manageReplicationChannel(r.log, primaryDB, channel, currConf, string(sysUsersSecretObj.Data["replication"]))
+		err = manageReplicationChannel(log, primaryDB, channel, currConf, string(sysUsersSecretObj.Data["replication"]))
 		if err != nil {
 			return errors.Wrapf(err, "manage replication channel %s", channel.Name)
 		}

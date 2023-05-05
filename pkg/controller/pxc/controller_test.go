@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -21,6 +23,8 @@ var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
 			Namespace: ns,
 		},
 	}
+	crName := ns + "-reconciler"
+	crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
 
 	BeforeAll(func() {
 		By("Creating the Namespace to perform the tests")
@@ -36,9 +40,6 @@ var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
 	})
 
 	Context("Create Percona XtraDB cluster", func() {
-		crName := ns + "-reconciler"
-		// crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
-
 		cr, err := readDefaultCR(crName, ns)
 		It("should read defautl cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -47,5 +48,12 @@ var _ = Describe("PerconaXtraDB Cluster", Ordered, func() {
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
 		})
+	})
+
+	It("Should reconcile PerconaXtraDBCluster", func() {
+		_, err := reconciler().Reconcile(ctx, reconcile.Request{
+			NamespacedName: crNamespacedName,
+		})
+		Expect(err).To(Succeed())
 	})
 })

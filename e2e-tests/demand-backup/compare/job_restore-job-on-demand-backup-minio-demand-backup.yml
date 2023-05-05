@@ -24,7 +24,7 @@ spec:
             - recovery-cloud.sh
           env:
             - name: ENDPOINT
-              value: http://minio-service.demand-backup-10384:9000/
+              value: http://minio-service.namespace:9000/
             - name: DEFAULT_REGION
               value: us-east-1
             - name: ACCESS_KEY_ID

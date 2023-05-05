@@ -23,8 +23,9 @@ main() {
 
 	run_backup "$cluster" "on-demand-backup-minio"
 	compare_kubectl job/xb-on-demand-backup-minio
-	compare_kubectl job/restore-job-on-demand-backup-minio-demand-backup
+
 	run_recovery_check "$cluster" "on-demand-backup-minio"
+	compare_kubectl job/restore-job-on-demand-backup-minio-demand-backup
 
 	desc "Check backup deletion"
 	kubectl_bin delete pxc-backup --all

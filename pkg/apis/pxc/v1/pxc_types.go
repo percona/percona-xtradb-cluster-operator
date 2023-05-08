@@ -113,6 +113,7 @@ const (
 )
 
 type PXCScheduledBackup struct {
+	AllowParallel      *bool                         `json:"allowParallel,omitempty"`
 	Image              string                        `json:"image,omitempty"`
 	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	ImagePullPolicy    corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
@@ -867,6 +868,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			case BackupStorageFilesystem:
 				strg.Volume.reconcileOpts()
 			}
+		}
+
+		if c.Backup.AllowParallel == nil {
+			b := false
+			c.Backup.AllowParallel = &b
 		}
 	}
 

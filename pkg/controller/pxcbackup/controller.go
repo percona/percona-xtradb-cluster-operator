@@ -20,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -175,6 +176,17 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	if err := cluster.CanBackup(); err != nil {
 		return rr, errors.Wrap(err, "failed to run backup")
+	}
+
+	if cluster.Spec.Backup.AllowParallel != nil && !*cluster.Spec.Backup.AllowParallel {
+		isRunning, err := r.isOtherBackupRunning(ctx, cr)
+		if err != nil {
+			return rr, errors.Wrap(err, "failed to check if other backups running")
+		}
+		if isRunning {
+			log.Info("backup already running, waiting until it's done")
+			return rr, nil
+		}
 	}
 
 	storage, ok := cluster.Spec.Backup.Storages[cr.Spec.StorageName]
@@ -620,4 +632,31 @@ func setControllerReference(cr *api.PerconaXtraDBClusterBackup, obj metav1.Objec
 	}
 	obj.SetOwnerReferences(append(obj.GetOwnerReferences(), ownerRef))
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterBackup) isOtherBackupRunning(ctx context.Context, cr *api.PerconaXtraDBClusterBackup) (bool, error) {
+	list := new(batchv1.JobList)
+	lbls := map[string]string{
+		"type":    "xtrabackup",
+		"cluster": cr.Spec.PXCCluster,
+	}
+	if err := r.client.List(ctx, list, &client.ListOptions{
+		Namespace:     cr.Namespace,
+		LabelSelector: labels.SelectorFromSet(lbls),
+	}); err != nil {
+		return false, errors.Wrap(err, "list jobs")
+	}
+
+	for _, job := range list.Items {
+		if job.Status.Active == 0 {
+			continue
+		}
+		if job.Labels["backup-name"] == cr.Name {
+			continue
+		}
+
+		return true, nil
+	}
+
+	return false, nil
 }

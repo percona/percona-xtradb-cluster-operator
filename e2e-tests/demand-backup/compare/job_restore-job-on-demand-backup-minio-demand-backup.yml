@@ -24,7 +24,7 @@ spec:
             - recovery-cloud.sh
           env:
             - name: ENDPOINT
-              value: http://minio-service.namespace:9000/
+              value: https://minio-service.namespace:9000/
             - name: DEFAULT_REGION
               value: us-east-1
             - name: ACCESS_KEY_ID
@@ -47,7 +47,7 @@ spec:
                   key: xtrabackup
                   name: my-cluster-secrets
             - name: VERIFY_TLS
-              value: "true"
+              value: "false"
             - name: XB_USE_MEMORY
               value: "1500000000"
           imagePullPolicy: Always

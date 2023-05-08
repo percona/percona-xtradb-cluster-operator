@@ -5,6 +5,7 @@ metadata:
     openshift.io/scc: privileged
   labels:
     cluster: sec-context
+    backup-name: on-demand-backup-s3
     job-name: xb-on-demand-backup-s3
     type: xtrabackup
   name: xb-on-demand-backup-s3

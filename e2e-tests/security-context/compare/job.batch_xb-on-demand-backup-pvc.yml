@@ -5,6 +5,7 @@ metadata:
     openshift.io/scc: privileged
   labels:
     cluster: sec-context
+    backup-name: on-demand-backup-pvc
     job-name: xb-on-demand-backup-pvc
     type: xtrabackup
   name: xb-on-demand-backup-pvc

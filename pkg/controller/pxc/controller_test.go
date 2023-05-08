@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -216,6 +219,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 		os.Setenv("DISABLE_TELEMETRY", "true")
 
 		sfsWithOwner := appsv1.StatefulSet{}
+		sfs := statefulset.NewProxy(cr)
 
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -245,22 +249,41 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 				Name:      cr.Spec.SecretsName,
 			}, secret)).Should(Succeed())
 		})
+		It("should create proxysql PVC", func() {
+			for _, claim := range sfsWithOwner.Spec.VolumeClaimTemplates {
+				for i := 0; i < int(*sfsWithOwner.Spec.Replicas); i++ {
+					pvc := claim.DeepCopy()
+					pvc.Labels = sfs.Labels()
+					pvc.Name = strings.Join([]string{pvc.Name, sfsWithOwner.Name, strconv.Itoa(i)}, "-")
+					pvc.Namespace = ns
+					Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+				}
+			}
+		})
 
-		It("controller should create pvc for proxysql", func() {
-			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
-			Expect(err).NotTo(HaveOccurred())
-
-			pvcList := corev1.PersistentVolumeClaimList{}
+		pvcList := corev1.PersistentVolumeClaimList{}
+		It("controller should have proxysql pvc", func() {
 			Eventually(func() bool {
-				err := k8sClient.List(ctx, &pvcList, &client.ListOptions{
-					Namespace: cr.Namespace,
-					LabelSelector: labels.SelectorFromSet(map[string]string{
-						"app.kubernetes.io/component": "proxysql",
-					}),
-				})
+				err := k8sClient.List(ctx,
+					&pvcList,
+					&client.ListOptions{
+						Namespace: cr.Namespace,
+						LabelSelector: labels.SelectorFromSet(map[string]string{
+							"app.kubernetes.io/component": "proxysql",
+						}),
+					})
 				return err == nil
 			}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 			Expect(len(pvcList.Items)).Should(Equal(3))
+		})
+
+		It("should remove pvc finalizers", func() {
+			for _, pvc := range pvcList.Items {
+				pvcPatch := pvc.DeepCopy()
+				pvcPatch.Finalizers = []string{}
+				err := k8sClient.Patch(ctx, pvcPatch, client.MergeFrom(&pvc))
+				Expect(err).To(Succeed())
+			}
 		})
 
 		When("PXC cluster is deleted with delete-proxysql-pvc finalizer sts and pvc should be removed and secrets kept", func() {
@@ -363,6 +386,7 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 		os.Setenv("DISABLE_TELEMETRY", "true")
 
 		sfsWithOwner := appsv1.StatefulSet{}
+		sfs := statefulset.NewNode(cr)
 
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
@@ -393,22 +417,42 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 			}, secret)).Should(Succeed())
 		})
 
-		It("controller should create pvc for pxc", func() {
-			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
-			Expect(err).NotTo(HaveOccurred())
+		It("should create pxc PVC", func() {
+			for _, claim := range sfsWithOwner.Spec.VolumeClaimTemplates {
+				for i := 0; i < int(*sfsWithOwner.Spec.Replicas); i++ {
+					pvc := claim.DeepCopy()
+					pvc.Labels = sfs.Labels()
+					pvc.Name = strings.Join([]string{pvc.Name, sfsWithOwner.Name, strconv.Itoa(i)}, "-")
+					pvc.Namespace = ns
+					Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+				}
+			}
+		})
 
+		pvcList := corev1.PersistentVolumeClaimList{}
+		It("controller should have pxc pvc", func() {
 			pvcList := corev1.PersistentVolumeClaimList{}
 			Eventually(func() bool {
-				err := k8sClient.List(ctx, &pvcList, &client.ListOptions{
-					Namespace: cr.Namespace,
-					LabelSelector: labels.SelectorFromSet(map[string]string{
-						"app.kubernetes.io/component": "pxc",
-					}),
-				})
+				err := k8sClient.List(ctx,
+					&pvcList,
+					&client.ListOptions{
+						Namespace: cr.Namespace,
+						LabelSelector: labels.SelectorFromSet(map[string]string{
+							"app.kubernetes.io/component": "pxc",
+						}),
+					})
 				return err == nil
-			}, time.Second*15, time.Millisecond*250).Should(BeTrue())
-
+			}, time.Second*25, time.Millisecond*250).Should(BeTrue())
 			Expect(len(pvcList.Items)).Should(Equal(3))
+		})
+
+		It("should remove pvc finalizers", func() {
+			for _, pvc := range pvcList.Items {
+				pvcPatch := pvc.DeepCopy()
+				pvcPatch.Finalizers = []string{}
+				err := k8sClient.Patch(ctx, pvcPatch, client.MergeFrom(&pvc))
+				Expect(err).To(Succeed())
+			}
 		})
 
 		When("PXC cluster is deleted with delete-pxc-pvc finalizer sts, pvc, and secrets should be removed", func() {

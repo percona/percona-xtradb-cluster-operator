@@ -3,7 +3,6 @@ package pxc
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -106,12 +105,55 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 		cr.Finalizers = append(cr.Finalizers, "delete-ssl")
 		cr.Spec.SSLSecretName = "cluster1-ssl"
 		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
+
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile once to create user secret", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("controller should create ssl-secrets", func() {
+			secret := &corev1.Secret{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      cr.Spec.SSLSecretName,
+			}, secret)).Should(Succeed())
+
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: cr.Namespace,
+				Name:      cr.Spec.SSLInternalSecretName,
+			}, secret)).Should(Succeed())
+		})
+
+		It("controller should create issuers and certificates", func() {
+			issuers := &cm.IssuerList{}
+			Eventually(func() bool {
+
+				opts := &client.ListOptions{Namespace: cr.Namespace}
+				err := k8sClient.List(ctx, issuers, opts)
+
+				return err == nil
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+
+			Expect(issuers.Items).ShouldNot(BeEmpty())
+
+			certs := &cm.CertificateList{}
+			Eventually(func() bool {
+
+				opts := &client.ListOptions{Namespace: cr.Namespace}
+				err := k8sClient.List(ctx, certs, opts)
+
+				return err == nil
+			}, time.Second*30, time.Millisecond*250).Should(BeTrue())
+
+			Expect(certs.Items).ShouldNot(BeEmpty())
 		})
 
 		When("PXC cluster is deleted with delete-ssl finalizer certs should be removed", func() {
@@ -216,7 +258,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 		cr.Spec.SecretsName = "cluster1-secrets"
 		cr.Spec.HAProxy.Enabled = false
 		cr.Spec.ProxySQL.Enabled = true
-		os.Setenv("DISABLE_TELEMETRY", "true")
 
 		sfsWithOwner := appsv1.StatefulSet{}
 		sfs := statefulset.NewProxy(cr)
@@ -249,6 +290,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 				Name:      cr.Spec.SecretsName,
 			}, secret)).Should(Succeed())
 		})
+
 		It("should create proxysql PVC", func() {
 			for _, claim := range sfsWithOwner.Spec.VolumeClaimTemplates {
 				for i := 0; i < int(*sfsWithOwner.Spec.Replicas); i++ {
@@ -261,8 +303,8 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 			}
 		})
 
-		pvcList := corev1.PersistentVolumeClaimList{}
 		It("controller should have proxysql pvc", func() {
+			pvcList := corev1.PersistentVolumeClaimList{}
 			Eventually(func() bool {
 				err := k8sClient.List(ctx,
 					&pvcList,
@@ -275,15 +317,6 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 				return err == nil
 			}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 			Expect(len(pvcList.Items)).Should(Equal(3))
-		})
-
-		It("should remove pvc finalizers", func() {
-			for _, pvc := range pvcList.Items {
-				pvcPatch := pvc.DeepCopy()
-				pvcPatch.Finalizers = []string{}
-				err := k8sClient.Patch(ctx, pvcPatch, client.MergeFrom(&pvc))
-				Expect(err).To(Succeed())
-			}
 		})
 
 		When("PXC cluster is deleted with delete-proxysql-pvc finalizer sts and pvc should be removed and secrets kept", func() {
@@ -383,7 +416,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 		cr, err := readDefaultCR(crName, ns)
 		cr.Finalizers = append(cr.Finalizers, "delete-pxc-pvc")
 		cr.Spec.SecretsName = "cluster1-secrets"
-		os.Setenv("DISABLE_TELEMETRY", "true")
 
 		sfsWithOwner := appsv1.StatefulSet{}
 		sfs := statefulset.NewNode(cr)
@@ -429,7 +461,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 			}
 		})
 
-		pvcList := corev1.PersistentVolumeClaimList{}
 		It("controller should have pxc pvc", func() {
 			pvcList := corev1.PersistentVolumeClaimList{}
 			Eventually(func() bool {
@@ -444,15 +475,6 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 				return err == nil
 			}, time.Second*25, time.Millisecond*250).Should(BeTrue())
 			Expect(len(pvcList.Items)).Should(Equal(3))
-		})
-
-		It("should remove pvc finalizers", func() {
-			for _, pvc := range pvcList.Items {
-				pvcPatch := pvc.DeepCopy()
-				pvcPatch.Finalizers = []string{}
-				err := k8sClient.Patch(ctx, pvcPatch, client.MergeFrom(&pvc))
-				Expect(err).To(Succeed())
-			}
 		})
 
 		When("PXC cluster is deleted with delete-pxc-pvc finalizer sts, pvc, and secrets should be removed", func() {

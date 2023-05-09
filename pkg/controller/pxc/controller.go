@@ -845,16 +845,32 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 
 	proxysqlConfigName := ls["app.kubernetes.io/instance"] + "-proxysql"
 
-	if cr.Spec.ProxySQLEnabled() && cr.Spec.ProxySQL.Configuration != "" {
-		configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
-		err := setControllerReference(cr, configMap, r.scheme)
-		if err != nil {
-			return errors.Wrap(err, "set controller ref ProxySQL")
+	if cr.Spec.ProxySQLEnabled() {
+		if cr.CompareVersionWith("1.13.0") >= 0 {
+			authConfigName := ls["app.kubernetes.io/instance"] + "-auth-policy"
+			authPlugin := config.NewConfigMap(cr, authConfigName, "auth.cnf", "[mysqld]\nauthentication_policy=mysql_native_password")
+			err := setControllerReference(cr, authPlugin, r.scheme)
+			if err != nil {
+				return errors.Wrap(err, "set controller ref for auth plugin config map")
+			}
+
+			err = createOrUpdateConfigmap(r.client, authPlugin)
+			if err != nil {
+				return errors.Wrap(err, "auth plugin config map")
+			}
 		}
 
-		err = createOrUpdateConfigmap(r.client, configMap)
-		if err != nil {
-			return errors.Wrap(err, "proxysql config map")
+		if cr.Spec.ProxySQL.Configuration != "" {
+			configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
+			err := setControllerReference(cr, configMap, r.scheme)
+			if err != nil {
+				return errors.Wrap(err, "set controller ref ProxySQL")
+			}
+
+			err = createOrUpdateConfigmap(r.client, configMap)
+			if err != nil {
+				return errors.Wrap(err, "proxysql config map")
+			}
 		}
 	} else {
 		if err := deleteConfigMapIfExists(r.client, cr, proxysqlConfigName); err != nil {

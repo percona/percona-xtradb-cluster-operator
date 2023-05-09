@@ -217,7 +217,9 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		}
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
 			Name:      "auto-config",
-			MountPath: "/etc/my.cnf.d",
+			MountPath: "/etc/my.cnf.d/auto-config.cnf",
+			SubPath:   "auto-config.cnf",
+			ReadOnly:  true,
 		})
 	}
 
@@ -285,6 +287,15 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			},
 		}
 		appc.Env = append(appc.Env, probsEnvs...)
+	}
+
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "auth-policy",
+			MountPath: "/etc/my.cnf.d/auth.cnf",
+			SubPath:   "auth.cnf",
+			ReadOnly:  true,
+		})
 	}
 
 	return appc, nil
@@ -543,6 +554,9 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 			vol.Volumes = append(vol.Volumes,
 				app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-logcollector-hookscript"))
 		}
+	}
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("auth-policy", ls["app.kubernetes.io/instance"]+"-auth-policy"))
 	}
 
 	return vol, nil

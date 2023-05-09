@@ -102,13 +102,14 @@ var _ = Describe("Finalizer delete-ssl", Ordered, func() {
 	Context("delete-ssl finalizer specified", Ordered, func() {
 
 		cr, err := readDefaultCR(crName, ns)
-		cr.Finalizers = append(cr.Finalizers, "delete-ssl")
-		cr.Spec.SSLSecretName = "cluster1-ssl"
-		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		cr.Finalizers = append(cr.Finalizers, "delete-ssl")
+		cr.Spec.SSLSecretName = "cluster1-ssl"
+		cr.Spec.SSLInternalSecretName = "cluster1-ssl-internal"
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -254,17 +255,18 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 	Context("delete-proxysql-pvc finalizer specified", Ordered, func() {
 
 		cr, err := readDefaultCR(crName, ns)
+
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
 		cr.Finalizers = append(cr.Finalizers, "delete-proxysql-pvc")
 		cr.Spec.SecretsName = "cluster1-secrets"
 		cr.Spec.HAProxy.Enabled = false
 		cr.Spec.ProxySQL.Enabled = true
 
 		sfsWithOwner := appsv1.StatefulSet{}
-		sfs := statefulset.NewProxy(cr)
-
-		It("should read default cr.yaml", func() {
-			Expect(err).NotTo(HaveOccurred())
-		})
+		sfsProxy := statefulset.NewProxy(cr)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -295,7 +297,7 @@ var _ = Describe("Finalizer delete-proxysql-pvc", Ordered, func() {
 			for _, claim := range sfsWithOwner.Spec.VolumeClaimTemplates {
 				for i := 0; i < int(*sfsWithOwner.Spec.Replicas); i++ {
 					pvc := claim.DeepCopy()
-					pvc.Labels = sfs.Labels()
+					pvc.Labels = sfsProxy.Labels()
 					pvc.Name = strings.Join([]string{pvc.Name, sfsWithOwner.Name, strconv.Itoa(i)}, "-")
 					pvc.Namespace = ns
 					Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
@@ -414,15 +416,15 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 	Context("delete-pxc-pvc finalizer specified", Ordered, func() {
 
 		cr, err := readDefaultCR(crName, ns)
-		cr.Finalizers = append(cr.Finalizers, "delete-pxc-pvc")
-		cr.Spec.SecretsName = "cluster1-secrets"
-
-		sfsWithOwner := appsv1.StatefulSet{}
-		sfs := statefulset.NewNode(cr)
 
 		It("should read default cr.yaml", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
+		cr.Finalizers = append(cr.Finalizers, "delete-pxc-pvc")
+		cr.Spec.SecretsName = "cluster1-secrets"
+
+		sfsWithOwner := appsv1.StatefulSet{}
+		stsApp := statefulset.NewNode(cr)
 
 		It("Should create PerconaXtraDBCluster", func() {
 			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
@@ -453,7 +455,7 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 			for _, claim := range sfsWithOwner.Spec.VolumeClaimTemplates {
 				for i := 0; i < int(*sfsWithOwner.Spec.Replicas); i++ {
 					pvc := claim.DeepCopy()
-					pvc.Labels = sfs.Labels()
+					pvc.Labels = stsApp.Labels()
 					pvc.Name = strings.Join([]string{pvc.Name, sfsWithOwner.Name, strconv.Itoa(i)}, "-")
 					pvc.Namespace = ns
 					Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())

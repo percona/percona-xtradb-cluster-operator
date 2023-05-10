@@ -272,6 +272,19 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
+	if o.Spec.ProxySQLEnabled() {
+		haproxySts := appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      o.Name + "-haproxy",
+				Namespace: o.Namespace,
+			},
+		}
+		err = r.client.Get(ctx, client.ObjectKeyFromObject(&haproxySts), &haproxySts)
+		if err == nil {
+			return reconcile.Result{}, errors.Errorf("failed to enable ProxySQL: you can't switch from HAProxy to ProxySQL on the fly")
+		}
+	}
+
 	err = r.reconcileUsersSecret(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")

@@ -20,7 +20,7 @@ is_node_id_exists() {
 	local -a nodeList=("$@")
 	local -a nodeList_from_pmm=()
 	for node_id in "${nodeList[@]}"; do
-		nodeList_from_pmm+=( $(kubectl_bin exec -n "${namespace}" monitoring-0 -- pmm-admin --server-url=https://admin:admin@$(get_service_ip monitoring-service)/ --server-insecure-tls inventory list nodes --node-type=CONTAINER_NODE | grep $node_id | awk '{print $4}') )
+		nodeList_from_pmm+=($(kubectl_bin exec -n "${namespace}" monitoring-0 -- pmm-admin --server-url=https://admin:admin@$(get_service_ip monitoring-service)/ --server-insecure-tls inventory list nodes --node-type=CONTAINER_NODE | grep $node_id | awk '{print $4}'))
 	done
 
 	echo "${nodeList_from_pmm[@]}"

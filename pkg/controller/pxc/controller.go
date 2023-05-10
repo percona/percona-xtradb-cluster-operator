@@ -180,7 +180,7 @@ func NewCronRegistry() CronRegistry {
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	log := logf.FromContext(ctx)
-	
+
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
 	}
@@ -301,17 +301,16 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-	operatorPod, err := k8s.OperatorPod(r.client)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
-	}
-
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
 		var imageName string
 		if len(o.Spec.InitImage) > 0 {
 			imageName = o.Spec.InitImage
 		} else {
+			operatorPod, err := k8s.OperatorPod(r.client)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
+			}
 			imageName, err = operatorImageName(&operatorPod)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -498,17 +497,16 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		return err
 	}
 
-	operatorPod, err := k8s.OperatorPod(r.client)
-	if err != nil {
-		return errors.Wrap(err, "get operator deployment")
-	}
-
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
 		var imageName string
 		if len(cr.Spec.InitImage) > 0 {
 			imageName = cr.Spec.InitImage
 		} else {
+			operatorPod, err := k8s.OperatorPod(r.client)
+			if err != nil {
+				return errors.Wrap(err, "get operator deployment")
+			}
 			imageName, err = operatorImageName(&operatorPod)
 			if err != nil {
 				return err

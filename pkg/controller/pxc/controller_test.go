@@ -11,6 +11,7 @@ import (
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -537,6 +538,119 @@ var _ = Describe("Finalizer delete-pxc-pvc", Ordered, func() {
 				}, time.Second*15, time.Millisecond*250).Should(BeTrue())
 
 			})
+		})
+	})
+})
+
+var _ = Describe("Authentication policy", Ordered, func() {
+	ctx := context.Background()
+
+	const ns = "auth-policy"
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ns,
+			Namespace: ns,
+		},
+	}
+
+	BeforeAll(func() {
+		By("Creating the Namespace to perform the tests")
+		err := k8sClient.Create(ctx, namespace)
+		Expect(err).To(Not(HaveOccurred()))
+	})
+
+	AfterAll(func() {
+		By("Deleting the Namespace to perform the tests")
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	Context("Cluster is deployed with ProxySQL", Ordered, func() {
+		const crName = "auth-policy-proxysql"
+		crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster", func() {
+			cr.Spec.HAProxy.Enabled = false
+			cr.Spec.ProxySQL.Enabled = true
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create ConfigMap for authentication policy", func() {
+			cm := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-auth-policy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&cm), &cm)
+			Expect(err).NotTo(HaveOccurred())
+
+			conf, ok := cm.Data["auth.cnf"]
+			Expect(ok).To(BeTrue())
+			Expect(conf).To(Equal("[mysqld]\nauthentication_policy=mysql_native_password"))
+		})
+	})
+
+	Context("Cluster is deployed with HAProxy", Ordered, func() {
+		const crName = "auth-policy-haproxy"
+		crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster", func() {
+			cr.Spec.HAProxy.Enabled = true
+			cr.Spec.ProxySQL.Enabled = false
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should NOT create ConfigMap for authentication policy", func() {
+			cm := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-auth-policy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&cm), &cm)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should update PerconaXtraDBCluster", func() {
+			cr := &api.PerconaXtraDBCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName,
+					Namespace: ns,
+				},
+			}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)).Should(Succeed())
+
+			cr.Spec.HAProxy.Enabled = false
+			cr.Spec.ProxySQL.Enabled = true
+
+			Expect(k8sClient.Update(ctx, cr)).Should(Succeed())
+		})
+
+		It("should NOT reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).To(MatchError("failed to enable ProxySQL: you can't switch from HAProxy to ProxySQL on the fly"))
 		})
 	})
 })

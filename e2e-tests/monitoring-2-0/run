@@ -107,8 +107,8 @@ get_metric_values haproxy_backend_active_servers $namespace-$cluster-haproxy-0 a
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 admin:admin
 
-nodeList=( $( get_node_id_from_pmm ) )
-nodeList_from_pmm=( $( is_node_id_exists "${nodeList[@]}" ) )
+nodeList=($(get_node_id_from_pmm))
+nodeList_from_pmm=($(is_node_id_exists "${nodeList[@]}"))
 for node_id in "${nodeList_from_pmm[@]}"; do
 	if [ -z "$node_id" ]; then
 		echo "Can't get $node_id node_id from PMM server"

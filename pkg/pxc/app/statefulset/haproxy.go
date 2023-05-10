@@ -292,7 +292,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 		return nil, nil
 	}
 
-	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
+	ct := app.PMMClient(cr, spec, secret)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -342,7 +342,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 
-	pmmAgentScriptEnv := app.PMMAgentScript("haproxy")
+	pmmAgentScriptEnv := app.PMMAgentScript(cr, "haproxy")
 	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 
 	if cr.CompareVersionWith("1.10.0") >= 0 {
@@ -387,6 +387,16 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
 			app.GetConfigVolumes("hookscript", c.labels["app.kubernetes.io/instance"]+"-"+c.labels["app.kubernetes.io/component"]+"-hookscript"))
+	}
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		vol.Volumes = append(vol.Volumes,
+			corev1.Volume{
+				Name: app.DataVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
 	}
 	return vol, nil
 }

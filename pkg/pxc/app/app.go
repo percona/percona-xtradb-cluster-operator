@@ -1,5 +1,6 @@
 package app
 
 const (
-	Name = "pxc"
+	DataVolumeName = "datadir"
+	Name           = "pxc"
 )

@@ -358,7 +358,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations); err != nil {
+	proxyInits := inits
+	if o.CompareVersionWith("1.13.0") < 0 {
+		proxyInits = nil
+	}
+
+	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations, proxyInits); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -366,7 +371,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxyAnnotations)
 
 	if o.Spec.ProxySQLEnabled() {
-		err = r.updatePod(ctx, proxysqlSet, o.Spec.ProxySQL, o, nil)
+		err = r.updatePod(ctx, proxysqlSet, o.Spec.ProxySQL, o, proxyInits)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
@@ -438,7 +443,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, annotations map[string]string) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, annotations map[string]string, initContainers []corev1.Container) error {
 	if !cr.HAProxyEnabled() {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -457,7 +462,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 	sts := statefulset.NewHAProxy(cr)
 	pxc.MergeTemplateAnnotations(sts.StatefulSet(), annotations)
 
-	if err := r.updatePod(ctx, sts, &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
+	if err := r.updatePod(ctx, sts, &cr.Spec.HAProxy.PodSpec, cr, initContainers); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 	svc := pxc.NewServiceHAProxy(cr)
@@ -623,10 +628,15 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		return errors.Wrap(err, "get PXC stateful set")
 	}
 
+	proxyInits := inits
+	if cr.CompareVersionWith("1.13.0") < 0 {
+		proxyInits = nil
+	}
+
 	// HAProxy StatefulSet
 	if cr.HAProxyEnabled() {
 		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, nil, log, r.getConfigVolume)
+		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create HAProxy StatefulSet")
 		}
@@ -680,7 +690,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 
 	if cr.Spec.ProxySQLEnabled() {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, nil, log, r.getConfigVolume)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, proxyInits, log, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}

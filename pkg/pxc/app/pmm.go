@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func PMMClient(spec *api.PMMSpec, secret *corev1.Secret, v120OrGreater bool, v170OrGreater bool) corev1.Container {
+func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.Secret) corev1.Container {
 	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
 
 	for i := 30100; i <= 30105; i++ {
@@ -47,12 +47,12 @@ func PMMClient(spec *api.PMMSpec, secret *corev1.Secret, v120OrGreater bool, v17
 		SecurityContext: spec.ContainerSecurityContext,
 	}
 
-	if v120OrGreater {
+	if cr.CompareVersionWith("1.2.0") >= 0 {
 		container.Env = append(container.Env, clientEnvs...)
 		container.Ports = ports
 	}
 
-	if v170OrGreater {
+	if cr.CompareVersionWith("1.7.0") >= 0 {
 		container.LivenessProbe = &corev1.Probe{
 			InitialDelaySeconds: 60,
 			TimeoutSeconds:      5,
@@ -71,6 +71,15 @@ func PMMClient(spec *api.PMMSpec, secret *corev1.Secret, v120OrGreater bool, v17
 					// TODO https://jira.percona.com/browse/PMM-7010
 					Command: []string{"bash", "-c", "pmm-admin inventory remove node --force $(pmm-admin status --json | python -c \"import sys, json; print(json.load(sys.stdin)['pmm_agent_status']['node_id'])\")"},
 				},
+			},
+		}
+	}
+
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		container.VolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      DataVolumeName,
+				MountPath: "/var/lib/mysql",
 			},
 		}
 	}
@@ -164,25 +173,33 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string, useAPI bool) []c
 	}
 }
 
-func PMMAgentScript(dbType string) []corev1.EnvVar {
-	pmmServerArgs := " $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push"
-	pmmServerArgs += " --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME)"
-	if dbType != "haproxy" {
-		pmmServerArgs += " --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT)"
-	}
+func PMMAgentScript(cr *api.PerconaXtraDBCluster, dbType string) []corev1.EnvVar {
+	if cr.CompareVersionWith("1.13.0") < 0 {
+		pmmServerArgs := " $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push"
+		pmmServerArgs += " --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME)"
+		if dbType != "haproxy" {
+			pmmServerArgs += " --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT)"
+		}
 
-	if dbType == "mysql" {
-		pmmServerArgs += " $(DB_ARGS)"
-	}
+		if dbType == "mysql" {
+			pmmServerArgs += " $(DB_ARGS)"
+		}
 
-	if dbType == "haproxy" {
-		pmmServerArgs += " $(PMM_AGENT_SETUP_NODE_NAME)"
+		if dbType == "haproxy" {
+			pmmServerArgs += " $(PMM_AGENT_SETUP_NODE_NAME)"
+		}
+		return []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_PRERUN_SCRIPT",
+				Value: "pmm-admin status --wait=10s;\npmm-admin add $(DB_TYPE)" + pmmServerArgs + ";\npmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) 'Service restarted'",
+			},
+		}
 	}
 
 	return []corev1.EnvVar{
 		{
 			Name:  "PMM_AGENT_PRERUN_SCRIPT",
-			Value: "pmm-admin status --wait=10s;\npmm-admin add $(DB_TYPE)" + pmmServerArgs + ";\npmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) 'Service restarted'",
+			Value: "/var/lib/mysql/pmm-prerun.sh",
 		},
 	}
 }

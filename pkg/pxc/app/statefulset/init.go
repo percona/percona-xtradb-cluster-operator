@@ -1,6 +1,7 @@
 package statefulset
 
 import (
+	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -8,7 +9,7 @@ func EntrypointInitContainer(initImageName string, resources corev1.ResourceRequ
 	return corev1.Container{
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      DataVolumeName,
+				Name:      app.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},

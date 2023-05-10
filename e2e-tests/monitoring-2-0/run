@@ -10,7 +10,7 @@ set_debug
 get_node_id_from_pmm() {
 	local -a nodeList=()
 	for instance in $(kubectl_bin get pods --no-headers -l app.kubernetes.io/component=pxc --output=custom-columns='NAME:.metadata.name'); do
-		nodeList+=( $(kubectl_bin exec -n "$namespace" $instance -c pmm-client -- pmm-admin status --json | jq -r '.pmm_agent_status.node_id') )
+		nodeList+=($(kubectl_bin exec -n "$namespace" $instance -c pmm-client -- pmm-admin status --json | jq -r '.pmm_agent_status.node_id'))
 	done
 
 	echo "${nodeList[@]}"

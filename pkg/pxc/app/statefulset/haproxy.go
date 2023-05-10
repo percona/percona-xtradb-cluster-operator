@@ -3,12 +3,14 @@ package statefulset
 import (
 	"fmt"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const (
@@ -100,7 +102,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		appc.Env = append(appc.Env, corev1.EnvVar{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 			},
 		})
 	}
@@ -252,7 +254,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 			},
 		})
 	}
@@ -301,22 +303,22 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 		},
 		{
 			Name:  "MONITOR_USER",
-			Value: "monitor",
+			Value: users.Monitor,
 		},
 		{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
 			},
 		},
 		{
 			Name:  "DB_USER",
-			Value: "monitor",
+			Value: users.Monitor,
 		},
 		{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
 			},
 		},
 		{

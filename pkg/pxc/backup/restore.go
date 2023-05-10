@@ -13,6 +13,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 var log = logf.Log.WithName("backup/restore")
@@ -251,7 +252,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		jobPVC,
 		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
 	}
-	pxcUser := "xtrabackup"
+	pxcUser := users.Xtrabackup
 	command := []string{"recovery-cloud.sh"}
 
 	verifyTLS := true
@@ -476,7 +477,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		jobPVC,
 		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 	}
-	pxcUser := "xtrabackup"
+	pxcUser := users.Xtrabackup
 	command := []string{"recovery-cloud.sh"}
 	if cluster.CompareVersionWith("1.12.0") < 0 {
 		command = []string{"recovery-s3.sh"}

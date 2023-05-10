@@ -521,7 +521,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Conte
 		return nil
 	}
 
-	err := um.Update160MonitorUserGrant(string(internalSysSecretObj.Data["monitor"]))
+	err := um.Update160MonitorUserGrant(string(internalSysSecretObj.Data[users.Monitor]))
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
 	}

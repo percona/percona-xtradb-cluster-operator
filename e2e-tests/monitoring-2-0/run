@@ -119,7 +119,7 @@ done
 kubectl_bin patch pxc ${cluster} --type json -p='[{"op":"add","path":"/spec/pause","value":true}]'
 wait_for_delete "pod/${cluster}-pxc-0"
 
-is_nodes_id_exist_in_pmm=( $( is_node_id_exists "${nodeList[@]}" ) )
+is_nodes_id_exist_in_pmm=($(is_node_id_exists "${nodeList[@]}"))
 for instance in "${is_nodes_id_exist_in_pmm[@]}"; do
 	if [ -n "$instance" ]; then
 		echo "The $instance pod was not deleted from server inventory"

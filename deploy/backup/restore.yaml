@@ -15,6 +15,7 @@ spec:
 #      memory: 200M
 #      cpu: 200m
 #  backupSource:
+#    verifyTLS: true
 #    destination: s3://S3-BUCKET-NAME/BACKUP-NAME or destination: azure://CONTAINER-NAME/BACKUP-NAME
 #    s3:
 #      bucket: S3-BINLOG-BACKUP-BUCKET-NAME-HERE
@@ -29,6 +30,7 @@ spec:
 #    date: "yyyy-mm-dd hh:mm:ss"
 #    gtid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee:nnn"
 #    backupSource:
+#      verifyTLS: true
 #      storageName: "STORAGE-NAME-HERE"
 #      s3:
 #        bucket: S3-BINLOG-BACKUP-BUCKET-NAME-HERE

@@ -262,6 +262,9 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 			verifyTLS = *storage.VerifyTLS
 		}
 	}
+	if bcp.Status.VerifyTLS != nil {
+		verifyTLS = *bcp.Status.VerifyTLS
+	}
 	azure := bcp.Status.Azure
 	if azure == nil {
 		return nil, errors.New("azure storage is not specified")
@@ -312,10 +315,6 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 				SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, pxcUser),
 			},
 		},
-		{
-			Name:  "VERIFY_TLS",
-			Value: strconv.FormatBool(verifyTLS),
-		},
 	}
 	jobName := "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 	volumeMounts := []corev1.VolumeMount{
@@ -340,9 +339,15 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 			if ok {
 				storageAzure = storage.Azure
 			}
+			if ok && storage.VerifyTLS != nil {
+				verifyTLS = *storage.VerifyTLS
+			}
 		}
 		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.Azure != nil {
 			storageAzure = cr.Spec.PITR.BackupSource.Azure
+			if cr.Spec.PITR.BackupSource.VerifyTLS != nil {
+				verifyTLS = *cr.Spec.PITR.BackupSource.VerifyTLS
+			}
 		}
 
 		if len(storageAzure.ContainerPath) == 0 {
@@ -396,6 +401,10 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		volumeMounts = []corev1.VolumeMount{}
 		jobPVCs = []corev1.Volume{}
 	}
+	envs = append(envs, corev1.EnvVar{
+		Name:  "VERIFY_TLS",
+		Value: strconv.FormatBool(verifyTLS),
+	})
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -490,6 +499,9 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			verifyTLS = *storage.VerifyTLS
 		}
 	}
+	if bcp.Status.VerifyTLS != nil {
+		verifyTLS = *bcp.Status.VerifyTLS
+	}
 	if bcp.Status.S3 == nil {
 		return nil, errors.New("s3 storage is not specified")
 	}
@@ -542,10 +554,6 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 				SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, pxcUser),
 			},
 		},
-		{
-			Name:  "VERIFY_TLS",
-			Value: strconv.FormatBool(verifyTLS),
-		},
 	}
 	jobName := "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 	volumeMounts := []corev1.VolumeMount{
@@ -570,13 +578,20 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 			if ok {
 				storageS3 = storage.S3
 				bucket = storage.S3.Bucket
+				if storage.VerifyTLS != nil {
+					verifyTLS = *storage.VerifyTLS
+				}
 			}
 		}
-		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.S3 != nil {
-			storageS3 = cr.Spec.PITR.BackupSource.S3
-			bucket = storageS3.Bucket
+		if cr.Spec.PITR.BackupSource != nil {
+			if cr.Spec.PITR.BackupSource.VerifyTLS != nil {
+				verifyTLS = *cr.Spec.PITR.BackupSource.VerifyTLS
+			}
+			if cr.Spec.PITR.BackupSource.S3 != nil {
+				storageS3 = cr.Spec.PITR.BackupSource.S3
+				bucket = storageS3.Bucket
+			}
 		}
-
 		if len(bucket) == 0 {
 			return nil, errors.New("no bucket in storage")
 		}
@@ -637,6 +652,11 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		volumeMounts = []corev1.VolumeMount{}
 		jobPVCs = []corev1.Volume{}
 	}
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "VERIFY_TLS",
+		Value: strconv.FormatBool(verifyTLS),
+	})
 
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{

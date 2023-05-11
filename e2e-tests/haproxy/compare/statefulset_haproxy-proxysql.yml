@@ -180,6 +180,23 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /pxc-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: pxc-init
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 100m
+              memory: 100M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
       restartPolicy: Always
       runtimeClassName: docker-rc
       schedulerName: default-scheduler
@@ -206,6 +223,8 @@ spec:
             name: haproxy-proxysql
             optional: true
           name: config
+        - emptyDir: {}
+          name: datadir
   updateStrategy:
     rollingUpdate:
       partition: 0

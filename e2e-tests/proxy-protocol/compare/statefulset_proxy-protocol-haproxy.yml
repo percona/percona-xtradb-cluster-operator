@@ -123,6 +123,20 @@ spec:
             - mountPath: /etc/mysql/haproxy-env-secret
               name: proxy-protocol-env-vars-haproxy
       dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /pxc-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: pxc-init
+          resources:
+            requests:
+              cpu: 600m
+              memory: 1G
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
       nodeSelector: {}
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -148,6 +162,8 @@ spec:
             defaultMode: 420
             optional: true
             secretName: proxy-protocol-env-vars-haproxy
+        - emptyDir: {}
+          name: datadir
   updateStrategy:
     rollingUpdate:
       partition: 0

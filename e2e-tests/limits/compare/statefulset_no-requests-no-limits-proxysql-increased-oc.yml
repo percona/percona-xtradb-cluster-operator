@@ -141,6 +141,17 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /pxc-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: pxc-init
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: datadir
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
@@ -160,6 +171,8 @@ spec:
             defaultMode: 420
             optional: false
             secretName: some-name-ssl
+        - emptyDir: {}
+          name: datadir
   updateStrategy:
     rollingUpdate:
       partition: 0

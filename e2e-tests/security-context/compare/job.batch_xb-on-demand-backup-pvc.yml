@@ -4,8 +4,8 @@ metadata:
   annotations:
     openshift.io/scc: privileged
   labels:
-    cluster: sec-context
     backup-name: on-demand-backup-pvc
+    cluster: sec-context
     job-name: xb-on-demand-backup-pvc
     type: xtrabackup
   name: xb-on-demand-backup-pvc
@@ -20,6 +20,7 @@ spec:
   parallelism: 1
   selector:
     matchLabels:
+      backup-name: on-demand-backup-pvc
       cluster: sec-context
       job-name: xb-on-demand-backup-pvc
       type: xtrabackup
@@ -28,6 +29,7 @@ spec:
       annotations:
         openshift.io/scc: privileged
       labels:
+        backup-name: on-demand-backup-pvc
         cluster: sec-context
         job-name: xb-on-demand-backup-pvc
         type: xtrabackup

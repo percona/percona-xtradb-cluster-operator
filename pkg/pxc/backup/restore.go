@@ -687,9 +687,12 @@ func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity re
 		k8sQuantity = *res.Limits.Memory()
 	}
 
-	useMem = "2GB"
-	if k8sQuantity.Value() > 0 {
-		useMem75 := k8sQuantity.Value() / int64(100) * int64(75)
+	useMem = "100MB"
+
+	useMem75 := k8sQuantity.Value() / int64(100) * int64(75)
+	if useMem75 > 2000000000 {
+		useMem = "2GB"
+	} else if k8sQuantity.Value() > 0 {
 		useMem = strconv.FormatInt(useMem75, 10)
 	}
 

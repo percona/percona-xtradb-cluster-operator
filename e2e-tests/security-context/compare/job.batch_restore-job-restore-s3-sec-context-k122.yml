@@ -54,7 +54,7 @@ spec:
             - name: VERIFY_TLS
               value: "true"
             - name: XB_USE_MEMORY
-              value: 2GB
+              value: 100MB
           imagePullPolicy: Always
           name: xtrabackup
           resources: {}

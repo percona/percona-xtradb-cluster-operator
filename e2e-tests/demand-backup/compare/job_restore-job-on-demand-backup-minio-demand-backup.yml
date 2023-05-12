@@ -1,6 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
+  generation: 1
   labels:
     job-name: restore-job-on-demand-backup-minio-demand-backup
   name: restore-job-on-demand-backup-minio-demand-backup
@@ -10,10 +11,12 @@ metadata:
       name: on-demand-backup-minio
 spec:
   backoffLimit: 4
+  completionMode: NonIndexed
   completions: 1
   parallelism: 1
   selector:
     matchLabels: {}
+  suspend: false
   template:
     metadata:
       labels:

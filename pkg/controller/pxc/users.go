@@ -965,7 +965,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 			return errors.Wrap(err, "get proxysql pod")
 		}
 		var errb, outb bytes.Buffer
-		if cr.Spec.ProxySQL.PXCHandler == "percona" {
+		if cr.Spec.ProxySQL.PXCHandler == "scheduler" {
 			err = r.clientcmd.Exec(&pod, "proxysql", []string{"percona-scheduler-admin", "--config-file=/etc/config.toml", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
 		} else {
 			err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)

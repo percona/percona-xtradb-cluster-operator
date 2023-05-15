@@ -16,7 +16,7 @@ get_node_id_from_pmm() {
 	echo "${nodeList[@]}"
 }
 
-is_node_id_exists() {
+does_node_id_exists() {
 	local -a nodeList=("$@")
 	local -a nodeList_from_pmm=()
 	for node_id in "${nodeList[@]}"; do
@@ -108,7 +108,7 @@ desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 admin:admin
 
 nodeList=($(get_node_id_from_pmm))
-nodeList_from_pmm=($(is_node_id_exists "${nodeList[@]}"))
+nodeList_from_pmm=($(does_node_id_exists "${nodeList[@]}"))
 for node_id in "${nodeList_from_pmm[@]}"; do
 	if [ -z "$node_id" ]; then
 		echo "Can't get $node_id node_id from PMM server"
@@ -119,8 +119,8 @@ done
 kubectl_bin patch pxc ${cluster} --type json -p='[{"op":"add","path":"/spec/pause","value":true}]'
 wait_for_delete "pod/${cluster}-pxc-0"
 
-is_nodes_id_exist_in_pmm=($(is_node_id_exists "${nodeList[@]}"))
-for instance in "${is_nodes_id_exist_in_pmm[@]}"; do
+does_node_id_exists_in_pmm=($(does_node_id_exists "${nodeList[@]}"))
+for instance in "${does_node_id_exists_in_pmm[@]}"; do
 	if [ -n "$instance" ]; then
 		echo "The $instance pod was not deleted from server inventory"
 		exit 1

@@ -1180,6 +1180,7 @@ func getUserManager(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*user
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
 	log := logf.FromContext(ctx)
+
 	annotationName := "pass-expire-policy-for-1.13.0-user-" + user.Name
 	if internalSecrets.Annotations[annotationName] == "done" {
 		return nil
@@ -1193,6 +1194,10 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 
 		if err := um.UpdatePassExpirationPolicy(user); err != nil {
 			return errors.Wrapf(err, "update %s user password expiration policy", user.Name)
+		}
+
+		if internalSecrets.Annotations == nil {
+			internalSecrets.Annotations = make(map[string]string)
 		}
 
 		internalSecrets.Annotations[annotationName] = "done"

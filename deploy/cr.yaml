@@ -40,7 +40,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: percona/percona-xtradb-cluster:8.0.29-21.1
+    image: percona/percona-xtradb-cluster:8.0.31-23.2
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -164,7 +164,7 @@ spec:
             storage: 6G
     gracePeriod: 600
   haproxy:
-    enabled: true
+    enabled: false
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    imagePullPolicy: Always
@@ -317,10 +317,10 @@ spec:
 #      minAvailable: 0
     gracePeriod: 30
   proxysql:
-    enabled: false
-    pxchandler: internal
+    enabled: true
+    pxchandler: scheduler
     size: 3
-    image: perconalab/percona-xtradb-cluster-operator:main-proxysql
+    image: perconalab/percona-xtradb-cluster-operator:proxysql-k8spxc-1071
 #    imagePullPolicy: Always
 #    configuration: |
 #      datadir="/var/lib/proxysql"

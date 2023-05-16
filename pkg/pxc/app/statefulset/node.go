@@ -149,9 +149,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			},
 			{
 				Name:      "auto-config",
-				MountPath: "/etc/my.cnf.d/auto-config.cnf",
-				SubPath:   "auto-config.cnf",
-				ReadOnly:  true,
+				MountPath: "/etc/my.cnf.d",
 			},
 			{
 				Name:      VaultSecretVolumeName,
@@ -185,38 +183,6 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 					SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 				},
 			},
-			{
-				Name:  "LOG_DATA_DIR",
-				Value: "/var/lib/mysql",
-			},
-			{
-				Name: "IS_LOGCOLLECTOR",
-				Value: func() string {
-					if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled {
-						return "yes"
-					}
-
-					return "no"
-				}(),
-			},
-			{
-				Name:  "CLUSTER_HASH",
-				Value: serverIDHashStr,
-			},
-			{
-				Name: "OPERATOR_ADMIN_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
-				},
-			},
-			{
-				Name:  "LIVENESS_CHECK_TIMEOUT",
-				Value: fmt.Sprint(spec.LivenessProbes.TimeoutSeconds),
-			},
-			{
-				Name:  "READINESS_CHECK_TIMEOUT",
-				Value: fmt.Sprint(spec.ReadinessProbes.TimeoutSeconds),
-			},
 		},
 		EnvFrom: []corev1.EnvFromSource{
 			{
@@ -239,12 +205,48 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled {
+		appc.Env = append(appc.Env, []corev1.EnvVar{
+			{
+				Name:  "LOG_DATA_DIR",
+				Value: "/var/lib/mysql",
+			},
+			{
+				Name:  "IS_LOGCOLLECTOR",
+				Value: "yes",
+			},
+		}...)
+	}
+
+	appc.Env = append(appc.Env, []corev1.EnvVar{
+		{
+			Name:  "CLUSTER_HASH",
+			Value: serverIDHashStr,
+		},
+		{
+			Name: "OPERATOR_ADMIN_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
+			},
+		},
+		{
+			Name:  "LIVENESS_CHECK_TIMEOUT",
+			Value: fmt.Sprint(spec.LivenessProbes.TimeoutSeconds),
+		},
+		{
+			Name:  "READINESS_CHECK_TIMEOUT",
+			Value: fmt.Sprint(spec.ReadinessProbes.TimeoutSeconds),
+		},
+	}...)
+
 	if cr.CompareVersionWith("1.13.0") >= 0 {
-		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "auth-policy",
-			MountPath: "/etc/my.cnf.d/auth.cnf",
-			SubPath:   "auth.cnf",
-			ReadOnly:  true,
+		plugin := "caching_sha2_password"
+		if cr.Spec.ProxySQLEnabled() {
+			plugin = "mysql_native_password"
+		}
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "DEFAULT_AUTHENTICATION_PLUGIN",
+			Value: plugin,
 		})
 	}
 

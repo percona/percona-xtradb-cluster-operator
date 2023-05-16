@@ -864,20 +864,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 				return errors.Wrap(err, "proxysql config map")
 			}
 		}
-
-		if cr.CompareVersionWith("1.13.0") >= 0 {
-			authConfigName := config.AuthPolicyConfigMapName(cr.Name)
-			authPlugin := config.NewConfigMap(cr, authConfigName, "auth.cnf", "[mysqld]\nauthentication_policy=mysql_native_password")
-			err := setControllerReference(cr, authPlugin, r.scheme)
-			if err != nil {
-				return errors.Wrap(err, "set controller ref for auth plugin config map")
-			}
-
-			err = createOrUpdateConfigmap(r.client, authPlugin)
-			if err != nil {
-				return errors.Wrap(err, "auth plugin config map")
-			}
-		}
 	} else {
 		if err := deleteConfigMapIfExists(r.client, cr, proxysqlConfigName); err != nil {
 			return errors.Wrap(err, "delete proxySQL config map")

@@ -585,19 +585,29 @@ var _ = Describe("Authentication policy", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should create ConfigMap for authentication policy", func() {
-			cm := corev1.ConfigMap{
+		It("should use mysql_native_password", func() {
+			sts := appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      crName + "-auth-policy",
+					Name:      crName + "-pxc",
 					Namespace: ns,
 				},
 			}
-			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&cm), &cm)
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&sts), &sts)
 			Expect(err).NotTo(HaveOccurred())
 
-			conf, ok := cm.Data["auth.cnf"]
-			Expect(ok).To(BeTrue())
-			Expect(conf).To(Equal("[mysqld]\nauthentication_policy=mysql_native_password"))
+			envFound := false
+			for _, c := range sts.Spec.Template.Spec.Containers {
+				if c.Name == "pxc" {
+					for _, e := range c.Env {
+						if e.Name == "DEFAULT_AUTHENTICATION_PLUGIN" {
+							envFound = true
+							Expect(e.Value).To(Equal("mysql_native_password"))
+						}
+					}
+				}
+			}
+
+			Expect(envFound).To(BeTrue())
 		})
 	})
 
@@ -622,15 +632,29 @@ var _ = Describe("Authentication policy", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should NOT create ConfigMap for authentication policy", func() {
-			cm := corev1.ConfigMap{
+		It("should use caching_sha2_password", func() {
+			sts := appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      crName + "-auth-policy",
+					Name:      crName + "-pxc",
 					Namespace: ns,
 				},
 			}
-			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&cm), &cm)
-			Expect(err).To(HaveOccurred())
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&sts), &sts)
+			Expect(err).NotTo(HaveOccurred())
+
+			envFound := false
+			for _, c := range sts.Spec.Template.Spec.Containers {
+				if c.Name == "pxc" {
+					for _, e := range c.Env {
+						if e.Name == "DEFAULT_AUTHENTICATION_PLUGIN" {
+							envFound = true
+							Expect(e.Value).To(Equal("caching_sha2_password"))
+						}
+					}
+				}
+			}
+
+			Expect(envFound).To(BeTrue())
 		})
 
 		It("should update PerconaXtraDBCluster", func() {

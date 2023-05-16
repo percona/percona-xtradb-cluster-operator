@@ -197,6 +197,18 @@ if [[ $MYSQL_VERSION == '8.0' ]]; then
 	fi
 fi
 
+auth_plugin=${DEFAULT_AUTHENTICATION_PLUGIN}
+if [[ -z ${auth_plugin} ]]; then
+	auth_plugin="mysql_native_password"
+fi
+
+sed -i "/default_authentication_plugin/d" $CFG
+if [[ $MYSQL_VERSION == '8.0' ]]; then
+	sed -i "/\[mysqld\]/a authentication_policy=${auth_plugin},," $CFG
+else
+	sed -i "/\[mysqld\]/a default_authentication_plugin=${auth_plugin}" $CFG
+fi
+
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup' 'xtrabackup'
 file_env 'CLUSTERCHECK_PASSWORD' '' 'clustercheck'
 

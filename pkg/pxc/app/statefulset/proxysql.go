@@ -45,7 +45,7 @@ func NewProxy(cr *api.PerconaXtraDBCluster) *Proxy {
 	return &Proxy{
 		sfs:     sfs,
 		labels:  labels,
-		service: cr.Name + "-proxysql-unready",
+		service: cr.Name + "-" + proxyName,
 	}
 }
 

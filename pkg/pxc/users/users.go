@@ -296,7 +296,9 @@ func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
 
 	for _, host := range user.Hosts {
 		_, err := u.db.Exec("ALTER USER ?@? PASSWORD EXPIRE NEVER", user.Name, host)
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

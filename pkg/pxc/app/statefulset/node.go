@@ -503,10 +503,6 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 		}
 	}
 
-	if cr.CompareVersionWith("1.13.0") >= 0 {
-		vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("auth-policy", config.AuthPolicyConfigMapName(cr.Name)))
-	}
-
 	return vol, nil
 }
 

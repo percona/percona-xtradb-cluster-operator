@@ -210,12 +210,21 @@ main() {
 
 	write_data_for_pitr "$cluster"
 	sleep 120 # need to wait while collector catch new data
-	binlogs_exist=$(
-		kubectl_bin run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
-			/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-			/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/binlogs/ | grep -c "binlog" | cat
-		exit "${PIPESTATUS[0]}"
-	)
+
+	timeout=60
+	binlogs_exist=0
+	for i in $(seq 2 3); do
+		binlogs_exist=$(
+			kubectl_bin run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+				/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
+				/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/binlogs/ | grep -c "binlog" | cat
+			exit "${PIPESTATUS[0]}"
+		)
+		if [ "$binlogs_exist" -eq 0 ]; then
+			sleep "$((timeout * i))"
+		fi
+	done
+
 	if [ "$binlogs_exist" -eq 0 ]; then
 		echo "Binlogs are not found in S3"
 		exit 1

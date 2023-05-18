@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -472,7 +473,7 @@ func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {
 }
 
 func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
-	for _, key := range []string{"pmmserver", "pmmserverkey"} {
+	for _, key := range []string{users.PMMServer, users.PMMServerKey} {
 		if _, ok := secret.Data[key]; ok {
 			return true
 		}
@@ -481,8 +482,8 @@ func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
 }
 
 func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
-	if _, ok := secret.Data["pmmserverkey"]; !ok {
-		if _, ok := secret.Data["pmmserver"]; ok {
+	if _, ok := secret.Data[users.PMMServerKey]; !ok {
+		if _, ok := secret.Data[users.PMMServer]; ok {
 			return false
 		}
 	}

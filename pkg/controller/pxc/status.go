@@ -236,13 +236,12 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace
 }
 
 func (r *ReconcilePerconaXtraDBCluster) appHost(cr *api.PerconaXtraDBCluster, app api.StatefulApp, podSpec *api.PodSpec) (string, error) {
-	if podSpec.ServiceType != corev1.ServiceTypeLoadBalancer {
-		return app.Service() + "." + cr.Namespace, nil
-	}
-
 	svcName := app.Service()
 	if app.Name() == "proxysql" {
 		svcName = cr.Name + "-proxysql"
+	}
+	if podSpec.ServiceType != corev1.ServiceTypeLoadBalancer {
+		return svcName + "." + cr.Namespace, nil
 	}
 
 	svc := &corev1.Service{}

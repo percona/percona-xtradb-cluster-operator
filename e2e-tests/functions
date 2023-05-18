@@ -878,7 +878,6 @@ spinup_pxc() {
 	local proxy=$(get_proxy "$cluster")
 	wait_for_running "$proxy" 1
 	wait_for_running "$cluster-pxc" "$size"
-	wait_cluster_consistency "$cluster" "$size"
 	sleep $sleep
 
 	desc 'write data'

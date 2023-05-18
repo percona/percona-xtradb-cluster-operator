@@ -125,6 +125,13 @@ type PXCScheduledBackup struct {
 	BackoffLimit       *int32                        `json:"backoffLimit,omitempty"`
 }
 
+func (b *PXCScheduledBackup) GetAllowParallel() bool {
+	if b.AllowParallel == nil {
+		return true
+	}
+	return *b.AllowParallel
+}
+
 type PITRSpec struct {
 	Enabled            bool                        `json:"enabled"`
 	StorageName        string                      `json:"storageName"`
@@ -868,11 +875,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			case BackupStorageFilesystem:
 				strg.Volume.reconcileOpts()
 			}
-		}
-
-		if c.Backup.AllowParallel == nil {
-			b := false
-			c.Backup.AllowParallel = &b
 		}
 	}
 

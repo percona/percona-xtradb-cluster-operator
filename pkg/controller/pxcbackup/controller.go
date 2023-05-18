@@ -178,7 +178,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		return rr, errors.Wrap(err, "failed to run backup")
 	}
 
-	if cluster.Spec.Backup.AllowParallel != nil && !*cluster.Spec.Backup.AllowParallel {
+	if !cluster.Spec.Backup.GetAllowParallel() {
 		isRunning, err := r.isOtherBackupRunning(ctx, cr)
 		if err != nil {
 			return rr, errors.Wrap(err, "failed to check if other backups running")

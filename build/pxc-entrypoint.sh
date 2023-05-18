@@ -203,7 +203,7 @@ if [[ -z ${auth_plugin} ]]; then
 fi
 
 sed -i "/default_authentication_plugin/d" $CFG
-if [[ $MYSQL_VERSION == '8.0' ]]; then
+if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 27 ]]; then
 	sed -i "/\[mysqld\]/a authentication_policy=${auth_plugin},," $CFG
 else
 	sed -i "/\[mysqld\]/a default_authentication_plugin=${auth_plugin}" $CFG

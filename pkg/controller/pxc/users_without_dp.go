@@ -74,6 +74,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Cont
 		Hosts: []string{"localhost", "%"},
 	}
 
+	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		return err
+	}
+
 	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
 		return nil
 	}
@@ -116,6 +120,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 		if err != nil {
 			return errors.Wrap(err, "manage operator admin user")
 		}
+
+		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+			return err
+		}
 	}
 
 	if cr.Status.Status != api.AppStateReady {
@@ -156,6 +164,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 	}
 
 	if cr.Status.PXC.Ready > 0 {
+		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+			return err
+		}
+
 		um, err := getUserManager(cr, internalSecrets)
 		if err != nil {
 			return err
@@ -247,6 +259,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(ctx cont
 	}
 
 	if cr.Status.PXC.Ready > 0 {
+		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+			return err
+		}
+
 		if cr.CompareVersionWith("1.10.0") >= 0 {
 			mysqlVersion := cr.Status.PXC.Version
 			if mysqlVersion == "" {
@@ -322,6 +338,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 	}
 
 	if cr.Status.PXC.Ready > 0 {
+		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+			return err
+		}
+
 		if cr.CompareVersionWith("1.7.0") >= 0 {
 			// monitor user need more grants for work in version more then 1.6.0
 			err := r.updateXtrabackupUserGrant(ctx, cr, internalSecrets)
@@ -381,6 +401,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 		if err != nil {
 			return errors.Wrap(err, "manage replication user")
 		}
+
+		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+			return err
+		}
 	}
 
 	if cr.Status.Status != api.AppStateReady {
@@ -429,6 +453,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 
 	if cr.Status.Status != api.AppStateReady {
 		return nil
+	}
+
+	if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
+		return err
 	}
 
 	log.Info("Password changed, updating user", "user", user.Name)

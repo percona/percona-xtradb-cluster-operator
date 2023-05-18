@@ -21,6 +21,7 @@ import (
 	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -290,7 +291,6 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 		return "", errors.Wrap(err, "get pod list")
 	}
 
-	user := "root"
 	port := int32(3306)
 	secrets := cr.Spec.SecretsName
 	if cr.CompareVersionWith("1.6.0") >= 0 {
@@ -303,7 +303,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 			continue
 		}
 
-		database, err := queries.New(r.client, cr.Namespace, secrets, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			log.Error(err, "failed to create db instance")
 			continue

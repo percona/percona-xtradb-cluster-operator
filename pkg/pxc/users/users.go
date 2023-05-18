@@ -287,3 +287,18 @@ func (u *Manager) CreateReplicationUser(password string) error {
 
 	return nil
 }
+
+// UpdatePassExpirationPolicy sets user password expiration policy to never
+func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
+	if user == nil {
+		return nil
+	}
+
+	for _, host := range user.Hosts {
+		_, err := u.db.Exec("ALTER USER ?@? PASSWORD EXPIRE NEVER", user.Name, host)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

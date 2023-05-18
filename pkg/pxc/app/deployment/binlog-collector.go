@@ -18,11 +18,12 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployment, error) {
 	binlogCollectorName := GetBinlogCollectorDeploymentName(cr)
-	pxcUser := "xtrabackup"
+	pxcUser := users.Xtrabackup
 	sleepTime := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeBetweenUploads)
 
 	bufferSize, err := getBufferSize(cr.Spec)

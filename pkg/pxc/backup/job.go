@@ -12,6 +12,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 func (*Backup) Job(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) *batchv1.Job {
@@ -83,7 +84,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 							{
 								Name: "PXC_PASS",
 								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, "xtrabackup"),
+									SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, users.Xtrabackup),
 								},
 							},
 							{

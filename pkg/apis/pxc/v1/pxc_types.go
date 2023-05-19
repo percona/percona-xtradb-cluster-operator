@@ -532,9 +532,9 @@ type BackupStorageS3Spec struct {
 type BackupStorageAzureSpec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
 	// +kubebuilder:validation:Required
-	ContainerPath     string `json:"container"`
-	Endpoint          string `json:"endpointUrl"`
-	StorageClass      string `json:"storageClass"`
+	ContainerPath string `json:"container"`
+	Endpoint      string `json:"endpointUrl"`
+	StorageClass  string `json:"storageClass"`
 }
 
 const (

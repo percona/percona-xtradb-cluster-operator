@@ -1,12 +1,14 @@
 package app
 
 import (
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-func PMMClient(spec *api.PMMSpec, secret *corev1.Secret, v120OrGreater bool, v170OrGreater bool) corev1.Container {
+func PMMClient(spec *api.PMMSpec, secret *corev1.Secret, v120OrGreater bool, v170OrGreater bool, v1130OrGreater bool) corev1.Container {
 	ports := []corev1.ContainerPort{{ContainerPort: 7777}}
 
 	for i := 30100; i <= 30105; i++ {
@@ -75,6 +77,20 @@ func PMMClient(spec *api.PMMSpec, secret *corev1.Secret, v120OrGreater bool, v17
 		}
 	}
 
+	if v1130OrGreater {
+		container.Lifecycle = &corev1.Lifecycle{
+			PreStop: &corev1.LifecycleHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"bash",
+						"-c",
+						"pmm-admin unregister --force",
+					},
+				},
+			},
+		}
+	}
+
 	return container
 }
 
@@ -82,9 +98,9 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string, useAPI bool) []c
 	var pmmServerPassKey string
 	if useAPI {
 		pmmServerUser = "api_key"
-		pmmServerPassKey = "pmmserverkey"
+		pmmServerPassKey = users.PMMServerKey
 	} else {
-		pmmServerPassKey = "pmmserver"
+		pmmServerPassKey = users.PMMServer
 	}
 	return []corev1.EnvVar{
 		{
@@ -191,9 +207,9 @@ func pmmEnvServerUser(user, secrets string, useAPI bool) []corev1.EnvVar {
 	var passKey string
 	if useAPI {
 		user = "api_key"
-		passKey = "pmmserverkey"
+		passKey = users.PMMServerKey
 	} else {
-		passKey = "pmmserver"
+		passKey = users.PMMServer
 	}
 	return []corev1.EnvVar{
 		{

@@ -200,6 +200,8 @@ fi
 auth_plugin=${DEFAULT_AUTHENTICATION_PLUGIN}
 if [[ -z ${auth_plugin} ]]; then
 	auth_plugin="mysql_native_password"
+elif [[ $MYSQL_VERSION == '5.7' ]]; then
+	auth_plugin="mysql_native_password"
 fi
 
 sed -i "/default_authentication_plugin/d" $CFG

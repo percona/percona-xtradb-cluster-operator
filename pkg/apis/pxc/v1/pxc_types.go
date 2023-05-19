@@ -522,6 +522,7 @@ const (
 )
 
 type BackupStorageS3Spec struct {
+	// +kubebuilder:validation:Required
 	Bucket            string `json:"bucket"`
 	CredentialsSecret string `json:"credentialsSecret"`
 	Region            string `json:"region,omitempty"`
@@ -530,6 +531,7 @@ type BackupStorageS3Spec struct {
 
 type BackupStorageAzureSpec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
+	// +kubebuilder:validation:Required
 	ContainerPath     string `json:"container"`
 	Endpoint          string `json:"endpointUrl"`
 	StorageClass      string `json:"storageClass"`

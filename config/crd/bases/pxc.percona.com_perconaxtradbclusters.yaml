@@ -500,6 +500,8 @@ spec:
                               type: string
                             storageClass:
                               type: string
+                          required:
+                          - container
                           type: object
                         containerSecurityContext:
                           properties:
@@ -679,6 +681,8 @@ spec:
                               type: string
                             region:
                               type: string
+                          required:
+                          - bucket
                           type: object
                         schedulerName:
                           type: string

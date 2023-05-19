@@ -78,7 +78,8 @@ func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
 	if secret.Data == nil {
 		secret.Data = make(map[string][]byte)
 	}
-	users := []string{"root", "xtrabackup", "monitor", "clustercheck", "proxyadmin", "operator", "replication"}
+	users := []string{users.Root, users.Xtrabackup, users.Monitor, users.Clustercheck,
+		users.ProxyAdmin, users.Operator, users.Replication}
 	for _, user := range users {
 		if pass, ok := secret.Data[user]; !ok || len(pass) == 0 {
 			secret.Data[user], err = generatePass()

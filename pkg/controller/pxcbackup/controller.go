@@ -648,10 +648,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) isOtherBackupRunning(ctx context.C
 	}
 
 	for _, job := range list.Items {
-		if job.Status.Active == 0 {
+		if job.Labels["backup-name"] == cr.Name || job.Labels["backup-name"] == "" {
 			continue
 		}
-		if job.Labels["backup-name"] == cr.Name || job.Labels["backup-name"] == "" {
+		if job.Status.Succeeded > 0 {
 			continue
 		}
 

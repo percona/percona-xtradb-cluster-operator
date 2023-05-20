@@ -7,9 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-version"
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,6 +14,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const replicationPodLabel = "percona.com/replicationPod"
@@ -96,12 +99,12 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtraDBCluster, replicaPassUpdated bool) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context, cr *api.PerconaXtraDBCluster, replicaPassUpdated bool) error {
+	log := logf.FromContext(ctx)
+
 	if cr.Status.PXC.Ready < 1 || cr.Spec.Pause {
 		return nil
 	}
-
-	log := r.logger(cr.Name, cr.Namespace)
 
 	sfs := statefulset.NewNode(cr)
 
@@ -146,10 +149,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		return nil
 	}
 
-	user := "operator"
 	port := int32(33062)
 
-	primaryDB, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, user, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	primaryDB, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrapf(err, "failed to connect to pod %s", primaryPod.Name)
 	}
@@ -189,7 +191,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 			continue
 		}
 		if _, ok := pod.Labels[replicationPodLabel]; ok {
-			db, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+			db, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 			if err != nil {
 				return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
 			}
@@ -212,7 +214,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 		if err != nil {
 			return errors.Wrap(err, "add label to main replica pod")
 		}
-		r.logger(cr.Name, cr.Namespace).Info("Replication pod has changed", "new replication pod", primaryPod.Name)
+		log.Info("Replication pod has changed", "new replication pod", primaryPod.Name)
 	}
 
 	sysUsersSecretObj := corev1.Secret{}
@@ -228,7 +230,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 	}
 
 	if replicaPassUpdated {
-		err = handleReplicaPasswordChange(primaryDB, string(sysUsersSecretObj.Data["replication"]))
+		err = handleReplicaPasswordChange(primaryDB, string(sysUsersSecretObj.Data[users.Replication]))
 		if err != nil {
 			return errors.Wrap(err, "failed to change replication password")
 		}
@@ -241,7 +243,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(cr *api.PerconaXtra
 
 		currConf := currentReplicaConfig(channel.Name, cr.Status.PXCReplication)
 
-		err = manageReplicationChannel(r.log, primaryDB, channel, currConf, string(sysUsersSecretObj.Data["replication"]))
+		err = manageReplicationChannel(log, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]))
 		if err != nil {
 			return errors.Wrapf(err, "manage replication channel %s", channel.Name)
 		}
@@ -273,7 +275,7 @@ func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, c
 	}
 
 	for _, pod := range pods {
-		db, err := queries.New(client, cr.Namespace, internalSecretsPrefix+cr.Name, "operator", pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		db, err := queries.New(client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			return errors.Wrapf(err, "connect to pod %s", pod.Name)
 		}

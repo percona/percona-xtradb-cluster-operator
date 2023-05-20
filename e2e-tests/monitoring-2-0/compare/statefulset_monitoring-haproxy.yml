@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   annotations: {}
-  generation: 2
+  generation: 3
   name: monitoring-haproxy
   ownerReferences:
     - controller: true
@@ -130,7 +130,7 @@ spec:
                 command:
                   - bash
                   - -c
-                  - pmm-admin inventory remove node --force $(pmm-admin status --json | python -c "import sys, json; print(json.load(sys.stdin)['pmm_agent_status']['node_id'])")
+                  - pmm-admin unregister --force
           livenessProbe:
             failureThreshold: 3
             httpGet:

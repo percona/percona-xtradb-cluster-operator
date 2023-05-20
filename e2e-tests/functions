@@ -80,13 +80,25 @@ version_gt() {
 	fi
 }
 
+get_proxy_size() {
+	local cluster=${1}
+	if [[ "$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.haproxy.enabled}')" == "true" ]]; then
+		kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.haproxy.size}'
+		return
+	fi
+	if [[ "$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.proxysql.enabled}')" == "true" ]]; then
+		kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.proxysql.size}'
+		return
+	fi
+}
+
 wait_cluster_consistency() {
 	local cluster_name=${1}
 	local cluster_size=${2}
 	local proxy_size=${3}
 
 	if [ -z "${proxy_size}" ]; then
-		proxy_size=${cluster_size}
+		proxy_size="$(get_proxy_size "$cluster_name")"
 	fi
 	desc "wait cluster consistency"
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds

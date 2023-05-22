@@ -114,7 +114,6 @@ kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operato
 desc 'check if pmm-client container enabled'
 compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-haproxy
-sleep 60
 
 desc 'verify clients agents statuses'
 API_KEY=$(getSecretData "my-cluster-secrets" "pmmserverkey")

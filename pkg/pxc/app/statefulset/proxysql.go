@@ -415,7 +415,7 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 	if cr.CompareVersionWith("1.13.0") >= 0 {
 		vol.Volumes = append(vol.Volumes,
 			corev1.Volume{
-				Name: app.DataVolumeName,
+				Name: app.BinVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},

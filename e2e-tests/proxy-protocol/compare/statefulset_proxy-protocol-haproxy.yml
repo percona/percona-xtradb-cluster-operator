@@ -136,7 +136,7 @@ spec:
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
-              name: datadir
+              name: bin
       nodeSelector: {}
       restartPolicy: Always
       schedulerName: default-scheduler
@@ -163,7 +163,7 @@ spec:
             optional: true
             secretName: proxy-protocol-env-vars-haproxy
         - emptyDir: {}
-          name: datadir
+          name: bin
   updateStrategy:
     rollingUpdate:
       partition: 0

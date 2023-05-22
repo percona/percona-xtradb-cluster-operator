@@ -300,30 +300,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	operatorPod, err := k8s.OperatorPod(ctx, r.client)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
+	}
+	initImageName, err := o.GetInitImage(&operatorPod)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to get initImage")
+	}
 
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		var imageName string
-		if len(o.Spec.InitImage) > 0 {
-			imageName = o.Spec.InitImage
-		} else {
-			operatorPod, err := k8s.OperatorPod(r.client)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
-			}
-			imageName, err = operatorImageName(&operatorPod)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			if o.CompareVersionWith(version.Version) != 0 {
-				imageName = strings.Split(imageName, ":")[0] + ":" + o.Spec.CRVersion
-			}
-		}
 		var initResources corev1.ResourceRequirements
 		if o.CompareVersionWith("1.6.0") >= 0 {
 			initResources = o.Spec.PXC.Resources
 		}
-		initC := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
+		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
 		inits = append(inits, initC)
 	}
 
@@ -358,9 +350,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	proxyInits := inits
-	if o.CompareVersionWith("1.13.0") < 0 {
-		proxyInits = nil
+	var proxyInits []corev1.Container
+	if o.CompareVersionWith("1.13.0") >= 0 {
+		proxyInits = []corev1.Container{
+			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, o.Spec.PXC.Resources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy),
+		}
 	}
 
 	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations, proxyInits); err != nil {
@@ -502,29 +496,21 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		return err
 	}
 
+	operatorPod, err := k8s.OperatorPod(ctx, r.client)
+	if err != nil {
+		return errors.Wrap(err, "get operator deployment")
+	}
+	initImageName, err := cr.GetInitImage(&operatorPod)
+	if err != nil {
+		return errors.Wrap(err, "failed to get initImage")
+	}
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		var imageName string
-		if len(cr.Spec.InitImage) > 0 {
-			imageName = cr.Spec.InitImage
-		} else {
-			operatorPod, err := k8s.OperatorPod(r.client)
-			if err != nil {
-				return errors.Wrap(err, "get operator deployment")
-			}
-			imageName, err = operatorImageName(&operatorPod)
-			if err != nil {
-				return err
-			}
-			if cr.CompareVersionWith(version.Version) != 0 {
-				imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
-			}
-		}
 		var initResources corev1.ResourceRequirements
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			initResources = cr.Spec.PXC.Resources
 		}
-		initC := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
+		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
 		inits = append(inits, initC)
 	}
 
@@ -628,9 +614,11 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		return errors.Wrap(err, "get PXC stateful set")
 	}
 
-	proxyInits := inits
-	if cr.CompareVersionWith("1.13.0") < 0 {
-		proxyInits = nil
+	var proxyInits []corev1.Container
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		proxyInits = []corev1.Container{
+			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, cr.Spec.PXC.Resources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
+		}
 	}
 
 	// HAProxy StatefulSet
@@ -1444,13 +1432,4 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName s
 	}
 
 	return corev1.Volume{}, api.NoCustomVolumeErr
-}
-
-func operatorImageName(operatorPod *corev1.Pod) (string, error) {
-	for _, c := range operatorPod.Spec.Containers {
-		if c.Name == "percona-xtradb-cluster-operator" {
-			return c.Image, nil
-		}
-	}
-	return "", errors.New("operator image not found")
 }

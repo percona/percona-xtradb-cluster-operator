@@ -360,6 +360,29 @@ func (cr *PerconaXtraDBCluster) Validate() error {
 	return nil
 }
 
+func (o *PerconaXtraDBCluster) GetInitImage(operatorPod *corev1.Pod) (string, error) {
+	if len(o.Spec.InitImage) > 0 {
+		return o.Spec.InitImage, nil
+	}
+	imageName, err := operatorImageName(operatorPod)
+	if err != nil {
+		return "", err
+	}
+	if o.CompareVersionWith(version.Version) != 0 {
+		imageName = strings.Split(imageName, ":")[0] + ":" + o.Spec.CRVersion
+	}
+	return imageName, nil
+}
+
+func operatorImageName(operatorPod *corev1.Pod) (string, error) {
+	for _, c := range operatorPod.Spec.Containers {
+		if c.Name == "percona-xtradb-cluster-operator" {
+			return c.Image, nil
+		}
+	}
+	return "", errors.New("operator image not found")
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // PerconaXtraDBClusterList contains a list of PerconaXtraDBCluster

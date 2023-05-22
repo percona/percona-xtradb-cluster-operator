@@ -42,7 +42,7 @@ type hook struct {
 }
 
 func (h *hook) Start(ctx context.Context) error {
-	err := h.setup()
+	err := h.setup(ctx)
 	if err != nil {
 		h.log.Info("failed to setup webhook", "err", err.Error())
 	}
@@ -50,7 +50,7 @@ func (h *hook) Start(ctx context.Context) error {
 	return nil
 }
 
-func (h *hook) setup() error {
+func (h *hook) setup(ctx context.Context) error {
 	operatorDeployment, err := h.operatorDeployment()
 	if err != nil {
 		return errors.Wrap(err, "failed to get operator deployment")
@@ -61,7 +61,7 @@ func (h *hook) setup() error {
 		return errors.Wrap(err, "failed to get deployment owner ref")
 	}
 
-	err = h.createService(ref)
+	err = h.createService(ctx, ref)
 	if err != nil {
 		return errors.Wrap(err, "Can't create service")
 	}
@@ -73,8 +73,8 @@ func (h *hook) setup() error {
 	return nil
 }
 
-func (h *hook) createService(ownerRef metav1.OwnerReference) error {
-	opPod, err := k8s.OperatorPod(h.cl)
+func (h *hook) createService(ctx context.Context, ownerRef metav1.OwnerReference) error {
+	opPod, err := k8s.OperatorPod(ctx, h.cl)
 	if err != nil {
 		return errors.Wrap(err, "get operator pod")
 	}

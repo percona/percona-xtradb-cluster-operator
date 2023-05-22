@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func OperatorPod(cl client.Client) (corev1.Pod, error) {
+func OperatorPod(ctx context.Context, cl client.Client) (corev1.Pod, error) {
 	operatorPod := corev1.Pod{}
 
 	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
@@ -21,7 +21,7 @@ func OperatorPod(cl client.Client) (corev1.Pod, error) {
 
 	ns := strings.TrimSpace(string(nsBytes))
 
-	if err := cl.Get(context.TODO(), types.NamespacedName{
+	if err := cl.Get(ctx, types.NamespacedName{
 		Namespace: ns,
 		Name:      os.Getenv("HOSTNAME"),
 	}, &operatorPod); err != nil {

@@ -165,7 +165,7 @@ spec:
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
-              name: datadir
+              name: bin
         - env:
             - name: PXC_SERVICE
               value: monitoring-pxc
@@ -267,7 +267,7 @@ spec:
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
-              name: datadir
+              name: bin
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
@@ -293,7 +293,7 @@ spec:
             optional: true
             secretName: monitoring-env-vars-haproxy
         - emptyDir: {}
-          name: datadir
+          name: bin
   updateStrategy:
     rollingUpdate:
       partition: 0

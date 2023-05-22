@@ -164,7 +164,7 @@ spec:
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
-              name: datadir
+              name: bin
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
@@ -190,7 +190,7 @@ spec:
             optional: false
             secretName: some-name-ssl
         - emptyDir: {}
-          name: datadir
+          name: bin
   updateStrategy:
     rollingUpdate:
       partition: 0

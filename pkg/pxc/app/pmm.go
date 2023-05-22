@@ -80,7 +80,7 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 	if cr.CompareVersionWith("1.13.0") >= 0 {
 		container.VolumeMounts = []corev1.VolumeMount{
 			{
-				Name:      DataVolumeName,
+				Name:      BinVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		}

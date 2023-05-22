@@ -827,9 +827,7 @@ apply_config() {
 			| kubectl_bin apply -f -
 	else
 		cat_config "$1" \
-			| yq eval '
-				del(.spec.backup.schedule.[1]) |
-				del(.spec.backup.schedule.[2])' - \
+			| yq eval 'del(.spec.backup.schedule.[1])' - \
 			| kubectl_bin apply -f -
 	fi
 }

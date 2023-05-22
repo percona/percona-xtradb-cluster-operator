@@ -116,6 +116,8 @@ compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-haproxy
 
 desc 'verify clients agents statuses'
+# wait for proper agents statuses
+sleep 180
 API_KEY=$(getSecretData "my-cluster-secrets" "pmmserverkey")
 diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace})
 

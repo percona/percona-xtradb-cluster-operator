@@ -23,6 +23,19 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+fail_pod() {
+	local pod=$1
+
+	yq eval '
+		.metadata.name = "chaos-pod-failure" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-failure.yml \
+		| kubectl apply -f -
+
+	sleep 10
+
+}
+
 check_haproxy_writer() {
 	for i in $(seq 0 2); do
 		local haproxy_pod_ip=$(kubectl_bin get pods $cluster-haproxy-$i -o jsonpath='{.status.podIP}')
@@ -35,6 +48,7 @@ check_haproxy_writer() {
 
 main() {
 	create_infra $namespace
+	deploy_chaos_mesh $test_namespace
 
 	if version_gt "1.24"; then
 		apply_config "$test_dir/conf/container-rc.yaml"
@@ -53,10 +67,11 @@ main() {
 	check_haproxy_writer
 
 	desc 'delete active writer and checking all haproxy pods still point to the same writer'
-	kubectl_bin delete pod $cluster-pxc-0
-	sleep 3
+	desc 'fail pxc-pod-0 pod for 60s'
+	fail_pod $cluster-pxc-0
 	kubectl_bin get pods
 	check_haproxy_writer
+	wait_for_running "$cluster-pxc" 3
 
 	desc 'check advanced options are enabled in haproxy statefulset'
 	compare_kubectl pdb/$cluster-haproxy
@@ -104,7 +119,9 @@ main() {
 	kubectl_bin exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
 		| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn-secret.txt
+
 	desc 'clean up'
+	destroy_chaos_mesh
 	destroy $namespace
 	desc "test passed"
 }

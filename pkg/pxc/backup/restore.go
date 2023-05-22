@@ -13,6 +13,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 var log = logf.Log.WithName("backup/restore")
@@ -48,18 +49,18 @@ func PVCRestoreService(cr *api.PerconaXtraDBClusterRestore) *corev1.Service {
 	return svc
 }
 
-func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName string, cluster api.PerconaXtraDBClusterSpec) (*corev1.Pod, error) {
-	if _, ok := cluster.Backup.Storages[bcpStorageName]; !ok {
+func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName string, cluster *api.PerconaXtraDBCluster) (*corev1.Pod, error) {
+	if _, ok := cluster.Spec.Backup.Storages[bcpStorageName]; !ok {
 		log.Info("storage " + bcpStorageName + " doesn't exist")
-		if len(cluster.Backup.Storages) == 0 {
-			cluster.Backup.Storages = map[string]*api.BackupStorageSpec{}
+		if len(cluster.Spec.Backup.Storages) == 0 {
+			cluster.Spec.Backup.Storages = map[string]*api.BackupStorageSpec{}
 		}
-		cluster.Backup.Storages[bcpStorageName] = &api.BackupStorageSpec{}
+		cluster.Spec.Backup.Storages[bcpStorageName] = &api.BackupStorageSpec{}
 	}
 
 	// Copy from the original labels to the restore labels
 	labels := make(map[string]string)
-	for key, value := range cluster.Backup.Storages[bcpStorageName].Labels {
+	for key, value := range cluster.Spec.Backup.Storages[bcpStorageName].Labels {
 		labels[key] = value
 	}
 	labels["name"] = "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster
@@ -72,19 +73,19 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
 			Namespace:   cr.Namespace,
-			Annotations: cluster.Backup.Storages[bcpStorageName].Annotations,
+			Annotations: cluster.Spec.Backup.Storages[bcpStorageName].Annotations,
 			Labels:      labels,
 		},
 		Spec: corev1.PodSpec{
-			ImagePullSecrets: cluster.Backup.ImagePullSecrets,
-			SecurityContext:  cluster.Backup.Storages[bcpStorageName].PodSecurityContext,
+			ImagePullSecrets: cluster.Spec.Backup.ImagePullSecrets,
+			SecurityContext:  cluster.Spec.Backup.Storages[bcpStorageName].PodSecurityContext,
 			Containers: []corev1.Container{
 				{
 					Name:            "ncat",
-					Image:           cluster.Backup.Image,
-					ImagePullPolicy: cluster.Backup.ImagePullPolicy,
+					Image:           cluster.Spec.Backup.Image,
+					ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
 					Command:         []string{"recovery-pvc-donor.sh"},
-					SecurityContext: cluster.Backup.Storages[bcpStorageName].ContainerSecurityContext,
+					SecurityContext: cluster.Spec.Backup.Storages[bcpStorageName].ContainerSecurityContext,
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "backup",
@@ -103,7 +104,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 							MountPath: "/etc/mysql/vault-keyring-secret",
 						},
 					},
-					Resources: cluster.Backup.Storages[bcpStorageName].Resources,
+					Resources: cr.Spec.Resources,
 				},
 			},
 			Volumes: []corev1.Volume{
@@ -115,23 +116,23 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 						},
 					},
 				},
-				app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLInternalSecretName, true),
-				app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.AllowUnsafeConfig),
-				app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
+				app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, true),
+				app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig),
+				app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 			},
 			RestartPolicy:      corev1.RestartPolicyAlways,
-			NodeSelector:       cluster.Backup.Storages[bcpStorageName].NodeSelector,
-			Affinity:           cluster.Backup.Storages[bcpStorageName].Affinity,
-			Tolerations:        cluster.Backup.Storages[bcpStorageName].Tolerations,
-			SchedulerName:      cluster.Backup.Storages[bcpStorageName].SchedulerName,
-			PriorityClassName:  cluster.Backup.Storages[bcpStorageName].PriorityClassName,
-			ServiceAccountName: cluster.PXC.ServiceAccountName,
-			RuntimeClassName:   cluster.Backup.Storages[bcpStorageName].RuntimeClassName,
+			NodeSelector:       cluster.Spec.Backup.Storages[bcpStorageName].NodeSelector,
+			Affinity:           cluster.Spec.Backup.Storages[bcpStorageName].Affinity,
+			Tolerations:        cluster.Spec.Backup.Storages[bcpStorageName].Tolerations,
+			SchedulerName:      cluster.Spec.Backup.Storages[bcpStorageName].SchedulerName,
+			PriorityClassName:  cluster.Spec.Backup.Storages[bcpStorageName].PriorityClassName,
+			ServiceAccountName: cluster.Spec.PXC.ServiceAccountName,
+			RuntimeClassName:   cluster.Spec.Backup.Storages[bcpStorageName].RuntimeClassName,
 		},
 	}, nil
 }
 
-func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraDBClusterSpec) (*batchv1.Job, error) {
+func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, bcp *api.PerconaXtraDBClusterBackup) (*batchv1.Job, error) {
 	jobPVC := corev1.Volume{
 		Name: "datadir",
 		VolumeSource: corev1.VolumeSource{
@@ -143,9 +144,34 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 
 	jobPVCs := []corev1.Volume{
 		jobPVC,
-		app.GetSecretVolumes("ssl-internal", cluster.PXC.SSLInternalSecretName, true),
-		app.GetSecretVolumes("ssl", cluster.PXC.SSLSecretName, cluster.AllowUnsafeConfig),
-		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
+		app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, true),
+		app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig),
+		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
+	}
+	command := []string{"recovery-pvc-joiner.sh"}
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "datadir",
+			MountPath: "/datadir",
+		},
+		{
+			Name:      "ssl",
+			MountPath: "/etc/mysql/ssl",
+		},
+		{
+			Name:      "ssl-internal",
+			MountPath: "/etc/mysql/ssl-internal",
+		},
+		{
+			Name:      "vault-keyring-secret",
+			MountPath: "/etc/mysql/vault-keyring-secret",
+		},
+	}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "RESTORE_SRC_SERVICE",
+			Value: "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+		},
 	}
 
 	job := &batchv1.Job{
@@ -160,80 +186,34 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster api.PerconaXtraD
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: cluster.PXC.Annotations,
-					Labels:      cluster.PXC.Labels,
+					Annotations: cluster.Spec.PXC.Annotations,
+					Labels:      cluster.Spec.PXC.Labels,
 				},
 				Spec: corev1.PodSpec{
-					ImagePullSecrets: cluster.Backup.ImagePullSecrets,
-					SecurityContext:  cluster.PXC.PodSecurityContext,
+					ImagePullSecrets: cluster.Spec.Backup.ImagePullSecrets,
+					SecurityContext:  cluster.Spec.PXC.PodSecurityContext,
 					Containers: []corev1.Container{
-						{
-							Name:            "xtrabackup",
-							Image:           cluster.Backup.Image,
-							ImagePullPolicy: cluster.Backup.ImagePullPolicy,
-							Command:         []string{"recovery-pvc-joiner.sh"},
-							SecurityContext: cluster.PXC.ContainerSecurityContext,
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "datadir",
-									MountPath: "/datadir",
-								},
-								{
-									Name:      "ssl",
-									MountPath: "/etc/mysql/ssl",
-								},
-								{
-									Name:      "ssl-internal",
-									MountPath: "/etc/mysql/ssl-internal",
-								},
-								{
-									Name:      "vault-keyring-secret",
-									MountPath: "/etc/mysql/vault-keyring-secret",
-								},
-							},
-							Env: []corev1.EnvVar{
-								{
-									Name:  "RESTORE_SRC_SERVICE",
-									Value: "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
-								},
-							},
-							Resources: cluster.PXC.Resources,
-						},
+						xtrabackupContainer(cr, cluster, command, volumeMounts, envs),
 					},
 					RestartPolicy:      corev1.RestartPolicyNever,
 					Volumes:            jobPVCs,
-					NodeSelector:       cluster.PXC.NodeSelector,
-					Affinity:           cluster.PXC.Affinity.Advanced,
-					Tolerations:        cluster.PXC.Tolerations,
-					SchedulerName:      cluster.PXC.SchedulerName,
-					PriorityClassName:  cluster.PXC.PriorityClassName,
-					ServiceAccountName: cluster.PXC.ServiceAccountName,
-					RuntimeClassName:   cluster.PXC.RuntimeClassName,
+					NodeSelector:       cluster.Spec.PXC.NodeSelector,
+					Affinity:           cluster.Spec.PXC.Affinity.Advanced,
+					Tolerations:        cluster.Spec.PXC.Tolerations,
+					SchedulerName:      cluster.Spec.PXC.SchedulerName,
+					PriorityClassName:  cluster.Spec.PXC.PriorityClassName,
+					ServiceAccountName: cluster.Spec.PXC.ServiceAccountName,
+					RuntimeClassName:   cluster.Spec.PXC.RuntimeClassName,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
 	}
 
-	useMem, k8sq, err := xbMemoryUse(cluster)
-
-	if useMem != "" && err == nil {
-		job.Spec.Template.Spec.Containers[0].Env = append(
-			job.Spec.Template.Spec.Containers[0].Env,
-			corev1.EnvVar{
-				Name:  "XB_USE_MEMORY",
-				Value: useMem,
-			},
-		)
-		job.Spec.Template.Spec.Containers[0].Resources.Requests = corev1.ResourceList{
-			corev1.ResourceMemory: k8sq,
-		}
-	}
-
 	return job, nil
 }
 
-func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster api.PerconaXtraDBClusterSpec, destination string, pitr bool) (*batchv1.Job, error) {
+func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) (*batchv1.Job, error) {
 	if bcp.Status.Azure == nil {
 		return nil, errors.New("nil azure storage backup status")
 	}
@@ -249,14 +229,14 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 
 	jobPVCs := []corev1.Volume{
 		jobPVC,
-		app.GetSecretVolumes("vault-keyring-secret", cluster.PXC.VaultSecretName, true),
+		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 	}
-	pxcUser := "xtrabackup"
+	pxcUser := users.Xtrabackup
 	command := []string{"recovery-cloud.sh"}
 
 	verifyTLS := true
-	if cluster.Backup != nil && len(cluster.Backup.Storages) > 0 {
-		storage, ok := cluster.Backup.Storages[bcp.Spec.StorageName]
+	if cluster.Spec.Backup != nil && len(cluster.Spec.Backup.Storages) > 0 {
+		storage, ok := cluster.Spec.Backup.Storages[bcp.Spec.StorageName]
 		if ok && storage.VerifyTLS != nil {
 			verifyTLS = *storage.VerifyTLS
 		}
@@ -311,7 +291,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		{
 			Name: "PXC_PASS",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(cluster.SecretsName, pxcUser),
+				SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, pxcUser),
 			},
 		},
 	}
@@ -328,13 +308,13 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 	}
 
 	if pitr {
-		if cluster.Backup == nil && len(cluster.Backup.Storages) == 0 {
+		if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
 			return nil, errors.New("no storage section")
 		}
 		storageAzure := new(api.BackupStorageAzureSpec)
 
 		if len(cr.Spec.PITR.BackupSource.StorageName) > 0 {
-			storage, ok := cluster.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
+			storage, ok := cluster.Spec.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
 			if ok {
 				storageAzure = storage.Azure
 			}
@@ -416,53 +396,28 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: cluster.PXC.Annotations,
-					Labels:      cluster.PXC.Labels,
+					Annotations: cluster.Spec.PXC.Annotations,
+					Labels:      cluster.Spec.PXC.Labels,
 				},
 				Spec: corev1.PodSpec{
-					ImagePullSecrets: cluster.Backup.ImagePullSecrets,
-					SecurityContext:  cluster.PXC.PodSecurityContext,
-					Containers: []corev1.Container{
-						{
-							Name:            "xtrabackup",
-							Image:           cluster.Backup.Image,
-							ImagePullPolicy: cluster.Backup.ImagePullPolicy,
-							Command:         command,
-							SecurityContext: cluster.PXC.ContainerSecurityContext,
-							VolumeMounts:    volumeMounts,
-							Env:             envs,
-							Resources:       cluster.PXC.Resources,
-						},
-					},
+					ImagePullSecrets:   cluster.Spec.Backup.ImagePullSecrets,
+					SecurityContext:    cluster.Spec.PXC.PodSecurityContext,
+					Containers:         []corev1.Container{xtrabackupContainer(cr, cluster, command, volumeMounts, envs)},
 					RestartPolicy:      corev1.RestartPolicyNever,
 					Volumes:            jobPVCs,
-					NodeSelector:       cluster.PXC.NodeSelector,
-					Affinity:           cluster.PXC.Affinity.Advanced,
-					Tolerations:        cluster.PXC.Tolerations,
-					SchedulerName:      cluster.PXC.SchedulerName,
-					PriorityClassName:  cluster.PXC.PriorityClassName,
-					ServiceAccountName: cluster.PXC.ServiceAccountName,
-					RuntimeClassName:   cluster.PXC.RuntimeClassName,
+					NodeSelector:       cluster.Spec.PXC.NodeSelector,
+					Affinity:           cluster.Spec.PXC.Affinity.Advanced,
+					Tolerations:        cluster.Spec.PXC.Tolerations,
+					SchedulerName:      cluster.Spec.PXC.SchedulerName,
+					PriorityClassName:  cluster.Spec.PXC.PriorityClassName,
+					ServiceAccountName: cluster.Spec.PXC.ServiceAccountName,
+					RuntimeClassName:   cluster.Spec.PXC.RuntimeClassName,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
 	}
 
-	useMem, k8sq, err := xbMemoryUse(cluster)
-
-	if useMem != "" && err == nil {
-		job.Spec.Template.Spec.Containers[0].Env = append(
-			job.Spec.Template.Spec.Containers[0].Env,
-			corev1.EnvVar{
-				Name:  "XB_USE_MEMORY",
-				Value: useMem,
-			},
-		)
-		job.Spec.Template.Spec.Containers[0].Resources.Requests = corev1.ResourceList{
-			corev1.ResourceMemory: k8sq,
-		}
-	}
 	return job, nil
 }
 
@@ -485,7 +440,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		jobPVC,
 		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 	}
-	pxcUser := "xtrabackup"
+	pxcUser := users.Xtrabackup
 	command := []string{"recovery-cloud.sh"}
 	if cluster.CompareVersionWith("1.12.0") < 0 {
 		command = []string{"recovery-s3.sh"}
@@ -673,20 +628,9 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 					Labels:      cluster.Spec.PXC.Labels,
 				},
 				Spec: corev1.PodSpec{
-					ImagePullSecrets: cluster.Spec.Backup.ImagePullSecrets,
-					SecurityContext:  cluster.Spec.PXC.PodSecurityContext,
-					Containers: []corev1.Container{
-						{
-							Name:            "xtrabackup",
-							Image:           cluster.Spec.Backup.Image,
-							ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
-							Command:         command,
-							SecurityContext: cluster.Spec.PXC.ContainerSecurityContext,
-							VolumeMounts:    volumeMounts,
-							Env:             envs,
-							Resources:       cluster.Spec.PXC.Resources,
-						},
-					},
+					ImagePullSecrets:   cluster.Spec.Backup.ImagePullSecrets,
+					SecurityContext:    cluster.Spec.PXC.PodSecurityContext,
+					Containers:         []corev1.Container{xtrabackupContainer(cr, cluster, command, volumeMounts, envs)},
 					RestartPolicy:      corev1.RestartPolicyNever,
 					Volumes:            jobPVCs,
 					NodeSelector:       cluster.Spec.PXC.NodeSelector,
@@ -702,41 +646,56 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 		},
 	}
 
-	useMem, k8sq, err := xbMemoryUse(cluster.Spec)
-
-	if useMem != "" && err == nil {
-		job.Spec.Template.Spec.Containers[0].Env = append(
-			job.Spec.Template.Spec.Containers[0].Env,
-			corev1.EnvVar{
-				Name:  "XB_USE_MEMORY",
-				Value: useMem,
-			},
-		)
-		job.Spec.Template.Spec.Containers[0].Resources.Requests = corev1.ResourceList{
-			corev1.ResourceMemory: k8sq,
-		}
-	}
-
 	return job, nil
 }
 
-func xbMemoryUse(cluster api.PerconaXtraDBClusterSpec) (useMem string, k8sQuantity resource.Quantity, err error) {
-	if res := cluster.PXC.Resources; res.Size() > 0 {
-		if _, ok := res.Requests[corev1.ResourceMemory]; ok {
-			k8sQuantity = *res.Requests.Memory()
-		}
-		if _, ok := res.Limits[corev1.ResourceMemory]; ok {
-			k8sQuantity = *res.Limits.Memory()
-		}
-
-		useMem75 := k8sQuantity.Value() / int64(100) * int64(75)
-		useMem = strconv.FormatInt(useMem75, 10)
-
-		// transform Gi/Mi/etc to G/M
-		if strings.Contains(useMem, "i") {
-			useMem = strings.Replace(useMem, "i", "", -1)
-		}
+func xtrabackupContainer(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, cmd []string, volumeMounts []corev1.VolumeMount, envs []corev1.EnvVar) corev1.Container {
+	container := corev1.Container{
+		Name:            "xtrabackup",
+		Image:           cluster.Spec.Backup.Image,
+		ImagePullPolicy: cluster.Spec.Backup.ImagePullPolicy,
+		Command:         cmd,
+		SecurityContext: cluster.Spec.PXC.ContainerSecurityContext,
+		VolumeMounts:    volumeMounts,
+		Env:             envs,
+		Resources:       *cr.Spec.Resources.DeepCopy(),
+	}
+	if cluster.CompareVersionWith("1.13.0") < 0 {
+		container.Resources = cluster.Spec.PXC.Resources
 	}
 
-	return useMem, k8sQuantity, err
+	useMem, k8sq := xbMemoryUse(container.Resources)
+	container.Env = append(
+		container.Env,
+		corev1.EnvVar{
+			Name:  "XB_USE_MEMORY",
+			Value: useMem,
+		},
+	)
+	if k8sq.Value() > 0 {
+		container.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceMemory: k8sq,
+		}
+	}
+	return container
+}
+
+func xbMemoryUse(res corev1.ResourceRequirements) (useMem string, k8sQuantity resource.Quantity) {
+	if _, ok := res.Requests[corev1.ResourceMemory]; ok {
+		k8sQuantity = *res.Requests.Memory()
+	}
+	if _, ok := res.Limits[corev1.ResourceMemory]; ok {
+		k8sQuantity = *res.Limits.Memory()
+	}
+
+	useMem = "100MB"
+
+	useMem75 := k8sQuantity.Value() / int64(100) * int64(75)
+	if useMem75 > 2000000000 {
+		useMem = "2GB"
+	} else if k8sQuantity.Value() > 0 {
+		useMem = strconv.FormatInt(useMem75, 10)
+	}
+
+	return useMem, k8sQuantity
 }

@@ -1,9 +1,11 @@
 package app
 
 import (
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.Secret) corev1.Container {
@@ -82,6 +84,18 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 				MountPath: "/var/lib/mysql",
 			},
 		}
+
+		container.Lifecycle = &corev1.Lifecycle{
+			PreStop: &corev1.LifecycleHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"bash",
+						"-c",
+						"pmm-admin unregister --force",
+					},
+				},
+			},
+		}
 	}
 
 	return container
@@ -91,9 +105,9 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string, useAPI bool) []c
 	var pmmServerPassKey string
 	if useAPI {
 		pmmServerUser = "api_key"
-		pmmServerPassKey = "pmmserverkey"
+		pmmServerPassKey = users.PMMServerKey
 	} else {
-		pmmServerPassKey = "pmmserver"
+		pmmServerPassKey = users.PMMServer
 	}
 	return []corev1.EnvVar{
 		{
@@ -208,9 +222,9 @@ func pmmEnvServerUser(user, secrets string, useAPI bool) []corev1.EnvVar {
 	var passKey string
 	if useAPI {
 		user = "api_key"
-		passKey = "pmmserverkey"
+		passKey = users.PMMServerKey
 	} else {
-		passKey = "pmmserver"
+		passKey = users.PMMServer
 	}
 	return []corev1.EnvVar{
 		{

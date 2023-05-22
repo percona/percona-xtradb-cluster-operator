@@ -75,6 +75,13 @@ spec:
                 storage: 1Gi
       minio:
         type: s3
+        resources:
+          requests:
+            memory: 0.5G
+            cpu: 500m
+          limits:
+            memory: "2G"
+            cpu: "1"
         s3:
           credentialsSecret: minio-secret
           region: us-east-1

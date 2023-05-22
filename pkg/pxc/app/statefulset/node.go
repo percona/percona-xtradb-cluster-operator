@@ -10,6 +10,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const (
@@ -125,19 +126,19 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Root),
 				},
 			},
 			{
 				Name: "XTRABACKUP_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "xtrabackup"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Xtrabackup),
 				},
 			},
 			{
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 				},
 			},
 		},
@@ -157,7 +158,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		appc.Env = append(appc.Env, corev1.EnvVar{
 			Name: "CLUSTERCHECK_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "clustercheck"),
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Clustercheck),
 			},
 		})
 	}
@@ -232,7 +233,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		appc.Env = append(appc.Env, corev1.EnvVar{
 			Name: "OPERATOR_ADMIN_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
 			},
 		})
 		if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
@@ -324,7 +325,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(logRsecrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(logRsecrets, users.Monitor),
 			},
 		},
 	}
@@ -402,12 +403,12 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 		},
 		{
 			Name:  "DB_USER",
-			Value: "monitor",
+			Value: users.Monitor,
 		},
 		{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
 			},
 		},
 		{

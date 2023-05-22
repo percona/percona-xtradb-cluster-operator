@@ -5,3 +5,10 @@ metadata:
 spec:
   pxcCluster: demand-backup
   backupName: on-demand-backup-minio
+  resources:
+    requests:
+      memory: 0.5G
+      cpu: 500m
+    limits:
+      memory: "2G"
+      cpu: "1"

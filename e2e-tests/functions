@@ -1032,7 +1032,6 @@ run_recovery_check() {
 	kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
 	wait_backup_restore ${backup1}
 	kubectl_bin logs job/restore-job-${backup1}-${cluster}
-	kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
 	wait_for_running "$cluster-$proxy" 1
 	wait_for_running "$cluster-pxc" 3
 

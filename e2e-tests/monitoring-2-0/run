@@ -11,12 +11,11 @@ get_mgmnt_service_list() {
 	local api_key=$1
 	local endpoint=$2
 	local namespace=$3
-
 	cat >${tmp_dir}/payload.json <<EOF
 {}
 EOF
 
-	curl -s -k -H "Authorization: Bearer ${api_key}" -XPOST -d @payload.json "https://$endpoint/v1/management/Service/List" \
+	curl -s -k -H "Authorization: Bearer ${api_key}" -X POST -d @payload.json "https://$endpoint/v1/management/Service/List" \
 		| jq 'walk(if type=="object" then with_entries(select(.key | test("service_id|node_id|agent_id|created_at|updated_at|service_name") | not)) else . end)' \
 		| jq 'walk(if type == "array" then sort_by(.agent_type) else . end)' \
 			>${tmp_dir}/active_pmm_agents.json
@@ -101,8 +100,6 @@ wait_cluster_consistency ${cluster} 3 2
 
 desc 'add new PMM API key to secret'
 API_KEY_NEW=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator-new", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq .key)
-desc "API_KEY_NEW"
-echo $API_KEY_NEW
 kubectl_bin patch secret my-cluster-secrets --type merge --patch '{"stringData": {"pmmserverkey": '"$API_KEY_NEW"'}}'
 
 desc 'delete old PMM key'
@@ -117,12 +114,11 @@ kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operato
 desc 'check if pmm-client container enabled'
 compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-haproxy
+sleep 60
 
 desc 'verify clients agents statuses'
-actual_result=$(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace})
-
-cat $actual_result
-diff -u ${test_dir}/compare/agents-list.json $actual_result
+API_KEY=$(getSecretData "my-cluster-secrets" "pmmserverkey")
+diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace})
 
 desc 'check mysql metrics'
 get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin

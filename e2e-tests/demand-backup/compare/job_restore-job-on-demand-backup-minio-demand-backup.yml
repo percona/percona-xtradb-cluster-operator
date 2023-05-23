@@ -1,32 +1,33 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
+  generation: 1
   labels:
-    job-name: restore-job-restore-s3-sec-context
-  name: restore-job-restore-s3-sec-context
+    job-name: restore-job-on-demand-backup-minio-demand-backup
+  name: restore-job-on-demand-backup-minio-demand-backup
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBClusterRestore
-      name: restore-s3
+      name: on-demand-backup-minio
 spec:
   backoffLimit: 4
+  completionMode: NonIndexed
   completions: 1
   parallelism: 1
   selector:
     matchLabels: {}
+  suspend: false
   template:
     metadata:
-      annotations:
-        openshift.io/scc: privileged
       labels:
-        job-name: restore-job-restore-s3-sec-context
+        job-name: restore-job-on-demand-backup-minio-demand-backup
     spec:
       containers:
         - command:
             - recovery-cloud.sh
           env:
             - name: ENDPOINT
-              value: http://minio-service:9000/
+              value: https://minio-service.namespace:9000/
             - name: DEFAULT_REGION
               value: us-east-1
             - name: ACCESS_KEY_ID
@@ -40,7 +41,7 @@ spec:
                   key: AWS_SECRET_ACCESS_KEY
                   name: minio-secret
             - name: PXC_SERVICE
-              value: sec-context-pxc
+              value: demand-backup-pxc
             - name: PXC_USER
               value: xtrabackup
             - name: PXC_PASS
@@ -49,14 +50,17 @@ spec:
                   key: xtrabackup
                   name: my-cluster-secrets
             - name: VERIFY_TLS
-              value: "true"
+              value: "false"
             - name: XB_USE_MEMORY
-              value: 100MB
+              value: "1500000000"
           imagePullPolicy: Always
           name: xtrabackup
-          resources: {}
-          securityContext:
-            privileged: true
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2G
+            requests:
+              memory: 2G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -69,18 +73,17 @@ spec:
       schedulerName: default-scheduler
       securityContext:
         fsGroup: 1001
-        runAsUser: 1001
         supplementalGroups:
           - 1001
-      serviceAccount: percona-xtradb-cluster-operator-workload
-      serviceAccountName: percona-xtradb-cluster-operator-workload
+      serviceAccount: default
+      serviceAccountName: default
       terminationGracePeriodSeconds: 30
       volumes:
         - name: datadir
           persistentVolumeClaim:
-            claimName: datadir-sec-context-pxc-0
+            claimName: datadir-demand-backup-pxc-0
         - name: vault-keyring-secret
           secret:
             defaultMode: 420
             optional: true
-            secretName: sec-context-vault
+            secretName: some-name-vault

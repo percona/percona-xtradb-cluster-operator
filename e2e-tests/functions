@@ -80,13 +80,25 @@ version_gt() {
 	fi
 }
 
+get_proxy_size() {
+	local cluster=${1}
+	if [[ "$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.haproxy.enabled}')" == "true" ]]; then
+		kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.haproxy.size}'
+		return
+	fi
+	if [[ "$(kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.proxysql.enabled}')" == "true" ]]; then
+		kubectl_bin get pxc "${cluster}" -o 'jsonpath={.spec.proxysql.size}'
+		return
+	fi
+}
+
 wait_cluster_consistency() {
 	local cluster_name=${1}
 	local cluster_size=${2}
 	local proxy_size=${3}
 
 	if [ -z "${proxy_size}" ]; then
-		proxy_size=${cluster_size}
+		proxy_size="$(get_proxy_size "$cluster_name")"
 	fi
 	desc "wait cluster consistency"
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
@@ -103,6 +115,7 @@ create_namespace() {
 	local skip_clean_namespace="$2"
 
 	if [[ ${CLEAN_NAMESPACE} == 1 ]] && [[ -z ${skip_clean_namespace} ]]; then
+		destroy_chaos_mesh
 		desc 'cleaned up all old namespaces'
 		kubectl_bin get ns \
 			| egrep -v "^kube-|^default$|Terminating|pxc-operator|openshift|^NAME" \
@@ -161,6 +174,7 @@ wait_pod() {
 	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
 
 	set +o xtrace
+	kubectl_bin wait --for=condition=Ready pod/${pod} --timeout="${max_retry}s" ${ns:+-n $ns} || true
 	retry=0
 	echo -n $pod
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
@@ -286,6 +300,12 @@ deploy_operator() {
 	fi
 
 	sleep 10
+
+	kubectl_bin wait \
+		--for=condition=Ready \
+		pods \
+		-l app.kubernetes.io/component=operator,app.kubernetes.io/instance=percona-xtradb-cluster-operator,app.kubernetes.io/name=percona-xtradb-cluster-operator \
+		--timeout=30s || true
 
 	wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
 	sleep 3
@@ -863,6 +883,7 @@ spinup_pxc() {
 
 	desc 'check if all 3 Pods started'
 	local proxy=$(get_proxy "$cluster")
+	kubectl_bin wait --for=condition=Ready pod -l app.kubernetes.io/instance=monitoring,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator --timeout=300s -n ${namespace} || true
 	wait_for_running "$proxy" 1
 	wait_for_running "$cluster-pxc" "$size"
 	sleep $sleep
@@ -1011,7 +1032,6 @@ run_recovery_check() {
 	kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
 	wait_backup_restore ${backup1}
 	kubectl_bin logs job/restore-job-${backup1}-${cluster}
-	kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
 	wait_for_running "$cluster-$proxy" 1
 	wait_for_running "$cluster-pxc" 3
 

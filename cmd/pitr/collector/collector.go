@@ -28,7 +28,6 @@ type Collector struct {
 	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
 	pxcUser        string // user for connection to PXC
 	pxcPass        string // password for connection to PXC
-	verifyTLS      bool
 }
 
 type Config struct {
@@ -96,7 +95,6 @@ func New(c Config) (*Collector, error) {
 		storage:        s,
 		pxcUser:        c.PXCUser,
 		pxcServiceName: c.PXCServiceName,
-		verifyTLS:      c.VerifyTLS,
 	}, nil
 }
 

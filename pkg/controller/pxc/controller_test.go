@@ -678,3 +678,612 @@ var _ = Describe("Authentication policy", Ordered, func() {
 		})
 	})
 })
+
+var _ = Describe("Ignore labels and annotations", Ordered, func() {
+	ctx := context.Background()
+
+	const ns = "ignore-lbl-ants"
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ns,
+			Namespace: ns,
+		},
+	}
+
+	BeforeAll(func() {
+		By("Creating the Namespace to perform the tests")
+		err := k8sClient.Create(ctx, namespace)
+		Expect(err).To(Not(HaveOccurred()))
+	})
+
+	AfterAll(func() {
+		By("Deleting the Namespace to perform the tests")
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	Context("HAProxy", Ordered, func() {
+		const crName = "ignore-lbl-ants-h"
+		crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster", func() {
+			cr.Spec.HAProxy.Enabled = true
+			cr.Spec.ProxySQL.Enabled = false
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("patches services with labels and annotations", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-haproxy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := svc.DeepCopy()
+
+			svc.ObjectMeta.Annotations["notIgnoredAnnotation"] = "true"
+			svc.ObjectMeta.Annotations["ignoredAnnotation"] = "true"
+
+			svc.ObjectMeta.Labels["notIgnoredLabel"] = "true"
+			svc.ObjectMeta.Labels["ignoredLabel"] = "true"
+
+			err = k8sClient.Patch(ctx, &svc, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("check all labels and annotations exist in the service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-haproxy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("notIgnoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("notIgnoredLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+		})
+
+		It("should add ignored labels and annotations", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			cr.Spec.IgnoreAnnotations = append(cr.Spec.IgnoreAnnotations, "ignoredAnnotation")
+			cr.Spec.IgnoreLabels = append(cr.Spec.IgnoreLabels, "ignoredLabel")
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("check all labels and annotations exist in the service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-haproxy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("notIgnoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("notIgnoredLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+		})
+
+		It("patches CR with service labels and annotations", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			cr.Spec.HAProxy.ServiceAnnotations = make(map[string]string)
+			cr.Spec.HAProxy.ServiceLabels = make(map[string]string)
+
+			cr.Spec.HAProxy.ServiceAnnotations["crAnnotation"] = "true"
+			cr.Spec.HAProxy.ServiceLabels["crLabel"] = "true"
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete all not ignored labels and annotations from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-haproxy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("crAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).ToNot(HaveKey("notIgnoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("crLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+			Expect(svc.ObjectMeta.Labels).ToNot(HaveKey("notIgnoredLabel"))
+		})
+
+		It("deletes service labels and annotations from CR", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			delete(cr.Spec.HAProxy.ServiceAnnotations, "crAnnotation")
+			delete(cr.Spec.HAProxy.ServiceLabels, "crLabel")
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should not delete any labels and annotations from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-haproxy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("crAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("crLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+		})
+
+		It("patches CR with more service labels and annotations", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			cr.Spec.HAProxy.ServiceAnnotations = make(map[string]string)
+			cr.Spec.HAProxy.ServiceLabels = make(map[string]string)
+
+			cr.Spec.HAProxy.ServiceAnnotations["secondCrAnnotation"] = "true"
+			cr.Spec.HAProxy.ServiceAnnotations["thirdCrAnnotation"] = "true"
+
+			cr.Spec.HAProxy.ServiceLabels["secondCrLabel"] = "true"
+			cr.Spec.HAProxy.ServiceLabels["thirdCrLabel"] = "true"
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete previous labels and annotations from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-haproxy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("secondCrAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("thirdCrAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).ToNot(HaveKey("crAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("secondCrLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("thirdCrLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+			Expect(svc.ObjectMeta.Labels).ToNot(HaveKey("crLabel"))
+		})
+
+		It("deletes a label and an annotation from CR", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			delete(cr.Spec.HAProxy.ServiceAnnotations, "secondCrAnnotation")
+			delete(cr.Spec.HAProxy.ServiceLabels, "secondCrLabel")
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete removed service label and annotation from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-haproxy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("thirdCrAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).ToNot(HaveKey("secondCrAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("thirdCrLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+			Expect(svc.ObjectMeta.Labels).ToNot(HaveKey("secondCrLabel"))
+		})
+
+		It("deletes ignored labels and annotations from CR", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			cr.Spec.IgnoreAnnotations = []string{}
+			cr.Spec.IgnoreLabels = []string{}
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete unknown labels and annotations from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-haproxy",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("thirdCrAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).ToNot(HaveKey("ignoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("thirdCrLabel"))
+			Expect(svc.ObjectMeta.Labels).ToNot(HaveKey("ignoredLabel"))
+		})
+	})
+
+	Context("ProxySQL", Ordered, func() {
+		const crName = "ignore-lbl-ants-p"
+		crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster", func() {
+			cr.Spec.HAProxy.Enabled = false
+			cr.Spec.ProxySQL.Enabled = true
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("patches services with labels and annotations", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-proxysql",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := svc.DeepCopy()
+
+			svc.ObjectMeta.Annotations["notIgnoredAnnotation"] = "true"
+			svc.ObjectMeta.Annotations["ignoredAnnotation"] = "true"
+
+			svc.ObjectMeta.Labels["notIgnoredLabel"] = "true"
+			svc.ObjectMeta.Labels["ignoredLabel"] = "true"
+
+			err = k8sClient.Patch(ctx, &svc, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("check all labels and annotations exist in the service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-proxysql",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("notIgnoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("notIgnoredLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+		})
+
+		It("should add ignored labels and annotations", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			cr.Spec.IgnoreAnnotations = append(cr.Spec.IgnoreAnnotations, "ignoredAnnotation")
+			cr.Spec.IgnoreLabels = append(cr.Spec.IgnoreLabels, "ignoredLabel")
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("check all labels and annotations exist in the service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-proxysql",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("notIgnoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("notIgnoredLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+		})
+
+		It("patches CR with service labels and annotations", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			cr.Spec.ProxySQL.ServiceAnnotations = make(map[string]string)
+			cr.Spec.ProxySQL.ServiceLabels = make(map[string]string)
+
+			cr.Spec.ProxySQL.ServiceAnnotations["crAnnotation"] = "true"
+			cr.Spec.ProxySQL.ServiceLabels["crLabel"] = "true"
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete all not ignored labels and annotations from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-proxysql",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("crAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).ToNot(HaveKey("notIgnoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("crLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+			Expect(svc.ObjectMeta.Labels).ToNot(HaveKey("notIgnoredLabel"))
+		})
+
+		It("deletes service labels and annotations from CR", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			delete(cr.Spec.ProxySQL.ServiceAnnotations, "crAnnotation")
+			delete(cr.Spec.ProxySQL.ServiceLabels, "crLabel")
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should not delete any labels and annotations from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-proxysql",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("crAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("crLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+		})
+
+		It("patches CR with more service labels and annotations", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			cr.Spec.ProxySQL.ServiceAnnotations = make(map[string]string)
+			cr.Spec.ProxySQL.ServiceLabels = make(map[string]string)
+
+			cr.Spec.ProxySQL.ServiceAnnotations["secondCrAnnotation"] = "true"
+			cr.Spec.ProxySQL.ServiceAnnotations["thirdCrAnnotation"] = "true"
+
+			cr.Spec.ProxySQL.ServiceLabels["secondCrLabel"] = "true"
+			cr.Spec.ProxySQL.ServiceLabels["thirdCrLabel"] = "true"
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete previous labels and annotations from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-proxysql",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("secondCrAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("thirdCrAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).ToNot(HaveKey("crAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("secondCrLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("thirdCrLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+			Expect(svc.ObjectMeta.Labels).ToNot(HaveKey("crLabel"))
+		})
+
+		It("deletes a label and an annotation from CR", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			delete(cr.Spec.ProxySQL.ServiceAnnotations, "secondCrAnnotation")
+			delete(cr.Spec.ProxySQL.ServiceLabels, "secondCrLabel")
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete removed service label and annotation from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-proxysql",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("thirdCrAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("ignoredAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).ToNot(HaveKey("secondCrAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("thirdCrLabel"))
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("ignoredLabel"))
+			Expect(svc.ObjectMeta.Labels).ToNot(HaveKey("secondCrLabel"))
+		})
+
+		It("deletes ignored labels and annotations from CR", func() {
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)
+			Expect(err).NotTo(HaveOccurred())
+
+			orig := cr.DeepCopy()
+
+			cr.Spec.IgnoreAnnotations = []string{}
+			cr.Spec.IgnoreLabels = []string{}
+
+			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should delete unknown labels and annotations from service", func() {
+			svc := corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      crName + "-proxysql",
+					Namespace: ns,
+				},
+			}
+			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&svc), &svc)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(svc.ObjectMeta.Annotations).To(HaveKey("thirdCrAnnotation"))
+			Expect(svc.ObjectMeta.Annotations).ToNot(HaveKey("ignoredAnnotation"))
+
+			Expect(svc.ObjectMeta.Labels).To(HaveKey("thirdCrLabel"))
+			Expect(svc.ObjectMeta.Labels).ToNot(HaveKey("ignoredLabel"))
+		})
+	})
+})

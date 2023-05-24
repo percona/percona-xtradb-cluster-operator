@@ -1,4 +1,3 @@
-e2e-tests/security-context/compare/job.batch_restore-job-restore-s3-sec-context-k124-oc.yml
 apiVersion: batch/v1
 kind: Job
 metadata:

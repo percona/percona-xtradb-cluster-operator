@@ -32,7 +32,7 @@ fail_pod() {
 		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-failure.yml \
 		| kubectl apply -f -
 
-	sleep 10
+	sleep 15
 
 }
 
@@ -48,7 +48,7 @@ check_haproxy_writer() {
 
 main() {
 	create_infra $namespace
-	deploy_chaos_mesh $test_namespace
+	deploy_chaos_mesh $namespace
 
 	if version_gt "1.24"; then
 		apply_config "$test_dir/conf/container-rc.yaml"

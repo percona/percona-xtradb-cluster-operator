@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -443,7 +442,7 @@ func getDecompressedContent(ctx context.Context, infoObj io.Reader, filename str
 		return nil, errors.Errorf("run xbstream error: %s", &errb)
 	}
 
-	decContent, err := ioutil.ReadFile(tmpDir + "/" + filename)
+	decContent, err := os.ReadFile(tmpDir + "/" + filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "read xtrabackup_info file")
 	}
@@ -469,7 +468,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 			log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
 			continue
 		}
-		content, err := ioutil.ReadAll(infoObj)
+		content, err := io.ReadAll(infoObj)
 		if err != nil {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}

@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -14,7 +13,7 @@ import (
 func OperatorPod(ctx context.Context, cl client.Client) (corev1.Pod, error) {
 	operatorPod := corev1.Pod{}
 
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	nsBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		return operatorPod, err
 	}

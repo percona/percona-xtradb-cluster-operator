@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	DataVolumeName        = "datadir"
 	VaultSecretVolumeName = "vault-keyring-secret"
 )
 
@@ -99,7 +98,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      DataVolumeName,
+				Name:      app.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 			{
@@ -351,7 +350,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      DataVolumeName,
+				Name:      app.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},
@@ -369,7 +368,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      DataVolumeName,
+				Name:      app.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},
@@ -395,7 +394,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 }
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0, cr.CompareVersionWith("1.13.0") >= 0)
+	ct := app.PMMClient(cr, spec, secret)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -460,7 +459,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 			},
 		}
 		ct.Env = append(ct.Env, clusterPmmEnvs...)
-		pmmAgentScriptEnv := app.PMMAgentScript("mysql")
+		pmmAgentScriptEnv := app.PMMAgentScript(cr, "mysql")
 		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 	}
 	if cr.CompareVersionWith("1.9.0") >= 0 {
@@ -496,7 +495,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{
-			Name:      DataVolumeName,
+			Name:      app.DataVolumeName,
 			MountPath: "/var/lib/mysql",
 		},
 	}
@@ -505,7 +504,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 }
 
 func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
-	vol := app.Volumes(podSpec, DataVolumeName)
+	vol := app.Volumes(podSpec, app.DataVolumeName)
 	ls := c.Labels()
 	configVolume, err := vg(cr.Namespace, "config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"], true)
 	if err != nil {

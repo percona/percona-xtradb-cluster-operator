@@ -86,7 +86,7 @@ sleep 5
 kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini admin reset-admin-password $ADMIN_PASSWORD"
 
 desc 'create PXC cluster'
-spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
+spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120 "$test_dir/conf/secrets.yaml"
 
 desc 'add PMM API key to secret'
 API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq .key)
@@ -124,9 +124,6 @@ diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY}
 desc 'check mysql metrics'
 get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin
 get_metric_values mysql_global_status_uptime $namespace-$cluster-pxc-0 admin:admin
-
-# wait for QAN and metrics
-sleep 90
 
 desc 'check haproxy metrics'
 get_metric_values haproxy_backend_status $namespace-$cluster-haproxy-0 admin:admin

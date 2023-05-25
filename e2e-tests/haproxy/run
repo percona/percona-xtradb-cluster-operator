@@ -32,7 +32,7 @@ fail_pod() {
 		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-failure.yml \
 		| kubectl apply -f -
 
-	sleep 15
+	sleep 20
 
 }
 

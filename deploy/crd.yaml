@@ -793,6 +793,8 @@ spec:
                 type: boolean
               backup:
                 properties:
+                  allowParallel:
+                    type: boolean
                   annotations:
                     additionalProperties:
                       type: string

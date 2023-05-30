@@ -198,6 +198,15 @@ if [[ $MYSQL_VERSION == '8.0' ]]; then
 fi
 
 auth_plugin=${DEFAULT_AUTHENTICATION_PLUGIN}
+if [[ -f /var/lib/mysql/auth_plugin ]]; then
+	prev_auth_plugin=$(cat /var/lib/mysql/auth_plugin)
+	if [[ ${prev_auth_plugin} != "mysql_native_password" && ${auth_plugin} == "mysql_native_password" ]]; then
+		echo "FATAL: It's forbidden to switch from ${prev_auth_plugin} to ${auth_plugin}."
+		echo "You can remove /var/lib/mysql/auth_plugin to force the switch."
+		exit 1
+	fi
+fi
+
 if [[ -z ${auth_plugin} ]]; then
 	auth_plugin="mysql_native_password"
 elif [[ $MYSQL_VERSION == '5.7' ]]; then
@@ -317,6 +326,8 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		mv "$TMPDIR"/* "$DATADIR/"
 		rm -rfv "$TMPDIR"
 		echo 'Database initialized'
+
+		echo "${auth_plugin}" > /var/lib/mysql/auth_plugin
 
 		SOCKET="$(_get_config 'socket' "$@")"
 		"$@" --skip-networking --socket="${SOCKET}" &

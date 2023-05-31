@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
@@ -314,7 +315,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBC
 	}
 
 	pxcNode := statefulset.NewNode(c)
-	pvcNameTemplate := statefulset.DataVolumeName + "-" + pxcNode.StatefulSet().Name
+	pvcNameTemplate := app.DataVolumeName + "-" + pxcNode.StatefulSet().Name
 	for _, pvc := range pvcs.Items {
 		// check prefix just in case, to be sure we're not going to delete a wrong pvc
 		if pvc.Name == pvcNameTemplate+"-0" || !strings.HasPrefix(pvc.Name, pvcNameTemplate) {

@@ -7,6 +7,13 @@ metadata:
 spec:
   pxcCluster: cluster1
   backupName: backup1
+#  resources:
+#    requests:
+#      memory: 100M
+#      cpu: 100m
+#    limits:
+#      memory: 200M
+#      cpu: 200m
 #  backupSource:
 #    verifyTLS: true
 #    destination: s3://S3-BUCKET-NAME/BACKUP-NAME or destination: azure://CONTAINER-NAME/BACKUP-NAME

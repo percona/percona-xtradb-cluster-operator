@@ -3,6 +3,7 @@ kind: Job
 metadata:
   generation: 1
   labels:
+    backup-name: on-demand-backup-azure-blob
     cluster: demand-backup-cloud
     job-name: xb-on-demand-backup-azure-blob
     type: xtrabackup
@@ -19,6 +20,7 @@ spec:
   parallelism: 1
   selector:
     matchLabels:
+      backup-name: on-demand-backup-azure-blob
       cluster: demand-backup-cloud
       job-name: xb-on-demand-backup-azure-blob
       type: xtrabackup
@@ -26,6 +28,7 @@ spec:
   template:
     metadata:
       labels:
+        backup-name: on-demand-backup-azure-blob
         cluster: demand-backup-cloud
         job-name: xb-on-demand-backup-azure-blob
         type: xtrabackup

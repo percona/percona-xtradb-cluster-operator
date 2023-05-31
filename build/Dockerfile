@@ -40,6 +40,7 @@ COPY build/unsafe-bootstrap.sh /unsafe-bootstrap.sh
 COPY build/pxc-configure-pxc.sh /pxc-configure-pxc.sh
 COPY build/liveness-check.sh /liveness-check.sh
 COPY build/readiness-check.sh /readiness-check.sh
+COPY build/pmm-prerun.sh /pmm-prerun.sh
 COPY build/get-pxc-state /get-pxc-state
 
 USER 2

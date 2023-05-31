@@ -6,7 +6,6 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -127,7 +126,7 @@ func (c *Collector) lastGTIDSet(ctx context.Context, sourceID string) (string, e
 		}
 		return "", errors.Wrap(err, "get last set content")
 	}
-	lastSet, err := ioutil.ReadAll(lastSetObject)
+	lastSet, err := io.ReadAll(lastSetObject)
 	if err != nil && minio.ToErrorResponse(errors.Cause(err)).Code != "NoSuchKey" {
 		return "", errors.Wrap(err, "read last gtid set")
 	}
@@ -139,7 +138,7 @@ func (c *Collector) newDB(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "open file")
 	}
-	pxcPass, err := ioutil.ReadAll(file)
+	pxcPass, err := io.ReadAll(file)
 	if err != nil {
 		return errors.Wrap(err, "read password")
 	}

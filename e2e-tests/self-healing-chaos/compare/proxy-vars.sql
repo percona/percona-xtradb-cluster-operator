@@ -150,6 +150,7 @@ mysql-ping_timeout_server	200
 mysql-poll_timeout	2000
 mysql-poll_timeout_on_failure	100
 mysql-query_cache_size_MB	256
+mysql-query_cache_soft_ttl_pct	0
 mysql-query_cache_stores_empty_result	true
 mysql-query_digests	true
 mysql-query_digests_grouping_limit	3

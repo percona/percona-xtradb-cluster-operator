@@ -223,7 +223,7 @@ func (c *Collector) addGTIDSets(ctx context.Context, logs []pxc.Binlog) error {
 		set, err := c.db.GetGTIDSet(ctx, v.Name)
 		if err != nil {
 			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
-				log.Println("ERROR: Binlog file", v.Name, "is invalid:", err.Error())
+				log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", v.Name, c.db.GetHost(), err.Error())
 				continue
 			}
 			return errors.Wrap(err, "get GTID set")

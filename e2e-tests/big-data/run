@@ -27,7 +27,7 @@ main() {
 		kubectl_bin apply -f "${test_dir}/conf/restore-backup-57.yml"
 	fi
 	sleep 10
-	wait_backup_restore "restore1"
+	wait_backup_restore "restore1" "Succeeded" 1200
 	wait_for_running "$cluster-proxysql" 1
 	wait_for_running "$cluster-pxc" 3
 	desc "delete pvc and pod for pxc-2"

@@ -216,6 +216,8 @@ elif [[ $MYSQL_VERSION == '5.7' ]]; then
 	auth_plugin="mysql_native_password"
 fi
 
+echo "${auth_plugin}" > /var/lib/mysql/auth_plugin
+
 sed -i "/default_authentication_plugin/d" $CFG
 if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 27 ]]; then
 	sed -i "/\[mysqld\]/a authentication_policy=${auth_plugin},," $CFG

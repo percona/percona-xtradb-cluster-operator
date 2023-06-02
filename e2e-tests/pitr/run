@@ -180,17 +180,37 @@ check_binlog_gap_restore() {
 }
 
 check_invalid_binlogs_error() {
+	local binlog=$1
 	desc 'check invalid binlogs'
 
 	# check error in pitr log
 	local err_text
-	err_text=$(kubectl_bin logs "$(get_pitr_pod)" | grep -c "ERROR: Binlog file binlog.000005 is invalid")
+	err_text=$(kubectl_bin logs "$(get_pitr_pod)" | grep -c "ERROR: Binlog file $binlog is invalid")
 	if [[ $err_text -eq 0 ]]; then
 		echo "ERROR: Invalid binlog error text is not found in PITR pod logs."
 		exit 1
 	fi
 
 	sleep 65 # wait for next PITR collect cycle and error to appear
+}
+
+find_invalid_binlog_name() {
+	local pod=$1
+
+	local binlogs
+	binlogs=$(run_mysql_local "SHOW BINARY LOGS" "-h127.0.0.1 -P3306 -uroot -proot_password" "$pod" | awk '{print $1}')
+
+	for name in $binlogs; do
+		local events
+		events=$(run_mysql_local "SHOW BINLOG EVENTS IN '$name';" "-h127.0.0.1 -P3306 -uroot -proot_password" "$pod")
+		if echo "$events" | grep -q "CREATE TABLE IF NOT EXISTS invalid"; then
+			echo "$name"
+			return
+		fi
+	done
+
+	echo "No invalid binlog found"
+	exit 1
 }
 
 invalid_binlog_test() {
@@ -200,6 +220,9 @@ invalid_binlog_test() {
 	kubectl_bin delete pxc --all
 	kubectl_bin delete pvc -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator'
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+	desc 'running invalid backup'
+	run_backup "$cluster" "on-pitr-minio-invalid"
 
 	local proxy
 	proxy="$(get_proxy "$cluster")"
@@ -220,11 +243,11 @@ invalid_binlog_test() {
 	run_mysql_local "CREATE FUNCTION get_binlog_by_gtid_set RETURNS STRING SONAME 'binlog_utils_udf.so';" \
 		"-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-2"
 	# flush binlogs
-	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-0"
-	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-1"
-	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-2"
+	run_mysql_local 'FLUSH BINARY LOGS;FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-0"
+	run_mysql_local 'FLUSH BINARY LOGS;FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-1"
+	run_mysql_local 'FLUSH BINARY LOGS;FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-2"
 
-	# this data should be in binlog.000005 for cluster-pxc-0
+	# this data should be in new binlog
 	run_mysql \
 		"USE test; CREATE TABLE IF NOT EXISTS invalid (id int PRIMARY KEY);" \
 		"-h $proxy -uroot -proot_password"
@@ -239,14 +262,15 @@ invalid_binlog_test() {
 	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-1"
 	run_mysql_local 'FLUSH BINARY LOGS;' "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-2"
 
-	write_more_data "$cluster" # this data should be in binlog.000006 for cluster-pxc-0
+	write_more_data "$cluster" # this data should be in new binlog
 
-	# get gtid of binlog.000005
-	gtid=$(run_mysql_local "SELECT get_gtid_set_by_binlog('binlog.000005');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-0")
+	invalid_binlog=$(find_invalid_binlog_name "$cluster-pxc-0")
+	# get gtid of invalid binlog
+	gtid=$(run_mysql_local "SELECT get_gtid_set_by_binlog('$invalid_binlog');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-0")
 
 	# we should make binlogs with this gtid empty
 	local binlog
-	binlog='binlog.000005'
+	binlog="$invalid_binlog"
 	kubectl exec pitr-pxc-0 -- bash -c "echo \"\" > /var/lib/mysql/$binlog"
 	binlog=$(run_mysql_local "SELECT get_binlog_by_gtid_set('$gtid');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-1")
 	kubectl exec pitr-pxc-1 -- bash -c "echo \"\" > /var/lib/mysql/$binlog"
@@ -258,22 +282,23 @@ invalid_binlog_test() {
 	kubectl patch pxc pitr --type=merge -p '{"spec": {"backup": {"storages": {"minio-binlogs": {"s3": {"bucket": "operator-testing/binlogs-invalid"}}}}}}'
 	# re-enable pitr
 	kubectl patch pxc pitr --type=merge -p '{"spec":{"backup":{"pitr":{"enabled":true}}}}'
-	sleep 80 # wait for next PITR collect cycle and error to appear
-	check_invalid_binlogs_error
-	desc 'running invalid backups'
-	run_backup "$cluster" "on-pitr-minio-invalid"
+	sleep 180 # wait for next PITR collect cycle and error to appear
+	check_invalid_binlogs_error "$invalid_binlog"
 
 	gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${proxy} -uroot -proot_password" | $sed 's/^\(.*\):[0-9]-\([0-9]*\)/\1:\2/')
 
 	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
-		printf "Some garbage --> %s <-- instead of legit GTID. Exiting" ${gtid}
+		printf "Some garbage --> %s <-- instead of legit GTID. Exiting ${gtid}"
 		exit 1
 	fi
 
-	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-invalid" "on-pitr-minio-invalid" "select-5" "" "" "$gtid"
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-invalid" "on-pitr-minio-invalid" "select-6" "" "" "$gtid"
+
+	# invalid table should not exist
 	compare_mysql_cmd "select-invalid" "SELECT * from test.invalid;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd "select-invalid" "SELECT * from test.invalid;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd "select-invalid" "SELECT * from test.invalid;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
+
 	desc 'done test invalid binlogs'
 }
 

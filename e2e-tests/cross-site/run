@@ -45,7 +45,7 @@ main() {
 		'INSERT myApp.testSourceReplica (id) VALUES (100700)' \
 		"-h $source_primary_endpoint -uroot -proot_password"
 
-	kubectl_bin get secrets cross-site-source-ssl-internal  -o yaml | yq 'del(.metadata)' - | yq '.metadata={"name": "cross-site-replica-ssl-internal"}' - > ${tmp_dir}/replica-ssl-internal.yaml
+	kubectl_bin get secrets cross-site-source-ssl-internal -o yaml | yq 'del(.metadata)' - | yq '.metadata={"name": "cross-site-replica-ssl-internal"}' - >${tmp_dir}/replica-ssl-internal.yaml
 
 	desc "create replica cluster"
 

@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/util/cert"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	v1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
@@ -200,13 +199,9 @@ func SetupWebhook(mgr manager.Manager) error {
 		log:       zapr.NewLogger(zapLog),
 	}
 
-	srv := webhook.NewServer(webhook.Options{
-		Port:    9443,
-		CertDir: certPath,
-	})
-	srv.Register(hookPath, h)
+	mgr.GetWebhookServer().Register(hookPath, h)
 
-	err = mgr.Add(srv)
+	err = mgr.Add(h)
 	if err != nil {
 		return errors.Wrap(err, "add webhook creator to manager")
 	}

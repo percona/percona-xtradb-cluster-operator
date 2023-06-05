@@ -11,6 +11,7 @@ import (
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gs "github.com/onsi/gomega/gstruct"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
@@ -595,19 +596,14 @@ var _ = Describe("Authentication policy", Ordered, func() {
 			err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&sts), &sts)
 			Expect(err).NotTo(HaveOccurred())
 
-			envFound := false
 			for _, c := range sts.Spec.Template.Spec.Containers {
 				if c.Name == "pxc" {
-					for _, e := range c.Env {
-						if e.Name == "DEFAULT_AUTHENTICATION_PLUGIN" {
-							envFound = true
-							Expect(e.Value).To(Equal("mysql_native_password"))
-						}
-					}
+					Expect(c.Env).Should(ContainElement(gs.MatchFields(gs.IgnoreExtras, gs.Fields{
+						"Name":  Equal("DEFAULT_AUTHENTICATION_PLUGIN"),
+						"Value": Equal("mysql_native_password"),
+					})))
 				}
 			}
-
-			Expect(envFound).To(BeTrue())
 		})
 	})
 
@@ -657,24 +653,26 @@ var _ = Describe("Authentication policy", Ordered, func() {
 			Expect(envFound).To(BeTrue())
 		})
 
-		It("should update PerconaXtraDBCluster", func() {
-			cr := &api.PerconaXtraDBCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      crName,
-					Namespace: ns,
-				},
-			}
-			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)).Should(Succeed())
+		When("Proxy is switched from HAProxy to ProxySQL", func() {
+			It("should update PerconaXtraDBCluster", func() {
+				cr := &api.PerconaXtraDBCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      crName,
+						Namespace: ns,
+					},
+				}
+				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)).Should(Succeed())
 
-			cr.Spec.HAProxy.Enabled = false
-			cr.Spec.ProxySQL.Enabled = true
+				cr.Spec.HAProxy.Enabled = false
+				cr.Spec.ProxySQL.Enabled = true
 
-			Expect(k8sClient.Update(ctx, cr)).Should(Succeed())
-		})
+				Expect(k8sClient.Update(ctx, cr)).Should(Succeed())
+			})
 
-		It("should NOT reconcile", func() {
-			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
-			Expect(err).To(MatchError("failed to enable ProxySQL: you can't switch from HAProxy to ProxySQL on the fly"))
+			It("should NOT reconcile", func() {
+				_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+				Expect(err).To(MatchError("failed to enable ProxySQL: you can't switch from HAProxy to ProxySQL on the fly"))
+			})
 		})
 	})
 })

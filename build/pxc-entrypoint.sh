@@ -332,7 +332,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		rm -rfv "$TMPDIR"
 		echo 'Database initialized'
 
-		echo "${auth_plugin}" > /var/lib/mysql/auth_plugin
+		echo "${auth_plugin}" >/var/lib/mysql/auth_plugin
 
 		SOCKET="$(_get_config 'socket' "$@")"
 		"$@" --skip-networking --socket="${SOCKET}" &

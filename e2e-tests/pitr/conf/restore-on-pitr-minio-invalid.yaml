@@ -6,7 +6,7 @@ metadata:
   name: on-pitr-minio-invalid
 spec:
   pxcCluster: pitr
-  backupName: on-pitr-minio-invalid 
+  backupName: on-pitr-minio 
   pitr:
     type: transaction
     gtid: <gtid>

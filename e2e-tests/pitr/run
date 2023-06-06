@@ -196,15 +196,16 @@ check_invalid_binlogs_error() {
 
 find_invalid_binlog_name() {
 	local pod=$1
+	local offset=$2
 
 	local binlogs
-	binlogs=$(run_mysql_local "SHOW BINARY LOGS" "-h127.0.0.1 -P3306 -uroot -proot_password" "$pod" | awk '{print $1}')
+	readarray -t binlogs <<<"$(run_mysql_local "SHOW BINARY LOGS" "-h127.0.0.1 -P3306 -uroot -proot_password" "$pod" | awk '{print $1}')"
 
-	for name in $binlogs; do
+	for ((i = 0; i < ${#binlogs[@]}; i++)); do
 		local events
-		events=$(run_mysql_local "SHOW BINLOG EVENTS IN '$name';" "-h127.0.0.1 -P3306 -uroot -proot_password" "$pod")
+		events=$(run_mysql_local "SHOW BINLOG EVENTS IN '${binlogs[$i]}';" "-h127.0.0.1 -P3306 -uroot -proot_password" "$pod")
 		if echo "$events" | grep -q "CREATE TABLE IF NOT EXISTS invalid"; then
-			echo "$name"
+			echo "${binlogs[$((i + offset))]}"
 			return
 		fi
 	done
@@ -213,22 +214,43 @@ find_invalid_binlog_name() {
 	exit 1
 }
 
+gtidset_to_gtid() {
+	local gtidset=$1
+	local gtid
+	# Split the input string into two parts using ":" as the delimiter
+	IFS=':' read -ra parts <<<"$gtidset"
+
+	# Get the number after the "-" symbol
+	number_part="${parts[1]#*-}"
+
+	# Create the final transformed string
+	transformed_string="${parts[0]}:$number_part"
+
+	echo "$transformed_string"
+}
+
 invalid_binlog_test() {
 	desc 'start invalid binlog test'
-	kubectl_bin delete pxc-backup --all
-	kubectl_bin delete pxc-restore --all
-	kubectl_bin delete pxc --all
-	kubectl_bin delete pvc -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator'
-	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
-
-	desc 'running invalid backup'
-	run_backup "$cluster" "on-pitr-minio-invalid"
 
 	local proxy
 	proxy="$(get_proxy "$cluster")"
 
 	kubectl patch pxc pitr --type=merge -p '{"spec":{"backup":{"pitr":{"enabled":false}}}}'
 	sleep 5 # wait for pitr pod to shutdown
+
+	# restore to initial state
+	local backup
+	backup="on-pitr-minio"
+	yq "$test_dir/conf/restore-on-pitr-minio.yaml" \
+		| yq eval 'del(.spec.pitr)' \
+		| yq eval 'del(.spec.backupSource)' \
+		| yq eval ".spec.backupName=\"$backup\"" \
+		| kubectl_bin apply -f -
+	wait_backup_restore ${backup}
+	wait_for_running "$cluster-proxysql" 2
+	wait_for_running "$cluster-pxc" 3
+	wait_cluster_consistency "$cluster" 3 2
+
 	run_mysql \
 		"CREATE DATABASE IF NOT EXISTS test; use test; " \
 		"-h $proxy -uroot -proot_password"
@@ -265,16 +287,20 @@ invalid_binlog_test() {
 	write_more_data "$cluster" # this data should be in new binlog
 
 	invalid_binlog=$(find_invalid_binlog_name "$cluster-pxc-0")
-	# get gtid of invalid binlog
-	gtid=$(run_mysql_local "SELECT get_gtid_set_by_binlog('$invalid_binlog');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-0")
+	# get gtidset of invalid binlog
+	gtidset=$(run_mysql_local "SELECT get_gtid_set_by_binlog('$invalid_binlog');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-0")
 
-	# we should make binlogs with this gtid empty
+	next_binlog=$(find_invalid_binlog_name "$cluster-pxc-0" 1)
+	next_gtidset=$(run_mysql_local "SELECT get_gtid_set_by_binlog('$next_binlog');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-0")
+	next_gtid=$(gtidset_to_gtid "$next_gtidset")
+
+	# we should make binlogs with this gtidset empty
 	local binlog
 	binlog="$invalid_binlog"
 	kubectl exec pitr-pxc-0 -- bash -c "echo \"\" > /var/lib/mysql/$binlog"
-	binlog=$(run_mysql_local "SELECT get_binlog_by_gtid_set('$gtid');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-1")
+	binlog=$(run_mysql_local "SELECT get_binlog_by_gtid_set('$gtidset');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-1")
 	kubectl exec pitr-pxc-1 -- bash -c "echo \"\" > /var/lib/mysql/$binlog"
-	binlog=$(run_mysql_local "SELECT get_binlog_by_gtid_set('$gtid');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-2")
+	binlog=$(run_mysql_local "SELECT get_binlog_by_gtid_set('$gtidset');" "-h127.0.0.1 -P3306 -uroot -proot_password" "$cluster-pxc-2")
 	kubectl exec pitr-pxc-2 -- bash -c "echo \"\" > /var/lib/mysql/$binlog"
 
 	sleep 20
@@ -285,14 +311,14 @@ invalid_binlog_test() {
 	sleep 180 # wait for next PITR collect cycle and error to appear
 	check_invalid_binlogs_error "$invalid_binlog"
 
-	gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${proxy} -uroot -proot_password" | $sed 's/^\(.*\):[0-9]-\([0-9]*\)/\1:\2/')
+	gtid="$next_gtid"
 
 	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
 		printf "Some garbage --> %s <-- instead of legit GTID. Exiting ${gtid}"
 		exit 1
 	fi
 
-	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-invalid" "on-pitr-minio-invalid" "select-6" "" "" "$gtid"
+	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-invalid" "on-pitr-minio" "select-6" "" "" "$gtid"
 
 	# invalid table should not exist
 	compare_mysql_cmd "select-invalid" "SELECT * from test.invalid;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"

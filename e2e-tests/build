@@ -33,7 +33,6 @@ build_operator() {
 		--build-arg GO_LDFLAGS="$GO_LDFLAGS" \
 		$squash \
 		$no_cache \
-		--progress plain \
 		-t "${IMAGE}" -f build/Dockerfile .
 	popd
 

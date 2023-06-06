@@ -199,10 +199,7 @@ func SetupWebhook(mgr manager.Manager) error {
 		log:       zapr.NewLogger(zapLog),
 	}
 
-	srv := mgr.GetWebhookServer()
-	srv.Port = 9443
-	srv.CertDir = certPath
-	srv.Register(hookPath, h)
+	mgr.GetWebhookServer().Register(hookPath, h)
 
 	err = mgr.Add(h)
 	if err != nil {

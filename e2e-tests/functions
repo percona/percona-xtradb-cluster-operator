@@ -562,11 +562,11 @@ compare_mysql_cmd_local() {
 get_proxy_primary() {
 	local uri="$1"
 	local pod="$2"
-	local ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod" 'proxysql')
+	local ip=$(run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status='ONLINE';" "$uri" "$pod" 'proxysql')
 
 	while [ $(echo "$ip" | wc -l) != 1 ]; do
 		sleep 1
-		ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod" 'proxysql')
+		ip=$(run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status='ONLINE';" "$uri" "$pod" 'proxysql')
 	done
 
 	echo $ip | cut -d'.' -f1

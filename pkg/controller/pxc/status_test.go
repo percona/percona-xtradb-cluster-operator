@@ -75,7 +75,11 @@ func buildFakeClient(objs []runtime.Object) *ReconcilePerconaXtraDBCluster {
 
 	s.AddKnownTypes(api.SchemeGroupVersion, &api.PerconaXtraDBCluster{})
 
-	cl := fake.NewFakeClientWithScheme(s, objs...)
+	cl := fake.NewClientBuilder().
+		WithScheme(s).
+		WithRuntimeObjects(objs...).
+		WithStatusSubresource(&api.PerconaXtraDBCluster{}).
+		Build()
 
 	return &ReconcilePerconaXtraDBCluster{client: cl, scheme: s}
 }

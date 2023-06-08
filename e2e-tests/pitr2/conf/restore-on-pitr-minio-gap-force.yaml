@@ -3,12 +3,11 @@ kind: PerconaXtraDBClusterRestore
 metadata:
   annotations:
     percona.com/unsafe-pitr: "true"
-  name: on-pitr-minio-invalid
+  name: on-pitr-minio-gap-force
 spec:
-  pxcCluster: pitr
-  backupName: on-pitr-minio 
+  pxcCluster: pitr2
+  backupName: on-pitr-minio-gap
   pitr:
-    type: transaction
-    gtid: <gtid>
+    type: latest
     backupSource:
       storageName: "minio-binlogs"

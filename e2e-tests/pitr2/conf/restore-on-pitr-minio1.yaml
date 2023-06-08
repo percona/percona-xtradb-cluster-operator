@@ -3,7 +3,7 @@ kind: PerconaXtraDBClusterRestore
 metadata:
   name: on-pitr-minio1
 spec:
-  pxcCluster: pitr
+  pxcCluster: pitr2
   backupSource:
     destination: <destination>
     verifyTLS: false

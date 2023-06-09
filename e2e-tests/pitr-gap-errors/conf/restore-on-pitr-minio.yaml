@@ -1,12 +1,12 @@
 apiVersion: pxc.percona.com/v1
 kind: PerconaXtraDBClusterRestore
 metadata:
-  name: on-pitr-minio1
+  name: on-pitr-minio
 spec:
-  pxcCluster: pitr2
+  pxcCluster: pitr-gap-errors
   backupSource:
-    destination: <destination>
     verifyTLS: false
+    destination: <destination>
     s3:
       bucket: operator-testing
       credentialsSecret: minio-secret

@@ -340,7 +340,7 @@ main() {
 	# We are using minio with tls enabled to check if `verifyTLS: false` works fine
 	start_minio "tls-minio"
 
-	cluster="pitr2"
+	cluster="pitr-gap-errors"
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
 	run_backup "$cluster" "on-pitr-minio"

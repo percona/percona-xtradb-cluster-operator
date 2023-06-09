@@ -1,7 +1,7 @@
 apiVersion: pxc.percona.com/v1-6-0
 kind: PerconaXtraDBCluster
 metadata:
-  name: pitr2
+  name: pitr-gap-errors
   finalizers:
     - delete-pxc-pods-in-order
   # annotations:

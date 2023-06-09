@@ -3,5 +3,5 @@ kind: PerconaXtraDBClusterBackup
 metadata:
   name: on-pitr-minio1
 spec:
-  pxcCluster: pitr2
+  pxcCluster: pitr-gap-errors
   storageName: minio

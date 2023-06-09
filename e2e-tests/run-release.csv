@@ -13,7 +13,7 @@ monitoring-2-0
 one-pod
 operator-self-healing-chaos
 pitr
-pitr2
+pitr-gap-errors
 proxy-protocol
 proxysql-sidecar-res-limits
 recreate

@@ -33,7 +33,7 @@ desc 'check new Pods exists in ProxySQL'
 run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE status='ONLINE';" "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
 	| grep "$cluster-pxc-3"
 run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE status='ONLINE';" "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | grep "$cluster-pxc-4"
+	| grep "$cluster-pxc-4"
 
 desc 'scale down from 5 to 3'
 apply_config "$test_dir/conf/$cluster.yml"

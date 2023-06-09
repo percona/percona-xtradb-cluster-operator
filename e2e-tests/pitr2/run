@@ -198,8 +198,11 @@ find_invalid_binlog_name() {
 	local pod=$1
 	local offset=$2
 
-	local binlogs
-	readarray -t binlogs <<<"$(run_mysql_local "SHOW BINARY LOGS" "-h127.0.0.1 -P3306 -uroot -proot_password" "$pod" | awk '{print $1}')"
+	binlogs=()
+	while IFS= read -r line; do
+		binlogs+=("$line")
+	done < <(run_mysql_local "SHOW BINARY LOGS" "-h127.0.0.1 -P3306 -uroot -proot_password" "$pod" | awk '{print $1}')
+
 
 	for ((i = 0; i < ${#binlogs[@]}; i++)); do
 		local events

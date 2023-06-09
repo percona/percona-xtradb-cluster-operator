@@ -223,6 +223,8 @@ void runTest(Integer TEST_ID) {
                     fi
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export MYSQL_VERSION=$mysqlVer
+                    # for tests only
+                    export IMAGE_BACKUP=perconalab/percona-xtradb-cluster-operator:check-pitr-pxc8.0-backups
                     source $HOME/google-cloud-sdk/path.bash.inc
                     time bash ./e2e-tests/$testName/run
                 """

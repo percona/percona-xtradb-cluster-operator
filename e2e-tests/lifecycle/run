@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -o errexit
+
+test_dir=$(realpath $(dirname $0))
+. ${test_dir}/../functions
+
+set_debug
+
+check_lifecycle() {
+	local cluster="$1"
+	local skip_wait=$2
+
+	desc "apply cr config"
+	apply_config "$test_dir/conf/$cluster.yml"
+
+	desc "check if at least 1 Pod started"
+	if [ -z "$skip_wait" ]; then
+		wait_for_running $cluster-pxc 1
+	else
+		sleep 5
+	fi
+
+	desc "check if statefulset created with expected config"
+	compare_kubectl statefulset/$cluster-pxc
+	compare_kubectl statefulset/$cluster-proxysql
+
+	desc "delete cluster"
+	kubectl_bin delete \
+		-f $test_dir/conf/$cluster.yml
+}
+
+main() {
+	create_infra $namespace
+	kubectl_bin apply -f $conf_dir/secrets.yml
+
+	desc 'check lifecycle postStart'
+	check_lifecycle "poststart"
+
+	desc 'check lifecycle preStop'
+	check_lifecycle "prestop"
+
+	destroy $namespace
+	desc "test passed"
+}
+
+main

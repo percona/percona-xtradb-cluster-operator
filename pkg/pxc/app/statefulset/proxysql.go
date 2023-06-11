@@ -153,6 +153,11 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 			MountPath: "/opt/percona/hookscript",
 		})
 	}
+
+	if cr.Spec.ProxySQL.Lifecycle.PostStart != nil || cr.Spec.ProxySQL.Lifecycle.PreStop != nil {
+		appc.Lifecycle = &cr.Spec.ProxySQL.Lifecycle
+	}
+
 	return appc, nil
 }
 

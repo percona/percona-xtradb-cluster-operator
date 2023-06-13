@@ -129,34 +129,6 @@ func (p *PXC) GetBinLogNamesList(ctx context.Context) ([]string, error) {
 	return binlogs, nil
 }
 
-// GetBinLogName returns name of the binary log file by given GTID set
-func (p *PXC) GetBinLogName(ctx context.Context, gtidSet string) (string, error) {
-	if len(gtidSet) == 0 {
-		return "", nil
-	}
-	var existFunc string
-	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_binlog_by_gtid_set'")
-	err := nameRow.Scan(&existFunc)
-	if err != nil && err != sql.ErrNoRows {
-		return "", errors.Wrap(err, "get udf name")
-	}
-	if len(existFunc) == 0 {
-		_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_binlog_by_gtid_set RETURNS STRING SONAME 'binlog_utils_udf.so'")
-		if err != nil {
-			return "", errors.Wrap(err, "create function")
-		}
-	}
-	var binlog sql.NullString
-	row := p.db.QueryRowContext(ctx, "SELECT get_binlog_by_gtid_set(?)", gtidSet)
-
-	err = row.Scan(&binlog)
-	if err != nil {
-		return "", errors.Wrap(err, "scan binlog")
-	}
-
-	return strings.TrimPrefix(binlog.String, "./"), nil
-}
-
 // GetBinLogFirstTimestamp return binary log file first timestamp
 func (p *PXC) GetBinLogFirstTimestamp(ctx context.Context, binlog string) (string, error) {
 	var existFunc string

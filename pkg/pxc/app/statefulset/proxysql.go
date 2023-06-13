@@ -309,7 +309,7 @@ func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ strin
 }
 
 func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0, cr.CompareVersionWith("1.13.0") >= 0)
+	ct := app.PMMClient(cr, spec, secret)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -398,7 +398,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.P
 			},
 		}
 		ct.Env = append(ct.Env, clusterPmmEnvs...)
-		pmmAgentScriptEnv := app.PMMAgentScript("proxysql")
+		pmmAgentScriptEnv := app.PMMAgentScript(cr, "proxysql")
 		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 	}
 
@@ -442,6 +442,16 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
 			app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]+"-hookscript"))
+	}
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		vol.Volumes = append(vol.Volumes,
+			corev1.Volume{
+				Name: app.BinVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
 	}
 	return vol, nil
 }

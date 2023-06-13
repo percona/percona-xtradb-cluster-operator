@@ -7,6 +7,26 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+get_mgmnt_service_list() {
+	local api_key=$1
+	local endpoint=$2
+	local namespace=$3
+	cat >${tmp_dir}/payload.json <<EOF
+{}
+EOF
+
+	curl -s -k -H "Authorization: Bearer ${api_key}" -X POST -d @payload.json "https://$endpoint/v1/management/Service/List" \
+		| jq 'walk(if type=="object" then with_entries(select(.key | test("service_id|node_id|agent_id|created_at|updated_at|service_name") | not)) else . end)' \
+		| jq 'walk(if type == "array" then sort_by(.agent_type) else . end)' \
+			>${tmp_dir}/active_pmm_agents.json
+
+	# Pmm server is serving one namespace only, so stripping the namespace name out
+	$sed -i 's/'${namespace}'-//g' ${tmp_dir}/active_pmm_agents.json
+	cat ${tmp_dir}/active_pmm_agents.json | jq '.services | sort_by(.node_name)' >${tmp_dir}/active_pmm_agents_sorted.json
+
+	echo "${tmp_dir}/active_pmm_agents_sorted.json"
+}
+
 get_node_id_from_pmm() {
 	local -a nodeList=()
 	for instance in $(kubectl_bin get pods --no-headers -l app.kubernetes.io/component=pxc --output=custom-columns='NAME:.metadata.name'); do
@@ -50,6 +70,7 @@ if [ ! -z "$OPENSHIFT" ]; then
 else
 	helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 fi
+kubectl_bin wait --for=condition=Ready pod/${cluster}-0 --timeout=120s
 SERVICE="postgres"
 until kubectl_bin exec monitoring-0 -- bash -c "pgrep -x $SERVICE >/dev/null"; do
 	echo "Retry $retry"
@@ -65,7 +86,7 @@ sleep 5
 kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini admin reset-admin-password $ADMIN_PASSWORD"
 
 desc 'create PXC cluster'
-spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120
+spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120 "$test_dir/conf/secrets.yaml"
 
 desc 'add PMM API key to secret'
 API_KEY=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq .key)
@@ -75,6 +96,7 @@ wait_for_generation "sts/$cluster-pxc" 2
 wait_for_generation "sts/$cluster-haproxy" 2
 sleep 10
 kubectl wait pod -l 'app.kubernetes.io/managed-by=percona-xtradb-cluster-operator' --for=condition=ready --timeout=600s
+wait_cluster_consistency ${cluster} 3 2
 
 desc 'add new PMM API key to secret'
 API_KEY_NEW=$(curl --insecure -X POST -H "Content-Type: application/json" -d '{"name":"operator-new", "role": "Admin"}' "https://admin:$ADMIN_PASSWORD@$(get_service_endpoint monitoring-service)/graph/api/auth/keys" | jq .key)
@@ -93,12 +115,15 @@ desc 'check if pmm-client container enabled'
 compare_kubectl statefulset/$cluster-pxc
 compare_kubectl statefulset/$cluster-haproxy
 
+desc 'verify clients agents statuses'
+# wait for proper agents statuses
+sleep 180
+API_KEY=$(getSecretData "my-cluster-secrets" "pmmserverkey")
+diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace})
+
 desc 'check mysql metrics'
 get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin
 get_metric_values mysql_global_status_uptime $namespace-$cluster-pxc-0 admin:admin
-
-# wait for QAN and metrics
-sleep 90
 
 desc 'check haproxy metrics'
 get_metric_values haproxy_backend_status $namespace-$cluster-haproxy-0 admin:admin

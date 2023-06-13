@@ -1,18 +1,23 @@
-apiVersion: pxc.percona.com/v1
+apiVersion: pxc.percona.com/v1-6-0
 kind: PerconaXtraDBCluster
 metadata:
-  name: ignore-annotations
+  name: pitr-gap-errors
   finalizers:
     - delete-pxc-pods-in-order
+  # annotations:
+  #   percona.com/issue-vault-token: "true"
 spec:
   secretsName: my-cluster-secrets
+  vaultSecretName: some-name-vault
   pause: false
   pxc:
     size: 3
     image: -pxc
-    expose:
-      enabled: true
-      type: ClusterIP
+    configuration: |
+      [sst]
+      xbstream-opts=--decompress
+      [xtrabackup]
+      compress=lz4
     resources:
       requests:
         memory: 0.1G
@@ -27,20 +32,8 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
-  haproxy:
-    enabled: true
-    size: 3
-    image: -haproxy
-
-    affinity:
-      antiAffinityTopologyKey: "kubernetes.io/hostname"
-    tolerations:
-    - key: "node.alpha.kubernetes.io/unreachable"
-      operator: "Exists"
-      effect: "NoExecute"
-      tolerationSeconds: 6000
   proxysql:
-    enabled: false
+    enabled: true
     size: 2
     image: -proxysql
     resources:
@@ -57,9 +50,6 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
-  logcollector:
-    enabled: true
-    image: -logcollector
   pmm:
     enabled: false
     image: perconalab/pmm-client:1.17.1
@@ -67,32 +57,25 @@ spec:
     serverUser: pmm
   backup:
     image: -backup
+    imagePullPolicy: Always
+    pitr:
+      enabled: true
+      storageName: minio-binlogs
+      timeBetweenUploads: 55
     storages:
-      pvc:
-        type: filesystem
-        volume:
-          persistentVolumeClaim:
-            accessModes: [ "ReadWriteOnce" ]
-            resources:
-              requests:
-                storage: 1Gi
-      aws-s3:
-        type: s3
-        s3:
-          region: us-east-1
-          bucket: operator-testing
-          credentialsSecret: aws-s3-secret
       minio:
         type: s3
+        verifyTLS: false
         s3:
           credentialsSecret: minio-secret
           region: us-east-1
           bucket: operator-testing
-          endpointUrl: http://minio-service:9000/
-      gcp-cs:
+          endpointUrl: https://minio-service:9000
+      minio-binlogs:
         type: s3
+        verifyTLS: false
         s3:
-          credentialsSecret: gcp-cs-secret
+          credentialsSecret: minio-secret
           region: us-east-1
-          bucket: operator-testing
-          endpointUrl: https://storage.googleapis.com
+          bucket: operator-testing/binlogs
+          endpointUrl: https://minio-service:9000

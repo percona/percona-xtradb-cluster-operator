@@ -17,7 +17,7 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO:-"perconalab/pmm-server"}
 IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG:-"dev-latest"}
-CERT_MANAGER_VER="1.8.0"
+CERT_MANAGER_VER="1.12.1"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -174,6 +174,7 @@ wait_pod() {
 	local container=$(echo "$pod" | $sed -E 's/.*-(pxc|proxysql)-[0-9]/\1/' | egrep "^(pxc|proxysql)$")
 
 	set +o xtrace
+	kubectl_bin wait --for=condition=Ready pod/${pod} --timeout="${max_retry}s" ${ns:+-n $ns} || true
 	retry=0
 	echo -n $pod
 	until kubectl_bin get ${ns:+-n $ns} pod/$pod -o jsonpath='{.status.conditions[?(@.type == "Ready")].status}' 2>/dev/null | grep -q -i 'True' \
@@ -299,6 +300,12 @@ deploy_operator() {
 	fi
 
 	sleep 10
+
+	kubectl_bin wait \
+		--for=condition=Ready \
+		pods \
+		-l app.kubernetes.io/component=operator,app.kubernetes.io/instance=percona-xtradb-cluster-operator,app.kubernetes.io/name=percona-xtradb-cluster-operator \
+		--timeout=30s || true
 
 	wait_pod "$(get_operator_pod)" "480" "${OPERATOR_NS}"
 	sleep 3
@@ -502,7 +509,7 @@ run_mysql_local() {
 	local container_name="$4"
 	set +o xtrace
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
-		bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
+		bash -c "printf \"$command\n\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
 	set_debug
@@ -557,11 +564,11 @@ get_proxy_primary() {
 	local cluster_name="$2"
 	local hostgroup=11
 
-	local ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id='$hostgroup' AND status="ONLINE";' "$uri" "$cluster_name-proxysql-0" 'proxysql')
+	local ip=$(run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id='$hostgroup' AND status='ONLINE';" "$uri" "$cluster_name-proxysql-0" 'proxysql')
 
 	while [ $(echo "$ip" | wc -l) != 1 ]; do
 		sleep 1
-		ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id='$hostgroup' AND status="ONLINE";' "$uri" "$cluster_name-proxysql-0" 'proxysql')
+		ip=$(run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id='$hostgroup' AND status='ONLINE';" "$uri" "$cluster_name-proxysql-0" 'proxysql')
 	done
 
 	echo $ip | cut -d'.' -f1
@@ -829,9 +836,7 @@ apply_config() {
 			| kubectl_bin apply -f -
 	else
 		cat_config "$1" \
-			| yq eval '
-				del(.spec.backup.schedule.[1]) |
-				del(.spec.backup.schedule.[2])' - \
+			| yq eval 'del(.spec.backup.schedule.[1])' - \
 			| kubectl_bin apply -f -
 	fi
 }
@@ -878,6 +883,7 @@ spinup_pxc() {
 
 	desc 'check if all 3 Pods started'
 	local proxy=$(get_proxy "$cluster")
+	kubectl_bin wait --for=condition=Ready pod -l app.kubernetes.io/instance=monitoring,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator --timeout=300s -n ${namespace} || true
 	wait_for_running "$proxy" 1
 	wait_for_running "$cluster-pxc" "$size"
 	sleep $sleep
@@ -1026,7 +1032,6 @@ run_recovery_check() {
 	kubectl_bin apply -f "$test_dir/conf/restore-${backup1}.yaml"
 	wait_backup_restore ${backup1}
 	kubectl_bin logs job/restore-job-${backup1}-${cluster}
-	kubectl_bin delete -f "$test_dir/conf/restore-${backup1}.yaml"
 	wait_for_running "$cluster-$proxy" 1
 	wait_for_running "$cluster-pxc" 3
 

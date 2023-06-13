@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,4 +44,20 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, memory *resource.Quantit
 			"auto-config.cnf": "[mysqld]" + autotuneParams,
 		},
 	}, nil
+}
+
+func AutoTuneConfigMapName(clusterName, component string) string {
+	return fmt.Sprintf("auto-%s-%s", clusterName, component)
+}
+
+func HookScriptConfigMapName(clusterName, component string) string {
+	return fmt.Sprintf("%s-%s-hookscript", clusterName, component)
+}
+
+func CustomConfigMapName(clusterName, component string) string {
+	return fmt.Sprintf("%s-%s", clusterName, component)
+}
+
+func AuthPolicyConfigMapName(clusterName string) string {
+	return fmt.Sprintf("%s-auth-policy", clusterName)
 }

@@ -7,6 +7,11 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+if [ -n "${OPENSHIFT}" ]; then
+	echo "This test is not supported on OpenShift because hostpath is not allowed by default"
+	exit 0
+fi
+
 check_cr_config() {
 	local cluster="$1"
 
@@ -23,12 +28,12 @@ check_cr_config() {
 }
 
 main() {
-    create_infra $namespace
+	create_infra $namespace
 
-    apply_config "$conf_dir/client.yml"
-    kubectl_bin apply \
-        -f $conf_dir/secrets.yml \
-        -f $test_dir/conf/hostpath-helper.yml
+	apply_config "$conf_dir/client.yml"
+	kubectl_bin apply \
+		-f $conf_dir/secrets.yml \
+		-f $test_dir/conf/hostpath-helper.yml
 
 	desc 'check emptydir'
 	check_cr_config "emptydir"

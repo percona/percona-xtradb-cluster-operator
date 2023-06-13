@@ -64,6 +64,8 @@ spec:
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: caching_sha2_password
           envFrom:
             - secretRef:
                 name: no-proxysql-env-vars-pxc

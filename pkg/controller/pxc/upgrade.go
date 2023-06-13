@@ -233,6 +233,16 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		return nil
 	}
 
+	if cr.HAProxyEnabled() && cr.Status.HAProxy.Status != api.AppStateReady {
+		log.Info("Waiting for HAProxy to be ready before smart update")
+		return nil
+	}
+
+	if cr.ProxySQLEnabled() && cr.Status.ProxySQL.Status != api.AppStateReady {
+		log.Info("Waiting for ProxySQL to be ready before smart update")
+		return nil
+	}
+
 	// sleep to get new sfs revision
 	time.Sleep(time.Second)
 

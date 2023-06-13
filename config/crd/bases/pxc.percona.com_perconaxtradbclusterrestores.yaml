@@ -130,6 +130,8 @@ spec:
                     type: string
                   vaultSecretName:
                     type: string
+                  verifyTLS:
+                    type: boolean
                 type: object
               pitr:
                 properties:
@@ -215,6 +217,8 @@ spec:
                         type: string
                       vaultSecretName:
                         type: string
+                      verifyTLS:
+                        type: boolean
                     type: object
                   date:
                     type: string
@@ -225,6 +229,37 @@ spec:
                 type: object
               pxcCluster:
                 type: string
+              resources:
+                properties:
+                  claims:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    type: object
+                type: object
             type: object
           status:
             properties:

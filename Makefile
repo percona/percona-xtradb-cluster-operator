@@ -9,6 +9,9 @@ BUNDLE_CHANNELS := --channels=stable
 BUNDLE_DEFAULT_CHANNEL := --default-channel=stable
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.23
+
 all: build
 
 help: ## Display this help.
@@ -28,6 +31,15 @@ $(DEPLOYDIR)/cw-bundle.yaml: $(DEPLOYDIR)/crd.yaml $(DEPLOYDIR)/cw-rbac.yaml $(D
 	cat $(DEPLOYDIR)/crd.yaml > $(DEPLOYDIR)/cw-bundle.yaml; echo "---" >> $(DEPLOYDIR)/cw-bundle.yaml; cat $(DEPLOYDIR)/cw-rbac.yaml >> $(DEPLOYDIR)/cw-bundle.yaml; echo "---" >> $(DEPLOYDIR)/cw-bundle.yaml; cat $(DEPLOYDIR)/cw-operator.yaml >> $(DEPLOYDIR)/cw-bundle.yaml
 
 manifests: $(DEPLOYDIR)/crd.yaml $(DEPLOYDIR)/bundle.yaml $(DEPLOYDIR)/cw-bundle.yaml ## Put generated manifests to deploy directory
+
+fmt: ## Run go fmt against code.
+	go fmt ./...
+
+vet: ## Run go vet against code.
+	go vet ./...
+
+test: manifests generate fmt vet envtest ## Run tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
 ##@ Build
 
@@ -79,3 +91,8 @@ controller-gen: ## Download controller-gen locally if necessary.
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.3)
+
+ENVTEST = $(shell pwd)/bin/setup-envtest
+envtest: ## Download envtest-setup locally if necessary.
+	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+

@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -113,6 +114,7 @@ const (
 )
 
 type PXCScheduledBackup struct {
+	AllowParallel      *bool                         `json:"allowParallel,omitempty"`
 	Image              string                        `json:"image,omitempty"`
 	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	ImagePullPolicy    corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
@@ -122,6 +124,13 @@ type PXCScheduledBackup struct {
 	Annotations        map[string]string             `json:"annotations,omitempty"`
 	PITR               PITRSpec                      `json:"pitr,omitempty"`
 	BackoffLimit       *int32                        `json:"backoffLimit,omitempty"`
+}
+
+func (b *PXCScheduledBackup) GetAllowParallel() bool {
+	if b.AllowParallel == nil {
+		return true
+	}
+	return *b.AllowParallel
 }
 
 type PITRSpec struct {
@@ -472,7 +481,7 @@ func (spec *PMMSpec) IsEnabled(secret *corev1.Secret) bool {
 }
 
 func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
-	for _, key := range []string{"pmmserver", "pmmserverkey"} {
+	for _, key := range []string{users.PMMServer, users.PMMServerKey} {
 		if _, ok := secret.Data[key]; ok {
 			return true
 		}
@@ -481,8 +490,8 @@ func (spec *PMMSpec) HasSecret(secret *corev1.Secret) bool {
 }
 
 func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
-	if _, ok := secret.Data["pmmserverkey"]; !ok {
-		if _, ok := secret.Data["pmmserver"]; ok {
+	if _, ok := secret.Data[users.PMMServerKey]; !ok {
+		if _, ok := secret.Data[users.PMMServer]; ok {
 			return false
 		}
 	}
@@ -534,10 +543,16 @@ type BackupStorageAzureSpec struct {
 	StorageClass      string `json:"storageClass"`
 }
 
+const (
+	AzureBlobStoragePrefix string = "azure://"
+	AwsBlobStoragePrefix   string = "s3://"
+)
+
 // ContainerAndPrefix returns container name and backup prefix from ContainerPath.
 // BackupStorageAzureSpec.ContainerPath can contain backup path in format `<container-name>/<backup-prefix>`.
 func (b *BackupStorageAzureSpec) ContainerAndPrefix() (string, string) {
-	container, prefix, _ := strings.Cut(b.ContainerPath, "/")
+	destination := strings.TrimPrefix(b.ContainerPath, AzureBlobStoragePrefix)
+	container, prefix, _ := strings.Cut(destination, "/")
 	return container, prefix
 }
 
@@ -1228,7 +1243,7 @@ func (s *PerconaXtraDBClusterStatus) ClusterStatus(inProgress, deleted bool) App
 	switch {
 	case deleted || s.PXC.Status == AppStateStopping || s.ProxySQL.Status == AppStateStopping || s.HAProxy.Status == AppStateStopping:
 		return AppStateStopping
-	case s.PXC.Status == AppStatePaused, !inProgress && s.PXC.Status == AppStateReady:
+	case s.PXC.Status == AppStatePaused, !inProgress && s.PXC.Status == AppStateReady && s.Host != "":
 		if s.HAProxy.Status != "" && s.HAProxy.Status != s.PXC.Status {
 			return s.HAProxy.Status
 		}

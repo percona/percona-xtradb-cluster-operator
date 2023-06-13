@@ -10,3 +10,4 @@ install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /liveness-check.sh /var/lib/mysql
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /readiness-check.sh /var/lib/mysql/readiness-check.sh
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /peer-list /var/lib/mysql/peer-list
 install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /get-pxc-state /var/lib/mysql/get-pxc-state
+install -o "$(id -u)" -g "$(id -g)" -m 0755 -D /pmm-prerun.sh /var/lib/mysql/pmm-prerun.sh

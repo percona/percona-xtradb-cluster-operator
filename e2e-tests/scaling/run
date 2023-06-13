@@ -1,11 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 cluster="scaling"
+
+set_debug
 
 create_infra $namespace
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
@@ -29,10 +30,10 @@ compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-4.$cl
 sleep 15
 
 desc 'check new Pods exists in ProxySQL'
-run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | grep "$cluster-pxc-3"
-run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE";' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | grep "$cluster-pxc-4"
+run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE status='ONLINE';" "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+	| grep "$cluster-pxc-3"
+run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE status='ONLINE';" "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+	| grep "$cluster-pxc-4"
 
 desc 'scale down from 5 to 3'
 apply_config "$test_dir/conf/$cluster.yml"
@@ -47,9 +48,10 @@ compare_kubectl pvc/datadir-$cluster-pxc-3
 compare_kubectl pvc/datadir-$cluster-pxc-4
 
 desc 'check if Pod deleted from ProxySQL'
-run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | ( grep "$cluster-pxc-3" && exit 1 || :)
-run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE status="ONLINE" AND hostgroup_id!=13;' "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-    | ( grep "$cluster-pxc-4" && exit 1 || :)
+run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE status='ONLINE' AND hostgroup_id!=13;" "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+	| (grep "$cluster-pxc-3" && exit 1 || :)
+run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE status='ONLINE' AND hostgroup_id!=13;" "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
+	| (grep "$cluster-pxc-4" && exit 1 || :)
 
 destroy $namespace
+desc "test passed"

@@ -6,7 +6,6 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
+	"github.com/go-sql-driver/mysql"
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 
@@ -29,7 +29,6 @@ type Collector struct {
 	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
 	pxcUser        string // user for connection to PXC
 	pxcPass        string // password for connection to PXC
-	verifyTLS      bool
 }
 
 type Config struct {
@@ -97,7 +96,6 @@ func New(c Config) (*Collector, error) {
 		storage:        s,
 		pxcUser:        c.PXCUser,
 		pxcServiceName: c.PXCServiceName,
-		verifyTLS:      c.VerifyTLS,
 	}, nil
 }
 
@@ -129,7 +127,7 @@ func (c *Collector) lastGTIDSet(ctx context.Context, sourceID string) (string, e
 		}
 		return "", errors.Wrap(err, "get last set content")
 	}
-	lastSet, err := ioutil.ReadAll(lastSetObject)
+	lastSet, err := io.ReadAll(lastSetObject)
 	if err != nil && minio.ToErrorResponse(errors.Cause(err)).Code != "NoSuchKey" {
 		return "", errors.Wrap(err, "read last gtid set")
 	}
@@ -141,7 +139,7 @@ func (c *Collector) newDB(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "open file")
 	}
-	pxcPass, err := ioutil.ReadAll(file)
+	pxcPass, err := io.ReadAll(file)
 	if err != nil {
 		return errors.Wrap(err, "read password")
 	}
@@ -166,31 +164,10 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
-func (c *Collector) CurrentSourceID(ctx context.Context, logs []pxc.Binlog) (string, error) {
-	var (
-		gtidSet string
-		err     error
-	)
-	for i := len(logs) - 1; i >= 0 && gtidSet == ""; i-- {
-		gtidSet, err = c.db.GetGTIDSet(ctx, logs[i].Name)
-		if err != nil {
-			return gtidSet, err
-		}
-	}
-	return strings.Split(gtidSet, ":")[0], nil
-}
-
 func (c *Collector) removeEmptyBinlogs(ctx context.Context, logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	result := make([]pxc.Binlog, 0)
 	for _, v := range logs {
-		set, err := c.db.GetGTIDSet(ctx, v.Name)
-		if err != nil {
-			return nil, errors.Wrap(err, "get GTID set")
-		}
-		// we don't upload binlog without gtid
-		// because it is empty and doesn't have any information
-		if set != "" {
-			v.GTIDSet = set
+		if v.GTIDSet != "" {
 			result = append(result, v)
 		}
 	}
@@ -241,15 +218,33 @@ func createGapFile(gtidSet string) error {
 	return nil
 }
 
+func (c *Collector) addGTIDSets(ctx context.Context, logs []pxc.Binlog) error {
+	for i, v := range logs {
+		set, err := c.db.GetGTIDSet(ctx, v.Name)
+		if err != nil {
+			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
+				log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", v.Name, c.db.GetHost(), err.Error())
+				continue
+			}
+			return errors.Wrap(err, "get GTID set")
+		}
+		logs[i].GTIDSet = set
+	}
+	return nil
+}
+
 func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	list, err := c.db.GetBinLogList(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
-
-	sourceID, err := c.CurrentSourceID(ctx, list)
+	err = c.addGTIDSets(ctx, list)
 	if err != nil {
-		return errors.Wrap(err, "get current source id")
+		return errors.Wrap(err, "get GTID sets")
+	}
+	var sourceID string
+	for i := len(list) - 1; i >= 0 && sourceID == ""; i-- {
+		sourceID = strings.Split(list[i].GTIDSet, ":")[0]
 	}
 
 	if sourceID == "" {
@@ -265,10 +260,11 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	lastUploadedBinlogName := ""
 
 	if c.lastSet != "" {
-		// get last uploaded binlog file name
-		lastUploadedBinlogName, err = c.db.GetBinLogName(ctx, c.lastSet)
-		if err != nil {
-			return errors.Wrap(err, "get last uploaded binlog name by gtid set")
+		for i := len(list) - 1; i >= 0; i-- {
+			if list[i].GTIDSet == c.lastSet {
+				lastUploadedBinlogName = list[i].Name
+				break
+			}
 		}
 
 		if lastUploadedBinlogName == "" {

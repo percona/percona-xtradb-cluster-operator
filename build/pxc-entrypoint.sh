@@ -27,7 +27,7 @@ done
 # (will allow for "$XYZ_DB_PASSWORD_FILE" to fill in the value of
 #  "$XYZ_DB_PASSWORD" from a file, especially for Docker's secrets feature)
 file_env() {
-	set +o xtrace
+	{ set +x; } 2>/dev/null
 	local var="$1"
 	local fileVar="${var}_FILE"
 	local def="${2:-}"
@@ -45,7 +45,6 @@ file_env() {
 	fi
 	export "$var"="$val"
 	unset "$fileVar"
-	set -o xtrace
 }
 
 # usage: process_init_file FILENAME MYSQLCOMMAND...
@@ -150,6 +149,7 @@ function join {
 }
 
 escape_special() {
+	{ set +x; } 2>/dev/null
 	echo "$1" \
 		| sed 's/\\/\\\\/g' \
 		| sed 's/'\''/'\\\\\''/g' \
@@ -188,13 +188,41 @@ fi
 # add sst.cpat to exclude pxc-entrypoint, unsafe-bootstrap, pxc-configure-pxc from SST cleanup
 grep -q "^progress=" $CFG && sed -i "s|^progress=.*|progress=1|" $CFG
 grep -q "^\[sst\]" "$CFG" || printf '[sst]\n' >>"$CFG"
-grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$' "$CFG" 1<>"$CFG"
+grep -q "^cpat=" "$CFG" || sed '/^\[sst\]/a cpat=.*\\.pem$\\|.*init\\.ok$\\|.*galera\\.cache$\\|.*wsrep_recovery_verbose\\.log$\\|.*readiness-check\\.sh$\\|.*liveness-check\\.sh$\\|.*get-pxc-state$\\|.*sst_in_progress$\\|.*sst-xb-tmpdir$\\|.*\\.sst$\\|.*gvwstate\\.dat$\\|.*grastate\\.dat$\\|.*\\.err$\\|.*\\.log$\\|.*RPM_UPGRADE_MARKER$\\|.*RPM_UPGRADE_HISTORY$\\|.*pxc-entrypoint\\.sh$\\|.*unsafe-bootstrap\\.sh$\\|.*pxc-configure-pxc\\.sh\\|.*peer-list$\\|.*auth_plugin$' "$CFG" 1<>"$CFG"
 if [[ $MYSQL_VERSION == '8.0' ]]; then
 	if [[ $MYSQL_PATCH_VERSION -ge 26 ]]; then
 		grep -q "^skip_replica_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_replica_start=ON" $CFG
 	else
 		grep -q "^skip_slave_start=ON" "$CFG" || sed -i "/\[mysqld\]/a skip_slave_start=ON" $CFG
 	fi
+fi
+
+auth_plugin=${DEFAULT_AUTHENTICATION_PLUGIN}
+if [[ -f /var/lib/mysql/auth_plugin ]]; then
+	prev_auth_plugin=$(cat /var/lib/mysql/auth_plugin)
+	if [[ ${prev_auth_plugin} != "mysql_native_password" && ${auth_plugin} == "mysql_native_password" ]]; then
+		echo "FATAL: It's forbidden to switch from ${prev_auth_plugin} to ${auth_plugin}."
+		echo "If ProxySQL is enabled operator uses mysql_native_password since it doesn't work with caching_sha2_password."
+		echo "Using caching_sha2_password will break frontend connections in ProxySQL."
+		echo "You can remove /var/lib/mysql/auth_plugin to force the switch."
+		echo "Please check K8SPXC-1183 for more information."
+		exit 1
+	fi
+fi
+
+if [[ -z ${auth_plugin} ]]; then
+	auth_plugin="mysql_native_password"
+elif [[ $MYSQL_VERSION == '5.7' ]]; then
+	auth_plugin="mysql_native_password"
+fi
+
+echo "${auth_plugin}" >/var/lib/mysql/auth_plugin
+
+sed -i "/default_authentication_plugin/d" $CFG
+if [[ $MYSQL_VERSION == '8.0' && $MYSQL_PATCH_VERSION -ge 27 ]]; then
+	sed -i "/\[mysqld\]/a authentication_policy=${auth_plugin},," $CFG
+else
+	sed -i "/\[mysqld\]/a default_authentication_plugin=${auth_plugin}" $CFG
 fi
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup' 'xtrabackup'
@@ -304,6 +332,8 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		rm -rfv "$TMPDIR"
 		echo 'Database initialized'
 
+		echo "${auth_plugin}" >/var/lib/mysql/auth_plugin
+
 		SOCKET="$(_get_config 'socket' "$@")"
 		"$@" --skip-networking --socket="${SOCKET}" &
 		pid="$!"
@@ -339,7 +369,6 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			MYSQL_ROOT_PASSWORD="$(pwmake 128)"
 			echo "GENERATED ROOT PASSWORD: $MYSQL_ROOT_PASSWORD"
 		fi
-		set -x
 
 		rootCreate=
 		# default root to listen for connections from anywhere
@@ -348,7 +377,7 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			# no, we don't care if read finds a terminating character in this heredoc
 			# https://unix.stackexchange.com/questions/265149/why-is-set-o-errexit-breaking-this-read-heredoc-expression/265151#265151
 			read -r -d '' rootCreate <<-EOSQL || true
-				CREATE USER 'root'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '$(escape_special "${MYSQL_ROOT_PASSWORD}")' ;
+				CREATE USER 'root'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '$(escape_special "${MYSQL_ROOT_PASSWORD}")' PASSWORD EXPIRE NEVER;
 				GRANT ALL ON *.* TO 'root'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 			EOSQL
 		fi
@@ -382,23 +411,23 @@ if [ -z "$CLUSTER_JOIN" ] && [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			${rootCreate}
 			/*!80016 REVOKE SYSTEM_USER ON *.* FROM root */;
 
-			CREATE USER 'operator'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '$(escape_special "${OPERATOR_ADMIN_PASSWORD}")' ;
+			CREATE USER 'operator'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '$(escape_special "${OPERATOR_ADMIN_PASSWORD}")' PASSWORD EXPIRE NEVER;
 			GRANT ALL ON *.* TO 'operator'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 
-			CREATE USER 'xtrabackup'@'%' IDENTIFIED BY '$(escape_special "${XTRABACKUP_PASSWORD}")';
+			CREATE USER 'xtrabackup'@'%' IDENTIFIED BY '$(escape_special "${XTRABACKUP_PASSWORD}")' PASSWORD EXPIRE NEVER;
 			GRANT ALL ON *.* TO 'xtrabackup'@'%';
 
-			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '$(escape_special "${MONITOR_PASSWORD}")' WITH MAX_USER_CONNECTIONS 100;
+			CREATE USER 'monitor'@'${MONITOR_HOST}' IDENTIFIED BY '$(escape_special "${MONITOR_PASSWORD}")' WITH MAX_USER_CONNECTIONS 100 PASSWORD EXPIRE NEVER;
 			GRANT SELECT, PROCESS, SUPER, REPLICATION CLIENT, RELOAD ON *.* TO 'monitor'@'${MONITOR_HOST}';
 			GRANT SELECT ON performance_schema.* TO 'monitor'@'${MONITOR_HOST}';
 			${monitorConnectGrant}
 
-			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '$(escape_special "${CLUSTERCHECK_PASSWORD}")';
+			CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY '$(escape_special "${CLUSTERCHECK_PASSWORD}")' PASSWORD EXPIRE NEVER;
 			GRANT PROCESS ON *.* TO 'clustercheck'@'localhost';
 
 			${systemUserGrant}
 
-			CREATE USER 'replication'@'%' IDENTIFIED BY '$(escape_special "${REPLICATION_PASSWORD}")';
+			CREATE USER 'replication'@'%' IDENTIFIED BY '$(escape_special "${REPLICATION_PASSWORD}")' PASSWORD EXPIRE NEVER;
 			GRANT REPLICATION SLAVE ON *.* to 'replication'@'%';
 			DROP DATABASE IF EXISTS test;
 			FLUSH PRIVILEGES ;

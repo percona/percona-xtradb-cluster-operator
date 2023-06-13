@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 	echo "Skipping cross-site test because 5.7 doesn't support it!"
@@ -12,10 +13,9 @@ if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 fi
 
 main() {
-
-  local source_cluster="cross-site-source"
-  local replica_cluster="cross-site-replica"
-  unset OPERATOR_NS
+	local source_cluster="cross-site-source"
+	local replica_cluster="cross-site-replica"
+	unset OPERATOR_NS
 	desc "Create source cluster"
 
 	create_namespace $namespace
@@ -23,21 +23,21 @@ main() {
 	apply_secrets
 	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
 	sleep 60
-
+	desc "get main cluster services endpoints"
 	source_endpoint0=$(get_service_ip ${source_cluster}-pxc-0)
 	source_endpoint1=$(get_service_ip ${source_cluster}-pxc-1)
 	source_endpoint2=$(get_service_ip ${source_cluster}-pxc-2)
 
 	source_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${source_cluster}-haproxy -p33062 -uroot -proot_password")
 	source_primary_endpoint=$(get_service_ip ${source_primary})
-
+	desc "patch source cluster with replicationChannels settings"
 	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc":{"replicationChannels": [{"name":"source_to_replica", "isSource": true}]}}}'
-
+	desc "patch main cluster secrets with replication user"
 	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
 	sleep 15
 	wait_cluster_consistency "$source_cluster" 3 2
 
-	desc 'Write data to source cluster'
+	desc 'write data to source cluster'
 	run_mysql \
 		'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS testSourceReplica (id int PRIMARY KEY);' \
 		"-h $source_primary_endpoint -uroot -proot_password"
@@ -45,13 +45,18 @@ main() {
 		'INSERT myApp.testSourceReplica (id) VALUES (100700)' \
 		"-h $source_primary_endpoint -uroot -proot_password"
 
-	desc "Create replica cluster"
+	kubectl_bin get secrets cross-site-source-ssl-internal -o yaml | yq 'del(.metadata)' - | yq '.metadata={"name": "cross-site-replica-ssl-internal"}' - >${tmp_dir}/replica-ssl-internal.yaml
+
+	desc "create replica cluster"
 
 	create_namespace $replica_namespace 0
 	deploy_operator
+	kubectl_bin apply -f ${tmp_dir}/replica-ssl-internal.yaml
 	apply_secrets
 	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
 	sleep 60
+
+	desc "get replica cluster services endpoints"
 	replica_endpoint0=$(get_service_ip ${replica_cluster}-pxc-0)
 	replica_endpoint1=$(get_service_ip ${replica_cluster}-pxc-1)
 	replica_endpoint2=$(get_service_ip ${replica_cluster}-pxc-2)
@@ -62,9 +67,11 @@ main() {
 		'DELETE FROM myApp.myApp WHERE id=100500' \
 		"-h $replica_primary_endpoint -uroot -proot_password"
 
-	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
+	desc "patch replica cluster with replicationChannels settings"
+	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "configuration": {"ssl": true, "sslSkipVerify": true, "ca": "/etc/mysql/ssl-internal/ca.crt"}, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
 	sleep 40
 
+	desc "patch replica cluster secrets with replication user"
 	kubectl_bin patch secret my-cluster-secrets -p '{"data":{"replication": "'$(echo -n new_password | base64)'"}}'
 	sleep 15
 	wait_cluster_consistency "$replica_cluster" 3 2
@@ -84,7 +91,7 @@ main() {
 		'DELETE FROM myApp.testSourceReplica WHERE id=100700' \
 		"-h $source_primary_endpoint -uroot -proot_password"
 
-	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "sourcesList": [{"host": "'${replica_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
+	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "configuration": {"ssl": true, "sslSkipVerify": true, "ca": "/etc/mysql/ssl-internal/ca.crt"}, "sourcesList": [{"host": "'${replica_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
 
 	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$replica_namespace"
 	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": true, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
@@ -104,10 +111,10 @@ main() {
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint0 -uroot -proot_password"
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint1 -uroot -proot_password"
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint2 -uroot -proot_password"
-	desc "Success"
 
 	destroy $namespace "true"
 	destroy $replica_namespace "true"
+	desc "test passed"
 }
 
 main

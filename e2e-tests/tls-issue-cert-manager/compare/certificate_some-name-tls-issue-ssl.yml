@@ -11,7 +11,6 @@ spec:
     - '*.some-name-tls-issue-pxc'
     - '*.some-name-tls-issue-proxysql'
     - test.com
-  isCA: true
   issuerRef:
     kind: Issuer
     name: some-name-tls-issue-pxc-issuer

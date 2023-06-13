@@ -11,11 +11,8 @@ import (
 	"time"
 
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
-	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,13 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -65,11 +62,6 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		return nil, errors.Wrap(err, "create clientcmd")
 	}
 
-	zapLog, err := zap.NewProduction()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create logger")
-	}
-
 	return &ReconcilePerconaXtraDBCluster{
 		client:        mgr.GetClient(),
 		scheme:        mgr.GetScheme(),
@@ -77,25 +69,15 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		serverVersion: sv,
 		clientcmd:     cli,
 		lockers:       newLockStore(),
-		log:           zapr.NewLogger(zapLog),
 	}, nil
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	// Create a new controller
-	c, err := controller.New("perconaxtradbcluster-controller", mgr, controller.Options{Reconciler: r})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to primary resource PerconaXtraDBCluster
-	err = c.Watch(&source.Kind{Type: &api.PerconaXtraDBCluster{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return builder.ControllerManagedBy(mgr).
+		Named("pxc-controller").
+		Watches(&api.PerconaXtraDBCluster{}, &handler.EnqueueRequestForObject{}).
+		Complete(r)
 }
 
 var _ reconcile.Reconciler = &ReconcilePerconaXtraDBCluster{}
@@ -111,11 +93,6 @@ type ReconcilePerconaXtraDBCluster struct {
 	syncUsersState int32
 	serverVersion  *version.ServerVersion
 	lockers        lockStore
-	log            logr.Logger
-}
-
-func (r *ReconcilePerconaXtraDBCluster) logger(name, namespace string) logr.Logger {
-	return r.log.WithName("perconaxtradbcluster").WithValues("cluster", name, "namespace", namespace)
 }
 
 type lockStore struct {
@@ -192,6 +169,8 @@ func NewCronRegistry() CronRegistry {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	log := logf.FromContext(ctx)
+
 	rr := reconcile.Result{
 		RequeueAfter: time.Second * 5,
 	}
@@ -226,7 +205,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, errors.Wrap(err, "set CR version")
 	}
 
-	reqLog := r.logger(o.Name, o.Namespace)
+	err = o.CheckNSetDefaults(r.serverVersion, log)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
+	}
 
 	if o.ObjectMeta.DeletionTimestamp != nil {
 		finalizers := []string{}
@@ -239,10 +221,10 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 				sfs = statefulset.NewProxy(o)
 				// deletePVC is always true on this stage
 				// because we never reach this point without finalizers
-				err = r.deleteStatefulSet(o, sfs, true)
+				err = r.deleteStatefulSet(o, sfs, true, false)
 			case "delete-pxc-pvc":
 				sfs = statefulset.NewNode(o)
-				err = r.deleteStatefulSet(o, sfs, true)
+				err = r.deleteStatefulSet(o, sfs, true, true)
 			// nil error gonna be returned only when there is no more pods to delete (only 0 left)
 			// until than finalizer won't be deleted
 			case "delete-pxc-pods-in-order":
@@ -262,37 +244,45 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	// wait until token issued to run PXC in data encrypted mode.
 	if o.ShouldWaitForTokenIssue() {
-		reqLog.Info("wait for token issuing")
+		log.Info("wait for token issuing")
 		return rr, nil
 	}
 
 	defer func() {
 		uerr := r.updateStatus(o, false, err)
 		if uerr != nil {
-			reqLog.Error(uerr, "Update status")
+			log.Error(uerr, "Update status")
 		}
 	}()
 
-	err = o.CheckNSetDefaults(r.serverVersion, reqLog)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "wrong PXC options")
-	}
-
 	if o.CompareVersionWith("1.7.0") >= 0 && *o.Spec.PXC.AutoRecovery {
-		err = r.recoverFullClusterCrashIfNeeded(o)
+		err = r.recoverFullClusterCrashIfNeeded(ctx, o)
 		if err != nil {
-			reqLog.Info("Failed to check if cluster needs to recover", "err", err.Error())
+			log.Info("Failed to check if cluster needs to recover", "err", err.Error())
 		}
 	}
 
-	err = r.reconcileUsersSecret(o)
+	if o.Spec.ProxySQLEnabled() {
+		haproxySts := appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      o.Name + "-haproxy",
+				Namespace: o.Namespace,
+			},
+		}
+		err = r.client.Get(ctx, client.ObjectKeyFromObject(&haproxySts), &haproxySts)
+		if err == nil {
+			return reconcile.Result{}, errors.Errorf("failed to enable ProxySQL: you can't switch from HAProxy to ProxySQL on the fly")
+		}
+	}
+
+	err = r.reconcileUsersSecret(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "reconcile users secret")
 	}
 
 	userReconcileResult := &ReconcileUsersResult{}
 
-	urr, err := r.reconcileUsers(o)
+	urr, err := r.reconcileUsers(ctx, o)
 	if err != nil {
 		return rr, errors.Wrap(err, "reconcile users")
 	}
@@ -300,50 +290,37 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		userReconcileResult = urr
 	}
 
-	r.resyncPXCUsersWithProxySQL(o)
+	r.resyncPXCUsersWithProxySQL(ctx, o)
 
 	if o.Status.PXC.Version == "" || strings.HasSuffix(o.Status.PXC.Version, "intermediate") {
-		err := r.ensurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
+		err := r.ensurePXCVersion(ctx, o, VersionServiceClient{OpVersion: o.Version().String()})
 		if err != nil {
-			reqLog.Info("failed to ensure version, running with default", "error", err)
+			log.Info("failed to ensure version, running with default", "error", err)
 		}
 	}
 
-	err = r.deploy(o)
+	err = r.deploy(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	operatorPod, err := k8s.OperatorPod(r.client)
+	initImageName, err := getInitImage(ctx, o, r.client)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "get operator deployment")
+		return reconcile.Result{}, errors.Wrap(err, "failed to get initImage")
 	}
 
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
-		var imageName string
-		if len(o.Spec.InitImage) > 0 {
-			imageName = o.Spec.InitImage
-		} else {
-			imageName, err = operatorImageName(&operatorPod)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			if o.CompareVersionWith(version.Version) != 0 {
-				imageName = strings.Split(imageName, ":")[0] + ":" + o.Spec.CRVersion
-			}
-		}
 		var initResources corev1.ResourceRequirements
 		if o.CompareVersionWith("1.6.0") >= 0 {
 			initResources = o.Spec.PXC.Resources
 		}
-		initC := statefulset.EntrypointInitContainer(imageName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
+		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
 		inits = append(inits, initC)
 	}
 
 	pxcSet := statefulset.NewNode(o)
 	pxc.MergeTemplateAnnotations(pxcSet.StatefulSet(), userReconcileResult.pxcAnnotations)
-	err = r.updatePod(pxcSet, o.Spec.PXC.PodSpec, o, inits)
+	err = r.updatePod(ctx, pxcSet, o.Spec.PXC.PodSpec, o, inits)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
@@ -372,15 +349,22 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		}
 	}
 
-	if err := r.reconcileHAProxy(o); err != nil {
+	var proxyInits []corev1.Container
+	if o.CompareVersionWith("1.13.0") >= 0 {
+		proxyInits = []corev1.Container{
+			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, o.Spec.PXC.Resources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy),
+		}
+	}
+
+	if err := r.reconcileHAProxy(ctx, o, userReconcileResult.proxyAnnotations, proxyInits); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	proxysqlSet := statefulset.NewProxy(o)
-	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxysqlAnnotations)
+	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxyAnnotations)
 
 	if o.Spec.ProxySQLEnabled() {
-		err = r.updatePod(proxysqlSet, o.Spec.ProxySQL, o, nil)
+		err = r.updatePod(ctx, proxysqlSet, o.Spec.ProxySQL, o, proxyInits)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
@@ -412,7 +396,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			}
 		}
 
-		err = r.deleteStatefulSet(o, proxysqlSet, deletePVC)
+		err = r.deleteStatefulSet(o, proxysqlSet, deletePVC, false)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -424,13 +408,13 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	}
 
 	if o.CompareVersionWith("1.9.0") >= 0 {
-		err = r.reconcileReplication(o, userReconcileResult.updateReplicationPassword)
+		err = r.reconcileReplication(ctx, o, userReconcileResult.updateReplicationPassword)
 		if err != nil {
-			reqLog.Info("reconcile replication error", "err", err.Error())
+			log.Info("reconcile replication error", "err", err.Error())
 		}
 	}
 
-	err = r.reconcileBackups(o)
+	err = r.reconcileBackups(ctx, o)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -440,11 +424,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-	if err := r.fetchVersionFromPXC(o, pxcSet); err != nil {
+	if err := r.fetchVersionFromPXC(ctx, o, pxcSet); err != nil {
 		return rr, errors.Wrap(err, "update CR version")
 	}
 
-	err = r.scheduleEnsurePXCVersion(o, VersionServiceClient{OpVersion: o.Version().String()})
+	err = r.scheduleEnsurePXCVersion(ctx, o, VersionServiceClient{OpVersion: o.Version().String()})
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to ensure version")
 	}
@@ -452,7 +436,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	return rr, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr *api.PerconaXtraDBCluster, annotations map[string]string, initContainers []corev1.Container) error {
 	if !cr.HAProxyEnabled() {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -462,14 +446,16 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCl
 			return errors.Wrap(err, "delete HAProxy service")
 		}
 
-		if err := r.deleteStatefulSet(cr, statefulset.NewHAProxy(cr), false); err != nil {
+		if err := r.deleteStatefulSet(cr, statefulset.NewHAProxy(cr), false, false); err != nil {
 			return errors.Wrap(err, "delete HAProxy stateful set")
 		}
 
 		return nil
 	}
+	sts := statefulset.NewHAProxy(cr)
+	pxc.MergeTemplateAnnotations(sts.StatefulSet(), annotations)
 
-	if err := r.updatePod(statefulset.NewHAProxy(cr), &cr.Spec.HAProxy.PodSpec, cr, nil); err != nil {
+	if err := r.updatePod(ctx, sts, &cr.Spec.HAProxy.PodSpec, cr, initContainers); err != nil {
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 	svc := pxc.NewServiceHAProxy(cr)
@@ -501,38 +487,25 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(cr *api.PerconaXtraDBCl
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	log := logf.FromContext(ctx)
 	stsApp := statefulset.NewNode(cr)
 	err := r.reconcileConfigMap(cr)
 	if err != nil {
 		return err
 	}
 
-	operatorPod, err := k8s.OperatorPod(r.client)
+	initImageName, err := getInitImage(ctx, cr, r.client)
 	if err != nil {
-		return errors.Wrap(err, "get operator deployment")
+		return errors.Wrap(err, "failed to get initImage")
 	}
-
-	log := r.logger(cr.Name, cr.Namespace)
 	inits := []corev1.Container{}
 	if cr.CompareVersionWith("1.5.0") >= 0 {
-		var imageName string
-		if len(cr.Spec.InitImage) > 0 {
-			imageName = cr.Spec.InitImage
-		} else {
-			imageName, err = operatorImageName(&operatorPod)
-			if err != nil {
-				return err
-			}
-			if cr.CompareVersionWith(version.Version) != 0 {
-				imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
-			}
-		}
 		var initResources corev1.ResourceRequirements
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			initResources = cr.Spec.PXC.Resources
 		}
-		initC := statefulset.EntrypointInitContainer(imageName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
+		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
 		inits = append(inits, initC)
 	}
 
@@ -636,10 +609,17 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 		return errors.Wrap(err, "get PXC stateful set")
 	}
 
+	var proxyInits []corev1.Container
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		proxyInits = []corev1.Container{
+			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, cr.Spec.PXC.Resources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
+		}
+	}
+
 	// HAProxy StatefulSet
 	if cr.HAProxyEnabled() {
 		sfsHAProxy := statefulset.NewHAProxy(cr)
-		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, nil, log, r.getConfigVolume)
+		haProxySet, err := pxc.StatefulSet(sfsHAProxy, &cr.Spec.HAProxy.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create HAProxy StatefulSet")
 		}
@@ -693,7 +673,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 
 	if cr.Spec.ProxySQLEnabled() {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, nil, log, r.getConfigVolume)
+		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, proxyInits, log, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}
@@ -760,37 +740,31 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(cr *api.PerconaXtraDBCluster) err
 }
 
 func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDBCluster) error {
-	stsApp := statefulset.NewNode(cr)
-	ls := stsApp.Labels()
+	autotuneCm := config.AutoTuneConfigMapName(cr.Name, "pxc")
 
-	if cr.CompareVersionWith("1.3.0") >= 0 {
-		autotuneCm := "auto-" + ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"]
+	_, ok := cr.Spec.PXC.Resources.Limits[corev1.ResourceMemory]
+	if ok {
+		configMap, err := config.NewAutoTuneConfigMap(cr, cr.Spec.PXC.Resources.Limits.Memory(), autotuneCm)
+		if err != nil {
+			return errors.Wrap(err, "new autotune configmap")
+		}
 
-		_, ok := cr.Spec.PXC.Resources.Limits[corev1.ResourceMemory]
-		if ok {
-			configMap, err := config.NewAutoTuneConfigMap(cr, cr.Spec.PXC.Resources.Limits.Memory(), autotuneCm)
-			if err != nil {
-				return errors.Wrap(err, "new autotune configmap")
-			}
+		err = setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set autotune configmap controller ref")
+		}
 
-			err = setControllerReference(cr, configMap, r.scheme)
-			if err != nil {
-				return errors.Wrap(err, "set autotune configmap controller ref")
-			}
-
-			err = createOrUpdateConfigmap(r.client, configMap)
-			if err != nil {
-				return errors.Wrap(err, "create or update autotune configmap")
-			}
-		} else {
-			if err := deleteConfigMapIfExists(r.client, cr, autotuneCm); err != nil {
-				return errors.Wrap(err, "delete autotune configmap")
-			}
+		err = createOrUpdateConfigmap(r.client, configMap)
+		if err != nil {
+			return errors.Wrap(err, "create or update autotune configmap")
+		}
+	} else {
+		if err := deleteConfigMapIfExists(r.client, cr, autotuneCm); err != nil {
+			return errors.Wrap(err, "delete autotune configmap")
 		}
 	}
 
-	pxcConfigName := ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"]
-
+	pxcConfigName := config.CustomConfigMapName(cr.Name, "pxc")
 	if cr.Spec.PXC.Configuration != "" {
 		configMap := config.NewConfigMap(cr, pxcConfigName, "init.cnf", cr.Spec.PXC.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
@@ -809,7 +783,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 	}
 
 	if cr.CompareVersionWith("1.11.0") >= 0 {
-		pxcHookScriptName := ls["app.kubernetes.io/instance"] + "-" + ls["app.kubernetes.io/component"] + "-hookscript"
+		pxcHookScriptName := config.HookScriptConfigMapName(cr.Name, "pxc")
 		if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
 			err := r.createHookScriptConfigMap(cr, cr.Spec.PXC.PodSpec.HookScript, pxcHookScriptName)
 			if err != nil {
@@ -821,7 +795,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 			}
 		}
 
-		proxysqlHookScriptName := ls["app.kubernetes.io/instance"] + "-proxysql" + "-hookscript"
+		proxysqlHookScriptName := config.HookScriptConfigMapName(cr.Name, "proxysql")
 		if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
 			err := r.createHookScriptConfigMap(cr, cr.Spec.ProxySQL.HookScript, proxysqlHookScriptName)
 			if err != nil {
@@ -832,7 +806,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 				return errors.Wrap(err, "delete proxysql hookscript config map")
 			}
 		}
-		haproxyHookScriptName := ls["app.kubernetes.io/instance"] + "-haproxy" + "-hookscript"
+		haproxyHookScriptName := config.HookScriptConfigMapName(cr.Name, "haproxy")
 		if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
 			err := r.createHookScriptConfigMap(cr, cr.Spec.HAProxy.PodSpec.HookScript, haproxyHookScriptName)
 			if err != nil {
@@ -843,7 +817,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 				return errors.Wrap(err, "delete haproxy config map")
 			}
 		}
-		logCollectorHookScriptName := ls["app.kubernetes.io/instance"] + "-logcollector" + "-hookscript"
+		logCollectorHookScriptName := config.HookScriptConfigMapName(cr.Name, "logcollector")
 		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.HookScript != "" {
 			err := r.createHookScriptConfigMap(cr, cr.Spec.LogCollector.HookScript, logCollectorHookScriptName)
 			if err != nil {
@@ -856,18 +830,19 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
-	proxysqlConfigName := ls["app.kubernetes.io/instance"] + "-proxysql"
+	proxysqlConfigName := config.CustomConfigMapName(cr.Name, "proxysql")
+	if cr.Spec.ProxySQLEnabled() {
+		if cr.Spec.ProxySQL.Configuration != "" {
+			configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
+			err := setControllerReference(cr, configMap, r.scheme)
+			if err != nil {
+				return errors.Wrap(err, "set controller ref ProxySQL")
+			}
 
-	if cr.Spec.ProxySQLEnabled() && cr.Spec.ProxySQL.Configuration != "" {
-		configMap := config.NewConfigMap(cr, proxysqlConfigName, "proxysql.cnf", cr.Spec.ProxySQL.Configuration)
-		err := setControllerReference(cr, configMap, r.scheme)
-		if err != nil {
-			return errors.Wrap(err, "set controller ref ProxySQL")
-		}
-
-		err = createOrUpdateConfigmap(r.client, configMap)
-		if err != nil {
-			return errors.Wrap(err, "proxysql config map")
+			err = createOrUpdateConfigmap(r.client, configMap)
+			if err != nil {
+				return errors.Wrap(err, "proxysql config map")
+			}
 		}
 	} else {
 		if err := deleteConfigMapIfExists(r.client, cr, proxysqlConfigName); err != nil {
@@ -875,8 +850,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
-	haproxyConfigName := ls["app.kubernetes.io/instance"] + "-haproxy"
-
+	haproxyConfigName := config.CustomConfigMapName(cr.Name, "haproxy")
 	if cr.HAProxyEnabled() && cr.Spec.HAProxy.Configuration != "" {
 		configMap := config.NewConfigMap(cr, haproxyConfigName, "haproxy-global.cfg", cr.Spec.HAProxy.Configuration)
 		err := setControllerReference(cr, configMap, r.scheme)
@@ -894,23 +868,20 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileConfigMap(cr *api.PerconaXtraDB
 		}
 	}
 
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		logCollectorConfigName := ls["app.kubernetes.io/instance"] + "-logcollector"
-
-		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
-			configMap := config.NewConfigMap(cr, logCollectorConfigName, "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
-			err := setControllerReference(cr, configMap, r.scheme)
-			if err != nil {
-				return errors.Wrap(err, "set controller ref LogCollector")
-			}
-			err = createOrUpdateConfigmap(r.client, configMap)
-			if err != nil {
-				return errors.Wrap(err, "logcollector config map")
-			}
-		} else {
-			if err := deleteConfigMapIfExists(r.client, cr, logCollectorConfigName); err != nil {
-				return errors.Wrap(err, "delete log collector config map")
-			}
+	logCollectorConfigName := config.CustomConfigMapName(cr.Name, "logcollector")
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
+		configMap := config.NewConfigMap(cr, logCollectorConfigName, "fluentbit_custom.conf", cr.Spec.LogCollector.Configuration)
+		err := setControllerReference(cr, configMap, r.scheme)
+		if err != nil {
+			return errors.Wrap(err, "set controller ref LogCollector")
+		}
+		err = createOrUpdateConfigmap(r.client, configMap)
+		if err != nil {
+			return errors.Wrap(err, "logcollector config map")
+		}
+	} else {
+		if err := deleteConfigMapIfExists(r.client, cr, logCollectorConfigName); err != nil {
+			return errors.Wrap(err, "delete log collector config map")
 		}
 	}
 
@@ -997,7 +968,7 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSetPods(namespace string, 
 	return errors.New("waiting for pods to be deleted")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp, deletePVC bool) error {
+func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBCluster, sfs api.StatefulApp, deletePVC, deleteSecrets bool) error {
 	sfsWithOwner := appsv1.StatefulSet{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      sfs.StatefulSet().Name,
@@ -1024,7 +995,9 @@ func (r *ReconcilePerconaXtraDBCluster) deleteStatefulSet(cr *api.PerconaXtraDBC
 		if err != nil {
 			return errors.Wrapf(err, "delete pvc: %s", sfs.StatefulSet().Name)
 		}
+	}
 
+	if deleteSecrets {
 		err = r.deleteSecrets(cr)
 		if err != nil {
 			return errors.Wrap(err, "delete secrets")
@@ -1207,7 +1180,7 @@ func OwnerRef(ro runtime.Object, scheme *runtime.Scheme) (metav1.OwnerReference,
 }
 
 // resyncPXCUsersWithProxySQL calls the method of synchronizing users and makes sure that only one Goroutine works at a time
-func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.PerconaXtraDBCluster) {
+func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(ctx context.Context, cr *api.PerconaXtraDBCluster) {
 	if !cr.Spec.ProxySQLEnabled() {
 		return
 	}
@@ -1215,9 +1188,9 @@ func (r *ReconcilePerconaXtraDBCluster) resyncPXCUsersWithProxySQL(cr *api.Perco
 		return
 	}
 	go func() {
-		err := r.syncPXCUsersWithProxySQL(cr)
+		err := r.syncPXCUsersWithProxySQL(ctx, cr)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			r.logger(cr.Name, cr.Namespace).Error(err, "sync users")
+			logf.FromContext(ctx).Error(err, "sync users")
 		}
 		atomic.StoreInt32(&r.syncUsersState, stateFree)
 	}()
@@ -1445,6 +1418,24 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName s
 	}
 
 	return corev1.Volume{}, api.NoCustomVolumeErr
+}
+
+func getInitImage(ctx context.Context, cr *api.PerconaXtraDBCluster, cli client.Client) (string, error) {
+	if len(cr.Spec.InitImage) > 0 {
+		return cr.Spec.InitImage, nil
+	}
+	operatorPod, err := k8s.OperatorPod(ctx, cli)
+	if err != nil {
+		return "", errors.Wrap(err, "get operator deployment")
+	}
+	imageName, err := operatorImageName(&operatorPod)
+	if err != nil {
+		return "", err
+	}
+	if cr.CompareVersionWith(version.Version) != 0 {
+		imageName = strings.Split(imageName, ":")[0] + ":" + cr.Spec.CRVersion
+	}
+	return imageName, nil
 }
 
 func operatorImageName(operatorPod *corev1.Pod) (string, error) {

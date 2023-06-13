@@ -10,10 +10,11 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const (
-	DataVolumeName        = "datadir"
 	VaultSecretVolumeName = "vault-keyring-secret"
 )
 
@@ -63,6 +64,20 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 	if spec.LivenessInitialDelaySeconds != nil {
 		livenessDelay = *spec.LivenessInitialDelaySeconds
 	}
+	tvar := true
+
+	serverIDHash := fnv.New32()
+	serverIDHash.Write([]byte(string(cr.UID)))
+
+	// we cut first 3 symbols to give a space for hostname(actially, pod number)
+	// which is appended to all server ids. If we do not do this, it
+	// can cause a int32 overflow
+	// P.S max value is 4294967295
+	serverIDHashStr := fmt.Sprint(serverIDHash.Sum32())
+	if len(serverIDHashStr) > 7 {
+		serverIDHashStr = serverIDHashStr[:7]
+	}
+
 	appc := corev1.Container{
 		Name:            app.Name,
 		Image:           spec.Image,
@@ -72,12 +87,14 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			TimeoutSeconds:      15,
 			PeriodSeconds:       30,
 			FailureThreshold:    5,
-		}, "/usr/bin/clustercheck.sh"),
+		}, "/var/lib/mysql/readiness-check.sh"),
 		LivenessProbe: app.Probe(&corev1.Probe{
 			InitialDelaySeconds: livenessDelay,
 			TimeoutSeconds:      5,
 			PeriodSeconds:       10,
-		}, "/usr/bin/clustercheck.sh"),
+		}, "/var/lib/mysql/liveness-check.sh"),
+		Args:    []string{"mysqld"},
+		Command: []string{"/var/lib/mysql/pxc-entrypoint.sh"},
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3306,
@@ -95,15 +112,23 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				ContainerPort: 4568,
 				Name:          "ist",
 			},
+			{
+				ContainerPort: 33062,
+				Name:          "mysql-admin",
+			},
+			{
+				ContainerPort: 33060,
+				Name:          "mysqlx",
+			},
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      DataVolumeName,
+				Name:      app.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 			{
 				Name:      "config",
-				MountPath: "/etc/mysql/conf.d",
+				MountPath: "/etc/percona-xtradb-cluster.conf.d",
 			},
 			{
 				Name:      "tmp",
@@ -117,6 +142,18 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Name:      "ssl-internal",
 				MountPath: "/etc/mysql/ssl-internal",
 			},
+			{
+				Name:      "mysql-users-secret-file",
+				MountPath: "/etc/mysql/mysql-users-secret",
+			},
+			{
+				Name:      "auto-config",
+				MountPath: "/etc/my.cnf.d",
+			},
+			{
+				Name:      VaultSecretVolumeName,
+				MountPath: "/etc/mysql/vault-keyring-secret",
+			},
 		},
 		Env: []corev1.EnvVar{
 			{
@@ -124,21 +161,35 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 				Value: c.labels["app.kubernetes.io/instance"] + "-" + c.labels["app.kubernetes.io/component"] + "-unready",
 			},
 			{
+				Name:  "MONITOR_HOST",
+				Value: "%",
+			},
+			{
 				Name: "MYSQL_ROOT_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Root),
 				},
 			},
 			{
 				Name: "XTRABACKUP_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "xtrabackup"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Xtrabackup),
 				},
 			},
 			{
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
+				},
+			},
+		},
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.PXC.EnvVarsSecretName,
+					},
+					Optional: &tvar,
 				},
 			},
 		},
@@ -146,144 +197,56 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		Resources:       spec.Resources,
 	}
 
-	if cr.CompareVersionWith("1.1.0") >= 0 {
-		appc.Env = append(appc.Env, corev1.EnvVar{})
-		copy(appc.Env[2:], appc.Env[1:])
-		appc.Env[1] = corev1.EnvVar{
-			Name:  "MONITOR_HOST",
-			Value: "%",
-		}
-	}
-	if cr.CompareVersionWith("1.7.0") < 0 {
-		appc.Env = append(appc.Env, corev1.EnvVar{
-			Name: "CLUSTERCHECK_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "clustercheck"),
-			},
-		})
-	}
-	if cr.CompareVersionWith("1.7.0") >= 0 {
+	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
 		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "mysql-users-secret-file",
-			MountPath: "/etc/mysql/mysql-users-secret",
+			Name:      "hookscript",
+			MountPath: "/opt/percona/hookscript",
 		})
-		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled {
-			logEnvs := []corev1.EnvVar{
-				{
-					Name:  "LOG_DATA_DIR",
-					Value: "/var/lib/mysql",
-				},
-				{
-					Name:  "IS_LOGCOLLECTOR",
-					Value: "yes",
-				},
-			}
-			appc.Env = append(appc.Env, logEnvs...)
-		}
 	}
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		fvar := true
-		appc.EnvFrom = append(appc.EnvFrom, corev1.EnvFromSource{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Spec.PXC.EnvVarsSecretName,
-				},
-				Optional: &fvar,
-			},
-		})
-		serverIDHash := fnv.New32()
-		serverIDHash.Write([]byte(string(cr.UID)))
 
-		// we cut first 3 symbols to give a space for hostname(actially, pod number)
-		// which is appended to all server ids. If we do not do this, it
-		// can cause a int32 overflow
-		// P.S max value is 4294967295
-		serverIDHashStr := fmt.Sprint(serverIDHash.Sum32())
-		if len(serverIDHashStr) > 7 {
-			serverIDHashStr = serverIDHashStr[:7]
-		}
-		appc.Env = append(appc.Env, corev1.EnvVar{
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Enabled {
+		appc.Env = append(appc.Env, []corev1.EnvVar{
+			{
+				Name:  "LOG_DATA_DIR",
+				Value: "/var/lib/mysql",
+			},
+			{
+				Name:  "IS_LOGCOLLECTOR",
+				Value: "yes",
+			},
+		}...)
+	}
+
+	appc.Env = append(appc.Env, []corev1.EnvVar{
+		{
 			Name:  "CLUSTER_HASH",
 			Value: serverIDHashStr,
-		})
-	}
-	if cr.CompareVersionWith("1.3.0") >= 0 {
-		for k, v := range appc.VolumeMounts {
-			if v.Name == "config" {
-				appc.VolumeMounts[k].MountPath = "/etc/percona-xtradb-cluster.conf.d"
-				break
-			}
-		}
-		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      "auto-config",
-			MountPath: "/etc/my.cnf.d",
-		})
-	}
-
-	if cr.CompareVersionWith("1.4.0") >= 0 {
-		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-			Name:      VaultSecretVolumeName,
-			MountPath: "/etc/mysql/vault-keyring-secret",
-		})
-	}
-
-	if cr.CompareVersionWith("1.5.0") >= 0 {
-		appc.Args = []string{"mysqld"}
-		appc.Command = []string{"/var/lib/mysql/pxc-entrypoint.sh"}
-		appc.Env = append(appc.Env, corev1.EnvVar{
+		},
+		{
 			Name: "OPERATOR_ADMIN_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
 			},
+		},
+		{
+			Name:  "LIVENESS_CHECK_TIMEOUT",
+			Value: fmt.Sprint(spec.LivenessProbes.TimeoutSeconds),
+		},
+		{
+			Name:  "READINESS_CHECK_TIMEOUT",
+			Value: fmt.Sprint(spec.ReadinessProbes.TimeoutSeconds),
+		},
+	}...)
+
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		plugin := "caching_sha2_password"
+		if cr.Spec.ProxySQLEnabled() {
+			plugin = "mysql_native_password"
+		}
+		appc.Env = append(appc.Env, corev1.EnvVar{
+			Name:  "DEFAULT_AUTHENTICATION_PLUGIN",
+			Value: plugin,
 		})
-		if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
-			appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
-				Name:      "hookscript",
-				MountPath: "/opt/percona/hookscript",
-			})
-		}
-	}
-
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		appc.Ports = append(
-			appc.Ports,
-			corev1.ContainerPort{
-				ContainerPort: 33062,
-				Name:          "mysql-admin",
-			},
-		)
-		appc.ReadinessProbe.Exec.Command = []string{"/var/lib/mysql/readiness-check.sh"}
-		appc.LivenessProbe.Exec.Command = []string{"/var/lib/mysql/liveness-check.sh"}
-	}
-
-	if cr.CompareVersionWith("1.9.0") >= 0 {
-		appc.Ports = append(
-			appc.Ports,
-			corev1.ContainerPort{
-				ContainerPort: 33060,
-				Name:          "mysqlx",
-			},
-		)
-
-		appc.LivenessProbe = &spec.LivenessProbes
-		appc.ReadinessProbe = &spec.ReadinessProbes
-		appc.ReadinessProbe.Exec = &corev1.ExecAction{
-			Command: []string{"/var/lib/mysql/readiness-check.sh"},
-		}
-		appc.LivenessProbe.Exec = &corev1.ExecAction{
-			Command: []string{"/var/lib/mysql/liveness-check.sh"},
-		}
-		probsEnvs := []corev1.EnvVar{
-			{
-				Name:  "LIVENESS_CHECK_TIMEOUT",
-				Value: fmt.Sprint(spec.LivenessProbes.TimeoutSeconds),
-			},
-			{
-				Name:  "READINESS_CHECK_TIMEOUT",
-				Value: fmt.Sprint(spec.ReadinessProbes.TimeoutSeconds),
-			},
-		}
-		appc.Env = append(appc.Env, probsEnvs...)
 	}
 
 	return appc, nil
@@ -325,7 +288,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(logRsecrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(logRsecrets, users.Monitor),
 			},
 		},
 	}
@@ -350,7 +313,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      DataVolumeName,
+				Name:      app.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},
@@ -368,7 +331,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      DataVolumeName,
+				Name:      app.DataVolumeName,
 				MountPath: "/var/lib/mysql",
 			},
 		},
@@ -394,7 +357,7 @@ func (c *Node) LogCollectorContainer(spec *api.LogCollectorSpec, logPsecrets str
 }
 
 func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
+	ct := app.PMMClient(cr, spec, secret)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -403,12 +366,12 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 		},
 		{
 			Name:  "DB_USER",
-			Value: "monitor",
+			Value: users.Monitor,
 		},
 		{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
 			},
 		},
 		{
@@ -459,7 +422,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 			},
 		}
 		ct.Env = append(ct.Env, clusterPmmEnvs...)
-		pmmAgentScriptEnv := app.PMMAgentScript("mysql")
+		pmmAgentScriptEnv := app.PMMAgentScript(cr, "mysql")
 		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 	}
 	if cr.CompareVersionWith("1.9.0") >= 0 {
@@ -495,7 +458,7 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 
 	ct.VolumeMounts = []corev1.VolumeMount{
 		{
-			Name:      DataVolumeName,
+			Name:      app.DataVolumeName,
 			MountPath: "/var/lib/mysql",
 		},
 	}
@@ -504,43 +467,38 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 }
 
 func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg api.CustomVolumeGetter) (*api.Volume, error) {
-	vol := app.Volumes(podSpec, DataVolumeName)
-	ls := c.Labels()
-	configVolume, err := vg(cr.Namespace, "config", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"], true)
+	vol := app.Volumes(podSpec, app.DataVolumeName)
+
+	configVolume, err := vg(cr.Namespace, "config", config.CustomConfigMapName(cr.Name, "pxc"), true)
 	if err != nil {
 		return nil, err
 	}
+
 	vol.Volumes = append(
 		vol.Volumes,
 		app.GetTmpVolume("tmp"),
 		configVolume,
 		app.GetSecretVolumes("ssl-internal", podSpec.SSLInternalSecretName, true),
-		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig))
-	if cr.CompareVersionWith("1.3.0") >= 0 {
-		vol.Volumes = append(
-			vol.Volumes,
-			app.GetConfigVolumes("auto-config", "auto-"+ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]))
+		app.GetSecretVolumes("ssl", podSpec.SSLSecretName, cr.Spec.AllowUnsafeConfig),
+		app.GetConfigVolumes("auto-config", config.AutoTuneConfigMapName(cr.Name, app.Name)),
+		app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true),
+		app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
+	)
+
+	if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
+		vol.Volumes = append(vol.Volumes,
+			app.GetConfigVolumes("logcollector-config", config.CustomConfigMapName(cr.Name, "logcollector")))
 	}
-	if cr.CompareVersionWith("1.4.0") >= 0 {
-		vol.Volumes = append(
-			vol.Volumes,
-			app.GetSecretVolumes(VaultSecretVolumeName, podSpec.VaultSecretName, true))
-	}
-	if cr.CompareVersionWith("1.7.0") >= 0 {
-		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false))
-		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.Configuration != "" {
-			vol.Volumes = append(vol.Volumes, app.GetConfigVolumes("logcollector-config", ls["app.kubernetes.io/instance"]+"-logcollector"))
-		}
-	}
+
 	if cr.CompareVersionWith("1.11.0") >= 0 {
 		if cr.Spec.PXC != nil && cr.Spec.PXC.HookScript != "" {
 			vol.Volumes = append(vol.Volumes,
-				app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]+"-hookscript"))
+				app.GetConfigVolumes("hookscript", config.HookScriptConfigMapName(cr.Name, "pxc")))
 		}
 
 		if cr.Spec.LogCollector != nil && cr.Spec.LogCollector.HookScript != "" {
 			vol.Volumes = append(vol.Volumes,
-				app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-logcollector-hookscript"))
+				app.GetConfigVolumes("hookscript", config.HookScriptConfigMapName(cr.Name, "logcollector")))
 		}
 	}
 

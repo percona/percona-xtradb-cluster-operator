@@ -15,7 +15,8 @@ void createCluster(String CLUSTER_SUFFIX) {
                 gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
                 gcloud config set project $GCP_PROJECT
                 gcloud container clusters list --filter $CLUSTER_NAME-${CLUSTER_SUFFIX} --zone $GKERegion --format='csv[no-heading](name)' | xargs gcloud container clusters delete --zone $GKERegion --quiet || true
-                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version=1.21 --machine-type=n1-standard-4 --preemptible --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
+
+                gcloud container clusters create --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX} --cluster-version=1.23 --machine-type=n1-standard-4 --preemptible --disk-size 30 --num-nodes=\$NODES_NUM --network=jenkins-vpc --subnetwork=jenkins-${CLUSTER_SUFFIX} --no-enable-autoupgrade --cluster-ipv4-cidr=/21 --labels delete-cluster-after-hours=6 && \
                 kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user jenkins@"$GCP_PROJECT".iam.gserviceaccount.com || ret_val=\$?
                 if [ \${ret_val} -eq 0 ]; then break; fi
                 ret_num=\$((ret_num + 1))
@@ -36,6 +37,15 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             source $HOME/google-cloud-sdk/path.bash.inc
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
+            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+            done
+            kubectl get svc --all-namespaces || true
             gcloud container clusters delete --zone $GKERegion $CLUSTER_NAME-${CLUSTER_SUFFIX}
         """
    }
@@ -101,7 +111,7 @@ void initTests() {
     def records = readCSV file: 'e2e-tests/run-pr.csv'
 
     for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "mysql_ver": records[i][1], "cluster": "NA", "result": "NA"])
+        tests.add(["name": records[i][0], "mysql_ver": records[i][1], "cluster": "NA", "result": "skipped", "time": "0"])
     }
 
     markPassedTests()
@@ -149,40 +159,34 @@ void printKubernetesStatus(String LOCATION, String CLUSTER_SUFFIX) {
 }
 
 TestsReport = '| Test name  | Status |\r\n| ------------- | ------------- |'
+TestsReportXML = '<testsuite name=\\"PXC\\">\n'
 
 void makeReport() {
     def wholeTestAmount=tests.size()
     def startedTestAmount = 0
     
     for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
         def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
         def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
 
-        if (tests[i]["result"] != "NA") {
+        if (tests[i]["result"] != "skipped") {
             startedTestAmount++
         }
         TestsReport = TestsReport + "\r\n| "+ testNameWithMysqlVersion +" | ["+ tests[i]["result"] +"]("+ testUrl +") |"
+        TestsReportXML = TestsReportXML + '<testcase name=\\"' + testNameWithMysqlVersion + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + "\r\n| We run $startedTestAmount out of $wholeTestAmount|"
-}
-
-void setTestsResults() {
-    for (int i=0; i<tests.size(); i++) {
-        def testNameWithMysqlVersion = tests[i]["name"] +"-"+ tests[i]["mysql_ver"].replace(".", "-")
-        def file="${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion"
-
-        if (tests[i]["result"] == "passed") {
-            pushArtifactFile(file)
-        }
-    }
+    TestsReportXML = TestsReportXML + '</testsuite>\n'
 }
 
 void clusterRunner(String cluster) {
     def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "NA") {
-            tests[i]["result"] = "failed"
+        if (tests[i]["result"] == "skipped" && currentBuild.nextBuild == null) {
+            tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
             if (clusterCreated == 0) {
                 createCluster(cluster)
@@ -205,27 +209,31 @@ void runTest(Integer TEST_ID) {
     def testNameWithMysqlVersion = "$testName-$mysqlVer".replace(".", "-")
 
     waitUntil {
-        def testUrl = "${testUrlPrefix}/${env.GIT_BRANCH}/${env.GIT_SHORT_COMMIT}/${testNameWithMysqlVersion}.log"
-        echo " test url is $testUrl"
+        def timeStart = new Date().getTime()
         try {
             echo "The $testName-$mysqlVer test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
-            tests[TEST_ID]["result"] = "failed"
+            tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
+                    if [ $retryCount -eq 0 ]; then
+                        export DEBUG_TESTS=0
+                    else
+                        export DEBUG_TESTS=1
+                    fi
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export MYSQL_VERSION=$mysqlVer
                     source $HOME/google-cloud-sdk/path.bash.inc
                     time bash ./e2e-tests/$testName/run
                 """
             }
-            echo "end test url is $testUrl"
+            pushArtifactFile("${env.GIT_BRANCH}-${env.GIT_SHORT_COMMIT}-$testNameWithMysqlVersion")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
             printKubernetesStatus("AFTER","$clusterSuffix")
-            if (retryCount >= 1) {
+            if (retryCount >= 1 || currentBuild.nextBuild != null) {
                 currentBuild.result = 'FAILURE'
                 return true
             }
@@ -233,6 +241,9 @@ void runTest(Integer TEST_ID) {
             return false
         }
         finally {
+            def timeStop = new Date().getTime()
+            def durationSec = (timeStop - timeStart) / 1000
+            tests[TEST_ID]["time"] = durationSec
             pushLogFile("$testNameWithMysqlVersion")
             echo "The $testName-$mysqlVer test was finished!"
         }
@@ -240,7 +251,7 @@ void runTest(Integer TEST_ID) {
 }
 
 def skipBranchBuilds = true
-if ( env.CHANGE_URL ) {
+if (env.CHANGE_URL) {
     skipBranchBuilds = false
 }
 
@@ -271,7 +282,7 @@ pipeline {
             steps {
                 initTests()
                 script {
-                    if ( AUTHOR_NAME == 'null' )  {
+                    if (AUTHOR_NAME == 'null') {
                         AUTHOR_NAME = sh(script: "git show -s --pretty=%ae | awk -F'@' '{print \$1}'", , returnStdout: true).trim()
                     }
                     for (comment in pullRequest.comments) {
@@ -285,7 +296,7 @@ pipeline {
                 sh '''
                     sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                     sudo percona-release enable-only tools
-                    sudo yum install -y percona-xtrabackup-80 jq | true
+                    sudo yum install -y percona-xtrabackup-80 | true
 
                     if [ ! -d $HOME/google-cloud-sdk/bin ]; then
                         rm -rf $HOME/google-cloud-sdk
@@ -303,7 +314,9 @@ pipeline {
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
 
                     sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
                     sudo chmod +x /usr/local/bin/yq
+                    sudo chmod +x /usr/local/bin/jq
                 '''
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
                     sh '''
@@ -463,9 +476,8 @@ pipeline {
         always {
             script {
                 echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-                setTestsResults()
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS' && currentBuild.nextBuild == null) {
 
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS' && currentBuild.nextBuild == null) {
                     try {
                         slackSend channel: "@${AUTHOR_NAME}", color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
@@ -473,6 +485,7 @@ pipeline {
                         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL} owner: @${AUTHOR_NAME}"
                     }
                 }
+
                 if (env.CHANGE_URL && currentBuild.nextBuild == null) {
                     for (comment in pullRequest.comments) {
                         println("Author: ${comment.user}, Comment: ${comment.body}")
@@ -482,6 +495,12 @@ pipeline {
                         }
                     }
                     makeReport()
+                    sh """
+                        echo "${TestsReportXML}" > TestsReport.xml
+                    """
+                    step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+                    archiveArtifacts '*.xml'
+
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     TestsReport = TestsReport + "\r\n\r\ncommit: ${env.CHANGE_URL}/commits/${env.GIT_COMMIT}\r\nimage: `${IMAGE}`\r\n"

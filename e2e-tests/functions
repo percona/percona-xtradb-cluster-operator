@@ -17,7 +17,7 @@ SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
 IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO:-"perconalab/pmm-server"}
 IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG:-"dev-latest"}
-CERT_MANAGER_VER="1.8.0"
+CERT_MANAGER_VER="1.12.1"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
 date=$(which gdate || which date)
@@ -509,7 +509,7 @@ run_mysql_local() {
 	local container_name="$4"
 	set +o xtrace
 	kubectl_bin exec $pod ${container_name:+-c $container_name} -- \
-		bash -c "printf '$command\n' | mysql -sN $uri" 2>&1 \
+		bash -c "printf \"$command\n\" | mysql -sN $uri" 2>&1 \
 		| sed -e 's/mysql: //' \
 		| (egrep -v 'Using a password on the command line interface can be insecure.|Defaulted container|Defaulting container name|see all of the containers in this pod' || :)
 	set_debug
@@ -562,11 +562,11 @@ compare_mysql_cmd_local() {
 get_proxy_primary() {
 	local uri="$1"
 	local pod="$2"
-	local ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod" 'proxysql')
+	local ip=$(run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status='ONLINE';" "$uri" "$pod" 'proxysql')
 
 	while [ $(echo "$ip" | wc -l) != 1 ]; do
 		sleep 1
-		ip=$(run_mysql_local 'SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status="ONLINE";' "$uri" "$pod" 'proxysql')
+		ip=$(run_mysql_local "SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id=11 AND status='ONLINE';" "$uri" "$pod" 'proxysql')
 	done
 
 	echo $ip | cut -d'.' -f1

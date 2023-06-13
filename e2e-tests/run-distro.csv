@@ -6,6 +6,7 @@ init-deploy
 monitoring-2-0
 one-pod
 pitr
+pitr-gap-errors
 proxy-protocol
 recreate
 restore-to-encrypted-cluster

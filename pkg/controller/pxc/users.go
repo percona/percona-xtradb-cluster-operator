@@ -20,6 +20,7 @@ import (
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
@@ -992,8 +993,32 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		} else if err != nil {
 			return errors.Wrap(err, "get proxysql pod")
 		}
+
 		var errb, outb bytes.Buffer
 		if cr.Spec.ProxySQL.PXCHandler == "scheduler" {
+			var db queries.Database
+			var hasLock bool
+
+			if !isPodReady(pod) {
+				continue
+			}
+
+			host := fmt.Sprintf("%s.%s.%s.svc", pod.Name, cr.Name+"-proxysql-unready", cr.Namespace)
+			db, err = queries.New(r.client, cr.Namespace, cr.Spec.SecretsName, users.ProxyAdmin, host, int32(6032), cr.Spec.ProxySQL.ReadinessProbes.TimeoutSeconds)
+			if err != nil {
+				return errors.Wrapf(err, "connect to %s", pod.Name)
+			}
+
+			hasLock, err = db.ProxySQLServerHasLock(host)
+			if err != nil {
+				return errors.Wrap(err, "check if proxysql server has lock")
+			}
+
+			if !hasLock {
+				continue
+			}
+
+			log.V(1).Info("Syncing users", "pod", pod.Name)
 			err = r.clientcmd.Exec(&pod, "proxysql", []string{"percona-scheduler-admin", "--config-file=/etc/config.toml", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)
 		} else {
 			err = r.clientcmd.Exec(&pod, "proxysql", []string{"proxysql-admin", "--syncusers", "--add-query-rule"}, nil, &outb, &errb, false)

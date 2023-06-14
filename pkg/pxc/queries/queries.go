@@ -392,3 +392,20 @@ func (p *Database) Version() (string, error) {
 func (p *Database) Close() error {
 	return p.db.Close()
 }
+
+func (p *Database) ProxySQLServerHasLock(host string) (bool, error) {
+	var comment string
+	err := p.db.QueryRow("SELECT comment FROM proxysql_servers WHERE hostname LIKE ?", host+"%").Scan(&comment)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	if len(comment) > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}

@@ -46,6 +46,7 @@ func (vs VersionServiceClient) GetExactVersion(cr *api.PerconaXtraDBCluster, end
 		ProxysqlVersion:     &vm.ProxySQLVersion,
 		Context:             nil,
 		ClusterWideEnabled:  &vm.ClusterWideEnabled,
+		ProxysqlScheduler:   &vm.ProxySQLScheduler,
 		HTTPClient:          &http.Client{Timeout: 10 * time.Second},
 	}
 	applyParams = applyParams.WithTimeout(10 * time.Second)
@@ -162,4 +163,5 @@ type versionMeta struct {
 	LogCollectorVersion string
 	CRUID               string
 	ClusterWideEnabled  bool
+	ProxySQLScheduler   string
 }

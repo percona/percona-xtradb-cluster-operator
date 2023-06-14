@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   annotations: {}
-  generation: 3
+  generation: 1
   name: some-name-proxysql
   ownerReferences:
     - controller: true
@@ -62,8 +62,6 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-some-name
-            - name: PXC_HANDLER
-              value: internal
           envFrom:
             - secretRef:
                 name: some-name-env-vars-proxysql
@@ -117,8 +115,6 @@ spec:
                 secretKeyRef:
                   key: monitor
                   name: internal-some-name
-            - name: PXC_HANDLER
-              value: internal
           envFrom:
             - secretRef:
                 name: some-name-env-vars-proxysql

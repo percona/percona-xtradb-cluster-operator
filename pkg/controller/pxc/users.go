@@ -995,7 +995,7 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 		}
 
 		var errb, outb bytes.Buffer
-		if cr.Spec.ProxySQL.PXCHandler == "scheduler" {
+		if cr.Spec.ProxySQL.PXCHandler == api.PXCHandlerScheduler {
 			var db queries.Database
 			var hasLock bool
 

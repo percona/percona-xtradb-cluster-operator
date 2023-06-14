@@ -448,6 +448,13 @@ type ProxySQLSpec struct {
 	PXCHandler string `json:"pxchandler,omitempty"`
 }
 
+const (
+	// ProxySQL's internal PXC handler
+	PXCHandlerInternal = "internal"
+	// Percona's scheduler
+	PXCHandlerScheduler = "scheduler"
+)
+
 type PodDisruptionBudgetSpec struct {
 	MinAvailable   *intstr.IntOrString `json:"minAvailable,omitempty"`
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
@@ -820,7 +827,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		if cr.CompareVersionWith("1.13.0") >= 0 && len(c.ProxySQL.PXCHandler) == 0 {
-			c.ProxySQL.PXCHandler = "internal"
+			c.ProxySQL.PXCHandler = PXCHandlerInternal
 		}
 
 		c.ProxySQL.VolumeSpec.reconcileOpts()

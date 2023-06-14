@@ -253,7 +253,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			Name:  "PXC_HANDLER",
 			Value: cr.Spec.ProxySQL.PXCHandler,
 		})
-		if cr.Spec.ProxySQL.PXCHandler == "scheduler" {
+		if cr.Spec.ProxySQL.PXCHandler == api.PXCHandlerScheduler {
 			volMounts := []corev1.VolumeMount{
 				{
 					Name:      "ssl",

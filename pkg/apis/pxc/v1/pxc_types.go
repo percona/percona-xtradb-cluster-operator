@@ -819,7 +819,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			c.ProxySQL.ImagePullPolicy = corev1.PullAlways
 		}
 
-		if cr.CompareVersionWith("1.12.0") >= 0 && len(c.ProxySQL.PXCHandler) == 0 {
+		if cr.CompareVersionWith("1.13.0") >= 0 && len(c.ProxySQL.PXCHandler) == 0 {
 			c.ProxySQL.PXCHandler = "internal"
 		}
 

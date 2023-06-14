@@ -147,7 +147,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		}
 	}
 
-	if cr.CompareVersionWith("1.12.0") >= 0 {
+	if cr.CompareVersionWith("1.13.0") >= 0 {
 		appc.Env = append(appc.Env, corev1.EnvVar{
 			Name:  "PXC_HANDLER",
 			Value: cr.Spec.ProxySQL.PXCHandler,
@@ -244,7 +244,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		},
 	}
 
-	if cr.CompareVersionWith("1.12.0") >= 0 {
+	if cr.CompareVersionWith("1.13.0") >= 0 {
 		pxcMonit.Env = append(pxcMonit.Env, corev1.EnvVar{
 			Name:  "PXC_HANDLER",
 			Value: cr.Spec.ProxySQL.PXCHandler,

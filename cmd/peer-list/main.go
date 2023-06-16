@@ -138,12 +138,14 @@ func main() {
 		script = *onChange
 		log.Printf("No on-start supplied, on-change %v will be applied on start.", script)
 	}
+	newPeers := sets.NewString()
+	var err error
 	for peers := sets.NewString(); script != ""; time.Sleep(pollPeriod) {
-		newPeers, err := lookup(*svc)
+		newPeers, err = lookup(*svc)
 		if err != nil {
 			log.Printf("%v", err)
 
-			if lerr, ok := err.(*net.DNSError); ok && (lerr.IsNotFound || lerr.IsTimeout) {
+			if lerr, ok := err.(*net.DNSError); ok && lerr.IsNotFound {
 				// Service not resolved - no endpoints, so reset peers list
 				peers = sets.NewString()
 				continue

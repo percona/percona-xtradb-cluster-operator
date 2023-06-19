@@ -250,6 +250,8 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if sourceID == "" {
 		log.Println("No binlogs to upload")
 		return nil
+	} else {
+		log.Println("SourceID is:", sourceID)
 	}
 
 	c.lastSet, err = c.lastGTIDSet(ctx, sourceID)
@@ -263,6 +265,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		for i := len(list) - 1; i >= 0; i-- {
 			if list[i].GTIDSet == c.lastSet {
 				lastUploadedBinlogName = list[i].Name
+				log.Println("Last UploadedBinlogName is:", lastUploadedBinlogName)
 				break
 			}
 		}

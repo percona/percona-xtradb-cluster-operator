@@ -22,9 +22,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -45,8 +47,14 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 		return nil, fmt.Errorf("get version: %v", err)
 	}
 
+	cli, err := clientcmd.NewClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "create clientcmd")
+	}
+
 	return &ReconcilePerconaXtraDBClusterRestore{
 		client:        mgr.GetClient(),
+		clientcmd:     cli,
 		scheme:        mgr.GetScheme(),
 		serverVersion: sv,
 	}, nil
@@ -66,8 +74,9 @@ var _ reconcile.Reconciler = &ReconcilePerconaXtraDBClusterRestore{}
 type ReconcilePerconaXtraDBClusterRestore struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client    client.Client
+	clientcmd *clientcmd.Client
+	scheme    *runtime.Scheme
 
 	serverVersion *version.ServerVersion
 }
@@ -138,19 +147,6 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	if err != nil {
 		return rr, err
 	}
-	bcp, err := r.getBackup(cr)
-	if err != nil {
-		return rr, errors.Wrap(err, "get backup")
-	}
-
-	annotations := cr.GetAnnotations()
-	_, unsafePITR := annotations[api.AnnotationUnsafePITR]
-	cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
-	if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
-		msg := fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
-		err = errors.New(msg)
-		return reconcile.Result{}, nil
-	}
 
 	cluster := new(api.PerconaXtraDBCluster)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.PXCCluster, Namespace: cr.Namespace}, cluster)
@@ -163,6 +159,25 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("wrong PXC options: %v", err)
+	}
+
+	err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, cluster)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	bcp, err := r.getBackup(cr)
+	if err != nil {
+		return rr, errors.Wrap(err, "get backup")
+	}
+
+	annotations := cr.GetAnnotations()
+	_, unsafePITR := annotations[api.AnnotationUnsafePITR]
+	cond := meta.FindStatusCondition(bcp.Status.Conditions, api.BackupConditionPITRReady)
+	if cond != nil && cond.Status == metav1.ConditionFalse && !unsafePITR {
+		msg := fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
+		err = errors.New(msg)
+		return reconcile.Result{}, nil
 	}
 
 	log.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)

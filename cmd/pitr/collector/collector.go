@@ -118,9 +118,9 @@ func (c *Collector) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collector) lastGTIDSet(ctx context.Context, sourceID string) (string, error) {
+func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (string, error) {
 	// get last binlog set stored on S3
-	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+sourceID)
+	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+suffix)
 	if err != nil {
 		if bloberror.HasCode(errors.Cause(err), bloberror.BlobNotFound) {
 			return "", nil
@@ -242,28 +242,40 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get GTID sets")
 	}
-	var sourceID string
-	for i := len(list) - 1; i >= 0 && sourceID == ""; i-- {
-		sourceID = strings.Split(list[i].GTIDSet, ":")[0]
+	var gtidSetList []string
+	for i := len(list) - 1; i >= 0 && len(gtidSetList) == 0; i-- {
+		gtidSetList = strings.Split(list[i].GTIDSet, ",")
 	}
 
-	if sourceID == "" {
+	if len(gtidSetList) == 0 {
 		log.Println("No binlogs to upload")
 		return nil
 	}
 
-	c.lastSet, err = c.lastGTIDSet(ctx, sourceID)
-	if err != nil {
-		return errors.Wrap(err, "get last uploaded gtid set")
+	for _, gtidSet := range gtidSetList {
+		sourceID := strings.Split(gtidSet, ":")[0]
+		c.lastSet, err = c.lastGTIDSet(ctx, sourceID)
+		if err != nil {
+			return errors.Wrap(err, "get last uploaded gtid set")
+		}
+		if c.lastSet != "" {
+			break
+		}
 	}
 
 	lastUploadedBinlogName := ""
 
 	if c.lastSet != "" {
-		for i := len(list) - 1; i >= 0; i-- {
-			if list[i].GTIDSet == c.lastSet {
-				lastUploadedBinlogName = list[i].Name
-				break
+		for i := len(list) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
+			for _, gtidSet := range gtidSetList {
+				isSubset, err := c.db.GTIDSubset(ctx, gtidSet, list[i].GTIDSet)
+				if err != nil {
+					return errors.Wrap(err, "check if gtid set is subset")
+				}
+				if isSubset {
+					lastUploadedBinlogName = list[i].Name
+					break
+				}
 			}
 		}
 

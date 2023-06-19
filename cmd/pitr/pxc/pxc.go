@@ -129,6 +129,16 @@ func (p *PXC) GetBinLogNamesList(ctx context.Context) ([]string, error) {
 	return binlogs, nil
 }
 
+func (p *PXC) GTIDSubset(ctx context.Context, set1, set2 string) (bool, error) {
+	row := p.db.QueryRowContext(ctx, "GTID_SUBSET(?,?)", set1, set2)
+	var result int
+	if err := row.Scan(&result); err != nil {
+		return false, errors.Wrap(err, "scan result")
+	}
+
+	return result == 1, nil
+}
+
 // GetBinLogFirstTimestamp return binary log file first timestamp
 func (p *PXC) GetBinLogFirstTimestamp(ctx context.Context, binlog string) (string, error) {
 	var existFunc string

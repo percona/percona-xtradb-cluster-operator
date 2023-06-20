@@ -130,7 +130,7 @@ func (p *PXC) GetBinLogNamesList(ctx context.Context) ([]string, error) {
 }
 
 func (p *PXC) GTIDSubset(ctx context.Context, set1, set2 string) (bool, error) {
-	row := p.db.QueryRowContext(ctx, "GTID_SUBSET(?,?)", set1, set2)
+	row := p.db.QueryRowContext(ctx, "SELECT GTID_SUBSET(?,?)", set1, set2)
 	var result int
 	if err := row.Scan(&result); err != nil {
 		return false, errors.Wrap(err, "scan result")

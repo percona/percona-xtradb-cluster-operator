@@ -242,17 +242,20 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get GTID sets")
 	}
-	var gtidSetList []string
-	for i := len(list) - 1; i >= 0 && len(gtidSetList) == 0; i-- {
-		gtidSetList = strings.Split(list[i].GTIDSet, ",")
+	var lastGTIDSetList []string
+	for i := len(list) - 1; i >= 0 && len(lastGTIDSetList) == 0; i-- {
+		if list[i].GTIDSet == "" {
+			continue
+		}
+		lastGTIDSetList = strings.Split(list[i].GTIDSet, ",")
 	}
 
-	if len(gtidSetList) == 0 {
+	if len(lastGTIDSetList) == 0 {
 		log.Println("No binlogs to upload")
 		return nil
 	}
 
-	for _, gtidSet := range gtidSetList {
+	for _, gtidSet := range lastGTIDSetList {
 		sourceID := strings.Split(gtidSet, ":")[0]
 		c.lastSet, err = c.lastGTIDSet(ctx, sourceID)
 		if err != nil {
@@ -267,8 +270,13 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 
 	if c.lastSet != "" {
 		for i := len(list) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
+			if list[i].GTIDSet == "" {
+				continue
+			}
+			gtidSetList := strings.Split(list[i].GTIDSet, ",")
+
 			for _, gtidSet := range gtidSetList {
-				isSubset, err := c.db.GTIDSubset(ctx, gtidSet, list[i].GTIDSet)
+				isSubset, err := c.db.GTIDSubset(ctx, gtidSet, c.lastSet)
 				if err != nil {
 					return errors.Wrap(err, "check if gtid set is subset")
 				}

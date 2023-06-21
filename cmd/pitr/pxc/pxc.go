@@ -82,7 +82,32 @@ type Binlog struct {
 	Name      string
 	Size      int64
 	Encrypted string
-	GTIDSet   string
+	GTIDSet   GTIDSet
+}
+
+type GTIDSet struct {
+	gtidSet string
+}
+
+func NewGTIDSet(gtidSet string) GTIDSet {
+	return GTIDSet{gtidSet: gtidSet}
+}
+
+func (s *GTIDSet) IsEmpty() bool {
+	return len(s.gtidSet) == 0
+}
+
+func (s *GTIDSet) Raw() string {
+	return s.gtidSet
+}
+
+func (s *GTIDSet) List() []string {
+	if len(s.gtidSet) == 0 {
+		return nil
+	}
+	list := strings.Split(s.gtidSet, ",")
+	sort.Strings(list)
+	return list
 }
 
 // GetBinLogList return binary log files list

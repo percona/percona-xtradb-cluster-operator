@@ -276,7 +276,7 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 			gtidSetList := strings.Split(list[i].GTIDSet, ",")
 
 			for _, gtidSet := range gtidSetList {
-				isSubset, err := c.db.GTIDSubset(ctx, gtidSet, c.lastSet)
+				isSubset, err := c.db.GTIDSubset(ctx, c.lastSet, gtidSet)
 				if err != nil {
 					return errors.Wrap(err, "check if gtid set is subset")
 				}

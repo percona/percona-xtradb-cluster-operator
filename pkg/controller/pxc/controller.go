@@ -36,6 +36,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/config"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -419,7 +420,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-	err = r.checkPITRErrors(context.TODO(), o)
+	err = backup.CheckPITRErrors(ctx, r.client, r.clientcmd, o)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

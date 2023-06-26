@@ -37,7 +37,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 	backupNamePrefix := backupJobClusterPrefix(cr.Name)
 
 	if cr.Spec.Backup != nil {
-		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause {
+		restoreRunning, err := r.isRestoreRunning(cr.Name, cr.Namespace)
+		if err != nil {
+			return errors.Wrap(err, "failed to check if restore is running")
+		}
+		if cr.Status.Status == api.AppStateReady && cr.Spec.Backup.PITR.Enabled && !cr.Spec.Pause && !restoreRunning {
 			binlogCollector, err := deployment.GetBinlogCollectorDeployment(cr)
 			if err != nil {
 				return errors.Errorf("get binlog collector deployment for cluster '%s': %v", cr.Name, err)
@@ -59,7 +63,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 			}
 		}
 
-		if !cr.Spec.Backup.PITR.Enabled || cr.Spec.Pause {
+		if !cr.Spec.Backup.PITR.Enabled || cr.Spec.Pause || restoreRunning {
 			err := r.deletePITR(cr)
 			if err != nil {
 				return errors.Wrap(err, "delete pitr")

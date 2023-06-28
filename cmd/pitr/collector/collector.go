@@ -272,8 +272,19 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if !c.lastUploadedSet.IsEmpty() {
 		for i := len(list) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
 			for _, gtidSet := range list[i].GTIDSet.List() {
+				if lastUploadedBinlogName != "" {
+					break
+				}
 				for _, lastUploaded := range c.lastUploadedSet.List() {
 					isSubset, err := c.db.GTIDSubset(ctx, lastUploaded, gtidSet)
+					if err != nil {
+						return errors.Wrap(err, "check if gtid set is subset")
+					}
+					if isSubset {
+						lastUploadedBinlogName = list[i].Name
+						break
+					}
+					isSubset, err = c.db.GTIDSubset(ctx, gtidSet, lastUploaded)
 					if err != nil {
 						return errors.Wrap(err, "check if gtid set is subset")
 					}

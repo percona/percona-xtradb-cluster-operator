@@ -82,7 +82,32 @@ type Binlog struct {
 	Name      string
 	Size      int64
 	Encrypted string
-	GTIDSet   string
+	GTIDSet   GTIDSet
+}
+
+type GTIDSet struct {
+	gtidSet string
+}
+
+func NewGTIDSet(gtidSet string) GTIDSet {
+	return GTIDSet{gtidSet: gtidSet}
+}
+
+func (s *GTIDSet) IsEmpty() bool {
+	return len(s.gtidSet) == 0
+}
+
+func (s *GTIDSet) Raw() string {
+	return s.gtidSet
+}
+
+func (s *GTIDSet) List() []string {
+	if len(s.gtidSet) == 0 {
+		return nil
+	}
+	list := strings.Split(s.gtidSet, ",")
+	sort.Strings(list)
+	return list
 }
 
 // GetBinLogList return binary log files list
@@ -127,6 +152,16 @@ func (p *PXC) GetBinLogNamesList(ctx context.Context) ([]string, error) {
 	}
 
 	return binlogs, nil
+}
+
+func (p *PXC) GTIDSubset(ctx context.Context, set1, set2 string) (bool, error) {
+	row := p.db.QueryRowContext(ctx, "SELECT GTID_SUBSET(?,?)", set1, set2)
+	var result int
+	if err := row.Scan(&result); err != nil {
+		return false, errors.Wrap(err, "scan result")
+	}
+
+	return result == 1, nil
 }
 
 // GetBinLogFirstTimestamp return binary log file first timestamp

@@ -251,6 +251,8 @@ wait_backup() {
 wait_backup_restore() {
 	local backup_name=$1
 	local status=${2:-'Succeeded'}
+	local wait_time=${3:-720}
+
 	desc "wait backup restore"
 	set +o xtrace
 	retry=0
@@ -259,7 +261,7 @@ wait_backup_restore() {
 		sleep 1
 		echo -n .
 		let retry+=1
-		if [ $retry -ge 720 ]; then
+		if [ $retry -ge $wait_time ]; then
 			kubectl_bin logs ${OPERATOR_NS:+-n $OPERATOR_NS} $(get_operator_pod)
 			echo max retry count $retry reached. something went wrong with operator or kubernetes cluster
 			exit 1

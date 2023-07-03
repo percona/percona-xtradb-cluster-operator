@@ -134,13 +134,28 @@ main() {
 
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-gtid" "on-pitr-minio" "select-2" "" "" "$gtid"
 	desc "done gtid type"
+	sleep 60
+	if [[ $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.conditions}' | grep -c 'Binlog with GTID set') -eq 1 ]]; then
+		echo "Binlog gap detected"
+		exit 1
+	fi
 
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio-time" "on-pitr-minio" "select-3" "$time_now" "" ""
 	desc "done date type"
+	sleep 60
+	if [[ $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.conditions}' | grep -c 'Binlog with GTID set') -eq 1 ]]; then
+		echo "Binlog gap detected"
+		exit 1
+	fi
 
 	dest=$(sed 's,/,\\/,g' <<<$(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.destination}'))
 	run_recovery_check_pitr "$cluster" "restore-on-pitr-minio" "on-pitr-minio" "select-4" "" "$dest" ""
 	desc "done latest type"
+	sleep 60
+	if [[ $(kubectl get pxc-backup on-pitr-minio -o jsonpath='{.status.conditions}' | grep -c 'Binlog with GTID set') -eq 1 ]]; then
+		echo "Binlog gap detected"
+		exit 1
+	fi
 
 	destroy $namespace
 	desc "test passed"

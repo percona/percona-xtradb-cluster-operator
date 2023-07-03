@@ -23,12 +23,12 @@ import (
 )
 
 type Collector struct {
-	db             *pxc.PXC
-	storage        storage.Storage
-	lastSet        string // last uploaded binary logs set
-	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
-	pxcUser        string // user for connection to PXC
-	pxcPass        string // password for connection to PXC
+	db              *pxc.PXC
+	storage         storage.Storage
+	lastUploadedSet pxc.GTIDSet // last uploaded binary logs set
+	pxcServiceName  string      // k8s service name for PXC, its for get correct host for connection
+	pxcUser         string      // user for connection to PXC
+	pxcPass         string      // password for connection to PXC
 }
 
 type Config struct {
@@ -108,7 +108,7 @@ func (c *Collector) Run(ctx context.Context) error {
 
 	// remove last set because we always
 	// read it from aws file
-	c.lastSet = ""
+	c.lastUploadedSet = pxc.NewGTIDSet("")
 
 	err = c.CollectBinLogs(ctx)
 	if err != nil {
@@ -118,20 +118,20 @@ func (c *Collector) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collector) lastGTIDSet(ctx context.Context, sourceID string) (string, error) {
+func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet, error) {
 	// get last binlog set stored on S3
-	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+sourceID)
+	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+suffix)
 	if err != nil {
 		if bloberror.HasCode(errors.Cause(err), bloberror.BlobNotFound) {
-			return "", nil
+			return pxc.GTIDSet{}, nil
 		}
-		return "", errors.Wrap(err, "get last set content")
+		return pxc.GTIDSet{}, errors.Wrap(err, "get last set content")
 	}
 	lastSet, err := io.ReadAll(lastSetObject)
 	if err != nil && minio.ToErrorResponse(errors.Cause(err)).Code != "NoSuchKey" {
-		return "", errors.Wrap(err, "read last gtid set")
+		return pxc.GTIDSet{}, errors.Wrap(err, "read last gtid set")
 	}
-	return string(lastSet), nil
+	return pxc.NewGTIDSet(string(lastSet)), nil
 }
 
 func (c *Collector) newDB(ctx context.Context) error {
@@ -167,7 +167,7 @@ func (c *Collector) close() error {
 func (c *Collector) removeEmptyBinlogs(ctx context.Context, logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	result := make([]pxc.Binlog, 0)
 	for _, v := range logs {
-		if v.GTIDSet != "" {
+		if !v.GTIDSet.IsEmpty() {
 			result = append(result, v)
 		}
 	}
@@ -196,21 +196,21 @@ func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBi
 	}
 	// we don't need to reupload last file
 	// if gtid set is not changed
-	if set == c.lastSet {
+	if set == c.lastUploadedSet.Raw() {
 		startIndex++
 	}
 
 	return c.removeEmptyBinlogs(ctx, logs[startIndex:])
 }
 
-func createGapFile(gtidSet string) error {
+func createGapFile(gtidSet pxc.GTIDSet) error {
 	p := "/tmp/gap-detected"
 	f, err := os.Create(p)
 	if err != nil {
 		return errors.Wrapf(err, "create %s", p)
 	}
 
-	_, err = f.WriteString(gtidSet)
+	_, err = f.WriteString(gtidSet.Raw())
 	if err != nil {
 		return errors.Wrapf(err, "write GTID set to %s", p)
 	}
@@ -228,7 +228,7 @@ func (c *Collector) addGTIDSets(ctx context.Context, logs []pxc.Binlog) error {
 			}
 			return errors.Wrap(err, "get GTID set")
 		}
-		logs[i].GTIDSet = set
+		logs[i].GTIDSet = pxc.NewGTIDSet(set)
 	}
 	return nil
 }
@@ -242,35 +242,64 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get GTID sets")
 	}
-	var sourceID string
-	for i := len(list) - 1; i >= 0 && sourceID == ""; i-- {
-		sourceID = strings.Split(list[i].GTIDSet, ":")[0]
+	var lastGTIDSetList []string
+	for i := len(list) - 1; i >= 0 && len(lastGTIDSetList) == 0; i-- {
+		gtidSetList := list[i].GTIDSet.List()
+		if gtidSetList == nil {
+			continue
+		}
+		lastGTIDSetList = gtidSetList
 	}
 
-	if sourceID == "" {
+	if len(lastGTIDSetList) == 0 {
 		log.Println("No binlogs to upload")
 		return nil
 	}
 
-	c.lastSet, err = c.lastGTIDSet(ctx, sourceID)
-	if err != nil {
-		return errors.Wrap(err, "get last uploaded gtid set")
+	for _, gtidSet := range lastGTIDSetList {
+		sourceID := strings.Split(gtidSet, ":")[0]
+		c.lastUploadedSet, err = c.lastGTIDSet(ctx, sourceID)
+		if err != nil {
+			return errors.Wrap(err, "get last uploaded gtid set")
+		}
+		if !c.lastUploadedSet.IsEmpty() {
+			break
+		}
 	}
 
 	lastUploadedBinlogName := ""
 
-	if c.lastSet != "" {
-		for i := len(list) - 1; i >= 0; i-- {
-			if list[i].GTIDSet == c.lastSet {
-				lastUploadedBinlogName = list[i].Name
-				break
+	if !c.lastUploadedSet.IsEmpty() {
+		for i := len(list) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
+			for _, gtidSet := range list[i].GTIDSet.List() {
+				if lastUploadedBinlogName != "" {
+					break
+				}
+				for _, lastUploaded := range c.lastUploadedSet.List() {
+					isSubset, err := c.db.GTIDSubset(ctx, lastUploaded, gtidSet)
+					if err != nil {
+						return errors.Wrap(err, "check if gtid set is subset")
+					}
+					if isSubset {
+						lastUploadedBinlogName = list[i].Name
+						break
+					}
+					isSubset, err = c.db.GTIDSubset(ctx, gtidSet, lastUploaded)
+					if err != nil {
+						return errors.Wrap(err, "check if gtid set is subset")
+					}
+					if isSubset {
+						lastUploadedBinlogName = list[i].Name
+						break
+					}
+				}
 			}
 		}
 
 		if lastUploadedBinlogName == "" {
-			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastSet)
+			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastUploadedSet.Raw())
 			log.Println("ERROR: Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
-			if err := createGapFile(c.lastSet); err != nil {
+			if err := createGapFile(c.lastUploadedSet); err != nil {
 				return errors.Wrap(err, "create gap file")
 			}
 		}
@@ -312,12 +341,12 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
 	}
 
-	binlogName := fmt.Sprintf("binlog_%s_%x", binlogTmstmp, md5.Sum([]byte(binlog.GTIDSet)))
+	binlogName := fmt.Sprintf("binlog_%s_%x", binlogTmstmp, md5.Sum([]byte(binlog.GTIDSet.Raw())))
 
 	var setBuffer bytes.Buffer
 	// no error handling because WriteString() always return nil error
 	// nolint:errcheck
-	setBuffer.WriteString(binlog.GTIDSet)
+	setBuffer.WriteString(binlog.GTIDSet.Raw())
 
 	tmpDir := os.TempDir() + "/"
 
@@ -383,15 +412,17 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
-	// no error handling because WriteString() always return nil error
-	// nolint:errcheck
-	setBuffer.WriteString(binlog.GTIDSet)
+	for _, gtidSet := range binlog.GTIDSet.List() {
+		// no error handling because WriteString() always return nil error
+		// nolint:errcheck
+		setBuffer.WriteString(binlog.GTIDSet.Raw())
 
-	err = c.storage.PutObject(ctx, lastSetFilePrefix+strings.Split(binlog.GTIDSet, ":")[0], &setBuffer, int64(setBuffer.Len()))
-	if err != nil {
-		return errors.Wrap(err, "put last-set object")
+		err = c.storage.PutObject(ctx, lastSetFilePrefix+strings.Split(gtidSet, ":")[0], &setBuffer, int64(setBuffer.Len()))
+		if err != nil {
+			return errors.Wrap(err, "put last-set object")
+		}
 	}
-	c.lastSet = binlog.GTIDSet
+	c.lastUploadedSet = binlog.GTIDSet
 
 	return nil
 }

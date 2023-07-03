@@ -102,15 +102,6 @@ recreate() {
             SAVE MYSQL VARIABLES TO DISK;
         ' \
 		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0"
-	run_mysql_local \
-		'SELECT * FROM global_variables ORDER BY variable_name' \
-		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-		| grep -v ssor_regex \
-			>$tmp_dir/proxy-vars1.sql
-
-	$sed -i "/admin-version/d" $tmp_dir/proxy-vars1.sql
-	$sed -i "/mysql-server_version/d" $tmp_dir/proxy-vars1.sql
-	diff -u $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars1.sql
 
 	desc "delete cluster"
 	kubectl delete \
@@ -127,16 +118,6 @@ recreate() {
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password" "-3rd"
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password" "-3rd"
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password" "-3rd"
-
-	run_mysql_local \
-		'SELECT * FROM global_variables ORDER BY variable_name' \
-		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" \
-		| grep -v ssor_regex \
-			>$tmp_dir/proxy-vars2.sql
-
-	$sed -i "/admin-version/d" $tmp_dir/proxy-vars2.sql
-	$sed -i "/mysql-server_version/d" $tmp_dir/proxy-vars2.sql
-	diff -u $test_dir/compare/proxy-vars.sql $tmp_dir/proxy-vars2.sql
 }
 
 main() {

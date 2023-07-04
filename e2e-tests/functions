@@ -442,8 +442,10 @@ compare_kubectl() {
 			del(.metadata.deletionTimestamp) |
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
-			del(.. | select(has("batch.kubernetes.io/controller-uid"))."batch.kubernetes.io/controller-uid") |
 			del(.metadata.annotations."cloud.google.com/neg") |
+			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
+			del(.metadata.annotations."k8s.ovn.org/pod-networks") |
+			del(.. | select(has("batch.kubernetes.io/controller-uid"))."batch.kubernetes.io/controller-uid") |
 			del(.spec.template.metadata.annotations."last-applied-secret") |
 			del(.. | select(has("image")).image) |
 			del(.. | select(has("clusterIP")).clusterIP) |
@@ -480,7 +482,6 @@ compare_kubectl() {
 			del(.. | select(has("kubernetes.io/hostname"))."kubernetes.io/hostname") |
 			(.. | select(tag == "!!str")) |= sub("'$namespace'", "namespace") |
 			(.. | select(tag == "!!str")) |= sub("kube-api-access-.*", "kube-api-access") |
-			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
 			del(.. | select(.[] == "percona-xtradb-cluster-operator-workload-token*"))' - >${new_result}
 
 	diff -u ${expected_result} ${new_result}

@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: cluster1-haproxy
   ownerReferences:
@@ -25,7 +24,6 @@ spec:
   serviceName: cluster1-haproxy
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: haproxy
         app.kubernetes.io/instance: cluster1

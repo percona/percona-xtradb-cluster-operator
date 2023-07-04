@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 2
   name: no-limits-proxysql
   ownerReferences:
@@ -25,7 +24,6 @@ spec:
   serviceName: no-limits-proxysql-unready
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: no-limits

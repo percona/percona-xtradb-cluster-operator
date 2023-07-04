@@ -445,6 +445,7 @@ compare_kubectl() {
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
 			del(.metadata.annotations."k8s.ovn.org/pod-networks") |
+			del(.. | select(has("annotations")).annotations | select(length==0)) |
 			del(.. | select(has("batch.kubernetes.io/controller-uid"))."batch.kubernetes.io/controller-uid") |
 			del(.spec.template.metadata.annotations."last-applied-secret") |
 			del(.. | select(has("image")).image) |

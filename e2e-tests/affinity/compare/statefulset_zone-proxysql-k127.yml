@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: zone-proxysql
   ownerReferences:
@@ -25,7 +24,6 @@ spec:
   serviceName: zone-proxysql-unready
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: zone

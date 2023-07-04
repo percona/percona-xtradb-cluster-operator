@@ -1,7 +1,6 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  annotations: {}
   generation: 1
   labels:
     backup-name: on-demand-backup-aws-s3

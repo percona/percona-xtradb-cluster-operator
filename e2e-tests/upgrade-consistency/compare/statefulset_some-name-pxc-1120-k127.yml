@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 3
   name: some-name-pxc
   ownerReferences:
@@ -25,7 +24,6 @@ spec:
   serviceName: some-name-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: some-name

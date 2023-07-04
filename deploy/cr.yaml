@@ -489,7 +489,7 @@ spec:
         memory: 150M
         cpu: 300m
   backup:
-#    allowParallel: false
+#    allowParallel: true
     image: percona/percona-xtradb-cluster-operator:1.13.0-pxc8.0.32-backup
 #    backoffLimit: 6
 #    serviceAccountName: percona-xtradb-cluster-operator

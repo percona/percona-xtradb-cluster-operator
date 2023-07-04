@@ -442,6 +442,7 @@ compare_kubectl() {
 			del(.metadata.deletionTimestamp) |
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
+			del(.. | select(has("batch.kubernetes.io/controller-uid"))."batch.kubernetes.io/controller-uid") |
 			del(.metadata.annotations."cloud.google.com/neg") |
 			del(.spec.template.metadata.annotations."last-applied-secret") |
 			del(.. | select(has("image")).image) |

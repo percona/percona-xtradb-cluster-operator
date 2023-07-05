@@ -3,12 +3,13 @@ kind: Job
 metadata:
   generation: 1
   labels:
-    job-name: restore-job-on-demand-backup-azure-demand-backup-cloud
-  name: restore-job-on-demand-backup-azure-demand-backup-cloud
+    batch.kubernetes.io/job-name: restore-job-on-demand-backup-minio-demand-backup
+    job-name: restore-job-on-demand-backup-minio-demand-backup
+  name: restore-job-on-demand-backup-minio-demand-backup
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBClusterRestore
-      name: on-demand-backup-azure
+      name: on-demand-backup-minio
 spec:
   backoffLimit: 4
   completionMode: NonIndexed
@@ -20,26 +21,29 @@ spec:
   template:
     metadata:
       labels:
-        job-name: restore-job-on-demand-backup-azure-demand-backup-cloud
+        batch.kubernetes.io/job-name: restore-job-on-demand-backup-minio-demand-backup
+        job-name: restore-job-on-demand-backup-minio-demand-backup
     spec:
       containers:
         - command:
             - recovery-cloud.sh
           env:
-            - name: AZURE_STORAGE_ACCOUNT
+            - name: ENDPOINT
+              value: https://minio-service.namespace:9000/
+            - name: DEFAULT_REGION
+              value: us-east-1
+            - name: ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
-                  key: AZURE_STORAGE_ACCOUNT_NAME
-                  name: azure-secret
-            - name: AZURE_ACCESS_KEY
+                  key: AWS_ACCESS_KEY_ID
+                  name: minio-secret
+            - name: SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  key: AZURE_STORAGE_ACCOUNT_KEY
-                  name: azure-secret
-            - name: AZURE_ENDPOINT
-            - name: AZURE_STORAGE_CLASS
+                  key: AWS_SECRET_ACCESS_KEY
+                  name: minio-secret
             - name: PXC_SERVICE
-              value: demand-backup-cloud-pxc
+              value: demand-backup-pxc
             - name: PXC_USER
               value: xtrabackup
             - name: PXC_PASS
@@ -48,12 +52,17 @@ spec:
                   key: xtrabackup
                   name: my-cluster-secrets
             - name: VERIFY_TLS
-              value: "true"
+              value: "false"
             - name: XB_USE_MEMORY
-              value: 100MB
+              value: "1500000000"
           imagePullPolicy: Always
           name: xtrabackup
-          resources: {}
+          resources:
+            limits:
+              cpu: "1"
+              memory: 2G
+            requests:
+              memory: 2G
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -74,7 +83,7 @@ spec:
       volumes:
         - name: datadir
           persistentVolumeClaim:
-            claimName: datadir-demand-backup-cloud-pxc-0
+            claimName: datadir-demand-backup-pxc-0
         - name: vault-keyring-secret
           secret:
             defaultMode: 420

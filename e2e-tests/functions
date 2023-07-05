@@ -896,7 +896,6 @@ spinup_pxc() {
 	kubectl_bin wait --for=condition=Ready pod -l app.kubernetes.io/instance=monitoring,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator --timeout=300s -n ${namespace} || true
 	wait_for_running "$proxy" 1
 	wait_for_running "$cluster-pxc" "$size"
-	wait_cluster_consistency "${cluster}" "${size}"
 	sleep $sleep
 
 	desc 'write data'

@@ -43,11 +43,7 @@ if [ -f "$conf_dir/cloud-secret.yml" ]; then
 fi
 
 if oc get projects 2>/dev/null; then
-	# Guessing Openshift version from master node API version
-	case "$(oc get nodes --no-headers=true | grep master | head -n1 | grep -Eo 'v[0-9]+\.[0-9]+')" in
-		"v1.11") OPENSHIFT=3.11 ;;
-		*) OPENSHIFT=4 ;;
-	esac
+	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
 fi
 
 if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then
@@ -639,6 +635,15 @@ deploy_cert_manager() {
 	kubectl_bin create namespace cert-manager || :
 	kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
 	kubectl_bin apply -f "https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml" --validate=false || : 2>/dev/null
+	if [ "$OPENSHIFT" == "4.10" ]; then
+		oc delete scc restricted-seccomp || true
+		oc get scc restricted -o yaml | yq eval '.metadata.name = "restricted-seccomp" |
+		.seccompProfiles[0] = "runtime/default"' \
+			| oc create -f -
+		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager
+		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager-cainjector
+		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager-webhook
+	fi
 	sleep 70
 }
 
@@ -891,6 +896,7 @@ spinup_pxc() {
 	kubectl_bin wait --for=condition=Ready pod -l app.kubernetes.io/instance=monitoring,app.kubernetes.io/managed-by=percona-xtradb-cluster-operator --timeout=300s -n ${namespace} || true
 	wait_for_running "$proxy" 1
 	wait_for_running "$cluster-pxc" "$size"
+	wait_cluster_consistency "${cluster}" "${size}"
 	sleep $sleep
 
 	desc 'write data'

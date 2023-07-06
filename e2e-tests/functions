@@ -44,6 +44,15 @@ fi
 
 if oc get projects 2>/dev/null; then
 	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
+	OPENSHIFT_NEED_SCC=("4.10" "4.11")
+
+	if [[ " ${OPENSHIFT_NEED_SCC[@]} " =~ " ${OPENSHIFT} " ]]; then
+		oc delete scc restricted-seccomp || true
+		oc get scc restricted -o yaml | yq eval '.metadata.name = "restricted-seccomp" |
+		.seccompProfiles[0] = "runtime/default"' \
+			| oc create -f -
+		oc adm policy add-scc-to-user restricted-seccomp -z default
+	fi
 fi
 
 if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then
@@ -413,9 +422,6 @@ compare_kubectl() {
 
 	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
 		expected_result=${expected_result//.yml/-oc.yml}
-		if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
-			expected_result=${expected_result//-oc.yml/-4-oc.yml}
-		fi
 	fi
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
@@ -635,15 +641,6 @@ deploy_cert_manager() {
 	kubectl_bin create namespace cert-manager || :
 	kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
 	kubectl_bin apply -f "https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml" --validate=false || : 2>/dev/null
-	if [ "$OPENSHIFT" == "4.10" ]; then
-		oc delete scc restricted-seccomp || true
-		oc get scc restricted -o yaml | yq eval '.metadata.name = "restricted-seccomp" |
-		.seccompProfiles[0] = "runtime/default"' \
-			| oc create -f -
-		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager
-		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager-cainjector
-		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager-webhook
-	fi
 	sleep 70
 }
 

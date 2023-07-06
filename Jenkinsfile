@@ -313,7 +313,7 @@ pipeline {
                     curl -s -L https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz \
                         | sudo tar -C /usr/local/bin --wildcards -zxvpf -
 
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 > /usr/local/bin/yq"
+                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
                     sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
                     sudo chmod +x /usr/local/bin/yq
                     sudo chmod +x /usr/local/bin/jq

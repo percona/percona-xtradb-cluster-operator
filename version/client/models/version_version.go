@@ -6,8 +6,6 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"context"
-
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -28,7 +26,7 @@ type VersionVersion struct {
 	ImagePath string `json:"imagePath,omitempty"`
 
 	// status
-	Status *VersionStatus `json:"status,omitempty"`
+	Status VersionStatus `json:"status,omitempty"`
 }
 
 // Validate validates this version version
@@ -46,49 +44,16 @@ func (m *VersionVersion) Validate(formats strfmt.Registry) error {
 }
 
 func (m *VersionVersion) validateStatus(formats strfmt.Registry) error {
+
 	if swag.IsZero(m.Status) { // not required
 		return nil
 	}
 
-	if m.Status != nil {
-		if err := m.Status.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("status")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("status")
-			}
-			return err
+	if err := m.Status.Validate(formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("status")
 		}
-	}
-
-	return nil
-}
-
-// ContextValidate validate this version version based on the context it is used
-func (m *VersionVersion) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
-	var res []error
-
-	if err := m.contextValidateStatus(ctx, formats); err != nil {
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (m *VersionVersion) contextValidateStatus(ctx context.Context, formats strfmt.Registry) error {
-
-	if m.Status != nil {
-		if err := m.Status.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("status")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
-				return ce.ValidateName("status")
-			}
-			return err
-		}
+		return err
 	}
 
 	return nil

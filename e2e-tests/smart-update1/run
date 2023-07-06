@@ -91,7 +91,7 @@ function main() {
 	yq -i eval ".spec.initImage = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}.yml"
 	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}.yml"
 
-	initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$(get_proxy ${CLUSTER})-0")
+	initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "${CLUSTER}")
 	kubectl_bin patch pxc/"${CLUSTER}" --type=merge -p '{"spec":{"pxc":{"image":"'"${TARGET_IMAGE_PXC}"'"}}}'
 	sleep 7 # wait for two reconcile loops ;)  3 sec x 2 times + 1 sec = 7 seconds
 

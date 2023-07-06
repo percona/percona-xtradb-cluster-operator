@@ -46,8 +46,7 @@ func NewVersionServiceProductOK() *VersionServiceProductOK {
 	return &VersionServiceProductOK{}
 }
 
-/*
-VersionServiceProductOK describes a response with status code 200, with default header values.
+/*VersionServiceProductOK handles this case with default header values.
 
 A successful response.
 */
@@ -58,6 +57,7 @@ type VersionServiceProductOK struct {
 func (o *VersionServiceProductOK) Error() string {
 	return fmt.Sprintf("[GET /versions/v1/{product}][%d] versionServiceProductOK  %+v", 200, o.Payload)
 }
+
 func (o *VersionServiceProductOK) GetPayload() *models.VersionProductResponse {
 	return o.Payload
 }
@@ -81,8 +81,7 @@ func NewVersionServiceProductDefault(code int) *VersionServiceProductDefault {
 	}
 }
 
-/*
-VersionServiceProductDefault describes a response with status code -1, with default header values.
+/*VersionServiceProductDefault handles this case with default header values.
 
 An unexpected error response
 */
@@ -100,6 +99,7 @@ func (o *VersionServiceProductDefault) Code() int {
 func (o *VersionServiceProductDefault) Error() string {
 	return fmt.Sprintf("[GET /versions/v1/{product}][%d] VersionService_Product default  %+v", o._statusCode, o.Payload)
 }
+
 func (o *VersionServiceProductDefault) GetPayload() *models.GooglerpcStatus {
 	return o.Payload
 }

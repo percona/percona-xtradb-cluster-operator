@@ -100,8 +100,11 @@ function main() {
 		echo 'Operator image has not been updated'
 		exit 1
 	fi
-	compare_generation "1" "${proxy}" "${CLUSTER}"
 
+	#we need to wait to make sure that sts will not be updated later
+	sleep 30
+
+	compare_generation "1" "${proxy}" "${CLUSTER}"
 	desc 'patch pxc images and upgrade'
 	kubectl_bin patch pxc "${CLUSTER}" --type=merge --patch '{
         "spec": {

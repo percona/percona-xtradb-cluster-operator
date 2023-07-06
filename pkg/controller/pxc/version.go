@@ -137,6 +137,11 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr
 		return errors.Wrap(err, "get WATCH_NAMESPACE env variable")
 	}
 
+	var scheduler string
+	if cr.Spec.ProxySQLEnabled() {
+		scheduler = cr.Spec.ProxySQL.PXCHandler
+	}
+
 	vm := versionMeta{
 		Apply:               cr.Spec.UpgradeOptions.Apply,
 		Platform:            string(cr.Spec.Platform),
@@ -149,6 +154,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr
 		LogCollectorVersion: cr.Status.LogCollector.Version,
 		CRUID:               string(cr.GetUID()),
 		ClusterWideEnabled:  watchNs == "",
+		ProxySQLScheduler:   scheduler,
 	}
 
 	if telemetryEnabled() && (!versionUpgradeEnabled(cr) || cr.Spec.UpgradeOptions.VersionServiceEndpoint != apiv1.GetDefaultVersionServiceEndpoint()) {

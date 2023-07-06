@@ -3597,6 +3597,19 @@ spec:
                               format: int32
                               type: integer
                           type: object
+                        resizePolicy:
+                          items:
+                            properties:
+                              resourceName:
+                                type: string
+                              restartPolicy:
+                                type: string
+                            required:
+                            - resourceName
+                            - restartPolicy
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         resources:
                           properties:
                             claims:
@@ -6216,6 +6229,19 @@ spec:
                               format: int32
                               type: integer
                           type: object
+                        resizePolicy:
+                          items:
+                            properties:
+                              resourceName:
+                                type: string
+                              restartPolicy:
+                                type: string
+                            required:
+                            - resourceName
+                            - restartPolicy
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         resources:
                           properties:
                             claims:
@@ -8653,6 +8679,19 @@ spec:
                               format: int32
                               type: integer
                           type: object
+                        resizePolicy:
+                          items:
+                            properties:
+                              resourceName:
+                                type: string
+                              restartPolicy:
+                                type: string
+                            required:
+                            - resourceName
+                            - restartPolicy
+                            type: object
+                          type: array
+                          x-kubernetes-list-type: atomic
                         resources:
                           properties:
                             claims:
@@ -9398,7 +9437,7 @@ spec:
           value: percona-xtradb-cluster-operator
         - name: DISABLE_TELEMETRY
           value: "false"
-        image: perconalab/percona-xtradb-cluster-operator:main
+        image: percona/percona-xtradb-cluster-operator:1.13.0
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

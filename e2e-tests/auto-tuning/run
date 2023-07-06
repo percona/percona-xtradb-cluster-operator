@@ -19,7 +19,7 @@ does_autotune_cm_exists() {
 }
 
 get_variable_from_cm() {
-	kubectl_bin get configmap auto-${cluster}-pxc -o yaml | grep -oP "$1 = \K[0-9]+"
+	kubectl_bin get configmap auto-${cluster}-pxc -o yaml | grep -oE "$1 = [0-9]+" | awk '{print $3}'
 }
 
 create_infra $namespace

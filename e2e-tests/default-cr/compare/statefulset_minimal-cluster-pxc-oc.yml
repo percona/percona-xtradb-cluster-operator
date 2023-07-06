@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: minimal-cluster-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: minimal-cluster-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: minimal-cluster

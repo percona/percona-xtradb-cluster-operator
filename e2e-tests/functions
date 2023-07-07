@@ -413,9 +413,6 @@ compare_kubectl() {
 
 	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
 		expected_result=${expected_result//.yml/-oc.yml}
-		if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
-			expected_result=${expected_result//-oc.yml/-4-oc.yml}
-		fi
 	fi
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
@@ -659,7 +656,7 @@ destroy() {
 			| grep -v 'get backup status: Job.batch' \
 			| $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
 			| sort -u \
-			| tee $tmp_dir/operator.log
+			| tee $tmp_dir/operator.log || :
 	fi
 	#TODO: maybe will be enabled later
 	#diff $test_dir/compare/operator.log $tmp_dir/operator.log
@@ -678,9 +675,6 @@ destroy() {
 		oc delete --grace-period=0 --force=true project "$namespace" &
 		if [ -n "$OPERATOR_NS" ]; then
 			oc delete --grace-period=0 --force=true project "$OPERATOR_NS" &
-			if [ "${OPENSHIFT}" == "3.11" ]; then
-				wait_for_delete "project/$OPERATOR_NS" # 3.11 Does not delete namespace immediately, let's wait at least 120 seconds till the next step
-			fi
 		fi
 	else
 		kubectl_bin delete --grace-period=0 --force=true namespace "$namespace" &

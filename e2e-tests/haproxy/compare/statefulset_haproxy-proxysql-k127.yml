@@ -1,59 +1,71 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
-  generation: 2
-  name: sec-context-proxysql
+  generation: 1
+  name: haproxy-proxysql
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: sec-context
+      name: haproxy
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 2
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       app.kubernetes.io/component: proxysql
-      app.kubernetes.io/instance: sec-context
+      app.kubernetes.io/instance: haproxy
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: sec-context-proxysql-unready
+  serviceName: haproxy-proxysql-unready
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
-        app.kubernetes.io/instance: sec-context
+        app.kubernetes.io/instance: haproxy
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: proxysql
+                  app.kubernetes.io/instance: haproxy
+                  app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+                  app.kubernetes.io/name: percona-xtradb-cluster
+                  app.kubernetes.io/part-of: percona-xtradb-cluster
+              topologyKey: kubernetes.io/hostname
       containers:
         - env:
             - name: PXC_SERVICE
-              value: sec-context-pxc
+              value: haproxy-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-sec-context
+                  name: internal-haproxy
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-sec-context
+                  name: internal-haproxy
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-sec-context
+                  name: internal-haproxy
           envFrom:
             - secretRef:
-                name: sec-context-env-vars-proxysql
+                name: haproxy-env-vars-proxysql
                 optional: true
           imagePullPolicy: Always
           name: proxysql
@@ -65,11 +77,12 @@ spec:
               name: proxyadm
               protocol: TCP
           resources:
+            limits:
+              cpu: 700m
+              memory: 1G
             requests:
               cpu: 100m
               memory: 100M
-          securityContext:
-            privileged: true
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
@@ -79,33 +92,35 @@ spec:
               name: ssl
             - mountPath: /etc/proxysql/ssl-internal
               name: ssl-internal
+            - mountPath: /etc/proxysql/
+              name: config
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_pxc_nodes.sh
             - -service=$(PXC_SERVICE)
           env:
             - name: PXC_SERVICE
-              value: sec-context-pxc
+              value: haproxy-pxc
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-sec-context
+                  name: internal-haproxy
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-sec-context
+                  name: internal-haproxy
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-sec-context
+                  name: internal-haproxy
           envFrom:
             - secretRef:
-                name: sec-context-env-vars-proxysql
+                name: haproxy-env-vars-proxysql
                 optional: true
           imagePullPolicy: Always
           name: pxc-monit
@@ -118,30 +133,50 @@ spec:
             - -service=$(PROXYSQL_SERVICE)
           env:
             - name: PROXYSQL_SERVICE
-              value: sec-context-proxysql-unready
+              value: haproxy-proxysql-unready
             - name: OPERATOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-sec-context
+                  name: internal-haproxy
             - name: PROXY_ADMIN_USER
               value: proxyadmin
             - name: PROXY_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: proxyadmin
-                  name: internal-sec-context
+                  name: internal-haproxy
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-sec-context
+                  name: internal-haproxy
           envFrom:
             - secretRef:
-                name: sec-context-env-vars-proxysql
+                name: haproxy-env-vars-proxysql
                 optional: true
           imagePullPolicy: Always
           name: proxysql-monit
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        - args:
+            - -c
+            - while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;
+          command:
+            - /bin/sh
+          imagePullPolicy: Always
+          name: my-sidecar-1
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        - args:
+            - -c
+            - while true; do trap 'exit 0' SIGINT SIGTERM SIGQUIT SIGKILL; done;
+          command:
+            - /bin/sh
+          imagePullPolicy: Always
+          name: my-sidecar-2
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
@@ -158,34 +193,37 @@ spec:
             requests:
               cpu: 100m
               memory: 100M
-          securityContext:
-            privileged: true
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:
             - mountPath: /var/lib/mysql
               name: bin
       restartPolicy: Always
+      runtimeClassName: docker-rc
       schedulerName: default-scheduler
       securityContext:
-        runAsGroup: 1001
-        runAsUser: 1001
+        fsGroup: 1001
         supplementalGroups:
           - 1001
-      serviceAccount: percona-xtradb-cluster-operator-workload
-      serviceAccountName: percona-xtradb-cluster-operator-workload
+      serviceAccount: default
+      serviceAccountName: default
       terminationGracePeriodSeconds: 30
       volumes:
         - name: ssl-internal
           secret:
             defaultMode: 420
             optional: true
-            secretName: some-name-ssl-internal
+            secretName: haproxy-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
             optional: false
-            secretName: some-name-ssl
+            secretName: haproxy-ssl
+        - configMap:
+            defaultMode: 420
+            name: haproxy-proxysql
+            optional: true
+          name: config
         - emptyDir: {}
           name: bin
   updateStrategy:
@@ -200,6 +238,6 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 6Gi
+            storage: 2Gi
       status:
         phase: Pending

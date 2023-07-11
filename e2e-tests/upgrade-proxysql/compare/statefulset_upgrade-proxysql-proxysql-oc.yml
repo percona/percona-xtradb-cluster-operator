@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 2
   name: upgrade-proxysql-proxysql
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: upgrade-proxysql-proxysql-unready
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: upgrade-proxysql

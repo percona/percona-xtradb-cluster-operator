@@ -1,7 +1,6 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  annotations: {}
   generation: 1
   labels:
     job-name: restore-job-restore-s3-sec-context

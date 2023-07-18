@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 2
   name: no-requests-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: no-requests-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: no-requests
@@ -64,6 +62,8 @@ spec:
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: mysql_native_password
           envFrom:
             - secretRef:
                 name: no-requests-env-vars-pxc

@@ -114,6 +114,7 @@ const (
 )
 
 type PXCScheduledBackup struct {
+	AllowParallel      *bool                         `json:"allowParallel,omitempty"`
 	Image              string                        `json:"image,omitempty"`
 	ImagePullSecrets   []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	ImagePullPolicy    corev1.PullPolicy             `json:"imagePullPolicy,omitempty"`
@@ -123,6 +124,13 @@ type PXCScheduledBackup struct {
 	Annotations        map[string]string             `json:"annotations,omitempty"`
 	PITR               PITRSpec                      `json:"pitr,omitempty"`
 	BackoffLimit       *int32                        `json:"backoffLimit,omitempty"`
+}
+
+func (b *PXCScheduledBackup) GetAllowParallel() bool {
+	if b.AllowParallel == nil {
+		return true
+	}
+	return *b.AllowParallel
 }
 
 type PITRSpec struct {

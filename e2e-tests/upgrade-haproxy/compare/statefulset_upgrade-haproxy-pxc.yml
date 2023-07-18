@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 2
   name: upgrade-haproxy-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: upgrade-haproxy-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: upgrade-haproxy
@@ -128,6 +126,8 @@ spec:
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: caching_sha2_password
           envFrom:
             - secretRef:
                 name: upgrade-haproxy-env-vars-pxc

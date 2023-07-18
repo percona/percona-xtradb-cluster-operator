@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: zone-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: zone-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: zone
@@ -75,6 +73,8 @@ spec:
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: mysql_native_password
           envFrom:
             - secretRef:
                 name: zone-env-vars-pxc

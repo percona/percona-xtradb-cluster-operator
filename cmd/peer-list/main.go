@@ -20,7 +20,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -93,7 +92,7 @@ func main() {
 
 	// If domain is not provided, try to get it from resolv.conf
 	if *domain == "" {
-		resolvConfBytes, err := ioutil.ReadFile("/etc/resolv.conf")
+		resolvConfBytes, err := os.ReadFile("/etc/resolv.conf")
 		resolvConf := string(resolvConfBytes)
 		if err != nil {
 			log.Fatal("Unable to read /etc/resolv.conf")
@@ -139,12 +138,14 @@ func main() {
 		script = *onChange
 		log.Printf("No on-start supplied, on-change %v will be applied on start.", script)
 	}
+	newPeers := sets.NewString()
+	var err error
 	for peers := sets.NewString(); script != ""; time.Sleep(pollPeriod) {
-		newPeers, err := lookup(*svc)
+		newPeers, err = lookup(*svc)
 		if err != nil {
 			log.Printf("%v", err)
 
-			if lerr, ok := err.(*net.DNSError); ok && (lerr.IsNotFound || lerr.IsTimeout) {
+			if lerr, ok := err.(*net.DNSError); ok && lerr.IsNotFound {
 				// Service not resolved - no endpoints, so reset peers list
 				peers = sets.NewString()
 				continue

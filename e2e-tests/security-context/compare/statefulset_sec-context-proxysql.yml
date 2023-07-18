@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: sec-context-proxysql
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: sec-context-proxysql-unready
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: sec-context
@@ -146,6 +144,25 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /pxc-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: pxc-init
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1G
+            requests:
+              cpu: 100m
+              memory: 100M
+          securityContext:
+            privileged: false
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: bin
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
@@ -165,6 +182,8 @@ spec:
             defaultMode: 420
             optional: false
             secretName: some-name-ssl
+        - emptyDir: {}
+          name: bin
   updateStrategy:
     rollingUpdate:
       partition: 0

@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 3
   name: monitoring-haproxy
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: monitoring-haproxy
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: haproxy
         app.kubernetes.io/instance: monitoring
@@ -115,10 +113,7 @@ spec:
             - name: PMM_ADMIN_CUSTOM_PARAMS
               value: --listen-port=8404
             - name: PMM_AGENT_PRERUN_SCRIPT
-              value: |-
-                pmm-admin status --wait=10s;
-                pmm-admin add $(DB_TYPE) $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME) $(PMM_AGENT_SETUP_NODE_NAME);
-                pmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) 'Service restarted'
+              value: /var/lib/mysql/pmm-prerun.sh
             - name: PMM_AGENT_SIDECAR
               value: "true"
             - name: PMM_AGENT_SIDECAR_SLEEP
@@ -166,6 +161,9 @@ spec:
               memory: 508M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: bin
         - env:
             - name: PXC_SERVICE
               value: monitoring-pxc
@@ -254,6 +252,20 @@ spec:
             - mountPath: /etc/mysql/haproxy-env-secret
               name: monitoring-env-vars-haproxy
       dnsPolicy: ClusterFirst
+      initContainers:
+        - command:
+            - /pxc-init-entrypoint.sh
+          imagePullPolicy: Always
+          name: pxc-init
+          resources:
+            requests:
+              cpu: 300m
+              memory: 500M
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: bin
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
@@ -278,6 +290,8 @@ spec:
             defaultMode: 420
             optional: true
             secretName: monitoring-env-vars-haproxy
+        - emptyDir: {}
+          name: bin
   updateStrategy:
     rollingUpdate:
       partition: 0

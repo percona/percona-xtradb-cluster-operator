@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: custom-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: custom-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: custom
@@ -102,6 +100,8 @@ spec:
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: mysql_native_password
           envFrom:
             - secretRef:
                 name: custom-env-vars-pxc

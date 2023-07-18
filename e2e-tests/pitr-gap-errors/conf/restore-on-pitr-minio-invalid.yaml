@@ -1,0 +1,14 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  annotations:
+    percona.com/unsafe-pitr: "true"
+  name: on-pitr-minio-invalid
+spec:
+  pxcCluster: pitr-gap-errors
+  backupName: on-pitr-minio 
+  pitr:
+    type: transaction
+    gtid: <gtid>
+    backupSource:
+      storageName: "minio-binlogs"

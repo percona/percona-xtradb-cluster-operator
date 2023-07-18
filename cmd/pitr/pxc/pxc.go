@@ -82,7 +82,32 @@ type Binlog struct {
 	Name      string
 	Size      int64
 	Encrypted string
-	GTIDSet   string
+	GTIDSet   GTIDSet
+}
+
+type GTIDSet struct {
+	gtidSet string
+}
+
+func NewGTIDSet(gtidSet string) GTIDSet {
+	return GTIDSet{gtidSet: gtidSet}
+}
+
+func (s *GTIDSet) IsEmpty() bool {
+	return len(s.gtidSet) == 0
+}
+
+func (s *GTIDSet) Raw() string {
+	return s.gtidSet
+}
+
+func (s *GTIDSet) List() []string {
+	if len(s.gtidSet) == 0 {
+		return nil
+	}
+	list := strings.Split(s.gtidSet, ",")
+	sort.Strings(list)
+	return list
 }
 
 // GetBinLogList return binary log files list
@@ -129,32 +154,14 @@ func (p *PXC) GetBinLogNamesList(ctx context.Context) ([]string, error) {
 	return binlogs, nil
 }
 
-// GetBinLogName returns name of the binary log file by given GTID set
-func (p *PXC) GetBinLogName(ctx context.Context, gtidSet string) (string, error) {
-	if len(gtidSet) == 0 {
-		return "", nil
-	}
-	var existFunc string
-	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_binlog_by_gtid_set'")
-	err := nameRow.Scan(&existFunc)
-	if err != nil && err != sql.ErrNoRows {
-		return "", errors.Wrap(err, "get udf name")
-	}
-	if len(existFunc) == 0 {
-		_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_binlog_by_gtid_set RETURNS STRING SONAME 'binlog_utils_udf.so'")
-		if err != nil {
-			return "", errors.Wrap(err, "create function")
-		}
-	}
-	var binlog sql.NullString
-	row := p.db.QueryRowContext(ctx, "SELECT get_binlog_by_gtid_set(?)", gtidSet)
-
-	err = row.Scan(&binlog)
-	if err != nil {
-		return "", errors.Wrap(err, "scan binlog")
+func (p *PXC) GTIDSubset(ctx context.Context, set1, set2 string) (bool, error) {
+	row := p.db.QueryRowContext(ctx, "SELECT GTID_SUBSET(?,?)", set1, set2)
+	var result int
+	if err := row.Scan(&result); err != nil {
+		return false, errors.Wrap(err, "scan result")
 	}
 
-	return strings.TrimPrefix(binlog.String, "./"), nil
+	return result == 1, nil
 }
 
 // GetBinLogFirstTimestamp return binary log file first timestamp

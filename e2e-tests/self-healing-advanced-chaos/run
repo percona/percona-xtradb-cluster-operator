@@ -59,8 +59,9 @@ main() {
 		| sed -e 's/autoRecovery: false/autoRecovery: true/' \
 		| kubectl apply -f-
 
-	wait_for_running $cluster-pxc 3
 	sleep 240
+	wait_for_running $cluster-pxc 3
+	wait_cluster_consistency "$cluster" 3 2
 
 	desc 'check if full cluster crash repaired'
 	check_if_cluster_restored
@@ -68,8 +69,9 @@ main() {
 	desc 'crash all pxc pods with chaos mesh'
 	crash_cluster_with_chaos_mesh
 
-	wait_for_running $cluster-pxc 3
 	sleep 240
+	wait_for_running $cluster-pxc 3
+	wait_cluster_consistency "$cluster" 3 2
 	desc 'check if full cluster crash repaired'
 	check_if_cluster_restored
 

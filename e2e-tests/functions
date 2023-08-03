@@ -1518,3 +1518,45 @@ function check_backup_deletion() {
 		((retry += 1))
 	done
 }
+
+check_passwords_leak() {
+	secrets=$(kubectl_bin get secrets -o json | jq -r '.items[].data | to_entries | .[] | select(.key | (endswith(".crt") or endswith(".key") or endswith(".pub") or endswith(".pem") or endswith(".p12")) | not) | .value')
+	echo secrets=$secrets
+
+	passwords="$(for i in $secrets; do base64 -d <<< $i; echo; done) $secrets"
+	echo passwords=$passwords
+
+	pods=$(kubectl_bin get pods -o name | awk -F "/" '{print $2}')
+	echo pods=$pods
+
+	TEMP_DIR=$(mktemp -d)
+
+	collect_logs() {
+		NS=$1
+		for p in $pods; do
+			containers=$(kubectl_bin -n "$NS" get pod $p -o jsonpath='{.spec.containers[*].name}')
+			for c in $containers; do
+				# temporary, because of: https://jira.percona.com/browse/PMM-8357
+				if [[ ${c,,} =~ "pmm" ]]; then
+					continue
+				fi
+				kubectl_bin -n "$NS" logs $p -c $c > ${TEMP_DIR}/logs_output-$p-$c.txt
+				echo logs saved in: ${TEMP_DIR}/logs_output-$p-$c.txt
+				for pass in $passwords; do
+					count=$(grep -c --fixed-strings -- "$pass" ${TEMP_DIR}/logs_output-$p-$c.txt || :)
+					if [[ $count != 0 ]]; then
+						echo leaked passwords are found in log ${TEMP_DIR}/logs_output-$p-$c.txt
+						false
+					fi
+				done
+			done
+			echo
+		done
+	}
+
+	collect_logs $namespace
+	if [ -n "$OPERATOR_NS" ]; then
+		pods=$(kubectl_bin -n "${OPERATOR_NS}" get pods -o name | awk -F "/" '{print $2}')
+		collect_logs $OPERATOR_NS
+	fi
+}

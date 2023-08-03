@@ -160,6 +160,10 @@ if [[ -n ${OPENSHIFT} ]]; then
 		oc delete rolebinding pmm-pxc-operator-namespace-only
 	fi
 fi
+
+desc 'check for passwords leak'
+check_passwords_leak
+
 helm uninstall monitoring
 destroy $namespace
 desc "test passed"

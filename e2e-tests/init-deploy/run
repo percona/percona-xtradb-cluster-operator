@@ -33,19 +33,19 @@ compare_kubectl pdb/$cluster-proxysql
 
 desc 'check if MySQL users created'
 compare_mysql_user "-h $cluster-pxc -uroot -proot_password"
-compare_mysql_user "-h $cluster-pxc -umonitor -pmonitor"
+compare_mysql_user "-h $cluster-pxc -umonitor -pmonitor_password"
 compare_mysql_user "-h $cluster-pxc -uproxyuser -ps3cret"
 compare_mysql_user_local "-uxtrabackup -pbackup_password" "$cluster-pxc-0" "" "pxc"
 compare_mysql_user_local "-uclustercheck -pclustercheckpassword" "$cluster-pxc-0" "" "pxc"
 desc "check that pmm server user don't have access"
-compare_mysql_user "-h $cluster-pxc -upmmserver -pmonitor"
+compare_mysql_user "-h $cluster-pxc -upmmserver -ppmmserver_password"
 
 desc 'check if ProxySQL users created'
 compare_mysql_user "-h $cluster-proxysql -uroot -proot_password"
-compare_mysql_user "-h $cluster-proxysql -umonitor -pmonitor"
+compare_mysql_user "-h $cluster-proxysql -umonitor -pmonitor_password"
 desc "check that pmm server user don't have access"
 compare_mysql_user "-h $cluster-proxysql -uproxyuser -ps3cret" "-proxysql"
-compare_mysql_user "-h $cluster-proxysql -upmmserver -pmonitor" "-proxysql"
+compare_mysql_user "-h $cluster-proxysql -upmmserver -ppmmserver_password" "-proxysql"
 
 desc 'write data directly, read from all'
 run_mysql \

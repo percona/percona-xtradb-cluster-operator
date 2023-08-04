@@ -1544,8 +1544,8 @@ check_passwords_leak() {
 				echo logs saved in: ${TEMP_DIR}/logs_output-$p-$c.txt
 				for pass in $passwords; do
 					echo trying password: $pass
-					grep --fixed-strings -- "$pass" ${TEMP_DIR}/logs_output-$p-$c.txt || :
-					if [[ $? == 0 ]]; then
+					count=$(grep -c --fixed-strings -- "$pass" ${TEMP_DIR}/logs_output-$p-$c.txt || :)
+					if [[ $count != 0 ]]; then
 						echo leaked passwords are found in log ${TEMP_DIR}/logs_output-$p-$c.txt
 						false
 					fi

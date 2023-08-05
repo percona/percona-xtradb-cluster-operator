@@ -1537,7 +1537,7 @@ check_passwords_leak() {
 			containers=$(kubectl_bin -n "$NS" get pod $p -o jsonpath='{.spec.containers[*].name}')
 			for c in $containers; do
 				# temporary, because of: https://jira.percona.com/browse/PMM-8357
-				if [[ ${c,,} =~ "pmm" ]]; then
+				if [[ ${c} =~ "pmm" ]]; then
 					continue
 				fi
 				kubectl_bin -n "$NS" logs $p -c $c > ${TEMP_DIR}/logs_output-$p-$c.txt

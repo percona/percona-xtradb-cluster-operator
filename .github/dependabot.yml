@@ -18,7 +18,7 @@ updates:
     schedule:
       interval: "monthly"
       day: "thursday"
-      tine: "01:00"
+      time: "01:00"
     reviewers:
       - hors
       - tplavcic

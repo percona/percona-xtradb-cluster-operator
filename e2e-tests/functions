@@ -1520,7 +1520,7 @@ function check_backup_deletion() {
 }
 
 check_passwords_leak() {
-	secrets=$(kubectl_bin get secrets -o json | jq -r '.items[].data | to_entries | .[] | select(.key | (endswith(".crt") or endswith(".key") or endswith(".pub") or endswith(".pem") or endswith(".p12") or contains("release")) | not) | .value')
+	secrets=$(kubectl_bin get secrets -o json | jq -r '.items[].data | to_entries | .[] | select(.key | (endswith(".crt") or endswith(".key") or endswith(".pub") or endswith(".pem") or endswith(".p12") or contains("release") or contains("namespace") or contains("AWS_ACCESS_KEY_ID") or contains("AZURE_STORAGE_ACCOUNT_NAME")) | not) | .value')
 	echo secrets=$secrets
 
 	passwords="$(for i in $secrets; do base64 -d <<< $i; echo; done) $secrets"

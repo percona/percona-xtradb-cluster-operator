@@ -101,6 +101,7 @@ compare_mysql_cmd "max_allowed_packet-2" "SELECT @@max_allowed_packet;" "-h $clu
 
 desc 'check for passwords leak'
 check_passwords_leak
+sleep 99999
 
 kubectl_bin delete -f $test_dir/conf/$cluster3.yml
 destroy $namespace

@@ -312,9 +312,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	inits := []corev1.Container{}
 	if o.CompareVersionWith("1.5.0") >= 0 {
 		var initResources corev1.ResourceRequirements
-		if o.CompareVersionWith("1.6.0") >= 0 {
-			initResources = o.Spec.PXC.Resources
-		}
 		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
 		inits = append(inits, initC)
 	}

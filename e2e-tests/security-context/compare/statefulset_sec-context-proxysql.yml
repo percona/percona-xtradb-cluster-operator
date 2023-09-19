@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: sec-context-proxysql
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: sec-context-proxysql-unready
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: sec-context

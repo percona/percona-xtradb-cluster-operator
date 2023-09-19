@@ -1,6 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
+  generation: 1
   labels:
     job-name: restore-job-restore-pvc-sec-context
   name: restore-job-restore-pvc-sec-context
@@ -10,10 +11,12 @@ metadata:
       name: restore-pvc
 spec:
   backoffLimit: 4
+  completionMode: NonIndexed
   completions: 1
   parallelism: 1
   selector:
     matchLabels: {}
+  suspend: false
   template:
     metadata:
       annotations:

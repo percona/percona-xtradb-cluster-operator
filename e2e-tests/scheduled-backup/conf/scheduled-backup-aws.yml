@@ -116,17 +116,17 @@ spec:
                   operator: In
                   values:
                   - 'True'
-          tolerations:
-            - key: "backupWorker"
-              operator: "Equal"
-              value: "True"
-              effect: "NoSchedule"
-          annotations:
-            testName: scheduled-backup
-          labels:
-            backupWorker: 'True'
-          schedulerName: 'default-scheduler'
-          priorityClassName: 'high-priority'
+        tolerations:
+          - key: "backupWorker"
+            operator: "Equal"
+            value: "True"
+            effect: "NoSchedule"
+        annotations:
+          testName: scheduled-backup
+        labels:
+          backupWorker: 'True'
+        schedulerName: 'default-scheduler'
+        priorityClassName: 'high-priority'
       minio:
         type: s3
         s3:

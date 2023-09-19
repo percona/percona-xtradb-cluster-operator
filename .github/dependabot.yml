@@ -16,7 +16,9 @@ updates:
       prefix: "CLOUD-727"
     directory: /build/
     schedule:
-      interval: monthly
+      interval: "monthly"
+      day: "thursday"
+      time: "01:00"
     reviewers:
       - hors
       - tplavcic

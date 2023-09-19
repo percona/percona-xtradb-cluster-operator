@@ -43,11 +43,7 @@ if [ -f "$conf_dir/cloud-secret.yml" ]; then
 fi
 
 if oc get projects 2>/dev/null; then
-	# Guessing Openshift version from master node API version
-	case "$(oc get nodes --no-headers=true | grep master | head -n1 | grep -Eo 'v[0-9]+\.[0-9]+')" in
-		"v1.11") OPENSHIFT=3.11 ;;
-		*) OPENSHIFT=4 ;;
-	esac
+	OPENSHIFT=$(oc version -o json | jq -r '.openshiftVersion' | grep -oE '^[0-9]+\.[0-9]+')
 fi
 
 if [ $(kubectl version -o json | jq -r '.serverVersion.gitVersion' | grep "\-eks\-") ]; then
@@ -405,7 +401,9 @@ compare_kubectl() {
 		expected_result=${expected_result//.yml/-80.yml}
 	fi
 
-	if version_gt "1.24" && [ -f ${expected_result//.yml/-k124.yml} ]; then
+	if version_gt "1.27" && [ -f ${expected_result//.yml/-k127.yml} ]; then
+		expected_result=${expected_result//.yml/-k127.yml}
+	elif version_gt "1.24" && [ -f ${expected_result//.yml/-k124.yml} ]; then
 		expected_result=${expected_result//.yml/-k124.yml}
 	elif version_gt "1.22" && [ -f ${expected_result//.yml/-k122.yml} ]; then
 		expected_result=${expected_result//.yml/-k122.yml}
@@ -415,9 +413,6 @@ compare_kubectl() {
 
 	if [ ! -z "$OPENSHIFT" -a -f ${expected_result//.yml/-oc.yml} ]; then
 		expected_result=${expected_result//.yml/-oc.yml}
-		if [ "$OPENSHIFT" = 4 -a -f ${expected_result//-oc.yml/-4-oc.yml} ]; then
-			expected_result=${expected_result//-oc.yml/-4-oc.yml}
-		fi
 	fi
 
 	if [ "$EKS" = 1 -a -f ${expected_result//.yml/-eks.yml} ]; then
@@ -441,7 +436,10 @@ compare_kubectl() {
 			del(.metadata.annotations."kubernetes.io/psp") |
 			del(.metadata.annotations."batch.kubernetes.io/job-tracking") |
 			del(.metadata.annotations."cloud.google.com/neg") |
+			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
+			del(.metadata.annotations."k8s.ovn.org/pod-networks") |
 			del(.spec.template.metadata.annotations."last-applied-secret") |
+			del(.. | select(has("batch.kubernetes.io/controller-uid"))."batch.kubernetes.io/controller-uid") |
 			del(.. | select(has("image")).image) |
 			del(.. | select(has("clusterIP")).clusterIP) |
 			del(.. | select(has("clusterIPs")).clusterIPs) |
@@ -477,7 +475,7 @@ compare_kubectl() {
 			del(.. | select(has("kubernetes.io/hostname"))."kubernetes.io/hostname") |
 			(.. | select(tag == "!!str")) |= sub("'$namespace'", "namespace") |
 			(.. | select(tag == "!!str")) |= sub("kube-api-access-.*", "kube-api-access") |
-			del(.metadata.annotations."k8s.v1.cni.cncf.io*") |
+			del(.. | select(has("annotations")).annotations | select(length==0)) |
 			del(.. | select(.[] == "percona-xtradb-cluster-operator-workload-token*"))' - >${new_result}
 
 	diff -u ${expected_result} ${new_result}
@@ -634,6 +632,15 @@ deploy_cert_manager() {
 	kubectl_bin create namespace cert-manager || :
 	kubectl_bin label namespace cert-manager certmanager.k8s.io/disable-validation=true || :
 	kubectl_bin apply -f "https://github.com/jetstack/cert-manager/releases/download/v${CERT_MANAGER_VER}/cert-manager.yaml" --validate=false || : 2>/dev/null
+	if [ "$OPENSHIFT" == "4.10" ]; then
+		oc delete scc restricted-seccomp || true
+		oc get scc restricted -o yaml | yq eval '.metadata.name = "restricted-seccomp" |
+		.seccompProfiles[0] = "runtime/default"' \
+			| oc create -f -
+		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager
+		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager-cainjector
+		oc adm policy add-scc-to-user restricted-seccomp -z cert-manager-webhook
+	fi
 	sleep 70
 }
 
@@ -649,7 +656,7 @@ destroy() {
 			| grep -v 'get backup status: Job.batch' \
 			| $sed -r 's/"ts":[0-9.]+//; s^limits-[0-9.]+/^^g' \
 			| sort -u \
-			| tee $tmp_dir/operator.log
+			| tee $tmp_dir/operator.log || :
 	fi
 	#TODO: maybe will be enabled later
 	#diff $test_dir/compare/operator.log $tmp_dir/operator.log
@@ -668,9 +675,6 @@ destroy() {
 		oc delete --grace-period=0 --force=true project "$namespace" &
 		if [ -n "$OPERATOR_NS" ]; then
 			oc delete --grace-period=0 --force=true project "$OPERATOR_NS" &
-			if [ "${OPENSHIFT}" == "3.11" ]; then
-				wait_for_delete "project/$OPERATOR_NS" # 3.11 Does not delete namespace immediately, let's wait at least 120 seconds till the next step
-			fi
 		fi
 	else
 		kubectl_bin delete --grace-period=0 --force=true namespace "$namespace" &

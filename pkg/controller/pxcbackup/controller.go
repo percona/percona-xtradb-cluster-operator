@@ -577,14 +577,21 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 		VerifyTLS:             storage.VerifyTLS,
 	}
 
-	switch {
-	case job.Status.Active == 1:
+	if job.Status.Active == 1 {
 		status.State = api.BackupRunning
-	case job.Status.Succeeded == 1:
-		status.State = api.BackupSucceeded
-		status.CompletedAt = job.Status.CompletionTime
-	case job.Status.Failed >= 1:
-		status.State = api.BackupFailed
+	}
+
+	for _, cond := range job.Status.Conditions {
+		if cond.Status != corev1.ConditionTrue {
+			continue
+		}
+		switch cond.Type {
+		case batchv1.JobFailed:
+			status.State = api.BackupFailed
+		case batchv1.JobComplete:
+			status.State = api.BackupSucceeded
+			status.CompletedAt = job.Status.CompletionTime
+		}
 	}
 
 	// don't update the status if there aren't any changes.

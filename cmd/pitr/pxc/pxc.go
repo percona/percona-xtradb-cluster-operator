@@ -29,7 +29,7 @@ func NewPXC(addr string, user, pass string) (*PXC, error) {
 	config.User = user
 	config.Passwd = pass
 	config.Net = "tcp"
-	config.Addr = addr
+	config.Addr = addr + ":33062"
 	config.Params = map[string]string{"interpolateParams": "true"}
 
 	mysqlDB, err := sql.Open("mysql", config.FormatDSN())

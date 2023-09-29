@@ -1520,6 +1520,10 @@ function check_backup_deletion() {
 }
 
 check_passwords_leak() {
+	local secrets
+	local passwords
+	local pods
+
 	secrets=$(kubectl_bin get secrets -o json | jq -r '.items[].data | to_entries | .[] | select(.key | (endswith(".crt") or endswith(".key") or endswith(".pub") or endswith(".pem") or endswith(".p12") or contains("release") or contains("namespace") or contains("AWS_ACCESS_KEY_ID") or contains("AZURE_STORAGE_ACCOUNT_NAME")) | not) | .value')
 	echo secrets=$secrets
 
@@ -1528,8 +1532,6 @@ check_passwords_leak() {
 
 	pods=$(kubectl_bin get pods -o name | awk -F "/" '{print $2}')
 	echo pods=$pods
-
-	TEMP_DIR=$(mktemp -d)
 
 	collect_logs() {
 		NS=$1

@@ -1542,16 +1542,16 @@ check_passwords_leak() {
 				if [[ ${c} =~ "pmm" ]]; then
 					continue
 				fi
-				kubectl_bin -n "$NS" logs $p -c $c > ${TEMP_DIR}/logs_output-$p-$c.txt
-				echo logs saved in: ${TEMP_DIR}/logs_output-$p-$c.txt
+				kubectl_bin -n "$NS" logs $p -c $c > ${tmp_dir}/logs_output-$p-$c.txt
+				echo logs saved in: ${tmp_dir}/logs_output-$p-$c.txt
 				for pass in $passwords; do
 					echo trying password: $pass
-					count=$(grep -c --fixed-strings -- "$pass" ${TEMP_DIR}/logs_output-$p-$c.txt || :)
+					count=$(grep -c --fixed-strings -- "$pass" ${tmp_dir}/logs_output-$p-$c.txt || :)
 					if [[ $count != 0 ]]; then
-						echo leaked passwords are found in log ${TEMP_DIR}/logs_output-$p-$c.txt
-						echo the content of file ${TEMP_DIR}/logs_output-$p-$c.txt is:
+						echo leaked passwords are found in log ${tmp_dir}/logs_output-$p-$c.txt
+						echo the content of file ${tmp_dir}/logs_output-$p-$c.txt is:
 						echo =========================================================
-						cat ${TEMP_DIR}/logs_output-$p-$c.txt
+						cat ${tmp_dir}/logs_output-$p-$c.txt
 						false
 					fi
 				done

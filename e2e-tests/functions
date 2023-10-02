@@ -1534,6 +1534,9 @@ check_passwords_leak() {
 	echo pods=$pods
 
 	collect_logs() {
+		local containers
+		local count
+
 		NS=$1
 		for p in $pods; do
 			containers=$(kubectl_bin -n "$NS" get pod $p -o jsonpath='{.spec.containers[*].name}')

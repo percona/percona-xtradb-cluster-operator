@@ -20,7 +20,7 @@ spec:
 #  sslSecretName: cluster1-ssl
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
-#  initImage: perconalab/percona-xtradb-cluster-operator:1.12.0-custom-159
+#  initImage: percona/percona-xtradb-cluster-operator:1.12.0
 #  enableCRValidationWebhook: true
 #  tls:
 #    SANs:
@@ -489,7 +489,7 @@ spec:
         memory: 150M
         cpu: 300m
   backup:
-    image: percona/percona-xtradb-cluster-operator:1.12.0-pxc8.0-backup
+    image: perconalab/percona-xtradb-cluster-operator:1.12.0-pxc8.0-backup-custom-159
 #    backoffLimit: 6
 #    serviceAccountName: percona-xtradb-cluster-operator
 #    imagePullSecrets:

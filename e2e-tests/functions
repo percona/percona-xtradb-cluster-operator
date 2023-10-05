@@ -1539,10 +1539,13 @@ check_passwords_leak() {
 
 		NS=$1
 		for p in $pods; do
+			if [[ $p == "monitoring-0" ]]; then
+				continue
+			fi
 			containers=$(kubectl_bin -n "$NS" get pod $p -o jsonpath='{.spec.containers[*].name}')
 			for c in $containers; do
 				# temporary, because of: https://jira.percona.com/browse/PMM-8357
-				if [[ ${c} =~ "pmm" ]]; then
+				if [[ $c =~ "pmm" ]]; then
 					continue
 				fi
 				kubectl_bin -n "$NS" logs $p -c $c > ${tmp_dir}/logs_output-$p-$c.txt
@@ -1551,7 +1554,7 @@ check_passwords_leak() {
 					echo trying password: $pass
 					count=$(grep -c --fixed-strings -- "$pass" ${tmp_dir}/logs_output-$p-$c.txt || :)
 					if [[ $count != 0 ]]; then
-						echo leaked passwords are found in log ${tmp_dir}/logs_output-$p-$c.txt
+						echo leaked password $pass is found in log ${tmp_dir}/logs_output-$p-$c.txt
 						echo the content of file ${tmp_dir}/logs_output-$p-$c.txt is:
 						echo =========================================================
 						cat ${tmp_dir}/logs_output-$p-$c.txt

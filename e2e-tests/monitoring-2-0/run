@@ -71,8 +71,7 @@ else
 	helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 fi
 kubectl_bin wait --for=condition=Ready pod/${cluster}-0 --timeout=120s
-SERVICE="postgres"
-until kubectl_bin exec monitoring-0 -- bash -c "pgrep -x $SERVICE >/dev/null"; do
+until kubectl_bin exec monitoring-0 -- bash -c "ls -l /proc/*/exe 2>/dev/null| grep postgres >/dev/null"; do
 	echo "Retry $retry"
 	sleep 5
 	let retry+=1

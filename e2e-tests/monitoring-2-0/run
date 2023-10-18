@@ -11,11 +11,8 @@ get_mgmnt_service_list() {
 	local api_key=$1
 	local endpoint=$2
 	local namespace=$3
-	cat >${tmp_dir}/payload.json <<EOF
-{}
-EOF
 
-	curl -s -k -H "Authorization: Bearer ${api_key}" -X POST -d @${tmp_dir}/payload.json "https://$endpoint/v1/management/Service/List" \
+	curl -s -k -H "Authorization: Bearer ${api_key}" -X POST "https://$endpoint/v1/management/Service/List" \
 		| jq 'walk(if type=="object" then with_entries(select(.key | test("service_id|node_id|agent_id|created_at|updated_at|service_name") | not)) else . end)' \
 		| jq 'walk(if type == "array" then sort_by(.agent_type) else . end)' \
 			>${tmp_dir}/active_pmm_agents.json
@@ -160,9 +157,9 @@ if [[ -n ${OPENSHIFT} ]]; then
 	fi
 fi
 
-# desc 'check for passwords leak'
-# check_passwords_leak
+desc 'check for passwords leak'
+check_passwords_leak
 
-# helm uninstall monitoring
-# destroy $namespace
-# desc "test passed"
+helm uninstall monitoring
+destroy $namespace
+desc "test passed"

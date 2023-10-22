@@ -14,18 +14,27 @@ const (
 )
 
 func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
+	serviceAnnotations := make(map[string]string)
+	serviceLabels := map[string]string{
+		"app.kubernetes.io/name":     "percona-xtradb-cluster",
+		"app.kubernetes.io/instance": cr.Name,
+	}
+
+	if cr.Spec.PXC != nil {
+		serviceAnnotations = cr.Spec.PXC.ServiceAnnotations
+		serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.PXC.ServiceLabels)
+	}
+
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + appName,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     "percona-xtradb-cluster",
-				"app.kubernetes.io/instance": cr.Name,
-			},
+			Name:        cr.Name + "-" + appName,
+			Namespace:   cr.Namespace,
+			Labels:      serviceLabels,
+			Annotations: serviceAnnotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{

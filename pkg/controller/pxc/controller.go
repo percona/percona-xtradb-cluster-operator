@@ -332,7 +332,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
 		}
 
-		err = r.createOrUpdateService(o, pxcService, true)
+		err = r.createOrUpdateService(o, pxcService, len(o.Spec.PXC.ServiceLabels) == 0 && len(o.Spec.PXC.ServiceAnnotations) == 0)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
 		}

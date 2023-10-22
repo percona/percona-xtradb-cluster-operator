@@ -437,6 +437,20 @@ func (in *PXCSpec) DeepCopyInto(out *PXCSpec) {
 		}
 	}
 	in.Expose.DeepCopyInto(&out.Expose)
+	if in.UnreadyServiceAnnotations != nil {
+		in, out := &in.UnreadyServiceAnnotations, &out.UnreadyServiceAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.UnreadyServiceLabels != nil {
+		in, out := &in.UnreadyServiceLabels, &out.UnreadyServiceLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.PodSpec != nil {
 		in, out := &in.PodSpec, &out.PodSpec
 		*out = new(PodSpec)

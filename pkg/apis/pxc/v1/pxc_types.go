@@ -49,10 +49,12 @@ type PerconaXtraDBClusterSpec struct {
 }
 
 type PXCSpec struct {
-	AutoRecovery        *bool                `json:"autoRecovery,omitempty"`
-	ReplicationChannels []ReplicationChannel `json:"replicationChannels,omitempty"`
-	Expose              ServiceExpose        `json:"expose,omitempty"`
-	*PodSpec            `json:",inline"`
+	AutoRecovery              *bool                `json:"autoRecovery,omitempty"`
+	ReplicationChannels       []ReplicationChannel `json:"replicationChannels,omitempty"`
+	Expose                    ServiceExpose        `json:"expose,omitempty"`
+	UnreadyServiceAnnotations map[string]string    `json:"unreadyServiceAnnotations,omitempty"`
+	UnreadyServiceLabels      map[string]string    `json:"unreadyServiceLabels,omitempty"`
+	*PodSpec                  `json:",inline"`
 }
 
 type ServiceExpose struct {

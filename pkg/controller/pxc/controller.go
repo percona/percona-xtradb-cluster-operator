@@ -326,13 +326,19 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
 
-	for _, pxcService := range []*corev1.Service{pxc.NewServicePXC(o), pxc.NewServicePXCUnready(o)} {
+	for i, pxcService := range []*corev1.Service{pxc.NewServicePXC(o), pxc.NewServicePXCUnready(o)} {
 		err := setControllerReference(o, pxcService, r.scheme)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
 		}
 
-		err = r.createOrUpdateService(o, pxcService, len(o.Spec.PXC.ServiceLabels) == 0 && len(o.Spec.PXC.ServiceAnnotations) == 0)
+		var saveOldMeta bool
+		if i == 0 {
+			saveOldMeta = len(o.Spec.PXC.ServiceLabels) == 0 && len(o.Spec.PXC.ServiceAnnotations) == 0
+		} else {
+			saveOldMeta = len(o.Spec.PXC.UnreadyServiceLabels) == 0 && len(o.Spec.PXC.UnreadyServiceAnnotations) == 0
+		}
+		err = r.createOrUpdateService(o, pxcService, saveOldMeta)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
 		}

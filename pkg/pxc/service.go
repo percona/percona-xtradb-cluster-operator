@@ -78,21 +78,31 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 }
 
 func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
+	serviceAnnotations := make(map[string]string)
+	serviceLabels := map[string]string{
+		"app.kubernetes.io/name":     "percona-xtradb-cluster",
+		"app.kubernetes.io/instance": cr.Name,
+	}
+
+	if cr.Spec.PXC != nil {
+		if cr.Spec.PXC.UnreadyServiceAnnotations != nil {
+			serviceAnnotations = cr.Spec.PXC.UnreadyServiceAnnotations
+		}
+		serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.PXC.UnreadyServiceLabels)
+	}
+
+	serviceAnnotations["service.alpha.kubernetes.io/tolerate-unready-endpoints"] = "true"
+
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-" + appName + "-unready",
-			Namespace: cr.Namespace,
-			Annotations: map[string]string{
-				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
-			},
-			Labels: map[string]string{
-				"app.kubernetes.io/name":     "percona-xtradb-cluster",
-				"app.kubernetes.io/instance": cr.Name,
-			},
+			Name:        cr.Name + "-" + appName + "-unready",
+			Namespace:   cr.Namespace,
+			Annotations: serviceAnnotations,
+			Labels:      serviceLabels,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{

@@ -8,15 +8,14 @@ OPERATOR_VERSION="$(grep 'crVersion' $(realpath $(dirname ${BASH_SOURCE[0]})/../
 IMAGE=${IMAGE:-"perconalab/percona-xtradb-cluster-operator:${GIT_BRANCH}"}
 MYSQL_VERSION=${MYSQL_VERSION:-"8.0"}
 IMAGE_PXC=${IMAGE_PXC:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}"}
-IMAGE_PMM=${IMAGE_PMM:-"perconalab/pmm-client:dev-latest"}
 IMAGE_PROXY=${IMAGE_PROXY:-"perconalab/percona-xtradb-cluster-operator:main-proxysql"}
 IMAGE_HAPROXY=${IMAGE_HAPROXY:-"perconalab/percona-xtradb-cluster-operator:main-haproxy"}
 IMAGE_BACKUP=${IMAGE_BACKUP:-"perconalab/percona-xtradb-cluster-operator:main-pxc${MYSQL_VERSION}-backup"}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR:-"perconalab/percona-xtradb-cluster-operator:main-logcollector"}
 SKIP_REMOTE_BACKUPS=${SKIP_REMOTE_BACKUPS:-1}
 PMM_SERVER_VER=${PMM_SERVER_VER:-"9.9.9"}
-IMAGE_PMM_SERVER_REPO=${IMAGE_PMM_SERVER_REPO:-"perconalab/pmm-server"}
-IMAGE_PMM_SERVER_TAG=${IMAGE_PMM_SERVER_TAG:-"dev-latest"}
+IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT:-"perconalab/pmm-client:dev-latest"}
+IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER:-"perconalab/pmm-server:dev-latest"}
 CERT_MANAGER_VER="1.12.1"
 tmp_dir=$(mktemp -d)
 sed=$(which gsed || which sed)
@@ -311,7 +310,6 @@ deploy_operator() {
 
 deploy_helm() {
 	helm repo add hashicorp https://helm.releases.hashicorp.com
-	helm repo add percona https://percona-charts.storage.googleapis.com/
 	helm repo add minio https://helm.min.io/
 	helm repo update
 }
@@ -813,7 +811,7 @@ cat_config() {
 		| $sed -e "s#image:.*-pxc\([0-9]*.[0-9]*\)\{0,1\}\$#image: $IMAGE_PXC#" \
 		| $sed -e "s#image:.*\/percona-xtradb-cluster:.*\$#image: $IMAGE_PXC#" \
 		| $sed -e "s#initImage:.*-init\$#initImage: $IMAGE#" \
-		| $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM#" \
+		| $sed -e "s#image:.*-pmm\$#image: $IMAGE_PMM_CLIENT#" \
 		| $sed -e "s#image:.*-backup\$#image: $IMAGE_BACKUP#" \
 		| $sed -e "s#image:.*-proxysql\$#image: $IMAGE_PROXY#" \
 		| $sed -e "s#image:.*-haproxy\$#image: $IMAGE_HAPROXY#" \
@@ -1571,4 +1569,27 @@ check_passwords_leak() {
 		pods=$(kubectl_bin -n "${OPERATOR_NS}" get pods -o name | awk -F "/" '{print $2}')
 		collect_logs $OPERATOR_NS
 	fi
+}
+
+deploy_pmm_server() {
+	if [ ! -z "$OPENSHIFT" ]; then
+		platform=openshift
+		oc create sa pmm-server
+		oc adm policy add-scc-to-user privileged -z pmm-server
+		if [[ $OPERATOR_NS ]]; then
+			timeout 30 oc delete clusterrolebinding $(kubectl get clusterrolebinding | grep 'pmm-pxc-operator-' | awk '{print $1}') || :
+			oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+			oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' -n $OPERATOR_NS
+		else
+			oc create rolebinding pmm-pxc-operator-namespace-only --role percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
+			oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
+		fi
+		local additional_params="--set platform=openshift --set sa=pmm-server --set supresshttp2=false"
+	fi
+
+	helm repo add percona https://percona.github.io/percona-helm-charts/
+	helm repo update
+	helm uninstall monitoring || :
+
+	helm install monitoring --set imageRepo=${IMAGE_PMM_SERVER%:*} --set imageTag=${IMAGE_PMM_SERVER#*:} --set service.type=ClusterIP --set secret.pmm_password=pmm_srv_admin_pass $additional_params percona/pmm
 }

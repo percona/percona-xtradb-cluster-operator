@@ -11,11 +11,8 @@ get_mgmnt_service_list() {
 	local api_key=$1
 	local endpoint=$2
 	local namespace=$3
-	cat >${tmp_dir}/payload.json <<EOF
-{}
-EOF
 
-	curl -s -k -H "Authorization: Bearer ${api_key}" -X POST -d @payload.json "https://$endpoint/v1/management/Service/List" \
+	curl -s -k -H "Authorization: Bearer ${api_key}" -X POST "https://$endpoint/v1/management/Service/List" \
 		| jq 'walk(if type=="object" then with_entries(select(.key | test("service_id|node_id|agent_id|created_at|updated_at|service_name") | not)) else . end)' \
 		| jq 'walk(if type == "array" then sort_by(.agent_type) else . end)' \
 			>${tmp_dir}/active_pmm_agents.json
@@ -71,8 +68,7 @@ else
 	helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
 fi
 kubectl_bin wait --for=condition=Ready pod/${cluster}-0 --timeout=120s
-SERVICE="postgres"
-until kubectl_bin exec monitoring-0 -- bash -c "pgrep -x $SERVICE >/dev/null"; do
+until kubectl_bin exec monitoring-0 -- bash -c "ls -l /proc/*/exe 2>/dev/null| grep postgres >/dev/null"; do
 	echo "Retry $retry"
 	sleep 5
 	let retry+=1
@@ -160,6 +156,10 @@ if [[ -n ${OPENSHIFT} ]]; then
 		oc delete rolebinding pmm-pxc-operator-namespace-only
 	fi
 fi
+
+desc 'check for passwords leak'
+check_passwords_leak
+
 helm uninstall monitoring
 destroy $namespace
 desc "test passed"

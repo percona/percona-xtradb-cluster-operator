@@ -1591,5 +1591,5 @@ deploy_pmm_server() {
 	helm repo update
 	helm uninstall monitoring || :
 
-	helm install monitoring --set imageRepo=${IMAGE_PMM_SERVER%:*} --set imageTag=${IMAGE_PMM_SERVER#*:} --set service.type=ClusterIP --set secret.pmm_password=pmm_srv_admin_pass $additional_params percona/pmm
+	retry 10 60 helm install monitoring --set imageRepo=${IMAGE_PMM_SERVER%:*} --set imageTag=${IMAGE_PMM_SERVER#*:} $additional_params https://percona-charts.storage.googleapis.com/pmm-server-$PMM_SERVER_VER.tgz
 }

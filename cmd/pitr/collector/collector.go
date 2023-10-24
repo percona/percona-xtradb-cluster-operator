@@ -361,7 +361,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 	}
 
 	errBuf := &bytes.Buffer{}
-	cmd := exec.CommandContext(ctx, "mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, binlog.Name)
+	cmd := exec.CommandContext(ctx, "mysqlbinlog", "-R", "-P", "33062", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, binlog.Name)
 	cmd.Env = append(cmd.Env, "MYSQL_PWD="+c.pxcPass)
 	cmd.Dir = os.TempDir()
 	cmd.Stderr = errBuf

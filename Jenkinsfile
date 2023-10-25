@@ -164,7 +164,7 @@ TestsReportXML = '<testsuite name=\\"PXC\\">\n'
 void makeReport() {
     def wholeTestAmount=tests.size()
     def startedTestAmount = 0
-    
+
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
         def testTime = tests[i]["time"]
@@ -421,7 +421,7 @@ pipeline {
                 }
             }
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             parallel {
                 stage('cluster1') {

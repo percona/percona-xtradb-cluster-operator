@@ -338,7 +338,7 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 			return errors.Wrap(err, "set mysql pwd env var")
 		}
 
-		cmdString := "mysqlbinlog --disable-log-bin" + r.recoverFlag + " - | mysql -h" + r.db.GetHost() + " -u" + r.pxcUser
+		cmdString := "mysqlbinlog --disable-log-bin" + r.recoverFlag + " - | mysql -h" + r.db.GetHost() + " -P 33062 -u" + r.pxcUser
 		cmd := exec.CommandContext(ctx, "sh", "-c", cmdString)
 
 		cmd.Stdin = binlogObj

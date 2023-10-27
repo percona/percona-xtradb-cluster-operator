@@ -282,10 +282,7 @@ spec:
             - /pxc-init-entrypoint.sh
           imagePullPolicy: IfNotPresent
           name: pxc-init
-          resources:
-            requests:
-              cpu: 300m
-              memory: 500M
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

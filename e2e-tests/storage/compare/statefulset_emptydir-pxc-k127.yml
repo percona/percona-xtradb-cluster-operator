@@ -149,9 +149,7 @@ spec:
             - /pxc-init-entrypoint.sh
           imagePullPolicy: Always
           name: pxc-init
-          resources:
-            requests:
-              ephemeral-storage: 1G
+          resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

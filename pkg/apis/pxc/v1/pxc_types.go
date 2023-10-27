@@ -43,6 +43,7 @@ type PerconaXtraDBClusterSpec struct {
 	UpgradeOptions            UpgradeOptions                       `json:"upgradeOptions,omitempty"`
 	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
 	InitImage                 string                               `json:"initImage,omitempty"`
+	InitResources             corev1.ResourceRequirements          `json:"initResources,omitempty"`
 	EnableCRValidationWebhook *bool                                `json:"enableCRValidationWebhook,omitempty"`
 	IgnoreAnnotations         []string                             `json:"ignoreAnnotations,omitempty"`
 	IgnoreLabels              []string                             `json:"ignoreLabels,omitempty"`

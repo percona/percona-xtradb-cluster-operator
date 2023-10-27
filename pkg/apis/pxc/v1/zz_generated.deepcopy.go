@@ -719,6 +719,7 @@ func (in *PerconaXtraDBClusterSpec) DeepCopyInto(out *PerconaXtraDBClusterSpec) 
 		(*in).DeepCopyInto(*out)
 	}
 	out.UpgradeOptions = in.UpgradeOptions
+	in.InitResources.DeepCopyInto(&out.InitResources)
 	if in.EnableCRValidationWebhook != nil {
 		in, out := &in.EnableCRValidationWebhook, &out.EnableCRValidationWebhook
 		*out = new(bool)

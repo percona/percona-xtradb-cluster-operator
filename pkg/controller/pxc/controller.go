@@ -315,8 +315,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		if o.CompareVersionWith("1.6.0") >= 0 {
 			initResources = o.Spec.PXC.Resources
 		}
-		if o.CompareVersionWith("1.14.0") >= 0 {
-			initResources = o.Spec.InitResources
+		if o.Spec.InitResources != nil {
+			initResources = *o.Spec.InitResources
 		}
 		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
 		inits = append(inits, initC)
@@ -356,8 +356,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	var proxyInits []corev1.Container
 	if o.CompareVersionWith("1.13.0") >= 0 {
 		initResources := o.Spec.PXC.Resources
-		if o.CompareVersionWith("1.14.0") >= 0 {
-			initResources = o.Spec.InitResources
+		if o.Spec.InitResources != nil {
+			initResources = *o.Spec.InitResources
 		}
 		proxyInits = []corev1.Container{
 			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy),
@@ -513,8 +513,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			initResources = cr.Spec.PXC.Resources
 		}
-		if cr.CompareVersionWith("1.14.0") >= 0 {
-			initResources = cr.Spec.InitResources
+		if cr.Spec.InitResources != nil {
+			initResources = *cr.Spec.InitResources
 		}
 		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
 		inits = append(inits, initC)
@@ -623,8 +623,8 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 	var proxyInits []corev1.Container
 	if cr.CompareVersionWith("1.13.0") >= 0 {
 		initResources := cr.Spec.PXC.Resources
-		if cr.CompareVersionWith("1.14.0") >= 0 {
-			initResources = cr.Spec.InitResources
+		if cr.Spec.InitResources != nil {
+			initResources = *cr.Spec.InitResources
 		}
 		proxyInits = []corev1.Container{
 			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),

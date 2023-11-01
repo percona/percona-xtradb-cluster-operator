@@ -311,7 +311,7 @@ EOF
 
                     sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                     sudo percona-release enable-only tools
-                    sudo yum install -y | true
+                    sudo yum install -y percona-xtrabackup-80 | true
                 """
 
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {

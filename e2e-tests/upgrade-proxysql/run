@@ -32,7 +32,7 @@ GIT_TAG="v${INIT_OPERATOR_VER}"
 INIT_OPERATOR_IMAGES=$(curl -s "https://check.percona.com/versions/v1/pxc-operator/${INIT_OPERATOR_VER}/latest?databaseVersion=${PXC_VER}")
 OPERATOR_NAME="percona-xtradb-cluster-operator"
 IMAGE=$(echo "${INIT_OPERATOR_IMAGES}" | jq -r '.versions[].matrix.operator[].imagePath')
-# we use the starting image from the same repo so we don't need to use initImage option
+# we use the starting image from the same repo so we don't need to use initContainer.image option
 if [[ "$(echo ${TARGET_IMAGE} | cut -d'/' -f1)" == "perconalab" ]]; then
 	IMAGE="${IMAGE/percona/perconalab}"
 fi

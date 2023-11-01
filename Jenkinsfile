@@ -308,6 +308,10 @@ EOF
                     sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
 
                     curl -sL https://github.com/mitchellh/golicense/releases/latest/download/golicense_0.2.0_linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xzf - golicense
+
+                    sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+                    sudo percona-release enable-only tools
+                    sudo yum install -y | true
                 """
 
                 withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {

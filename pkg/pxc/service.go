@@ -65,6 +65,13 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		)
 	}
 
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		if cr.Spec.PXC != nil {
+			obj.Annotations = cr.Spec.PXC.ServiceAnnotations
+			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.ServiceLabels)
+		}
+	}
+
 	return obj
 }
 

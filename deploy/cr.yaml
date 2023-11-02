@@ -86,6 +86,10 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
+#    serviceAnnotations:
+#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    serviceLabels:
+#      rack: rack-23
 #    readinessProbes:
 #      initialDelaySeconds: 15
 #      timeoutSeconds: 15

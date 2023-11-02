@@ -326,16 +326,17 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, errors.Wrap(err, "pxc upgrade error")
 	}
 
-	for _, pxcService := range []*corev1.Service{pxc.NewServicePXC(o), pxc.NewServicePXCUnready(o)} {
-		err := setControllerReference(o, pxcService, r.scheme)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "setControllerReference")
-		}
-
-		err = r.createOrUpdateService(o, pxcService, true)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
-		}
+	saveOldSvcMeta := true
+	if o.CompareVersionWith("1.14.0") >= 0 {
+		saveOldSvcMeta = len(o.Spec.PXC.ServiceLabels) == 0 && len(o.Spec.PXC.ServiceAnnotations) == 0
+	}
+	err = r.createOrUpdateService(o, pxc.NewServicePXC(o), saveOldSvcMeta)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
+	}
+	err = r.createOrUpdateService(o, pxc.NewServicePXCUnready(o), true)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "PXC service upgrade error")
 	}
 
 	if o.Spec.PXC.Expose.Enabled {
@@ -370,19 +371,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
 		svc := pxc.NewServiceProxySQL(o)
-		err := setControllerReference(o, svc, r.scheme)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "%s setControllerReference", svc.Name)
-		}
 		err = r.createOrUpdateService(o, svc, len(o.Spec.ProxySQL.ServiceLabels) == 0 && len(o.Spec.ProxySQL.ServiceAnnotations) == 0)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
 		}
 		svc = pxc.NewServiceProxySQLUnready(o)
-		err = setControllerReference(o, svc, r.scheme)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "%s setControllerReference", svc.Name)
-		}
 		err = r.createOrUpdateService(o, svc, true)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
@@ -460,21 +453,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 		return errors.Wrap(err, "HAProxy upgrade error")
 	}
 	svc := pxc.NewServiceHAProxy(cr)
-	err := setControllerReference(cr, svc, r.scheme)
-	if err != nil {
-		return errors.Wrapf(err, "%s setControllerReference", svc.Name)
-	}
 	podSpec := cr.Spec.HAProxy.PodSpec
-	err = r.createOrUpdateService(cr, svc, len(podSpec.ServiceLabels) == 0 && len(podSpec.ServiceAnnotations) == 0)
+	err := r.createOrUpdateService(cr, svc, len(podSpec.ServiceLabels) == 0 && len(podSpec.ServiceAnnotations) == 0)
 	if err != nil {
 		return errors.Wrapf(err, "%s upgrade error", svc.Name)
 	}
 	if cr.HAProxyReplicasServiceEnabled() {
 		svc := pxc.NewServiceHAProxyReplicas(cr)
-		err := setControllerReference(cr, svc, r.scheme)
-		if err != nil {
-			return errors.Wrapf(err, "%s setControllerReference", svc.Name)
-		}
 		err = r.createOrUpdateService(cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
 		if err != nil {
 			return errors.Wrapf(err, "%s upgrade error", svc.Name)
@@ -1328,11 +1313,15 @@ func mergeMaps(x, y map[string]string) map[string]string {
 }
 
 func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(cr *api.PerconaXtraDBCluster, svc *corev1.Service, saveOldMeta bool) error {
+	err := setControllerReference(cr, svc, r.scheme)
+	if err != nil {
+		return errors.Wrap(err, "set controller reference")
+	}
 	if !saveOldMeta && len(cr.Spec.IgnoreAnnotations) == 0 && len(cr.Spec.IgnoreLabels) == 0 {
 		return r.createOrUpdate(cr, svc)
 	}
 	oldSvc := new(corev1.Service)
-	err := r.client.Get(context.TODO(), types.NamespacedName{
+	err = r.client.Get(context.TODO(), types.NamespacedName{
 		Name:      svc.GetName(),
 		Namespace: svc.GetNamespace(),
 	}, oldSvc)

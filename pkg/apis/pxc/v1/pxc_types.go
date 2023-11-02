@@ -433,6 +433,7 @@ type PodSpec struct {
 	SidecarPVCs                   []corev1.PersistentVolumeClaim          `json:"sidecarPVCs,omitempty"`
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
 	HookScript                    string                                  `json:"hookScript,omitempty"`
+	TopologySpreadConstraints     []corev1.TopologySpreadConstraint       `json:"topologySpreadConstraints,omitempty"`
 }
 
 type HAProxySpec struct {
@@ -499,22 +500,23 @@ func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 }
 
 type BackupStorageSpec struct {
-	Type                     BackupStorageType           `json:"type"`
-	S3                       *BackupStorageS3Spec        `json:"s3,omitempty"`
-	Azure                    *BackupStorageAzureSpec     `json:"azure,omitempty"`
-	Volume                   *VolumeSpec                 `json:"volume,omitempty"`
-	NodeSelector             map[string]string           `json:"nodeSelector,omitempty"`
-	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity                 *corev1.Affinity            `json:"affinity,omitempty"`
-	Tolerations              []corev1.Toleration         `json:"tolerations,omitempty"`
-	Annotations              map[string]string           `json:"annotations,omitempty"`
-	Labels                   map[string]string           `json:"labels,omitempty"`
-	SchedulerName            string                      `json:"schedulerName,omitempty"`
-	PriorityClassName        string                      `json:"priorityClassName,omitempty"`
-	PodSecurityContext       *corev1.PodSecurityContext  `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
-	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
-	VerifyTLS                *bool                       `json:"verifyTLS,omitempty"`
+	Type                      BackupStorageType                 `json:"type"`
+	S3                        *BackupStorageS3Spec              `json:"s3,omitempty"`
+	Azure                     *BackupStorageAzureSpec           `json:"azure,omitempty"`
+	Volume                    *VolumeSpec                       `json:"volume,omitempty"`
+	NodeSelector              map[string]string                 `json:"nodeSelector,omitempty"`
+	Resources                 corev1.ResourceRequirements       `json:"resources,omitempty"`
+	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	Tolerations               []corev1.Toleration               `json:"tolerations,omitempty"`
+	Annotations               map[string]string                 `json:"annotations,omitempty"`
+	Labels                    map[string]string                 `json:"labels,omitempty"`
+	SchedulerName             string                            `json:"schedulerName,omitempty"`
+	PriorityClassName         string                            `json:"priorityClassName,omitempty"`
+	PodSecurityContext        *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext  *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
+	RuntimeClassName          *string                           `json:"runtimeClassName,omitempty"`
+	VerifyTLS                 *bool                             `json:"verifyTLS,omitempty"`
 }
 
 type BackupStorageType string
@@ -732,6 +734,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		c.PXC.reconcileAffinityOpts()
+		c.PXC.reconcileTopologySpreadConstraints()
 
 		if c.Pause {
 			c.PXC.Size = 0
@@ -798,6 +801,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		c.HAProxy.reconcileAffinityOpts()
+		c.HAProxy.reconcileTopologySpreadConstraints()
 
 		if err = c.HAProxy.executeConfigurationTemplate(); err != nil {
 			return errors.Wrap(err, "haproxy config")
@@ -847,6 +851,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
+		c.ProxySQL.reconcileTopologySpreadConstraints()
 
 		if err = c.ProxySQL.executeConfigurationTemplate(); err != nil {
 			return errors.Wrap(err, "proxySQL config")
@@ -1082,6 +1087,20 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	case p.Affinity != nil && p.Affinity.TopologyKey != nil:
 		if _, ok := affinityValidTopologyKeys[*p.Affinity.TopologyKey]; !ok {
 			p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+		}
+	}
+}
+
+func (p *PodSpec) reconcileTopologySpreadConstraints() {
+	for i := range p.TopologySpreadConstraints {
+		if p.TopologySpreadConstraints[i].MaxSkew == 0 {
+			p.TopologySpreadConstraints[i].MaxSkew = 1
+		}
+		if p.TopologySpreadConstraints[i].TopologyKey == "" {
+			p.TopologySpreadConstraints[i].TopologyKey = defaultAffinityTopologyKey
+		}
+		if p.TopologySpreadConstraints[i].WhenUnsatisfiable == "" {
+			p.TopologySpreadConstraints[i].WhenUnsatisfiable = corev1.DoNotSchedule
 		}
 	}
 }

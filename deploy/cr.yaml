@@ -131,6 +131,13 @@ spec:
 #        ephemeral-storage: 1G
 #    nodeSelector:
 #      disktype: ssd
+#    topologySpreadConstraints:
+#    - labelSelector:
+#        matchLabels:
+#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#      maxSkew: 1
+#      topologyKey: kubernetes.io/hostname
+#      whenUnsatisfiable: DoNotSchedule
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -295,6 +302,13 @@ spec:
 #      runAsGroup: 1001
 #      supplementalGroups: [1001]
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
+#    topologySpreadConstraints:
+#    - labelSelector:
+#        matchLabels:
+#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#      maxSkew: 1
+#      topologyKey: kubernetes.io/hostname
+#      whenUnsatisfiable: DoNotSchedule
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -424,6 +438,13 @@ spec:
 #      runAsGroup: 1001
 #      supplementalGroups: [1001]
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
+#    topologySpreadConstraints:
+#    - labelSelector:
+#        matchLabels:
+#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#      maxSkew: 1
+#      topologyKey: kubernetes.io/hostname
+#      whenUnsatisfiable: DoNotSchedule
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -517,6 +538,13 @@ spec:
 #          requests:
 #            memory: 1G
 #            cpu: 600m
+#        topologySpreadConstraints:
+#        - labelSelector:
+#            matchLabels:
+#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          maxSkew: 1
+#          topologyKey: kubernetes.io/hostname
+#          whenUnsatisfiable: DoNotSchedule
 #        affinity:
 #          nodeAffinity:
 #            requiredDuringSchedulingIgnoredDuringExecution:
@@ -562,6 +590,13 @@ spec:
 #          requests:
 #            memory: 1G
 #            cpu: 600m
+#        topologySpreadConstraints:
+#        - labelSelector:
+#            matchLabels:
+#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          maxSkew: 1
+#          topologyKey: kubernetes.io/hostname
+#          whenUnsatisfiable: DoNotSchedule
 #        affinity:
 #          nodeAffinity:
 #            requiredDuringSchedulingIgnoredDuringExecution:

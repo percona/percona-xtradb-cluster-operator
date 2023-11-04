@@ -1,0 +1,129 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: cluster1
+  finalizers:
+#    - delete-ssl
+#    - delete-proxysql-pvc
+#    - delete-pxc-pvc
+#  annotations:
+#    percona.com/issue-vault-token: "true"
+spec:
+  allowUnsafeConfigurations: true
+  backup:
+    image: percona/percona-xtradb-cluster-operator:1.13.0-pxc8.0-backup-pxb8.0.32
+    pitr:
+      enabled: false
+      resources: {}
+      storageName: ""
+  crVersion: 1.13.0
+  haproxy:
+    affinity:
+      antiAffinityTopologyKey: none
+    configuration: |
+      timeout client 28800s
+      timeout connect 100500
+      timeout server 28800s
+    enabled: true
+    image: percona/percona-xtradb-cluster-operator:1.13.0-haproxy
+    livenessProbes: {}
+    loadBalancerSourceRanges:
+      - 185.211.160.62/31
+      - 35.158.96.9/31
+    readinessProbes: {}
+    replicasServiceType: LoadBalancer
+    resources:
+      limits:
+        cpu: 600m
+        memory: 1G
+    serviceType: LoadBalancer
+    sidecarResources: {}
+    size: 1
+    serviceAnnotations:
+      percona.com/inel: test
+  pmm:
+    enabled: false
+    image: percona/pmm-client:2
+    resources: {}
+    serverHost: 3.73.128.178
+  proxysql:
+    affinity:
+      antiAffinityTopologyKey: kubernetes.io/hostname
+    livenessProbes: {}
+    readinessProbes: {}
+    resources: {}
+    sidecarResources: {}
+  pxc:
+    affinity:
+      antiAffinityTopologyKey: kubernetes.io/hostname
+    configuration: |-
+      [mysqld]
+      binlog_cache_size = 131072
+      binlog_expire_logs_seconds = 604800
+      binlog_format = ROW
+      binlog_stmt_cache_size = 131072
+      innodb_adaptive_hash_index = True
+      innodb_buffer_pool_chunk_size = 2097152
+      innodb_buffer_pool_instances = 6
+      innodb_buffer_pool_size = 11619903457
+      innodb_ddl_threads = 2
+      innodb_flush_log_at_trx_commit = 2
+      innodb_flush_method = O_DIRECT
+      innodb_io_capacity_max = 1800
+      innodb_log_file_size = 464124928
+      innodb_log_files_in_group = 8
+      innodb_monitor_enable = ALL
+      innodb_page_cleaners = 6
+      innodb_parallel_read_threads = 3
+      innodb_purge_threads = 4
+      join_buffer_size = 524288
+      max_connections = 502
+      max_heap_table_size = 16777216
+      read_rnd_buffer_size = 393216
+      replica_compressed_protocol = 1
+      replica_exec_mode = STRICT
+      replica_parallel_type = LOGICAL_CLOCK
+      replica_parallel_workers = 4
+      replica_preserve_commit_order = ON
+      sort_buffer_size = 524288
+      sql_mode = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,TRADITIONAL,STRICT_ALL_TABLES'
+      sync_binlog = 1
+      table_definition_cache = 4096
+      table_open_cache = 4096
+      table_open_cache_instances = 4
+      tablespace_definition_cache = 512
+      thread_cache_size = 18
+      thread_pool_size = 6
+      thread_stack = 1048576
+      tmp_table_size = 16777216
+      wsrep-provider-options = evs.join_retrans_period=PT4S;evs.suspect_timeout=PT54S;gmcast.peer_timeout=PT13S;evs.send_window=921;evs.user_send_window=921;pc.announce_timeout=PT54S;gcache.recover=yes;evs.delayed_keep_period=PT554S;evs.inactive_check_period=PT4S;evs.inactive_timeout=PT108S;evs.stats_report_period=PT1M;gcs.fc_limit=115;gmcast.time_wait=PT16S;pc.linger=PT54S;pc.recovery=true;evs.delay_margin=PT27S;evs.max_install_timeouts=4;gcache.size=4269949337;gcs.max_packet_size=117964;
+      wsrep_slave_threads = 1
+      wsrep_sync_wait = 3
+      wsrep_trx_fragment_size = 1048576
+      wsrep_trx_fragment_unit = bytes
+      pxc_strict_mode=PERMISSIVE
+      secure_file_priv =''
+    expose: {}
+    image: percona/percona-xtradb-cluster:8.0.32-24.2
+    livenessProbes: {}
+    podDisruptionBudget:
+      maxUnavailable: 1
+    readinessProbes: {}
+    resources:
+      limits:
+        cpu: "4"
+        memory: 16G
+    serviceType: ClusterIP
+    sidecarResources: {}
+    size: 3
+    volumeSpec:
+      persistentVolumeClaim:
+        resources:
+          requests:
+            storage: 100G
+        storageClassName: io1-csi
+  secretsName: everest-secrets-steve-test1
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    apply: never
+    schedule: 0 4 * * *

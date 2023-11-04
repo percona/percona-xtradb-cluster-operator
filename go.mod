@@ -17,6 +17,7 @@ require (
 	github.com/go-openapi/swag v0.22.4
 	github.com/go-openapi/validate v0.22.1
 	github.com/go-sql-driver/mysql v1.7.1
+	github.com/gocarina/gocsv v0.0.0-20230616125104-99d496ca653d
 	github.com/google/go-cmp v0.5.9
 	github.com/hashicorp/go-version v1.6.0
 	github.com/minio/minio-go/v7 v7.0.59

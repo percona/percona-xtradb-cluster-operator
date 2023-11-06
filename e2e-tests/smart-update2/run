@@ -96,7 +96,7 @@ function check_telemetry_transfer() {
 	yq "${src_dir}/deploy/cr-minimal.yaml" \
 		| yq eval ".spec.upgradeOptions.versionServiceEndpoint=\"${cr_vs_uri}\"" \
 		| yq eval ".spec.upgradeOptions.apply=\"${cr_vs_channel}\"" \
-		| yq eval ".spec.initImage=\"$IMAGE\"" \
+		| yq eval ".spec.initContainer.image=\"$IMAGE\"" \
 		| yq eval '.spec.crVersion="9.9.9"' \
 		| yq eval ".spec.pxc.image=\"$IMAGE_PXC\"" \
 		| yq eval ".spec.haproxy.image=\"$IMAGE_HAPROXY\"" \
@@ -220,7 +220,7 @@ function main() {
 	##################################################
 	desc 'PXC cluster with version service offline'
 	cp -f "${test_dir}/conf/${CLUSTER}-version-service-unreachable.yml" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
-	yq -i eval ".spec.initImage = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
+	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-unreachable.yml"
 
 	wait_cluster_consistency "${CLUSTER}" "${CLUSTER_SIZE}" "${PROXY_SIZE}"

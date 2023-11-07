@@ -84,13 +84,14 @@ func main() {
 	}
 
 	options := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "08db1feb.percona.com",
-		Namespace:              namespace,
+		Scheme:                  scheme,
+		MetricsBindAddress:      metricsAddr,
+		Port:                    9443,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "08db1feb.percona.com",
+		LeaderElectionNamespace: operatorNamespace,
+		Namespace:               namespace,
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE

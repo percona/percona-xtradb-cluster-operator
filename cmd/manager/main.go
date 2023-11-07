@@ -20,12 +20,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	_ "github.com/Percona-Lab/percona-version-service/api"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
+	hook "github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -84,19 +85,28 @@ func main() {
 	}
 
 	options := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "08db1feb.percona.com",
-		Namespace:              namespace,
+		Scheme: scheme,
+		// MetricsBindAddress:      metricsAddr,
+		// Port:                    9443,
+		HealthProbeBindAddress:  probeAddr,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "08db1feb.percona.com",
+		LeaderElectionNamespace: operatorNamespace,
+		// Namespace:               namespace,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: 9443,
+		}),
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE
 	if len(namespace) > 0 {
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(append(strings.Split(namespace, ","), operatorNamespace))
+		// options.Namespace = ""
+		// options.NewCache = cache.MultiNamespacedCacheBuilder(append(strings.Split(namespace, ","), operatorNamespace))
+		namespaces := make(map[string]cache.Config)
+		for _, ns := range append(strings.Split(namespace, ","), operatorNamespace) {
+			namespaces[ns] = cache.Config{}
+		}
+		options.Cache.DefaultNamespaces = namespaces
 	}
 
 	// Get a config to talk to the apiserver
@@ -138,7 +148,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = webhook.SetupWebhook(mgr)
+	err = hook.SetupWebhook(mgr)
 	if err != nil {
 		setupLog.Error(err, "set up validation webhook")
 		os.Exit(1)

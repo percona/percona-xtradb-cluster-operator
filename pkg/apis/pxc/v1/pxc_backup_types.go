@@ -65,6 +65,28 @@ type PXCBackupStatus struct {
 	VerifyTLS             *bool                   `json:"verifyTLS,omitempty"`
 }
 
+func (status *PXCBackupStatus) GetStorageType(cluster *PerconaXtraDBCluster) BackupStorageType {
+	if status.StorageType != "" {
+		return status.StorageType
+	}
+
+	if cluster != nil {
+		storage, ok := cluster.Spec.Backup.Storages[status.StorageName]
+		if ok {
+			return storage.Type
+		}
+	}
+
+	switch {
+	case status.S3 != nil:
+		return BackupStorageS3
+	case status.Azure != nil:
+		return BackupStorageAzure
+	}
+
+	return ""
+}
+
 const (
 	BackupConditionPITRReady = "PITRReady"
 )

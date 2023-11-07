@@ -28,6 +28,17 @@ spec:
         - command:
             - recovery-cloud.sh
           env:
+            - name: PXC_SERVICE
+              value: demand-backup-cloud-pxc
+            - name: PXC_USER
+              value: xtrabackup
+            - name: PXC_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup
+                  name: my-cluster-secrets
+            - name: VERIFY_TLS
+              value: "true"
             - name: ENDPOINT
             - name: DEFAULT_REGION
               value: us-east-1
@@ -41,17 +52,6 @@ spec:
                 secretKeyRef:
                   key: AWS_SECRET_ACCESS_KEY
                   name: aws-s3-secret
-            - name: PXC_SERVICE
-              value: demand-backup-cloud-pxc
-            - name: PXC_USER
-              value: xtrabackup
-            - name: PXC_PASS
-              valueFrom:
-                secretKeyRef:
-                  key: xtrabackup
-                  name: my-cluster-secrets
-            - name: VERIFY_TLS
-              value: "true"
             - name: XB_USE_MEMORY
               value: 100MB
           imagePullPolicy: Always

@@ -227,6 +227,7 @@ fi
 
 file_env 'XTRABACKUP_PASSWORD' 'xtrabackup' 'xtrabackup'
 file_env 'CLUSTERCHECK_PASSWORD' '' 'clustercheck'
+file_env 'PERCONA_TELEMETRY_DISABLE' '1'
 
 NODE_NAME=$(hostname -f)
 NODE_PORT=3306

@@ -1518,8 +1518,6 @@ function check_backup_deletion() {
 		((retry += 1))
 	done
 }
-<<<<<<< HEAD
-=======
 
 check_passwords_leak() {
 	local secrets

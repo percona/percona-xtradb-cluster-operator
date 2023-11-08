@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -293,16 +294,22 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api
 		return nil
 	}
 
-	primary, err := r.getPrimaryPod(cr)
+	primPod, err := r.getPrimaryPodExec(ctx, cr)
 	if err != nil {
-		return errors.Wrap(err, "get primary pod")
+		return errors.Wrap(err, "get primary pxc pod")
 	}
-	for _, pod := range list.Items {
-		if pod.Status.PodIP == primary || pod.Name == primary {
-			primary = fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)
-			break
-		}
-	}
+	primary := fmt.Sprintf("%s.%s.%s", primPod.Name, currentSet.Name, currentSet.Namespace)
+
+	// primary, err := r.getPrimaryPod(cr)
+	// if err != nil {
+	// 	return errors.Wrap(err, "get primary pod")
+	// }
+	// for _, pod := range list.Items {
+	// 	if pod.Status.PodIP == primary || pod.Name == primary {
+	// 		primary = fmt.Sprintf("%s.%s.%s", pod.Name, currentSet.Name, currentSet.Namespace)
+	// 		break
+	// 	}
+	// }
 
 	log.Info("primary pod", "pod name", primary)
 
@@ -362,7 +369,10 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.
 		return errors.Wrap(err, "failed to wait pod")
 	}
 
-	if err := r.waitPXCSynced(cr, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, waitLimit); err != nil {
+	// if err := r.waitPXCSynced(cr, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, waitLimit); err != nil {
+	// 	return errors.Wrap(err, "failed to wait pxc sync")
+	// }
+	if err := r.waitPXCSynced(cr, pod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
@@ -386,18 +396,23 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(ctx context.Context, cr *
 		return nil
 	}
 
-	database, err := r.connectProxy(cr)
-	if err != nil {
-		return errors.Wrap(err, "failed to get proxySQL db")
-	}
+	// database, err := r.connectProxy(cr)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to get proxySQL db")
+	// }
+	// defer database.Close()
 
-	defer database.Close()
+	pass, err := r.getUserPass(ctx, cr, users.Operator)
+	if err != nil {
+		return errors.Wrap(err, "failed to get operator password")
+	}
+	database := queries.NewExec(pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
 	podNamePrefix := fmt.Sprintf("%s.%s.%s", pod.Name, sfsName, cr.Namespace)
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
-			present, err := database.PresentInHostgroups(podNamePrefix)
+			present, err := database.PresentInHostgroupsExec(ctx, podNamePrefix)
 			if err != nil && err != queries.ErrNotFound {
 				return false, errors.Wrap(err, "failed to get hostgroup status")
 			}
@@ -415,18 +430,23 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(ctx context.Context, cr 
 		return nil
 	}
 
-	database, err := r.connectProxy(cr)
-	if err != nil {
-		return errors.Wrap(err, "failed to get proxySQL db")
-	}
+	// database, err := r.connectProxy(cr)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to get proxySQL db")
+	// }
+	// defer database.Close()
 
-	defer database.Close()
+	pass, err := r.getUserPass(ctx, cr, users.Operator)
+	if err != nil {
+		return errors.Wrap(err, "failed to get operator password")
+	}
+	database := queries.NewExec(pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
 	podNamePrefix := fmt.Sprintf("%s.%s.%s", pod.Name, sfsName, cr.Namespace)
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
-			statuses, err := database.ProxySQLInstanceStatus(podNamePrefix)
+			statuses, err := database.ProxySQLInstanceStatusExec(ctx, podNamePrefix)
 			if err != nil && err != queries.ErrNotFound {
 				return false, errors.Wrap(err, "failed to get status")
 			}
@@ -476,91 +496,141 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 }
 
 // connectProxy returns a new connection through the proxy (ProxySQL or HAProxy)
-func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
-	var database queries.Database
-	var user, host string
-	var port, proxySize int32
+// func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluster) (queries.Database, error) {
+// 	var database queries.Database
+// 	var user, host string
+// 	var port, proxySize int32
+
+// 	if cr.ProxySQLEnabled() {
+// 		user = users.ProxyAdmin
+// 		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
+// 		proxySize = cr.Spec.ProxySQL.Size
+// 		port = 6032
+// 	} else if cr.HAProxyEnabled() {
+// 		user = users.Monitor
+// 		host = fmt.Sprintf("%s-haproxy.%s", cr.Name, cr.Namespace)
+// 		proxySize = cr.Spec.HAProxy.Size
+
+// 		hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+// 		if err != nil {
+// 			return database, errors.Wrap(err, "check if config has proxy_protocol_networks key")
+// 		}
+
+// 		port = 3306
+// 		if hasKey && cr.CompareVersionWith("1.6.0") >= 0 {
+// 			port = 33062
+// 		}
+// 	} else {
+// 		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
+// 	}
+
+// 	secrets := cr.Spec.SecretsName
+// 	if cr.CompareVersionWith("1.6.0") >= 0 {
+// 		secrets = "internal-" + cr.Name
+// 	}
+
+// 	for i := 0; ; i++ {
+// 		db, err := queries.New(r.client, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+// 		if err != nil && i < int(proxySize) {
+// 			time.Sleep(time.Second)
+// 		} else if err != nil && i == int(proxySize) {
+// 			return database, err
+// 		} else {
+// 			database = db
+// 			break
+// 		}
+// 	}
+
+// 	return database, nil
+// }
+
+// func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
+// 	conn, err := r.connectProxy(cr)
+// 	if err != nil {
+// 		return "", errors.Wrap(err, "failed to get proxy connection")
+// 	}
+// 	defer conn.Close()
+
+// 	if cr.HAProxyEnabled() {
+// 		host, err := conn.Hostname()
+// 		if err != nil {
+// 			return "", err
+// 		}
+
+// 		return host, nil
+// 	}
+
+// 	return conn.PrimaryHost()
+// }
+
+func (r *ReconcilePerconaXtraDBCluster) getPrimaryPodExec(ctx context.Context, cr *api.PerconaXtraDBCluster) (corev1.Pod, error) {
+	sfs := statefulset.NewNode(cr)
+
+	pods := corev1.PodList{}
+	err := r.client.List(ctx,
+		&pods,
+		&client.ListOptions{
+			Namespace:     cr.Namespace,
+			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+		},
+	)
+	if err != nil {
+		return corev1.Pod{}, errors.Wrap(err, "failed to get pod list")
+	}
+
+	pass, err := r.getUserPass(ctx, cr, users.Operator)
+	if err != nil {
+		return corev1.Pod{}, errors.Wrap(err, "failed to get operator password")
+	}
+	db := queries.NewExec(&pods.Items[0], r.clientcmd, users.Operator, pass, pods.Items[0].Name+"."+cr.Name+"-pxc."+cr.Namespace)
+
+	db.HostnameExec(ctx)
+
+	host, err := db.HostnameExec(ctx)
+	if err != nil {
+		return corev1.Pod{}, errors.Wrap(err, "failed to get primary pod")
+	}
 
 	if cr.ProxySQLEnabled() {
-		user = users.ProxyAdmin
-		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
-		proxySize = cr.Spec.ProxySQL.Size
-		port = 6032
-	} else if cr.HAProxyEnabled() {
-		user = users.Monitor
-		host = fmt.Sprintf("%s-haproxy.%s", cr.Name, cr.Namespace)
-		proxySize = cr.Spec.HAProxy.Size
-
-		hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+		host, err = db.PrimaryHostExec(ctx)
 		if err != nil {
-			return database, errors.Wrap(err, "check if config has proxy_protocol_networks key")
-		}
-
-		port = 3306
-		if hasKey && cr.CompareVersionWith("1.6.0") >= 0 {
-			port = 33062
-		}
-	} else {
-		return database, errors.New("can't detect enabled proxy, please enable HAProxy or ProxySQL")
-	}
-
-	secrets := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secrets = "internal-" + cr.Name
-	}
-
-	for i := 0; ; i++ {
-		db, err := queries.New(r.client, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-		if err != nil && i < int(proxySize) {
-			time.Sleep(time.Second)
-		} else if err != nil && i == int(proxySize) {
-			return database, err
-		} else {
-			database = db
-			break
+			return corev1.Pod{}, errors.Wrap(err, "failed to get primary pod")
 		}
 	}
 
-	return database, nil
+	for _, p := range pods.Items {
+		if strings.Contains(p.Name, host) {
+			return p, nil
+		}
+	}
+
+	return corev1.Pod{}, errors.New("failed to get primary pod")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBCluster) (string, error) {
-	conn, err := r.connectProxy(cr)
+func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, pod *corev1.Pod, waitLimit int) error {
+	// secrets := cr.Spec.SecretsName
+	// port := int32(3306)
+	// if cr.CompareVersionWith("1.6.0") >= 0 {
+	// 	secrets = "internal-" + cr.Name
+	// 	port = int32(33062)
+	// }
+
+	// database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	// if err != nil {
+	// 	return errors.Wrap(err, "failed to access PXC database")
+	// }
+	// defer database.Close()
+
+	pass, err := r.getUserPass(context.TODO(), cr, users.Root)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to get proxy connection")
-	}
-	defer conn.Close()
-
-	if cr.HAProxyEnabled() {
-		host, err := conn.Hostname()
-		if err != nil {
-			return "", err
-		}
-
-		return host, nil
+		return errors.Wrap(err, "failed to get root password")
 	}
 
-	return conn.PrimaryHost()
-}
-
-func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {
-	secrets := cr.Spec.SecretsName
-	port := int32(3306)
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		secrets = "internal-" + cr.Name
-		port = int32(33062)
-	}
-
-	database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	if err != nil {
-		return errors.Wrap(err, "failed to access PXC database")
-	}
-
-	defer database.Close()
+	database := queries.NewExec(pod, r.clientcmd, users.Root, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
-			state, err := database.WsrepLocalStateComment()
+			state, err := database.WsrepLocalStateCommentExec(context.TODO())
 			if err != nil {
 				return false, errors.Wrap(err, "failed to get wsrep local state")
 			}

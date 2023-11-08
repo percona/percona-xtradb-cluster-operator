@@ -132,3 +132,19 @@ func validatePasswords(secret *corev1.Secret) error {
 
 	return nil
 }
+
+func (r *ReconcilePerconaXtraDBCluster) getUserPass(ctx context.Context, cr *api.PerconaXtraDBCluster, user string) (string, error) {
+	secretObj := corev1.Secret{}
+	err := r.client.Get(ctx,
+		types.NamespacedName{
+			Namespace: cr.Namespace,
+			Name:      internalSecretsPrefix + cr.Name,
+		},
+		&secretObj,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return string(secretObj.Data[user]), nil
+}

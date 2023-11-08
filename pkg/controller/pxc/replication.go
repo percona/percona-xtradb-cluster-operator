@@ -3,7 +3,6 @@ package pxc
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-version"
@@ -131,34 +130,43 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
-	primary, err := r.getPrimaryPod(cr)
+	// primary, err := r.getPrimaryPod(cr)
+	// if err != nil {
+	// 	return errors.Wrap(err, "get primary pxc pod")
+	// }
+
+	// var primaryPod *corev1.Pod
+	// for _, pod := range podList {
+	// 	if pod.Status.PodIP == primary || pod.Name == primary || strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, cr.Namespace)) {
+	// 		primaryPod = &pod
+	// 		break
+	// 	}
+	// }
+
+	// if primaryPod == nil {
+	// 	log.Info("Unable to find primary pod for replication. No pod with name or ip like this", "primary name", primary)
+	// 	return nil
+	// }
+
+	primaryPod, err := r.getPrimaryPodExec(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pxc pod")
 	}
 
-	var primaryPod *corev1.Pod
-	for _, pod := range podList {
-		if pod.Status.PodIP == primary || pod.Name == primary || strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, cr.Namespace)) {
-			primaryPod = &pod
-			break
-		}
-	}
+	// port := int32(33062)
 
-	if primaryPod == nil {
-		log.Info("Unable to find primary pod for replication. No pod with name or ip like this", "primary name", primary)
-		return nil
-	}
-
-	port := int32(33062)
-
-	primaryDB, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	// primaryDB, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "failed to connect to pod %s", primaryPod.Name)
+	// }
+	// defer primaryDB.Close()
+	pass, err := r.getUserPass(ctx, cr, users.Operator)
 	if err != nil {
-		return errors.Wrapf(err, "failed to connect to pod %s", primaryPod.Name)
+		return errors.Wrap(err, "failed to get operator password")
 	}
+	primaryDB := queries.NewExec(&primaryPod, r.clientcmd, users.Operator, pass, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
-	defer primaryDB.Close()
-
-	dbVer, err := primaryDB.Version()
+	dbVer, err := primaryDB.VersionExec(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get current db version")
 	}
@@ -172,7 +180,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		return errors.Wrap(err, "remove outdated replication channels")
 	}
 
-	err = checkReadonlyStatus(cr.Spec.PXC.ReplicationChannels, podList, cr, r.client)
+	err = r.checkReadonlyStatus(cr.Spec.PXC.ReplicationChannels, podList, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to ensure cluster readonly status")
 	}
@@ -191,12 +199,19 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 			continue
 		}
 		if _, ok := pod.Labels[replicationPodLabel]; ok {
-			db, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+			// db, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+			// if err != nil {
+			// 	return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
+			// }
+			// db.Close()
+
+			pass, err := r.getUserPass(ctx, cr, users.Operator)
 			if err != nil {
-				return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
+				return errors.Wrap(err, "failed to get operator password")
 			}
-			err = db.StopAllReplication()
-			db.Close()
+			db := queries.NewExec(&pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+
+			err = db.StopAllReplicationExec(ctx)
 			if err != nil {
 				return errors.Wrapf(err, "stop replication on pod %s", pod.Name)
 			}
@@ -210,7 +225,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 	if _, ok := primaryPod.Labels[replicationPodLabel]; !ok {
 		primaryPod.Labels[replicationPodLabel] = "true"
-		err = r.client.Update(context.TODO(), primaryPod)
+		err = r.client.Update(context.TODO(), &primaryPod)
 		if err != nil {
 			return errors.Wrap(err, "add label to main replica pod")
 		}
@@ -253,14 +268,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	return r.updateStatus(cr, false, nil)
 }
 
-func handleReplicaPasswordChange(db queries.Database, newPass string) error {
-	channels, err := db.CurrentReplicationChannels()
+func handleReplicaPasswordChange(db *queries.DatabaseExec, newPass string) error {
+	channels, err := db.CurrentReplicationChannelsExec(context.TODO())
 	if err != nil {
 		return errors.Wrap(err, "get current replication channels")
 	}
 
 	for _, channel := range channels {
-		err := db.ChangeChannelPassword(channel, newPass)
+		err := db.ChangeChannelPasswordExec(context.TODO(), channel, newPass)
 		if err != nil {
 			return errors.Wrapf(err, "change password for channel %s", channel)
 		}
@@ -268,19 +283,28 @@ func handleReplicaPasswordChange(db queries.Database, newPass string) error {
 	return nil
 }
 
-func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {
+func (r *ReconcilePerconaXtraDBCluster) checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {
 	isReplica := false
 	if len(channels) > 0 {
 		isReplica = !channels[0].IsSource
 	}
 
 	for _, pod := range pods {
-		db, err := queries.New(client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		// db, err := queries.New(client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		// if err != nil {
+		// 	return errors.Wrapf(err, "connect to pod %s", pod.Name)
+		// }
+		// defer db.Close()
+
+		ctx := context.TODO()
+
+		pass, err := r.getUserPass(ctx, cr, users.Operator)
 		if err != nil {
-			return errors.Wrapf(err, "connect to pod %s", pod.Name)
+			return errors.Wrap(err, "failed to get operator password")
 		}
-		defer db.Close()
-		readonly, err := db.IsReadonly()
+		db := queries.NewExec(&pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+
+		readonly, err := db.IsReadonlyExec(ctx)
 		if err != nil {
 			return errors.Wrap(err, "check readonly status")
 		}
@@ -290,11 +314,11 @@ func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, c
 		}
 
 		if isReplica && !readonly {
-			err = db.EnableReadonly()
+			err = db.EnableReadonlyExec(ctx)
 		}
 
 		if !isReplica && readonly {
-			err = db.DisableReadonly()
+			err = db.DisableReadonlyExec(ctx)
 		}
 		if err != nil {
 			return errors.Wrap(err, "enable or disable readonly mode")
@@ -304,8 +328,8 @@ func checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, c
 	return nil
 }
 
-func removeOutdatedChannels(db queries.Database, currentChannels []api.ReplicationChannel) error {
-	dbChannels, err := db.CurrentReplicationChannels()
+func removeOutdatedChannels(db *queries.DatabaseExec, currentChannels []api.ReplicationChannel) error {
+	dbChannels, err := db.CurrentReplicationChannelsExec(context.TODO())
 	if err != nil {
 		return errors.Wrap(err, "get current replication channels")
 	}
@@ -330,17 +354,17 @@ func removeOutdatedChannels(db queries.Database, currentChannels []api.Replicati
 	}
 
 	for channelToRemove := range toRemove {
-		err = db.StopReplication(channelToRemove)
+		err = db.StopReplicationExec(context.TODO(), channelToRemove)
 		if err != nil {
 			return errors.Wrapf(err, "stop replication for channel %s", channelToRemove)
 		}
 
-		srcList, err := db.ReplicationChannelSources(channelToRemove)
+		srcList, err := db.ReplicationChannelSourcesExec(context.TODO(), channelToRemove)
 		if err != nil && err != queries.ErrNotFound {
 			return errors.Wrapf(err, "get src list for outdated channel %s", channelToRemove)
 		}
 		for _, v := range srcList {
-			err = db.DeleteReplicationSource(channelToRemove, v.Host, v.Port)
+			err = db.DeleteReplicationSourceExec(context.TODO(), channelToRemove, v.Host, v.Port)
 			if err != nil {
 				return errors.Wrapf(err, "delete replication source for outdated channel %s", channelToRemove)
 			}
@@ -349,13 +373,13 @@ func removeOutdatedChannels(db queries.Database, currentChannels []api.Replicati
 	return nil
 }
 
-func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
-	currentSources, err := primaryDB.ReplicationChannelSources(channel.Name)
+func manageReplicationChannel(log logr.Logger, primaryDB *queries.DatabaseExec, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
+	currentSources, err := primaryDB.ReplicationChannelSourcesExec(context.TODO(), channel.Name)
 	if err != nil && err != queries.ErrNotFound {
 		return errors.Wrapf(err, "get current replication sources for channel %s", channel.Name)
 	}
 
-	replicationStatus, err := primaryDB.ReplicationStatus(channel.Name)
+	replicationStatus, err := primaryDB.ReplicationStatusExec(context.TODO(), channel.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to check replication status")
 	}
@@ -373,14 +397,14 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 	}
 
 	if replicationStatus == queries.ReplicationStatusActive {
-		err = primaryDB.StopReplication(channel.Name)
+		err = primaryDB.StopReplicationExec(context.TODO(), channel.Name)
 		if err != nil {
 			return errors.Wrapf(err, "stop replication for channel %s", channel.Name)
 		}
 	}
 
 	for _, src := range currentSources {
-		err = primaryDB.DeleteReplicationSource(channel.Name, src.Host, src.Port)
+		err = primaryDB.DeleteReplicationSourceExec(context.TODO(), channel.Name, src.Host, src.Port)
 		if err != nil {
 			return errors.Wrapf(err, "delete replication source for channel %s", channel.Name)
 		}
@@ -393,13 +417,13 @@ func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, chann
 		if src.Weight > maxWeight {
 			maxWeightSrc = src
 		}
-		err := primaryDB.AddReplicationSource(channel.Name, src.Host, src.Port, src.Weight)
+		err := primaryDB.AddReplicationSourceExec(context.TODO(), channel.Name, src.Host, src.Port, src.Weight)
 		if err != nil {
 			return errors.Wrapf(err, "add replication source for channel %s", channel.Name)
 		}
 	}
 
-	return primaryDB.StartReplication(replicaPW, queries.ReplicationConfig{
+	return primaryDB.StartReplicationExec(context.TODO(), replicaPW, queries.ReplicationConfig{
 		Source: queries.ReplicationChannelSource{
 			Name: channel.Name,
 			Host: maxWeightSrc.Host,

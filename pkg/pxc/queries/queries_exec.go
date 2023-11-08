@@ -20,14 +20,14 @@ import (
 var sensitiveRegexp = regexp.MustCompile(":.*@")
 
 type DatabaseExec struct {
-	client clientcmd.Client
+	client *clientcmd.Client
 	pod    *corev1.Pod
 	user   string
 	pass   string
 	host   string
 }
 
-func NewExec(pod *corev1.Pod, cliCmd clientcmd.Client, user, pass, host string) *DatabaseExec {
+func NewExec(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass, host string) *DatabaseExec {
 	return &DatabaseExec{client: cliCmd, pod: pod, user: user, pass: pass, host: host}
 }
 
@@ -109,7 +109,7 @@ func (p *DatabaseExec) ChangeChannelPasswordExec(ctx context.Context, channel, p
 }
 
 // channel name moze biti: group_replication_applier ili SHOW REPLICA STATUS FOR CHANNEL group_replication_recovery
-func (p *DatabaseExec) ReplicationStatusExec(channel string) (ReplicationStatus, error) {
+func (p *DatabaseExec) ReplicationStatusExec(ctx context.Context, channel string) (ReplicationStatus, error) {
 	panic("not implemented")
 }
 
@@ -329,7 +329,7 @@ func (p *DatabaseExec) WsrepLocalStateCommentExec(ctx context.Context) (string, 
 	return rows[0].value, nil
 }
 
-func (p *DatabaseExec) VersionExecExec(ctx context.Context) (string, error) {
+func (p *DatabaseExec) VersionExec(ctx context.Context) (string, error) {
 	rows := []*struct {
 		version string `csv:"version"`
 	}{}

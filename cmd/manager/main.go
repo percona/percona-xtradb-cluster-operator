@@ -83,6 +83,7 @@ func main() {
 		os.Exit(1)
 	}
 
+
 	options := ctrl.Options{
 		Scheme:                  scheme,
 		MetricsBindAddress:      metricsAddr,

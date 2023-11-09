@@ -168,11 +168,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 			return err
 		}
 
-		um, err := getUserManager(cr, internalSecrets)
+		um, err := r.getUserManager(ctx, cr, internalSecrets)
 		if err != nil {
 			return err
 		}
-		defer um.Close()
 
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um)
@@ -283,11 +282,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(ctx cont
 				}
 
 				if !ver.LessThan(privSystemUserAddedIn) {
-					um, err := getUserManager(cr, internalSecrets)
+					um, err := r.getUserManager(ctx, cr, internalSecrets)
 					if err != nil {
 						return err
 					}
-					defer um.Close()
 
 					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, user, um); err != nil {
 						return errors.Wrap(err, "clustercheck user grant system privilege")
@@ -481,13 +479,12 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	um, err := getUserManager(cr, internalSecrets)
+	um, err := r.getUserManager(context.TODO(), cr, internalSecrets)
 	if err != nil {
 		return err
 	}
-	defer um.Close()
 
-	err = um.UpdateUserPassWithoutDP(user)
+	err = um.UpdateUserPassWithoutDP(context.TODO(), user)
 	if err != nil {
 		return errors.Wrap(err, "update user pass")
 	}

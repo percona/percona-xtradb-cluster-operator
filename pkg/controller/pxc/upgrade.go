@@ -584,8 +584,6 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPodExec(ctx context.Context, c
 	}
 	db := queries.NewExec(&pods.Items[0], r.clientcmd, users.Operator, pass, pods.Items[0].Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
-	db.HostnameExec(ctx)
-
 	host, err := db.HostnameExec(ctx)
 	if err != nil {
 		return corev1.Pod{}, errors.Wrap(err, "failed to get primary pod")

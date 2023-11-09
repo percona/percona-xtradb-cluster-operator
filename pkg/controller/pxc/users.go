@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -349,17 +350,26 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(ctx context.Cont
 	if err != nil {
 		return errors.Wrap(err, "generate password")
 	}
-	addr := cr.Name + "-pxc." + cr.Namespace
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
-	um, err := users.NewManager(addr, users.Root, string(secrets.Data[users.Root]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	if err != nil {
-		return errors.Wrap(err, "new users manager")
-	}
-	defer um.Close()
 
-	err = um.CreateOperatorUser(string(pass))
+	primary, err := r.getPrimaryPodExec(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "get primary pod")
+	}
+
+	host := primary.Name + "." + cr.Name + "-pxc." + cr.Namespace
+	um := users.NewManagerExec(&primary, r.clientcmd, users.Root, string(secrets.Data[users.Root]), host)
+
+	// addr := cr.Name + "-pxc." + cr.Namespace
+	// if cr.CompareVersionWith("1.6.0") >= 0 {
+	// 	addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	// }
+	// um, err := users.NewManagerOld(addr, users.Root, string(secrets.Data[users.Root]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	// if err != nil {
+	// 	return errors.Wrap(err, "new users manager")
+	// }
+	// defer um.Close()
+
+	err = um.CreateOperatorUser(ctx, string(pass))
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
 	}
@@ -394,11 +404,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 			return err
 		}
 
-		um, err := getUserManager(cr, internalSecrets)
+		um, err := r.getUserManager(ctx, cr, internalSecrets)
 		if err != nil {
 			return err
 		}
-		defer um.Close()
 
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um)
@@ -519,7 +528,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, um *users.Manager) error {
+func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, um *users.ManagerExec) error {
 	log := logf.FromContext(ctx)
 
 	annotationName := "grant-for-1.6.0-monitor-user"
@@ -527,7 +536,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Conte
 		return nil
 	}
 
-	err := um.Update160MonitorUserGrant(string(internalSysSecretObj.Data[users.Monitor]))
+	err := um.Update160MonitorUserGrant(ctx, string(internalSysSecretObj.Data[users.Monitor]))
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
 	}
@@ -580,11 +589,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(ctx context.Conte
 				}
 
 				if !ver.LessThan(privSystemUserAddedIn) {
-					um, err := getUserManager(cr, internalSecrets)
+					um, err := r.getUserManager(ctx, cr, internalSecrets)
 					if err != nil {
 						return err
 					}
-					defer um.Close()
 
 					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, user, um); err != nil {
 						return errors.Wrap(err, "clustercheck user grant system privilege")
@@ -726,13 +734,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(ctx context.Co
 		return nil
 	}
 
-	um, err := getUserManager(cr, secrets)
+	um, err := r.getUserManager(ctx, cr, secrets)
 	if err != nil {
 		return err
 	}
-	defer um.Close()
 
-	err = um.Update170XtrabackupUser(string(secrets.Data[users.Xtrabackup]))
+	err = um.Update170XtrabackupUser(ctx, string(secrets.Data[users.Xtrabackup]))
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
 	}
@@ -841,18 +848,17 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(ctx context.Contex
 		return nil
 	}
 
-	um, err := getUserManager(cr, secrets)
+	um, err := r.getUserManager(ctx, cr, secrets)
 	if err != nil {
 		return err
 	}
-	defer um.Close()
 
 	pass, err = generatePass()
 	if err != nil {
 		return errors.Wrap(err, "generate password")
 	}
 
-	err = um.CreateReplicationUser(string(pass))
+	err = um.CreateReplicationUser(ctx, string(pass))
 	if err != nil {
 		return errors.Wrap(err, "create replication user")
 	}
@@ -1007,13 +1013,12 @@ func (r *ReconcilePerconaXtraDBCluster) syncPXCUsersWithProxySQL(ctx context.Con
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	um, err := getUserManager(cr, internalSecrets)
+	um, err := r.getUserManager(context.TODO(), cr, internalSecrets)
 	if err != nil {
 		return err
 	}
-	defer um.Close()
 
-	err = um.UpdateUserPass(user)
+	err = um.UpdateUserPass(context.TODO(), user)
 	if err != nil {
 		return errors.Wrap(err, "update user pass")
 	}
@@ -1022,13 +1027,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.Perc
 }
 
 func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	um, err := getUserManager(cr, internalSecrets)
+	um, err := r.getUserManager(context.TODO(), cr, internalSecrets)
 	if err != nil {
 		return err
 	}
-	defer um.Close()
 
-	err = um.DiscardOldPassword(user)
+	err = um.DiscardOldPassword(context.TODO(), user)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("discard old user %s pass", user.Name))
 	}
@@ -1037,13 +1041,12 @@ func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDB
 }
 
 func (r *ReconcilePerconaXtraDBCluster) isOldPasswordDiscarded(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret, user *users.SysUser) (bool, error) {
-	um, err := getUserManager(cr, secrets)
+	um, err := r.getUserManager(context.TODO(), cr, secrets)
 	if err != nil {
 		return false, err
 	}
-	defer um.Close()
 
-	discarded, err := um.IsOldPassDiscarded(user)
+	discarded, err := um.IsOldPassDiscarded(context.TODO(), user)
 	if err != nil {
 		return false, errors.Wrap(err, "is old password discarded")
 	}
@@ -1113,21 +1116,29 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(cr *api.PerconaXtraDBClu
 		return nil
 	}
 
-	for i := 0; i < int(cr.Spec.ProxySQL.Size); i++ {
-		um, err := users.NewManager(cr.Name+"-proxysql-"+strconv.Itoa(i)+"."+cr.Name+"-proxysql-unready."+cr.Namespace+":6032", users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-		if err != nil {
-			return errors.Wrap(err, "new users manager")
-		}
-		defer um.Close()
-		err = um.UpdateProxyUser(user)
+	sfs := statefulset.NewNode(cr)
+
+	pods := corev1.PodList{}
+	err := r.client.List(context.TODO(), &pods, &client.ListOptions{
+		Namespace:     cr.Namespace,
+		LabelSelector: labels.SelectorFromSet(sfs.Labels())})
+	if err != nil {
+		return errors.Wrap(err, "failed to get pod list")
+	}
+
+	for _, pod := range pods.Items {
+		um := users.NewManagerExec(&pod, r.clientcmd, users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+
+		err = um.UpdateProxyUser(context.TODO(), user)
 		if err != nil {
 			return errors.Wrap(err, "update proxy users")
 		}
 	}
+
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, user *users.SysUser, um *users.Manager) error {
+func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, user *users.SysUser, um *users.ManagerExec) error {
 	log := logf.FromContext(ctx)
 
 	annotationName := "grant-for-1.10.0-system-privilege"
@@ -1135,7 +1146,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Con
 		return nil
 	}
 
-	if err := um.Update1100SystemUserPrivilege(user); err != nil {
+	if err := um.Update1100SystemUserPrivilege(ctx, user); err != nil {
 		return errors.Wrap(err, "grant system user privilege")
 	}
 
@@ -1153,7 +1164,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Con
 	return nil
 }
 
-func getUserManager(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*users.Manager, error) {
+func (r *ReconcilePerconaXtraDBCluster) getUserManager(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*users.ManagerExec, error) {
 	pxcUser := users.Root
 	pxcPass := string(secrets.Data[users.Root])
 	if _, ok := secrets.Data[users.Operator]; ok {
@@ -1161,21 +1172,27 @@ func getUserManager(cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*user
 		pxcPass = string(secrets.Data[users.Operator])
 	}
 
-	addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
-	hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
-	if err != nil {
-		return nil, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
-	}
-	if hasKey {
-		addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	}
+	// addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
+	// hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
+	// }
+	// if hasKey {
+	// 	addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
+	// }
 
-	um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	if err != nil {
-		return nil, errors.Wrap(err, "new users manager")
-	}
+	// um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "new users manager")
+	// }
 
-	return &um, nil
+	primary, err := r.getPrimaryPodExec(ctx, cr)
+	if err != nil {
+		return nil, errors.Wrap(err, "get primary pod")
+	}
+	host := primary.Name + "." + cr.Name + "-pxc." + cr.Namespace
+
+	return users.NewManagerExec(&primary, r.clientcmd, pxcUser, pxcPass, host), nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
@@ -1187,12 +1204,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 	}
 
 	if cr.CompareVersionWith("1.13.0") >= 0 {
-		um, err := getUserManager(cr, internalSecrets)
+		um, err := r.getUserManager(ctx, cr, internalSecrets)
 		if err != nil {
 			return err
 		}
 
-		if err := um.UpdatePassExpirationPolicy(user); err != nil {
+		if err := um.UpdatePassExpirationPolicy(ctx, user); err != nil {
 			return errors.Wrapf(err, "update %s user password expiration policy", user.Name)
 		}
 

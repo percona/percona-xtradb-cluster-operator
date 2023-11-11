@@ -34,7 +34,7 @@ func NewExec(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass, host string)
 func (d *DatabaseExec) exec(ctx context.Context, stm string, stdout, stderr *bytes.Buffer) error {
 	cmd := []string{"mysql", "--database", "performance_schema", fmt.Sprintf("-p%s", d.pass), "-u", string(d.user), "-h", d.host, "-e", stm}
 
-	err := d.client.Exec(d.pod, "mysql", cmd, nil, stdout, stderr, false)
+	err := d.client.Exec(d.pod, "pxc", cmd, nil, stdout, stderr, false)
 	if err != nil {
 		sout := sensitiveRegexp.ReplaceAllString(stdout.String(), ":*****@")
 		serr := sensitiveRegexp.ReplaceAllString(stderr.String(), ":*****@")
@@ -71,7 +71,7 @@ func (d *DatabaseExec) query(ctx context.Context, query string, out interface{})
 
 func (p *DatabaseExec) CurrentReplicationChannelsExec(ctx context.Context) ([]string, error) {
 	rows := []*struct {
-		name string `csv:"name"`
+		Name string `csv:"name"`
 	}{}
 
 	q := `SELECT DISTINCT(Channel_name) as name from replication_asynchronous_connection_failover`
@@ -85,7 +85,7 @@ func (p *DatabaseExec) CurrentReplicationChannelsExec(ctx context.Context) ([]st
 
 	result := make([]string, 0)
 	for _, row := range rows {
-		result = append(result, row.name)
+		result = append(result, row.Name)
 	}
 	return result, nil
 }
@@ -133,9 +133,9 @@ func (p *DatabaseExec) AddReplicationSourceExec(ctx context.Context, name, host 
 
 func (p *DatabaseExec) ReplicationChannelSourcesExec(ctx context.Context, channelName string) ([]ReplicationChannelSource, error) {
 	rows := []*struct {
-		host   string `csv:"host"`
-		port   int    `csv:"port"`
-		wieght int    `csv:"weight"`
+		Host   string `csv:"host"`
+		Port   int    `csv:"port"`
+		Wieght int    `csv:"weight"`
 	}{}
 
 	q := fmt.Sprintf("SELECT host, port, weight FROM replication_asynchronous_connection_failover WHERE Channel_name = '%s'", channelName)
@@ -149,7 +149,7 @@ func (p *DatabaseExec) ReplicationChannelSourcesExec(ctx context.Context, channe
 
 	result := make([]ReplicationChannelSource, 0)
 	for _, row := range rows {
-		result = append(result, ReplicationChannelSource{Host: row.host, Port: row.port, Weight: row.wieght})
+		result = append(result, ReplicationChannelSource{Host: row.Host, Port: row.Port, Weight: row.Wieght})
 	}
 	return result, nil
 }
@@ -174,10 +174,10 @@ func (p *DatabaseExec) DisableReadonlyExec(ctx context.Context) error {
 
 func (p *DatabaseExec) IsReadonlyExec(ctx context.Context) (bool, error) {
 	rows := []*struct {
-		ro int `csv:"ro"`
+		ReadOnly int `csv:"readOnly"`
 	}{}
-	err := p.query(ctx, "select @@read_only as ro", &rows)
-	return rows[0].ro == 1, errors.Wrap(err, "select global read_only param")
+	err := p.query(ctx, "select @@read_only as readOnly", &rows)
+	return rows[0].ReadOnly == 1, errors.Wrap(err, "select global read_only param")
 }
 
 func (p *DatabaseExec) StartReplicationExec(ctx context.Context, replicaPass string, config ReplicationConfig) error {
@@ -232,7 +232,7 @@ func (p *DatabaseExec) DeleteReplicationSourceExec(ctx context.Context, name, ho
 func (p *DatabaseExec) ProxySQLInstanceStatusExec(ctx context.Context, host string) ([]string, error) {
 
 	rows := []*struct {
-		status string `csv:"status"`
+		Status string `csv:"status"`
 	}{}
 
 	q := fmt.Sprintf("SELECT status FROM proxysql_servers WHERE hostname LIKE '%s%%'", host)
@@ -247,7 +247,7 @@ func (p *DatabaseExec) ProxySQLInstanceStatusExec(ctx context.Context, host stri
 
 	statuses := []string{}
 	for _, row := range rows {
-		statuses = append(statuses, row.status)
+		statuses = append(statuses, row.Status)
 	}
 
 	return statuses, nil
@@ -257,7 +257,7 @@ func (p *DatabaseExec) PresentInHostgroupsExec(ctx context.Context, host string)
 	hostgroups := []string{WriterHostgroup, ReaderHostgroup}
 
 	rows := []*struct {
-		count int `csv:"count"`
+		Count int `csv:"count"`
 	}{}
 
 	q := fmt.Sprintf(`
@@ -272,7 +272,7 @@ func (p *DatabaseExec) PresentInHostgroupsExec(ctx context.Context, host string)
 		}
 		return false, err
 	}
-	if rows[0].count != len(hostgroups) {
+	if rows[0].Count != len(hostgroups) {
 		return false, nil
 	}
 	return true, nil
@@ -280,7 +280,7 @@ func (p *DatabaseExec) PresentInHostgroupsExec(ctx context.Context, host string)
 
 func (p *DatabaseExec) PrimaryHostExec(ctx context.Context) (string, error) {
 	rows := []*struct {
-		hostname string `csv:"host"`
+		Hostname string `csv:"host"`
 	}{}
 
 	q := fmt.Sprintf("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = %d", writerID)
@@ -293,12 +293,12 @@ func (p *DatabaseExec) PrimaryHostExec(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	return rows[0].hostname, nil
+	return rows[0].Hostname, nil
 }
 
 func (p *DatabaseExec) HostnameExec(ctx context.Context) (string, error) {
 	rows := []*struct {
-		hostname string `csv:"hostname"`
+		Hostname string `csv:"hostname"`
 	}{}
 
 	err := p.query(ctx, "SELECT @@hostname hostname", &rows)
@@ -309,13 +309,13 @@ func (p *DatabaseExec) HostnameExec(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	return rows[0].hostname, nil
+	return rows[0].Hostname, nil
 }
 
 func (p *DatabaseExec) WsrepLocalStateCommentExec(ctx context.Context) (string, error) {
 	rows := []*struct {
-		variable_name string `csv:"Variable_name"`
-		value         string `csv:"Value"`
+		VariableName string `csv:"Variable_name"`
+		Value        string `csv:"Value"`
 	}{}
 
 	err := p.query(ctx, "SHOW GLOBAL STATUS LIKE 'wsrep_local_state_comment'", &rows)
@@ -326,15 +326,15 @@ func (p *DatabaseExec) WsrepLocalStateCommentExec(ctx context.Context) (string, 
 		return "", err
 	}
 
-	return rows[0].value, nil
+	return rows[0].Value, nil
 }
 
 func (p *DatabaseExec) VersionExec(ctx context.Context) (string, error) {
 	rows := []*struct {
-		version string `csv:"version"`
+		Version string `csv:"version"`
 	}{}
 
-	err := p.query(ctx, "select @@VERSION;", &rows)
+	err := p.query(ctx, "select @@VERSION as version;", &rows)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", fmt.Errorf("variable was not found")
@@ -342,5 +342,5 @@ func (p *DatabaseExec) VersionExec(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	return rows[0].version, nil
+	return rows[0].Version, nil
 }

@@ -100,8 +100,6 @@ func main() {
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE
 	if len(namespace) > 0 {
-			// options.Namespace = ""
-		// options.NewCache = cache.MultiNamespacedCacheBuilder(append(strings.Split(namespace, ","), operatorNamespace))
 		namespaces := make(map[string]cache.Config)
 		for _, ns := range append(strings.Split(namespace, ","), operatorNamespace) {
 			namespaces[ns] = cache.Config{}
@@ -148,10 +146,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = hook.SetupWebhook(mgr)
-	if err != nil {
-		setupLog.Error(err, "set up validation webhook")
-		os.Exit(1)
+	if _, found := os.LookupEnv("DISABLE_WEBHOOK"); !found {
+		err = hook.SetupWebhook(mgr)
+		if err != nil {
+			setupLog.Error(err, "set up validation webhook")
+			os.Exit(1)
+		}
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

@@ -34,7 +34,7 @@ func NewManagerExec(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass, host 
 func (d *ManagerExec) exec(ctx context.Context, stm string, stdout, stderr *bytes.Buffer) error {
 	cmd := []string{"mysql", "--database", "performance_schema", fmt.Sprintf("-p%s", d.pass), "-u", string(d.user), "-h", d.host, "-e", stm}
 
-	err := d.client.Exec(d.pod, "mysql", cmd, nil, stdout, stderr, false)
+	err := d.client.Exec(d.pod, "pxc", cmd, nil, stdout, stderr, false)
 	if err != nil {
 		sout := sensitiveRegexp.ReplaceAllString(stdout.String(), ":*****@")
 		serr := sensitiveRegexp.ReplaceAllString(stderr.String(), ":*****@")
@@ -147,7 +147,7 @@ func (m *ManagerExec) DiscardOldPassword(ctx context.Context, user *SysUser) err
 // IsOldPassDiscarded checks if old password is discarded
 func (m *ManagerExec) IsOldPassDiscarded(ctx context.Context, user *SysUser) (bool, error) {
 	rows := []*struct {
-		attr string `csv:"attr"`
+		Attr string `csv:"attr"`
 	}{}
 
 	err := m.query(ctx, fmt.Sprintf("SELECT User_attributes as attr FROM mysql.user WHERE user='%s'", user.Name), &rows)
@@ -158,7 +158,7 @@ func (m *ManagerExec) IsOldPassDiscarded(ctx context.Context, user *SysUser) (bo
 		return false, errors.Wrap(err, "select User_attributes field")
 	}
 
-	if len(rows[0].attr) > 0 {
+	if len(rows[0].Attr) > 0 {
 		return false, nil
 	}
 

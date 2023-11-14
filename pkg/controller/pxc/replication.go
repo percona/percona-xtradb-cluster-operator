@@ -25,7 +25,7 @@ const replicationPodLabel = "percona.com/replicationPod"
 
 var minReplicationVersion = version.Must(version.NewVersion("8.0.23-14.1"))
 
-func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	if cr.Spec.Pause {
 		return nil
 	}
@@ -62,10 +62,10 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtra
 			return errors.Wrap(err, "failed to ensure pxc service")
 		}
 	}
-	return r.removeOutdatedServices(cr)
+	return r.removeOutdatedServices(ctx, cr)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	//needed for labels
 	svc := NewExposedPXCService("", cr)
 
@@ -75,7 +75,7 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 	}
 
 	svcList := &corev1.ServiceList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(ctx,
 		svcList,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
@@ -89,7 +89,7 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 
 	for _, service := range svcList.Items {
 		if _, ok := svcNames[service.Name]; !ok {
-			err = r.client.Delete(context.TODO(), &service)
+			err = r.client.Delete(ctx, &service)
 			if err != nil {
 				return errors.Wrapf(err, "failed to delete service %s", service.Name)
 			}
@@ -108,7 +108,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	sfs := statefulset.NewNode(cr)
 
 	listRaw := corev1.PodList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(ctx,
 		&listRaw,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
@@ -150,22 +150,22 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		return nil
 	}
 
-	err = removeOutdatedChannels(primaryDB, cr.Spec.PXC.ReplicationChannels)
+	err = removeOutdatedChannels(ctx, primaryDB, cr.Spec.PXC.ReplicationChannels)
 	if err != nil {
 		return errors.Wrap(err, "remove outdated replication channels")
 	}
 
-	err = r.checkReadonlyStatus(cr.Spec.PXC.ReplicationChannels, podList, cr, r.client)
+	err = r.checkReadonlyStatus(ctx, cr.Spec.PXC.ReplicationChannels, podList, cr, r.client)
 	if err != nil {
 		return errors.Wrap(err, "failed to ensure cluster readonly status")
 	}
 
 	if len(cr.Spec.PXC.ReplicationChannels) == 0 {
-		return deleteReplicaLabels(r.client, podList)
+		return deleteReplicaLabels(ctx, r.client, podList)
 	}
 
 	if cr.Spec.PXC.ReplicationChannels[0].IsSource {
-		return deleteReplicaLabels(r.client, podList)
+		return deleteReplicaLabels(ctx, r.client, podList)
 	}
 
 	// if primary pod is not a replica, we need to make it as replica, and stop replication on other pods
@@ -185,7 +185,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 				return errors.Wrapf(err, "stop replication on pod %s", pod.Name)
 			}
 			delete(pod.Labels, replicationPodLabel)
-			err = r.client.Update(context.TODO(), &pod)
+			err = r.client.Update(ctx, &pod)
 			if err != nil {
 				return errors.Wrap(err, "failed to remove primary label from secondary pod")
 			}
@@ -194,7 +194,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 	if _, ok := primaryPod.Labels[replicationPodLabel]; !ok {
 		primaryPod.Labels[replicationPodLabel] = "true"
-		err = r.client.Update(context.TODO(), &primaryPod)
+		err = r.client.Update(ctx, &primaryPod)
 		if err != nil {
 			return errors.Wrap(err, "add label to main replica pod")
 		}
@@ -202,7 +202,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	}
 
 	sysUsersSecretObj := corev1.Secret{}
-	err = r.client.Get(context.TODO(),
+	err = r.client.Get(ctx,
 		types.NamespacedName{
 			Namespace: cr.Namespace,
 			Name:      internalSecretsPrefix + cr.Name,
@@ -214,7 +214,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	}
 
 	if replicaPassUpdated {
-		err = handleReplicaPasswordChange(primaryDB, string(sysUsersSecretObj.Data[users.Replication]))
+		err = handleReplicaPasswordChange(ctx, primaryDB, string(sysUsersSecretObj.Data[users.Replication]))
 		if err != nil {
 			return errors.Wrap(err, "failed to change replication password")
 		}
@@ -227,7 +227,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 		currConf := currentReplicaConfig(channel.Name, cr.Status.PXCReplication)
 
-		err = manageReplicationChannel(log, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]))
+		err = manageReplicationChannel(ctx, log, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]))
 		if err != nil {
 			return errors.Wrapf(err, "manage replication channel %s", channel.Name)
 		}
@@ -237,14 +237,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	return r.updateStatus(cr, false, nil)
 }
 
-func handleReplicaPasswordChange(db *queries.DatabaseExec, newPass string) error {
-	channels, err := db.CurrentReplicationChannelsExec(context.TODO())
+func handleReplicaPasswordChange(ctx context.Context, db *queries.DatabaseExec, newPass string) error {
+	channels, err := db.CurrentReplicationChannelsExec(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get current replication channels")
 	}
 
 	for _, channel := range channels {
-		err := db.ChangeChannelPasswordExec(context.TODO(), channel, newPass)
+		err := db.ChangeChannelPasswordExec(ctx, channel, newPass)
 		if err != nil {
 			return errors.Wrapf(err, "change password for channel %s", channel)
 		}
@@ -252,15 +252,13 @@ func handleReplicaPasswordChange(db *queries.DatabaseExec, newPass string) error
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) checkReadonlyStatus(channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {
+func (r *ReconcilePerconaXtraDBCluster) checkReadonlyStatus(ctx context.Context, channels []api.ReplicationChannel, pods []corev1.Pod, cr *api.PerconaXtraDBCluster, client client.Client) error {
 	isReplica := false
 	if len(channels) > 0 {
 		isReplica = !channels[0].IsSource
 	}
 
 	for _, pod := range pods {
-		ctx := context.TODO()
-
 		pass, err := r.getUserPass(ctx, cr, users.Operator)
 		if err != nil {
 			return errors.Wrap(err, "failed to get operator password")
@@ -291,8 +289,8 @@ func (r *ReconcilePerconaXtraDBCluster) checkReadonlyStatus(channels []api.Repli
 	return nil
 }
 
-func removeOutdatedChannels(db *queries.DatabaseExec, currentChannels []api.ReplicationChannel) error {
-	dbChannels, err := db.CurrentReplicationChannelsExec(context.TODO())
+func removeOutdatedChannels(ctx context.Context, db *queries.DatabaseExec, currentChannels []api.ReplicationChannel) error {
+	dbChannels, err := db.CurrentReplicationChannelsExec(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get current replication channels")
 	}
@@ -317,17 +315,17 @@ func removeOutdatedChannels(db *queries.DatabaseExec, currentChannels []api.Repl
 	}
 
 	for channelToRemove := range toRemove {
-		err = db.StopReplicationExec(context.TODO(), channelToRemove)
+		err = db.StopReplicationExec(ctx, channelToRemove)
 		if err != nil {
 			return errors.Wrapf(err, "stop replication for channel %s", channelToRemove)
 		}
 
-		srcList, err := db.ReplicationChannelSourcesExec(context.TODO(), channelToRemove)
+		srcList, err := db.ReplicationChannelSourcesExec(ctx, channelToRemove)
 		if err != nil && err != queries.ErrNotFound {
 			return errors.Wrapf(err, "get src list for outdated channel %s", channelToRemove)
 		}
 		for _, v := range srcList {
-			err = db.DeleteReplicationSourceExec(context.TODO(), channelToRemove, v.Host, v.Port)
+			err = db.DeleteReplicationSourceExec(ctx, channelToRemove, v.Host, v.Port)
 			if err != nil {
 				return errors.Wrapf(err, "delete replication source for outdated channel %s", channelToRemove)
 			}
@@ -336,13 +334,13 @@ func removeOutdatedChannels(db *queries.DatabaseExec, currentChannels []api.Repl
 	return nil
 }
 
-func manageReplicationChannel(log logr.Logger, primaryDB *queries.DatabaseExec, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
-	currentSources, err := primaryDB.ReplicationChannelSourcesExec(context.TODO(), channel.Name)
+func manageReplicationChannel(ctx context.Context, log logr.Logger, primaryDB *queries.DatabaseExec, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
+	currentSources, err := primaryDB.ReplicationChannelSourcesExec(ctx, channel.Name)
 	if err != nil && err != queries.ErrNotFound {
 		return errors.Wrapf(err, "get current replication sources for channel %s", channel.Name)
 	}
 
-	replicationStatus, err := primaryDB.ReplicationStatusExec(context.TODO(), channel.Name)
+	replicationStatus, err := primaryDB.ReplicationStatusExec(ctx, channel.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to check replication status")
 	}
@@ -360,14 +358,14 @@ func manageReplicationChannel(log logr.Logger, primaryDB *queries.DatabaseExec, 
 	}
 
 	if replicationStatus == queries.ReplicationStatusActive {
-		err = primaryDB.StopReplicationExec(context.TODO(), channel.Name)
+		err = primaryDB.StopReplicationExec(ctx, channel.Name)
 		if err != nil {
 			return errors.Wrapf(err, "stop replication for channel %s", channel.Name)
 		}
 	}
 
 	for _, src := range currentSources {
-		err = primaryDB.DeleteReplicationSourceExec(context.TODO(), channel.Name, src.Host, src.Port)
+		err = primaryDB.DeleteReplicationSourceExec(ctx, channel.Name, src.Host, src.Port)
 		if err != nil {
 			return errors.Wrapf(err, "delete replication source for channel %s", channel.Name)
 		}
@@ -380,13 +378,13 @@ func manageReplicationChannel(log logr.Logger, primaryDB *queries.DatabaseExec, 
 		if src.Weight > maxWeight {
 			maxWeightSrc = src
 		}
-		err := primaryDB.AddReplicationSourceExec(context.TODO(), channel.Name, src.Host, src.Port, src.Weight)
+		err := primaryDB.AddReplicationSourceExec(ctx, channel.Name, src.Host, src.Port, src.Weight)
 		if err != nil {
 			return errors.Wrapf(err, "add replication source for channel %s", channel.Name)
 		}
 	}
 
-	return primaryDB.StartReplicationExec(context.TODO(), replicaPW, queries.ReplicationConfig{
+	return primaryDB.StartReplicationExec(ctx, replicaPW, queries.ReplicationConfig{
 		Source: queries.ReplicationChannelSource{
 			Name: channel.Name,
 			Host: maxWeightSrc.Host,
@@ -424,11 +422,11 @@ func isSourcesChanged(new []api.ReplicationSource, old []queries.ReplicationChan
 	return len(oldSrc) != 0
 }
 
-func deleteReplicaLabels(client client.Client, pods []corev1.Pod) error {
+func deleteReplicaLabels(ctx context.Context, client client.Client, pods []corev1.Pod) error {
 	for _, pod := range pods {
 		if _, ok := pod.Labels[replicationPodLabel]; ok {
 			delete(pod.Labels, replicationPodLabel)
-			err := client.Update(context.TODO(), &pod)
+			err := client.Update(ctx, &pod)
 			if err != nil {
 				return errors.Wrap(err, "failed to remove replication label from pod")
 			}
@@ -437,7 +435,7 @@ func deleteReplicaLabels(client client.Client, pods []corev1.Pod) error {
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
 	if cr.Spec.Pause {
 		return nil
 	}
@@ -446,7 +444,7 @@ func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtra
 	svc := NewExposedPXCService("", cr)
 
 	svcList := &corev1.ServiceList{}
-	err := r.client.List(context.TODO(),
+	err := r.client.List(ctx,
 		svcList,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
@@ -462,7 +460,7 @@ func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtra
 	}
 
 	for _, service := range svcList.Items {
-		err = r.client.Delete(context.TODO(), &service)
+		err = r.client.Delete(ctx, &service)
 		if err != nil {
 			return errors.Wrap(err, "failed to delete external service")
 		}

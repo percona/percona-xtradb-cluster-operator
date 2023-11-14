@@ -342,12 +342,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	}
 
 	if o.Spec.PXC.Expose.Enabled {
-		err = r.ensurePxcPodServices(o)
+		err = r.ensurePxcPodServices(ctx, o)
 		if err != nil {
 			return rr, errors.Wrap(err, "create replication services")
 		}
 	} else {
-		err = r.removePxcPodServices(o)
+		err = r.removePxcPodServices(ctx, o)
 		if err != nil {
 			return rr, errors.Wrap(err, "remove pxc pod services")
 		}

@@ -158,7 +158,7 @@ func (m *ManagerExec) IsOldPassDiscardedExec(ctx context.Context, user *SysUser)
 		return false, errors.Wrap(err, "select User_attributes field")
 	}
 
-	if len(rows[0].Attr) > 0 {
+	if len(rows[0].Attr) > 0 && rows[0].Attr != "NULL" {
 		return false, nil
 	}
 

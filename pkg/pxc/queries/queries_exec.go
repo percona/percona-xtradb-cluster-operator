@@ -108,9 +108,35 @@ func (p *DatabaseExec) ChangeChannelPasswordExec(ctx context.Context, channel, p
 	return nil
 }
 
-// channel name moze biti: group_replication_applier ili SHOW REPLICA STATUS FOR CHANNEL group_replication_recovery
 func (p *DatabaseExec) ReplicationStatusExec(ctx context.Context, channel string) (ReplicationStatus, error) {
-	panic("not implemented")
+	rows := []*struct {
+		IORunning  string `csv:"Replica_IO_Running"`
+		SQLRunning string `csv:"Replica_SQL_Running"`
+		LastErrNo  int    `csv:"Last_Errno"`
+	}{}
+
+	q := fmt.Sprintf("SHOW REPLICA STATUS FOR CHANNEL %s", channel)
+	err := p.query(ctx, q, &rows)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ReplicationStatusNotInitiated, nil
+		}
+		return ReplicationStatusError, errors.Wrap(err, "select replication status")
+	}
+
+	ioRunning := rows[0].IORunning == "Yes"
+	sqlRunning := rows[0].SQLRunning == "Yes"
+	lastErrNo := rows[0].LastErrNo
+
+	if ioRunning && sqlRunning {
+		return ReplicationStatusActive, nil
+	}
+
+	if !ioRunning && !sqlRunning && lastErrNo == 0 {
+		return ReplicationStatusNotInitiated, nil
+	}
+
+	return ReplicationStatusError, nil
 }
 
 func (p *DatabaseExec) StopAllReplicationExec(ctx context.Context) error {

@@ -253,13 +253,14 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) ([]corev1.EnvVar, error) {
 	if bcp.Status.GetStorageType(cluster) == api.BackupStorageFilesystem {
 		return util.MergeEnvLists(
-			cr.Spec.ContainerOptions.GetEnvVar(cluster, bcp.Spec.StorageName),
 			[]corev1.EnvVar{
 				{
 					Name:  "RESTORE_SRC_SERVICE",
 					Value: "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
 				},
-			}), nil
+			},
+			cr.Spec.ContainerOptions.GetEnvVar(cluster, bcp.Spec.StorageName),
+		), nil
 	}
 	pxcUser := users.Xtrabackup
 	verifyTLS := true
@@ -335,8 +336,9 @@ func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBCl
 		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
 	}
 	return util.MergeEnvLists(
+		envs,
 		cr.Spec.ContainerOptions.GetEnvVar(cluster, bcp.Spec.StorageName),
-		envs), nil
+	), nil
 }
 
 func azureEnvs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) ([]corev1.EnvVar, error) {

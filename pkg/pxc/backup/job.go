@@ -72,7 +72,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 			Value: strconv.FormatBool(verifyTLS),
 		},
 	}
-	envs = util.MergeEnvLists(spec.ContainerOptions.GetEnvVar(cluster, spec.StorageName), envs)
+	envs = util.MergeEnvLists(envs, spec.ContainerOptions.GetEnvVar(cluster, spec.StorageName))
 
 	return batchv1.JobSpec{
 		BackoffLimit:   &backoffLimit,

@@ -14,6 +14,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
 var log = logf.Log.WithName("backup/restore")
@@ -251,12 +252,14 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 
 func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) ([]corev1.EnvVar, error) {
 	if bcp.Status.GetStorageType(cluster) == api.BackupStorageFilesystem {
-		return []corev1.EnvVar{
-			{
-				Name:  "RESTORE_SRC_SERVICE",
-				Value: "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
-			},
-		}, nil
+		return util.MergeEnvLists(
+			cr.Spec.ContainerOptions.GetEnvVar(cluster, bcp.Spec.StorageName),
+			[]corev1.EnvVar{
+				{
+					Name:  "RESTORE_SRC_SERVICE",
+					Value: "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+				},
+			}), nil
 	}
 	pxcUser := users.Xtrabackup
 	verifyTLS := true
@@ -331,8 +334,9 @@ func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBCl
 	default:
 		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
 	}
-
-	return envs, nil
+	return util.MergeEnvLists(
+		cr.Spec.ContainerOptions.GetEnvVar(cluster, bcp.Spec.StorageName),
+		envs), nil
 }
 
 func azureEnvs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) ([]corev1.EnvVar, error) {
@@ -372,17 +376,17 @@ func azureEnvs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCluste
 	}
 	if pitr {
 		storageAzure := new(api.BackupStorageAzureSpec)
-
-		if len(cr.Spec.PITR.BackupSource.StorageName) > 0 {
-			storage, ok := cluster.Spec.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
-			if ok {
-				storageAzure = storage.Azure
+		if bs := cr.Spec.PITR.BackupSource; bs != nil {
+			if bs.StorageName != "" {
+				storage, ok := cluster.Spec.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
+				if ok {
+					storageAzure = storage.Azure
+				}
+			}
+			if bs.Azure != nil {
+				storageAzure = cr.Spec.PITR.BackupSource.Azure
 			}
 		}
-		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.Azure != nil {
-			storageAzure = cr.Spec.PITR.BackupSource.Azure
-		}
-
 		if len(storageAzure.ContainerPath) == 0 {
 			return nil, errors.New("container name is not specified in storage")
 		}
@@ -460,19 +464,6 @@ func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBa
 	if pitr {
 		bucket := ""
 		storageS3 := new(api.BackupStorageS3Spec)
-		if bs := cr.Spec.PITR.BackupSource; bs != nil && len(bs.StorageName) > 0 {
-			storage, ok := cluster.Spec.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
-			if ok {
-				storageS3 = storage.S3
-				bucket = storage.S3.Bucket
-			}
-		}
-		if cr.Spec.PITR.BackupSource != nil {
-			if cr.Spec.PITR.BackupSource.S3 != nil {
-				storageS3 = cr.Spec.PITR.BackupSource.S3
-				bucket = storageS3.Bucket
-			}
-		}
 		if bs := cr.Spec.PITR.BackupSource; bs != nil {
 			if bs.StorageName != "" {
 				storage, ok := cluster.Spec.Backup.Storages[bs.StorageName]

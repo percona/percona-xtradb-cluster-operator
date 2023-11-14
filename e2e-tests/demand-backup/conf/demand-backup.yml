@@ -88,3 +88,8 @@ spec:
           bucket: operator-testing
           endpointUrl: https://minio-service.#namespace:9000/
         verifyTLS: false
+        containerOptions:
+          extraArgs:
+            xbstream: 'invalidarg'
+            xtrabackup: 'invalidarg'
+            xbcloud: 'invalidarg'

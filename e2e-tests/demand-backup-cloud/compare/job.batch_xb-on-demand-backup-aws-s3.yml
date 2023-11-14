@@ -38,6 +38,10 @@ spec:
             - bash
             - /usr/bin/backup.sh
           env:
+            - name: XBCLOUD_EXTRA_ARGS
+              value: --parallel=2
+            - name: XBSTREAM_EXTRA_ARGS
+              value: --parallel=2
             - name: BACKUP_DIR
               value: /backup
             - name: PXC_SERVICE

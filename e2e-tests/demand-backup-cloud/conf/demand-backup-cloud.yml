@@ -76,6 +76,10 @@ spec:
           region: us-east-1
           bucket: operator-testing
           credentialsSecret: aws-s3-secret
+        containerOptions:
+          extraArgs:
+            xbstream: '--parallel=2'
+            xbcloud: '--parallel=2'
       minio:
         type: s3
         s3:

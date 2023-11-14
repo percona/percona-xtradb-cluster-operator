@@ -44,8 +44,9 @@ type PerconaXtraDBClusterBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster  string `json:"pxcCluster"`
-	StorageName string `json:"storageName,omitempty"`
+	PXCCluster       string                  `json:"pxcCluster"`
+	StorageName      string                  `json:"storageName,omitempty"`
+	ContainerOptions *BackupContainerOptions `json:"containerOptions,omitempty"`
 }
 
 type PXCBackupStatus struct {

@@ -26,6 +26,10 @@ spec:
         - command:
             - recovery-cloud.sh
           env:
+            - name: XBCLOUD_EXTRA_ARGS
+              value: --parallel=2
+            - name: XBSTREAM_EXTRA_ARGS
+              value: --parallel=2
             - name: PXC_SERVICE
               value: demand-backup-cloud-pxc
             - name: PXC_USER

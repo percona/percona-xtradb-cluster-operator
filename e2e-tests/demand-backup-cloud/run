@@ -7,6 +7,24 @@ test_dir=$(realpath $(dirname $0))
 
 set_debug
 
+get_container_options() {
+	backup_name=$1
+	cluster_name=$2
+
+	backup_options=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.spec.containerOptions}')
+	if [[ -n $backup_options ]]; then
+		echo "$backup_options"
+		return
+	fi
+
+	storage_name=$(kubectl_bin get pxc-backup "$backup_name" -o jsonpath='{.spec.storageName}')
+	storage_options=$(kubectl_bin get pxc "$cluster_name" -o jsonpath="{.spec.backup.storages.$storage_name.containerOptions}")
+	if [[ -n $storage_options ]]; then
+		echo "$storage_options"
+		return
+	fi
+}
+
 run_recovery_from_source() {
 	local storage_type=${1:-s3}
 	local backup_name=${2:-on-demand-backup-aws-s3}
@@ -24,9 +42,22 @@ run_recovery_from_source() {
 	fi
 
 	desc "$storage_type restore with backup source"
-	stext=$(kubectl_bin get pxc-backup $backup_name -o json | jq -c '.status | {'"$storage_type"', destination} | del(.'"$storage_type"'.endpointUrl, .'"$storage_type"'.storageClass '"$remove_options"')' | $sed "s|$remove_prefix://||")
-	jq --argjson s "$stext" --arg restore_name "on-demand-backup-$storage_type" '.spec.backupSource=$s | .metadata.name=$restore_name' $test_dir/conf/restore-from-source-backup.json \
+	restore_name="on-demand-backup-$storage_type"
+
+	restore_json=$(jq ".metadata.name=\"$restore_name\"" "$test_dir/conf/restore-from-source-backup.json")
+
+	container_options=$(get_container_options "$backup_name" "$cluster")
+	if [[ -n $container_options ]]; then
+		restore_json=$(echo "$restore_json" | jq ".spec.containerOptions=$container_options")
+	fi
+
+	backup_source_json=$(kubectl_bin get pxc-backup "$backup_name" -o json \
+		| jq -c '.status | {'"$storage_type"', destination} | del(.'"$storage_type"'.endpointUrl, .'"$storage_type"'.storageClass '"$remove_options"')' \
+		| $sed "s|$remove_prefix://||")
+	echo "$restore_json" \
+		| jq ".spec.backupSource=$backup_source_json" \
 		| kubectl_bin apply -f -
+
 	sleep 30
 	wait_for_running "$cluster-proxysql" 1
 	wait_for_running "$cluster-pxc" 3
@@ -35,7 +66,6 @@ run_recovery_from_source() {
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
 	compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
-
 }
 
 main() {

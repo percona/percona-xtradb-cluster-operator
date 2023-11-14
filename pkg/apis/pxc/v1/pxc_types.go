@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -525,6 +526,60 @@ type BackupStorageSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 	VerifyTLS                *bool                       `json:"verifyTLS,omitempty"`
+	ContainerOptions         *BackupContainerOptions     `json:"containerOptions,omitempty"`
+}
+
+type BackupContainerOptions struct {
+	Env       []corev1.EnvVar          `json:"env,omitempty"`
+	ExtraArgs BackupContainerExtraArgs `json:"extraArgs,omitempty"`
+}
+
+func (b *BackupContainerOptions) GetEnv() []corev1.EnvVar {
+	return util.MergeEnvLists(b.Env, b.ExtraArgs.Env())
+}
+
+func (b *BackupContainerOptions) GetEnvVar(cluster *PerconaXtraDBCluster, storageName string) []corev1.EnvVar {
+	if b != nil {
+		return util.MergeEnvLists(b.Env, b.ExtraArgs.Env())
+	}
+	if cluster == nil {
+		return nil
+	}
+
+	storage, ok := cluster.Spec.Backup.Storages[storageName]
+	if !ok || storage.ContainerOptions == nil {
+		return nil
+	}
+	return storage.ContainerOptions.GetEnvVar(nil, "")
+}
+
+type BackupContainerExtraArgs struct {
+	Xtrabackup string `json:"xtrabackup,omitempty"`
+	Xbcloud    string `json:"xbcloud,omitempty"`
+	Xbstream   string `json:"xbstream,omitempty"`
+}
+
+func (b *BackupContainerExtraArgs) Env() []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
+	if b.Xtrabackup != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XB_EXTRA_ARGS",
+			Value: b.Xtrabackup,
+		})
+	}
+	if b.Xbcloud != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XBCLOUD_EXTRA_ARGS",
+			Value: b.Xbcloud,
+		})
+	}
+	if b.Xbstream != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XBSTREAM_EXTRA_ARGS",
+			Value: b.Xbstream,
+		})
+	}
+	return envs
 }
 
 type BackupStorageType string

@@ -53,7 +53,7 @@ type ReplicationChannelSource struct {
 
 var ErrNotFound = errors.New("not found")
 
-func NewOld(client client.Client, namespace, secretName, user, host string, port int32, timeout int32) (Database, error) {
+func New(client client.Client, namespace, secretName, user, host string, port int32, timeout int32) (Database, error) {
 	secretObj := corev1.Secret{}
 	err := client.Get(context.TODO(),
 		types.NamespacedName{

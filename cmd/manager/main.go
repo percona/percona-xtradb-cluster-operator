@@ -89,13 +89,10 @@ func main() {
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port: 9443,
 		}),
-		// MetricsBindAddress:      metricsAddr,
-		// Port:                    9443,
 		HealthProbeBindAddress:  probeAddr,
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "08db1feb.percona.com",
 		LeaderElectionNamespace: operatorNamespace,
-		// Namespace:               namespace,
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE

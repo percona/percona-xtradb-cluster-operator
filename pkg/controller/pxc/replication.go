@@ -130,36 +130,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
-	// primary, err := r.getPrimaryPod(cr)
-	// if err != nil {
-	// 	return errors.Wrap(err, "get primary pxc pod")
-	// }
-
-	// var primaryPod *corev1.Pod
-	// for _, pod := range podList {
-	// 	if pod.Status.PodIP == primary || pod.Name == primary || strings.HasPrefix(primary, fmt.Sprintf("%s.%s.%s", pod.Name, sfs.StatefulSet().Name, cr.Namespace)) {
-	// 		primaryPod = &pod
-	// 		break
-	// 	}
-	// }
-
-	// if primaryPod == nil {
-	// 	log.Info("Unable to find primary pod for replication. No pod with name or ip like this", "primary name", primary)
-	// 	return nil
-	// }
-
-	primaryPod, err := r.getPrimaryPodExec(ctx, cr)
+	primaryPod, err := r.getPrimaryPod(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pxc pod")
 	}
 
-	// port := int32(33062)
-
-	// primaryDB, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "failed to connect to pod %s", primaryPod.Name)
-	// }
-	// defer primaryDB.Close()
 	pass, err := r.getUserPass(ctx, cr, users.Operator)
 	if err != nil {
 		return errors.Wrap(err, "failed to get operator password")
@@ -199,12 +174,6 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 			continue
 		}
 		if _, ok := pod.Labels[replicationPodLabel]; ok {
-			// db, err := queries.New(r.client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-			// if err != nil {
-			// 	return errors.Wrapf(err, "failed to connect to pod %s", pod.Name)
-			// }
-			// db.Close()
-
 			pass, err := r.getUserPass(ctx, cr, users.Operator)
 			if err != nil {
 				return errors.Wrap(err, "failed to get operator password")
@@ -290,12 +259,6 @@ func (r *ReconcilePerconaXtraDBCluster) checkReadonlyStatus(channels []api.Repli
 	}
 
 	for _, pod := range pods {
-		// db, err := queries.New(client, cr.Namespace, internalSecretsPrefix+cr.Name, users.Operator, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, 33062, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-		// if err != nil {
-		// 	return errors.Wrapf(err, "connect to pod %s", pod.Name)
-		// }
-		// defer db.Close()
-
 		ctx := context.TODO()
 
 		pass, err := r.getUserPass(ctx, cr, users.Operator)

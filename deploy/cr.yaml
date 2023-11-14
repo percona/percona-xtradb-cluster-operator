@@ -20,8 +20,8 @@ spec:
 #  sslSecretName: cluster1-ssl
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
-  initContainer:
-    image: perconalab/percona-xtradb-cluster-operator:main
+#  initContainer:
+#    image: perconalab/percona-xtradb-cluster-operator:main
 #    resources:
 #      requests:
 #        memory: 100M

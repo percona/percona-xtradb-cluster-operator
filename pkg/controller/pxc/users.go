@@ -351,23 +351,13 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(ctx context.Cont
 		return errors.Wrap(err, "generate password")
 	}
 
-	primary, err := r.getPrimaryPodExec(ctx, cr)
+	primary, err := r.getPrimaryPod(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "get primary pod")
 	}
 
 	host := primary.Name + "." + cr.Name + "-pxc." + cr.Namespace
 	um := users.NewManagerExec(&primary, r.clientcmd, users.Root, string(secrets.Data[users.Root]), host)
-
-	// addr := cr.Name + "-pxc." + cr.Namespace
-	// if cr.CompareVersionWith("1.6.0") >= 0 {
-	// 	addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	// }
-	// um, err := users.NewManagerOld(addr, users.Root, string(secrets.Data[users.Root]), cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	// if err != nil {
-	// 	return errors.Wrap(err, "new users manager")
-	// }
-	// defer um.Close()
 
 	err = um.CreateOperatorUserExec(ctx, string(pass))
 	if err != nil {
@@ -1172,21 +1162,7 @@ func (r *ReconcilePerconaXtraDBCluster) getUserManager(ctx context.Context, cr *
 		pxcPass = string(secrets.Data[users.Operator])
 	}
 
-	// addr := cr.Name + "-pxc-unready." + cr.Namespace + ":3306"
-	// hasKey, err := cr.ConfigHasKey("mysqld", "proxy_protocol_networks")
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "check if congfig has proxy_protocol_networks key")
-	// }
-	// if hasKey {
-	// 	addr = cr.Name + "-pxc-unready." + cr.Namespace + ":33062"
-	// }
-
-	// um, err := users.NewManager(addr, pxcUser, pxcPass, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "new users manager")
-	// }
-
-	primary, err := r.getPrimaryPodExec(ctx, cr)
+	primary, err := r.getPrimaryPod(ctx, cr)
 	if err != nil {
 		return nil, errors.Wrap(err, "get primary pod")
 	}

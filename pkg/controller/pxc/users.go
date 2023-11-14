@@ -369,7 +369,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(ctx context.Cont
 	// }
 	// defer um.Close()
 
-	err = um.CreateOperatorUser(ctx, string(pass))
+	err = um.CreateOperatorUserExec(ctx, string(pass))
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
 	}
@@ -536,7 +536,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Conte
 		return nil
 	}
 
-	err := um.Update160MonitorUserGrant(ctx, string(internalSysSecretObj.Data[users.Monitor]))
+	err := um.Update160MonitorUserGrantExec(ctx, string(internalSysSecretObj.Data[users.Monitor]))
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
 	}
@@ -739,7 +739,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(ctx context.Co
 		return err
 	}
 
-	err = um.Update170XtrabackupUser(ctx, string(secrets.Data[users.Xtrabackup]))
+	err = um.Update170XtrabackupUserExec(ctx, string(secrets.Data[users.Xtrabackup]))
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
 	}
@@ -858,7 +858,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(ctx context.Contex
 		return errors.Wrap(err, "generate password")
 	}
 
-	err = um.CreateReplicationUser(ctx, string(pass))
+	err = um.CreateReplicationUserExec(ctx, string(pass))
 	if err != nil {
 		return errors.Wrap(err, "create replication user")
 	}
@@ -1018,7 +1018,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(cr *api.Perc
 		return err
 	}
 
-	err = um.UpdateUserPass(context.TODO(), user)
+	err = um.UpdateUserPassExec(context.TODO(), user)
 	if err != nil {
 		return errors.Wrap(err, "update user pass")
 	}
@@ -1032,7 +1032,7 @@ func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(cr *api.PerconaXtraDB
 		return err
 	}
 
-	err = um.DiscardOldPassword(context.TODO(), user)
+	err = um.DiscardOldPasswordExec(context.TODO(), user)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("discard old user %s pass", user.Name))
 	}
@@ -1046,7 +1046,7 @@ func (r *ReconcilePerconaXtraDBCluster) isOldPasswordDiscarded(cr *api.PerconaXt
 		return false, err
 	}
 
-	discarded, err := um.IsOldPassDiscarded(context.TODO(), user)
+	discarded, err := um.IsOldPassDiscardedExec(context.TODO(), user)
 	if err != nil {
 		return false, errors.Wrap(err, "is old password discarded")
 	}
@@ -1129,7 +1129,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(cr *api.PerconaXtraDBClu
 	for _, pod := range pods.Items {
 		um := users.NewManagerExec(&pod, r.clientcmd, users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
-		err = um.UpdateProxyUser(context.TODO(), user)
+		err = um.UpdateProxyUserExec(context.TODO(), user)
 		if err != nil {
 			return errors.Wrap(err, "update proxy users")
 		}
@@ -1146,7 +1146,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Con
 		return nil
 	}
 
-	if err := um.Update1100SystemUserPrivilege(ctx, user); err != nil {
+	if err := um.Update1100SystemUserPrivilegeExec(ctx, user); err != nil {
 		return errors.Wrap(err, "grant system user privilege")
 	}
 
@@ -1209,7 +1209,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 			return err
 		}
 
-		if err := um.UpdatePassExpirationPolicy(ctx, user); err != nil {
+		if err := um.UpdatePassExpirationPolicyExec(ctx, user); err != nil {
 			return errors.Wrapf(err, "update %s user password expiration policy", user.Name)
 		}
 

@@ -484,7 +484,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithoutDP(cr *api.PerconaX
 		return err
 	}
 
-	err = um.UpdateUserPassWithoutDP(context.TODO(), user)
+	err = um.UpdateUserPassWithoutDPExec(context.TODO(), user)
 	if err != nil {
 		return errors.Wrap(err, "update user pass")
 	}

@@ -578,26 +578,10 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPodExec(ctx context.Context, c
 		return corev1.Pod{}, errors.Wrap(err, "failed to get pod list")
 	}
 
-	pass, err := r.getUserPass(ctx, cr, users.Operator)
-	if err != nil {
-		return corev1.Pod{}, errors.Wrap(err, "failed to get operator password")
-	}
-	db := queries.NewExec(&pods.Items[0], r.clientcmd, users.Operator, pass, pods.Items[0].Name+"."+cr.Name+"-pxc."+cr.Namespace)
-
-	host, err := db.HostnameExec(ctx)
-	if err != nil {
-		return corev1.Pod{}, errors.Wrap(err, "failed to get primary pod")
-	}
-
-	if cr.ProxySQLEnabled() {
-		host, err = db.PrimaryHostExec(ctx)
-		if err != nil {
-			return corev1.Pod{}, errors.Wrap(err, "failed to get primary pod")
-		}
-	}
-
+	// TODO: this logic is not complete, primary can be some other pod
+	// if the pod 0 is not ready
 	for _, p := range pods.Items {
-		if strings.Contains(p.Name, host) {
+		if strings.Contains(p.Name, "pxc-0") || isPodReady(p) {
 			return p, nil
 		}
 	}

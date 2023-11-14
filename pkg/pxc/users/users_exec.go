@@ -69,7 +69,7 @@ func (d *ManagerExec) query(ctx context.Context, query string, out interface{}) 
 	return nil
 }
 
-func (u *ManagerExec) CreateOperatorUser(ctx context.Context, pass string) error {
+func (u *ManagerExec) CreateOperatorUserExec(ctx context.Context, pass string) error {
 	var errb, outb bytes.Buffer
 
 	q := fmt.Sprintf("CREATE USER IF NOT EXISTS 'operator'@'%%' IDENTIFIED BY '%s'", pass)
@@ -88,9 +88,9 @@ func (u *ManagerExec) CreateOperatorUser(ctx context.Context, pass string) error
 	return nil
 }
 
-// UpdateUserPassWithoutDP updates user pass without Dual Password
+// UpdateUserPassWithoutDPExec updates user pass without Dual Password
 // feature introduced in MsSQL 8
-func (u *ManagerExec) UpdateUserPassWithoutDP(ctx context.Context, user *SysUser) error {
+func (u *ManagerExec) UpdateUserPassWithoutDPExec(ctx context.Context, user *SysUser) error {
 	if user == nil {
 		return nil
 	}
@@ -107,9 +107,9 @@ func (u *ManagerExec) UpdateUserPassWithoutDP(ctx context.Context, user *SysUser
 	return nil
 }
 
-// UpdateUserPass updates user passwords but retains the current password
+// UpdateUserPassExec updates user passwords but retains the current password
 // using Dual Password feature of MySQL 8.
-func (m *ManagerExec) UpdateUserPass(ctx context.Context, user *SysUser) error {
+func (m *ManagerExec) UpdateUserPassExec(ctx context.Context, user *SysUser) error {
 	if user == nil {
 		return nil
 	}
@@ -126,8 +126,8 @@ func (m *ManagerExec) UpdateUserPass(ctx context.Context, user *SysUser) error {
 	return nil
 }
 
-// DiscardOldPassword discards old passwords of given users
-func (m *ManagerExec) DiscardOldPassword(ctx context.Context, user *SysUser) error {
+// DiscardOldPasswordExec discards old passwords of given users
+func (m *ManagerExec) DiscardOldPasswordExec(ctx context.Context, user *SysUser) error {
 	if user == nil {
 		return nil
 	}
@@ -145,7 +145,7 @@ func (m *ManagerExec) DiscardOldPassword(ctx context.Context, user *SysUser) err
 }
 
 // IsOldPassDiscarded checks if old password is discarded
-func (m *ManagerExec) IsOldPassDiscarded(ctx context.Context, user *SysUser) (bool, error) {
+func (m *ManagerExec) IsOldPassDiscardedExec(ctx context.Context, user *SysUser) (bool, error) {
 	rows := []*struct {
 		Attr string `csv:"attr"`
 	}{}
@@ -165,7 +165,7 @@ func (m *ManagerExec) IsOldPassDiscarded(ctx context.Context, user *SysUser) (bo
 	return true, nil
 }
 
-func (u *ManagerExec) UpdateProxyUser(ctx context.Context, user *SysUser) error {
+func (u *ManagerExec) UpdateProxyUserExec(ctx context.Context, user *SysUser) error {
 	switch user.Name {
 	case ProxyAdmin:
 		q := fmt.Sprintf(`
@@ -197,9 +197,9 @@ func (u *ManagerExec) UpdateProxyUser(ctx context.Context, user *SysUser) error 
 	return nil
 }
 
-// Update160MonitorUserGrant grants SERVICE_CONNECTION_ADMIN rights to the monitor user
+// Update160MonitorUserGrantExec grants SERVICE_CONNECTION_ADMIN rights to the monitor user
 // if pxc version is 8 or more and sets the MAX_USER_CONNECTIONS parameter to 100 (empirically determined)
-func (u *ManagerExec) Update160MonitorUserGrant(ctx context.Context, pass string) (err error) {
+func (u *ManagerExec) Update160MonitorUserGrantExec(ctx context.Context, pass string) (err error) {
 	q := fmt.Sprintf(`
 		CREATE USER IF NOT EXISTS 'monitor'@'%%' IDENTIFIED BY '%s';
 		GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%%';
@@ -215,8 +215,8 @@ func (u *ManagerExec) Update160MonitorUserGrant(ctx context.Context, pass string
 	return nil
 }
 
-// Update170XtrabackupUser grants all needed rights to the xtrabackup user
-func (u *ManagerExec) Update170XtrabackupUser(ctx context.Context, pass string) (err error) {
+// Update170XtrabackupUserExec grants all needed rights to the xtrabackup user
+func (u *ManagerExec) Update170XtrabackupUserExec(ctx context.Context, pass string) (err error) {
 	q := fmt.Sprintf(`
 		CREATE USER IF NOT EXISTS 'xtrabackup'@'%%' IDENTIFIED BY '%s';
 		GRANT ALL ON *.* TO 'xtrabackup'@'%%';
@@ -230,8 +230,8 @@ func (u *ManagerExec) Update170XtrabackupUser(ctx context.Context, pass string) 
 	return nil
 }
 
-// Update1100SystemUserPrivilege grants system_user privilege for monitor and clustercheck users
-func (u *ManagerExec) Update1100SystemUserPrivilege(ctx context.Context, user *SysUser) (err error) {
+// Update1100SystemUserPrivilegeExec grants system_user privilege for monitor and clustercheck users
+func (u *ManagerExec) Update1100SystemUserPrivilegeExec(ctx context.Context, user *SysUser) (err error) {
 	switch user.Name {
 	case Monitor:
 		var errb, outb bytes.Buffer
@@ -248,7 +248,7 @@ func (u *ManagerExec) Update1100SystemUserPrivilege(ctx context.Context, user *S
 	return nil
 }
 
-func (u *ManagerExec) CreateReplicationUser(ctx context.Context, password string) error {
+func (u *ManagerExec) CreateReplicationUserExec(ctx context.Context, password string) error {
 	q := fmt.Sprintf(`
 		CREATE USER IF NOT EXISTS 'replication'@'%%' IDENTIFIED BY '%s';
 		GRANT REPLICATION SLAVE ON *.* to 'replication'@'%%';
@@ -262,8 +262,8 @@ func (u *ManagerExec) CreateReplicationUser(ctx context.Context, password string
 	return nil
 }
 
-// UpdatePassExpirationPolicy sets user password expiration policy to never
-func (u *ManagerExec) UpdatePassExpirationPolicy(ctx context.Context, user *SysUser) error {
+// UpdatePassExpirationPolicyExec sets user password expiration policy to never
+func (u *ManagerExec) UpdatePassExpirationPolicyExec(ctx context.Context, user *SysUser) error {
 	if user == nil {
 		return nil
 	}

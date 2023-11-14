@@ -96,11 +96,22 @@ func (s *S3) ListObjects(ctx context.Context, prefix string) ([]string, error) {
 	}
 	list := []string{}
 
+	var err error
 	for object := range s.client.ListObjects(ctx, s.bucketName, opts) {
+		// From `(c *Client) ListObjects` method docs:
+		//  `caller must drain the channel entirely and wait until channel is closed before proceeding,
+		//   without waiting on the channel to be closed completely you might leak goroutines`
+		// So we should save the error and drain the channel.
+		if err != nil {
+			continue
+		}
 		if object.Err != nil {
-			return nil, errors.Wrapf(object.Err, "list object %s", object.Key)
+			err = errors.Wrapf(object.Err, "list object %s", object.Key)
 		}
 		list = append(list, strings.TrimPrefix(object.Key, s.prefix))
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	return list, nil

@@ -7,6 +7,17 @@ metadata:
 spec:
   pxcCluster: cluster1
   backupName: backup1
+#  containerOptions:
+#    env:
+#    - name: VERIFY_TLS
+#      value: "false"
+#    extraArgs:
+#      xtrabackup:
+#      - "--someflag=abc"
+#      xbcloud:
+#      - "--someflag=abc"
+#      xbstream:
+#      - "--someflag=abc"
 #  resources:
 #    requests:
 #      memory: 100M

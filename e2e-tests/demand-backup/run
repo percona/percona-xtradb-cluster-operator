@@ -39,7 +39,6 @@ main() {
 	kubectl logs "$restore_job_name" | grep "xbstream -x -C .* --parallel=4 --parallel=3"
 	kubectl logs "$restore_job_name" | grep "xbstream --decompress -x -C .* --parallel=4 --parallel=3"
 
-
 	desc "Check backup deletion"
 	kubectl_bin delete pxc-backup --all
 	backup_exists=$(

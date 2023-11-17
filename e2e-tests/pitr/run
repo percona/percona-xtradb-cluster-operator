@@ -81,6 +81,19 @@ write_data_for_pitr() {
 		"-h $proxy -uroot -proot_password"
 }
 
+check_latest_restorable_time() {
+	local backup=$1
+
+	desc 'check latest restorable time'
+	latest_restorable_time=$(kubectl_bin get pxc-backup ${backup} -o jsonpath='{.status.latestRestorableTime}')
+	if [[ ${latest_restorable_time} =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+		echo "Latest restorable time is ${latest_restorable_time}"
+	else
+		echo "Latest restorable time is not set"
+		exit 1
+	fi
+}
+
 main() {
 	create_infra $namespace
 	deploy_cert_manager
@@ -115,6 +128,7 @@ main() {
 
 	write_data_for_pitr "$cluster"
 	sleep 120 # need to wait while collector catch new data
+	check_latest_restorable_time "on-pitr-minio"
 
 	timeout=60
 	binlogs_exist=0

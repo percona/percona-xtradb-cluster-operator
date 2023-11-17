@@ -612,6 +612,9 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 				return errors.Wrap(err, "remove gap file")
 			}
 		}
+		if err := deployment.RemoveTimelineFile(context.TODO(), r.clientcmd, collectorPod); err != nil {
+			return errors.Wrap(err, "remove timeline file")
+		}
 	}
 
 	err = r.client.Status().Update(context.TODO(), bcp)

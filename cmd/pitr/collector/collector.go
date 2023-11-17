@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/md5"
@@ -60,8 +61,9 @@ type BackupAzure struct {
 }
 
 const (
-	lastSetFilePrefix string = "last-binlog-set-" // filename prefix for object where the last binlog set will stored
-	gtidPostfix       string = "-gtid-set"        // filename postfix for files with GTID set
+	lastSetFilePrefix string = "last-binlog-set-"   // filename prefix for object where the last binlog set will stored
+	gtidPostfix       string = "-gtid-set"          // filename postfix for files with GTID set
+	timelinePath      string = "/tmp/pitr-timeline" // path to file with timeline
 )
 
 func New(c Config) (*Collector, error) {
@@ -218,6 +220,70 @@ func createGapFile(gtidSet pxc.GTIDSet) error {
 	return nil
 }
 
+func fileExists(name string) (bool, error) {
+	_, err := os.Stat(name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "os stat")
+	}
+	return true, nil
+}
+
+func createTimelineFile(firstTs string) error {
+	f, err := os.Create(timelinePath)
+	if err != nil {
+		return errors.Wrapf(err, "create %s", timelinePath)
+	}
+
+	_, err = f.WriteString(firstTs)
+	if err != nil {
+		return errors.Wrap(err, "write first timestamp to timeline file")
+	}
+
+	return nil
+}
+
+func updateTimelineFile(lastTs string) error {
+	f, err := os.OpenFile(timelinePath, os.O_RDWR, 0644)
+	if err != nil {
+		return errors.Wrapf(err, "open %s", timelinePath)
+	}
+	defer f.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		return errors.Wrapf(err, "scan %s", timelinePath)
+	}
+
+	if len(lines) > 1 {
+		lines[len(lines)-1] = lastTs
+	} else {
+		lines = append(lines, lastTs)
+	}
+
+	if _, err := f.Seek(0, 0); err != nil {
+		return errors.Wrapf(err, "seek %s", timelinePath)
+	}
+
+	if err := f.Truncate(0); err != nil {
+		return errors.Wrapf(err, "truncate %s", timelinePath)
+	}
+
+	_, err = f.WriteString(strings.Join(lines, "\n"))
+	if err != nil {
+		return errors.Wrap(err, "write last timestamp to timeline file")
+	}
+
+	return nil
+}
+
 func (c *Collector) addGTIDSets(ctx context.Context, logs []pxc.Binlog) error {
 	for i, v := range logs {
 		set, err := c.db.GetGTIDSet(ctx, v.Name)
@@ -315,10 +381,30 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		return nil
 	}
 
+	if exists, err := fileExists(timelinePath); !exists && err == nil {
+		firstTs, err := c.db.GetBinLogFirstTimestamp(ctx, list[0].Name)
+		if err != nil {
+			return errors.Wrap(err, "get first timestamp")
+		}
+
+		if err := createTimelineFile(firstTs); err != nil {
+			return errors.Wrap(err, "create timeline file")
+		}
+	}
+
 	for _, binlog := range list {
 		err = c.manageBinlog(ctx, binlog)
 		if err != nil {
 			return errors.Wrap(err, "manage binlog")
+		}
+
+		lastTs, err := c.db.GetBinLogLastTimestamp(ctx, binlog.Name)
+		if err != nil {
+			return errors.Wrap(err, "get last timestamp")
+		}
+
+		if err := updateTimelineFile(lastTs); err != nil {
+			return errors.Wrap(err, "update timeline file")
 		}
 	}
 	return nil

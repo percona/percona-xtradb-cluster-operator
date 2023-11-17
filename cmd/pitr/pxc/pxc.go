@@ -189,6 +189,31 @@ func (p *PXC) GetBinLogFirstTimestamp(ctx context.Context, binlog string) (strin
 	return timestamp, nil
 }
 
+// GetBinLogLastTimestamp return binary log file last timestamp
+func (p *PXC) GetBinLogLastTimestamp(ctx context.Context, binlog string) (string, error) {
+	var existFunc string
+	nameRow := p.db.QueryRowContext(ctx, "select name from mysql.func where name='get_last_record_timestamp_by_binlog'")
+	err := nameRow.Scan(&existFunc)
+	if err != nil && err != sql.ErrNoRows {
+		return "", errors.Wrap(err, "get udf name")
+	}
+	if len(existFunc) == 0 {
+		_, err = p.db.ExecContext(ctx, "CREATE FUNCTION get_last_record_timestamp_by_binlog RETURNS INTEGER SONAME 'binlog_utils_udf.so'")
+		if err != nil {
+			return "", errors.Wrap(err, "create function")
+		}
+	}
+	var timestamp string
+	row := p.db.QueryRowContext(ctx, "SELECT get_last_record_timestamp_by_binlog(?) DIV 1000000", binlog)
+
+	err = row.Scan(&timestamp)
+	if err != nil {
+		return "", errors.Wrap(err, "scan binlog timestamp")
+	}
+
+	return timestamp, nil
+}
+
 func (p *PXC) SubtractGTIDSet(ctx context.Context, set, subSet string) (string, error) {
 	var result string
 	row := p.db.QueryRowContext(ctx, "SELECT GTID_SUBTRACT(?,?)", set, subSet)

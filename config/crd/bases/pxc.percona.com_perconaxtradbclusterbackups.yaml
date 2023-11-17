@@ -122,6 +122,9 @@ spec:
               lastscheduled:
                 format: date-time
                 type: string
+              latestRestorableTime:
+                format: date-time
+                type: string
               s3:
                 properties:
                   bucket:

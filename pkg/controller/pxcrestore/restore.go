@@ -23,11 +23,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(ctx context.Context, cr *
 		return errors.New("undefined backup section in a cluster spec")
 	}
 
-	storageRestore, err := r.getStorageRestore(cr, bcp, cluster, false)
+	restoreManager, err := r.getRestoreManager(cr, bcp, cluster)
 	if err != nil {
-		return errors.Wrap(err, "failed to get storage")
+		return errors.Wrap(err, "failed to get restore manager")
 	}
-	job, err := storageRestore.Job()
+	job, err := restoreManager.Job()
 	if err != nil {
 		return errors.Wrap(err, "failed to get restore job")
 	}
@@ -35,11 +35,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(ctx context.Context, cr *
 		return err
 	}
 
-	if err = storageRestore.Init(ctx); err != nil {
+	if err = restoreManager.Init(ctx); err != nil {
 		return errors.Wrap(err, "failed to init restore")
 	}
 	defer func() {
-		if derr := storageRestore.Finalize(ctx); derr != nil {
+		if derr := restoreManager.Finalize(ctx); derr != nil {
 			log.Error(derr, "failed to finalize restore")
 		}
 	}()
@@ -50,22 +50,22 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(ctx context.Context, cr *
 func (r *ReconcilePerconaXtraDBClusterRestore) pitr(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
 
-	storageRestore, err := r.getStorageRestore(cr, bcp, cluster, true)
+	restoreManager, err := r.getRestoreManager(cr, bcp, cluster)
 	if err != nil {
-		return errors.Wrap(err, "failed to get storage")
+		return errors.Wrap(err, "failed to get restore manager")
 	}
-	job, err := storageRestore.Job()
+	job, err := restoreManager.PITRJob()
 	if err != nil {
 		return errors.Wrap(err, "failed to create pitr restore job")
 	}
 	if err := k8s.SetControllerReference(cr, job, r.scheme); err != nil {
 		return err
 	}
-	if err = storageRestore.Init(ctx); err != nil {
-		return errors.Wrap(err, "failed to init storage")
+	if err = restoreManager.Init(ctx); err != nil {
+		return errors.Wrap(err, "failed to init restore")
 	}
 	defer func() {
-		if derr := storageRestore.Finalize(ctx); derr != nil {
+		if derr := restoreManager.Finalize(ctx); derr != nil {
 			log.Error(derr, "failed to finalize restore")
 		}
 	}()
@@ -74,24 +74,20 @@ func (r *ReconcilePerconaXtraDBClusterRestore) pitr(ctx context.Context, cr *api
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
-	storageRestore, err := r.getStorageRestore(cr, bcp, cluster, false)
+	restoreManager, err := r.getRestoreManager(cr, bcp, cluster)
 	if err != nil {
-		return errors.Wrap(err, "failed to get storage")
+		return errors.Wrap(err, "failed to get restore manager")
 	}
-	job, err := storageRestore.Job()
+	job, err := restoreManager.Job()
 	if err != nil {
-		return errors.Wrap(err, "failed to create pitr restore job")
+		return errors.Wrap(err, "failed to create restore job")
 	}
 	if err := r.validateJob(ctx, job); err != nil {
 		return errors.Wrap(err, "failed to validate job")
 	}
 
 	if cr.Spec.PITR != nil {
-		storageRestore, err := r.getStorageRestore(cr, bcp, cluster, true)
-		if err != nil {
-			return errors.Wrap(err, "failed to get storage")
-		}
-		job, err := storageRestore.Job()
+		job, err := restoreManager.PITRJob()
 		if err != nil {
 			return errors.Wrap(err, "failed to create pitr restore job")
 		}
@@ -100,7 +96,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr 
 		}
 	}
 
-	if err := storageRestore.Validate(ctx); err != nil {
+	if err := restoreManager.Validate(ctx); err != nil {
 		return errors.Wrap(err, "failed to validate backup existence")
 	}
 	return nil
@@ -116,7 +112,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) validateJob(ctx context.Context, 
 		}
 	}
 
-	notExistingSecrets := []string{}
+	notExistingSecrets := make(map[string]struct{})
 	for _, secret := range secrets {
 		err := r.client.Get(ctx, types.NamespacedName{
 			Name:      secret,
@@ -124,14 +120,18 @@ func (r *ReconcilePerconaXtraDBClusterRestore) validateJob(ctx context.Context, 
 		}, new(corev1.Secret))
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
-				notExistingSecrets = append(notExistingSecrets, secret)
+				notExistingSecrets[secret] = struct{}{}
 				continue
 			}
 			return err
 		}
 	}
 	if len(notExistingSecrets) > 0 {
-		return errors.Errorf("secrets %s not found", strings.Join(notExistingSecrets, ", "))
+		secrets := make([]string, 0, len(notExistingSecrets))
+		for k := range notExistingSecrets {
+			secrets = append(secrets, k)
+		}
+		return errors.Errorf("secrets %s not found", strings.Join(secrets, ", "))
 	}
 
 	return nil

@@ -368,7 +368,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(ctx context.C
 		destination = strings.TrimPrefix(destination, "/")
 	}
 	destination = strings.TrimSuffix(destination, "/") + "/"
-	verifyTLS := true // TODO: replace after https://github.com/percona/percona-xtradb-cluster-operator/pull/1399 merge
+	verifyTLS := true
+	if cr.Status.VerifyTLS != nil && !*cr.Status.VerifyTLS {
+		verifyTLS = false
+	}
 	storage, err := storage.NewS3(cr.Status.S3.EndpointURL, accessKeyID, secretAccessKey, bucket, prefix, cr.Status.S3.Region, verifyTLS)
 	if err != nil {
 		return errors.Wrap(err, "new s3 storage")

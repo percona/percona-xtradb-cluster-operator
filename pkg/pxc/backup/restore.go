@@ -456,9 +456,6 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 	if bcp.Status.VerifyTLS != nil {
 		verifyTLS = *bcp.Status.VerifyTLS
 	}
-	if bcp.Status.S3 == nil {
-		return nil, errors.New("s3 storage is not specified")
-	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "S3_BUCKET_URL",

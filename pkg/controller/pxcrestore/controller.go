@@ -27,6 +27,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -53,10 +54,11 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	}
 
 	return &ReconcilePerconaXtraDBClusterRestore{
-		client:        mgr.GetClient(),
-		clientcmd:     cli,
-		scheme:        mgr.GetScheme(),
-		serverVersion: sv,
+		client:               mgr.GetClient(),
+		clientcmd:            cli,
+		scheme:               mgr.GetScheme(),
+		serverVersion:        sv,
+		newStorageClientFunc: storage.NewClient,
 	}, nil
 }
 
@@ -79,6 +81,8 @@ type ReconcilePerconaXtraDBClusterRestore struct {
 	scheme    *runtime.Scheme
 
 	serverVersion *version.ServerVersion
+
+	newStorageClientFunc storage.NewClientFunc
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterRestore object and makes changes based on the state read

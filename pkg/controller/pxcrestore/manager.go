@@ -19,23 +19,26 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
-type StorageRestore interface {
+// TODO: choose a better name for this interface
+type RestoreManager interface {
 	Init(ctx context.Context) error
 	Job() (*batchv1.Job, error)
+	PITRJob() (*batchv1.Job, error)
 	Finalize(ctx context.Context) error
 	Validate(ctx context.Context) error
 }
 
-type s3 struct {
-	cr        *api.PerconaXtraDBClusterRestore
-	bcp       *api.PerconaXtraDBClusterBackup
-	cluster   *api.PerconaXtraDBCluster
-	k8sClient client.Client
-	pitr      bool
-}
+type s3 struct{ *restoreManagerOptions }
+
+func (s *s3) Init(context.Context) error     { return nil }
+func (s *s3) Finalize(context.Context) error { return nil }
 
 func (s *s3) Job() (*batchv1.Job, error) {
-	return backup.S3RestoreJob(s.cr, s.bcp, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), s.cluster, s.pitr)
+	return backup.S3RestoreJob(s.cr, s.bcp, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), s.cluster, false)
+}
+
+func (s *s3) PITRJob() (*batchv1.Job, error) {
+	return backup.S3RestoreJob(s.cr, s.bcp, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), s.cluster, true)
 }
 
 func (s *s3) Validate(ctx context.Context) error {
@@ -51,13 +54,24 @@ func (s *s3) Validate(ctx context.Context) error {
 	ep := s.bcp.Status.S3.EndpointURL
 	bucket, prefix := s.bcp.Status.S3.BucketAndPrefix()
 	verifyTLS := true
+	if s.bcp.Status.VerifyTLS != nil && !*s.bcp.Status.VerifyTLS {
+		verifyTLS = false
+	}
 	if s.cluster.Spec.Backup != nil && len(s.cluster.Spec.Backup.Storages) > 0 {
 		storage, ok := s.cluster.Spec.Backup.Storages[s.bcp.Spec.StorageName]
 		if ok && storage.VerifyTLS != nil {
 			verifyTLS = *storage.VerifyTLS
 		}
 	}
-	s3cli, err := storage.NewS3(ep, accessKeyID, secretAccessKey, bucket, prefix, s.bcp.Status.S3.Region, verifyTLS)
+	s3cli, err := s.newStorageClient(&storage.S3Options{
+		Endpoint:        ep,
+		AccessKeyID:     accessKeyID,
+		SecretAccessKey: secretAccessKey,
+		BucketName:      bucket,
+		Prefix:          prefix,
+		Region:          s.bcp.Status.S3.Region,
+		VerifyTLS:       verifyTLS,
+	})
 	if err != nil {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
@@ -81,28 +95,15 @@ func (s *s3) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (s *s3) Init(ctx context.Context) error {
-	return nil
-}
+type pvc struct{ *restoreManagerOptions }
 
-func (s *s3) Finalize(ctx context.Context) error {
-	return nil
-}
-
-type pvc struct {
-	cr        *api.PerconaXtraDBClusterRestore
-	cluster   *api.PerconaXtraDBCluster
-	bcp       *api.PerconaXtraDBClusterBackup
-	scheme    *runtime.Scheme
-	k8sClient client.Client
-}
-
+func (s *pvc) Validate(context.Context) error { return nil }
 func (s *pvc) Job() (*batchv1.Job, error) {
 	return backup.PVCRestoreJob(s.cr, s.cluster, s.bcp)
 }
 
-func (s *pvc) Validate(ctx context.Context) error {
-	return nil
+func (s *pvc) PITRJob() (*batchv1.Job, error) {
+	return nil, errors.New("pitr restore is not supported for pvc")
 }
 
 func (s *pvc) Init(ctx context.Context) error {
@@ -163,16 +164,17 @@ func (s *pvc) Finalize(ctx context.Context) error {
 	return nil
 }
 
-type azure struct {
-	cr        *api.PerconaXtraDBClusterRestore
-	bcp       *api.PerconaXtraDBClusterBackup
-	cluster   *api.PerconaXtraDBCluster
-	k8sClient client.Client
-	pitr      bool
-}
+type azure struct{ *restoreManagerOptions }
+
+func (s *azure) Init(context.Context) error     { return nil }
+func (s *azure) Finalize(context.Context) error { return nil }
 
 func (s *azure) Job() (*batchv1.Job, error) {
-	return backup.AzureRestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, s.pitr)
+	return backup.AzureRestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, false)
+}
+
+func (s *azure) PITRJob() (*batchv1.Job, error) {
+	return backup.AzureRestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, true)
 }
 
 func (s *azure) Validate(ctx context.Context) error {
@@ -189,9 +191,15 @@ func (s *azure) Validate(ctx context.Context) error {
 		endpoint = s.bcp.Status.Azure.Endpoint
 	}
 	container, prefix := s.bcp.Status.Azure.ContainerAndPrefix()
-	azurecli, err := storage.NewAzure(accountName, accountKey, endpoint, container, prefix)
+	azurecli, err := s.newStorageClient(&storage.AzureOptions{
+		StorageAccount: accountName,
+		AccessKey:      accountKey,
+		Endpoint:       endpoint,
+		Container:      container,
+		Prefix:         prefix,
+	})
 	if err != nil {
-		return errors.Wrap(err, "new azure client")
+		return errors.Wrap(err, "failed to create s3 client")
 	}
 
 	dest := s.bcp.Status.Destination
@@ -214,40 +222,38 @@ func (s *azure) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (s *azure) Init(ctx context.Context) error {
-	return nil
-}
-
-func (s *azure) Finalize(ctx context.Context) error {
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) getStorageRestore(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, pitr bool) (StorageRestore, error) {
+func (r *ReconcilePerconaXtraDBClusterRestore) getRestoreManager(
+	cr *api.PerconaXtraDBClusterRestore,
+	bcp *api.PerconaXtraDBClusterBackup,
+	cluster *api.PerconaXtraDBCluster,
+) (RestoreManager, error) {
+	s := restoreManagerOptions{
+		cr:               cr,
+		bcp:              bcp,
+		cluster:          cluster,
+		k8sClient:        r.client,
+		scheme:           r.scheme,
+		newStorageClient: r.newStorageClientFunc,
+	}
 	switch {
-	case strings.HasPrefix(bcp.Status.Destination, "pvc/") && !pitr:
-		return &pvc{
-			cr:        cr,
-			bcp:       bcp,
-			cluster:   cluster,
-			scheme:    r.scheme,
-			k8sClient: r.client,
-		}, nil
-	case strings.HasPrefix(bcp.Status.Destination, api.AwsBlobStoragePrefix):
-		return &s3{
-			cr:        cr,
-			bcp:       bcp,
-			cluster:   cluster,
-			pitr:      pitr,
-			k8sClient: r.client,
-		}, nil
-	case bcp.Status.Azure != nil:
-		return &azure{
-			cr:        cr,
-			bcp:       bcp,
-			cluster:   cluster,
-			pitr:      pitr,
-			k8sClient: r.client,
-		}, nil
+	case strings.HasPrefix(s.bcp.Status.Destination, "pvc/"):
+		sr := pvc{&s}
+		return &sr, nil
+	case strings.HasPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix):
+		sr := s3{&s}
+		return &sr, nil
+	case s.bcp.Status.Azure != nil:
+		sr := azure{&s}
+		return &sr, nil
 	}
 	return nil, errors.Errorf("unknown backup storage type")
+}
+
+type restoreManagerOptions struct {
+	cr               *api.PerconaXtraDBClusterRestore
+	bcp              *api.PerconaXtraDBClusterBackup
+	cluster          *api.PerconaXtraDBCluster
+	k8sClient        client.Client
+	scheme           *runtime.Scheme
+	newStorageClient storage.NewClientFunc
 }

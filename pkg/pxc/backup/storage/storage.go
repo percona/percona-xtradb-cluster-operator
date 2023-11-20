@@ -15,6 +15,8 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 )
 
 var ErrObjectNotFound = errors.New("object not found")
@@ -28,6 +30,26 @@ type Storage interface {
 	GetPrefix() string
 }
 
+type NewClientFunc func(Options) (Storage, error)
+
+func NewClient(opts Options) (Storage, error) {
+	switch opts.Type() {
+	case api.BackupStorageS3:
+		opts, ok := opts.(*S3Options)
+		if !ok {
+			return nil, errors.New("invalid options type")
+		}
+		return NewS3(opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS)
+	case api.BackupStorageAzure:
+		opts, ok := opts.(*AzureOptions)
+		if !ok {
+			return nil, errors.New("invalid options type")
+		}
+		return NewAzure(opts.StorageAccount, opts.AccessKey, opts.Endpoint, opts.Container, opts.Prefix)
+	}
+	return nil, errors.New("invalid storage type")
+}
+
 // S3 is a type for working with S3 storages
 type S3 struct {
 	client     *minio.Client // minio client for work with storage
@@ -36,7 +58,7 @@ type S3 struct {
 }
 
 // NewS3 return new Manager, useSSL using ssl for connection with storage
-func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, verifyTLS bool) (*S3, error) {
+func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, verifyTLS bool) (Storage, error) {
 	if endpoint == "" {
 		endpoint = "https://s3.amazonaws.com"
 	}
@@ -144,7 +166,15 @@ type Azure struct {
 	prefix    string
 }
 
-func NewAzure(storageAccount, accessKey, endpoint, container, prefix string) (*Azure, error) {
+type clientOption struct {
+	storageAccount string
+	accessKey      string
+	endpoint       string
+	container      string
+	prefix         string
+}
+
+func NewAzure(storageAccount, accessKey, endpoint, container, prefix string) (Storage, error) {
 	credential, err := azblob.NewSharedKeyCredential(storageAccount, accessKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "new credentials")

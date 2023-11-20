@@ -147,10 +147,10 @@ func (m *ManagerExec) DiscardOldPasswordExec(ctx context.Context, user *SysUser)
 // IsOldPassDiscarded checks if old password is discarded
 func (m *ManagerExec) IsOldPassDiscardedExec(ctx context.Context, user *SysUser) (bool, error) {
 	rows := []*struct {
-		Attr string `csv:"attr"`
+		HasAttr int `csv:"has_attr"`
 	}{}
 
-	err := m.query(ctx, fmt.Sprintf("SELECT User_attributes as attr FROM mysql.user WHERE user='%s'", user.Name), &rows)
+	err := m.query(ctx, fmt.Sprintf("SELECT IF(User_attributes IS NULL, TRUE, FALSE) AS has_attr FROM mysql.user WHERE user='%s'", user.Name), &rows)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return true, nil
@@ -158,7 +158,7 @@ func (m *ManagerExec) IsOldPassDiscardedExec(ctx context.Context, user *SysUser)
 		return false, errors.Wrap(err, "select User_attributes field")
 	}
 
-	if len(rows[0].Attr) > 0 && rows[0].Attr != "NULL" {
+	if rows[0].HasAttr == 0 {
 		return false, nil
 	}
 

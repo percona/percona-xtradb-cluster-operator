@@ -203,7 +203,10 @@ func (p *DatabaseExec) IsReadonlyExec(ctx context.Context) (bool, error) {
 		ReadOnly int `csv:"readOnly"`
 	}{}
 	err := p.query(ctx, "select @@read_only as readOnly", &rows)
-	return rows[0].ReadOnly == 1, errors.Wrap(err, "select global read_only param")
+	if err != nil {
+		return false, errors.Wrap(err, "select global read_only param")
+	}
+	return rows[0].ReadOnly == 1, nil
 }
 
 func (p *DatabaseExec) StartReplicationExec(ctx context.Context, replicaPass string, config ReplicationConfig) error {

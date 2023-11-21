@@ -17,6 +17,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
@@ -113,7 +114,7 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 					ServiceAccountName:        cr.Spec.Backup.ServiceAccountName,
 					SecurityContext:           cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].PodSecurityContext,
 					Affinity:                  cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Affinity,
-					TopologySpreadConstraints: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].TopologySpreadConstraints,
+					TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].TopologySpreadConstraints, labels),
 					Tolerations:               cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Tolerations,
 					NodeSelector:              cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].NodeSelector,
 					SchedulerName:             cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].SchedulerName,

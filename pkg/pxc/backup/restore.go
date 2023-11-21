@@ -12,6 +12,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
@@ -123,7 +124,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 			RestartPolicy:             corev1.RestartPolicyAlways,
 			NodeSelector:              cluster.Spec.Backup.Storages[bcpStorageName].NodeSelector,
 			Affinity:                  cluster.Spec.Backup.Storages[bcpStorageName].Affinity,
-			TopologySpreadConstraints: cluster.Spec.Backup.Storages[bcpStorageName].TopologySpreadConstraints,
+			TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cluster.Spec.Backup.Storages[bcpStorageName].TopologySpreadConstraints, labels),
 			Tolerations:               cluster.Spec.Backup.Storages[bcpStorageName].Tolerations,
 			SchedulerName:             cluster.Spec.Backup.Storages[bcpStorageName].SchedulerName,
 			PriorityClassName:         cluster.Spec.Backup.Storages[bcpStorageName].PriorityClassName,
@@ -200,7 +201,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtra
 					Volumes:                   jobPVCs,
 					NodeSelector:              cluster.Spec.PXC.NodeSelector,
 					Affinity:                  cluster.Spec.PXC.Affinity.Advanced,
-					TopologySpreadConstraints: cluster.Spec.PXC.TopologySpreadConstraints,
+					TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cluster.Spec.PXC.TopologySpreadConstraints, cluster.Spec.PXC.Labels),
 					Tolerations:               cluster.Spec.PXC.Tolerations,
 					SchedulerName:             cluster.Spec.PXC.SchedulerName,
 					PriorityClassName:         cluster.Spec.PXC.PriorityClassName,
@@ -409,7 +410,7 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 					Volumes:                   jobPVCs,
 					NodeSelector:              cluster.Spec.PXC.NodeSelector,
 					Affinity:                  cluster.Spec.PXC.Affinity.Advanced,
-					TopologySpreadConstraints: cluster.Spec.PXC.TopologySpreadConstraints,
+					TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cluster.Spec.PXC.TopologySpreadConstraints, cluster.Spec.PXC.Labels),
 					Tolerations:               cluster.Spec.PXC.Tolerations,
 					SchedulerName:             cluster.Spec.PXC.SchedulerName,
 					PriorityClassName:         cluster.Spec.PXC.PriorityClassName,
@@ -638,7 +639,7 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 					Volumes:                   jobPVCs,
 					NodeSelector:              cluster.Spec.PXC.NodeSelector,
 					Affinity:                  cluster.Spec.PXC.Affinity.Advanced,
-					TopologySpreadConstraints: cluster.Spec.PXC.TopologySpreadConstraints,
+					TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cluster.Spec.PXC.TopologySpreadConstraints, cluster.Spec.PXC.Labels),
 					Tolerations:               cluster.Spec.PXC.Tolerations,
 					SchedulerName:             cluster.Spec.PXC.SchedulerName,
 					PriorityClassName:         cluster.Spec.PXC.PriorityClassName,

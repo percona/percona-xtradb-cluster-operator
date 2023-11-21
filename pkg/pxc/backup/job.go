@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
@@ -97,7 +98,7 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 					},
 				},
 				Affinity:                  cluster.Spec.Backup.Storages[spec.StorageName].Affinity,
-				TopologySpreadConstraints: cluster.Spec.Backup.Storages[spec.StorageName].TopologySpreadConstraints,
+				TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cluster.Spec.Backup.Storages[spec.StorageName].TopologySpreadConstraints, job.Labels),
 				Tolerations:               cluster.Spec.Backup.Storages[spec.StorageName].Tolerations,
 				NodeSelector:              cluster.Spec.Backup.Storages[spec.StorageName].NodeSelector,
 				SchedulerName:             cluster.Spec.Backup.Storages[spec.StorageName].SchedulerName,

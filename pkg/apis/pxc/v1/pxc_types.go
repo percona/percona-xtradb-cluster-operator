@@ -734,7 +734,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		c.PXC.reconcileAffinityOpts()
-		c.PXC.reconcileTopologySpreadConstraints()
 
 		if c.Pause {
 			c.PXC.Size = 0
@@ -801,7 +800,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		c.HAProxy.reconcileAffinityOpts()
-		c.HAProxy.reconcileTopologySpreadConstraints()
 
 		if err = c.HAProxy.executeConfigurationTemplate(); err != nil {
 			return errors.Wrap(err, "haproxy config")
@@ -851,7 +849,6 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		}
 
 		c.ProxySQL.reconcileAffinityOpts()
-		c.ProxySQL.reconcileTopologySpreadConstraints()
 
 		if err = c.ProxySQL.executeConfigurationTemplate(); err != nil {
 			return errors.Wrap(err, "proxySQL config")
@@ -1064,7 +1061,7 @@ var affinityValidTopologyKeys = map[string]struct{}{
 	"topology.kubernetes.io/region":            {},
 }
 
-var defaultAffinityTopologyKey = "kubernetes.io/hostname"
+var DefaultAffinityTopologyKey = "kubernetes.io/hostname"
 
 // reconcileAffinityOpts ensures that the affinity is set to the valid values.
 // - if the affinity doesn't set at all - set topology key to `defaultAffinityTopologyKey`
@@ -1075,32 +1072,18 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	switch {
 	case p.Affinity == nil:
 		p.Affinity = &PodAffinity{
-			TopologyKey: &defaultAffinityTopologyKey,
+			TopologyKey: &DefaultAffinityTopologyKey,
 		}
 
 	case p.Affinity.TopologyKey == nil:
-		p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+		p.Affinity.TopologyKey = &DefaultAffinityTopologyKey
 
 	case p.Affinity.Advanced != nil:
 		p.Affinity.TopologyKey = nil
 
 	case p.Affinity != nil && p.Affinity.TopologyKey != nil:
 		if _, ok := affinityValidTopologyKeys[*p.Affinity.TopologyKey]; !ok {
-			p.Affinity.TopologyKey = &defaultAffinityTopologyKey
-		}
-	}
-}
-
-func (p *PodSpec) reconcileTopologySpreadConstraints() {
-	for i := range p.TopologySpreadConstraints {
-		if p.TopologySpreadConstraints[i].MaxSkew == 0 {
-			p.TopologySpreadConstraints[i].MaxSkew = 1
-		}
-		if p.TopologySpreadConstraints[i].TopologyKey == "" {
-			p.TopologySpreadConstraints[i].TopologyKey = defaultAffinityTopologyKey
-		}
-		if p.TopologySpreadConstraints[i].WhenUnsatisfiable == "" {
-			p.TopologySpreadConstraints[i].WhenUnsatisfiable = corev1.DoNotSchedule
+			p.Affinity.TopologyKey = &DefaultAffinityTopologyKey
 		}
 	}
 }

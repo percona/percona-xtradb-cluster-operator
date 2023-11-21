@@ -88,7 +88,7 @@ function main() {
 	##################################################
 	desc 'Updating ProxySQL PXC cluster'
 	cp -f "${test_dir}/conf/${CLUSTER}.yml" "${tmp_dir}/${CLUSTER}.yml"
-	yq -i eval ".spec.initImage = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}.yml"
+	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}.yml"
 	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}.yml"
 
 	initial_primary=$(get_proxy_primary "-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$(get_proxy ${CLUSTER})-0")
@@ -108,7 +108,7 @@ function main() {
 	##################################################
 	desc 'Updating HAProxy PXC cluster'
 	cp -f "${test_dir}/conf/${CLUSTER}-haproxy.yml" "${tmp_dir}/${CLUSTER}-haproxy.yml"
-	yq -i eval ".spec.initImage = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-haproxy.yml"
+	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-haproxy.yml"
 	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-haproxy.yml"
 
 	initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")
@@ -128,7 +128,7 @@ function main() {
 	##################################################
 	desc 'Updating PXC cluster with version service available but disabled'
 	cp -f "${test_dir}/conf/${CLUSTER}-version-service-reachable.yml" "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
-	yq -i eval ".spec.initImage = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
+	yq -i eval ".spec.initContainer.image = \"${IMAGE}\"" "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
 	spinup_pxc "${CLUSTER}" "${tmp_dir}/${CLUSTER}-version-service-reachable.yml"
 
 	initial_primary=$(run_mysql 'SELECT @@hostname hostname;' "-h ${CLUSTER}-haproxy -uroot -proot_password")

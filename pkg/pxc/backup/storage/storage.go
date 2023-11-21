@@ -166,14 +166,6 @@ type Azure struct {
 	prefix    string
 }
 
-type clientOption struct {
-	storageAccount string
-	accessKey      string
-	endpoint       string
-	container      string
-	prefix         string
-}
-
 func NewAzure(storageAccount, accessKey, endpoint, container, prefix string) (Storage, error) {
 	credential, err := azblob.NewSharedKeyCredential(storageAccount, accessKey)
 	if err != nil {

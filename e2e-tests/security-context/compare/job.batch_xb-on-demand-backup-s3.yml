@@ -95,6 +95,16 @@ spec:
       serviceAccount: percona-xtradb-cluster-operator-workload
       serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              backup-name: on-demand-backup-s3
+              cluster: sec-context
+              job-name: xb-on-demand-backup-s3
+              type: xtrabackup
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
       volumes:
         - name: ssl
           secret:

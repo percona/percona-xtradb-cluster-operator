@@ -1106,18 +1106,18 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(ctx context.Context, cr 
 		return nil
 	}
 
-	sfs := statefulset.NewNode(cr)
+	sts :=statefulset.NewProxy(cr)
 
 	pods := corev1.PodList{}
 	err := r.client.List(ctx, &pods, &client.ListOptions{
 		Namespace:     cr.Namespace,
-		LabelSelector: labels.SelectorFromSet(sfs.Labels())})
+		LabelSelector: labels.SelectorFromSet(sts.Labels())})
 	if err != nil {
 		return errors.Wrap(err, "failed to get pod list")
 	}
 
 	for _, pod := range pods.Items {
-		um := users.NewManagerExec(&pod, r.clientcmd, users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+		um := users.NewManagerExec(&pod, r.clientcmd, users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), "127.0.0.1")
 
 		err = um.UpdateProxyUserExec(ctx, user)
 		if err != nil {

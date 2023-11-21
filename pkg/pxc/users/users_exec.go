@@ -165,7 +165,25 @@ func (m *ManagerExec) IsOldPassDiscardedExec(ctx context.Context, user *SysUser)
 	return true, nil
 }
 
-func (u *ManagerExec) UpdateProxyUserExec(ctx context.Context, user *SysUser) error {
+// UpdateProxyUserExec updates proxy admin and monitor user passwords within ProxySQL
+func (e *ManagerExec) UpdateProxyUserExec(ctx context.Context, user *SysUser) error {
+	exec := func(ctx context.Context, stm string, stdout, stderr *bytes.Buffer) error {
+		cmd := []string{"mysql", fmt.Sprintf("-p%s", e.pass), "-u", string(e.user), "-h", e.host, "-P 6032", "-e", stm}
+
+		err := e.client.Exec(e.pod, "proxysql", cmd, nil, stdout, stderr, false)
+		if err != nil {
+			sout := sensitiveRegexp.ReplaceAllString(stdout.String(), ":*****@")
+			serr := sensitiveRegexp.ReplaceAllString(stderr.String(), ":*****@")
+			return errors.Wrapf(err, "run %s, stdout: %s, stderr: %s", cmd, sout, serr)
+		}
+
+		if strings.Contains(stderr.String(), "ERROR") {
+			return fmt.Errorf("sql error: %s", stderr)
+		}
+
+		return nil
+	}
+
 	switch user.Name {
 	case ProxyAdmin:
 		q := fmt.Sprintf(`
@@ -176,7 +194,7 @@ func (u *ManagerExec) UpdateProxyUserExec(ctx context.Context, user *SysUser) er
 		`, "proxyadmin:"+user.Pass, user.Pass)
 
 		var errb, outb bytes.Buffer
-		err := u.exec(ctx, q, &outb, &errb)
+		err := exec(ctx, q, &outb, &errb)
 		if err != nil {
 			return errors.Wrap(err, "update proxy admin password")
 		}
@@ -188,7 +206,7 @@ func (u *ManagerExec) UpdateProxyUserExec(ctx context.Context, user *SysUser) er
 		`, user.Pass)
 
 		var errb, outb bytes.Buffer
-		err := u.exec(ctx, q, &outb, &errb)
+		err := exec(ctx, q, &outb, &errb)
 		if err != nil {
 			return errors.Wrap(err, "update proxy monitor password")
 		}

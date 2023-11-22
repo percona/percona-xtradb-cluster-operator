@@ -97,7 +97,7 @@ func (u *ManagerExec) UpdateUserPassWithoutDPExec(ctx context.Context, user *Sys
 
 	var errb, outb bytes.Buffer
 	for _, host := range user.Hosts {
-		q := fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s", user.Name, host, user.Pass)
+		q := fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, user.Pass)
 		err := u.exec(ctx, q, &outb, &errb)
 		if err != nil {
 			return errors.Wrap(err, "update password")

@@ -530,8 +530,8 @@ type BackupStorageSpec struct {
 }
 
 type BackupContainerOptions struct {
-	Env       []corev1.EnvVar          `json:"env,omitempty"`
-	ExtraArgs BackupContainerExtraArgs `json:"extraArgs,omitempty"`
+	Env       []corev1.EnvVar     `json:"env,omitempty"`
+	ExtraArgs BackupContainerArgs `json:"args,omitempty"`
 }
 
 func (b *BackupContainerOptions) GetEnv() []corev1.EnvVar {
@@ -553,30 +553,30 @@ func (b *BackupContainerOptions) GetEnvVar(cluster *PerconaXtraDBCluster, storag
 	return storage.ContainerOptions.GetEnvVar(nil, "")
 }
 
-type BackupContainerExtraArgs struct {
-	Xtrabackup string `json:"xtrabackup,omitempty"`
-	Xbcloud    string `json:"xbcloud,omitempty"`
-	Xbstream   string `json:"xbstream,omitempty"`
+type BackupContainerArgs struct {
+	Xtrabackup []string `json:"xtrabackup,omitempty"`
+	Xbcloud    []string `json:"xbcloud,omitempty"`
+	Xbstream   []string `json:"xbstream,omitempty"`
 }
 
-func (b *BackupContainerExtraArgs) Env() []corev1.EnvVar {
+func (b *BackupContainerArgs) Env() []corev1.EnvVar {
 	envs := []corev1.EnvVar{}
-	if b.Xtrabackup != "" {
+	if len(b.Xtrabackup) > 0 {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "XB_EXTRA_ARGS",
-			Value: b.Xtrabackup,
+			Value: strings.Join(b.Xtrabackup, " "),
 		})
 	}
-	if b.Xbcloud != "" {
+	if len(b.Xbcloud) > 0 {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "XBCLOUD_EXTRA_ARGS",
-			Value: b.Xbcloud,
+			Value: strings.Join(b.Xbcloud, " "),
 		})
 	}
-	if b.Xbstream != "" {
+	if len(b.Xbstream) > 0 {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "XBSTREAM_EXTRA_ARGS",
-			Value: b.Xbstream,
+			Value: strings.Join(b.Xbstream, " "),
 		})
 	}
 	return envs

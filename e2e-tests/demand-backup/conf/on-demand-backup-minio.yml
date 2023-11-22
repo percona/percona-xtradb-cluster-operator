@@ -8,6 +8,8 @@ spec:
   pxcCluster: demand-backup
   storageName: minio
   containerOptions:
-    extraArgs:
-      xbstream: '--parallel=2'
-      xbcloud: '--parallel=2'
+    args:
+      xbstream: 
+      - '--parallel=2'
+      xbcloud: 
+      - '--parallel=2'

@@ -554,7 +554,7 @@ spec:
 #          env:
 #          - name: VERIFY_TLS
 #            value: "false"
-#          extraArgs:
+#          args:
 #            xtrabackup:
 #            - "--someflag=abc"
 #            xbcloud:

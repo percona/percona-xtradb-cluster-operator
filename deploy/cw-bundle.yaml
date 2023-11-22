@@ -59,6 +59,21 @@ spec:
             properties:
               containerOptions:
                 properties:
+                  args:
+                    properties:
+                      xbcloud:
+                        items:
+                          type: string
+                        type: array
+                      xbstream:
+                        items:
+                          type: string
+                        type: array
+                      xtrabackup:
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   env:
                     items:
                       properties:
@@ -119,15 +134,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  extraArgs:
-                    properties:
-                      xbcloud:
-                        type: string
-                      xbstream:
-                        type: string
-                      xtrabackup:
-                        type: string
-                    type: object
                 type: object
               pxcCluster:
                 type: string
@@ -367,6 +373,21 @@ spec:
                 type: object
               containerOptions:
                 properties:
+                  args:
+                    properties:
+                      xbcloud:
+                        items:
+                          type: string
+                        type: array
+                      xbstream:
+                        items:
+                          type: string
+                        type: array
+                      xtrabackup:
+                        items:
+                          type: string
+                        type: array
+                    type: object
                   env:
                     items:
                       properties:
@@ -427,15 +448,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  extraArgs:
-                    properties:
-                      xbcloud:
-                        type: string
-                      xbstream:
-                        type: string
-                      xtrabackup:
-                        type: string
-                    type: object
                 type: object
               pitr:
                 properties:
@@ -1386,6 +1398,21 @@ spec:
                           type: object
                         containerOptions:
                           properties:
+                            args:
+                              properties:
+                                xbcloud:
+                                  items:
+                                    type: string
+                                  type: array
+                                xbstream:
+                                  items:
+                                    type: string
+                                  type: array
+                                xtrabackup:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
                             env:
                               items:
                                 properties:
@@ -1446,15 +1473,6 @@ spec:
                                 - name
                                 type: object
                               type: array
-                            extraArgs:
-                              properties:
-                                xbcloud:
-                                  type: string
-                                xbstream:
-                                  type: string
-                                xtrabackup:
-                                  type: string
-                              type: object
                           type: object
                         containerSecurityContext:
                           properties:

@@ -220,7 +220,7 @@ func (e *ManagerExec) UpdateProxyUserExec(ctx context.Context, user *SysUser) er
 func (u *ManagerExec) Update160MonitorUserGrantExec(ctx context.Context, pass string) (err error) {
 	q := fmt.Sprintf(`
 		CREATE USER IF NOT EXISTS 'monitor'@'%%' IDENTIFIED BY '%s';
-		GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%%';
+		/*!80015 GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%%' */;
 		ALTER USER 'monitor'@'%%' WITH MAX_USER_CONNECTIONS 100;
 	`, pass)
 

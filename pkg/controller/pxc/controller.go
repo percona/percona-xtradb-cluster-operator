@@ -1282,7 +1282,13 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(cr *api.PerconaXtraDBClus
 
 func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject client.Object) error {
 	oldAnnotations := oldObject.GetAnnotations()
+	if oldAnnotations == nil {
+		oldAnnotations = make(map[string]string)
+	}
 	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
 	for _, annotation := range cr.Spec.IgnoreAnnotations {
 		if v, ok := oldAnnotations[annotation]; ok {
 			annotations[annotation] = v
@@ -1290,7 +1296,13 @@ func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject
 	}
 	obj.SetAnnotations(annotations)
 	oldLabels := oldObject.GetLabels()
+	if oldLabels == nil {
+		oldLabels = make(map[string]string)
+	}
 	labels := obj.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
 	for _, label := range cr.Spec.IgnoreLabels {
 		if v, ok := oldLabels[label]; ok {
 			labels[label] = v

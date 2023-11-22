@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -24,28 +25,37 @@ import (
 
 // PerconaXtraDBClusterSpec defines the desired state of PerconaXtraDBCluster
 type PerconaXtraDBClusterSpec struct {
-	Platform                  version.Platform                     `json:"platform,omitempty"`
-	CRVersion                 string                               `json:"crVersion,omitempty"`
-	Pause                     bool                                 `json:"pause,omitempty"`
-	SecretsName               string                               `json:"secretsName,omitempty"`
-	VaultSecretName           string                               `json:"vaultSecretName,omitempty"`
-	SSLSecretName             string                               `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName     string                               `json:"sslInternalSecretName,omitempty"`
-	LogCollectorSecretName    string                               `json:"logCollectorSecretName,omitempty"`
-	TLS                       *TLSSpec                             `json:"tls,omitempty"`
-	PXC                       *PXCSpec                             `json:"pxc,omitempty"`
-	ProxySQL                  *PodSpec                             `json:"proxysql,omitempty"`
-	HAProxy                   *HAProxySpec                         `json:"haproxy,omitempty"`
-	PMM                       *PMMSpec                             `json:"pmm,omitempty"`
-	LogCollector              *LogCollectorSpec                    `json:"logcollector,omitempty"`
-	Backup                    *PXCScheduledBackup                  `json:"backup,omitempty"`
-	UpdateStrategy            appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
-	UpgradeOptions            UpgradeOptions                       `json:"upgradeOptions,omitempty"`
-	AllowUnsafeConfig         bool                                 `json:"allowUnsafeConfigurations,omitempty"`
-	InitImage                 string                               `json:"initImage,omitempty"`
-	EnableCRValidationWebhook *bool                                `json:"enableCRValidationWebhook,omitempty"`
-	IgnoreAnnotations         []string                             `json:"ignoreAnnotations,omitempty"`
-	IgnoreLabels              []string                             `json:"ignoreLabels,omitempty"`
+	Platform               version.Platform                     `json:"platform,omitempty"`
+	CRVersion              string                               `json:"crVersion,omitempty"`
+	Pause                  bool                                 `json:"pause,omitempty"`
+	SecretsName            string                               `json:"secretsName,omitempty"`
+	VaultSecretName        string                               `json:"vaultSecretName,omitempty"`
+	SSLSecretName          string                               `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName  string                               `json:"sslInternalSecretName,omitempty"`
+	LogCollectorSecretName string                               `json:"logCollectorSecretName,omitempty"`
+	TLS                    *TLSSpec                             `json:"tls,omitempty"`
+	PXC                    *PXCSpec                             `json:"pxc,omitempty"`
+	ProxySQL               *PodSpec                             `json:"proxysql,omitempty"`
+	HAProxy                *HAProxySpec                         `json:"haproxy,omitempty"`
+	PMM                    *PMMSpec                             `json:"pmm,omitempty"`
+	LogCollector           *LogCollectorSpec                    `json:"logcollector,omitempty"`
+	Backup                 *PXCScheduledBackup                  `json:"backup,omitempty"`
+	UpdateStrategy         appsv1.StatefulSetUpdateStrategyType `json:"updateStrategy,omitempty"`
+	UpgradeOptions         UpgradeOptions                       `json:"upgradeOptions,omitempty"`
+	AllowUnsafeConfig      bool                                 `json:"allowUnsafeConfigurations,omitempty"`
+
+	// Deprecated, should be removed in the future. Use InitContainer.Image instead
+	InitImage string `json:"initImage,omitempty"`
+
+	InitContainer             InitContainerSpec `json:"initContainer,omitempty"`
+	EnableCRValidationWebhook *bool             `json:"enableCRValidationWebhook,omitempty"`
+	IgnoreAnnotations         []string          `json:"ignoreAnnotations,omitempty"`
+	IgnoreLabels              []string          `json:"ignoreLabels,omitempty"`
+}
+
+type InitContainerSpec struct {
+	Image     string                       `json:"image,omitempty"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type PXCSpec struct {
@@ -901,6 +911,17 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 
 	if cr.Spec.UpgradeOptions.VersionServiceEndpoint == "" {
 		cr.Spec.UpgradeOptions.VersionServiceEndpoint = DefaultVersionServiceEndpoint
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		if cr.Spec.InitContainer.Resources == nil {
+			cr.Spec.InitContainer.Resources = &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("50M"),
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+				},
+			}
+		}
 	}
 
 	return nil

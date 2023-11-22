@@ -315,6 +315,9 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		if o.CompareVersionWith("1.6.0") >= 0 {
 			initResources = o.Spec.PXC.Resources
 		}
+		if o.Spec.InitContainer.Resources != nil {
+			initResources = *o.Spec.InitContainer.Resources
+		}
 		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy)
 		inits = append(inits, initC)
 	}
@@ -353,8 +356,12 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	var proxyInits []corev1.Container
 	if o.CompareVersionWith("1.13.0") >= 0 {
+		initResources := o.Spec.PXC.Resources
+		if o.Spec.InitContainer.Resources != nil {
+			initResources = *o.Spec.InitContainer.Resources
+		}
 		proxyInits = []corev1.Container{
-			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, o.Spec.PXC.Resources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy),
+			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, o.Spec.PXC.ContainerSecurityContext, o.Spec.PXC.ImagePullPolicy),
 		}
 	}
 
@@ -491,6 +498,9 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			initResources = cr.Spec.PXC.Resources
 		}
+		if cr.Spec.InitContainer.Resources != nil {
+			initResources = *cr.Spec.InitContainer.Resources
+		}
 		initC := statefulset.EntrypointInitContainer(initImageName, app.DataVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy)
 		inits = append(inits, initC)
 	}
@@ -597,8 +607,12 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 
 	var proxyInits []corev1.Container
 	if cr.CompareVersionWith("1.13.0") >= 0 {
+		initResources := cr.Spec.PXC.Resources
+		if cr.Spec.InitContainer.Resources != nil {
+			initResources = *cr.Spec.InitContainer.Resources
+		}
 		proxyInits = []corev1.Container{
-			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, cr.Spec.PXC.Resources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
+			statefulset.EntrypointInitContainer(initImageName, app.BinVolumeName, initResources, cr.Spec.PXC.ContainerSecurityContext, cr.Spec.PXC.ImagePullPolicy),
 		}
 	}
 
@@ -1423,6 +1437,9 @@ func (r *ReconcilePerconaXtraDBCluster) getConfigVolume(nsName, cvName, cmName s
 }
 
 func getInitImage(ctx context.Context, cr *api.PerconaXtraDBCluster, cli client.Client) (string, error) {
+	if len(cr.Spec.InitContainer.Image) > 0 {
+		return cr.Spec.InitContainer.Image, nil
+	}
 	if len(cr.Spec.InitImage) > 0 {
 		return cr.Spec.InitImage, nil
 	}

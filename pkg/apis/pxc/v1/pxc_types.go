@@ -879,7 +879,7 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 			}
 
 			if cr.Spec.Backup.PITR.TimeoutSeconds == 0 {
-				cr.Spec.Backup.PITR.TimeoutSeconds = 60
+				cr.Spec.Backup.PITR.TimeoutSeconds = 3600
 			}
 		}
 

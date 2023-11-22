@@ -13,3 +13,4 @@ spec:
       - '--parallel=2'
       xbcloud: 
       - '--parallel=2'
+      - '--curl-retriable-errors=8'

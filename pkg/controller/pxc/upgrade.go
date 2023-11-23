@@ -484,24 +484,11 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(ctx context.Context, cr *a
 		return corev1.Pod{}, errors.Wrap(err, "failed to get pod list")
 	}
 
-	log.Printf("AAAAAA before sort")
-	for _, pod := range pods.Items {
-		log.Printf("AAAAAA pod name is %s", pod.Name)
-	}
 	sort.Slice(pods.Items, func(i, j int) bool {
 		return pods.Items[i].Name < pods.Items[j].Name
 	})
-
-	log.Printf("AAAAAA after sort")
-	for _, pod := range pods.Items {
-		log.Printf("AAAAAA pod name is %s", pod.Name)
-	}
-
-	// TODO: this logic is not complete, primary can be some other pod
-	// if the pod 0 is not ready
 	for _, p := range pods.Items {
 		if isPodReady(p) {
-			log.Printf("CCCC primary pod is %s", p.Name)
 			return p, nil
 		}
 	}

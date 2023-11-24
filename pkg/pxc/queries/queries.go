@@ -9,9 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"github.com/gocarina/gocsv"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
@@ -55,33 +54,35 @@ var ErrNotFound = errors.New("not found")
 var sensitiveRegexp = regexp.MustCompile(":.*@")
 
 type Database struct {
-	client    *clientcmd.Client
-	pod       *corev1.Pod
-	container string
+	Client    *clientcmd.Client
+	Pod       *corev1.Pod
 	cmd       []string
+	container string
 }
 
 // NewPXC creates a new Database instance for a given PXC pod
 func NewPXC(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass, host string) *Database {
 	cmd := []string{"mysql", "--database", "mysql", fmt.Sprintf("-p%s", pass), "-u", string(user), "-h", host, "-e"}
-	return &Database{client: cliCmd, pod: pod, container: "pxc", cmd: cmd}
+	return &Database{Client: cliCmd, Pod: pod, container: "pxc", cmd: cmd}
 }
 
 // NewProxySQL creates a new Database instance for a given ProxySQL pod
 func NewProxySQL(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass string) *Database {
 	cmd := []string{"mysql", fmt.Sprintf("-p%s", pass), "-u", string(user), "-h", "127.0.0.1", "-P", "6032", "-e"}
-	return &Database{client: cliCmd, pod: pod, container: "proxysql", cmd: cmd}
+	return &Database{Client: cliCmd, Pod: pod, container: "proxysql", cmd: cmd}
 }
 
 // NewHAProxy creates a new Database instance for a given HAProxy pod
 func NewHAProxy(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass string) *Database {
 	cmd := []string{"mysql", fmt.Sprintf("-p%s", pass), "-u", string(user), "-h", "127.0.0.1", "-e"}
-	return &Database{client: cliCmd, pod: pod, container: "haproxy", cmd: cmd}
+	return &Database{Client: cliCmd, Pod: pod, container: "haproxy", cmd: cmd}
 }
 
-func (d *Database) exec(ctx context.Context, stm string, stdout, stderr *bytes.Buffer) error {
+// Exec executes a given SQL statement on a database and populates
+// stdout and stderr buffers with the output.
+func (d *Database) Exec(ctx context.Context, stm string, stdout, stderr *bytes.Buffer) error {
 	cmd := append(d.cmd, stm)
-	err := d.client.Exec(d.pod, d.container, cmd, nil, stdout, stderr, false)
+	err := d.Client.Exec(d.Pod, d.container, cmd, nil, stdout, stderr, false)
 	if err != nil {
 		sout := sensitiveRegexp.ReplaceAllString(stdout.String(), ":*****@")
 		serr := sensitiveRegexp.ReplaceAllString(stderr.String(), ":*****@")
@@ -95,9 +96,10 @@ func (d *Database) exec(ctx context.Context, stm string, stdout, stderr *bytes.B
 	return nil
 }
 
-func (d *Database) query(ctx context.Context, query string, out interface{}) error {
+// Query executes a given SQL statement on a database and populates out with the result
+func (d *Database) Query(ctx context.Context, query string, out interface{}) error {
 	var errb, outb bytes.Buffer
-	err := d.exec(ctx, query, &outb, &errb)
+	err := d.Exec(ctx, query, &outb, &errb)
 	if err != nil {
 		return err
 	}
@@ -122,7 +124,7 @@ func (d *Database) CurrentReplicationChannels(ctx context.Context) ([]string, er
 	}{}
 
 	q := `SELECT DISTINCT(Channel_name) as name from replication_asynchronous_connection_failover`
-	err := d.query(ctx, q, &rows)
+	err := d.Query(ctx, q, &rows)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -147,7 +149,7 @@ func (d *Database) ChangeChannelPassword(ctx context.Context, channel, password 
 		COMMIT;
 	`, channel, password, channel, channel)
 
-	err := d.exec(ctx, q, &outb, &errb)
+	err := d.Exec(ctx, q, &outb, &errb)
 	if err != nil {
 		return errors.Wrap(err, "change channel password")
 	}
@@ -163,7 +165,7 @@ func (d *Database) ReplicationStatus(ctx context.Context, channel string) (Repli
 	}{}
 
 	q := fmt.Sprintf("SHOW REPLICA STATUS FOR CHANNEL %s", channel)
-	err := d.query(ctx, q, &rows)
+	err := d.Query(ctx, q, &rows)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ReplicationStatusNotInitiated, nil
@@ -188,7 +190,7 @@ func (d *Database) ReplicationStatus(ctx context.Context, channel string) (Repli
 
 func (d *Database) StopAllReplication(ctx context.Context) error {
 	var errb, outb bytes.Buffer
-	if err := d.exec(ctx, "STOP REPLICA", &outb, &errb); err != nil {
+	if err := d.Exec(ctx, "STOP REPLICA", &outb, &errb); err != nil {
 		return errors.Wrap(err, "failed to stop replication")
 	}
 	return nil
@@ -197,7 +199,7 @@ func (d *Database) StopAllReplication(ctx context.Context) error {
 func (d *Database) AddReplicationSource(ctx context.Context, name, host string, port, weight int) error {
 	var errb, outb bytes.Buffer
 	q := fmt.Sprintf("SELECT asynchronous_connection_failover_add_source('%s', '%s', %d, null, %d)", name, host, port, weight)
-	err := d.exec(ctx, q, &outb, &errb)
+	err := d.Exec(ctx, q, &outb, &errb)
 	if err != nil {
 		return errors.Wrap(err, "add replication source")
 	}
@@ -212,7 +214,7 @@ func (d *Database) ReplicationChannelSources(ctx context.Context, channelName st
 	}{}
 
 	q := fmt.Sprintf("SELECT host, port, weight FROM replication_asynchronous_connection_failover WHERE Channel_name = '%s'", channelName)
-	err := d.query(ctx, q, &rows)
+	err := d.Query(ctx, q, &rows)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -229,19 +231,19 @@ func (d *Database) ReplicationChannelSources(ctx context.Context, channelName st
 
 func (d *Database) StopReplication(ctx context.Context, name string) error {
 	var errb, outb bytes.Buffer
-	err := d.exec(ctx, fmt.Sprintf("STOP REPLICA FOR CHANNEL '%s'", name), &outb, &errb)
+	err := d.Exec(ctx, fmt.Sprintf("STOP REPLICA FOR CHANNEL '%s'", name), &outb, &errb)
 	return errors.Wrap(err, "stop replication for channel "+name)
 }
 
 func (d *Database) EnableReadonly(ctx context.Context) error {
 	var errb, outb bytes.Buffer
-	err := d.exec(ctx, "SET GLOBAL READ_ONLY=1", &outb, &errb)
+	err := d.Exec(ctx, "SET GLOBAL READ_ONLY=1", &outb, &errb)
 	return errors.Wrap(err, "set global read_only param to 1")
 }
 
 func (d *Database) DisableReadonly(ctx context.Context) error {
 	var errb, outb bytes.Buffer
-	err := d.exec(ctx, "SET GLOBAL READ_ONLY=0", &outb, &errb)
+	err := d.Exec(ctx, "SET GLOBAL READ_ONLY=0", &outb, &errb)
 	return errors.Wrap(err, "set global read_only param to 0")
 }
 
@@ -249,7 +251,7 @@ func (p *Database) IsReadonlyExec(ctx context.Context) (bool, error) {
 	rows := []*struct {
 		ReadOnly int `csv:"readOnly"`
 	}{}
-	err := p.query(ctx, "select @@read_only as readOnly", &rows)
+	err := p.Query(ctx, "select @@read_only as readOnly", &rows)
 	if err != nil {
 		return false, errors.Wrap(err, "select global read_only param")
 	}
@@ -286,14 +288,14 @@ func (d *Database) StartReplication(ctx context.Context, replicaPass string, con
 	`, replicaPass, config.Source.Host, config.Source.Port, config.SourceRetryCount, config.SourceConnectRetry, ssl, ca, sslVerify, config.Source.Name)
 
 	var errb, outb bytes.Buffer
-	err := d.exec(ctx, q, &outb, &errb)
+	err := d.Exec(ctx, q, &outb, &errb)
 	if err != nil {
 		return errors.Wrapf(err, "change source for channel %s", config.Source.Name)
 	}
 
 	outb.Reset()
 	errb.Reset()
-	err = d.exec(ctx, fmt.Sprintf(`START REPLICA FOR CHANNEL '%s'`, config.Source.Name), &outb, &errb)
+	err = d.Exec(ctx, fmt.Sprintf(`START REPLICA FOR CHANNEL '%s'`, config.Source.Name), &outb, &errb)
 	return errors.Wrapf(err, "start replica for source %s", config.Source.Name)
 
 }
@@ -301,7 +303,7 @@ func (d *Database) StartReplication(ctx context.Context, replicaPass string, con
 func (d *Database) DeleteReplicationSource(ctx context.Context, name, host string, port int) error {
 	var errb, outb bytes.Buffer
 	q := fmt.Sprintf("SELECT asynchronous_connection_failover_delete_source('%s', '%s', %d, null)", name, host, port)
-	err := d.exec(ctx, q, &outb, &errb)
+	err := d.Exec(ctx, q, &outb, &errb)
 	return errors.Wrap(err, "delete replication source "+name)
 }
 
@@ -313,7 +315,7 @@ func (d *Database) ProxySQLInstanceStatus(ctx context.Context, host string) ([]s
 
 	q := fmt.Sprintf("SELECT status FROM proxysql_servers WHERE hostname LIKE '%s%%'", host)
 
-	err := d.query(ctx, q, &rows)
+	err := d.Query(ctx, q, &rows)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -341,7 +343,7 @@ func (d *Database) PresentInHostgroups(ctx context.Context, host string) (bool, 
 		INNER JOIN mysql_galera_hostgroups ON hostgroup_id IN (%s)
 		WHERE hostname LIKE '%s' GROUP BY hostname`, strings.Join(hostgroups, ","), host+"%")
 
-	err := d.query(ctx, q, &rows)
+	err := d.Query(ctx, q, &rows)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, ErrNotFound
@@ -361,7 +363,7 @@ func (d *Database) PrimaryHost(ctx context.Context) (string, error) {
 
 	q := fmt.Sprintf("SELECT hostname as host FROM runtime_mysql_servers WHERE hostgroup_id = %d", writerID)
 
-	err := d.query(ctx, q, &rows)
+	err := d.Query(ctx, q, &rows)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
@@ -377,7 +379,7 @@ func (d *Database) Hostname(ctx context.Context) (string, error) {
 		Hostname string `csv:"hostname"`
 	}{}
 
-	err := d.query(ctx, "SELECT @@hostname hostname", &rows)
+	err := d.Query(ctx, "SELECT @@hostname hostname", &rows)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
@@ -394,7 +396,7 @@ func (d *Database) WsrepLocalStateComment(ctx context.Context) (string, error) {
 		Value        string `csv:"Value"`
 	}{}
 
-	err := d.query(ctx, "SHOW GLOBAL STATUS LIKE 'wsrep_local_state_comment'", &rows)
+	err := d.Query(ctx, "SHOW GLOBAL STATUS LIKE 'wsrep_local_state_comment'", &rows)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", fmt.Errorf("variable was not found")
@@ -410,7 +412,7 @@ func (d *Database) Version(ctx context.Context) (string, error) {
 		Version string `csv:"version"`
 	}{}
 
-	err := d.query(ctx, "select @@VERSION as version;", &rows)
+	err := d.Query(ctx, "select @@VERSION as version;", &rows)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", fmt.Errorf("variable was not found")

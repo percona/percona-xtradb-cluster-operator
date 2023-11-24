@@ -357,7 +357,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(ctx context.Cont
 	}
 
 	host := primary.Name + "." + cr.Name + "-pxc." + cr.Namespace
-	um := users.NewManager(&primary, r.clientcmd, users.Root, string(secrets.Data[users.Root]), host)
+	um := users.NewPXCManager(&primary, r.clientcmd, users.Root, string(secrets.Data[users.Root]), host)
 
 	err = um.CreateOperatorUser(ctx, string(pass))
 	if err != nil {
@@ -1117,8 +1117,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(ctx context.Context, cr 
 	}
 
 	for _, pod := range pods.Items {
-		um := users.NewManager(&pod, r.clientcmd, users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), "127.0.0.1")
-
+		um := users.NewProxySQLManager(&pod, r.clientcmd, users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]))
 		err = um.UpdateProxyUser(ctx, user)
 		if err != nil {
 			return errors.Wrap(err, "update proxy users")
@@ -1168,7 +1167,7 @@ func (r *ReconcilePerconaXtraDBCluster) getUserManager(ctx context.Context, cr *
 	}
 	host := primary.Name + "." + cr.Name + "-pxc." + cr.Namespace
 
-	return users.NewManager(&primary, r.clientcmd, pxcUser, pxcPass, host), nil
+	return users.NewPXCManager(&primary, r.clientcmd, pxcUser, pxcPass, host), nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {

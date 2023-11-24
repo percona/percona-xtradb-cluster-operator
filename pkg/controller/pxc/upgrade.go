@@ -477,7 +477,7 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(ctx context.Context, cr *ap
 				LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 			},
 		); err != nil {
-			return nil, errors.Wrapf(err, "failed to get pods for statefulset %s", sfs.Name)
+			return nil, errors.Wrapf(err, "failed to get pods for statefulset %s", sfs.Name())
 		}
 
 		return pods.Items, nil

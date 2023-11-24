@@ -381,11 +381,10 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(ctx context.Context, cr *
 		return nil
 	}
 
-	pass, err := r.getUserPass(ctx, cr, users.Operator)
+	database, err := r.connectProxy(ctx, cr)
 	if err != nil {
-		return errors.Wrap(err, "failed to get operator password")
+		return errors.Wrap(err, "failed to connect to proxy")
 	}
-	database := queries.NewExec(pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
 	podNamePrefix := fmt.Sprintf("%s.%s.%s", pod.Name, sfsName, cr.Namespace)
 
@@ -409,11 +408,10 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(ctx context.Context, cr 
 		return nil
 	}
 
-	pass, err := r.getUserPass(ctx, cr, users.Operator)
+	database, err := r.connectProxy(ctx, cr)
 	if err != nil {
-		return errors.Wrap(err, "failed to get operator password")
+		return errors.Wrap(err, "failed to connect to proxy")
 	}
-	database := queries.NewExec(pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
 	podNamePrefix := fmt.Sprintf("%s.%s.%s", pod.Name, sfsName, cr.Namespace)
 
@@ -468,26 +466,100 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 	}
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(ctx context.Context, cr *api.PerconaXtraDBCluster) (corev1.Pod, error) {
-	sfs := statefulset.NewNode(cr)
+// connectProxy gets queries.DatabaseExec connected to ProxySQL or HAProxy pod
+func (r *ReconcilePerconaXtraDBCluster) connectProxy(ctx context.Context, cr *api.PerconaXtraDBCluster) (*queries.DatabaseExec, error) {
+	getPods := func(sfs api.StatefulApp) ([]corev1.Pod, error) {
+		pods := corev1.PodList{}
+		if err := r.client.List(ctx,
+			&pods,
+			&client.ListOptions{
+				Namespace:     cr.Namespace,
+				LabelSelector: labels.SelectorFromSet(sfs.Labels()),
+			},
+		); err != nil {
+			return nil, errors.Wrapf(err, "failed to get pods for statefulset %s", sfs.Name)
+		}
 
+		return pods.Items, nil
+	}
+
+	if cr.HAProxyEnabled() {
+		pass, err := r.getUserPass(ctx, cr, users.Monitor)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get monitor password")
+		}
+		haproxyPods, err := getPods(statefulset.NewHAProxy(cr))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get pod list")
+		}
+
+		for _, p := range haproxyPods {
+			// get internal secret
+			if isPodReady(p) {
+				db := queries.NewHAProxy(&p, r.clientcmd, users.Monitor, pass)
+				return db, nil
+			}
+		}
+
+	}
+
+	pass, err := r.getUserPass(ctx, cr, users.ProxyAdmin)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get proxyadmin password")
+	}
+	proxysqlPods, err := getPods(statefulset.NewProxy(cr))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get pod list")
+	}
+
+	for _, p := range proxysqlPods {
+		// get internal secret
+		if isPodReady(p) {
+			db := queries.NewProxySQL(&p, r.clientcmd, users.ProxyAdmin, pass)
+			return db, nil
+		}
+	}
+
+	return nil, errors.New("failed connect to proxy")
+}
+
+func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(ctx context.Context, cr *api.PerconaXtraDBCluster) (corev1.Pod, error) {
+	db, err := r.connectProxy(ctx, cr)
+	if err != nil {
+		return corev1.Pod{}, errors.Wrap(err, "failed to connect to proxy")
+	}
+
+	var primary string
+
+	if cr.HAProxyEnabled() {
+		h, err := db.HostnameExec(ctx)
+		if err != nil {
+			return corev1.Pod{}, errors.Wrap(err, "failed to get primary pod")
+		}
+		primary = h
+	} else {
+		h, err := db.PrimaryHostExec(ctx)
+		if err != nil {
+			return corev1.Pod{}, errors.Wrap(err, "failed to get primary pod")
+		}
+		primary = h
+	}
+
+	sfs := statefulset.NewNode(cr)
 	pods := corev1.PodList{}
-	err := r.client.List(ctx,
+
+	if err := r.client.List(ctx,
 		&pods,
 		&client.ListOptions{
 			Namespace:     cr.Namespace,
 			LabelSelector: labels.SelectorFromSet(sfs.Labels()),
 		},
-	)
-	if err != nil {
+	); err != nil {
 		return corev1.Pod{}, errors.Wrap(err, "failed to get pod list")
 	}
 
-	sort.Slice(pods.Items, func(i, j int) bool {
-		return pods.Items[i].Name < pods.Items[j].Name
-	})
 	for _, p := range pods.Items {
-		if isPodReady(p) {
+		if strings.Contains(primary, p.Name) && isPodReady(p) {
 			return p, nil
 		}
 	}

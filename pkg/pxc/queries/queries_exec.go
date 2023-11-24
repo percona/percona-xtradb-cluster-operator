@@ -20,21 +20,33 @@ import (
 var sensitiveRegexp = regexp.MustCompile(":.*@")
 
 type DatabaseExec struct {
-	client *clientcmd.Client
-	pod    *corev1.Pod
-	user   string
-	pass   string
-	host   string
+	client    *clientcmd.Client
+	pod       *corev1.Pod
+	container string
+	cmd       []string
 }
 
+// NewExec creates a new DatabaseExec instance for a given PXC pod
 func NewExec(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass, host string) *DatabaseExec {
-	return &DatabaseExec{client: cliCmd, pod: pod, user: user, pass: pass, host: host}
+	cmd := []string{"mysql", "--database", "mysql", fmt.Sprintf("-p%s", pass), "-u", string(user), "-h", host, "-e"}
+	return &DatabaseExec{client: cliCmd, pod: pod, container: "pxc", cmd: cmd}
+}
+
+// NewProxySQL creates a new DatabaseExec instance for a given ProxySQL pod
+func NewProxySQL(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass string) *DatabaseExec {
+	cmd := []string{"mysql", fmt.Sprintf("-p%s", pass), "-u", string(user), "-h", "127.0.0.1", "-P", "6032", "-e"}
+	return &DatabaseExec{client: cliCmd, pod: pod, container: "proxysql", cmd: cmd}
+}
+
+// NewHAProxy creates a new DatabaseExec instance for a given HAProxy pod
+func NewHAProxy(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass string) *DatabaseExec {
+	cmd := []string{"mysql", fmt.Sprintf("-p%s", pass), "-u", string(user), "-h", "127.0.0.1", "-e"}
+	return &DatabaseExec{client: cliCmd, pod: pod, container: "haproxy", cmd: cmd}
 }
 
 func (d *DatabaseExec) exec(ctx context.Context, stm string, stdout, stderr *bytes.Buffer) error {
-	cmd := []string{"mysql", "--database", "performance_schema", fmt.Sprintf("-p%s", d.pass), "-u", string(d.user), "-h", d.host, "-e", stm}
-
-	err := d.client.Exec(d.pod, "pxc", cmd, nil, stdout, stderr, false)
+	cmd := append(d.cmd, stm)
+	err := d.client.Exec(d.pod, d.container, cmd, nil, stdout, stderr, false)
 	if err != nil {
 		sout := sensitiveRegexp.ReplaceAllString(stdout.String(), ":*****@")
 		serr := sensitiveRegexp.ReplaceAllString(stderr.String(), ":*****@")
@@ -312,7 +324,7 @@ func (p *DatabaseExec) PrimaryHostExec(ctx context.Context) (string, error) {
 		Hostname string `csv:"host"`
 	}{}
 
-	q := fmt.Sprintf("SELECT hostname FROM runtime_mysql_servers WHERE hostgroup_id = %d", writerID)
+	q := fmt.Sprintf("SELECT hostname as host FROM runtime_mysql_servers WHERE hostgroup_id = %d", writerID)
 
 	err := p.query(ctx, q, &rows)
 	if err != nil {

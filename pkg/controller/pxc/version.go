@@ -300,9 +300,9 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 		if err != nil {
 			return "", errors.Wrap(err, "failed to get operator password")
 		}
-		database := queries.NewExec(&pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+		database := queries.NewPXC(&pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
-		version, err := database.VersionExec(ctx)
+		version, err := database.Version(ctx)
 		if err != nil {
 			log.Error(err, "failed to get pxc version")
 			continue

@@ -357,9 +357,9 @@ func (r *ReconcilePerconaXtraDBCluster) manageOperatorAdminUser(ctx context.Cont
 	}
 
 	host := primary.Name + "." + cr.Name + "-pxc." + cr.Namespace
-	um := users.NewManagerExec(&primary, r.clientcmd, users.Root, string(secrets.Data[users.Root]), host)
+	um := users.NewManager(&primary, r.clientcmd, users.Root, string(secrets.Data[users.Root]), host)
 
-	err = um.CreateOperatorUserExec(ctx, string(pass))
+	err = um.CreateOperatorUser(ctx, string(pass))
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
 	}
@@ -518,7 +518,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, um *users.ManagerExec) error {
+func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, um *users.Manager) error {
 	log := logf.FromContext(ctx)
 
 	annotationName := "grant-for-1.6.0-monitor-user"
@@ -526,7 +526,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Conte
 		return nil
 	}
 
-	err := um.Update160MonitorUserGrantExec(ctx, string(internalSysSecretObj.Data[users.Monitor]))
+	err := um.Update160MonitorUserGrant(ctx, string(internalSysSecretObj.Data[users.Monitor]))
 	if err != nil {
 		return errors.Wrap(err, "update monitor grant")
 	}
@@ -729,7 +729,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateXtrabackupUserGrant(ctx context.Co
 		return err
 	}
 
-	err = um.Update170XtrabackupUserExec(ctx, string(secrets.Data[users.Xtrabackup]))
+	err = um.Update170XtrabackupUser(ctx, string(secrets.Data[users.Xtrabackup]))
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup grant")
 	}
@@ -848,7 +848,7 @@ func (r *ReconcilePerconaXtraDBCluster) manageReplicationUser(ctx context.Contex
 		return errors.Wrap(err, "generate password")
 	}
 
-	err = um.CreateReplicationUserExec(ctx, string(pass))
+	err = um.CreateReplicationUser(ctx, string(pass))
 	if err != nil {
 		return errors.Wrap(err, "create replication user")
 	}
@@ -1008,7 +1008,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithRetention(ctx context.
 		return err
 	}
 
-	err = um.UpdateUserPassExec(ctx, user)
+	err = um.UpdateUserPass(ctx, user)
 	if err != nil {
 		return errors.Wrap(err, "update user pass")
 	}
@@ -1022,7 +1022,7 @@ func (r *ReconcilePerconaXtraDBCluster) discardOldPassword(ctx context.Context, 
 		return err
 	}
 
-	err = um.DiscardOldPasswordExec(ctx, user)
+	err = um.DiscardOldPassword(ctx, user)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("discard old user %s pass", user.Name))
 	}
@@ -1036,7 +1036,7 @@ func (r *ReconcilePerconaXtraDBCluster) isOldPasswordDiscarded(ctx context.Conte
 		return false, err
 	}
 
-	discarded, err := um.IsOldPassDiscardedExec(ctx, user)
+	discarded, err := um.IsOldPassDiscarded(ctx, user)
 	if err != nil {
 		return false, errors.Wrap(err, "is old password discarded")
 	}
@@ -1106,7 +1106,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(ctx context.Context, cr 
 		return nil
 	}
 
-	sts :=statefulset.NewProxy(cr)
+	sts := statefulset.NewProxy(cr)
 
 	pods := corev1.PodList{}
 	err := r.client.List(ctx, &pods, &client.ListOptions{
@@ -1117,9 +1117,9 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(ctx context.Context, cr 
 	}
 
 	for _, pod := range pods.Items {
-		um := users.NewManagerExec(&pod, r.clientcmd, users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), "127.0.0.1")
+		um := users.NewManager(&pod, r.clientcmd, users.ProxyAdmin, string(internalSecrets.Data[users.ProxyAdmin]), "127.0.0.1")
 
-		err = um.UpdateProxyUserExec(ctx, user)
+		err = um.UpdateProxyUser(ctx, user)
 		if err != nil {
 			return errors.Wrap(err, "update proxy users")
 		}
@@ -1128,7 +1128,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(ctx context.Context, cr 
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, user *users.SysUser, um *users.ManagerExec) error {
+func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, user *users.SysUser, um *users.Manager) error {
 	log := logf.FromContext(ctx)
 
 	annotationName := "grant-for-1.10.0-system-privilege"
@@ -1136,7 +1136,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Con
 		return nil
 	}
 
-	if err := um.Update1100SystemUserPrivilegeExec(ctx, user); err != nil {
+	if err := um.Update1100SystemUserPrivilege(ctx, user); err != nil {
 		return errors.Wrap(err, "grant system user privilege")
 	}
 
@@ -1154,7 +1154,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Con
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) getUserManager(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*users.ManagerExec, error) {
+func (r *ReconcilePerconaXtraDBCluster) getUserManager(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets *corev1.Secret) (*users.Manager, error) {
 	pxcUser := users.Root
 	pxcPass := string(secrets.Data[users.Root])
 	if _, ok := secrets.Data[users.Operator]; ok {
@@ -1168,7 +1168,7 @@ func (r *ReconcilePerconaXtraDBCluster) getUserManager(ctx context.Context, cr *
 	}
 	host := primary.Name + "." + cr.Name + "-pxc." + cr.Namespace
 
-	return users.NewManagerExec(&primary, r.clientcmd, pxcUser, pxcPass, host), nil
+	return users.NewManager(&primary, r.clientcmd, pxcUser, pxcPass, host), nil
 }
 
 func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecrets *corev1.Secret, user *users.SysUser) error {
@@ -1185,7 +1185,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 			return err
 		}
 
-		if err := um.UpdatePassExpirationPolicyExec(ctx, user); err != nil {
+		if err := um.UpdatePassExpirationPolicy(ctx, user); err != nil {
 			return errors.Wrapf(err, "update %s user password expiration policy", user.Name)
 		}
 

@@ -484,7 +484,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithoutDP(ctx context.Cont
 		return err
 	}
 
-	err = um.UpdateUserPassWithoutDPExec(ctx, user)
+	err = um.UpdateUserPassWithoutDP(ctx, user)
 	if err != nil {
 		return errors.Wrap(err, "update user pass")
 	}

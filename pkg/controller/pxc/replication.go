@@ -139,9 +139,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	if err != nil {
 		return errors.Wrap(err, "failed to get operator password")
 	}
-	primaryDB := queries.NewExec(&primaryPod, r.clientcmd, users.Operator, pass, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+	primaryDB := queries.NewPXC(&primaryPod, r.clientcmd, users.Operator, pass, primaryPod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
-	dbVer, err := primaryDB.VersionExec(ctx)
+	dbVer, err := primaryDB.Version(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to get current db version")
 	}
@@ -178,9 +178,9 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 			if err != nil {
 				return errors.Wrap(err, "failed to get operator password")
 			}
-			db := queries.NewExec(&pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+			db := queries.NewPXC(&pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
-			err = db.StopAllReplicationExec(ctx)
+			err = db.StopAllReplication(ctx)
 			if err != nil {
 				return errors.Wrapf(err, "stop replication on pod %s", pod.Name)
 			}
@@ -237,14 +237,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 	return r.updateStatus(cr, false, nil)
 }
 
-func handleReplicaPasswordChange(ctx context.Context, db *queries.DatabaseExec, newPass string) error {
-	channels, err := db.CurrentReplicationChannelsExec(ctx)
+func handleReplicaPasswordChange(ctx context.Context, db *queries.Database, newPass string) error {
+	channels, err := db.CurrentReplicationChannels(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get current replication channels")
 	}
 
 	for _, channel := range channels {
-		err := db.ChangeChannelPasswordExec(ctx, channel, newPass)
+		err := db.ChangeChannelPassword(ctx, channel, newPass)
 		if err != nil {
 			return errors.Wrapf(err, "change password for channel %s", channel)
 		}
@@ -263,7 +263,7 @@ func (r *ReconcilePerconaXtraDBCluster) checkReadonlyStatus(ctx context.Context,
 		if err != nil {
 			return errors.Wrap(err, "failed to get operator password")
 		}
-		db := queries.NewExec(&pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+		db := queries.NewPXC(&pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
 		readonly, err := db.IsReadonlyExec(ctx)
 		if err != nil {
@@ -275,11 +275,11 @@ func (r *ReconcilePerconaXtraDBCluster) checkReadonlyStatus(ctx context.Context,
 		}
 
 		if isReplica && !readonly {
-			err = db.EnableReadonlyExec(ctx)
+			err = db.EnableReadonly(ctx)
 		}
 
 		if !isReplica && readonly {
-			err = db.DisableReadonlyExec(ctx)
+			err = db.DisableReadonly(ctx)
 		}
 		if err != nil {
 			return errors.Wrap(err, "enable or disable readonly mode")
@@ -289,8 +289,8 @@ func (r *ReconcilePerconaXtraDBCluster) checkReadonlyStatus(ctx context.Context,
 	return nil
 }
 
-func removeOutdatedChannels(ctx context.Context, db *queries.DatabaseExec, currentChannels []api.ReplicationChannel) error {
-	dbChannels, err := db.CurrentReplicationChannelsExec(ctx)
+func removeOutdatedChannels(ctx context.Context, db *queries.Database, currentChannels []api.ReplicationChannel) error {
+	dbChannels, err := db.CurrentReplicationChannels(ctx)
 	if err != nil {
 		return errors.Wrap(err, "get current replication channels")
 	}
@@ -315,17 +315,17 @@ func removeOutdatedChannels(ctx context.Context, db *queries.DatabaseExec, curre
 	}
 
 	for channelToRemove := range toRemove {
-		err = db.StopReplicationExec(ctx, channelToRemove)
+		err = db.StopReplication(ctx, channelToRemove)
 		if err != nil {
 			return errors.Wrapf(err, "stop replication for channel %s", channelToRemove)
 		}
 
-		srcList, err := db.ReplicationChannelSourcesExec(ctx, channelToRemove)
+		srcList, err := db.ReplicationChannelSources(ctx, channelToRemove)
 		if err != nil && err != queries.ErrNotFound {
 			return errors.Wrapf(err, "get src list for outdated channel %s", channelToRemove)
 		}
 		for _, v := range srcList {
-			err = db.DeleteReplicationSourceExec(ctx, channelToRemove, v.Host, v.Port)
+			err = db.DeleteReplicationSource(ctx, channelToRemove, v.Host, v.Port)
 			if err != nil {
 				return errors.Wrapf(err, "delete replication source for outdated channel %s", channelToRemove)
 			}
@@ -334,13 +334,13 @@ func removeOutdatedChannels(ctx context.Context, db *queries.DatabaseExec, curre
 	return nil
 }
 
-func manageReplicationChannel(ctx context.Context, log logr.Logger, primaryDB *queries.DatabaseExec, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
-	currentSources, err := primaryDB.ReplicationChannelSourcesExec(ctx, channel.Name)
+func manageReplicationChannel(ctx context.Context, log logr.Logger, primaryDB *queries.Database, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
+	currentSources, err := primaryDB.ReplicationChannelSources(ctx, channel.Name)
 	if err != nil && err != queries.ErrNotFound {
 		return errors.Wrapf(err, "get current replication sources for channel %s", channel.Name)
 	}
 
-	replicationStatus, err := primaryDB.ReplicationStatusExec(ctx, channel.Name)
+	replicationStatus, err := primaryDB.ReplicationStatus(ctx, channel.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to check replication status")
 	}
@@ -358,14 +358,14 @@ func manageReplicationChannel(ctx context.Context, log logr.Logger, primaryDB *q
 	}
 
 	if replicationStatus == queries.ReplicationStatusActive {
-		err = primaryDB.StopReplicationExec(ctx, channel.Name)
+		err = primaryDB.StopReplication(ctx, channel.Name)
 		if err != nil {
 			return errors.Wrapf(err, "stop replication for channel %s", channel.Name)
 		}
 	}
 
 	for _, src := range currentSources {
-		err = primaryDB.DeleteReplicationSourceExec(ctx, channel.Name, src.Host, src.Port)
+		err = primaryDB.DeleteReplicationSource(ctx, channel.Name, src.Host, src.Port)
 		if err != nil {
 			return errors.Wrapf(err, "delete replication source for channel %s", channel.Name)
 		}
@@ -378,13 +378,13 @@ func manageReplicationChannel(ctx context.Context, log logr.Logger, primaryDB *q
 		if src.Weight > maxWeight {
 			maxWeightSrc = src
 		}
-		err := primaryDB.AddReplicationSourceExec(ctx, channel.Name, src.Host, src.Port, src.Weight)
+		err := primaryDB.AddReplicationSource(ctx, channel.Name, src.Host, src.Port, src.Weight)
 		if err != nil {
 			return errors.Wrapf(err, "add replication source for channel %s", channel.Name)
 		}
 	}
 
-	return primaryDB.StartReplicationExec(ctx, replicaPW, queries.ReplicationConfig{
+	return primaryDB.StartReplication(ctx, replicaPW, queries.ReplicationConfig{
 		Source: queries.ReplicationChannelSource{
 			Name: channel.Name,
 			Host: maxWeightSrc.Host,

@@ -390,7 +390,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(ctx context.Context, cr *
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
-			present, err := database.PresentInHostgroupsExec(ctx, podNamePrefix)
+			present, err := database.PresentInHostgroups(ctx, podNamePrefix)
 			if err != nil && err != queries.ErrNotFound {
 				return false, errors.Wrap(err, "failed to get hostgroup status")
 			}
@@ -417,7 +417,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(ctx context.Context, cr 
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
-			statuses, err := database.ProxySQLInstanceStatusExec(ctx, podNamePrefix)
+			statuses, err := database.ProxySQLInstanceStatus(ctx, podNamePrefix)
 			if err != nil && err != queries.ErrNotFound {
 				return false, errors.Wrap(err, "failed to get status")
 			}
@@ -467,7 +467,7 @@ func retry(in, limit time.Duration, f func() (bool, error)) error {
 }
 
 // connectProxy gets queries.DatabaseExec connected to ProxySQL or HAProxy pod
-func (r *ReconcilePerconaXtraDBCluster) connectProxy(ctx context.Context, cr *api.PerconaXtraDBCluster) (*queries.DatabaseExec, error) {
+func (r *ReconcilePerconaXtraDBCluster) connectProxy(ctx context.Context, cr *api.PerconaXtraDBCluster) (*queries.Database, error) {
 	getPods := func(sfs api.StatefulApp) ([]corev1.Pod, error) {
 		pods := corev1.PodList{}
 		if err := r.client.List(ctx,
@@ -532,13 +532,13 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(ctx context.Context, cr *a
 	var primary string
 
 	if cr.HAProxyEnabled() {
-		h, err := db.HostnameExec(ctx)
+		h, err := db.Hostname(ctx)
 		if err != nil {
 			return corev1.Pod{}, errors.Wrap(err, "failed to get primary pod")
 		}
 		primary = h
 	} else {
-		h, err := db.PrimaryHostExec(ctx)
+		h, err := db.PrimaryHost(ctx)
 		if err != nil {
 			return corev1.Pod{}, errors.Wrap(err, "failed to get primary pod")
 		}
@@ -573,11 +573,11 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		return errors.Wrap(err, "failed to get root password")
 	}
 
-	database := queries.NewExec(pod, r.clientcmd, users.Root, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
+	database := queries.NewPXC(pod, r.clientcmd, users.Root, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
-			state, err := database.WsrepLocalStateCommentExec(context.TODO())
+			state, err := database.WsrepLocalStateComment(context.TODO())
 			if err != nil {
 				return false, errors.Wrap(err, "failed to get wsrep local state")
 			}

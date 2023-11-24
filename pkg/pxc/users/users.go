@@ -54,7 +54,7 @@ func NewManager(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass, host stri
 }
 
 func (d *Manager) exec(ctx context.Context, stm string, stdout, stderr *bytes.Buffer) error {
-	cmd := []string{"mysql", "--database", "performance_schema", fmt.Sprintf("-p%s", d.pass), "-u", string(d.user), "-h", d.host, "-e", stm}
+	cmd := []string{"mysql", "--database", "mysql", fmt.Sprintf("-p%s", d.pass), "-u", string(d.user), "-h", d.host, "-e", stm}
 
 	err := d.client.Exec(d.pod, "pxc", cmd, nil, stdout, stderr, false)
 	if err != nil {

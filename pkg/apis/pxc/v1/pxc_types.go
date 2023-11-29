@@ -35,7 +35,7 @@ type PerconaXtraDBClusterSpec struct {
 	LogCollectorSecretName string                               `json:"logCollectorSecretName,omitempty"`
 	TLS                    *TLSSpec                             `json:"tls,omitempty"`
 	PXC                    *PXCSpec                             `json:"pxc,omitempty"`
-	ProxySQL               *PodSpec                             `json:"proxysql,omitempty"`
+	ProxySQL               *ProxySQLSpec                        `json:"proxysql,omitempty"`
 	HAProxy                *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                    *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector           *LogCollectorSpec                    `json:"logcollector,omitempty"`
@@ -69,8 +69,11 @@ type ServiceExpose struct {
 	Enabled                  bool                                    `json:"enabled,omitempty"`
 	Type                     corev1.ServiceType                      `json:"type,omitempty"`
 	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
 	Annotations              map[string]string                       `json:"annotations,omitempty"`
-	TrafficPolicy            corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
+	Lables                   map[string]string                       `json:"labels,omitempty"`
+	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy    corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
 }
 
 type ReplicationChannel struct {
@@ -445,11 +448,18 @@ type PodSpec struct {
 	HookScript                    string                                  `json:"hookScript,omitempty"`
 }
 
+type ProxySQLSpec struct {
+	PodSpec `json:",inline"`
+	Expose  ServiceExpose `json:"expose,omitempty"`
+}
+
 type HAProxySpec struct {
 	PodSpec                          `json:",inline"`
-	ReplicasServiceEnabled           *bool    `json:"replicasServiceEnabled,omitempty"`
-	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
-	ReplicasLoadBalancerIP           string   `json:"replicasLoadBalancerIP,omitempty"`
+	ExposePrimary                    ServiceExpose `json:"exposePrimary,omitempty"`
+	ExposeReplica                    ServiceExpose `json:"exposeReplica,omitempty"`
+	ReplicasServiceEnabled           *bool         `json:"replicasServiceEnabled,omitempty"`
+	ReplicasLoadBalancerSourceRanges []string      `json:"replicasLoadBalancerSourceRanges,omitempty"`
+	ReplicasLoadBalancerIP           string        `json:"replicasLoadBalancerIP,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

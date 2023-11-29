@@ -167,7 +167,7 @@ func (d *Database) ReplicationStatus(ctx context.Context, channel string) (Repli
 	q := fmt.Sprintf("SHOW REPLICA STATUS FOR CHANNEL '%s'", channel)
 	err := d.Query(ctx, q, &rows)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if strings.HasSuffix(err.Error(), "does not exist.") || errors.Is(err, sql.ErrNoRows) {
 			return ReplicationStatusNotInitiated, nil
 		}
 		return ReplicationStatusError, errors.Wrap(err, "select replication status")

@@ -86,7 +86,7 @@ func (d *Database) Exec(ctx context.Context, stm string, stdout, stderr *bytes.B
 	if err != nil {
 		sout := sensitiveRegexp.ReplaceAllString(stdout.String(), ":*****@")
 		serr := sensitiveRegexp.ReplaceAllString(stderr.String(), ":*****@")
-		return errors.Wrapf(err, "run %s, stdout: %s, stderr: %s", cmd, sout, serr)
+		return errors.Wrapf(err, "stdout: %s, stderr: %s", sout, serr)
 	}
 
 	if strings.Contains(stderr.String(), "ERROR") {

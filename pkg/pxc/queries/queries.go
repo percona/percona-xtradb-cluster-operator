@@ -164,7 +164,7 @@ func (d *Database) ReplicationStatus(ctx context.Context, channel string) (Repli
 		LastErrNo  int    `csv:"Last_Errno"`
 	}{}
 
-	q := fmt.Sprintf("SHOW REPLICA STATUS FOR CHANNEL %s", channel)
+	q := fmt.Sprintf("SHOW REPLICA STATUS FOR CHANNEL '%s'", channel)
 	err := d.Query(ctx, q, &rows)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

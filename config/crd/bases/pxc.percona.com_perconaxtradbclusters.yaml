@@ -1259,6 +1259,60 @@ spec:
                     type: boolean
                   envVarsSecret:
                     type: string
+                  exposePrimary:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        type: boolean
+                      externalTrafficPolicy:
+                        type: string
+                      internalTrafficPolicy:
+                        type: string
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      loadBalancerIP:
+                        type: string
+                      loadBalancerSourceRanges:
+                        items:
+                          type: string
+                        type: array
+                      trafficPolicy:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  exposeReplica:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        type: boolean
+                      externalTrafficPolicy:
+                        type: string
+                      internalTrafficPolicy:
+                        type: string
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      loadBalancerIP:
+                        type: string
+                      loadBalancerSourceRanges:
+                        items:
+                          type: string
+                        type: array
+                      trafficPolicy:
+                        type: string
+                      type:
+                        type: string
+                    type: object
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:
@@ -3940,6 +3994,33 @@ spec:
                     type: boolean
                   envVarsSecret:
                     type: string
+                  expose:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        type: boolean
+                      externalTrafficPolicy:
+                        type: string
+                      internalTrafficPolicy:
+                        type: string
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      loadBalancerIP:
+                        type: string
+                      loadBalancerSourceRanges:
+                        items:
+                          type: string
+                        type: array
+                      trafficPolicy:
+                        type: string
+                      type:
+                        type: string
+                    type: object
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:
@@ -6353,6 +6434,16 @@ spec:
                         type: object
                       enabled:
                         type: boolean
+                      externalTrafficPolicy:
+                        type: string
+                      internalTrafficPolicy:
+                        type: string
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      loadBalancerIP:
+                        type: string
                       loadBalancerSourceRanges:
                         items:
                           type: string

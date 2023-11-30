@@ -83,7 +83,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		apps = append(apps, sfsstatus{
 			app:    statefulset.NewProxy(cr),
 			status: &cr.Status.ProxySQL,
-			spec:   cr.Spec.ProxySQL,
+			spec:   &cr.Spec.ProxySQL.PodSpec,
 		})
 	}
 

@@ -74,6 +74,9 @@ type ServiceExpose struct {
 	Lables                   map[string]string                       `json:"labels,omitempty"`
 	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
 	InternalTrafficPolicy    corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
+
+	// Deprecated: Use ExternalTrafficPolicy instead
+	TrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
 }
 
 type ReplicationChannel struct {
@@ -401,51 +404,63 @@ func (list *PerconaXtraDBClusterList) HasUnfinishedFinalizers() bool {
 }
 
 type PodSpec struct {
-	Enabled                       bool                                    `json:"enabled,omitempty"`
-	Size                          int32                                   `json:"size,omitempty"`
-	Image                         string                                  `json:"image,omitempty"`
-	Resources                     corev1.ResourceRequirements             `json:"resources,omitempty"`
-	SidecarResources              corev1.ResourceRequirements             `json:"sidecarResources,omitempty"`
-	VolumeSpec                    *VolumeSpec                             `json:"volumeSpec,omitempty"`
-	Affinity                      *PodAffinity                            `json:"affinity,omitempty"`
-	NodeSelector                  map[string]string                       `json:"nodeSelector,omitempty"`
-	Tolerations                   []corev1.Toleration                     `json:"tolerations,omitempty"`
-	PriorityClassName             string                                  `json:"priorityClassName,omitempty"`
-	Annotations                   map[string]string                       `json:"annotations,omitempty"`
-	Labels                        map[string]string                       `json:"labels,omitempty"`
-	ImagePullSecrets              []corev1.LocalObjectReference           `json:"imagePullSecrets,omitempty"`
-	Configuration                 string                                  `json:"configuration,omitempty"`
-	PodDisruptionBudget           *PodDisruptionBudgetSpec                `json:"podDisruptionBudget,omitempty"`
-	VaultSecretName               string                                  `json:"vaultSecretName,omitempty"`
-	SSLSecretName                 string                                  `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName         string                                  `json:"sslInternalSecretName,omitempty"`
-	EnvVarsSecretName             string                                  `json:"envVarsSecret,omitempty"`
-	TerminationGracePeriodSeconds *int64                                  `json:"gracePeriod,omitempty"`
-	ForceUnsafeBootstrap          bool                                    `json:"forceUnsafeBootstrap,omitempty"`
-	ServiceType                   corev1.ServiceType                      `json:"serviceType,omitempty"`
-	ReplicasServiceType           corev1.ServiceType                      `json:"replicasServiceType,omitempty"`
-	ExternalTrafficPolicy         corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	Enabled                       bool                          `json:"enabled,omitempty"`
+	Size                          int32                         `json:"size,omitempty"`
+	Image                         string                        `json:"image,omitempty"`
+	Resources                     corev1.ResourceRequirements   `json:"resources,omitempty"`
+	SidecarResources              corev1.ResourceRequirements   `json:"sidecarResources,omitempty"`
+	VolumeSpec                    *VolumeSpec                   `json:"volumeSpec,omitempty"`
+	Affinity                      *PodAffinity                  `json:"affinity,omitempty"`
+	NodeSelector                  map[string]string             `json:"nodeSelector,omitempty"`
+	Tolerations                   []corev1.Toleration           `json:"tolerations,omitempty"`
+	PriorityClassName             string                        `json:"priorityClassName,omitempty"`
+	Annotations                   map[string]string             `json:"annotations,omitempty"`
+	Labels                        map[string]string             `json:"labels,omitempty"`
+	ImagePullSecrets              []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	Configuration                 string                        `json:"configuration,omitempty"`
+	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
+	VaultSecretName               string                        `json:"vaultSecretName,omitempty"`
+	SSLSecretName                 string                        `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
+	EnvVarsSecretName             string                        `json:"envVarsSecret,omitempty"`
+	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
+	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
+
+	// Deprecated: Use ServiceExpose.Type instead
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+	// Deprecated: Use ServiceExpose.Type instead
+	ReplicasServiceType corev1.ServiceType `json:"replicasServiceType,omitempty"`
+	// Deprecated: Use ServiceExpose.ExternalTrafficPolicy instead
+	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	// Deprecated: Use ServiceExpose.ExternalTrafficPolicy instead
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
-	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
-	LoadBalancerIP                string                                  `json:"loadBalancerIP,omitempty"`
-	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
-	ServiceLabels                 map[string]string                       `json:"serviceLabels,omitempty"`
-	ReplicasServiceAnnotations    map[string]string                       `json:"replicasServiceAnnotations,omitempty"`
-	ReplicasServiceLabels         map[string]string                       `json:"replicasServiceLabels,omitempty"`
-	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
-	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
-	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`
-	LivenessInitialDelaySeconds   *int32                                  `json:"livenessDelaySec,omitempty"`
-	LivenessProbes                corev1.Probe                            `json:"livenessProbes,omitempty"`
-	PodSecurityContext            *corev1.PodSecurityContext              `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
-	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
-	ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
-	Sidecars                      []corev1.Container                      `json:"sidecars,omitempty"`
-	SidecarVolumes                []corev1.Volume                         `json:"sidecarVolumes,omitempty"`
-	SidecarPVCs                   []corev1.PersistentVolumeClaim          `json:"sidecarPVCs,omitempty"`
-	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
-	HookScript                    string                                  `json:"hookScript,omitempty"`
+	// Deprecated: Use ServiceExpose.LoadBalancerSourceRanges instead
+	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
+	// Deprecated: Use ServiceExpose.LoadBalancerIP instead
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
+	// Deprecated: Use ServiceExpose.Annotations instead
+	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
+	// Deprecated: Use ServiceExpose.Labels instead
+	ServiceLabels map[string]string `json:"serviceLabels,omitempty"`
+	// Deprecated: Use ServiceExpose.Annotations instead
+	ReplicasServiceAnnotations map[string]string `json:"replicasServiceAnnotations,omitempty"`
+	// Deprecated: Use ServiceExpose.Labels instead
+	ReplicasServiceLabels map[string]string `json:"replicasServiceLabels,omitempty"`
+
+	SchedulerName                string                         `json:"schedulerName,omitempty"`
+	ReadinessInitialDelaySeconds *int32                         `json:"readinessDelaySec,omitempty"`
+	ReadinessProbes              corev1.Probe                   `json:"readinessProbes,omitempty"`
+	LivenessInitialDelaySeconds  *int32                         `json:"livenessDelaySec,omitempty"`
+	LivenessProbes               corev1.Probe                   `json:"livenessProbes,omitempty"`
+	PodSecurityContext           *corev1.PodSecurityContext     `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext     *corev1.SecurityContext        `json:"containerSecurityContext,omitempty"`
+	ServiceAccountName           string                         `json:"serviceAccountName,omitempty"`
+	ImagePullPolicy              corev1.PullPolicy              `json:"imagePullPolicy,omitempty"`
+	Sidecars                     []corev1.Container             `json:"sidecars,omitempty"`
+	SidecarVolumes               []corev1.Volume                `json:"sidecarVolumes,omitempty"`
+	SidecarPVCs                  []corev1.PersistentVolumeClaim `json:"sidecarPVCs,omitempty"`
+	RuntimeClassName             *string                        `json:"runtimeClassName,omitempty"`
+	HookScript                   string                         `json:"hookScript,omitempty"`
 }
 
 type ProxySQLSpec struct {

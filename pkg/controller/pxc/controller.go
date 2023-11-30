@@ -372,7 +372,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxyAnnotations)
 
 	if o.Spec.ProxySQLEnabled() {
-		err = r.updatePod(ctx, proxysqlSet, o.Spec.ProxySQL, o, proxyInits)
+		err = r.updatePod(ctx, proxysqlSet, &o.Spec.ProxySQL.PodSpec, o, proxyInits)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
@@ -688,7 +688,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 
 	if cr.Spec.ProxySQLEnabled() {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, proxyInits, log, r.getConfigVolume)
+		proxySet, err := pxc.StatefulSet(sfsProxy, &cr.Spec.ProxySQL.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}

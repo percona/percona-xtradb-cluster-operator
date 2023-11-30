@@ -49,8 +49,10 @@ func newCR(name, namespace string) *api.PerconaXtraDBCluster {
 					Size:    3,
 				},
 			},
-			ProxySQL: &api.PodSpec{
-				Enabled: false,
+			ProxySQL: &api.ProxySQLSpec{
+				PodSpec: api.PodSpec{
+					Enabled: true,
+				},
 			},
 		},
 		Status: api.PerconaXtraDBClusterStatus{},

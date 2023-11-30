@@ -515,9 +515,9 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 
 	if cr.Spec.PXC.Expose.Type == corev1.ServiceTypeNodePort ||
 		cr.Spec.PXC.Expose.Type == corev1.ServiceTypeLoadBalancer {
-		switch cr.Spec.PXC.Expose.ReplicasServiceType {
+		switch cr.Spec.PXC.Expose.TrafficPolicy {
 		case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
-			svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.ReplicasServiceType
+			svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.TrafficPolicy
 		default:
 			svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
 		}

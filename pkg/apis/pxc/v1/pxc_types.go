@@ -469,9 +469,9 @@ type ProxySQLSpec struct {
 }
 
 type HAProxySpec struct {
-	PodSpec       `json:",inline"`
-	ExposePrimary ServiceExpose `json:"exposePrimary,omitempty"`
-	ExposeReplica ServiceExpose `json:"exposeReplica,omitempty"`
+	PodSpec        `json:",inline"`
+	ExposePrimary  ServiceExpose `json:"exposePrimary,omitempty"`
+	ExposeReplicas ServiceExpose `json:"exposeReplicas,omitempty"`
 
 	// Deprecated: Use ExposeReplica.Enabled instead
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`

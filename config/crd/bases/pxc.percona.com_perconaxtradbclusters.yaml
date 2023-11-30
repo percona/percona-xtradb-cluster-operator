@@ -1286,7 +1286,7 @@ spec:
                       type:
                         type: string
                     type: object
-                  exposeReplica:
+                  exposeReplicas:
                     properties:
                       annotations:
                         additionalProperties:

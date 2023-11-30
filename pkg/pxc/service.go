@@ -443,8 +443,8 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
 
 	if cr.CompareVersionWith("1.14.0") >= 0 {
-		if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ExposeReplica.Type) > 0 {
-			svcType = cr.Spec.HAProxy.ExposeReplica.Type
+		if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ExposeReplicas.Type) > 0 {
+			svcType = cr.Spec.HAProxy.ExposeReplicas.Type
 		}
 	} else {
 		if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ReplicasServiceType) > 0 {
@@ -463,8 +463,8 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	loadBalancerIP := ""
 	if cr.Spec.HAProxy != nil {
 		if cr.CompareVersionWith("1.14.0") >= 0 {
-			serviceAnnotations = cr.Spec.HAProxy.ExposeReplica.Annotations
-			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.ExposeReplica.Labels)
+			serviceAnnotations = cr.Spec.HAProxy.ExposeReplicas.Annotations
+			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.ExposeReplicas.Labels)
 		} else if cr.CompareVersionWith("1.12.0") >= 0 {
 			serviceAnnotations = cr.Spec.HAProxy.ReplicasServiceAnnotations
 			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.PodSpec.ReplicasServiceLabels)
@@ -474,12 +474,12 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		}
 
 		if cr.CompareVersionWith("1.14.0") >= 0 {
-			if cr.Spec.HAProxy.ExposeReplica.LoadBalancerSourceRanges != nil {
-				loadBalancerSourceRanges = cr.Spec.HAProxy.ExposeReplica.LoadBalancerSourceRanges
+			if cr.Spec.HAProxy.ExposeReplicas.LoadBalancerSourceRanges != nil {
+				loadBalancerSourceRanges = cr.Spec.HAProxy.ExposeReplicas.LoadBalancerSourceRanges
 			} else {
 				loadBalancerSourceRanges = cr.Spec.HAProxy.ExposePrimary.LoadBalancerSourceRanges
 			}
-			loadBalancerIP = cr.Spec.HAProxy.ExposeReplica.LoadBalancerIP
+			loadBalancerIP = cr.Spec.HAProxy.ExposeReplicas.LoadBalancerIP
 		} else {
 			if cr.Spec.HAProxy.ReplicasLoadBalancerSourceRanges != nil {
 				loadBalancerSourceRanges = cr.Spec.HAProxy.ReplicasLoadBalancerSourceRanges
@@ -524,8 +524,8 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		svcTrafficPolicyType := corev1.ServiceExternalTrafficPolicyTypeCluster
 
 		if cr.CompareVersionWith("1.14.0") >= 0 {
-			if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ExposeReplica.ExternalTrafficPolicy) > 0 {
-				svcTrafficPolicyType = cr.Spec.HAProxy.ExposeReplica.ExternalTrafficPolicy
+			if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ExposeReplicas.ExternalTrafficPolicy) > 0 {
+				svcTrafficPolicyType = cr.Spec.HAProxy.ExposeReplicas.ExternalTrafficPolicy
 			}
 		} else {
 			if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ReplicasExternalTrafficPolicy) > 0 {
@@ -537,8 +537,8 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 
 	if cr.CompareVersionWith("1.14.0") >= 0 {
-		if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.ExposeReplica.Annotations != nil {
-			if cr.Spec.HAProxy.ExposeReplica.Annotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+		if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.ExposeReplicas.Annotations != nil {
+			if cr.Spec.HAProxy.ExposeReplicas.Annotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
 				obj.Annotations[HeadlessServiceAnnotation] = "true"
 				obj.Spec.ClusterIP = corev1.ClusterIPNone
 			}

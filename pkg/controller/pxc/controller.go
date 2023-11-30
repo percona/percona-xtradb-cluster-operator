@@ -503,7 +503,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 		}
 
 		if cr.CompareVersionWith("1.14.0") >= 0 {
-			e := cr.Spec.HAProxy.ExposeReplica
+			e := cr.Spec.HAProxy.ExposeReplicas
 			err = r.createOrUpdateService(cr, svc, len(e.Labels) == 0 && len(e.Annotations) == 0)
 			if err != nil {
 				return errors.Wrapf(err, "%s upgrade error", svc.Name)

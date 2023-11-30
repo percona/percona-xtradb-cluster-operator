@@ -48,6 +48,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		app    api.StatefulApp
 		status *api.AppStatus
 		spec   *api.PodSpec
+		expose *api.ServiceExpose
 	}
 
 	// Maintaining the order of this slice is important!
@@ -58,6 +59,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			app:    statefulset.NewNode(cr),
 			status: &cr.Status.PXC,
 			spec:   cr.Spec.PXC.PodSpec,
+			expose: &cr.Spec.PXC.Expose,
 		},
 	}
 
@@ -71,6 +73,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			app:    statefulset.NewHAProxy(cr),
 			status: &cr.Status.HAProxy,
 			spec:   &cr.Spec.HAProxy.PodSpec,
+			expose: &cr.Spec.HAProxy.ExposePrimary,
 		})
 	}
 
@@ -84,6 +87,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 			app:    statefulset.NewProxy(cr),
 			status: &cr.Status.ProxySQL,
 			spec:   &cr.Spec.ProxySQL.PodSpec,
+			expose: &cr.Spec.ProxySQL.Expose,
 		})
 	}
 
@@ -102,7 +106,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateStatus(cr *api.PerconaXtraDBCluste
 		}
 		*a.status = status
 
-		host, err := r.appHost(cr, a.app, a.spec)
+		host, err := r.appHost(cr, a.app, a.spec, a.expose)
 		if err != nil {
 			return errors.Wrapf(err, "get %s host", a.app.Name())
 		}
@@ -235,12 +239,19 @@ func (r *ReconcilePerconaXtraDBCluster) appStatus(app api.StatefulApp, namespace
 	return status, nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) appHost(cr *api.PerconaXtraDBCluster, app api.StatefulApp, podSpec *api.PodSpec) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) appHost(cr *api.PerconaXtraDBCluster, app api.StatefulApp,
+	podSpec *api.PodSpec, expose *api.ServiceExpose) (string, error) {
 	svcName := app.Service()
 	if app.Name() == "proxysql" {
 		svcName = cr.Name + "-proxysql"
 	}
-	if podSpec.ServiceType != corev1.ServiceTypeLoadBalancer {
+
+	svcType := expose.Type
+	if cr.CompareVersionWith("1.14.0") < 0 {
+		svcType = podSpec.ServiceType
+	}
+
+	if svcType != corev1.ServiceTypeLoadBalancer {
 		return svcName + "." + cr.Namespace, nil
 	}
 

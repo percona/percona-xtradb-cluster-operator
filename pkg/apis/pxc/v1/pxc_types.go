@@ -71,7 +71,7 @@ type ServiceExpose struct {
 	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
 	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
 	Annotations              map[string]string                       `json:"annotations,omitempty"`
-	Lables                   map[string]string                       `json:"labels,omitempty"`
+	Labels                   map[string]string                       `json:"labels,omitempty"`
 	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
 	InternalTrafficPolicy    corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
 
@@ -469,12 +469,16 @@ type ProxySQLSpec struct {
 }
 
 type HAProxySpec struct {
-	PodSpec                          `json:",inline"`
-	ExposePrimary                    ServiceExpose `json:"exposePrimary,omitempty"`
-	ExposeReplica                    ServiceExpose `json:"exposeReplica,omitempty"`
-	ReplicasServiceEnabled           *bool         `json:"replicasServiceEnabled,omitempty"`
-	ReplicasLoadBalancerSourceRanges []string      `json:"replicasLoadBalancerSourceRanges,omitempty"`
-	ReplicasLoadBalancerIP           string        `json:"replicasLoadBalancerIP,omitempty"`
+	PodSpec       `json:",inline"`
+	ExposePrimary ServiceExpose `json:"exposePrimary,omitempty"`
+	ExposeReplica ServiceExpose `json:"exposeReplica,omitempty"`
+
+	// Deprecated: Use ExposeReplica.Enabled instead
+	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
+	// Deprecated: Use ExposeReplica.LoadBalancerSourceRanges instead
+	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
+	// Deprecated: Use ExposeReplica.LoadBalancerIP instead
+	ReplicasLoadBalancerIP string `json:"replicasLoadBalancerIP,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {

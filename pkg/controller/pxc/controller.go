@@ -381,10 +381,19 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		if err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "%s setControllerReference", svc.Name)
 		}
-		err = r.createOrUpdateService(o, svc, len(o.Spec.ProxySQL.ServiceLabels) == 0 && len(o.Spec.ProxySQL.ServiceAnnotations) == 0)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
+
+		if o.CompareVersionWith("1.14.0") >= 0 {
+			err = r.createOrUpdateService(o, svc, len(o.Spec.ProxySQL.Expose.Labels) == 0 && len(o.Spec.ProxySQL.Expose.Annotations) == 0)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
+			}
+		} else {
+			err = r.createOrUpdateService(o, svc, len(o.Spec.ProxySQL.ServiceLabels) == 0 && len(o.Spec.ProxySQL.ServiceAnnotations) == 0)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
+			}
 		}
+
 		svc = pxc.NewServiceProxySQLUnready(o)
 		err = setControllerReference(o, svc, r.scheme)
 		if err != nil {
@@ -472,20 +481,40 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 		return errors.Wrapf(err, "%s setControllerReference", svc.Name)
 	}
 	podSpec := cr.Spec.HAProxy.PodSpec
-	err = r.createOrUpdateService(cr, svc, len(podSpec.ServiceLabels) == 0 && len(podSpec.ServiceAnnotations) == 0)
-	if err != nil {
-		return errors.Wrapf(err, "%s upgrade error", svc.Name)
+	expose := cr.Spec.HAProxy.ExposePrimary
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		err = r.createOrUpdateService(cr, svc, len(expose.Labels) == 0 && len(expose.Annotations) == 0)
+		if err != nil {
+			return errors.Wrapf(err, "%s upgrade error", svc.Name)
+		}
+	} else {
+		err = r.createOrUpdateService(cr, svc, len(podSpec.ServiceLabels) == 0 && len(podSpec.ServiceAnnotations) == 0)
+		if err != nil {
+			return errors.Wrapf(err, "%s upgrade error", svc.Name)
+		}
 	}
+
 	if cr.HAProxyReplicasServiceEnabled() {
 		svc := pxc.NewServiceHAProxyReplicas(cr)
 		err := setControllerReference(cr, svc, r.scheme)
 		if err != nil {
 			return errors.Wrapf(err, "%s setControllerReference", svc.Name)
 		}
-		err = r.createOrUpdateService(cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
-		if err != nil {
-			return errors.Wrapf(err, "%s upgrade error", svc.Name)
+
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			e := cr.Spec.HAProxy.ExposeReplica
+			err = r.createOrUpdateService(cr, svc, len(e.Labels) == 0 && len(e.Annotations) == 0)
+			if err != nil {
+				return errors.Wrapf(err, "%s upgrade error", svc.Name)
+			}
+		} else {
+			err = r.createOrUpdateService(cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
+			if err != nil {
+				return errors.Wrapf(err, "%s upgrade error", svc.Name)
+			}
 		}
+
 	} else {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")

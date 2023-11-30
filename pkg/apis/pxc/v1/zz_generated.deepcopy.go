@@ -1131,8 +1131,8 @@ func (in *ServiceExpose) DeepCopyInto(out *ServiceExpose) {
 			(*out)[key] = val
 		}
 	}
-	if in.Lables != nil {
-		in, out := &in.Lables, &out.Lables
+	if in.Labels != nil {
+		in, out := &in.Labels, &out.Labels
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val

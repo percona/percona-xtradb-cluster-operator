@@ -310,7 +310,7 @@ deploy_operator() {
 
 deploy_helm() {
 	helm repo add hashicorp https://helm.releases.hashicorp.com
-	helm repo add minio https://helm.min.io/
+	helm repo add minio https://charts.min.io/
 	helm repo update
 }
 
@@ -1245,15 +1245,19 @@ start_minio() {
 
 	local endpoint="http://minio-service:9000"
 	local minio_args=(
-		--version 8.0.5
-		--set accessKey=some-access-key
-		--set secretKey=some-secret-key
+		--version 5.0.14
+		--set replicas=1
+		--set mode=standalone
+		--set resources.requests.memory=256Mi
+		--set rootUser=rootuser
+		--set rootPassword=rootpass123
+		--set "users[0].accessKey=some-access-key"
+		--set "users[0].secretKey=some-secret-key"
+		--set "users[0].policy=consoleAdmin"
 		--set service.type=ClusterIP
 		--set configPathmc=/tmp/.minio/
 		--set securityContext.enabled=false
 		--set persistence.size=2G
-		--set environment.MINIO_REGION=us-east-1
-		--set environment.MINIO_HTTP_TRACE=/tmp/trace.log
 	)
 	if [[ -n $cert_secret ]]; then
 		endpoint="https://minio-service:9000"

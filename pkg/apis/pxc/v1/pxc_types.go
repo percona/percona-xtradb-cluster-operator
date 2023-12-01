@@ -808,9 +808,11 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.HAProxyEnabled() {
-		if c.HAProxy.ReplicasServiceEnabled == nil {
-			t := true
-			c.HAProxy.ReplicasServiceEnabled = &t
+		if cr.CompareVersionWith("1.14.0") < 0 {
+			if c.HAProxy.ReplicasServiceEnabled == nil {
+				t := true
+				c.HAProxy.ReplicasServiceEnabled = &t
+			}
 		}
 
 		if len(c.HAProxy.ImagePullPolicy) == 0 {
@@ -1282,7 +1284,11 @@ func (cr *PerconaXtraDBCluster) HAProxyEnabled() bool {
 }
 
 func (cr *PerconaXtraDBCluster) HAProxyReplicasServiceEnabled() bool {
-	return *cr.Spec.HAProxy.ReplicasServiceEnabled
+	if cr.CompareVersionWith("1.14.0") < 0 {
+		return *cr.Spec.HAProxy.ReplicasServiceEnabled
+	}
+
+	return cr.Spec.HAProxy.ExposeReplicas.Enabled
 }
 
 func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {

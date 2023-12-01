@@ -1,4 +1,3 @@
-//nolint:SA1019
 package pxc
 
 import (

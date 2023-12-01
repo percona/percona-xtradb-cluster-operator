@@ -488,8 +488,8 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			}
 			loadBalancerIP = cr.Spec.HAProxy.ReplicasLoadBalancerIP
 		}
-
 	}
+
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",

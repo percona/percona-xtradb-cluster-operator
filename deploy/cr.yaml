@@ -53,11 +53,15 @@ spec:
 #    expose:
 #      enabled: true
 #      type: LoadBalancer
-#      trafficPolicy: Local
+#      externalTrafficPolicy: Local
+#      internalTrafficPolicy: Local
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
+#      loadBalancerIP: 127.0.01
 #      annotations:
 #        networking.gke.io/load-balancer-type: "Internal"
+#      labels:
+#        rack: rack-22
 #    replicationChannels:
 #    - name: pxc1_to_pxc2
 #      isSource: true
@@ -246,25 +250,30 @@ spec:
 #      periodSeconds: 30
 #      successThreshold: 1
 #      failureThreshold: 4
-#    serviceType: ClusterIP
-#    externalTrafficPolicy: Cluster
-#    loadBalancerSourceRanges:
-#      - 10.0.0.0/8
-#    loadBalancerIP: 127.0.0.1
-#    serviceAnnotations:
-#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
-#    serviceLabels:
-#      rack: rack-23
-#    replicasServiceEnabled: false
-#    replicasLoadBalancerSourceRanges:
-#      - 10.0.0.0/8
-#    replicasLoadBalancerIP: 127.0.0.1
-#    replicasServiceType: ClusterIP
-#    replicasExternalTrafficPolicy: Cluster
-#    replicasServiceAnnotations:
-#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
-#    replicasServiceLabels:
-#      rack: rack-23
+#    exposePrimary:
+#      enabled: false
+#      type: ClusterIP
+#      annotations:
+#        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+#      externalTrafficPolicy: Cluster
+#      internalTrafficPolicy: Cluster
+#      labels:
+#        rack: rack-22
+#      loadBalancerSourceRanges:
+#        - 10.0.0.0/8
+#      loadBalancerIP: 127.0.0.1
+#    exposeReplicas:
+#      enabled: false
+#      type: ClusterIP
+#      annotations:
+#        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+#      externalTrafficPolicy: Cluster
+#      internalTrafficPolicy: Cluster
+#      labels:
+#        rack: rack-22
+#      loadBalancerSourceRanges:
+#        - 10.0.0.0/8
+#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -389,11 +398,18 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
-#    serviceType: ClusterIP
-#    loadBalancerSourceRanges:
-#      - 10.0.0.0/8
-#    loadBalancerIP: 127.0.0.1
-#    externalTrafficPolicy: Cluster
+#    expose:
+#      enabled: false
+#      type: ClusterIP
+#      annotations:
+#        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+#      externalTrafficPolicy: Cluster
+#      internalTrafficPolicy: Cluster
+#      labels:
+#        rack: rack-22
+#      loadBalancerSourceRanges:
+#        - 10.0.0.0/8
+#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox

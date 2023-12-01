@@ -42,16 +42,32 @@ func newCR(name, namespace string) *api.PerconaXtraDBCluster {
 					Enabled: true,
 					Size:    3,
 				},
+				Expose: api.ServiceExpose{
+					Enabled: false,
+					Type:    corev1.ServiceTypeClusterIP,
+				},
 			},
 			HAProxy: &api.HAProxySpec{
 				PodSpec: api.PodSpec{
 					Enabled: true,
 					Size:    3,
 				},
+				ExposePrimary: api.ServiceExpose{
+					Enabled: false,
+					Type:    corev1.ServiceTypeClusterIP,
+				},
+				ExposeReplicas: api.ServiceExpose{
+					Enabled: false,
+					Type:    corev1.ServiceTypeClusterIP,
+				},
 			},
 			ProxySQL: &api.ProxySQLSpec{
 				PodSpec: api.PodSpec{
-					Enabled: true,
+					Enabled: false,
+				},
+				Expose: api.ServiceExpose{
+					Enabled: false,
+					Type:    corev1.ServiceTypeClusterIP,
 				},
 			},
 		},
@@ -233,6 +249,7 @@ func TestAppHostNoLoadBalancer(t *testing.T) {
 
 func TestAppHostLoadBalancerNoSvc(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+	cr.Spec.CRVersion = "1.14.0"
 
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()
@@ -251,6 +268,7 @@ func TestAppHostLoadBalancerNoSvc(t *testing.T) {
 
 func TestAppHostLoadBalancerOnlyIP(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+	cr.Spec.CRVersion = "1.14.0"
 
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()
@@ -285,6 +303,7 @@ func TestAppHostLoadBalancerOnlyIP(t *testing.T) {
 
 func TestAppHostLoadBalancerWithHostname(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+	cr.Spec.CRVersion = "1.14.0"
 
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()

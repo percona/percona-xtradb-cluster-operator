@@ -69,6 +69,16 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			Value: strconv.FormatInt(bufferSize, 10),
 		},
 	}...)
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		timeout := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeoutSeconds)
+
+		envs = append(envs, corev1.EnvVar{
+			Name:  "TIMEOUT_SECONDS",
+			Value: timeout,
+		})
+	}
+
 	container := corev1.Container{
 		Name:            "pitr",
 		Image:           cr.Spec.Backup.Image,

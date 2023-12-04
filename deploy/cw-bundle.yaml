@@ -1008,6 +1008,8 @@ spec:
                         type: string
                       timeBetweenUploads:
                         type: number
+                      timeoutSeconds:
+                        type: number
                     type: object
                   schedule:
                     items:

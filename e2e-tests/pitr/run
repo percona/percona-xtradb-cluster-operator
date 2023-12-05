@@ -98,6 +98,17 @@ main() {
 	desc 'check for passwords leak'
 	check_passwords_leak
 
+	# test changing xtrabackup password
+	desc "changing xtrabackup password multiple times"
+	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass1" | base64)"
+	wait_cluster_consistency ${cluster} 3 2
+	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass2" | base64)"
+	wait_cluster_consistency ${cluster} 3 2
+	patch_secret "my-cluster-secrets" "xtrabackup" "$(echo -n "pass3" | base64)"
+	wait_cluster_consistency ${cluster} 3 2
+
+	compare_kubectl secret/${cluster}-mysql-init
+
 	write_test_data "$cluster"
 
 	desc 'show binlog events'

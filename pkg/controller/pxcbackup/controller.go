@@ -601,16 +601,28 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 
 	bcp.Status = status
 
-	if status.State == api.BackupSucceeded && cluster.PITREnabled() {
-		collectorPod, err := deployment.GetBinlogCollectorPod(context.TODO(), r.client, cluster)
-		if err != nil {
-			return errors.Wrap(err, "get binlog collector pod")
+	if status.State == api.BackupSucceeded {
+		if cluster.PITREnabled() {
+			collectorPod, err := deployment.GetBinlogCollectorPod(context.TODO(), r.client, cluster)
+			if err != nil {
+				return errors.Wrap(err, "get binlog collector pod")
+			}
+
+			if err := deployment.RemoveGapFile(context.TODO(), r.clientcmd, collectorPod); err != nil {
+				if !errors.Is(err, deployment.GapFileNotFound) {
+					return errors.Wrap(err, "remove gap file")
+				}
+			}
 		}
 
-		if err := deployment.RemoveGapFile(context.TODO(), r.clientcmd, collectorPod); err != nil {
-			if !errors.Is(err, deployment.GapFileNotFound) {
-				return errors.Wrap(err, "remove gap file")
-			}
+		initSecret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cluster.Name + "-mysql-init",
+				Namespace: cluster.Namespace,
+			},
+		}
+		if err := r.client.Delete(context.TODO(), &initSecret); client.IgnoreNotFound(err) != nil {
+			return errors.Wrap(err, "delete mysql-init secret")
 		}
 	}
 

@@ -249,6 +249,13 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		appc.VolumeMounts = append(appc.VolumeMounts, corev1.VolumeMount{
+			Name:      "mysql-init-file",
+			MountPath: "/etc/mysql/init-file",
+		})
+	}
+
 	return appc, nil
 }
 
@@ -500,6 +507,10 @@ func (c *Node) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg ap
 			vol.Volumes = append(vol.Volumes,
 				app.GetConfigVolumes("hookscript", config.HookScriptConfigMapName(cr.Name, "logcollector")))
 		}
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		vol.Volumes = append(vol.Volumes, app.GetSecretVolumes("mysql-init-file", cr.Name+"-mysql-init", true))
 	}
 
 	return vol, nil

@@ -531,17 +531,17 @@ type BackupStorageSpec struct {
 }
 
 type BackupContainerOptions struct {
-	Env       []corev1.EnvVar     `json:"env,omitempty"`
-	ExtraArgs BackupContainerArgs `json:"args,omitempty"`
+	Env  []corev1.EnvVar     `json:"env,omitempty"`
+	Args BackupContainerArgs `json:"args,omitempty"`
 }
 
 func (b *BackupContainerOptions) GetEnv() []corev1.EnvVar {
-	return util.MergeEnvLists(b.Env, b.ExtraArgs.Env())
+	return util.MergeEnvLists(b.Env, b.Args.Env())
 }
 
 func (b *BackupContainerOptions) GetEnvVar(cluster *PerconaXtraDBCluster, storageName string) []corev1.EnvVar {
 	if b != nil {
-		return util.MergeEnvLists(b.ExtraArgs.Env(), b.Env)
+		return util.MergeEnvLists(b.Args.Env(), b.Env)
 	}
 	if cluster == nil {
 		return nil

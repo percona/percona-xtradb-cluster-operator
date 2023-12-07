@@ -152,12 +152,12 @@ type PITRSpec struct {
 }
 
 type PXCScheduledBackupSchedule struct {
-// +kubebuilder:validation:Required
-	Name        string `json:"name,omitempty"`
-// +kubebuilder:validation:Required
-	Schedule    string `json:"schedule,omitempty"`
-	Keep        int    `json:"keep,omitempty"`
-// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Required
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:Required
+	Schedule string `json:"schedule,omitempty"`
+	Keep     int    `json:"keep,omitempty"`
+	// +kubebuilder:validation:Required
 	StorageName string `json:"storageName,omitempty"`
 }
 type AppState string

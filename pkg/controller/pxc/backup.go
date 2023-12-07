@@ -112,14 +112,14 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 			if spec.Keep > 0 {
 				oldjobs, err := r.oldScheduledBackups(cr, item.Name, spec.Keep)
 				if err != nil {
-					log.Error(err, "failed to list old backups", "job name", item.Name)
+					log.Error(err, "failed to list old backups", "name", item.Name)
 					return true
 				}
 
 				for _, todel := range oldjobs {
 					err = r.client.Delete(context.TODO(), &todel)
 					if err != nil {
-						log.Error(err, "failed to delete old backup", "backup name", todel.Name)
+						log.Error(err, "failed to delete old backup", "name", todel.Name)
 					}
 				}
 
@@ -199,7 +199,7 @@ func (r *ReconcilePerconaXtraDBCluster) createBackupJob(ctx context.Context, cr 
 		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if k8serrors.IsNotFound(err) {
 			log.Info("cluster is not found, deleting the job",
-				"job name", jobName, "cluster", cr.Name, "namespace", cr.Namespace)
+				"name", backupJob.Name, "cluster", cr.Name, "namespace", cr.Namespace)
 			r.deleteBackupJob(backupJob.Name)
 			return
 		}

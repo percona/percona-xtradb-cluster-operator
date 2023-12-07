@@ -20,7 +20,15 @@ spec:
 #  sslSecretName: cluster1-ssl
 #  sslInternalSecretName: cluster1-ssl-internal
 #  logCollectorSecretName: cluster1-log-collector-secrets
-#  initImage: perconalab/percona-xtradb-cluster-operator:main
+#  initContainer:
+#    image: perconalab/percona-xtradb-cluster-operator:main
+#    resources:
+#      requests:
+#        memory: 100M
+#        cpu: 100m
+#      limits:
+#        memory: 200M
+#        cpu: 200m
 #  enableCRValidationWebhook: true
 #  tls:
 #    SANs:
@@ -40,7 +48,7 @@ spec:
     schedule: "0 4 * * *"
   pxc:
     size: 3
-    image: perconalab/percona-xtradb-cluster:main-pxc8.0
+    image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0
     autoRecovery: true
 #    expose:
 #      enabled: true
@@ -499,6 +507,7 @@ spec:
       enabled: false
       storageName: STORAGE-NAME-HERE
       timeBetweenUploads: 60
+      timeoutSeconds: 60
 #      resources:
 #        requests:
 #          memory: 0.1G

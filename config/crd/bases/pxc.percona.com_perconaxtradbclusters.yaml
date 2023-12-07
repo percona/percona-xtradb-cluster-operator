@@ -115,6 +115,8 @@ spec:
                         type: string
                       timeBetweenUploads:
                         type: number
+                      timeoutSeconds:
+                        type: number
                     type: object
                   schedule:
                     items:
@@ -1713,6 +1715,11 @@ spec:
                               items:
                                 type: string
                               type: array
+                            allocatedResourceStatuses:
+                              additionalProperties:
+                                type: string
+                              type: object
+                              x-kubernetes-map-type: granular
                             allocatedResources:
                               additionalProperties:
                                 anyOf:
@@ -1752,8 +1759,6 @@ spec:
                                 type: object
                               type: array
                             phase:
-                              type: string
-                            resizeStatus:
                               type: string
                           type: object
                       type: object
@@ -2908,6 +2913,8 @@ spec:
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
+                        restartPolicy:
+                          type: string
                         securityContext:
                           properties:
                             allowPrivilegeEscalation:
@@ -3245,6 +3252,42 @@ spec:
                 items:
                   type: string
                 type: array
+              initContainer:
+                properties:
+                  image:
+                    type: string
+                  resources:
+                    properties:
+                      claims:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        type: object
+                    type: object
+                type: object
               initImage:
                 type: string
               logCollectorSecretName:
@@ -4345,6 +4388,11 @@ spec:
                               items:
                                 type: string
                               type: array
+                            allocatedResourceStatuses:
+                              additionalProperties:
+                                type: string
+                              type: object
+                              x-kubernetes-map-type: granular
                             allocatedResources:
                               additionalProperties:
                                 anyOf:
@@ -4384,8 +4432,6 @@ spec:
                                 type: object
                               type: array
                             phase:
-                              type: string
-                            resizeStatus:
                               type: string
                           type: object
                       type: object
@@ -5540,6 +5586,8 @@ spec:
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
+                        restartPolicy:
+                          type: string
                         securityContext:
                           properties:
                             allowPrivilegeEscalation:
@@ -6795,6 +6843,11 @@ spec:
                               items:
                                 type: string
                               type: array
+                            allocatedResourceStatuses:
+                              additionalProperties:
+                                type: string
+                              type: object
+                              x-kubernetes-map-type: granular
                             allocatedResources:
                               additionalProperties:
                                 anyOf:
@@ -6834,8 +6887,6 @@ spec:
                                 type: object
                               type: array
                             phase:
-                              type: string
-                            resizeStatus:
                               type: string
                           type: object
                       type: object
@@ -7990,6 +8041,8 @@ spec:
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
+                        restartPolicy:
+                          type: string
                         securityContext:
                           properties:
                             allowPrivilegeEscalation:

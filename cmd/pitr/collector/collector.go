@@ -41,6 +41,7 @@ type Config struct {
 	BufferSize         int64   `env:"BUFFER_SIZE"`
 	CollectSpanSec     float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
 	VerifyTLS          bool    `env:"VERIFY_TLS" envDefault:"true"`
+	TimeoutSeconds     float64 `env:"TIMEOUT_SECONDS" envDefault:"60"`
 }
 
 type BackupS3 struct {
@@ -361,7 +362,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 	}
 
 	errBuf := &bytes.Buffer{}
-	cmd := exec.CommandContext(ctx, "mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, binlog.Name)
+	cmd := exec.CommandContext(ctx, "mysqlbinlog", "-R", "-P", "33062", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, binlog.Name)
 	cmd.Env = append(cmd.Env, "MYSQL_PWD="+c.pxcPass)
 	cmd.Dir = os.TempDir()
 	cmd.Stderr = errBuf

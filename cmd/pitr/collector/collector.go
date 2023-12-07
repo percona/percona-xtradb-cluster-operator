@@ -39,6 +39,7 @@ type Config struct {
 	BufferSize         int64   `env:"BUFFER_SIZE"`
 	CollectSpanSec     float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
 	VerifyTLS          bool    `env:"VERIFY_TLS" envDefault:"true"`
+	TimeoutSeconds     float64 `env:"TIMEOUT_SECONDS" envDefault:"60"`
 }
 
 type BackupS3 struct {

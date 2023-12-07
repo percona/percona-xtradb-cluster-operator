@@ -148,6 +148,7 @@ type PITRSpec struct {
 	StorageName        string                      `json:"storageName"`
 	Resources          corev1.ResourceRequirements `json:"resources,omitempty"`
 	TimeBetweenUploads float64                     `json:"timeBetweenUploads,omitempty"`
+	TimeoutSeconds     float64                     `json:"timeoutSeconds,omitempty"`
 }
 
 type PXCScheduledBackupSchedule struct {
@@ -883,6 +884,10 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 		if cr.Spec.Backup.PITR.Enabled {
 			if cr.Spec.Backup.PITR.TimeBetweenUploads == 0 {
 				cr.Spec.Backup.PITR.TimeBetweenUploads = 60
+			}
+
+			if cr.Spec.Backup.PITR.TimeoutSeconds == 0 {
+				cr.Spec.Backup.PITR.TimeoutSeconds = 3600
 			}
 		}
 

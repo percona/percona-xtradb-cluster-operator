@@ -866,6 +866,10 @@ spec:
                           type: string
                         storageName:
                           type: string
+                      required:
+                      - name
+                      - schedule
+                      - storageName
                       type: object
                     type: array
                   serviceAccountName:

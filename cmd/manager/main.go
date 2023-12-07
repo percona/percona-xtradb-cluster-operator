@@ -70,7 +70,7 @@ func main() {
 	setupLog.Info("Runs on", "platform", sv.Platform, "version", sv.Info)
 
 	setupLog.Info("Manager starting up", "gitCommit", GitCommit, "gitBranch", GitBranch,
-		"goVersion", runtime.Version(), "os", runtime.GOOS, "arch", runtime.GOARCH)
+		"buildTime", BuildTime, "goVersion", runtime.Version(), "os", runtime.GOOS, "arch", runtime.GOARCH)
 
 	namespace, err := k8s.GetWatchNamespace()
 	if err != nil {

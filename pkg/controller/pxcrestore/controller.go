@@ -234,6 +234,13 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 
 		cluster.Spec.PXC.Size = oldSize
 		cluster.Spec.AllowUnsafeConfig = oldUnsafe
+
+		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+		err = r.setStatus(cr, api.RestoreStartCluster, "")
+		if err != nil {
+			err = errors.Wrap(err, "set status")
+			return rr, err
+		}
 	}
 
 	err = r.startCluster(clusterOrig)

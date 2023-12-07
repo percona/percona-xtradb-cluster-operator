@@ -15,7 +15,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 )
 
-var _ = Describe("Service Labels Annotations Test", Ordered, func() {
+var _ = Describe("Service labels and annotations", Ordered, func() {
 	ctx := context.Background()
 	const ns = "svc-ls-an"
 	namespace := &corev1.Namespace{

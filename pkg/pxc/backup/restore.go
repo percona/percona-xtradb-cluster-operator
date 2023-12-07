@@ -270,6 +270,17 @@ func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBCl
 			verifyTLS = *storage.VerifyTLS
 		}
 	}
+	if bs := cr.Spec.BackupSource; bs != nil {
+		if bs.StorageName != "" {
+			storage, ok := cluster.Spec.Backup.Storages[bs.StorageName]
+			if ok && storage.VerifyTLS != nil {
+				verifyTLS = *storage.VerifyTLS
+			}
+		}
+		if bs.VerifyTLS != nil {
+			verifyTLS = *bs.VerifyTLS
+		}
+	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "PXC_SERVICE",

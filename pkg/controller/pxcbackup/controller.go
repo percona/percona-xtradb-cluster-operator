@@ -449,6 +449,9 @@ func removeBackupObjects(ctx context.Context, s storage.Storage, container, dest
 				return errors.Wrapf(err, "delete object %s", blob)
 			}
 		}
+		if err := s.DeleteObject(ctx, strings.TrimSuffix(destination, "/")+".md5"); err != nil && err != storage.ErrObjectNotFound {
+			return errors.Wrapf(err, "delete object %s", strings.TrimSuffix(destination, "/")+".md5")
+		}
 		return nil
 	}
 }

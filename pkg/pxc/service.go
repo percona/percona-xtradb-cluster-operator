@@ -48,7 +48,8 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			obj.Spec.Ports,
 			corev1.ServicePort{
 				Port: 33062,
-				Name: "mysql-admin"},
+				Name: "mysql-admin",
+			},
 		)
 	}
 
@@ -61,7 +62,8 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			obj.Spec.Ports,
 			corev1.ServicePort{
 				Port: 33060,
-				Name: "mysqlx"},
+				Name: "mysqlx",
+			},
 		)
 	}
 
@@ -113,7 +115,8 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			obj.Spec.Ports,
 			corev1.ServicePort{
 				Port: 33062,
-				Name: "mysql-admin"},
+				Name: "mysql-admin",
+			},
 		)
 	}
 
@@ -126,13 +129,21 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			obj.Spec.Ports,
 			corev1.ServicePort{
 				Port: 33060,
-				Name: "mysqlx"},
+				Name: "mysqlx",
+			},
 		)
 	}
 
 	if cr.CompareVersionWith("1.10.0") >= 0 {
 		obj.Spec.PublishNotReadyAddresses = true
 		delete(obj.ObjectMeta.Annotations, "service.alpha.kubernetes.io/tolerate-unready-endpoints")
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		if cr.Spec.PXC != nil {
+			obj.Annotations = cr.Spec.PXC.ServiceAnnotations
+			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.ServiceLabels)
+		}
 	}
 
 	return obj
@@ -180,7 +191,8 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			obj.Spec.Ports,
 			corev1.ServicePort{
 				Port: 33062,
-				Name: "mysql-admin"},
+				Name: "mysql-admin",
+			},
 		)
 	}
 
@@ -266,7 +278,8 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 			obj.Spec.Ports,
 			corev1.ServicePort{
 				Port: 33062,
-				Name: "mysql-admin"},
+				Name: "mysql-admin",
+			},
 		)
 	}
 
@@ -389,7 +402,8 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		"app.kubernetes.io/instance":   cr.Name,
 		"app.kubernetes.io/component":  "haproxy",
 		"app.kubernetes.io/managed-by": "percona-xtradb-cluster-operator",
-		"app.kubernetes.io/part-of":    "percona-xtradb-cluster"}
+		"app.kubernetes.io/part-of":    "percona-xtradb-cluster",
+	}
 	loadBalancerSourceRanges := []string{}
 	loadBalancerIP := ""
 	if cr.Spec.HAProxy != nil {

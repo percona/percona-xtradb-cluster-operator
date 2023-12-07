@@ -121,7 +121,6 @@
     "service_type": "postgresql",
     "database_name": "postgres",
     "node_name": "pmm-server",
-    "cluster": "pmm-server-postgresql",
     "address": "127.0.0.1",
     "port": 5432,
     "agents": [

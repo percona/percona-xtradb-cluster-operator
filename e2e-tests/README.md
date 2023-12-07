@@ -99,7 +99,7 @@ full list of variables is the following one:
 
 * `IMAGE` - the Operator, `perconalab/percona-xtradb-cluster-operator:main` by default,
 * `IMAGE_PXC` - Percona XtraDB Cluster, `perconalab/percona-xtradb-cluster-operator:main-pxc8.0` by default,
-* `IMAGE_PMM` - Percona Monitoring and Management (PMM) client, `perconalab/pmm-client:dev-latest` by default,
+* `IMAGE_PMM_CLIENT` - Percona Monitoring and Management (PMM) client, `perconalab/pmm-client:dev-latest` by default,
 * `IMAGE_PROXY` - ProxySQL, `perconalab/percona-xtradb-cluster-operator:main-proxysql` by default,
 * `IMAGE_HAPROXY` - HA Proxy, `perconalab/percona-xtradb-cluster-operator:main-haproxy` by default,
 * `IMAGE_BACKUP` - backups, `perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup` by default,

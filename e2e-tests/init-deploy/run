@@ -33,19 +33,19 @@ compare_kubectl pdb/$cluster-proxysql
 
 desc 'check if MySQL users created'
 compare_mysql_user "-h $cluster-pxc -uroot -proot_password"
-compare_mysql_user "-h $cluster-pxc -umonitor -pmonitor"
+compare_mysql_user "-h $cluster-pxc -umonitor -pmonitor_password"
 compare_mysql_user "-h $cluster-pxc -uproxyuser -ps3cret"
 compare_mysql_user_local "-uxtrabackup -pbackup_password" "$cluster-pxc-0" "" "pxc"
 compare_mysql_user_local "-uclustercheck -pclustercheckpassword" "$cluster-pxc-0" "" "pxc"
 desc "check that pmm server user don't have access"
-compare_mysql_user "-h $cluster-pxc -upmmserver -pmonitor"
+compare_mysql_user "-h $cluster-pxc -upmmserver -ppmmserver_password"
 
 desc 'check if ProxySQL users created'
 compare_mysql_user "-h $cluster-proxysql -uroot -proot_password"
-compare_mysql_user "-h $cluster-proxysql -umonitor -pmonitor"
+compare_mysql_user "-h $cluster-proxysql -umonitor -pmonitor_password"
 desc "check that pmm server user don't have access"
 compare_mysql_user "-h $cluster-proxysql -uproxyuser -ps3cret" "-proxysql"
-compare_mysql_user "-h $cluster-proxysql -upmmserver -pmonitor" "-proxysql"
+compare_mysql_user "-h $cluster-proxysql -upmmserver -ppmmserver_password" "-proxysql"
 
 desc 'write data directly, read from all'
 run_mysql \
@@ -98,7 +98,10 @@ compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-0.$c
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-1.$cluster3-pxc -uroot -proot_password"
 compare_mysql_cmd "select-1" "SELECT * from myApp.myApp;" "-h $cluster3-pxc-2.$cluster3-pxc -uroot -proot_password"
 compare_mysql_cmd "max_allowed_packet-2" "SELECT @@max_allowed_packet;" "-h $cluster3-pxc-0.$cluster3-pxc -uroot -proot_password"
-kubectl_bin delete -f $test_dir/conf/$cluster3.yml
 
+desc 'check for passwords leak'
+check_passwords_leak
+
+kubectl_bin delete -f $test_dir/conf/$cluster3.yml
 destroy $namespace
 desc "test passed"

@@ -11,11 +11,8 @@ get_mgmnt_service_list() {
 	local api_key=$1
 	local endpoint=$2
 	local namespace=$3
-	cat >${tmp_dir}/payload.json <<EOF
-{}
-EOF
 
-	curl -s -k -H "Authorization: Bearer ${api_key}" -X POST -d @payload.json "https://$endpoint/v1/management/Service/List" \
+	curl -s -k -H "Authorization: Bearer ${api_key}" -X POST "https://$endpoint/v1/management/Service/List" \
 		| jq 'walk(if type=="object" then with_entries(select(.key | test("service_id|node_id|agent_id|created_at|updated_at|service_name") | not)) else . end)' \
 		| jq 'walk(if type == "array" then sort_by(.agent_type) else . end)' \
 			>${tmp_dir}/active_pmm_agents.json
@@ -52,27 +49,9 @@ create_infra $namespace
 deploy_helm $namespace
 
 desc 'install PMM Server'
-platform=kubernetes
-helm uninstall monitoring || :
-if [ ! -z "$OPENSHIFT" ]; then
-	platform=openshift
-	oc create sa pmm-server
-	oc adm policy add-scc-to-user privileged -z pmm-server
-	if [ -n "$OPERATOR_NS" ]; then
-		timeout 30 oc delete clusterrolebinding $(kubectl get clusterrolebinding | grep 'pmm-pxc-operator-' | awk '{print $1}') || :
-		oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
-		oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' ${OPERATOR_NS:+-n $OPERATOR_NS}
-	else
-		oc create rolebinding pmm-pxc-operator-namespace-only --role percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
-		oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
-	fi
-	retry 10 60 helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform --set sa=pmm-server --set supresshttp2=false https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
-else
-	helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
-fi
+deploy_pmm_server
 kubectl_bin wait --for=condition=Ready pod/${cluster}-0 --timeout=120s
-SERVICE="postgres"
-until kubectl_bin exec monitoring-0 -- bash -c "pgrep -x $SERVICE >/dev/null"; do
+until kubectl_bin exec monitoring-0 -- bash -c "ls -l /proc/*/exe 2>/dev/null| grep postgres >/dev/null"; do
 	echo "Retry $retry"
 	sleep 5
 	let retry+=1
@@ -160,6 +139,10 @@ if [[ -n ${OPENSHIFT} ]]; then
 		oc delete rolebinding pmm-pxc-operator-namespace-only
 	fi
 fi
+
+desc 'check for passwords leak'
+check_passwords_leak
+
 helm uninstall monitoring
 destroy $namespace
 desc "test passed"

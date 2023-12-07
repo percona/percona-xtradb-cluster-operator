@@ -45,9 +45,12 @@ func runCollector(ctx context.Context) {
 	}
 	log.Println("run binlog collector")
 	for {
-		err := c.Run(ctx)
+		timeout, cancel := context.WithTimeout(ctx, time.Duration(config.CollectSpanSec)*time.Second)
+		defer cancel()
+
+		err := c.Run(timeout)
 		if err != nil {
-			log.Println("ERROR:", err)
+			log.Fatalln("ERROR:", err)
 		}
 
 		t := time.NewTimer(time.Duration(config.CollectSpanSec) * time.Second)

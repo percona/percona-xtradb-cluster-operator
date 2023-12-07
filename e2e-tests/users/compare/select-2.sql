@@ -1,3 +1,4 @@
+coredump_filters
 global_variables
 mysql_aws_aurora_hostgroups
 mysql_collations
@@ -15,6 +16,7 @@ mysql_users
 proxysql_servers
 restapi_routes
 runtime_checksums_values
+runtime_coredump_filters
 runtime_global_variables
 runtime_mysql_aws_aurora_hostgroups
 runtime_mysql_firewall_whitelist_rules

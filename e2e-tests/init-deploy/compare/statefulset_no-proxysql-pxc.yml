@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: no-proxysql-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: no-proxysql-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: no-proxysql
@@ -149,9 +147,9 @@ spec:
           imagePullPolicy: Always
           name: pxc-init
           resources:
-            requests:
-              cpu: 100m
-              memory: 100M
+            limits:
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

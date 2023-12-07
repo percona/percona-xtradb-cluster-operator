@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: minimal-cluster-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: minimal-cluster-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: minimal-cluster
@@ -193,7 +191,10 @@ spec:
             - /pxc-init-entrypoint.sh
           imagePullPolicy: Always
           name: pxc-init
-          resources: {}
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

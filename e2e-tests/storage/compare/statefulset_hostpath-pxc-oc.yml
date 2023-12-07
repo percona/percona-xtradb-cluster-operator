@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: hostpath-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: hostpath-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: hostpath
@@ -145,9 +143,9 @@ spec:
           imagePullPolicy: Always
           name: pxc-init
           resources:
-            requests:
-              cpu: 300m
-              memory: 500M
+            limits:
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

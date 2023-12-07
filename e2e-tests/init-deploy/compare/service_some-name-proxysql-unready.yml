@@ -13,6 +13,7 @@ metadata:
       kind: PerconaXtraDBCluster
       name: some-name
 spec:
+  internalTrafficPolicy: Cluster
   ports:
     - name: mysql
       port: 3306

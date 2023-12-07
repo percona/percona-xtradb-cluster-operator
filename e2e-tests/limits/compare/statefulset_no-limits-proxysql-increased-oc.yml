@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 2
   name: no-limits-proxysql
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: no-limits-proxysql-unready
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: proxysql
         app.kubernetes.io/instance: no-limits
@@ -282,9 +280,9 @@ spec:
           imagePullPolicy: IfNotPresent
           name: pxc-init
           resources:
-            requests:
-              cpu: 600m
-              memory: 1G
+            limits:
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

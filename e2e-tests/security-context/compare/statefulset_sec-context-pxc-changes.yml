@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 2
   name: sec-context-pxc
   ownerReferences:
@@ -157,11 +156,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 50m
+              memory: 50M
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log

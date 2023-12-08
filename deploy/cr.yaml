@@ -511,6 +511,7 @@ spec:
       enabled: false
       storageName: STORAGE-NAME-HERE
       timeBetweenUploads: 60
+      timeoutSeconds: 60
 #      resources:
 #        requests:
 #          memory: 0.1G

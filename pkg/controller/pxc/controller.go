@@ -127,7 +127,7 @@ const (
 
 type CronRegistry struct {
 	crons             *cron.Cron
-	ensureVersionJobs map[string]Schedule
+	ensureVersionJobs *sync.Map
 	backupJobs        *sync.Map
 }
 
@@ -142,11 +142,6 @@ func (r *CronRegistry) AddFuncWithSeconds(spec string, cmd func()) (cron.EntryID
 	return id, nil
 }
 
-type Schedule struct {
-	ID           int
-	CronSchedule string
-}
-
 const (
 	stateFree   = 0
 	stateLocked = 1
@@ -155,7 +150,7 @@ const (
 func NewCronRegistry() CronRegistry {
 	c := CronRegistry{
 		crons:             cron.New(),
-		ensureVersionJobs: make(map[string]Schedule),
+		ensureVersionJobs: new(sync.Map),
 		backupJobs:        new(sync.Map),
 	}
 
@@ -432,6 +427,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	err = r.scheduleEnsurePXCVersion(ctx, o, VersionServiceClient{OpVersion: o.Version().String()})
 	if err != nil {
 		return reconcile.Result{}, errors.Wrap(err, "failed to ensure version")
+	}
+
+	err = r.scheduleTelemetryRequests(ctx, o, VersionServiceClient{OpVersion: o.Version().String()})
+	if err != nil {
+		return reconcile.Result{}, errors.Wrap(err, "failed to schedule telemetry requests")
 	}
 
 	return rr, nil

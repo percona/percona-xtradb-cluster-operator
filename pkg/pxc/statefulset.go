@@ -185,7 +185,7 @@ func PodTopologySpreadConstraints(tscs []corev1.TopologySpreadConstraint, ls map
 			tsc.TopologyKey = api.DefaultAffinityTopologyKey
 		}
 		if tsc.WhenUnsatisfiable == "" {
-			tsc.WhenUnsatisfiable = corev1.DoNotSchedule
+			tsc.WhenUnsatisfiable = corev1.ScheduleAnyway
 		}
 
 		result = append(result, tsc)

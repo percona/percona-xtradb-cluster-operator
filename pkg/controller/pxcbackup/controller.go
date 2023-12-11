@@ -320,7 +320,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runDeleteBackupFinalizer(ctx conte
 			if (cr.Status.S3 == nil && cr.Status.Azure == nil) || cr.Status.Destination == "" {
 				continue
 			}
-			switch cr.Status.StorageType {
+			switch cr.Status.GetStorageType(nil) {
 			case api.BackupStorageS3:
 				if !strings.HasPrefix(cr.Status.Destination, api.AwsBlobStoragePrefix) {
 					continue

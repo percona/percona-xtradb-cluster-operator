@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
@@ -197,7 +198,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 		Hosts: []string{"localhost", "%"},
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -274,7 +275,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -431,7 +432,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -569,7 +570,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -675,7 +676,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -789,7 +790,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUser(ctx context.Context
 		return nil
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -848,7 +849,7 @@ func (r *ReconcilePerconaXtraDBCluster) handlePMMUser(ctx context.Context, cr *a
 		return nil
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -1111,4 +1112,16 @@ func (r *ReconcilePerconaXtraDBCluster) updateUserPassExpirationPolicy(ctx conte
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) invalidPasswordApplied(status api.PerconaXtraDBClusterStatus) bool {
+	if len(status.Messages) == 0 {
+		return false
+	}
+
+	if strings.Contains(status.Messages[0], "password does not satisfy the current policy") {
+		return true
+	}
+
+	return false
 }

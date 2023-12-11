@@ -58,7 +58,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(ctx context.Context
 	return res, nil
 }
 func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -122,7 +122,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -205,7 +205,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -272,7 +272,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -307,7 +307,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 		return nil
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -328,7 +328,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -372,7 +372,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 		return nil
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 

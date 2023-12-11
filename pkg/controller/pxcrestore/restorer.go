@@ -19,8 +19,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
-// TODO: choose a better name for this interface
-type RestoreManager interface {
+type Restorer interface {
 	Init(ctx context.Context) error
 	Job() (*batchv1.Job, error)
 	PITRJob() (*batchv1.Job, error)
@@ -28,7 +27,7 @@ type RestoreManager interface {
 	Validate(ctx context.Context) error
 }
 
-type s3 struct{ *restoreManagerOptions }
+type s3 struct{ *restorerOptions }
 
 func (s *s3) Init(context.Context) error     { return nil }
 func (s *s3) Finalize(context.Context) error { return nil }
@@ -95,7 +94,7 @@ func (s *s3) Validate(ctx context.Context) error {
 	return nil
 }
 
-type pvc struct{ *restoreManagerOptions }
+type pvc struct{ *restorerOptions }
 
 func (s *pvc) Validate(context.Context) error { return nil }
 func (s *pvc) Job() (*batchv1.Job, error) {
@@ -164,7 +163,7 @@ func (s *pvc) Finalize(ctx context.Context) error {
 	return nil
 }
 
-type azure struct{ *restoreManagerOptions }
+type azure struct{ *restorerOptions }
 
 func (s *azure) Init(context.Context) error     { return nil }
 func (s *azure) Finalize(context.Context) error { return nil }
@@ -222,12 +221,12 @@ func (s *azure) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) getRestoreManager(
+func (r *ReconcilePerconaXtraDBClusterRestore) getRestorer(
 	cr *api.PerconaXtraDBClusterRestore,
 	bcp *api.PerconaXtraDBClusterBackup,
 	cluster *api.PerconaXtraDBCluster,
-) (RestoreManager, error) {
-	s := restoreManagerOptions{
+) (Restorer, error) {
+	s := restorerOptions{
 		cr:               cr,
 		bcp:              bcp,
 		cluster:          cluster,
@@ -249,7 +248,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getRestoreManager(
 	return nil, errors.Errorf("unknown backup storage type")
 }
 
-type restoreManagerOptions struct {
+type restorerOptions struct {
 	cr               *api.PerconaXtraDBClusterRestore
 	bcp              *api.PerconaXtraDBClusterBackup
 	cluster          *api.PerconaXtraDBCluster

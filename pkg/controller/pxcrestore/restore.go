@@ -23,11 +23,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(ctx context.Context, cr *
 		return errors.New("undefined backup section in a cluster spec")
 	}
 
-	restoreManager, err := r.getRestoreManager(cr, bcp, cluster)
+	restorer, err := r.getRestorer(cr, bcp, cluster)
 	if err != nil {
-		return errors.Wrap(err, "failed to get restore manager")
+		return errors.Wrap(err, "failed to get restorer")
 	}
-	job, err := restoreManager.Job()
+	job, err := restorer.Job()
 	if err != nil {
 		return errors.Wrap(err, "failed to get restore job")
 	}
@@ -35,11 +35,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(ctx context.Context, cr *
 		return err
 	}
 
-	if err = restoreManager.Init(ctx); err != nil {
+	if err = restorer.Init(ctx); err != nil {
 		return errors.Wrap(err, "failed to init restore")
 	}
 	defer func() {
-		if derr := restoreManager.Finalize(ctx); derr != nil {
+		if derr := restorer.Finalize(ctx); derr != nil {
 			log.Error(derr, "failed to finalize restore")
 		}
 	}()
@@ -50,22 +50,22 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restore(ctx context.Context, cr *
 func (r *ReconcilePerconaXtraDBClusterRestore) pitr(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
 
-	restoreManager, err := r.getRestoreManager(cr, bcp, cluster)
+	restorer, err := r.getRestorer(cr, bcp, cluster)
 	if err != nil {
-		return errors.Wrap(err, "failed to get restore manager")
+		return errors.Wrap(err, "failed to get restorer")
 	}
-	job, err := restoreManager.PITRJob()
+	job, err := restorer.PITRJob()
 	if err != nil {
 		return errors.Wrap(err, "failed to create pitr restore job")
 	}
 	if err := k8s.SetControllerReference(cr, job, r.scheme); err != nil {
 		return err
 	}
-	if err = restoreManager.Init(ctx); err != nil {
+	if err = restorer.Init(ctx); err != nil {
 		return errors.Wrap(err, "failed to init restore")
 	}
 	defer func() {
-		if derr := restoreManager.Finalize(ctx); derr != nil {
+		if derr := restorer.Finalize(ctx); derr != nil {
 			log.Error(derr, "failed to finalize restore")
 		}
 	}()
@@ -74,11 +74,11 @@ func (r *ReconcilePerconaXtraDBClusterRestore) pitr(ctx context.Context, cr *api
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster) error {
-	restoreManager, err := r.getRestoreManager(cr, bcp, cluster)
+	restorer, err := r.getRestorer(cr, bcp, cluster)
 	if err != nil {
-		return errors.Wrap(err, "failed to get restore manager")
+		return errors.Wrap(err, "failed to get restorer")
 	}
-	job, err := restoreManager.Job()
+	job, err := restorer.Job()
 	if err != nil {
 		return errors.Wrap(err, "failed to create restore job")
 	}
@@ -87,7 +87,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr 
 	}
 
 	if cr.Spec.PITR != nil {
-		job, err := restoreManager.PITRJob()
+		job, err := restorer.PITRJob()
 		if err != nil {
 			return errors.Wrap(err, "failed to create pitr restore job")
 		}
@@ -95,7 +95,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr 
 			return errors.Wrap(err, "failed to validate job")
 		}
 	}
-	if err := restoreManager.Validate(ctx); err != nil {
+	if err := restorer.Validate(ctx); err != nil {
 		return errors.Wrap(err, "failed to validate backup existence")
 	}
 	return nil

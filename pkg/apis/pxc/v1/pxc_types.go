@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -158,9 +159,12 @@ type PITRSpec struct {
 }
 
 type PXCScheduledBackupSchedule struct {
-	Name        string `json:"name,omitempty"`
-	Schedule    string `json:"schedule,omitempty"`
-	Keep        int    `json:"keep,omitempty"`
+	// +kubebuilder:validation:Required
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:Required
+	Schedule string `json:"schedule,omitempty"`
+	Keep     int    `json:"keep,omitempty"`
+	// +kubebuilder:validation:Required
 	StorageName string `json:"storageName,omitempty"`
 }
 type AppState string
@@ -555,6 +559,60 @@ type BackupStorageSpec struct {
 	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
 	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
 	VerifyTLS                *bool                       `json:"verifyTLS,omitempty"`
+	ContainerOptions         *BackupContainerOptions     `json:"containerOptions,omitempty"`
+}
+
+type BackupContainerOptions struct {
+	Env  []corev1.EnvVar     `json:"env,omitempty"`
+	Args BackupContainerArgs `json:"args,omitempty"`
+}
+
+func (b *BackupContainerOptions) GetEnv() []corev1.EnvVar {
+	return util.MergeEnvLists(b.Env, b.Args.Env())
+}
+
+func (b *BackupContainerOptions) GetEnvVar(cluster *PerconaXtraDBCluster, storageName string) []corev1.EnvVar {
+	if b != nil {
+		return util.MergeEnvLists(b.Args.Env(), b.Env)
+	}
+	if cluster == nil {
+		return nil
+	}
+
+	storage, ok := cluster.Spec.Backup.Storages[storageName]
+	if !ok || storage.ContainerOptions == nil {
+		return nil
+	}
+	return storage.ContainerOptions.GetEnvVar(nil, "")
+}
+
+type BackupContainerArgs struct {
+	Xtrabackup []string `json:"xtrabackup,omitempty"`
+	Xbcloud    []string `json:"xbcloud,omitempty"`
+	Xbstream   []string `json:"xbstream,omitempty"`
+}
+
+func (b *BackupContainerArgs) Env() []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
+	if len(b.Xtrabackup) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XB_EXTRA_ARGS",
+			Value: strings.Join(b.Xtrabackup, " "),
+		})
+	}
+	if len(b.Xbcloud) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XBCLOUD_EXTRA_ARGS",
+			Value: strings.Join(b.Xbcloud, " "),
+		})
+	}
+	if len(b.Xbstream) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XBSTREAM_EXTRA_ARGS",
+			Value: strings.Join(b.Xbstream, " "),
+		})
+	}
+	return envs
 }
 
 type BackupStorageType string

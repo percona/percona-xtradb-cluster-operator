@@ -7,3 +7,10 @@ metadata:
 spec:
   pxcCluster: demand-backup
   storageName: minio
+  containerOptions:
+    args:
+      xbstream: 
+      - '--parallel=2'
+      xbcloud: 
+      - '--parallel=2'
+      - '--curl-retriable-errors=8'

@@ -151,8 +151,44 @@ func (p *Database) ChangeChannelPassword(channel, password string) error {
 	return tx.Commit()
 }
 
-func (p *Database) ReplicationStatus(channel string) (ReplicationStatus, error) {
+func (p *Database) ShowReplicaStatus(ctx context.Context, channel string) (map[string]string, error) {
 	rows, err := p.db.Query(`SHOW REPLICA STATUS FOR CHANNEL ?`, channel)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	ok := rows.Next()
+	if !ok {
+		return make(map[string]string), nil
+	}
+
+	values := make([]any, 0, len(columns))
+	for range columns {
+		values = append(values, new([]byte))
+	}
+	status := make(map[string]string, len(columns))
+
+	if err := rows.Scan(values...); err != nil {
+		return nil, err
+	}
+
+	for i, name := range columns {
+		ptr, ok := values[i].(*[]byte)
+		if !ok {
+			return nil, errors.Errorf("failed to convert %T to *[]byte: %s", values[i], name)
+		}
+		status[name] = string(*ptr)
+	}
+
+	return status, nil
+}
+
+func (p *Database) ReplicationStatus(ctx context.Context, channel string) (ReplicationStatus, error) {
+	statusMap, err := p.ShowReplicaStatus(ctx, channel)
 	if err != nil {
 		if strings.HasSuffix(err.Error(), "does not exist.") || errors.Is(err, sql.ErrNoRows) {
 			return ReplicationStatusNotInitiated, nil
@@ -160,26 +196,9 @@ func (p *Database) ReplicationStatus(channel string) (ReplicationStatus, error) 
 		return ReplicationStatusError, errors.Wrap(err, "get current replica status")
 	}
 
-	defer rows.Close()
-	cols, err := rows.Columns()
-	if err != nil {
-		return ReplicationStatusError, errors.Wrap(err, "get columns")
-	}
-	vals := make([]interface{}, len(cols))
-	for i := range cols {
-		vals[i] = new(sql.RawBytes)
-	}
-
-	for rows.Next() {
-		err = rows.Scan(vals...)
-		if err != nil {
-			return ReplicationStatusError, errors.Wrap(err, "scan replication status")
-		}
-	}
-
-	IORunning := string(*vals[10].(*sql.RawBytes))
-	SQLRunning := string(*vals[11].(*sql.RawBytes))
-	LastErrNo := string(*vals[18].(*sql.RawBytes))
+	IORunning := statusMap["Replica_IO_Running"]
+	SQLRunning := statusMap["Replica_SQL_Running"]
+	LastErrNo := statusMap["Last_Errno"]
 	if IORunning == "Yes" && SQLRunning == "Yes" {
 		return ReplicationStatusActive, nil
 	}
@@ -283,7 +302,6 @@ func (p *Database) StartReplication(replicaPass string, config ReplicationConfig
 
 	_, err = p.db.Exec(`START REPLICA FOR CHANNEL ?`, config.Source.Name)
 	return errors.Wrapf(err, "start replica for source %s", config.Source.Name)
-
 }
 
 func (p *Database) DeleteReplicationSource(name, host string, port int) error {

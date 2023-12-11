@@ -197,7 +197,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 				}
 
 				if !ver.LessThan(privSystemUserAddedIn) {
-					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
+					if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
 						return errors.Wrap(err, "monitor user grant system privilege")
 					}
 				}

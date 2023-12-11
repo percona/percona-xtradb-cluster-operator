@@ -424,7 +424,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 				}
 
 				if !ver.LessThan(privSystemUserAddedIn) {
-					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
+					if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
 						return errors.Wrap(err, "monitor user grant system privilege")
 					}
 				}
@@ -1028,7 +1028,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(cr *api.PerconaXtraDBClu
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, um *users.Manager) error {
+func (r *ReconcilePerconaXtraDBCluster) grantMonitorUserPrivilege(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, um *users.Manager) error {
 	log := logf.FromContext(ctx)
 
 	annotationName := "grant-for-1.10.0-system-privilege"

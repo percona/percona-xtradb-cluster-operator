@@ -14,6 +14,7 @@ import (
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 )
 
 var log = logf.Log.WithName("backup/restore")
@@ -132,46 +133,83 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	}, nil
 }
 
-func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, bcp *api.PerconaXtraDBClusterBackup) (*batchv1.Job, error) {
-	jobPVC := corev1.Volume{
-		Name: "datadir",
-		VolumeSource: corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: "datadir-" + cr.Spec.PXCCluster + "-pxc-0",
-			},
-		},
+func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) (*batchv1.Job, error) {
+	switch bcp.Status.GetStorageType(cluster) {
+	case api.BackupStorageAzure:
+		if bcp.Status.Azure == nil {
+			return nil, errors.New("nil azure backup status storage")
+		}
+	case api.BackupStorageS3:
+		if bcp.Status.S3 == nil {
+			return nil, errors.New("nil s3 backup status storage")
+		}
+	case api.BackupStorageFilesystem:
+	default:
+		return nil, errors.Errorf("no storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
 	}
 
-	jobPVCs := []corev1.Volume{
-		jobPVC,
-		app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, true),
-		app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig),
-		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
-	}
-	command := []string{"recovery-pvc-joiner.sh"}
+	jobName := "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "datadir",
 			MountPath: "/datadir",
 		},
 		{
-			Name:      "ssl",
-			MountPath: "/etc/mysql/ssl",
-		},
-		{
-			Name:      "ssl-internal",
-			MountPath: "/etc/mysql/ssl-internal",
-		},
-		{
 			Name:      "vault-keyring-secret",
 			MountPath: "/etc/mysql/vault-keyring-secret",
 		},
 	}
-	envs := []corev1.EnvVar{
+	jobPVCs := []corev1.Volume{
 		{
-			Name:  "RESTORE_SRC_SERVICE",
-			Value: "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+			Name: "datadir",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "datadir-" + cr.Spec.PXCCluster + "-pxc-0",
+				},
+			},
 		},
+		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
+	}
+	var command []string
+
+	switch bcp.Status.GetStorageType(cluster) {
+	case api.BackupStorageFilesystem:
+		command = []string{"recovery-pvc-joiner.sh"}
+		volumeMounts = append(volumeMounts, []corev1.VolumeMount{
+			{
+				Name:      "ssl",
+				MountPath: "/etc/mysql/ssl",
+			},
+			{
+				Name:      "ssl-internal",
+				MountPath: "/etc/mysql/ssl-internal",
+			},
+		}...)
+		jobPVCs = append(jobPVCs, []corev1.Volume{
+			app.GetSecretVolumes("ssl-internal", cluster.Spec.PXC.SSLInternalSecretName, true),
+			app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig),
+		}...)
+	case api.BackupStorageAzure, api.BackupStorageS3:
+		command = []string{"recovery-cloud.sh"}
+		if bcp.Status.GetStorageType(cluster) == api.BackupStorageS3 && cluster.CompareVersionWith("1.12.0") < 0 {
+			command = []string{"recovery-s3.sh"}
+		}
+		if pitr {
+			if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
+				return nil, errors.New("no storage section")
+			}
+			jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
+			volumeMounts = []corev1.VolumeMount{}
+			jobPVCs = []corev1.Volume{}
+			command = []string{"pitr", "recover"}
+		}
+	default:
+		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
+	}
+
+	envs, err := restoreJobEnvs(bcp, cr, cluster, destination, pitr)
+	if err != nil {
+		return nil, errors.Wrap(err, "restore job envs")
 	}
 
 	job := &batchv1.Job{
@@ -180,7 +218,7 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtra
 			Kind:       "Job",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster,
+			Name:      jobName,
 			Namespace: cr.Namespace,
 		},
 		Spec: batchv1.JobSpec{
@@ -209,31 +247,22 @@ func PVCRestoreJob(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtra
 			BackoffLimit: func(i int32) *int32 { return &i }(4),
 		},
 	}
-
 	return job, nil
 }
 
-func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) (*batchv1.Job, error) {
-	if bcp.Status.Azure == nil {
-		return nil, errors.New("nil azure storage backup status")
-	}
-
-	jobPVC := corev1.Volume{
-		Name: "datadir",
-		VolumeSource: corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: "datadir-" + cr.Spec.PXCCluster + "-pxc-0",
+func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) ([]corev1.EnvVar, error) {
+	if bcp.Status.GetStorageType(cluster) == api.BackupStorageFilesystem {
+		return util.MergeEnvLists(
+			[]corev1.EnvVar{
+				{
+					Name:  "RESTORE_SRC_SERVICE",
+					Value: "restore-src-" + cr.Name + "-" + cr.Spec.PXCCluster,
+				},
 			},
-		},
-	}
-
-	jobPVCs := []corev1.Volume{
-		jobPVC,
-		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
+			cr.Spec.ContainerOptions.GetEnvVar(cluster, bcp.Spec.StorageName),
+		), nil
 	}
 	pxcUser := users.Xtrabackup
-	command := []string{"recovery-cloud.sh"}
-
 	verifyTLS := true
 	if cluster.Spec.Backup != nil && len(cluster.Spec.Backup.Storages) > 0 {
 		storage, ok := cluster.Spec.Backup.Storages[bcp.Spec.StorageName]
@@ -241,13 +270,90 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 			verifyTLS = *storage.VerifyTLS
 		}
 	}
-	if bcp.Status.VerifyTLS != nil {
-		verifyTLS = *bcp.Status.VerifyTLS
+	if bs := cr.Spec.BackupSource; bs != nil {
+		if bs.StorageName != "" {
+			storage, ok := cluster.Spec.Backup.Storages[bs.StorageName]
+			if ok && storage.VerifyTLS != nil {
+				verifyTLS = *storage.VerifyTLS
+			}
+		}
+		if bs.VerifyTLS != nil {
+			verifyTLS = *bs.VerifyTLS
+		}
 	}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "PXC_SERVICE",
+			Value: cr.Spec.PXCCluster + "-pxc",
+		},
+		{
+			Name:  "PXC_USER",
+			Value: pxcUser,
+		},
+		{
+			Name: "PXC_PASS",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, pxcUser),
+			},
+		},
+	}
+	if pitr {
+		envs = append(envs, []corev1.EnvVar{
+			{
+				Name:  "PITR_GTID",
+				Value: cr.Spec.PITR.GTID,
+			},
+			{
+				Name:  "PITR_DATE",
+				Value: cr.Spec.PITR.Date,
+			},
+			{
+				Name:  "PITR_RECOVERY_TYPE",
+				Value: cr.Spec.PITR.Type,
+			},
+		}...)
+		if bs := cr.Spec.PITR.BackupSource; bs != nil {
+			if bs.StorageName != "" {
+				storage, ok := cluster.Spec.Backup.Storages[bs.StorageName]
+				if ok && storage.VerifyTLS != nil {
+					verifyTLS = *storage.VerifyTLS
+				}
+			}
+			if bs.VerifyTLS != nil {
+				verifyTLS = *bs.VerifyTLS
+			}
+		}
+	}
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "VERIFY_TLS",
+		Value: strconv.FormatBool(verifyTLS),
+	})
+
+	switch bcp.Status.GetStorageType(cluster) {
+	case api.BackupStorageAzure:
+		azureEnvs, err := azureEnvs(cr, bcp, cluster, destination, pitr)
+		if err != nil {
+			return nil, err
+		}
+		envs = append(envs, azureEnvs...)
+	case api.BackupStorageS3:
+		s3Envs, err := s3Envs(cr, bcp, cluster, destination, pitr)
+		if err != nil {
+			return nil, err
+		}
+		envs = append(envs, s3Envs...)
+	default:
+		return nil, errors.Errorf("invalid storage type was specified in status, got: %s", bcp.Status.GetStorageType(cluster))
+	}
+	return util.MergeEnvLists(
+		envs,
+		cr.Spec.ContainerOptions.GetEnvVar(cluster, bcp.Spec.StorageName),
+	), nil
+}
+
+func azureEnvs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) ([]corev1.EnvVar, error) {
 	azure := bcp.Status.Azure
-	if azure == nil {
-		return nil, errors.New("azure storage is not specified")
-	}
 	container, _ := azure.ContainerAndPrefix()
 	destination = strings.TrimPrefix(destination, api.AzureBlobStoragePrefix+container+"/")
 	destination = strings.TrimPrefix(destination, container+"/")
@@ -280,60 +386,23 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 			Name:  "BACKUP_PATH",
 			Value: destination,
 		},
-		{
-			Name:  "PXC_SERVICE",
-			Value: cr.Spec.PXCCluster + "-pxc",
-		},
-		{
-			Name:  "PXC_USER",
-			Value: pxcUser,
-		},
-		{
-			Name: "PXC_PASS",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, pxcUser),
-			},
-		},
 	}
-	jobName := "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster
-	volumeMounts := []corev1.VolumeMount{
-		{
-			Name:      "datadir",
-			MountPath: "/datadir",
-		},
-		{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
-		},
-	}
-
 	if pitr {
-		if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
-			return nil, errors.New("no storage section")
-		}
 		storageAzure := new(api.BackupStorageAzureSpec)
-
-		if len(cr.Spec.PITR.BackupSource.StorageName) > 0 {
-			storage, ok := cluster.Spec.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
-			if ok {
-				storageAzure = storage.Azure
+		if bs := cr.Spec.PITR.BackupSource; bs != nil {
+			if bs.StorageName != "" {
+				storage, ok := cluster.Spec.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
+				if ok {
+					storageAzure = storage.Azure
+				}
 			}
-			if ok && storage.VerifyTLS != nil {
-				verifyTLS = *storage.VerifyTLS
-			}
-		}
-		if cr.Spec.PITR.BackupSource != nil && cr.Spec.PITR.BackupSource.Azure != nil {
-			storageAzure = cr.Spec.PITR.BackupSource.Azure
-			if cr.Spec.PITR.BackupSource.VerifyTLS != nil {
-				verifyTLS = *cr.Spec.PITR.BackupSource.VerifyTLS
+			if bs.Azure != nil {
+				storageAzure = cr.Spec.PITR.BackupSource.Azure
 			}
 		}
-
 		if len(storageAzure.ContainerPath) == 0 {
 			return nil, errors.New("container name is not specified in storage")
 		}
-
-		command = []string{"pitr", "recover"}
 		envs = append(envs, []corev1.EnvVar{
 			{
 				Name: "BINLOG_AZURE_STORAGE_ACCOUNT",
@@ -360,106 +429,19 @@ func AzureRestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDB
 				Value: storageAzure.Endpoint,
 			},
 			{
-				Name:  "PITR_RECOVERY_TYPE",
-				Value: cr.Spec.PITR.Type,
-			},
-			{
-				Name:  "PITR_GTID",
-				Value: cr.Spec.PITR.GTID,
-			},
-			{
-				Name:  "PITR_DATE",
-				Value: cr.Spec.PITR.Date,
-			},
-			{
 				Name:  "STORAGE_TYPE",
 				Value: "azure",
 			},
 		}...)
-		jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
-		volumeMounts = []corev1.VolumeMount{}
-		jobPVCs = []corev1.Volume{}
 	}
-	envs = append(envs, corev1.EnvVar{
-		Name:  "VERIFY_TLS",
-		Value: strconv.FormatBool(verifyTLS),
-	})
-	job := &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "batch/v1",
-			Kind:       "Job",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
-			Namespace: cr.Namespace,
-		},
-		Spec: batchv1.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: cluster.Spec.PXC.Annotations,
-					Labels:      cluster.Spec.PXC.Labels,
-				},
-				Spec: corev1.PodSpec{
-					ImagePullSecrets:   cluster.Spec.Backup.ImagePullSecrets,
-					SecurityContext:    cluster.Spec.PXC.PodSecurityContext,
-					Containers:         []corev1.Container{xtrabackupContainer(cr, cluster, command, volumeMounts, envs)},
-					RestartPolicy:      corev1.RestartPolicyNever,
-					Volumes:            jobPVCs,
-					NodeSelector:       cluster.Spec.PXC.NodeSelector,
-					Affinity:           cluster.Spec.PXC.Affinity.Advanced,
-					Tolerations:        cluster.Spec.PXC.Tolerations,
-					SchedulerName:      cluster.Spec.PXC.SchedulerName,
-					PriorityClassName:  cluster.Spec.PXC.PriorityClassName,
-					ServiceAccountName: cluster.Spec.PXC.ServiceAccountName,
-					RuntimeClassName:   cluster.Spec.PXC.RuntimeClassName,
-				},
-			},
-			BackoffLimit: func(i int32) *int32 { return &i }(4),
-		},
-	}
-
-	return job, nil
+	return envs, nil
 }
 
-// S3RestoreJob returns restore job object for s3
-func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster *api.PerconaXtraDBCluster, pitr bool) (*batchv1.Job, error) {
-	if bcp.Status.S3 == nil {
-		return nil, errors.New("nil s3 backup status storage")
-	}
-
-	jobPVC := corev1.Volume{
-		Name: "datadir",
-		VolumeSource: corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: "datadir-" + cr.Spec.PXCCluster + "-pxc-0",
-			},
-		},
-	}
-
-	jobPVCs := []corev1.Volume{
-		jobPVC,
-		app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
-	}
-	pxcUser := users.Xtrabackup
-	command := []string{"recovery-cloud.sh"}
-	if cluster.CompareVersionWith("1.12.0") < 0 {
-		command = []string{"recovery-s3.sh"}
-	}
-
-	verifyTLS := true
-	if cluster.Spec.Backup != nil && len(cluster.Spec.Backup.Storages) > 0 {
-		storage, ok := cluster.Spec.Backup.Storages[bcp.Spec.StorageName]
-		if ok && storage.VerifyTLS != nil {
-			verifyTLS = *storage.VerifyTLS
-		}
-	}
-	if bcp.Status.VerifyTLS != nil {
-		verifyTLS = *bcp.Status.VerifyTLS
-	}
+func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination string, pitr bool) ([]corev1.EnvVar, error) {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "S3_BUCKET_URL",
-			Value: s3dest,
+			Value: destination,
 		},
 		{
 			Name:  "ENDPOINT",
@@ -491,159 +473,68 @@ func S3RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClu
 				},
 			},
 		},
-		{
-			Name:  "PXC_SERVICE",
-			Value: cr.Spec.PXCCluster + "-pxc",
-		},
-		{
-			Name:  "PXC_USER",
-			Value: pxcUser,
-		},
-		{
-			Name: "PXC_PASS",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(cluster.Spec.SecretsName, pxcUser),
-			},
-		},
-	}
-	jobName := "restore-job-" + cr.Name + "-" + cr.Spec.PXCCluster
-	volumeMounts := []corev1.VolumeMount{
-		{
-			Name:      "datadir",
-			MountPath: "/datadir",
-		},
-		{
-			Name:      "vault-keyring-secret",
-			MountPath: "/etc/mysql/vault-keyring-secret",
-		},
 	}
 	if pitr {
 		bucket := ""
-		if cluster.Spec.Backup == nil && len(cluster.Spec.Backup.Storages) == 0 {
-			return nil, errors.New("no storage section")
-		}
 		storageS3 := new(api.BackupStorageS3Spec)
-
-		if bs := cr.Spec.PITR.BackupSource; bs != nil && len(bs.StorageName) > 0 {
-			storage, ok := cluster.Spec.Backup.Storages[cr.Spec.PITR.BackupSource.StorageName]
-			if ok {
-				storageS3 = storage.S3
-				bucket = storage.S3.Bucket
-				if storage.VerifyTLS != nil {
-					verifyTLS = *storage.VerifyTLS
+		if bs := cr.Spec.PITR.BackupSource; bs != nil {
+			if bs.StorageName != "" {
+				storage, ok := cluster.Spec.Backup.Storages[bs.StorageName]
+				if ok {
+					storageS3 = storage.S3
+					bucket = storage.S3.Bucket
 				}
 			}
-		}
-		if cr.Spec.PITR.BackupSource != nil {
-			if cr.Spec.PITR.BackupSource.VerifyTLS != nil {
-				verifyTLS = *cr.Spec.PITR.BackupSource.VerifyTLS
-			}
-			if cr.Spec.PITR.BackupSource.S3 != nil {
-				storageS3 = cr.Spec.PITR.BackupSource.S3
+			if bs.S3 != nil {
+				storageS3 = bs.S3
 				bucket = storageS3.Bucket
 			}
 		}
 		if len(bucket) == 0 {
 			return nil, errors.New("no bucket in storage")
 		}
-
-		command = []string{"pitr", "recover"}
-		envs = append(envs, corev1.EnvVar{
-			Name:  "BINLOG_S3_ENDPOINT",
-			Value: storageS3.EndpointURL,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name:  "BINLOG_S3_REGION",
-			Value: storageS3.Region,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name: "BINLOG_ACCESS_KEY_ID",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: storageS3.CredentialsSecret,
+		envs = append(envs, []corev1.EnvVar{
+			{
+				Name:  "BINLOG_S3_ENDPOINT",
+				Value: storageS3.EndpointURL,
+			},
+			{
+				Name:  "BINLOG_S3_REGION",
+				Value: storageS3.Region,
+			},
+			{
+				Name: "BINLOG_ACCESS_KEY_ID",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageS3.CredentialsSecret,
+						},
+						Key: "AWS_ACCESS_KEY_ID",
 					},
-					Key: "AWS_ACCESS_KEY_ID",
 				},
 			},
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name: "BINLOG_SECRET_ACCESS_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: storageS3.CredentialsSecret,
+			{
+				Name: "BINLOG_SECRET_ACCESS_KEY",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: storageS3.CredentialsSecret,
+						},
+						Key: "AWS_SECRET_ACCESS_KEY",
 					},
-					Key: "AWS_SECRET_ACCESS_KEY",
 				},
 			},
-		})
-
-		envs = append(envs, corev1.EnvVar{
-			Name:  "PITR_RECOVERY_TYPE",
-			Value: cr.Spec.PITR.Type,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name:  "BINLOG_S3_BUCKET_URL",
-			Value: bucket,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name:  "PITR_GTID",
-			Value: cr.Spec.PITR.GTID,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name:  "PITR_DATE",
-			Value: cr.Spec.PITR.Date,
-		})
-		envs = append(envs, corev1.EnvVar{
-			Name:  "STORAGE_TYPE",
-			Value: "s3",
-		})
-		jobName = "pitr-job-" + cr.Name + "-" + cr.Spec.PXCCluster
-		volumeMounts = []corev1.VolumeMount{}
-		jobPVCs = []corev1.Volume{}
-	}
-
-	envs = append(envs, corev1.EnvVar{
-		Name:  "VERIFY_TLS",
-		Value: strconv.FormatBool(verifyTLS),
-	})
-
-	job := &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "batch/v1",
-			Kind:       "Job",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName,
-			Namespace: cr.Namespace,
-		},
-		Spec: batchv1.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: cluster.Spec.PXC.Annotations,
-					Labels:      cluster.Spec.PXC.Labels,
-				},
-				Spec: corev1.PodSpec{
-					ImagePullSecrets:   cluster.Spec.Backup.ImagePullSecrets,
-					SecurityContext:    cluster.Spec.PXC.PodSecurityContext,
-					Containers:         []corev1.Container{xtrabackupContainer(cr, cluster, command, volumeMounts, envs)},
-					RestartPolicy:      corev1.RestartPolicyNever,
-					Volumes:            jobPVCs,
-					NodeSelector:       cluster.Spec.PXC.NodeSelector,
-					Affinity:           cluster.Spec.PXC.Affinity.Advanced,
-					Tolerations:        cluster.Spec.PXC.Tolerations,
-					SchedulerName:      cluster.Spec.PXC.SchedulerName,
-					PriorityClassName:  cluster.Spec.PXC.PriorityClassName,
-					ServiceAccountName: cluster.Spec.PXC.ServiceAccountName,
-					RuntimeClassName:   cluster.Spec.PXC.RuntimeClassName,
-				},
+			{
+				Name:  "BINLOG_S3_BUCKET_URL",
+				Value: bucket,
 			},
-			BackoffLimit: func(i int32) *int32 { return &i }(4),
-		},
+			{
+				Name:  "STORAGE_TYPE",
+				Value: "s3",
+			},
+		}...)
 	}
-
-	return job, nil
+	return envs, nil
 }
 
 func xtrabackupContainer(cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, cmd []string, volumeMounts []corev1.VolumeMount, envs []corev1.EnvVar) corev1.Container {

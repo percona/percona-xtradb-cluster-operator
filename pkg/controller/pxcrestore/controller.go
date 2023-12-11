@@ -170,7 +170,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return reconcile.Result{}, err
 	}
 
-	bcp, err := r.getBackup(cr)
+	bcp, err := r.getBackup(ctx, cr)
 	if err != nil {
 		return rr, errors.Wrap(err, "get backup")
 	}
@@ -265,7 +265,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	return rr, err
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
+func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(ctx context.Context, cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
 	if cr.Spec.BackupSource != nil {
 		status := cr.Spec.BackupSource.DeepCopy()
 		status.State = api.BackupSucceeded
@@ -285,7 +285,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBCl
 	}
 
 	bcp := &api.PerconaXtraDBClusterBackup{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
+	err := r.client.Get(ctx, types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
 	if err != nil {
 		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
 		return bcp, err

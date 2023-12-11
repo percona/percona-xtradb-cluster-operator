@@ -34,11 +34,11 @@ func (s *s3) Init(context.Context) error     { return nil }
 func (s *s3) Finalize(context.Context) error { return nil }
 
 func (s *s3) Job() (*batchv1.Job, error) {
-	return backup.S3RestoreJob(s.cr, s.bcp, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), s.cluster, false)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), false)
 }
 
 func (s *s3) PITRJob() (*batchv1.Job, error) {
-	return backup.S3RestoreJob(s.cr, s.bcp, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), s.cluster, true)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), true)
 }
 
 func (s *s3) Validate(ctx context.Context) error {
@@ -99,7 +99,7 @@ type pvc struct{ *restoreManagerOptions }
 
 func (s *pvc) Validate(context.Context) error { return nil }
 func (s *pvc) Job() (*batchv1.Job, error) {
-	return backup.PVCRestoreJob(s.cr, s.cluster, s.bcp)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, "", false)
 }
 
 func (s *pvc) PITRJob() (*batchv1.Job, error) {
@@ -170,11 +170,11 @@ func (s *azure) Init(context.Context) error     { return nil }
 func (s *azure) Finalize(context.Context) error { return nil }
 
 func (s *azure) Job() (*batchv1.Job, error) {
-	return backup.AzureRestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, false)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, false)
 }
 
 func (s *azure) PITRJob() (*batchv1.Job, error) {
-	return backup.AzureRestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, true)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, true)
 }
 
 func (s *azure) Validate(ctx context.Context) error {

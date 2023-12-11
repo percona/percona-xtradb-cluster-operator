@@ -95,7 +95,6 @@ func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr 
 			return errors.Wrap(err, "failed to validate job")
 		}
 	}
-
 	if err := restoreManager.Validate(ctx); err != nil {
 		return errors.Wrap(err, "failed to validate backup existence")
 	}

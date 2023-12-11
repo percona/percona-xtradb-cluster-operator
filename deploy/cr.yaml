@@ -94,6 +94,10 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
+#    serviceAnnotations:
+#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    serviceLabels:
+#      rack: rack-23
 #    readinessProbes:
 #      initialDelaySeconds: 15
 #      timeoutSeconds: 15
@@ -579,6 +583,17 @@ spec:
 #        podSecurityContext:
 #          fsGroup: 1001
 #          supplementalGroups: [1001, 1002, 1003]
+#        containerOptions:
+#          env:
+#          - name: VERIFY_TLS
+#            value: "false"
+#          args:
+#            xtrabackup:
+#            - "--someflag=abc"
+#            xbcloud:
+#            - "--someflag=abc"
+#            xbstream:
+#            - "--someflag=abc"
         s3:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3

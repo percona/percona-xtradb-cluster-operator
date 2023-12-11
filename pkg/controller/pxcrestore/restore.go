@@ -53,7 +53,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBC
 	}
 	k8s.SetControllerReference(cr, pod, r.scheme)
 
-	job, err := backup.PVCRestoreJob(cr, cluster, bcp)
+	job, err := backup.RestoreJob(cr, bcp, cluster, "", false)
 	if err != nil {
 		return errors.Wrap(err, "restore job")
 	}
@@ -91,7 +91,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restorePVC(cr *api.PerconaXtraDBC
 	return r.createJob(job)
 }
 func (r *ReconcilePerconaXtraDBClusterRestore) restoreAzure(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, dest string, cluster *api.PerconaXtraDBCluster, pitr bool) error {
-	job, err := backup.AzureRestoreJob(cr, bcp, cluster, dest, pitr)
+	job, err := backup.RestoreJob(cr, bcp, cluster, dest, pitr)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) restoreAzure(cr *api.PerconaXtraD
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) restoreS3(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, s3dest string, cluster *api.PerconaXtraDBCluster, pitr bool) error {
-	job, err := backup.S3RestoreJob(cr, bcp, s3dest, cluster, pitr)
+	job, err := backup.RestoreJob(cr, bcp, cluster, s3dest, pitr)
 	if err != nil {
 		return err
 	}

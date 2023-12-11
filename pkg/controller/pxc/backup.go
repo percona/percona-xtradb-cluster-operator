@@ -34,7 +34,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileBackups(ctx context.Context, cr
 	log := logf.FromContext(ctx)
 
 	backups := make(map[string]api.PXCScheduledBackupSchedule)
-	backupNamePrefix := backupJobClusterPrefix(cr.Name)
+	backupNamePrefix := backupJobClusterPrefix(cr.Namespace + "-" + cr.Name)
 
 	if cr.Spec.Backup != nil {
 		restoreRunning, err := r.isRestoreRunning(cr.Name, cr.Namespace)

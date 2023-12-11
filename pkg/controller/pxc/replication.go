@@ -52,11 +52,6 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtra
 		svcName := fmt.Sprintf("%s-pxc-%d", cr.Name, i)
 		svc := NewExposedPXCService(svcName, cr)
 
-		err := setControllerReference(cr, svc, r.scheme)
-		if err != nil {
-			return errors.Wrap(err, "failed to set owner to external service")
-		}
-
 		err = r.createOrUpdateService(cr, svc, len(cr.Spec.PXC.Expose.Annotations) == 0)
 		if err != nil {
 			return errors.Wrap(err, "failed to ensure pxc service")

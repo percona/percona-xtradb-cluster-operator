@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0
 	github.com/minio/minio-go/v7 v7.0.65
 	github.com/onsi/ginkgo/v2 v2.13.0
-	github.com/onsi/gomega v1.29.0
+	github.com/onsi/gomega v1.30.0
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
 	go.uber.org/zap v1.26.0

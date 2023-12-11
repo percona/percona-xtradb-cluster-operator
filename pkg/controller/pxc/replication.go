@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-version"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -62,7 +61,7 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePxcPodServices(cr *api.PerconaXtra
 }
 
 func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXtraDBCluster) error {
-	//needed for labels
+	// needed for labels
 	svc := NewExposedPXCService("", cr)
 
 	svcNames := make(map[string]struct{}, cr.Spec.PXC.Size)
@@ -78,7 +77,6 @@ func (r *ReconcilePerconaXtraDBCluster) removeOutdatedServices(cr *api.PerconaXt
 			LabelSelector: labels.SelectorFromSet(svc.Labels),
 		},
 	)
-
 	if err != nil {
 		return errors.Wrap(err, "failed to list external services")
 	}
@@ -240,7 +238,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 		currConf := currentReplicaConfig(channel.Name, cr.Status.PXCReplication)
 
-		err = manageReplicationChannel(log, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]))
+		err = manageReplicationChannel(ctx, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]))
 		if err != nil {
 			return errors.Wrapf(err, "manage replication channel %s", channel.Name)
 		}
@@ -355,20 +353,25 @@ func removeOutdatedChannels(ctx context.Context, db queries.Database, currentCha
 	return nil
 }
 
-func manageReplicationChannel(log logr.Logger, primaryDB queries.Database, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
+func manageReplicationChannel(ctx context.Context, primaryDB queries.Database, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
+	log := logf.FromContext(ctx)
 	currentSources, err := primaryDB.ReplicationChannelSources(channel.Name)
 	if err != nil && err != queries.ErrNotFound {
 		return errors.Wrapf(err, "get current replication sources for channel %s", channel.Name)
 	}
 
-	replicationStatus, err := primaryDB.ReplicationStatus(channel.Name)
+	replicationStatus, err := primaryDB.ReplicationStatus(ctx, channel.Name)
 	if err != nil {
 		return errors.Wrap(err, "failed to check replication status")
 	}
 
 	if !isSourcesChanged(channel.SourcesList, currentSources) {
 		if replicationStatus == queries.ReplicationStatusError {
-			log.Info("Replication for channel is not running. Please, check the replication status", "channel", channel.Name)
+			statusMap, err := primaryDB.ShowReplicaStatus(ctx, channel.Name)
+			if err != nil {
+				return errors.Wrap(err, "failed to get replica status")
+			}
+			log.Info("Replication for channel is not running. Please, check the replication status", "channel", channel.Name, "Last_IO_Error", statusMap["Last_IO_Error"])
 			return nil
 		}
 
@@ -461,7 +464,7 @@ func (r *ReconcilePerconaXtraDBCluster) removePxcPodServices(cr *api.PerconaXtra
 		return nil
 	}
 
-	//needed for labels
+	// needed for labels
 	svc := NewExposedPXCService("", cr)
 
 	svcList := &corev1.ServiceList{}

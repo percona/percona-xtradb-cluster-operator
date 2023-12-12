@@ -175,6 +175,17 @@ spec:
       serviceAccount: percona-xtradb-cluster-operator-workload
       serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 600
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: pxc
+              app.kubernetes.io/instance: sec-context
+              app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
+              app.kubernetes.io/name: percona-xtradb-cluster
+              app.kubernetes.io/part-of: percona-xtradb-cluster
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
       volumes:
         - emptyDir: {}
           name: tmp

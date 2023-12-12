@@ -12,6 +12,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
@@ -121,14 +122,15 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 				app.GetSecretVolumes("ssl", cluster.Spec.PXC.SSLSecretName, cluster.Spec.AllowUnsafeConfig),
 				app.GetSecretVolumes("vault-keyring-secret", cluster.Spec.PXC.VaultSecretName, true),
 			},
-			RestartPolicy:      corev1.RestartPolicyAlways,
-			NodeSelector:       cluster.Spec.Backup.Storages[bcpStorageName].NodeSelector,
-			Affinity:           cluster.Spec.Backup.Storages[bcpStorageName].Affinity,
-			Tolerations:        cluster.Spec.Backup.Storages[bcpStorageName].Tolerations,
-			SchedulerName:      cluster.Spec.Backup.Storages[bcpStorageName].SchedulerName,
-			PriorityClassName:  cluster.Spec.Backup.Storages[bcpStorageName].PriorityClassName,
-			ServiceAccountName: cluster.Spec.PXC.ServiceAccountName,
-			RuntimeClassName:   cluster.Spec.Backup.Storages[bcpStorageName].RuntimeClassName,
+			RestartPolicy:             corev1.RestartPolicyAlways,
+			NodeSelector:              cluster.Spec.Backup.Storages[bcpStorageName].NodeSelector,
+			Affinity:                  cluster.Spec.Backup.Storages[bcpStorageName].Affinity,
+			TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cluster.Spec.Backup.Storages[bcpStorageName].TopologySpreadConstraints, labels),
+			Tolerations:               cluster.Spec.Backup.Storages[bcpStorageName].Tolerations,
+			SchedulerName:             cluster.Spec.Backup.Storages[bcpStorageName].SchedulerName,
+			PriorityClassName:         cluster.Spec.Backup.Storages[bcpStorageName].PriorityClassName,
+			ServiceAccountName:        cluster.Spec.PXC.ServiceAccountName,
+			RuntimeClassName:          cluster.Spec.Backup.Storages[bcpStorageName].RuntimeClassName,
 		},
 	}, nil
 }
@@ -233,15 +235,16 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 					Containers: []corev1.Container{
 						xtrabackupContainer(cr, cluster, command, volumeMounts, envs),
 					},
-					RestartPolicy:      corev1.RestartPolicyNever,
-					Volumes:            jobPVCs,
-					NodeSelector:       cluster.Spec.PXC.NodeSelector,
-					Affinity:           cluster.Spec.PXC.Affinity.Advanced,
-					Tolerations:        cluster.Spec.PXC.Tolerations,
-					SchedulerName:      cluster.Spec.PXC.SchedulerName,
-					PriorityClassName:  cluster.Spec.PXC.PriorityClassName,
-					ServiceAccountName: cluster.Spec.PXC.ServiceAccountName,
-					RuntimeClassName:   cluster.Spec.PXC.RuntimeClassName,
+					RestartPolicy:             corev1.RestartPolicyNever,
+					Volumes:                   jobPVCs,
+					NodeSelector:              cluster.Spec.PXC.NodeSelector,
+					Affinity:                  cluster.Spec.PXC.Affinity.Advanced,
+					TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cluster.Spec.PXC.TopologySpreadConstraints, cluster.Spec.PXC.Labels),
+					Tolerations:               cluster.Spec.PXC.Tolerations,
+					SchedulerName:             cluster.Spec.PXC.SchedulerName,
+					PriorityClassName:         cluster.Spec.PXC.PriorityClassName,
+					ServiceAccountName:        cluster.Spec.PXC.ServiceAccountName,
+					RuntimeClassName:          cluster.Spec.PXC.RuntimeClassName,
 				},
 			},
 			BackoffLimit: func(i int32) *int32 { return &i }(4),

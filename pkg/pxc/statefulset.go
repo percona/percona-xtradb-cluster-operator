@@ -15,8 +15,8 @@ import (
 
 // StatefulSet returns StatefulSet according for app to podSpec
 func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, secret *corev1.Secret,
-	initContainers []corev1.Container, log logr.Logger, vg api.CustomVolumeGetter) (*appsv1.StatefulSet, error) {
-
+	initContainers []corev1.Container, log logr.Logger, vg api.CustomVolumeGetter,
+) (*appsv1.StatefulSet, error) {
 	pod := corev1.PodSpec{
 		SecurityContext:               podSpec.PodSecurityContext,
 		NodeSelector:                  podSpec.NodeSelector,
@@ -32,6 +32,7 @@ func StatefulSet(sfs api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraD
 	}
 	secrets := secret.Name
 	pod.Affinity = PodAffinity(podSpec.Affinity, sfs)
+	pod.TopologySpreadConstraints = PodTopologySpreadConstraints(podSpec.TopologySpreadConstraints, sfs.Labels())
 
 	if sfs.Labels()["app.kubernetes.io/component"] == "haproxy" && cr.CompareVersionWith("1.7.0") == -1 {
 		t := true
@@ -166,6 +167,30 @@ func PodAffinity(af *api.PodAffinity, app api.App) *corev1.Affinity {
 	}
 
 	return nil
+}
+
+func PodTopologySpreadConstraints(tscs []corev1.TopologySpreadConstraint, ls map[string]string) []corev1.TopologySpreadConstraint {
+	result := make([]corev1.TopologySpreadConstraint, 0, len(tscs))
+
+	for _, tsc := range tscs {
+		if tsc.LabelSelector == nil && tsc.MatchLabelKeys == nil && len(ls) > 0 {
+			tsc.LabelSelector = &metav1.LabelSelector{
+				MatchLabels: ls,
+			}
+		}
+		if tsc.MaxSkew == 0 {
+			tsc.MaxSkew = 1
+		}
+		if tsc.TopologyKey == "" {
+			tsc.TopologyKey = api.DefaultAffinityTopologyKey
+		}
+		if tsc.WhenUnsatisfiable == "" {
+			tsc.WhenUnsatisfiable = corev1.ScheduleAnyway
+		}
+
+		result = append(result, tsc)
+	}
+	return result
 }
 
 func MergeTemplateAnnotations(sfs *appsv1.StatefulSet, annotations map[string]string) {

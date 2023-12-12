@@ -18,7 +18,7 @@ func TestReconcileAffinity(t *testing.T) {
 			pod:  &PodSpec{},
 			desiered: &PodSpec{
 				Affinity: &PodAffinity{
-					TopologyKey: &defaultAffinityTopologyKey,
+					TopologyKey: &DefaultAffinityTopologyKey,
 				},
 			},
 		},
@@ -31,7 +31,7 @@ func TestReconcileAffinity(t *testing.T) {
 			},
 			desiered: &PodSpec{
 				Affinity: &PodAffinity{
-					TopologyKey: &defaultAffinityTopologyKey,
+					TopologyKey: &DefaultAffinityTopologyKey,
 				},
 			},
 		},

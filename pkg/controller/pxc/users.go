@@ -167,10 +167,6 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsers(ctx context.Context, cr *api
 				}
 				return res, err
 			}
-		case users.Clustercheck:
-			if err := r.handleClustercheckUser(ctx, cr, secrets, internalSecrets, res); err != nil {
-				return res, err
-			}
 		case users.Xtrabackup:
 			if err := r.handleXtrabackupUser(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
@@ -428,7 +424,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 				}
 
 				if !ver.LessThan(privSystemUserAddedIn) {
-					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, user, um); err != nil {
+					if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
 						return errors.Wrap(err, "monitor user grant system privilege")
 					}
 				}
@@ -544,102 +540,6 @@ func (r *ReconcilePerconaXtraDBCluster) updateMonitorUserGrant(ctx context.Conte
 	}
 
 	log.Info("User monitor: granted privileges")
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUser(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	log := logf.FromContext(ctx)
-
-	user := &users.SysUser{
-		Name:  users.Clustercheck,
-		Pass:  string(secrets.Data[users.Clustercheck]),
-		Hosts: []string{"localhost"},
-	}
-
-	if cr.Status.PXC.Ready > 0 {
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
-			return err
-		}
-
-		if cr.CompareVersionWith("1.10.0") >= 0 {
-			mysqlVersion := cr.Status.PXC.Version
-			if mysqlVersion == "" {
-				var err error
-				mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-				if err != nil {
-					if errors.Is(err, versionNotReadyErr) {
-						return nil
-					}
-					return errors.Wrap(err, "retrieving pxc version")
-				}
-			}
-
-			if mysqlVersion != "" {
-				ver, err := version.NewVersion(mysqlVersion)
-				if err != nil {
-					return errors.Wrap(err, "invalid pxc version")
-				}
-
-				if !ver.LessThan(privSystemUserAddedIn) {
-					um, err := getUserManager(cr, internalSecrets)
-					if err != nil {
-						return err
-					}
-					defer um.Close()
-
-					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, user, um); err != nil {
-						return errors.Wrap(err, "clustercheck user grant system privilege")
-					}
-				}
-			}
-		}
-	}
-
-	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
-		return nil
-	}
-
-	passDiscarded, err := r.isOldPasswordDiscarded(cr, internalSecrets, user)
-	if err != nil {
-		return err
-	}
-
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && passDiscarded {
-		return nil
-	}
-
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) && !passDiscarded {
-		err = r.discardOldPassword(cr, secrets, internalSecrets, user)
-		if err != nil {
-			return errors.Wrap(err, "discard old pass")
-		}
-		log.Info("Old password discarded", "user", user.Name)
-
-		return nil
-	}
-
-	log.Info("Password changed, updating user", "user", user.Name)
-
-	err = r.updateUserPassWithRetention(cr, secrets, internalSecrets, user)
-	if err != nil {
-		return errors.Wrap(err, "update clustercheck users pass")
-	}
-	log.Info("Password updated", "user", user.Name)
-
-	orig := internalSecrets.DeepCopy()
-	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
-	if err != nil {
-		return errors.Wrap(err, "update internal users secrets clustercheck user password")
-	}
-	log.Info("Internal secrets updated", "user", user.Name)
-
-	err = r.discardOldPassword(cr, secrets, internalSecrets, user)
-	if err != nil {
-		return errors.Wrap(err, "discard clustercheck old pass")
-	}
-	log.Info("Old password discarded", "user", user.Name)
-
 	return nil
 }
 
@@ -1128,7 +1028,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateProxyUser(cr *api.PerconaXtraDBClu
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, user *users.SysUser, um *users.Manager) error {
+func (r *ReconcilePerconaXtraDBCluster) grantMonitorUserPrivilege(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSysSecretObj *corev1.Secret, um *users.Manager) error {
 	log := logf.FromContext(ctx)
 
 	annotationName := "grant-for-1.10.0-system-privilege"
@@ -1136,7 +1036,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Con
 		return nil
 	}
 
-	if err := um.Update1100SystemUserPrivilege(user); err != nil {
+	if err := um.Update1100MonitorUserPrivilege(); err != nil {
 		return errors.Wrap(err, "grant system user privilege")
 	}
 
@@ -1150,7 +1050,7 @@ func (r *ReconcilePerconaXtraDBCluster) grantSystemUserPrivilege(ctx context.Con
 		return errors.Wrap(err, "update internal sys users secret annotation")
 	}
 
-	log.Info("System user privileges granted", "user", user.Name)
+	log.Info("monitor user privileges granted")
 	return nil
 }
 

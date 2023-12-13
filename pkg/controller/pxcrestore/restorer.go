@@ -96,7 +96,45 @@ func (s *s3) Validate(ctx context.Context) error {
 
 type pvc struct{ *restorerOptions }
 
-func (s *pvc) Validate(context.Context) error { return nil }
+func (s *pvc) Validate(ctx context.Context) error {
+	destination := s.bcp.Status.Destination
+
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, strings.TrimPrefix(destination, "pvc/"), s.cluster)
+	if err != nil {
+		return errors.Wrap(err, "restore pod")
+	}
+	if err := k8s.SetControllerReference(s.cr, pod, s.scheme); err != nil {
+		return err
+	}
+	pod.Name += "-verify"
+	pod.Spec.Containers[0].Command = []string{"bash", "-c", `[[ $(stat -c%s /backup/xtrabackup.stream) -gt 1048576 ]]`}
+	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
+
+	if err := s.k8sClient.Delete(ctx, pod); client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err, "failed to delete")
+	}
+
+	if err := s.k8sClient.Create(ctx, pod); err != nil {
+		return errors.Wrap(err, "failed to create pod")
+	}
+	for {
+		time.Sleep(time.Second * 1)
+
+		err := s.k8sClient.Get(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
+		if err != nil {
+			return errors.Wrap(err, "get pod status")
+		}
+		if pod.Status.Phase == corev1.PodFailed {
+			return errors.Errorf("backup files not found on %s", destination)
+		}
+		if pod.Status.Phase == corev1.PodSucceeded {
+			break
+		}
+	}
+
+	return nil
+}
+
 func (s *pvc) Job() (*batchv1.Job, error) {
 	return backup.RestoreJob(s.cr, s.bcp, s.cluster, "", false)
 }

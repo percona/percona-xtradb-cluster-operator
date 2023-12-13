@@ -448,6 +448,7 @@ type PodSpec struct {
 	SidecarPVCs                   []corev1.PersistentVolumeClaim          `json:"sidecarPVCs,omitempty"`
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
 	HookScript                    string                                  `json:"hookScript,omitempty"`
+	TopologySpreadConstraints     []corev1.TopologySpreadConstraint       `json:"topologySpreadConstraints,omitempty"`
 }
 
 type HAProxySpec struct {
@@ -514,23 +515,24 @@ func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 }
 
 type BackupStorageSpec struct {
-	Type                     BackupStorageType           `json:"type"`
-	S3                       *BackupStorageS3Spec        `json:"s3,omitempty"`
-	Azure                    *BackupStorageAzureSpec     `json:"azure,omitempty"`
-	Volume                   *VolumeSpec                 `json:"volume,omitempty"`
-	NodeSelector             map[string]string           `json:"nodeSelector,omitempty"`
-	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity                 *corev1.Affinity            `json:"affinity,omitempty"`
-	Tolerations              []corev1.Toleration         `json:"tolerations,omitempty"`
-	Annotations              map[string]string           `json:"annotations,omitempty"`
-	Labels                   map[string]string           `json:"labels,omitempty"`
-	SchedulerName            string                      `json:"schedulerName,omitempty"`
-	PriorityClassName        string                      `json:"priorityClassName,omitempty"`
-	PodSecurityContext       *corev1.PodSecurityContext  `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
-	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
-	VerifyTLS                *bool                       `json:"verifyTLS,omitempty"`
-	ContainerOptions         *BackupContainerOptions     `json:"containerOptions,omitempty"`
+	Type                      BackupStorageType                 `json:"type"`
+	S3                        *BackupStorageS3Spec              `json:"s3,omitempty"`
+	Azure                     *BackupStorageAzureSpec           `json:"azure,omitempty"`
+	Volume                    *VolumeSpec                       `json:"volume,omitempty"`
+	NodeSelector              map[string]string                 `json:"nodeSelector,omitempty"`
+	Resources                 corev1.ResourceRequirements       `json:"resources,omitempty"`
+	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	Tolerations               []corev1.Toleration               `json:"tolerations,omitempty"`
+	Annotations               map[string]string                 `json:"annotations,omitempty"`
+	Labels                    map[string]string                 `json:"labels,omitempty"`
+	SchedulerName             string                            `json:"schedulerName,omitempty"`
+	PriorityClassName         string                            `json:"priorityClassName,omitempty"`
+	PodSecurityContext        *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext  *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
+	RuntimeClassName          *string                           `json:"runtimeClassName,omitempty"`
+	VerifyTLS                 *bool                             `json:"verifyTLS,omitempty"`
+	ContainerOptions          *BackupContainerOptions           `json:"containerOptions,omitempty"`
 }
 
 type BackupContainerOptions struct {
@@ -1151,7 +1153,7 @@ var affinityValidTopologyKeys = map[string]struct{}{
 	"topology.kubernetes.io/region":            {},
 }
 
-var defaultAffinityTopologyKey = "kubernetes.io/hostname"
+var DefaultAffinityTopologyKey = "kubernetes.io/hostname"
 
 // reconcileAffinityOpts ensures that the affinity is set to the valid values.
 // - if the affinity doesn't set at all - set topology key to `defaultAffinityTopologyKey`
@@ -1162,18 +1164,18 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	switch {
 	case p.Affinity == nil:
 		p.Affinity = &PodAffinity{
-			TopologyKey: &defaultAffinityTopologyKey,
+			TopologyKey: &DefaultAffinityTopologyKey,
 		}
 
 	case p.Affinity.TopologyKey == nil:
-		p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+		p.Affinity.TopologyKey = &DefaultAffinityTopologyKey
 
 	case p.Affinity.Advanced != nil:
 		p.Affinity.TopologyKey = nil
 
 	case p.Affinity != nil && p.Affinity.TopologyKey != nil:
 		if _, ok := affinityValidTopologyKeys[*p.Affinity.TopologyKey]; !ok {
-			p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+			p.Affinity.TopologyKey = &DefaultAffinityTopologyKey
 		}
 	}
 }

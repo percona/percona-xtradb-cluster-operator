@@ -454,6 +454,7 @@ compare_kubectl() {
 			del(.. | select(has("volume.kubernetes.io/selected-node"))."volume.kubernetes.io/selected-node") |
 			del(.. | select(has("percona.com/last-config-hash"))."percona.com/last-config-hash") |
 			del(.. | select(has("percona.com/configuration-hash"))."percona.com/configuration-hash") |
+			del(.. | select(has("percona.com/env-secret-config-hash"))."percona.com/env-secret-config-hash") |
 			del(.. | select(has("percona.com/ssl-hash"))."percona.com/ssl-hash") |
 			del(.. | select(has("percona.com/ssl-internal-hash"))."percona.com/ssl-internal-hash") |
 			del(.spec.volumeClaimTemplates[].spec.volumeMode | select(. == "Filesystem")) |

@@ -65,6 +65,7 @@ sleep 5
 kubectl_bin exec monitoring-0 -- bash -c "grafana-cli --homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini admin reset-admin-password $ADMIN_PASSWORD"
 
 desc 'create PXC cluster'
+kubectl_bin apply -f "$test_dir/conf/envsecrets.yaml"
 spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml" 3 120 "$test_dir/conf/secrets.yaml"
 
 desc 'add PMM API key to secret'

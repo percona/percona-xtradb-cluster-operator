@@ -115,7 +115,7 @@ spec:
               value: "5"
           envFrom:
             - secretRef:
-                name: monitoring-env-vars-pxc
+                name: my-env-var-secrets
                 optional: true
           imagePullPolicy: Always
           lifecycle:
@@ -200,7 +200,7 @@ spec:
               value: caching_sha2_password
           envFrom:
             - secretRef:
-                name: monitoring-env-vars-pxc
+                name: my-env-var-secrets
                 optional: true
           imagePullPolicy: Always
           livenessProbe:

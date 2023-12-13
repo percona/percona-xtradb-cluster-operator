@@ -2,7 +2,7 @@
   {
     "service_type": "haproxy",
     "node_name": "monitoring-haproxy-0",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "agents": [
       {
         "agent_type": "external-exporter",
@@ -22,7 +22,7 @@
   {
     "service_type": "haproxy",
     "node_name": "monitoring-haproxy-1",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "agents": [
       {
         "agent_type": "external-exporter",
@@ -42,7 +42,7 @@
   {
     "service_type": "mysql",
     "node_name": "monitoring-pxc-0",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "address": "monitoring-pxc-0",
     "port": 33062,
     "agents": [
@@ -68,7 +68,7 @@
   {
     "service_type": "mysql",
     "node_name": "monitoring-pxc-1",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "address": "monitoring-pxc-1",
     "port": 33062,
     "agents": [
@@ -94,7 +94,7 @@
   {
     "service_type": "mysql",
     "node_name": "monitoring-pxc-2",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "address": "monitoring-pxc-2",
     "port": 33062,
     "agents": [

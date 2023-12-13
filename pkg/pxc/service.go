@@ -450,7 +450,7 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 }
 
 func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
-	if cr.CompareVersionWith("1.14.0") >= 0 {
+	if cr.CompareVersionWith("1.14.0") >= 0 && cr.Spec.HAProxy != nil {
 		if cr.Spec.HAProxy.ExposeReplicas == nil {
 			cr.Spec.HAProxy.ExposeReplicas = &api.ServiceExpose{
 				Enabled: true,

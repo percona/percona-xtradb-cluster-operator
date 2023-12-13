@@ -36,10 +36,6 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(ctx context.Context
 			if err := r.handleMonitorUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
 			}
-		case users.Clustercheck:
-			if err := r.handleClustercheckUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
-				return res, err
-			}
 		case users.Xtrabackup:
 			if err := r.handleXtrabackupUserWithoutDP(ctx, cr, secrets, internalSecrets, res); err != nil {
 				return res, err
@@ -62,7 +58,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateUsersWithoutDP(ctx context.Context
 	return res, nil
 }
 func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -126,7 +122,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -201,7 +197,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 				}
 
 				if !ver.LessThan(privSystemUserAddedIn) {
-					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, user, um); err != nil {
+					if err := r.grantMonitorUserPrivilege(ctx, cr, internalSecrets, um); err != nil {
 						return errors.Wrap(err, "monitor user grant system privilege")
 					}
 				}
@@ -209,7 +205,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -249,81 +245,6 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) handleClustercheckUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
-	log := logf.FromContext(ctx)
-
-	user := &users.SysUser{
-		Name:  users.Clustercheck,
-		Pass:  string(secrets.Data[users.Clustercheck]),
-		Hosts: []string{"localhost"},
-	}
-
-	if cr.Status.PXC.Ready > 0 {
-		if err := r.updateUserPassExpirationPolicy(ctx, cr, internalSecrets, user); err != nil {
-			return err
-		}
-
-		if cr.CompareVersionWith("1.10.0") >= 0 {
-			mysqlVersion := cr.Status.PXC.Version
-			if mysqlVersion == "" {
-				var err error
-				mysqlVersion, err = r.mysqlVersion(ctx, cr, statefulset.NewNode(cr))
-				if err != nil {
-					if errors.Is(err, versionNotReadyErr) {
-						return nil
-					}
-					return errors.Wrap(err, "retrieving pxc version")
-				}
-			}
-
-			if mysqlVersion != "" {
-				ver, err := version.NewVersion(mysqlVersion)
-				if err != nil {
-					return errors.Wrap(err, "invalid pxc version")
-				}
-
-				if !ver.LessThan(privSystemUserAddedIn) {
-					um, err := getUserManager(cr, internalSecrets)
-					if err != nil {
-						return err
-					}
-					defer um.Close()
-
-					if err := r.grantSystemUserPrivilege(ctx, cr, internalSecrets, user, um); err != nil {
-						return errors.Wrap(err, "clustercheck user grant system privilege")
-					}
-				}
-			}
-		}
-	}
-
-	if cr.Status.Status != api.AppStateReady {
-		return nil
-	}
-
-	if bytes.Equal(secrets.Data[user.Name], internalSecrets.Data[user.Name]) {
-		return nil
-	}
-
-	log.Info("Password changed, updating user", "user", user.Name)
-
-	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
-	if err != nil {
-		return errors.Wrap(err, "update clustercheck users pass")
-	}
-	log.Info("User password updated", "user", user.Name)
-
-	orig := internalSecrets.DeepCopy()
-	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
-	if err != nil {
-		return errors.Wrap(err, "update internal users secrets clustercheck user password")
-	}
-	log.Info("Internal secrets updated", "user", user.Name)
-
-	return nil
-}
-
 func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, actions *userUpdateActions) error {
 	log := logf.FromContext(ctx)
 
@@ -351,7 +272,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -386,7 +307,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 		return nil
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -407,7 +328,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 		}
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 
@@ -451,7 +372,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 		return nil
 	}
 
-	if cr.Status.Status != api.AppStateReady {
+	if cr.Status.Status != api.AppStateReady && !r.invalidPasswordApplied(cr.Status) {
 		return nil
 	}
 

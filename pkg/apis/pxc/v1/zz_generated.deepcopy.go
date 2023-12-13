@@ -244,7 +244,11 @@ func (in *HAProxySpec) DeepCopyInto(out *HAProxySpec) {
 	*out = *in
 	in.PodSpec.DeepCopyInto(&out.PodSpec)
 	in.ExposePrimary.DeepCopyInto(&out.ExposePrimary)
-	in.ExposeReplicas.DeepCopyInto(&out.ExposeReplicas)
+	if in.ExposeReplicas != nil {
+		in, out := &in.ExposeReplicas, &out.ExposeReplicas
+		*out = new(ServiceExpose)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ReplicasServiceEnabled != nil {
 		in, out := &in.ReplicasServiceEnabled, &out.ReplicasServiceEnabled
 		*out = new(bool)

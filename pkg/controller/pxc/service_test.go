@@ -98,14 +98,14 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 				Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(cr), cr)).To(Succeed())
 				cr.Spec.IgnoreAnnotations = []string{"ignored-annotation"}
 				cr.Spec.IgnoreLabels = []string{"ignored-label"}
-				cr.Spec.PXC.ServiceLabels = map[string]string{"cr-label": "test"}
-				cr.Spec.PXC.ServiceAnnotations = map[string]string{"cr-annotation": "test"}
-				cr.Spec.HAProxy.ServiceLabels = map[string]string{"cr-label": "test"}
-				cr.Spec.HAProxy.ServiceAnnotations = map[string]string{"cr-annotation": "test"}
-				cr.Spec.HAProxy.ReplicasServiceLabels = map[string]string{"cr-label": "test"}
-				cr.Spec.HAProxy.ReplicasServiceAnnotations = map[string]string{"cr-annotation": "test"}
-				cr.Spec.ProxySQL.ServiceLabels = map[string]string{"cr-label": "test"}
-				cr.Spec.ProxySQL.ServiceAnnotations = map[string]string{"cr-annotation": "test"}
+				cr.Spec.PXC.Expose.Labels = map[string]string{"cr-label": "test"}
+				cr.Spec.PXC.Expose.Annotations = map[string]string{"cr-annotation": "test"}
+				cr.Spec.HAProxy.ExposePrimary.Labels = map[string]string{"cr-label": "test"}
+				cr.Spec.HAProxy.ExposePrimary.Annotations = map[string]string{"cr-annotation": "test"}
+				cr.Spec.HAProxy.ExposeReplicas.Labels = map[string]string{"cr-label": "test"}
+				cr.Spec.HAProxy.ExposeReplicas.Annotations = map[string]string{"cr-annotation": "test"}
+				cr.Spec.ProxySQL.Expose.Labels = map[string]string{"cr-label": "test"}
+				cr.Spec.ProxySQL.Expose.Annotations = map[string]string{"cr-annotation": "test"}
 				Expect(k8sClient.Update(ctx, cr)).Should(Succeed())
 			})
 			It("should reconcile PerconaXtraDBCluster", func() {
@@ -187,14 +187,14 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 		cr.Spec.HAProxy.Enabled = false
 		cr.Spec.ProxySQL.Enabled = true
 
-		cr.Spec.PXC.ServiceLabels = nil
-		cr.Spec.PXC.ServiceAnnotations = nil
-		cr.Spec.HAProxy.ServiceLabels = nil
-		cr.Spec.HAProxy.ServiceAnnotations = nil
-		cr.Spec.HAProxy.ReplicasServiceLabels = nil
-		cr.Spec.HAProxy.ReplicasServiceAnnotations = nil
-		cr.Spec.ProxySQL.ServiceLabels = nil
-		cr.Spec.ProxySQL.ServiceAnnotations = nil
+		cr.Spec.PXC.Expose.Labels = nil
+		cr.Spec.PXC.Expose.Annotations = nil
+		cr.Spec.HAProxy.ExposePrimary.Labels = nil
+		cr.Spec.HAProxy.ExposePrimary.Annotations = nil
+		cr.Spec.HAProxy.ExposeReplicas.Labels = nil
+		cr.Spec.HAProxy.ExposeReplicas.Annotations = nil
+		cr.Spec.ProxySQL.Expose.Labels = nil
+		cr.Spec.ProxySQL.Expose.Annotations = nil
 		Expect(k8sClient.Update(ctx, cr)).To(Succeed())
 	})
 	It("should reconcile PerconaXtraDBCluster", func() {

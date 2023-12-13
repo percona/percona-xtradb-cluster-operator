@@ -326,7 +326,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	saveOldSvcMeta := true
 	if o.CompareVersionWith("1.14.0") >= 0 {
-		saveOldSvcMeta = len(o.Spec.PXC.ServiceLabels) == 0 && len(o.Spec.PXC.ServiceAnnotations) == 0
+		saveOldSvcMeta = len(o.Spec.PXC.Expose.Labels) == 0 && len(o.Spec.PXC.Expose.Annotations) == 0
 	}
 	err = r.createOrUpdateService(o, pxc.NewServicePXC(o), saveOldSvcMeta)
 	if err != nil {
@@ -373,10 +373,6 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
 		svc := pxc.NewServiceProxySQL(o)
-
-		if err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "%s setControllerReference", svc.Name)
-		}
 
 		if o.CompareVersionWith("1.14.0") >= 0 {
 			err = r.createOrUpdateService(o, svc, len(o.Spec.ProxySQL.Expose.Labels) == 0 && len(o.Spec.ProxySQL.Expose.Annotations) == 0)

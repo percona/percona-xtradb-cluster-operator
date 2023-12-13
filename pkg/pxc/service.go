@@ -69,8 +69,8 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 	if cr.CompareVersionWith("1.14.0") >= 0 {
 		if cr.Spec.PXC != nil {
-			obj.Annotations = cr.Spec.PXC.ServiceAnnotations
-			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.ServiceLabels)
+			obj.Annotations = cr.Spec.PXC.Expose.Annotations
+			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.Expose.Labels)
 		}
 	}
 
@@ -141,8 +141,8 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 	if cr.CompareVersionWith("1.14.0") >= 0 {
 		if cr.Spec.PXC != nil {
-			obj.Annotations = cr.Spec.PXC.ServiceAnnotations
-			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.ServiceLabels)
+			obj.Annotations = cr.Spec.PXC.Expose.Annotations
+			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.Expose.Labels)
 		}
 	}
 
@@ -450,14 +450,18 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 }
 
 func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
+	if cr.Spec.HAProxy.ExposeReplicas == nil {
+		cr.Spec.HAProxy.ExposeReplicas = &api.ServiceExpose{
+			Enabled: true,
+		}
+	}
+
 	svcType := corev1.ServiceTypeClusterIP
 	if cr.Spec.HAProxy != nil {
 		if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.HAProxy.ExposeReplicas.Type) > 0 {
 			svcType = cr.Spec.HAProxy.ExposeReplicas.Type
-		} else {
-			if len(cr.Spec.HAProxy.ReplicasServiceType) > 0 {
-				svcType = cr.Spec.HAProxy.ReplicasServiceType
-			}
+		} else if len(cr.Spec.HAProxy.ReplicasServiceType) > 0 {
+			svcType = cr.Spec.HAProxy.ReplicasServiceType
 		}
 	}
 

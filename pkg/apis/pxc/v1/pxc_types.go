@@ -476,8 +476,8 @@ type ProxySQLSpec struct {
 
 type HAProxySpec struct {
 	PodSpec        `json:",inline"`
-	ExposePrimary  ServiceExpose `json:"exposePrimary,omitempty"`
-	ExposeReplicas ServiceExpose `json:"exposeReplicas,omitempty"`
+	ExposePrimary  ServiceExpose  `json:"exposePrimary,omitempty"`
+	ExposeReplicas *ServiceExpose `json:"exposeReplicas,omitempty"`
 
 	// Deprecated: Use ExposeReplica.Enabled instead
 	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
@@ -869,7 +869,13 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.HAProxyEnabled() {
-		if cr.CompareVersionWith("1.14.0") < 0 {
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			if c.HAProxy.ExposeReplicas == nil {
+				c.HAProxy.ExposeReplicas = &ServiceExpose{
+					Enabled: true,
+				}
+			}
+		} else {
 			if c.HAProxy.ReplicasServiceEnabled == nil {
 				t := true
 				c.HAProxy.ReplicasServiceEnabled = &t

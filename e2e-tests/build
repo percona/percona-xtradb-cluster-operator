@@ -17,28 +17,32 @@ if [[ ${DOCKER_SQUASH:-1} == 1 ]]; then
 	squash="--squash"
 fi
 
+if [[ ${DOCKER_PUSH:-1} == 1 ]]; then
+	imgresult="--push=true"
+else
+	imgresult="--load"
+fi
+
 build_operator() {
 	if [ "${RELEASE:-1}" = 0 ]; then
 		GO_LDFLAGS="-race"
 	fi
 
 	export IMAGE
-	export DOCKER_DEFAULT_PLATFORM=${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+	export DOCKER_DEFAULT_PLATFORM=${DOCKER_DEFAULT_PLATFORM:-"linux/amd64,linux/arm64"}
 	export GO_LDFLAGS="-w -s -trimpath $GO_LDFLAGS"
 	pushd ${src_dir}
-	docker build \
+	docker buildx build \
 		--build-arg GIT_COMMIT=$GIT_COMMIT \
 		--build-arg GIT_BRANCH=$GIT_BRANCH \
 		--build-arg BUILD_TIME=$BUILD_TIME \
 		--build-arg GO_LDFLAGS="$GO_LDFLAGS" \
+		$imgresult \
 		$squash \
 		$no_cache \
 		-t "${IMAGE}" -f build/Dockerfile .
 	popd
 
-	if [ "${DOCKER_PUSH:-1}" = 1 ]; then
-		docker push ${IMAGE}
-	fi
 }
 
 if [[ $BUILD == "0" ]]; then

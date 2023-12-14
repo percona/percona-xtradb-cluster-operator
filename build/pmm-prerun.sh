@@ -2,6 +2,9 @@
 
 set -o errexit
 
+CLUSTER_NAME="${PMM_PREFIX}${CLUSTER_NAME}"
+PMM_AGENT_SETUP_NODE_NAME="${PMM_PREFIX}${PMM_AGENT_SETUP_NODE_NAME}"
+
 pmm_args=()
 
 read -ra PMM_ADMIN_CUSTOM_PARAMS_ARRAY <<<"$PMM_ADMIN_CUSTOM_PARAMS"
@@ -30,7 +33,6 @@ if [[ $DB_TYPE == "haproxy" ]]; then
 	)
 fi
 
-CLUSTER_NAME="${PMM_PREFIX}${CLUSTER_NAME}"
 
 pmm-admin status --wait=10s
 pmm-admin add "$DB_TYPE" --skip-connection-check --metrics-mode=push --username="$DB_USER" --password="$DB_PASSWORD" --cluster="$CLUSTER_NAME" "${pmm_args[@]}"

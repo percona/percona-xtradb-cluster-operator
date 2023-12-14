@@ -118,6 +118,10 @@ spec:
               value: "true"
             - name: PMM_AGENT_SIDECAR_SLEEP
               value: "5"
+          envFrom:
+            - secretRef:
+                name: my-env-var-secrets
+                optional: true
           imagePullPolicy: Always
           lifecycle:
             preStop:

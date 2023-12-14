@@ -59,7 +59,8 @@ func (c *HAProxy) Name() string {
 }
 
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
-	_ []corev1.Volume) (corev1.Container, error) {
+	_ []corev1.Volume,
+) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            haproxyName,
 		Image:           spec.Image,
@@ -362,6 +363,21 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 			},
 		}
 		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		fvar := true
+		ct.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.HAProxy.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
+
 	}
 
 	ct.Resources = spec.Resources

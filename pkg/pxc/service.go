@@ -393,12 +393,10 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	if svcType == corev1.ServiceTypeLoadBalancer || svcType == corev1.ServiceTypeNodePort {
 		svcTrafficPolicyType := corev1.ServiceExternalTrafficPolicyTypeCluster
 
-		if cr.CompareVersionWith("1.14.0") >= 0 {
-			if cr.Spec.ProxySQL != nil && len(cr.Spec.HAProxy.ExposePrimary.ExternalTrafficPolicy) > 0 {
+		if cr.Spec.HAProxy != nil {
+			if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.HAProxy.ExposePrimary.ExternalTrafficPolicy) > 0 {
 				svcTrafficPolicyType = cr.Spec.HAProxy.ExposePrimary.ExternalTrafficPolicy
-			}
-		} else {
-			if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
+			} else if len(cr.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
 				svcTrafficPolicyType = cr.Spec.HAProxy.ExternalTrafficPolicy
 			}
 		}

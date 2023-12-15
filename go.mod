@@ -1,6 +1,6 @@
 module github.com/percona/percona-xtradb-cluster-operator
 
-go 1.18
+go 1.21
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.2.0
@@ -135,10 +135,10 @@ exclude (
 	go.mongodb.org/mongo-driver v1.3.5
 	go.mongodb.org/mongo-driver v1.3.6
 	go.mongodb.org/mongo-driver v1.3.7
-	go.mongodb.org/mongo-driver v1.4.0
 	go.mongodb.org/mongo-driver v1.4.0-beta1
 	go.mongodb.org/mongo-driver v1.4.0-beta2
 	go.mongodb.org/mongo-driver v1.4.0-rc0
+	go.mongodb.org/mongo-driver v1.4.0
 	go.mongodb.org/mongo-driver v1.4.1
 	go.mongodb.org/mongo-driver v1.4.2
 	go.mongodb.org/mongo-driver v1.4.3
@@ -146,6 +146,6 @@ exclude (
 	go.mongodb.org/mongo-driver v1.4.5
 	go.mongodb.org/mongo-driver v1.4.6
 	go.mongodb.org/mongo-driver v1.4.7
-	go.mongodb.org/mongo-driver v1.5.0
 	go.mongodb.org/mongo-driver v1.5.0-beta1
+	go.mongodb.org/mongo-driver v1.5.0
 )

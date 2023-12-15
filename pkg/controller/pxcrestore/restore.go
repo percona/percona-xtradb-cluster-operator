@@ -2,7 +2,6 @@ package pxcrestore
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -82,7 +81,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr 
 	if err != nil {
 		return errors.Wrap(err, "failed to create restore job")
 	}
-	if err := r.validateJob(ctx, job); err != nil {
+	if err := restorer.ValidateJob(ctx, job); err != nil {
 		return errors.Wrap(err, "failed to validate job")
 	}
 
@@ -91,48 +90,13 @@ func (r *ReconcilePerconaXtraDBClusterRestore) validate(ctx context.Context, cr 
 		if err != nil {
 			return errors.Wrap(err, "failed to create pitr restore job")
 		}
-		if err := r.validateJob(ctx, job); err != nil {
+		if err := restorer.ValidateJob(ctx, job); err != nil {
 			return errors.Wrap(err, "failed to validate job")
 		}
 	}
 	if err := restorer.Validate(ctx); err != nil {
 		return errors.Wrap(err, "failed to validate backup existence")
 	}
-	return nil
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) validateJob(ctx context.Context, job *batchv1.Job) error {
-	secrets := []string{}
-	for _, container := range job.Spec.Template.Spec.Containers {
-		for _, env := range container.Env {
-			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name != "" {
-				secrets = append(secrets, env.ValueFrom.SecretKeyRef.Name)
-			}
-		}
-	}
-
-	notExistingSecrets := make(map[string]struct{})
-	for _, secret := range secrets {
-		err := r.client.Get(ctx, types.NamespacedName{
-			Name:      secret,
-			Namespace: job.Namespace,
-		}, new(corev1.Secret))
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				notExistingSecrets[secret] = struct{}{}
-				continue
-			}
-			return err
-		}
-	}
-	if len(notExistingSecrets) > 0 {
-		secrets := make([]string, 0, len(notExistingSecrets))
-		for k := range notExistingSecrets {
-			secrets = append(secrets, k)
-		}
-		return errors.Errorf("secrets %s not found", strings.Join(secrets, ", "))
-	}
-
 	return nil
 }
 

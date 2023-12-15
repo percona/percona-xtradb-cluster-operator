@@ -67,6 +67,18 @@ func TestValidate(t *testing.T) {
 			expectedErr: "failed to validate job: secrets my-cluster-name-backup-s3, test-cluster-secrets not found",
 		},
 		{
+			name: "s3 without credentialsSecret",
+			bcp:  s3Bcp,
+			objects: []runtime.Object{
+				crSecret,
+				s3Secret,
+			},
+			cluster: updateResource(cluster, func(cluster *api.PerconaXtraDBCluster) {
+				cluster.Spec.Backup.Storages["s3-us-west"].S3.CredentialsSecret = ""
+			}),
+			expectedErr: "",
+		},
+		{
 			name:        "s3 with failing storage client",
 			bcp:         s3Bcp,
 			expectedErr: "failed to validate backup existence: failed to list objects: failListObjects",
@@ -202,13 +214,12 @@ func TestValidate(t *testing.T) {
 			r.newStorageClientFunc = tt.fakeStorageClientFunc
 
 			err := r.validate(ctx, tt.cr, tt.bcp, tt.cluster)
+			errStr := ""
 			if err != nil {
-				if tt.expectedErr == "" {
-					t.Fatal(err)
-				}
-				if err.Error() != tt.expectedErr {
-					t.Fatal("expected err:", tt.expectedErr, "; got:", err.Error())
-				}
+				errStr = err.Error()
+			}
+			if errStr != tt.expectedErr {
+				t.Fatal("expected err:", tt.expectedErr, "; got:", errStr)
 			}
 		})
 	}

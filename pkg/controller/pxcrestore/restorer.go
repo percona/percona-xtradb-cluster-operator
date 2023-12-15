@@ -3,12 +3,14 @@ package pxcrestore
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,6 +27,7 @@ type Restorer interface {
 	PITRJob() (*batchv1.Job, error)
 	Finalize(ctx context.Context) error
 	Validate(ctx context.Context) error
+	ValidateJob(ctx context.Context, job *batchv1.Job) error
 }
 
 type s3 struct{ *restorerOptions }
@@ -40,11 +43,22 @@ func (s *s3) PITRJob() (*batchv1.Job, error) {
 	return backup.RestoreJob(s.cr, s.bcp, s.cluster, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), true)
 }
 
+func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {
+	if s.bcp.Status.S3.CredentialsSecret == "" {
+		// Skip validation if the credentials secret isn't set.
+		// This allows authentication via IAM roles.
+		// More info: https://github.com/percona/k8spxc-docs/blob/87f98e6ddae8114474836c0610155d05d3531e03/docs/backups-storage.md?plain=1#L116-L126
+		return nil
+	}
+
+	return s.restorerOptions.ValidateJob(ctx, job)
+}
+
 func (s *s3) Validate(ctx context.Context) error {
 	sec := corev1.Secret{}
 	err := s.k8sClient.Get(ctx,
 		types.NamespacedName{Name: s.bcp.Status.S3.CredentialsSecret, Namespace: s.bcp.Namespace}, &sec)
-	if err != nil {
+	if client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err, "failed to get secret")
 	}
 
@@ -293,4 +307,42 @@ type restorerOptions struct {
 	k8sClient        client.Client
 	scheme           *runtime.Scheme
 	newStorageClient storage.NewClientFunc
+}
+
+func (opts *restorerOptions) ValidateJob(ctx context.Context, job *batchv1.Job) error {
+	cl := opts.k8sClient
+
+	secrets := []string{}
+	for _, container := range job.Spec.Template.Spec.Containers {
+		for _, env := range container.Env {
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name != "" {
+				secrets = append(secrets, env.ValueFrom.SecretKeyRef.Name)
+			}
+		}
+	}
+
+	notExistingSecrets := make(map[string]struct{})
+	for _, secret := range secrets {
+		err := cl.Get(ctx, types.NamespacedName{
+			Name:      secret,
+			Namespace: job.Namespace,
+		}, new(corev1.Secret))
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				notExistingSecrets[secret] = struct{}{}
+				continue
+			}
+			return err
+		}
+	}
+	if len(notExistingSecrets) > 0 {
+		secrets := make([]string, 0, len(notExistingSecrets))
+		for k := range notExistingSecrets {
+			secrets = append(secrets, k)
+		}
+		sort.StringSlice(secrets).Sort()
+		return errors.Errorf("secrets %s not found", strings.Join(secrets, ", "))
+	}
+
+	return nil
 }

@@ -6,7 +6,7 @@ spec:
   pxcCluster: #cluster
   containerOptions:
     args:
-      xbstream
+      xbstream:
       - '--parallel=3'
       xbcloud:
       - '--parallel=3'

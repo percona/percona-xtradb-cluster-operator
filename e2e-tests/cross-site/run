@@ -52,6 +52,7 @@ main() {
 	desc "create replica cluster"
 
 	create_namespace $replica_namespace 0
+	deploy_operator
 	kubectl_bin apply -f ${tmp_dir}/replica-ssl-internal.yaml
 	apply_secrets
 	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"

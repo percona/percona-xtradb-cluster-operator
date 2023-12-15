@@ -1,6 +1,6 @@
 module github.com/percona/percona-xtradb-cluster-operator
 
-go 1.18
+go 1.21
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.2.0
@@ -12,10 +12,10 @@ require (
 	github.com/go-logr/logr v1.3.0
 	github.com/go-logr/zapr v1.3.0
 	github.com/go-openapi/errors v0.20.4
-	github.com/go-openapi/runtime v0.26.0
-	github.com/go-openapi/strfmt v0.21.7
+	github.com/go-openapi/runtime v0.26.2
+	github.com/go-openapi/strfmt v0.21.8
 	github.com/go-openapi/swag v0.22.4
-	github.com/go-openapi/validate v0.22.1
+	github.com/go-openapi/validate v0.22.3
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-version v1.6.0
@@ -47,10 +47,10 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.21.4 // indirect
-	github.com/go-openapi/jsonpointer v0.19.6 // indirect
+	github.com/go-openapi/jsonpointer v0.20.0 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/loads v0.21.2 // indirect
-	github.com/go-openapi/spec v0.20.8 // indirect
+	github.com/go-openapi/spec v0.20.11 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -82,9 +82,10 @@ require (
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	go.mongodb.org/mongo-driver v1.11.3 // indirect
-	go.opentelemetry.io/otel v1.15.0 // indirect
-	go.opentelemetry.io/otel/trace v1.15.0 // indirect
+	go.mongodb.org/mongo-driver v1.13.1 // indirect
+	go.opentelemetry.io/otel v1.17.0 // indirect
+	go.opentelemetry.io/otel/metric v1.17.0 // indirect
+	go.opentelemetry.io/otel/trace v1.17.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
@@ -134,10 +135,10 @@ exclude (
 	go.mongodb.org/mongo-driver v1.3.5
 	go.mongodb.org/mongo-driver v1.3.6
 	go.mongodb.org/mongo-driver v1.3.7
-	go.mongodb.org/mongo-driver v1.4.0
 	go.mongodb.org/mongo-driver v1.4.0-beta1
 	go.mongodb.org/mongo-driver v1.4.0-beta2
 	go.mongodb.org/mongo-driver v1.4.0-rc0
+	go.mongodb.org/mongo-driver v1.4.0
 	go.mongodb.org/mongo-driver v1.4.1
 	go.mongodb.org/mongo-driver v1.4.2
 	go.mongodb.org/mongo-driver v1.4.3
@@ -145,6 +146,6 @@ exclude (
 	go.mongodb.org/mongo-driver v1.4.5
 	go.mongodb.org/mongo-driver v1.4.6
 	go.mongodb.org/mongo-driver v1.4.7
-	go.mongodb.org/mongo-driver v1.5.0
 	go.mongodb.org/mongo-driver v1.5.0-beta1
+	go.mongodb.org/mongo-driver v1.5.0
 )

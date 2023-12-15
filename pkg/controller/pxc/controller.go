@@ -266,8 +266,8 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 			},
 		}
 		err = r.client.Get(ctx, client.ObjectKeyFromObject(&haproxySts), &haproxySts)
-		if err == nil {
-			return reconcile.Result{}, errors.Errorf("failed to enable ProxySQL: you can't switch from HAProxy to ProxySQL on the fly")
+		if err == nil && !strings.HasPrefix(o.Status.PXC.Version, "5.7") {
+		    return reconcile.Result{}, errors.Errorf("failed to enable ProxySQL: for mysql version 8.0 you can't switch from HAProxy to ProxySQL")
 		}
 	}
 

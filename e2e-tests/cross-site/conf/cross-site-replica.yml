@@ -8,6 +8,16 @@ spec:
   secretsName: my-cluster-secrets
   vaultSecretName: some-name-vault
   pause: false
+  backup:
+    image: -backup
+    storages:
+      minio:
+        type: s3
+        s3:
+          credentialsSecret: minio-secret
+          region: us-east-1
+          bucket: operator-testing
+          endpointUrl: http://minio-service.#namespace:9000/
   pxc:
     size: 3
     image: -pxc
@@ -30,7 +40,7 @@ spec:
       antiAffinityTopologyKey: none
   haproxy:
     enabled: true
-    size: 1
+    size: 2
     image: -haproxy
     resources:
       requests:

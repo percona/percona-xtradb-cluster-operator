@@ -118,6 +118,8 @@ spec:
               value: "true"
             - name: PMM_AGENT_SIDECAR_SLEEP
               value: "5"
+            - name: PMM_AGENT_PATHS_TEMPDIR
+              value: /tmp
           envFrom:
             - secretRef:
                 name: my-env-var-secrets

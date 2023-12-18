@@ -366,6 +366,16 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 	}
 
 	if cr.CompareVersionWith("1.14.0") >= 0 {
+		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+		// but it doesn't work on OpenShift so we set it back to /tmp
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_PATHS_TEMPDIR",
+				Value: "/tmp",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+
 		fvar := true
 		ct.EnvFrom = []corev1.EnvFromSource{
 			{
@@ -377,7 +387,6 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 				},
 			},
 		}
-
 	}
 
 	ct.Resources = spec.Resources

@@ -1327,7 +1327,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(cr *api.PerconaXtraDBClus
 	return nil
 }
 
-func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject client.Object) error {
+func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject client.Object) {
 	oldAnnotations := oldObject.GetAnnotations()
 	if oldAnnotations == nil {
 		oldAnnotations = make(map[string]string)
@@ -1342,6 +1342,7 @@ func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject
 		}
 	}
 	obj.SetAnnotations(annotations)
+
 	oldLabels := oldObject.GetLabels()
 	if oldLabels == nil {
 		oldLabels = make(map[string]string)
@@ -1356,7 +1357,6 @@ func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject
 		}
 	}
 	obj.SetLabels(labels)
-	return nil
 }
 
 func mergeMaps(x, y map[string]string) map[string]string {
@@ -1395,9 +1395,8 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(cr *api.PerconaXtr
 		svc.SetAnnotations(mergeMaps(svc.GetAnnotations(), oldSvc.GetAnnotations()))
 		svc.SetLabels(mergeMaps(svc.GetLabels(), oldSvc.GetLabels()))
 	}
-	if err = setIgnoredAnnotationsAndLabels(cr, svc, oldSvc); err != nil {
-		return errors.Wrap(err, "set ignored annotations and labels")
-	}
+	setIgnoredAnnotationsAndLabels(cr, svc, oldSvc)
+
 	return r.createOrUpdate(cr, svc)
 }
 

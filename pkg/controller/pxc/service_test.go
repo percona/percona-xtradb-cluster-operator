@@ -215,7 +215,7 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 
 var _ = Describe("Service labels and annotations for 1.13.0", Ordered, func() {
 	ctx := context.Background()
-	const ns = "svc-ls-an"
+	const ns = "svc-ls-an-1-13-0"
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ns,

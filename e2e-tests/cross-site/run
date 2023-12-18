@@ -15,11 +15,10 @@ fi
 main() {
 	local source_cluster="cross-site-source"
 	local replica_cluster="cross-site-replica"
-	unset OPERATOR_NS
 	desc "Create source cluster"
 
-	create_namespace $namespace
-	deploy_operator
+	create_infra ${namespace}
+	start_minio
 	apply_secrets
 	spinup_pxc "$source_cluster" "$test_dir/conf/$source_cluster.yml"
 	sleep 60
@@ -47,6 +46,9 @@ main() {
 
 	kubectl_bin get secrets cross-site-source-ssl-internal -o yaml | yq 'del(.metadata)' - | yq '.metadata={"name": "cross-site-replica-ssl-internal"}' - >${tmp_dir}/replica-ssl-internal.yaml
 
+	desc "take backup of source cluster"
+	run_backup "$source_cluster" "backup-minio-source"
+
 	desc "create replica cluster"
 
 	create_namespace $replica_namespace 0
@@ -55,6 +57,15 @@ main() {
 	apply_secrets
 	spinup_pxc "$replica_cluster" "$test_dir/conf/$replica_cluster.yml"
 	sleep 60
+
+	desc "restore backup from source cluster"
+	destination=$(kubectl_bin get -n "${namespace}" pxc-backup backup-minio-source -o jsonpath='{.status.destination}')
+	cat "${test_dir}/conf/restore-backup-minio.yml" \
+		| $sed -e "s~#cluster~${replica_cluster}~" \
+		| $sed -e "s~#destination~${destination}~" \
+		| $sed -e "s~minio-service.#namespace~minio-service.${namespace}~" \
+		| kubectl_bin apply -f -
+	wait_cluster_consistency "$replica_cluster" 3 2
 
 	desc "get replica cluster services endpoints"
 	replica_endpoint0=$(get_service_ip ${replica_cluster}-pxc-0)
@@ -76,13 +87,25 @@ main() {
 	sleep 15
 	wait_cluster_consistency "$replica_cluster" 3 2
 
-	desc "Check replication source-> replica works on"
+	desc "Check replication works between source -> replica"
 	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint0 -uroot -proot_password"
 	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint1 -uroot -proot_password"
 	compare_mysql_cmd "select-2" "SELECT * from myApp.testSourceReplica;" "-h $replica_endpoint2 -uroot -proot_password"
 
+	run_backup "$replica_cluster" "backup-minio-replica"
+
 	desc "Switch clusters over"
 	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
+
+	desc "rebuild source cluster"
+	destination=$(kubectl_bin get -n "${replica_namespace}" pxc-backup backup-minio-replica -o jsonpath='{.status.destination}')
+	cat "${test_dir}/conf/restore-backup-minio.yml" \
+		| $sed -e "s~#cluster~${source_cluster}~" \
+		| $sed -e "s~#destination~${destination}~" \
+		| $sed -e "s~minio-service.#namespace~minio-service.${namespace}~" \
+		| kubectl_bin apply -f -
+	wait_cluster_consistency "$source_cluster" 3 2
+
 	run_mysql \
 		'DELETE FROM myApp.myApp WHERE id=100500' \
 		"-h $source_primary_endpoint -uroot -proot_password"
@@ -91,11 +114,21 @@ main() {
 		'DELETE FROM myApp.testSourceReplica WHERE id=100700' \
 		"-h $source_primary_endpoint -uroot -proot_password"
 
-	kubectl_bin patch pxc $source_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": false, "configuration": {"ssl": true, "sslSkipVerify": true, "ca": "/etc/mysql/ssl-internal/ca.crt"}, "sourcesList": [{"host": "'${replica_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
+	desc "configure old replica as source"
+	kubectl patch pxc ${replica_cluster} -n ${replica_namespace} --type=json -p="[{'op': 'remove', 'path': '/spec/pxc/replicationChannels/0'}]"
+	kubectl_bin patch pxc ${replica_cluster} \
+		-n ${replica_namespace} \
+		--type=merge \
+		--patch '{"spec": {"pxc": {"replicationChannels":[{"name": "replica_to_source", "isSource": true}]}}}'
+
+	desc "configure old source as replica"
+	kubectl patch pxc ${source_cluster} -n ${namespace} --type=json -p="[{'op': 'remove', 'path': '/spec/pxc/replicationChannels/0'}]"
+	kubectl_bin patch pxc ${source_cluster} \
+		-n ${namespace} \
+		--type=merge \
+		--patch '{"spec": {"pxc": {"replicationChannels":[{"name": "replica_to_source", "isSource": false, "configuration": {"ssl": true, "sslSkipVerify": true, "ca": "/etc/mysql/ssl-internal/ca.crt"}, "sourcesList": [{"host": "'${replica_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${replica_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
 
 	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$replica_namespace"
-	kubectl_bin patch pxc $replica_cluster --type=merge --patch '{"spec": {"pxc": {"replicationChannels":[{"name": "source_to_replica", "isSource": true, "sourcesList": [{"host": "'${source_endpoint0}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint1}'", "port": 3306, "weight": 100},{"host": "'${source_endpoint2}'", "port": 3306, "weight": 100}]}]}}}'
-
 	desc "Write data to replica cluster"
 	run_mysql \
 		'CREATE DATABASE IF NOT EXISTS myApp; use myApp; CREATE TABLE IF NOT EXISTS testReplicaSource (id int PRIMARY KEY);' \
@@ -106,7 +139,7 @@ main() {
 
 	sleep 15
 
-	desc "Check replication replica -> source works on"
+	desc "Check replication works between replica -> source"
 	kubectl_bin config set-context $(kubectl_bin config current-context) --namespace="$namespace"
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint0 -uroot -proot_password"
 	compare_mysql_cmd "select-3" "SELECT * from myApp.testReplicaSource;" "-h $source_endpoint1 -uroot -proot_password"

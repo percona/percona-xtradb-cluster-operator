@@ -213,7 +213,7 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 	})
 })
 
-var _ = FDescribe("Service labels and annotations for 1.13.0", Ordered, func() {
+var _ = Describe("Service labels and annotations for 1.13.0", Ordered, func() {
 	ctx := context.Background()
 	const ns = "svc-ls-an"
 	namespace := &corev1.Namespace{

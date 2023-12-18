@@ -671,7 +671,7 @@ var _ = Describe("Authentication policy", Ordered, func() {
 
 			It("should NOT reconcile", func() {
 				_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
-				Expect(err).To(MatchError("failed to enable ProxySQL: you can't switch from HAProxy to ProxySQL on the fly"))
+				Expect(err).To(MatchError("failed to enable ProxySQL: for mysql version 8.0 you can't switch from HAProxy to ProxySQL"))
 			})
 		})
 	})

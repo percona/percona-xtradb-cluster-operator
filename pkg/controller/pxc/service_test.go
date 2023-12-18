@@ -25,7 +25,7 @@ var _ = Describe("Service labels and annotations", Ordered, func() {
 			Namespace: ns,
 		},
 	}
-	crName := ns + "-reconciler"
+	crName := ns + "-cr"
 	crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
 	cr, err := readDefaultCR(crName, ns)
 	It("should read default cr.yaml", func() {
@@ -222,7 +222,7 @@ var _ = Describe("Service labels and annotations for 1.13.0", Ordered, func() {
 			Namespace: ns,
 		},
 	}
-	crName := ns + "-reconciler"
+	crName := ns + "-cr"
 	crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
 	cr, err := readDefaultCR(crName, ns)
 	It("should read default cr.yaml", func() {

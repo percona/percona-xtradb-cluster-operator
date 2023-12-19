@@ -20,6 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsServer "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	ctrlWebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	_ "github.com/Percona-Lab/percona-version-service/api"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
@@ -70,7 +72,7 @@ func main() {
 	setupLog.Info("Runs on", "platform", sv.Platform, "version", sv.Info)
 
 	setupLog.Info("Manager starting up", "gitCommit", GitCommit, "gitBranch", GitBranch,
-		"goVersion", runtime.Version(), "os", runtime.GOOS, "arch", runtime.GOARCH)
+		"buildTime", BuildTime, "goVersion", runtime.Version(), "os", runtime.GOOS, "arch", runtime.GOARCH)
 
 	namespace, err := k8s.GetWatchNamespace()
 	if err != nil {
@@ -84,19 +86,25 @@ func main() {
 	}
 
 	options := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: metricsServer.Options{
+			BindAddress: metricsAddr,
+		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "08db1feb.percona.com",
-		Namespace:              namespace,
+		LeaderElectionID:       "08db0feb.percona.com",
+		WebhookServer: ctrlWebhook.NewServer(ctrlWebhook.Options{
+			Port: 9443,
+		}),
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE
 	if len(namespace) > 0 {
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(append(strings.Split(namespace, ","), operatorNamespace))
+		namespaces := make(map[string]cache.Config)
+		for _, ns := range append(strings.Split(namespace, ","), operatorNamespace) {
+			namespaces[ns] = cache.Config{}
+		}
+		options.Cache.DefaultNamespaces = namespaces
 	}
 
 	// Get a config to talk to the apiserver

@@ -9,11 +9,12 @@ import (
 
 // PerconaXtraDBClusterRestoreSpec defines the desired state of PerconaXtraDBClusterRestore
 type PerconaXtraDBClusterRestoreSpec struct {
-	PXCCluster   string                      `json:"pxcCluster"`
-	BackupName   string                      `json:"backupName"`
-	BackupSource *PXCBackupStatus            `json:"backupSource,omitempty"`
-	PITR         *PITR                       `json:"pitr,omitempty"`
-	Resources    corev1.ResourceRequirements `json:"resources,omitempty"`
+	PXCCluster       string                      `json:"pxcCluster"`
+	BackupName       string                      `json:"backupName"`
+	ContainerOptions *BackupContainerOptions     `json:"containerOptions,omitempty"`
+	BackupSource     *PXCBackupStatus            `json:"backupSource,omitempty"`
+	PITR             *PITR                       `json:"pitr,omitempty"`
+	Resources        corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore

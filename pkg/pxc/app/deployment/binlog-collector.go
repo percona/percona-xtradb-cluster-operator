@@ -17,6 +17,7 @@ import (
 
 	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
@@ -69,6 +70,16 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			Value: strconv.FormatInt(bufferSize, 10),
 		},
 	}...)
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		timeout := fmt.Sprintf("%.2f", cr.Spec.Backup.PITR.TimeoutSeconds)
+
+		envs = append(envs, corev1.EnvVar{
+			Name:  "TIMEOUT_SECONDS",
+			Value: timeout,
+		})
+	}
+
 	container := corev1.Container{
 		Name:            "pitr",
 		Image:           cr.Spec.Backup.Image,
@@ -108,15 +119,16 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 					Annotations: cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Annotations,
 				},
 				Spec: corev1.PodSpec{
-					Containers:         []corev1.Container{container},
-					ImagePullSecrets:   cr.Spec.Backup.ImagePullSecrets,
-					ServiceAccountName: cr.Spec.Backup.ServiceAccountName,
-					SecurityContext:    cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].PodSecurityContext,
-					Affinity:           cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Affinity,
-					Tolerations:        cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Tolerations,
-					NodeSelector:       cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].NodeSelector,
-					SchedulerName:      cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].SchedulerName,
-					PriorityClassName:  cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].PriorityClassName,
+					Containers:                []corev1.Container{container},
+					ImagePullSecrets:          cr.Spec.Backup.ImagePullSecrets,
+					ServiceAccountName:        cr.Spec.Backup.ServiceAccountName,
+					SecurityContext:           cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].PodSecurityContext,
+					Affinity:                  cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Affinity,
+					TopologySpreadConstraints: pxc.PodTopologySpreadConstraints(cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].TopologySpreadConstraints, labels),
+					Tolerations:               cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].Tolerations,
+					NodeSelector:              cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].NodeSelector,
+					SchedulerName:             cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].SchedulerName,
+					PriorityClassName:         cr.Spec.Backup.Storages[cr.Spec.Backup.PITR.StorageName].PriorityClassName,
 					Volumes: []corev1.Volume{
 						app.GetSecretVolumes("mysql-users-secret-file", "internal-"+cr.Name, false),
 					},

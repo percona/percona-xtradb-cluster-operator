@@ -44,8 +44,9 @@ type PerconaXtraDBClusterBackup struct {
 }
 
 type PXCBackupSpec struct {
-	PXCCluster  string `json:"pxcCluster"`
-	StorageName string `json:"storageName,omitempty"`
+	PXCCluster       string                  `json:"pxcCluster"`
+	StorageName      string                  `json:"storageName,omitempty"`
+	ContainerOptions *BackupContainerOptions `json:"containerOptions,omitempty"`
 }
 
 type PXCBackupStatus struct {
@@ -64,6 +65,28 @@ type PXCBackupStatus struct {
 	Conditions            []metav1.Condition      `json:"conditions,omitempty"`
 	VerifyTLS             *bool                   `json:"verifyTLS,omitempty"`
 	LatestRestorableTime  *metav1.Time            `json:"latestRestorableTime,omitempty"`
+}
+
+func (status *PXCBackupStatus) GetStorageType(cluster *PerconaXtraDBCluster) BackupStorageType {
+	if status.StorageType != "" {
+		return status.StorageType
+	}
+
+	if cluster != nil {
+		storage, ok := cluster.Spec.Backup.Storages[status.StorageName]
+		if ok {
+			return storage.Type
+		}
+	}
+
+	switch {
+	case status.S3 != nil:
+		return BackupStorageS3
+	case status.Azure != nil:
+		return BackupStorageAzure
+	}
+
+	return ""
 }
 
 const (

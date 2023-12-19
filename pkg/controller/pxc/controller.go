@@ -420,7 +420,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
-	err = backup.UpdatePITRTimelines(ctx, r.client, r.clientcmd, o)
+	err = backup.UpdatePITRTimeline(ctx, r.client, r.clientcmd, o)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

@@ -97,7 +97,7 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 	return nil
 }
 
-func UpdatePITRTimelines(ctx context.Context, cl client.Client, clcmd *clientcmd.Client, cr *api.PerconaXtraDBCluster) error {
+func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd *clientcmd.Client, cr *api.PerconaXtraDBCluster) error {
 	log := logf.FromContext(ctx)
 
 	if cr.Spec.Backup == nil || !cr.Spec.Backup.PITR.Enabled {

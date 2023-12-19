@@ -192,6 +192,10 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.SSLInternalSecretName = cluster.Spec.PXC.SSLInternalSecretName
 		cr.Status.VaultSecretName = cluster.Spec.PXC.VaultSecretName
 		cr.Status.VerifyTLS = storage.VerifyTLS
+
+		if cluster.Spec.Backup.Encryption != nil {
+			cr.Status.EncryptionSecretName = cluster.Spec.Backup.Encryption.SecretName
+		}
 	}
 
 	bcp := backup.New(cluster)
@@ -573,6 +577,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) updateJobStatus(bcp *api.PerconaXt
 		Image:                 bcp.Status.Image,
 		SSLSecretName:         bcp.Status.SSLSecretName,
 		SSLInternalSecretName: bcp.Status.SSLInternalSecretName,
+		EncryptionSecretName:  bcp.Status.EncryptionSecretName,
 		VaultSecretName:       bcp.Status.VaultSecretName,
 		VerifyTLS:             storage.VerifyTLS,
 	}

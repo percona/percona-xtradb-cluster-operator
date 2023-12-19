@@ -62,6 +62,7 @@ type PXCBackupStatus struct {
 	SSLSecretName         string                  `json:"sslSecretName,omitempty"`
 	SSLInternalSecretName string                  `json:"sslInternalSecretName,omitempty"`
 	VaultSecretName       string                  `json:"vaultSecretName,omitempty"`
+	EncryptionSecretName  string                  `json:"encryptionSecretName,omitempty"`
 	Conditions            []metav1.Condition      `json:"conditions,omitempty"`
 	VerifyTLS             *bool                   `json:"verifyTLS,omitempty"`
 }

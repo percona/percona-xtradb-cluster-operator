@@ -75,6 +75,23 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 	}
 	envs = util.MergeEnvLists(envs, spec.ContainerOptions.GetEnvVar(cluster, spec.StorageName))
 
+	if cluster.Spec.Backup.Encryption != nil {
+		envs = append(envs, []corev1.EnvVar{
+			{
+				Name:  "ENCRYPT",
+				Value: "1",
+			},
+			{
+				Name:  "ENCRYPTION_ALGORITHM",
+				Value: cluster.Spec.Backup.Encryption.Algorithm,
+			},
+			{
+				Name:  "ENCRYPTION_THREADS",
+				Value: strconv.Itoa(cluster.Spec.Backup.Encryption.Threads),
+			},
+		}...)
+	}
+
 	return batchv1.JobSpec{
 		BackoffLimit:   &backoffLimit,
 		ManualSelector: &manualSelector,
@@ -115,34 +132,55 @@ func (bcp *Backup) JobSpec(spec api.PXCBackupSpec, cluster *api.PerconaXtraDBClu
 }
 
 func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) error {
+	t := true
+
 	// Volume for secret
 	secretVol := corev1.Volume{
 		Name: "ssl",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: cr.Status.SSLSecretName,
+				Optional:   &t,
+			},
+		},
 	}
-	secretVol.Secret = &corev1.SecretVolumeSource{}
-	secretVol.Secret.SecretName = cr.Status.SSLSecretName
-	t := true
-	secretVol.Secret.Optional = &t
 
 	// IntVolume for secret
 	secretIntVol := corev1.Volume{
 		Name: "ssl-internal",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: cr.Status.SSLInternalSecretName,
+				Optional:   &t,
+			},
+		},
 	}
-	secretIntVol.Secret = &corev1.SecretVolumeSource{}
-	secretIntVol.Secret.SecretName = cr.Status.SSLInternalSecretName
-	secretIntVol.Secret.Optional = &t
-
 	// Volume for vault secret
 	secretVaultVol := corev1.Volume{
 		Name: "vault-keyring-secret",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: cr.Status.VaultSecretName,
+				Optional:   &t,
+			},
+		},
 	}
-	secretVaultVol.Secret = &corev1.SecretVolumeSource{}
-	secretVaultVol.Secret.SecretName = cr.Status.VaultSecretName
-	secretVaultVol.Secret.Optional = &t
+
+	// Volume for encryption secret
+	secretEncryptionVol := corev1.Volume{
+		Name: "encryption-secret",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: cr.Status.EncryptionSecretName,
+				Optional:   &t,
+			},
+		},
+	}
 
 	if len(job.Template.Spec.Containers) == 0 {
 		return errors.New("no containers in job spec")
 	}
+
 	job.Template.Spec.Containers[0].VolumeMounts = append(
 		job.Template.Spec.Containers[0].VolumeMounts,
 		corev1.VolumeMount{
@@ -157,12 +195,18 @@ func appendStorageSecret(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBacku
 			Name:      "vault-keyring-secret",
 			MountPath: "/etc/mysql/vault-keyring-secret",
 		},
+		corev1.VolumeMount{
+			Name:      "encryption-secret",
+			MountPath: "/etc/mysql/encryption-secret",
+		},
 	)
+
 	job.Template.Spec.Volumes = append(
 		job.Template.Spec.Volumes,
 		secretVol,
 		secretIntVol,
 		secretVaultVol,
+		secretEncryptionVol,
 	)
 
 	return nil

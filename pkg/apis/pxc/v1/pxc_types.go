@@ -135,6 +135,7 @@ type PXCScheduledBackup struct {
 	Annotations        map[string]string             `json:"annotations,omitempty"`
 	PITR               PITRSpec                      `json:"pitr,omitempty"`
 	BackoffLimit       *int32                        `json:"backoffLimit,omitempty"`
+	Encryption         *BackupEncryption             `json:"encryption,omitempty"`
 }
 
 func (b *PXCScheduledBackup) GetAllowParallel() bool {
@@ -142,6 +143,18 @@ func (b *PXCScheduledBackup) GetAllowParallel() bool {
 		return true
 	}
 	return *b.AllowParallel
+}
+
+type BackupEncryption struct {
+	// +kubebuilder:validation:Required
+	SecretName string `json:"secretName,omitempty"`
+
+	// +kubebuilder:validation:Enum={AES128,AES192,AES256}
+	Algorithm string `json:"algorithm,omitempty"`
+
+	// +kubebuilder:default=1
+	// Specify the number of threads for parallel data encryption. The default value is 1.
+	Threads int `json:"threads,omitempty"`
 }
 
 type PITRSpec struct {

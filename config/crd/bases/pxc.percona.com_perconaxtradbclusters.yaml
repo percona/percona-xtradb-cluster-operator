@@ -65,6 +65,22 @@ spec:
                   backoffLimit:
                     format: int32
                     type: integer
+                  encryption:
+                    properties:
+                      algorithm:
+                        enum:
+                        - AES128
+                        - AES192
+                        - AES256
+                        type: string
+                      secretName:
+                        type: string
+                      threads:
+                        default: 1
+                        type: integer
+                    required:
+                    - secretName
+                    type: object
                   image:
                     type: string
                   imagePullPolicy:

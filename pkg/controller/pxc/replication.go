@@ -231,7 +231,12 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
-	shouldGetMsterKey := true
+	authPlugin, err := primaryDB.ReadVariable("default_authentication_plugin")
+	if err != nil {
+		return errors.Wrap(err, "failed to get default_authentication_plugin variable value")
+	}
+
+	shouldGetMasterKey := authPlugin == "caching_sha2_password"
 
 	for _, channel := range cr.Spec.PXC.ReplicationChannels {
 		if channel.IsSource {
@@ -240,7 +245,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 		currConf := currentReplicaConfig(channel.Name, cr.Status.PXCReplication)
 
-		err = manageReplicationChannel(ctx, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]), shouldGetMsterKey)
+		err = manageReplicationChannel(ctx, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]), shouldGetMasterKey)
 		if err != nil {
 			return errors.Wrapf(err, "manage replication channel %s", channel.Name)
 		}

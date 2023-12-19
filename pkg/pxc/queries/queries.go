@@ -303,7 +303,7 @@ func (p *Database) StartReplication(replicaPass string, config ReplicationConfig
 
 	if shouldGetMasterKey {
 		log.Printf("AAAAAAAAAA Getting master public key for channel %s\n", config.Source.Name)
-		_, err = p.db.Exec(`CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1 FOR CHANNEL '?'`, config.Source.Name)
+		_, err = p.db.Exec(`CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1 FOR CHANNEL ?`, config.Source.Name)
 		if err != nil {
 			return errors.Wrapf(err, "change master to GET_MASTER_PUBLIC_KEY for channel %s", config.Source.Name)
 		}
@@ -414,6 +414,21 @@ func (p *Database) Version() (string, error) {
 	}
 
 	return version, nil
+}
+
+func (p *Database) ReadVariable(variable string) (string, error) {
+	var varName string
+	var value string
+
+	err := p.db.QueryRow("SHOW VARIABLES LIKE ?", variable).Scan(&varName, &value)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("variable was not found")
+		}
+		return "", err
+	}
+
+	return value, nil
 }
 
 func (p *Database) Close() error {

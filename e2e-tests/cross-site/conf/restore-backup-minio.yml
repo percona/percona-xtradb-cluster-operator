@@ -1,0 +1,29 @@
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBClusterRestore
+metadata:
+  name: backup-minio
+spec:
+  pxcCluster: #cluster
+  containerOptions:
+    args:
+      xbstream:
+      - '--parallel=3'
+      xbcloud:
+      - '--parallel=3'
+      xtrabackup:
+      - '--parallel=3'
+  resources:
+    requests:
+      memory: 0.5G
+      cpu: 500m
+    limits:
+      memory: "2G"
+      cpu: "1"
+  backupSource:
+    verifyTLS: false
+    destination: #destination
+    s3:
+      bucket: operator-testing
+      credentialsSecret: minio-secret
+      endpointUrl: http://minio-service.#namespace:9000/
+      region: us-east-1

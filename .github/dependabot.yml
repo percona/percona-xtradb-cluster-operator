@@ -4,6 +4,8 @@ updates:
     directory: /
     schedule:
       interval: monthly
+      day: "thursday"
+      time: "01:00"
     reviewers: 
       - hors 
       - egegunes
@@ -41,3 +43,5 @@ updates:
       - "dependencies"
     schedule:
       interval: monthly
+      day: "thursday"
+      time: "01:00"

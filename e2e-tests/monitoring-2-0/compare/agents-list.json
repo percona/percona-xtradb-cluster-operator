@@ -5,8 +5,7 @@
     "cluster": "monitoring",
     "agents": [
       {
-        "agent_type": "external-exporter",
-        "status": "DONE"
+        "agent_type": "external-exporter"
       },
       {
         "agent_type": "pmm-agent",
@@ -25,8 +24,7 @@
     "cluster": "monitoring",
     "agents": [
       {
-        "agent_type": "external-exporter",
-        "status": "DONE"
+        "agent_type": "external-exporter"
       },
       {
         "agent_type": "pmm-agent",

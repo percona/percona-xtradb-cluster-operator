@@ -129,6 +129,10 @@ spec:
                           type: string
                         storageName:
                           type: string
+                      required:
+                      - name
+                      - schedule
+                      - storageName
                       type: object
                     type: array
                   serviceAccountName:
@@ -507,6 +511,84 @@ spec:
                           required:
                           - container
                           type: object
+                        containerOptions:
+                          properties:
+                            args:
+                              properties:
+                                xbcloud:
+                                  items:
+                                    type: string
+                                  type: array
+                                xbstream:
+                                  items:
+                                    type: string
+                                  type: array
+                                xtrabackup:
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            env:
+                              items:
+                                properties:
+                                  name:
+                                    type: string
+                                  value:
+                                    type: string
+                                  valueFrom:
+                                    properties:
+                                      configMapKeyRef:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                      fieldRef:
+                                        properties:
+                                          apiVersion:
+                                            type: string
+                                          fieldPath:
+                                            type: string
+                                        required:
+                                        - fieldPath
+                                        type: object
+                                      resourceFieldRef:
+                                        properties:
+                                          containerName:
+                                            type: string
+                                          divisor:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                          resource:
+                                            type: string
+                                        required:
+                                        - resource
+                                        type: object
+                                      secretKeyRef:
+                                        properties:
+                                          key:
+                                            type: string
+                                          name:
+                                            type: string
+                                          optional:
+                                            type: boolean
+                                        required:
+                                        - key
+                                        type: object
+                                    type: object
+                                required:
+                                - name
+                                type: object
+                              type: array
+                          type: object
                         containerSecurityContext:
                           properties:
                             allowPrivilegeEscalation:
@@ -704,6 +786,57 @@ spec:
                                 type: integer
                               value:
                                 type: string
+                            type: object
+                          type: array
+                        topologySpreadConstraints:
+                          items:
+                            properties:
+                              labelSelector:
+                                properties:
+                                  matchExpressions:
+                                    items:
+                                      properties:
+                                        key:
+                                          type: string
+                                        operator:
+                                          type: string
+                                        values:
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    type: object
+                                type: object
+                              matchLabelKeys:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              maxSkew:
+                                format: int32
+                                type: integer
+                              minDomains:
+                                format: int32
+                                type: integer
+                              nodeAffinityPolicy:
+                                type: string
+                              nodeTaintsPolicy:
+                                type: string
+                              topologyKey:
+                                type: string
+                              whenUnsatisfiable:
+                                type: string
+                            required:
+                            - maxSkew
+                            - topologyKey
+                            - whenUnsatisfiable
                             type: object
                           type: array
                         type:
@@ -3123,6 +3256,57 @@ spec:
                           type: integer
                         value:
                           type: string
+                      type: object
+                    type: array
+                  topologySpreadConstraints:
+                    items:
+                      properties:
+                        labelSelector:
+                          properties:
+                            matchExpressions:
+                              items:
+                                properties:
+                                  key:
+                                    type: string
+                                  operator:
+                                    type: string
+                                  values:
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              type: object
+                          type: object
+                        matchLabelKeys:
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        maxSkew:
+                          format: int32
+                          type: integer
+                        minDomains:
+                          format: int32
+                          type: integer
+                        nodeAffinityPolicy:
+                          type: string
+                        nodeTaintsPolicy:
+                          type: string
+                        topologyKey:
+                          type: string
+                        whenUnsatisfiable:
+                          type: string
+                      required:
+                      - maxSkew
+                      - topologyKey
+                      - whenUnsatisfiable
                       type: object
                     type: array
                   vaultSecretName:
@@ -5798,6 +5982,57 @@ spec:
                           type: string
                       type: object
                     type: array
+                  topologySpreadConstraints:
+                    items:
+                      properties:
+                        labelSelector:
+                          properties:
+                            matchExpressions:
+                              items:
+                                properties:
+                                  key:
+                                    type: string
+                                  operator:
+                                    type: string
+                                  values:
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              type: object
+                          type: object
+                        matchLabelKeys:
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        maxSkew:
+                          format: int32
+                          type: integer
+                        minDomains:
+                          format: int32
+                          type: integer
+                        nodeAffinityPolicy:
+                          type: string
+                        nodeTaintsPolicy:
+                          type: string
+                        topologyKey:
+                          type: string
+                        whenUnsatisfiable:
+                          type: string
+                      required:
+                      - maxSkew
+                      - topologyKey
+                      - whenUnsatisfiable
+                      type: object
+                    type: array
                   vaultSecretName:
                     type: string
                   volumeSpec:
@@ -8251,6 +8486,57 @@ spec:
                           type: integer
                         value:
                           type: string
+                      type: object
+                    type: array
+                  topologySpreadConstraints:
+                    items:
+                      properties:
+                        labelSelector:
+                          properties:
+                            matchExpressions:
+                              items:
+                                properties:
+                                  key:
+                                    type: string
+                                  operator:
+                                    type: string
+                                  values:
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              type: object
+                          type: object
+                        matchLabelKeys:
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        maxSkew:
+                          format: int32
+                          type: integer
+                        minDomains:
+                          format: int32
+                          type: integer
+                        nodeAffinityPolicy:
+                          type: string
+                        nodeTaintsPolicy:
+                          type: string
+                        topologyKey:
+                          type: string
+                        whenUnsatisfiable:
+                          type: string
+                      required:
+                      - maxSkew
+                      - topologyKey
+                      - whenUnsatisfiable
                       type: object
                     type: array
                   vaultSecretName:

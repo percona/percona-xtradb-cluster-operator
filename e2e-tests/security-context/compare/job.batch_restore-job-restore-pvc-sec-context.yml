@@ -42,12 +42,12 @@ spec:
           volumeMounts:
             - mountPath: /datadir
               name: datadir
+            - mountPath: /etc/mysql/vault-keyring-secret
+              name: vault-keyring-secret
             - mountPath: /etc/mysql/ssl
               name: ssl
             - mountPath: /etc/mysql/ssl-internal
               name: ssl-internal
-            - mountPath: /etc/mysql/vault-keyring-secret
-              name: vault-keyring-secret
       dnsPolicy: ClusterFirst
       restartPolicy: Never
       schedulerName: default-scheduler
@@ -59,10 +59,19 @@ spec:
       serviceAccount: percona-xtradb-cluster-operator-workload
       serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
       volumes:
         - name: datadir
           persistentVolumeClaim:
             claimName: datadir-sec-context-pxc-0
+        - name: vault-keyring-secret
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: sec-context-vault
         - name: ssl-internal
           secret:
             defaultMode: 420
@@ -73,8 +82,3 @@ spec:
             defaultMode: 420
             optional: false
             secretName: some-name-ssl
-        - name: vault-keyring-secret
-          secret:
-            defaultMode: 420
-            optional: true
-            secretName: sec-context-vault

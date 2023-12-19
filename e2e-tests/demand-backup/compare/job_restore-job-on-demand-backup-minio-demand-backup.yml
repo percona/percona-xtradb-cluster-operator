@@ -26,6 +26,17 @@ spec:
         - command:
             - recovery-cloud.sh
           env:
+            - name: PXC_SERVICE
+              value: demand-backup-pxc
+            - name: PXC_USER
+              value: xtrabackup
+            - name: PXC_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup
+                  name: my-cluster-secrets
+            - name: VERIFY_TLS
+              value: "false"
             - name: ENDPOINT
               value: https://minio-service.namespace:9000/
             - name: DEFAULT_REGION
@@ -40,17 +51,12 @@ spec:
                 secretKeyRef:
                   key: AWS_SECRET_ACCESS_KEY
                   name: minio-secret
-            - name: PXC_SERVICE
-              value: demand-backup-pxc
-            - name: PXC_USER
-              value: xtrabackup
-            - name: PXC_PASS
-              valueFrom:
-                secretKeyRef:
-                  key: xtrabackup
-                  name: my-cluster-secrets
-            - name: VERIFY_TLS
-              value: "false"
+            - name: XB_EXTRA_ARGS
+              value: --parallel=3
+            - name: XBCLOUD_EXTRA_ARGS
+              value: --parallel=3
+            - name: XBSTREAM_EXTRA_ARGS
+              value: --parallel=3
             - name: XB_USE_MEMORY
               value: "1500000000"
           imagePullPolicy: Always

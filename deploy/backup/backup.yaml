@@ -7,3 +7,14 @@ metadata:
 spec:
   pxcCluster: cluster1
   storageName: fs-pvc
+#  containerOptions:
+#    env:
+#    - name: VERIFY_TLS
+#      value: "false"
+#    args:
+#      xtrabackup:
+#      - "--someflag=abc"
+#      xbcloud:
+#      - "--someflag=abc"
+#      xbstream:
+#      - "--someflag=abc"

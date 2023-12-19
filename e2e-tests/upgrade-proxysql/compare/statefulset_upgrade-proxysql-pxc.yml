@@ -257,7 +257,7 @@ spec:
           secret:
             defaultMode: 420
             optional: true
-            secretName: upgrade-haproxy-mysql-init
+            secretName: upgrade-proxysql-mysql-init
   updateStrategy:
     type: OnDelete
   volumeClaimTemplates:

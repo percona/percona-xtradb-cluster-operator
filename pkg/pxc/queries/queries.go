@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -268,7 +269,7 @@ func (p *Database) IsReadonly() (bool, error) {
 	return readonly == 1, errors.Wrap(err, "select global read_only param")
 }
 
-func (p *Database) StartReplication(replicaPass string, config ReplicationConfig) error {
+func (p *Database) StartReplication(replicaPass string, config ReplicationConfig, shouldGetMasterKey bool) error {
 	var ca string
 	var ssl int
 	if config.SSL {
@@ -298,6 +299,14 @@ func (p *Database) StartReplication(replicaPass string, config ReplicationConfig
 `, replicaPass, config.Source.Host, config.Source.Port, config.SourceRetryCount, config.SourceConnectRetry, ssl, ca, sslVerify, config.Source.Name)
 	if err != nil {
 		return errors.Wrapf(err, "change source for channel %s", config.Source.Name)
+	}
+
+	if shouldGetMasterKey {
+		log.Printf("AAAAAAAAAA Getting master public key for channel %s\n", config.Source.Name)
+		_, err = p.db.Exec(`CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1 FOR CHANNEL '?'`, config.Source.Name)
+		if err != nil {
+			return errors.Wrapf(err, "change master to GET_MASTER_PUBLIC_KEY for channel %s", config.Source.Name)
+		}
 	}
 
 	_, err = p.db.Exec(`START REPLICA FOR CHANNEL ?`, config.Source.Name)

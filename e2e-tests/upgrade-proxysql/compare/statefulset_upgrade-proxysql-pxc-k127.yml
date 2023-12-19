@@ -197,6 +197,8 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -254,6 +256,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-upgrade-proxysql
+        - name: mysql-init-file
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: upgrade-haproxy-mysql-init
   updateStrategy:
     type: OnDelete
   volumeClaimTemplates:

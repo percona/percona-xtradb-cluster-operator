@@ -191,6 +191,8 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:

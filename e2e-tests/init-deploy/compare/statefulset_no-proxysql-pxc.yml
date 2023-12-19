@@ -203,7 +203,7 @@ spec:
           secret:
             defaultMode: 420
             optional: true
-            secretName: some-name-mysql-init
+            secretName: no-proxysql-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0

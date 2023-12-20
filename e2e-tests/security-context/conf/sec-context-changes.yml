@@ -100,7 +100,7 @@ spec:
           credentialsSecret: minio-secret
           region: us-east-1
           bucket: operator-testing
-          endpointUrl: http://minio-service:9000/
+          endpointUrl: https://minio-service.#namespace:9000/
     schedule:
       - name: each-hour-pvc
         schedule: "0 */1 * * *"

@@ -1459,7 +1459,7 @@ function prepare_cr_yaml() {
 			.spec.backup.storages.minio.s3.credentialsSecret = \"minio-secret\" |
 			.spec.backup.storages.minio.s3.region = \"us-east-1\" |
 			.spec.backup.storages.minio.s3.bucket = \"operator-testing\" |
-			.spec.backup.storages.minio.s3.endpointUrl = \"http://minio-service:9000/\" |
+			.spec.backup.storages.minio.s3.endpointUrl = \"https://minio-service.#namespace:9000/\" |
 			.spec.backup.storages.minio.type = \"s3\"
 		" - >"${cr_yaml}"
 	if [[ ${proxy} == "haproxy" ]]; then

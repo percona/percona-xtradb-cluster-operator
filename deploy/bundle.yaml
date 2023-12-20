@@ -587,6 +587,11 @@ spec:
               lastscheduled:
                 format: date-time
                 type: string
+              originalPXCSize:
+                format: int32
+                type: integer
+              originalUnsafe:
+                type: boolean
               state:
                 type: string
             type: object

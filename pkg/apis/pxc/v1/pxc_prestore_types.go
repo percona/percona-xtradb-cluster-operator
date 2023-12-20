@@ -19,10 +19,12 @@ type PerconaXtraDBClusterRestoreSpec struct {
 
 // PerconaXtraDBClusterRestoreStatus defines the observed state of PerconaXtraDBClusterRestore
 type PerconaXtraDBClusterRestoreStatus struct {
-	State         BcpRestoreStates `json:"state,omitempty"`
-	Comments      string           `json:"comments,omitempty"`
-	CompletedAt   *metav1.Time     `json:"completed,omitempty"`
-	LastScheduled *metav1.Time     `json:"lastscheduled,omitempty"`
+	State           BcpRestoreStates `json:"state,omitempty"`
+	Comments        string           `json:"comments,omitempty"`
+	CompletedAt     *metav1.Time     `json:"completed,omitempty"`
+	LastScheduled   *metav1.Time     `json:"lastscheduled,omitempty"`
+	OriginalPXCSize int32            `json:"originalPXCSize,omitempty"`
+	OriginalUnsafe  bool             `json:"originalUnsafe,omitempty"`
 }
 
 type PITR struct {

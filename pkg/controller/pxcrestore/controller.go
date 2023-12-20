@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -81,6 +82,11 @@ type ReconcilePerconaXtraDBClusterRestore struct {
 	serverVersion *version.ServerVersion
 }
 
+var (
+	errWaitForPVCShutdown = errors.New("wait for pvc shutdown")
+	errWaitForJob         = errors.New("wait for job")
+)
+
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterRestore object and makes changes based on the state read
 // and what is in the PerconaXtraDBClusterRestore.Spec
 // Note:
@@ -101,7 +107,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		// Error reading the object - requeue the request.
 		return rr, err
 	}
-	if cr.Status.State != api.RestoreNew {
+
+	if cr.Status.State == api.RestoreSucceeded || cr.Status.State == api.RestoreFailed {
 		return rr, nil
 	}
 
@@ -126,12 +133,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	returnMsg := fmt.Sprintf(backupRestoredMsg, cr.Name, cr.Spec.PXCCluster, cr.Name)
 
 	defer func() {
-		status := api.BcpRestoreStates(api.RestoreSucceeded)
 		if err != nil {
-			status = api.RestoreFailed
-			returnMsg = err.Error()
+			r.setStatus(cr, api.RestoreFailed, err.Error())
 		}
-		r.setStatus(cr, status, returnMsg)
 	}()
 
 	for _, j := range rJobsList.Items {
@@ -155,6 +159,9 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return rr, err
 	}
 	clusterOrig := cluster.DeepCopy()
+
+	cr.Status.OriginalPXCSize = clusterOrig.Spec.PXC.Size
+	cr.Status.OriginalUnsafe = clusterOrig.Spec.AllowUnsafeConfig
 
 	err = cluster.CheckNSetDefaults(r.serverVersion, log)
 	if err != nil {
@@ -192,15 +199,50 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return rr, err
 	}
 
+	if cluster.Status.Status != api.AppStatePaused {
+		log.Info("waiting for cluster to stop", "cluster", cr.Spec.PXCCluster)
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	err = r.deletePVCs(cluster)
+	if err != nil {
+		err = errors.Wrap(err, "delete PVCs")
+		return rr, err
+	}
+
+	err = r.waitForPVCShutdown(cluster)
+	if err != nil {
+		if errors.Is(err, errWaitForPVCShutdown) {
+			err = nil
+			log.Info("waiting for PVCs to shutdown", "cluster", cr.Spec.PXCCluster)
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		err = errors.Wrap(err, "wait for PVC shutdown")
+		return rr, err
+	}
+
 	log.Info("starting restore", "cluster", cr.Spec.PXCCluster, "backup", cr.Spec.BackupName)
 	err = r.setStatus(cr, api.RestoreRestore, "")
 	if err != nil {
 		err = errors.Wrap(err, "set status")
 		return rr, err
 	}
-	err = r.restore(cr, bcp, cluster)
+
+	var job *batchv1.Job
+	job, err = r.restore(cr, bcp, cluster)
 	if err != nil {
 		err = errors.Wrap(err, "run restore")
+		return rr, err
+	}
+
+	err = r.checkJobStatus(job)
+	if err != nil {
+		if errors.Is(err, errWaitForJob) {
+			err = nil
+			log.Info("waiting for restore job", "cluster", cr.Spec.PXCCluster)
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		err = errors.Wrap(err, "wait for restore job")
 		return rr, err
 	}
 
@@ -212,8 +254,6 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	}
 
 	if cr.Spec.PITR != nil {
-		oldSize := cluster.Spec.PXC.Size
-		oldUnsafe := cluster.Spec.AllowUnsafeConfig
 		cluster.Spec.PXC.Size = 1
 		cluster.Spec.AllowUnsafeConfig = true
 
@@ -227,13 +267,24 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			return rr, errors.Wrap(err, "set status")
 		}
 
-		err = r.pitr(cr, bcp, cluster)
+		job, err = r.pitr(cr, bcp, cluster)
 		if err != nil {
 			return rr, errors.Wrap(err, "run pitr")
 		}
 
-		cluster.Spec.PXC.Size = oldSize
-		cluster.Spec.AllowUnsafeConfig = oldUnsafe
+		err = r.checkJobStatus(job)
+		if err != nil {
+			if errors.Is(err, errWaitForJob) {
+				err = nil
+				log.Info("waiting for restore job", "cluster", cr.Spec.PXCCluster)
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			err = errors.Wrap(err, "wait for restore job")
+			return rr, err
+		}
+
+		cluster.Spec.PXC.Size = cr.Status.OriginalPXCSize
+		cluster.Spec.AllowUnsafeConfig = cr.Status.OriginalUnsafe
 
 		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
 		err = r.setStatus(cr, api.RestoreStartCluster, "")
@@ -250,6 +301,17 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	}
 
 	log.Info(returnMsg)
+
+	if cluster.Status.Status != api.AppStateReady {
+		log.Info("waiting for cluster to start", "cluster", cr.Spec.PXCCluster)
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	err = r.setStatus(cr, api.RestoreSucceeded, "")
+	if err != nil {
+		err = errors.Wrap(err, "set status")
+		return rr, err
+	}
 
 	return rr, err
 }
@@ -294,12 +356,6 @@ $ kubectl delete pxc-restore/%s
 `
 
 func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBCluster) error {
-	var gracePeriodSec int64
-
-	if c.Spec.PXC != nil && c.Spec.PXC.TerminationGracePeriodSeconds != nil {
-		gracePeriodSec = int64(c.Spec.PXC.Size) * *c.Spec.PXC.TerminationGracePeriodSeconds
-	}
-
 	patch := client.MergeFrom(c.DeepCopy())
 	c.Spec.Pause = true
 	err := r.client.Patch(context.TODO(), c, patch)
@@ -307,18 +363,18 @@ func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBC
 		return errors.Wrap(err, "shutdown pods")
 	}
 
-	ls := statefulset.NewNode(c).Labels()
-	err = r.waitForPodsShutdown(ls, c.Namespace, gracePeriodSec)
-	if err != nil {
-		return errors.Wrap(err, "shutdown pods")
-	}
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterRestore) deletePVCs(cluster *api.PerconaXtraDBCluster) error {
+	ls := statefulset.NewNode(cluster).Labels()
 
 	pvcs := corev1.PersistentVolumeClaimList{}
-	err = r.client.List(
+	err := r.client.List(
 		context.TODO(),
 		&pvcs,
 		&client.ListOptions{
-			Namespace:     c.Namespace,
+			Namespace:     cluster.Namespace,
 			LabelSelector: labels.SelectorFromSet(ls),
 		},
 	)
@@ -326,7 +382,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBC
 		return errors.Wrap(err, "get pvc list")
 	}
 
-	pxcNode := statefulset.NewNode(c)
+	pxcNode := statefulset.NewNode(cluster)
 	pvcNameTemplate := app.DataVolumeName + "-" + pxcNode.StatefulSet().Name
 	for _, pvc := range pvcs.Items {
 		// check prefix just in case, to be sure we're not going to delete a wrong pvc
@@ -338,11 +394,6 @@ func (r *ReconcilePerconaXtraDBClusterRestore) stopCluster(c *api.PerconaXtraDBC
 		if err != nil {
 			return errors.Wrap(err, "delete pvc")
 		}
-	}
-
-	err = r.waitForPVCShutdown(ls, c.Namespace)
-	if err != nil {
-		return errors.Wrap(err, "shutdown pvc")
 	}
 
 	return nil
@@ -364,81 +415,31 @@ func (r *ReconcilePerconaXtraDBClusterRestore) startCluster(cr *api.PerconaXtraD
 		return errors.Wrap(err, "update cluster")
 	}
 
-	// give time for process new state
-	time.Sleep(10 * time.Second)
-
-	var waitLimit int32 = 2 * 60 * 60 // 2 hours
-	if cr.Spec.PXC.LivenessInitialDelaySeconds != nil {
-		waitLimit = *cr.Spec.PXC.LivenessInitialDelaySeconds * cr.Spec.PXC.Size
-	}
-
-	for i := int32(0); i < waitLimit; i++ {
-		current := &api.PerconaXtraDBCluster{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, current)
-		if err != nil {
-			return errors.Wrap(err, "get cluster")
-		}
-		if current.Status.ObservedGeneration == current.Generation && current.Status.PXC.Status == api.AppStateReady {
-			return nil
-		}
-		time.Sleep(time.Second * 1)
-	}
-
-	return errors.Errorf("exceeded wait limit")
+	return nil
 }
 
-const waitLimitSec int64 = 300
+func (r *ReconcilePerconaXtraDBClusterRestore) waitForPVCShutdown(cluster *api.PerconaXtraDBCluster) error {
+	ls := statefulset.NewNode(cluster).Labels()
 
-func (r *ReconcilePerconaXtraDBClusterRestore) waitForPodsShutdown(ls map[string]string, namespace string, gracePeriodSec int64) error {
-	for i := int64(0); i < waitLimitSec+gracePeriodSec; i++ {
-		pods := corev1.PodList{}
+	pvcs := corev1.PersistentVolumeClaimList{}
 
-		err := r.client.List(
-			context.TODO(),
-			&pods,
-			&client.ListOptions{
-				Namespace:     namespace,
-				LabelSelector: labels.SelectorFromSet(ls),
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "get pods list")
-		}
-
-		if len(pods.Items) == 0 {
-			return nil
-		}
-
-		time.Sleep(time.Second * 1)
+	err := r.client.List(
+		context.TODO(),
+		&pvcs,
+		&client.ListOptions{
+			Namespace:     cluster.Namespace,
+			LabelSelector: labels.SelectorFromSet(ls),
+		},
+	)
+	if err != nil {
+		return errors.Wrap(err, "get pvc list")
 	}
 
-	return errors.Errorf("exceeded wait limit")
-}
-
-func (r *ReconcilePerconaXtraDBClusterRestore) waitForPVCShutdown(ls map[string]string, namespace string) error {
-	for i := int64(0); i < waitLimitSec; i++ {
-		pvcs := corev1.PersistentVolumeClaimList{}
-
-		err := r.client.List(
-			context.TODO(),
-			&pvcs,
-			&client.ListOptions{
-				Namespace:     namespace,
-				LabelSelector: labels.SelectorFromSet(ls),
-			},
-		)
-		if err != nil {
-			return errors.Wrap(err, "get pvc list")
-		}
-
-		if len(pvcs.Items) == 1 {
-			return nil
-		}
-
-		time.Sleep(time.Second * 1)
+	if len(pvcs.Items) == 1 {
+		return nil
 	}
 
-	return errors.Errorf("exceeded wait limit")
+	return errWaitForPVCShutdown
 }
 
 func (r *ReconcilePerconaXtraDBClusterRestore) setStatus(cr *api.PerconaXtraDBClusterRestore, state api.BcpRestoreStates, comments string) error {
@@ -457,4 +458,28 @@ func (r *ReconcilePerconaXtraDBClusterRestore) setStatus(cr *api.PerconaXtraDBCl
 	}
 
 	return nil
+}
+
+func (r *ReconcilePerconaXtraDBClusterRestore) checkJobStatus(job *batchv1.Job) error {
+	checkJob := batchv1.Job{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.Name, Namespace: job.Namespace}, &checkJob)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Wrap(err, "get job status")
+	}
+	for _, cond := range checkJob.Status.Conditions {
+		if cond.Status != corev1.ConditionTrue {
+			continue
+		}
+		switch cond.Type {
+		case batchv1.JobComplete:
+			return nil
+		case batchv1.JobFailed:
+			return errors.New(cond.Message)
+		}
+	}
+
+	return errWaitForJob
 }

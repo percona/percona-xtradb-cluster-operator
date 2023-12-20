@@ -54,8 +54,10 @@ func TestValidate(t *testing.T) {
 		fakeStorageClientFunc storage.NewClientFunc
 	}{
 		{
-			name: "s3",
-			bcp:  s3Bcp,
+			name:    "s3",
+			cr:      cr.DeepCopy(),
+			cluster: cluster.DeepCopy(),
+			bcp:     s3Bcp,
 			objects: []runtime.Object{
 				crSecret,
 				s3Secret,
@@ -63,11 +65,14 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:        "s3 without secrets",
+			cr:          cr.DeepCopy(),
+			cluster:     cluster.DeepCopy(),
 			bcp:         s3Bcp,
 			expectedErr: "failed to validate job: secrets my-cluster-name-backup-s3, test-cluster-secrets not found",
 		},
 		{
 			name: "s3 without credentialsSecret",
+			cr:   cr.DeepCopy(),
 			bcp:  s3Bcp,
 			objects: []runtime.Object{
 				crSecret,
@@ -80,6 +85,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:        "s3 with failing storage client",
+			cr:          cr.DeepCopy(),
+			cluster:     cluster.DeepCopy(),
 			bcp:         s3Bcp,
 			expectedErr: "failed to validate backup existence: failed to list objects: failListObjects",
 			objects: []runtime.Object{
@@ -92,6 +99,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:        "s3 with empty bucket",
+			cr:          cr.DeepCopy(),
+			cluster:     cluster.DeepCopy(),
 			bcp:         s3Bcp,
 			expectedErr: "failed to validate backup existence: backup not found",
 			objects: []runtime.Object{
@@ -124,8 +133,10 @@ func TestValidate(t *testing.T) {
 			},
 		},
 		{
-			name: "azure",
-			bcp:  azureBcp,
+			name:    "azure",
+			bcp:     azureBcp,
+			cr:      cr.DeepCopy(),
+			cluster: cluster.DeepCopy(),
 			objects: []runtime.Object{
 				crSecret,
 				azureSecret,
@@ -133,6 +144,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:        "azure without secrets",
+			cr:          cr.DeepCopy(),
+			cluster:     cluster.DeepCopy(),
 			bcp:         azureBcp,
 			expectedErr: "failed to validate job: secrets azure-secret, test-cluster-secrets not found",
 		},
@@ -159,6 +172,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:        "azure with failing storage client",
+			cr:          cr.DeepCopy(),
+			cluster:     cluster.DeepCopy(),
 			bcp:         azureBcp,
 			expectedErr: "failed to validate backup existence: list blobs: failListObjects",
 			objects: []runtime.Object{
@@ -171,6 +186,8 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:        "azure with empty bucket",
+			cr:          cr.DeepCopy(),
+			cluster:     cluster.DeepCopy(),
 			bcp:         azureBcp,
 			expectedErr: "failed to validate backup existence: no backups found",
 			objects: []runtime.Object{
@@ -185,12 +202,6 @@ func TestValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.cr == nil {
-				tt.cr = cr
-			}
-			if tt.cluster == nil {
-				tt.cluster = cluster
-			}
 			if tt.fakeStorageClientFunc == nil {
 				tt.fakeStorageClientFunc = func(opts storage.Options) (storage.Storage, error) {
 					defaultFakeClient, err := fakestorage.NewFakeClient(opts)

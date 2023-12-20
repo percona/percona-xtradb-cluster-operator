@@ -121,7 +121,7 @@ func (s *pvc) Validate(ctx context.Context) error {
 		return err
 	}
 	pod.Name += "-verify"
-	pod.Spec.Containers[0].Command = []string{"bash", "-c", `[[ $(stat -c%s /backup/xtrabackup.stream) -gt 1048576 ]]`}
+	pod.Spec.Containers[0].Command = []string{"bash", "-c", `[[ $(stat -c%s /backup/xtrabackup.stream) -gt 5000000 ]]`}
 	pod.Spec.RestartPolicy = corev1.RestartPolicyNever
 
 	if err := s.k8sClient.Delete(ctx, pod); client.IgnoreNotFound(err) != nil {

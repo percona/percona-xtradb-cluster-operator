@@ -117,7 +117,7 @@ main() {
 	run_mysql "SHOW BINLOG EVENTS IN 'binlog.000006';" "-h ${proxy} -uroot -proot_password"
 
 	time_now=$(run_mysql "SELECT now();" "-h ${proxy} -uroot -proot_password")
-	gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${proxy} -uroot -proot_password" | $sed 's/^\(.*\):[0-9]-\([0-9]*\)/\1:\2/')
+	gtid=$(run_mysql "SELECT @@gtid_executed;" "-h ${proxy} -uroot -proot_password" | $sed 's/\([a-f0-9-]\{36\}\):[0-9]*-\([0-9]*\).*/\1:\2/')
 
 	if [[ ! ${gtid} =~ ${GTID_PATTERN} ]]; then
 		printf "Some garbage --> %s <-- instead of legit GTID. Exiting" ${gtid}

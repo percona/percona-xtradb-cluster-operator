@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -152,9 +153,12 @@ type PITRSpec struct {
 }
 
 type PXCScheduledBackupSchedule struct {
-	Name        string `json:"name,omitempty"`
-	Schedule    string `json:"schedule,omitempty"`
-	Keep        int    `json:"keep,omitempty"`
+	// +kubebuilder:validation:Required
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:Required
+	Schedule string `json:"schedule,omitempty"`
+	Keep     int    `json:"keep,omitempty"`
+	// +kubebuilder:validation:Required
 	StorageName string `json:"storageName,omitempty"`
 }
 type AppState string
@@ -445,6 +449,7 @@ type PodSpec struct {
 	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
 	HookScript                    string                                  `json:"hookScript,omitempty"`
 	Lifecycle                     corev1.Lifecycle                        `json:"lifecycle,omitempty"`
+	TopologySpreadConstraints     []corev1.TopologySpreadConstraint       `json:"topologySpreadConstraints,omitempty"`
 }
 
 type HAProxySpec struct {
@@ -511,22 +516,77 @@ func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 }
 
 type BackupStorageSpec struct {
-	Type                     BackupStorageType           `json:"type"`
-	S3                       *BackupStorageS3Spec        `json:"s3,omitempty"`
-	Azure                    *BackupStorageAzureSpec     `json:"azure,omitempty"`
-	Volume                   *VolumeSpec                 `json:"volume,omitempty"`
-	NodeSelector             map[string]string           `json:"nodeSelector,omitempty"`
-	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity                 *corev1.Affinity            `json:"affinity,omitempty"`
-	Tolerations              []corev1.Toleration         `json:"tolerations,omitempty"`
-	Annotations              map[string]string           `json:"annotations,omitempty"`
-	Labels                   map[string]string           `json:"labels,omitempty"`
-	SchedulerName            string                      `json:"schedulerName,omitempty"`
-	PriorityClassName        string                      `json:"priorityClassName,omitempty"`
-	PodSecurityContext       *corev1.PodSecurityContext  `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
-	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
-	VerifyTLS                *bool                       `json:"verifyTLS,omitempty"`
+	Type                      BackupStorageType                 `json:"type"`
+	S3                        *BackupStorageS3Spec              `json:"s3,omitempty"`
+	Azure                     *BackupStorageAzureSpec           `json:"azure,omitempty"`
+	Volume                    *VolumeSpec                       `json:"volume,omitempty"`
+	NodeSelector              map[string]string                 `json:"nodeSelector,omitempty"`
+	Resources                 corev1.ResourceRequirements       `json:"resources,omitempty"`
+	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	Tolerations               []corev1.Toleration               `json:"tolerations,omitempty"`
+	Annotations               map[string]string                 `json:"annotations,omitempty"`
+	Labels                    map[string]string                 `json:"labels,omitempty"`
+	SchedulerName             string                            `json:"schedulerName,omitempty"`
+	PriorityClassName         string                            `json:"priorityClassName,omitempty"`
+	PodSecurityContext        *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext  *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
+	RuntimeClassName          *string                           `json:"runtimeClassName,omitempty"`
+	VerifyTLS                 *bool                             `json:"verifyTLS,omitempty"`
+	ContainerOptions          *BackupContainerOptions           `json:"containerOptions,omitempty"`
+}
+
+type BackupContainerOptions struct {
+	Env  []corev1.EnvVar     `json:"env,omitempty"`
+	Args BackupContainerArgs `json:"args,omitempty"`
+}
+
+func (b *BackupContainerOptions) GetEnv() []corev1.EnvVar {
+	return util.MergeEnvLists(b.Env, b.Args.Env())
+}
+
+func (b *BackupContainerOptions) GetEnvVar(cluster *PerconaXtraDBCluster, storageName string) []corev1.EnvVar {
+	if b != nil {
+		return util.MergeEnvLists(b.Args.Env(), b.Env)
+	}
+	if cluster == nil {
+		return nil
+	}
+
+	storage, ok := cluster.Spec.Backup.Storages[storageName]
+	if !ok || storage.ContainerOptions == nil {
+		return nil
+	}
+	return storage.ContainerOptions.GetEnvVar(nil, "")
+}
+
+type BackupContainerArgs struct {
+	Xtrabackup []string `json:"xtrabackup,omitempty"`
+	Xbcloud    []string `json:"xbcloud,omitempty"`
+	Xbstream   []string `json:"xbstream,omitempty"`
+}
+
+func (b *BackupContainerArgs) Env() []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
+	if len(b.Xtrabackup) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XB_EXTRA_ARGS",
+			Value: strings.Join(b.Xtrabackup, " "),
+		})
+	}
+	if len(b.Xbcloud) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XBCLOUD_EXTRA_ARGS",
+			Value: strings.Join(b.Xbcloud, " "),
+		})
+	}
+	if len(b.Xbstream) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XBSTREAM_EXTRA_ARGS",
+			Value: strings.Join(b.Xbstream, " "),
+		})
+	}
+	return envs
 }
 
 type BackupStorageType string
@@ -1086,7 +1146,7 @@ var affinityValidTopologyKeys = map[string]struct{}{
 	"topology.kubernetes.io/region":            {},
 }
 
-var defaultAffinityTopologyKey = "kubernetes.io/hostname"
+var DefaultAffinityTopologyKey = "kubernetes.io/hostname"
 
 // reconcileAffinityOpts ensures that the affinity is set to the valid values.
 // - if the affinity doesn't set at all - set topology key to `defaultAffinityTopologyKey`
@@ -1097,18 +1157,18 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	switch {
 	case p.Affinity == nil:
 		p.Affinity = &PodAffinity{
-			TopologyKey: &defaultAffinityTopologyKey,
+			TopologyKey: &DefaultAffinityTopologyKey,
 		}
 
 	case p.Affinity.TopologyKey == nil:
-		p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+		p.Affinity.TopologyKey = &DefaultAffinityTopologyKey
 
 	case p.Affinity.Advanced != nil:
 		p.Affinity.TopologyKey = nil
 
 	case p.Affinity != nil && p.Affinity.TopologyKey != nil:
 		if _, ok := affinityValidTopologyKeys[*p.Affinity.TopologyKey]; !ok {
-			p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+			p.Affinity.TopologyKey = &DefaultAffinityTopologyKey
 		}
 	}
 }

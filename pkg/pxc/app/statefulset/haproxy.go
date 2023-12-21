@@ -59,7 +59,8 @@ func (c *HAProxy) Name() string {
 }
 
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
-	_ []corev1.Volume) (corev1.Container, error) {
+	_ []corev1.Volume,
+) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            haproxyName,
 		Image:           spec.Image,
@@ -363,6 +364,18 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 			{
 				Name:  "PMM_AGENT_SIDECAR_SLEEP",
 				Value: "5",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+		// but it doesn't work on OpenShift so we set it back to /tmp
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_PATHS_TEMPDIR",
+				Value: "/tmp",
 			},
 		}
 		ct.Env = append(ct.Env, sidecarEnvs...)

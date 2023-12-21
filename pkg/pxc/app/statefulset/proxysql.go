@@ -56,7 +56,8 @@ func (c *Proxy) Name() string {
 }
 
 func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
-	availableVolumes []corev1.Volume) (corev1.Container, error) {
+	availableVolumes []corev1.Volume,
+) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            proxyName,
 		Image:           spec.Image,
@@ -388,6 +389,18 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.P
 			{
 				Name:  "PMM_AGENT_SIDECAR_SLEEP",
 				Value: "5",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+		// but it doesn't work on OpenShift so we set it back to /tmp
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_PATHS_TEMPDIR",
+				Value: "/tmp",
 			},
 		}
 		ct.Env = append(ct.Env, sidecarEnvs...)

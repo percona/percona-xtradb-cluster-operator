@@ -5,6 +5,14 @@ metadata:
 spec:
   pxcCluster: demand-backup
   backupName: on-demand-backup-minio
+  containerOptions:
+    args:
+      xbstream: 
+      - '--parallel=3'
+      xbcloud: 
+      - '--parallel=3'
+      xtrabackup: 
+      - '--parallel=3'
   resources:
     requests:
       memory: 0.5G

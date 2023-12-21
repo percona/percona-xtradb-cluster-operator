@@ -15,9 +15,9 @@ func NewPVC(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluste
         labels[key] = value
     }
 
-    labels["type"] = "xtrabackup"
-    labels["cluster"] = cr.Spec.PXCCluster
-    labels["backup-name"] = cr.Name
+	labels["type"] = "xtrabackup"
+	labels["cluster"] = cr.Spec.PXCCluster
+	labels["backup-name"] = cr.Name
 
 	return &corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{
@@ -27,7 +27,7 @@ func NewPVC(cr *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluste
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      GenName63(cr),
 			Namespace: cr.Namespace,
-			Labels: labels,
+			Labels:    labels,
 		},
 	}
 }

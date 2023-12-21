@@ -20,11 +20,11 @@ func NewConfigMap(cr *api.PerconaXtraDBCluster, cmName, filename, content string
 			Name:      cmName,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-                "app.kubernetes.io/name":      "percona-xtradb-cluster",
-                "app.kubernetes.io/instance":  cr.Name,
-                "app.kubernetes.io/component": "config-map",
-                "name": cmName,
-            },
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": "config-map",
+				"name":                        cmName,
+			},
 		},
 		Data: map[string]string{
 			filename: content,
@@ -46,11 +46,11 @@ func NewAutoTuneConfigMap(cr *api.PerconaXtraDBCluster, memory *resource.Quantit
 			Name:      cmName,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-                "app.kubernetes.io/name":      "percona-xtradb-cluster",
-                "app.kubernetes.io/instance":  cr.Name,
-                "app.kubernetes.io/component": "config-map",
-                "name": cmName,
-            },
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": "config-map",
+				"name":                        cmName,
+			},
 		},
 		Data: map[string]string{
 			"auto-config.cnf": "[mysqld]" + autotuneParams,

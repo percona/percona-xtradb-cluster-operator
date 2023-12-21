@@ -106,11 +106,11 @@ func GetBinlogCollectorDeployment(cr *api.PerconaXtraDBCluster) (appsv1.Deployme
 			Name:      binlogCollectorName,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-                "app.kubernetes.io/name":      "percona-xtradb-cluster",
-                "app.kubernetes.io/instance":  cr.Name,
-                "app.kubernetes.io/component": "binlog-collector",
-                "name": binlogCollectorName,
-            },
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": "binlog-collector",
+				"name":                        binlogCollectorName,
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,

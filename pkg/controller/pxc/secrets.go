@@ -58,11 +58,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context
 			Name:      cr.Spec.SecretsName,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-			    "app.kubernetes.io/name":      "percona-xtradb-cluster",
-                "app.kubernetes.io/instance":  cr.Name,
-                "app.kubernetes.io/component": "secret",
-                "name": cr.Spec.SecretsName,
-            },
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": "secret",
+				"name":                        cr.Spec.SecretsName,
+			},
 		},
 		Type: corev1.SecretTypeOpaque,
 	}

@@ -264,6 +264,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(ctx context.Context, cr
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cr.Name,
 				Namespace: cr.Namespace,
+				Labels: map[string]string{
+                    "app.kubernetes.io/name":      "percona-xtradb-cluster",
+                    "app.kubernetes.io/instance":  cr.Name,
+                    "app.kubernetes.io/component": "perconaxtradbbackup",
+                    "name": cr.Name,
+                },
 			},
 			Spec: api.PXCBackupSpec{
 				PXCCluster:  cr.Spec.PXCCluster,

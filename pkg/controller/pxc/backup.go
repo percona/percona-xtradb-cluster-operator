@@ -293,6 +293,12 @@ func (r *ReconcilePerconaXtraDBCluster) deletePITR(cr *api.PerconaXtraDBCluster)
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deployment.GetBinlogCollectorDeploymentName(cr),
 			Namespace: cr.Namespace,
+			Labels: map[string]string{
+                "app.kubernetes.io/name":      "percona-xtradb-cluster",
+                "app.kubernetes.io/instance":  cr.Name,
+                "app.kubernetes.io/component": "deployment",
+                "name": deployment.GetBinlogCollectorDeploymentName(cr),
+            },
 		},
 	}
 	err := r.client.Delete(context.TODO(), &collectorDeployment)

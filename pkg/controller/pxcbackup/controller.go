@@ -194,7 +194,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.VerifyTLS = storage.VerifyTLS
 	}
 
-	bcp := backup.New(cluster, cr)
+	bcp := backup.New(cluster)
 	job := bcp.Job(cr, cluster)
 	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job)
 	if err != nil {

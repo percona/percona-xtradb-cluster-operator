@@ -79,6 +79,12 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cr.Name + "-ca-cert",
 				Namespace: cr.Namespace,
+				Labels: map[string]string{
+                    "app.kubernetes.io/name":      "percona-xtradb-cluster",
+                    "app.kubernetes.io/instance":  cr.Name,
+                    "app.kubernetes.io/component": "certificate",
+                    "name": cr.Name + "-ca-cert",
+                },
 			},
 			Spec: cm.CertificateSpec{
 				SecretName: cr.Name + "-ca-cert",
@@ -112,6 +118,12 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ssl",
 			Namespace: cr.Namespace,
+			Labels: map[string]string{
+                "app.kubernetes.io/name":      "percona-xtradb-cluster",
+                "app.kubernetes.io/instance":  cr.Name,
+                "app.kubernetes.io/component": "ssl",
+                "name": cr.Name + "-ssl",
+            },
 		},
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLSecretName,
@@ -147,6 +159,12 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLByCertManager(cr *api.PerconaXt
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ssl-internal",
 			Namespace: cr.Namespace,
+			Labels: map[string]string{
+                "app.kubernetes.io/name":      "percona-xtradb-cluster",
+                "app.kubernetes.io/instance":  cr.Name,
+                "app.kubernetes.io/component": "ssl-internal",
+                "name": cr.Name + "-ssl-internal",
+            },
 		},
 		Spec: cm.CertificateSpec{
 			SecretName: cr.Spec.PXC.SSLInternalSecretName,
@@ -230,6 +248,12 @@ func (r *ReconcilePerconaXtraDBCluster) createIssuer(namespace, issuer string, c
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      issuer,
 			Namespace: namespace,
+			Labels: map[string]string{
+                "app.kubernetes.io/name":      "percona-xtradb-cluster",
+                "app.kubernetes.io/instance":  issuer,
+                "app.kubernetes.io/component": "issuer",
+                "name": issuer,
+            },
 		},
 		Spec: spec,
 	})
@@ -267,6 +291,12 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 			Name:            cr.Spec.PXC.SSLSecretName,
 			Namespace:       cr.Namespace,
 			OwnerReferences: ownerReferences,
+			Labels: map[string]string{
+                "app.kubernetes.io/name":      "percona-xtradb-cluster",
+                "app.kubernetes.io/instance":  cr.Name,
+                "app.kubernetes.io/component": "ssl-secret",
+                "name": cr.Spec.PXC.SSLSecretName,
+            },
 		},
 		Data: data,
 		Type: corev1.SecretTypeTLS,
@@ -300,6 +330,12 @@ func (r *ReconcilePerconaXtraDBCluster) createSSLManualy(cr *api.PerconaXtraDBCl
 			Name:            cr.Spec.PXC.SSLInternalSecretName,
 			Namespace:       cr.Namespace,
 			OwnerReferences: ownerReferences,
+			Labels: map[string]string{
+                "app.kubernetes.io/name":      "percona-xtradb-cluster",
+                "app.kubernetes.io/instance":  cr.Name,
+                "app.kubernetes.io/component": "internal-secret",
+                "name": cr.Spec.PXC.SSLInternalSecretName,
+            },
 		},
 		Data: data,
 		Type: corev1.SecretTypeTLS,

@@ -194,7 +194,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 		cr.Status.VerifyTLS = storage.VerifyTLS
 	}
 
-	bcp := backup.New(cluster)
+	bcp := backup.New(cluster, cr)
 	job := bcp.Job(cr, cluster)
 	job.Spec, err = bcp.JobSpec(cr.Spec, cluster, job)
 	if err != nil {
@@ -203,7 +203,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) Reconcile(ctx context.Context, req
 
 	switch storage.Type {
 	case api.BackupStorageFilesystem:
-		pvc := backup.NewPVC(cr)
+		pvc := backup.NewPVC(cr, cluster)
 		pvc.Spec = *storage.Volume.PersistentVolumeClaim
 
 		cr.Status.Destination = "pvc/" + pvc.Name

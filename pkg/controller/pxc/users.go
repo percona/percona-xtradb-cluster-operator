@@ -80,11 +80,11 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileUsers(ctx context.Context, cr *
 			Name:      internalSecretName,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-                "app.kubernetes.io/name":      "percona-xtradb-cluster",
-                "app.kubernetes.io/instance":  cr.Name,
-                "app.kubernetes.io/component": "internal-secret",
-                "name":                        internalSecretName,
-            },
+				"app.kubernetes.io/name":      "percona-xtradb-cluster",
+				"app.kubernetes.io/instance":  cr.Name,
+				"app.kubernetes.io/component": "internal-secret",
+				"name":                        internalSecretName,
+			},
 		}
 		err = r.client.Create(context.TODO(), is)
 		if err != nil {

@@ -155,7 +155,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		})
 	}
 
-	if cr.Spec.ProxySQL.Lifecycle.PostStart != nil || cr.Spec.ProxySQL.Lifecycle.PreStop != nil {
+	if cr.Spec.ProxySQL != nil && (cr.Spec.ProxySQL.Lifecycle.PostStart != nil || cr.Spec.ProxySQL.Lifecycle.PreStop != nil) {
 		appc.Lifecycle = &cr.Spec.ProxySQL.Lifecycle
 	}
 

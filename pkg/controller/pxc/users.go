@@ -1166,7 +1166,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context,
 	if err := r.client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err != nil {
 		if k8serrors.IsNotFound(err) {
 			secret.Data = make(map[string][]byte)
-			secret.Data["init.sql"] = []byte(strings.Join(statements, ""))
+			secret.Data["init.sql"] = []byte(fmt.Sprintf("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n"))
+			secret.Data["init.sql"] = append(secret.Data["init.sql"], []byte(strings.Join(statements, ""))...)
 
 			if err := r.client.Create(ctx, secret); err != nil {
 				return errors.Wrap(err, "create mysql init secret")

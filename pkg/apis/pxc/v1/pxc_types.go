@@ -466,7 +466,7 @@ type PodSpec struct {
 	SidecarPVCs                  []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
 	RuntimeClassName             *string                           `json:"runtimeClassName,omitempty"`
 	HookScript                   string                            `json:"hookScript,omitempty"`
-  Lifecycle                    corev1.Lifecycle                  `json:"lifecycle,omitempty"`
+	Lifecycle                    corev1.Lifecycle                  `json:"lifecycle,omitempty"`
 	TopologySpreadConstraints    []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 

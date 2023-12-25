@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -1156,35 +1157,19 @@ func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context,
 		},
 	}
 
-	log.Info("Updating MySQL init secret", "secret", secret.Name, "user", user.Name)
-
 	statements := make([]string, 0)
 	for _, host := range user.Hosts {
 		statements = append(statements, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s';\n", user.Name, host, user.Pass))
 	}
 
-	if err := r.client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err != nil {
-		if k8serrors.IsNotFound(err) {
-			secret.Data = make(map[string][]byte)
-			secret.Data["init.sql"] = []byte(fmt.Sprintf("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n"))
-			secret.Data["init.sql"] = append(secret.Data["init.sql"], []byte(strings.Join(statements, ""))...)
+	opResult, err := controllerutil.CreateOrUpdate(ctx, r.client, secret, func() error {
+		secret.Data = make(map[string][]byte)
+		secret.Data["init.sql"] = []byte(fmt.Sprintf("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n"))
+		secret.Data["init.sql"] = append(secret.Data["init.sql"], []byte(strings.Join(statements, ""))...)
+		return nil
+	})
 
-			if err := r.client.Create(ctx, secret); err != nil {
-				return errors.Wrap(err, "create mysql init secret")
-			}
+	log.Info(fmt.Sprintf("MySQL init secret %s", opResult), "secret", secret.Name, "user", user.Name)
 
-			return nil
-		}
-		return errors.Wrap(err, "get mysql init secret")
-	}
-
-	n := []byte(strings.Join(statements, ""))
-	c := append(secret.Data["init.sql"], n...)
-	secret.Data["init.sql"] = c
-
-	if err := r.client.Update(ctx, secret); err != nil {
-		return errors.Wrap(err, "update mysql init secret")
-	}
-
-	return nil
+	return err
 }

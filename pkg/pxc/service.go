@@ -69,8 +69,8 @@ func NewServicePXC(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 	if cr.CompareVersionWith("1.14.0") >= 0 {
 		if cr.Spec.PXC != nil {
-			obj.Annotations = cr.Spec.PXC.ServiceAnnotations
-			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.ServiceLabels)
+			obj.Annotations = cr.Spec.PXC.Expose.Annotations
+			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.Expose.Labels)
 		}
 	}
 
@@ -141,8 +141,8 @@ func NewServicePXCUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 	if cr.CompareVersionWith("1.14.0") >= 0 {
 		if cr.Spec.PXC != nil {
-			obj.Annotations = cr.Spec.PXC.ServiceAnnotations
-			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.ServiceLabels)
+			obj.Annotations = cr.Spec.PXC.Expose.Annotations
+			obj.Labels = fillServiceLabels(obj.Labels, cr.Spec.PXC.Expose.Labels)
 		}
 	}
 
@@ -212,9 +212,15 @@ func NewServiceProxySQLUnready(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
-	if cr.Spec.ProxySQL != nil && len(cr.Spec.ProxySQL.ServiceType) > 0 {
-		svcType = cr.Spec.ProxySQL.ServiceType
+
+	if cr.Spec.ProxySQL != nil {
+		if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.ProxySQL.Expose.Type) > 0 {
+			svcType = cr.Spec.ProxySQL.Expose.Type
+		} else if len(cr.Spec.ProxySQL.ServiceType) > 0 {
+			svcType = cr.Spec.ProxySQL.ServiceType
+		}
 	}
+
 	serviceAnnotations := make(map[string]string)
 	serviceLabels := map[string]string{
 		"app.kubernetes.io/name":     "percona-xtradb-cluster",
@@ -222,12 +228,21 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 	loadBalancerSourceRanges := []string{}
 	loadBalancerIP := ""
+
 	if cr.Spec.ProxySQL != nil {
-		serviceAnnotations = cr.Spec.ProxySQL.ServiceAnnotations
-		serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.ProxySQL.ServiceLabels)
-		loadBalancerSourceRanges = cr.Spec.ProxySQL.LoadBalancerSourceRanges
-		loadBalancerIP = cr.Spec.ProxySQL.LoadBalancerIP
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			serviceAnnotations = cr.Spec.ProxySQL.Expose.Annotations
+			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.ProxySQL.Expose.Labels)
+			loadBalancerSourceRanges = cr.Spec.ProxySQL.Expose.LoadBalancerSourceRanges
+			loadBalancerIP = cr.Spec.ProxySQL.Expose.LoadBalancerIP
+		} else {
+			serviceAnnotations = cr.Spec.ProxySQL.ServiceAnnotations
+			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.ProxySQL.ServiceLabels)
+			loadBalancerSourceRanges = cr.Spec.ProxySQL.LoadBalancerSourceRanges
+			loadBalancerIP = cr.Spec.ProxySQL.LoadBalancerIP
+		}
 	}
+
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -259,17 +274,29 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 	if svcType == corev1.ServiceTypeLoadBalancer || svcType == corev1.ServiceTypeNodePort {
 		svcTrafficPolicyType := corev1.ServiceExternalTrafficPolicyTypeCluster
-		if cr.Spec.ProxySQL != nil && len(cr.Spec.ProxySQL.ExternalTrafficPolicy) > 0 {
-			svcTrafficPolicyType = cr.Spec.ProxySQL.ExternalTrafficPolicy
+
+		if cr.Spec.ProxySQL != nil {
+			if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.ProxySQL.Expose.ExternalTrafficPolicy) > 0 {
+				svcTrafficPolicyType = cr.Spec.ProxySQL.Expose.ExternalTrafficPolicy
+			} else if len(cr.Spec.ProxySQL.ExternalTrafficPolicy) > 0 {
+				svcTrafficPolicyType = cr.Spec.ProxySQL.ExternalTrafficPolicy
+			}
 		}
 
 		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
 	}
 
-	if cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.ServiceAnnotations != nil {
-		if cr.Spec.ProxySQL.ServiceAnnotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
-			obj.Annotations[HeadlessServiceAnnotation] = "true"
-			obj.Spec.ClusterIP = corev1.ClusterIPNone
+	if cr.Spec.ProxySQL != nil {
+		if cr.CompareVersionWith("1.14.0") >= 0 && cr.Spec.ProxySQL.Expose.Annotations != nil {
+			if cr.Spec.ProxySQL.Expose.Annotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+				obj.Annotations[HeadlessServiceAnnotation] = "true"
+				obj.Spec.ClusterIP = corev1.ClusterIPNone
+			}
+		} else if cr.Spec.ProxySQL.ServiceAnnotations != nil {
+			if cr.Spec.ProxySQL.ServiceAnnotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+				obj.Annotations[HeadlessServiceAnnotation] = "true"
+				obj.Spec.ClusterIP = corev1.ClusterIPNone
+			}
 		}
 	}
 
@@ -294,8 +321,13 @@ func NewServiceProxySQL(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	svcType := corev1.ServiceTypeClusterIP
-	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ServiceType) > 0 {
-		svcType = cr.Spec.HAProxy.ServiceType
+
+	if cr.Spec.HAProxy != nil {
+		if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.HAProxy.ExposePrimary.Type) > 0 {
+			svcType = cr.Spec.HAProxy.ExposePrimary.Type
+		} else if len(cr.Spec.HAProxy.ServiceType) > 0 {
+			svcType = cr.Spec.HAProxy.ServiceType
+		}
 	}
 
 	serviceAnnotations := make(map[string]string)
@@ -308,11 +340,19 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	}
 	loadBalancerSourceRanges := []string{}
 	loadBalancerIP := ""
+
 	if cr.Spec.HAProxy != nil {
-		serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
-		serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.PodSpec.ServiceLabels)
-		loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
-		loadBalancerIP = cr.Spec.HAProxy.LoadBalancerIP
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			serviceAnnotations = cr.Spec.HAProxy.ExposePrimary.Annotations
+			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.ExposePrimary.Labels)
+			loadBalancerSourceRanges = cr.Spec.HAProxy.ExposePrimary.LoadBalancerSourceRanges
+			loadBalancerIP = cr.Spec.HAProxy.ExposePrimary.LoadBalancerIP
+		} else {
+			serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
+			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.PodSpec.ServiceLabels)
+			loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
+			loadBalancerIP = cr.Spec.HAProxy.LoadBalancerIP
+		}
 	}
 
 	obj := &corev1.Service{
@@ -352,8 +392,13 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 	if svcType == corev1.ServiceTypeLoadBalancer || svcType == corev1.ServiceTypeNodePort {
 		svcTrafficPolicyType := corev1.ServiceExternalTrafficPolicyTypeCluster
-		if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
-			svcTrafficPolicyType = cr.Spec.HAProxy.ExternalTrafficPolicy
+
+		if cr.Spec.HAProxy != nil {
+			if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.HAProxy.ExposePrimary.ExternalTrafficPolicy) > 0 {
+				svcTrafficPolicyType = cr.Spec.HAProxy.ExposePrimary.ExternalTrafficPolicy
+			} else if len(cr.Spec.HAProxy.ExternalTrafficPolicy) > 0 {
+				svcTrafficPolicyType = cr.Spec.HAProxy.ExternalTrafficPolicy
+			}
 		}
 
 		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
@@ -381,10 +426,21 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 		)
 	}
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.ServiceAnnotations != nil {
-		if cr.Spec.HAProxy.ServiceAnnotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
-			obj.Annotations[HeadlessServiceAnnotation] = "true"
-			obj.Spec.ClusterIP = corev1.ClusterIPNone
+	if cr.Spec.HAProxy != nil {
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			if cr.Spec.HAProxy.ExposePrimary.Annotations != nil {
+				if cr.Spec.HAProxy.ExposePrimary.Annotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+					obj.Annotations[HeadlessServiceAnnotation] = "true"
+					obj.Spec.ClusterIP = corev1.ClusterIPNone
+				}
+			}
+		} else {
+			if cr.Spec.HAProxy.ServiceAnnotations != nil {
+				if cr.Spec.HAProxy.ServiceAnnotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+					obj.Annotations[HeadlessServiceAnnotation] = "true"
+					obj.Spec.ClusterIP = corev1.ClusterIPNone
+				}
+			}
 		}
 	}
 
@@ -392,10 +448,23 @@ func NewServiceHAProxy(cr *api.PerconaXtraDBCluster) *corev1.Service {
 }
 
 func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
-	svcType := corev1.ServiceTypeClusterIP
-	if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ReplicasServiceType) > 0 {
-		svcType = cr.Spec.HAProxy.ReplicasServiceType
+	if cr.CompareVersionWith("1.14.0") >= 0 && cr.Spec.HAProxy != nil {
+		if cr.Spec.HAProxy.ExposeReplicas == nil {
+			cr.Spec.HAProxy.ExposeReplicas = &api.ServiceExpose{
+				Enabled: true,
+			}
+		}
 	}
+
+	svcType := corev1.ServiceTypeClusterIP
+	if cr.Spec.HAProxy != nil {
+		if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.HAProxy.ExposeReplicas.Type) > 0 {
+			svcType = cr.Spec.HAProxy.ExposeReplicas.Type
+		} else if len(cr.Spec.HAProxy.ReplicasServiceType) > 0 {
+			svcType = cr.Spec.HAProxy.ReplicasServiceType
+		}
+	}
+
 	serviceAnnotations := make(map[string]string)
 	serviceLabels := map[string]string{
 		"app.kubernetes.io/name":       "percona-xtradb-cluster",
@@ -407,20 +476,34 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 	loadBalancerSourceRanges := []string{}
 	loadBalancerIP := ""
 	if cr.Spec.HAProxy != nil {
-		if cr.CompareVersionWith("1.12.0") >= 0 {
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			serviceAnnotations = cr.Spec.HAProxy.ExposeReplicas.Annotations
+			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.ExposeReplicas.Labels)
+		} else if cr.CompareVersionWith("1.12.0") >= 0 {
 			serviceAnnotations = cr.Spec.HAProxy.ReplicasServiceAnnotations
 			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.PodSpec.ReplicasServiceLabels)
 		} else {
 			serviceAnnotations = cr.Spec.HAProxy.ServiceAnnotations
 			serviceLabels = fillServiceLabels(serviceLabels, cr.Spec.HAProxy.PodSpec.ServiceLabels)
 		}
-		if cr.Spec.HAProxy.ReplicasLoadBalancerSourceRanges != nil {
-			loadBalancerSourceRanges = cr.Spec.HAProxy.ReplicasLoadBalancerSourceRanges
+
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			if cr.Spec.HAProxy.ExposeReplicas.LoadBalancerSourceRanges != nil {
+				loadBalancerSourceRanges = cr.Spec.HAProxy.ExposeReplicas.LoadBalancerSourceRanges
+			} else {
+				loadBalancerSourceRanges = cr.Spec.HAProxy.ExposePrimary.LoadBalancerSourceRanges
+			}
+			loadBalancerIP = cr.Spec.HAProxy.ExposeReplicas.LoadBalancerIP
 		} else {
-			loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
+			if cr.Spec.HAProxy.ReplicasLoadBalancerSourceRanges != nil {
+				loadBalancerSourceRanges = cr.Spec.HAProxy.ReplicasLoadBalancerSourceRanges
+			} else {
+				loadBalancerSourceRanges = cr.Spec.HAProxy.LoadBalancerSourceRanges
+			}
+			loadBalancerIP = cr.Spec.HAProxy.ReplicasLoadBalancerIP
 		}
-		loadBalancerIP = cr.Spec.HAProxy.ReplicasLoadBalancerIP
 	}
+
 	obj := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -453,17 +536,29 @@ func NewServiceHAProxyReplicas(cr *api.PerconaXtraDBCluster) *corev1.Service {
 
 	if svcType == corev1.ServiceTypeLoadBalancer || svcType == corev1.ServiceTypeNodePort {
 		svcTrafficPolicyType := corev1.ServiceExternalTrafficPolicyTypeCluster
-		if cr.Spec.HAProxy != nil && len(cr.Spec.HAProxy.ReplicasExternalTrafficPolicy) > 0 {
-			svcTrafficPolicyType = cr.Spec.HAProxy.ReplicasExternalTrafficPolicy
+
+		if cr.Spec.HAProxy != nil {
+			if cr.CompareVersionWith("1.14.0") >= 0 && len(cr.Spec.HAProxy.ExposeReplicas.ExternalTrafficPolicy) > 0 {
+				svcTrafficPolicyType = cr.Spec.HAProxy.ExposeReplicas.ExternalTrafficPolicy
+			} else if len(cr.Spec.HAProxy.ReplicasExternalTrafficPolicy) > 0 {
+				svcTrafficPolicyType = cr.Spec.HAProxy.ReplicasExternalTrafficPolicy
+			}
 		}
 
 		obj.Spec.ExternalTrafficPolicy = svcTrafficPolicyType
 	}
 
-	if cr.Spec.HAProxy != nil && cr.Spec.HAProxy.ReplicasServiceAnnotations != nil {
-		if cr.Spec.HAProxy.ReplicasServiceAnnotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
-			obj.Annotations[HeadlessServiceAnnotation] = "true"
-			obj.Spec.ClusterIP = corev1.ClusterIPNone
+	if cr.Spec.HAProxy != nil {
+		if cr.CompareVersionWith("1.14.0") >= 0 && cr.Spec.HAProxy.ExposeReplicas.Annotations != nil {
+			if cr.Spec.HAProxy.ExposeReplicas.Annotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+				obj.Annotations[HeadlessServiceAnnotation] = "true"
+				obj.Spec.ClusterIP = corev1.ClusterIPNone
+			}
+		} else if cr.Spec.HAProxy.ReplicasServiceAnnotations != nil {
+			if cr.Spec.HAProxy.ReplicasServiceAnnotations[HeadlessServiceAnnotation] == "true" && svcType == corev1.ServiceTypeClusterIP {
+				obj.Annotations[HeadlessServiceAnnotation] = "true"
+				obj.Spec.ClusterIP = corev1.ClusterIPNone
+			}
 		}
 	}
 

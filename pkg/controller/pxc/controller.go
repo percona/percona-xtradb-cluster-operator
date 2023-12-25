@@ -326,7 +326,7 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 
 	saveOldSvcMeta := true
 	if o.CompareVersionWith("1.14.0") >= 0 {
-		saveOldSvcMeta = len(o.Spec.PXC.ServiceLabels) == 0 && len(o.Spec.PXC.ServiceAnnotations) == 0
+		saveOldSvcMeta = len(o.Spec.PXC.Expose.Labels) == 0 && len(o.Spec.PXC.Expose.Annotations) == 0
 	}
 	err = r.createOrUpdateService(o, pxc.NewServicePXC(o), saveOldSvcMeta)
 	if err != nil {
@@ -368,15 +368,24 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 	pxc.MergeTemplateAnnotations(proxysqlSet.StatefulSet(), userReconcileResult.proxyAnnotations)
 
 	if o.Spec.ProxySQLEnabled() {
-		err = r.updatePod(ctx, proxysqlSet, o.Spec.ProxySQL, o, proxyInits)
+		err = r.updatePod(ctx, proxysqlSet, &o.Spec.ProxySQL.PodSpec, o, proxyInits)
 		if err != nil {
 			return reconcile.Result{}, errors.Wrap(err, "ProxySQL upgrade error")
 		}
 		svc := pxc.NewServiceProxySQL(o)
-		err = r.createOrUpdateService(o, svc, len(o.Spec.ProxySQL.ServiceLabels) == 0 && len(o.Spec.ProxySQL.ServiceAnnotations) == 0)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
+
+		if o.CompareVersionWith("1.14.0") >= 0 {
+			err = r.createOrUpdateService(o, svc, len(o.Spec.ProxySQL.Expose.Labels) == 0 && len(o.Spec.ProxySQL.Expose.Annotations) == 0)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
+			}
+		} else {
+			err = r.createOrUpdateService(o, svc, len(o.Spec.ProxySQL.ServiceLabels) == 0 && len(o.Spec.ProxySQL.ServiceAnnotations) == 0)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "%s upgrade error", svc.Name)
+			}
 		}
+
 		svc = pxc.NewServiceProxySQLUnready(o)
 		err = r.createOrUpdateService(o, svc, true)
 		if err != nil {
@@ -461,16 +470,40 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileHAProxy(ctx context.Context, cr
 	}
 	svc := pxc.NewServiceHAProxy(cr)
 	podSpec := cr.Spec.HAProxy.PodSpec
-	err := r.createOrUpdateService(cr, svc, len(podSpec.ServiceLabels) == 0 && len(podSpec.ServiceAnnotations) == 0)
-	if err != nil {
-		return errors.Wrapf(err, "%s upgrade error", svc.Name)
-	}
-	if cr.HAProxyReplicasServiceEnabled() {
-		svc := pxc.NewServiceHAProxyReplicas(cr)
-		err = r.createOrUpdateService(cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
+	expose := cr.Spec.HAProxy.ExposePrimary
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		err := r.createOrUpdateService(cr, svc, len(expose.Labels) == 0 && len(expose.Annotations) == 0)
 		if err != nil {
 			return errors.Wrapf(err, "%s upgrade error", svc.Name)
 		}
+	} else {
+		err := r.createOrUpdateService(cr, svc, len(podSpec.ServiceLabels) == 0 && len(podSpec.ServiceAnnotations) == 0)
+		if err != nil {
+			return errors.Wrapf(err, "%s upgrade error", svc.Name)
+		}
+	}
+
+	if cr.HAProxyReplicasServiceEnabled() {
+		svc := pxc.NewServiceHAProxyReplicas(cr)
+		err := setControllerReference(cr, svc, r.scheme)
+		if err != nil {
+			return errors.Wrapf(err, "%s setControllerReference", svc.Name)
+		}
+
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			e := cr.Spec.HAProxy.ExposeReplicas
+			err = r.createOrUpdateService(cr, svc, len(e.Labels) == 0 && len(e.Annotations) == 0)
+			if err != nil {
+				return errors.Wrapf(err, "%s upgrade error", svc.Name)
+			}
+		} else {
+			err = r.createOrUpdateService(cr, svc, len(podSpec.ReplicasServiceLabels) == 0 && len(podSpec.ReplicasServiceAnnotations) == 0)
+			if err != nil {
+				return errors.Wrapf(err, "%s upgrade error", svc.Name)
+			}
+		}
+
 	} else {
 		if err := r.deleteServices(pxc.NewServiceHAProxyReplicas(cr)); err != nil {
 			return errors.Wrap(err, "delete HAProxy replica service")
@@ -673,7 +706,7 @@ func (r *ReconcilePerconaXtraDBCluster) deploy(ctx context.Context, cr *api.Perc
 
 	if cr.Spec.ProxySQLEnabled() {
 		sfsProxy := statefulset.NewProxy(cr)
-		proxySet, err := pxc.StatefulSet(sfsProxy, cr.Spec.ProxySQL, cr, secrets, proxyInits, log, r.getConfigVolume)
+		proxySet, err := pxc.StatefulSet(sfsProxy, &cr.Spec.ProxySQL.PodSpec, cr, secrets, proxyInits, log, r.getConfigVolume)
 		if err != nil {
 			return errors.Wrap(err, "create ProxySQL Service")
 		}
@@ -1294,7 +1327,7 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdate(cr *api.PerconaXtraDBClus
 	return nil
 }
 
-func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject client.Object) error {
+func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject client.Object) {
 	oldAnnotations := oldObject.GetAnnotations()
 	if oldAnnotations == nil {
 		oldAnnotations = make(map[string]string)
@@ -1309,6 +1342,7 @@ func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject
 		}
 	}
 	obj.SetAnnotations(annotations)
+
 	oldLabels := oldObject.GetLabels()
 	if oldLabels == nil {
 		oldLabels = make(map[string]string)
@@ -1323,7 +1357,6 @@ func setIgnoredAnnotationsAndLabels(cr *api.PerconaXtraDBCluster, obj, oldObject
 		}
 	}
 	obj.SetLabels(labels)
-	return nil
 }
 
 func mergeMaps(x, y map[string]string) map[string]string {
@@ -1362,9 +1395,8 @@ func (r *ReconcilePerconaXtraDBCluster) createOrUpdateService(cr *api.PerconaXtr
 		svc.SetAnnotations(mergeMaps(svc.GetAnnotations(), oldSvc.GetAnnotations()))
 		svc.SetLabels(mergeMaps(svc.GetLabels(), oldSvc.GetLabels()))
 	}
-	if err = setIgnoredAnnotationsAndLabels(cr, svc, oldSvc); err != nil {
-		return errors.Wrap(err, "set ignored annotations and labels")
-	}
+	setIgnoredAnnotationsAndLabels(cr, svc, oldSvc)
+
 	return r.createOrUpdate(cr, svc)
 }
 

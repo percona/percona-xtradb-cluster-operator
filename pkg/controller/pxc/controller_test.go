@@ -805,11 +805,11 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			cr.Spec.HAProxy.ServiceAnnotations = make(map[string]string)
-			cr.Spec.HAProxy.ServiceLabels = make(map[string]string)
+			cr.Spec.HAProxy.ExposePrimary.Annotations = make(map[string]string)
+			cr.Spec.HAProxy.ExposePrimary.Labels = make(map[string]string)
 
-			cr.Spec.HAProxy.ServiceAnnotations["crAnnotation"] = "true"
-			cr.Spec.HAProxy.ServiceLabels["crLabel"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Annotations["crAnnotation"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Labels["crLabel"] = "true"
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -845,8 +845,8 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			delete(cr.Spec.HAProxy.ServiceAnnotations, "crAnnotation")
-			delete(cr.Spec.HAProxy.ServiceLabels, "crLabel")
+			delete(cr.Spec.HAProxy.ExposePrimary.Annotations, "crAnnotation")
+			delete(cr.Spec.HAProxy.ExposePrimary.Labels, "crLabel")
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -880,14 +880,14 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			cr.Spec.HAProxy.ServiceAnnotations = make(map[string]string)
-			cr.Spec.HAProxy.ServiceLabels = make(map[string]string)
+			cr.Spec.HAProxy.ExposePrimary.Annotations = make(map[string]string)
+			cr.Spec.HAProxy.ExposePrimary.Labels = make(map[string]string)
 
-			cr.Spec.HAProxy.ServiceAnnotations["secondCrAnnotation"] = "true"
-			cr.Spec.HAProxy.ServiceAnnotations["thirdCrAnnotation"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Annotations["secondCrAnnotation"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Annotations["thirdCrAnnotation"] = "true"
 
-			cr.Spec.HAProxy.ServiceLabels["secondCrLabel"] = "true"
-			cr.Spec.HAProxy.ServiceLabels["thirdCrLabel"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Labels["secondCrLabel"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Labels["thirdCrLabel"] = "true"
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -925,8 +925,8 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			delete(cr.Spec.HAProxy.ServiceAnnotations, "secondCrAnnotation")
-			delete(cr.Spec.HAProxy.ServiceLabels, "secondCrLabel")
+			delete(cr.Spec.HAProxy.ExposePrimary.Annotations, "secondCrAnnotation")
+			delete(cr.Spec.HAProxy.ExposePrimary.Labels, "secondCrLabel")
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -1098,11 +1098,11 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			cr.Spec.ProxySQL.ServiceAnnotations = make(map[string]string)
-			cr.Spec.ProxySQL.ServiceLabels = make(map[string]string)
+			cr.Spec.ProxySQL.Expose.Annotations = make(map[string]string)
+			cr.Spec.ProxySQL.Expose.Labels = make(map[string]string)
 
-			cr.Spec.ProxySQL.ServiceAnnotations["crAnnotation"] = "true"
-			cr.Spec.ProxySQL.ServiceLabels["crLabel"] = "true"
+			cr.Spec.ProxySQL.Expose.Annotations["crAnnotation"] = "true"
+			cr.Spec.ProxySQL.Expose.Labels["crLabel"] = "true"
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -1138,8 +1138,8 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			delete(cr.Spec.ProxySQL.ServiceAnnotations, "crAnnotation")
-			delete(cr.Spec.ProxySQL.ServiceLabels, "crLabel")
+			delete(cr.Spec.ProxySQL.Expose.Annotations, "crAnnotation")
+			delete(cr.Spec.ProxySQL.Expose.Labels, "crLabel")
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -1173,14 +1173,14 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			cr.Spec.ProxySQL.ServiceAnnotations = make(map[string]string)
-			cr.Spec.ProxySQL.ServiceLabels = make(map[string]string)
+			cr.Spec.ProxySQL.Expose.Annotations = make(map[string]string)
+			cr.Spec.ProxySQL.Expose.Labels = make(map[string]string)
 
-			cr.Spec.ProxySQL.ServiceAnnotations["secondCrAnnotation"] = "true"
-			cr.Spec.ProxySQL.ServiceAnnotations["thirdCrAnnotation"] = "true"
+			cr.Spec.ProxySQL.Expose.Annotations["secondCrAnnotation"] = "true"
+			cr.Spec.ProxySQL.Expose.Annotations["thirdCrAnnotation"] = "true"
 
-			cr.Spec.ProxySQL.ServiceLabels["secondCrLabel"] = "true"
-			cr.Spec.ProxySQL.ServiceLabels["thirdCrLabel"] = "true"
+			cr.Spec.ProxySQL.Expose.Labels["secondCrLabel"] = "true"
+			cr.Spec.ProxySQL.Expose.Labels["thirdCrLabel"] = "true"
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -1218,8 +1218,8 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			delete(cr.Spec.ProxySQL.ServiceAnnotations, "secondCrAnnotation")
-			delete(cr.Spec.ProxySQL.ServiceLabels, "secondCrLabel")
+			delete(cr.Spec.ProxySQL.Expose.Annotations, "secondCrAnnotation")
+			delete(cr.Spec.ProxySQL.Expose.Labels, "secondCrLabel")
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())

@@ -231,6 +231,13 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 		}
 	}
 
+	authPlugin, err := primaryDB.ReadVariable("default_authentication_plugin")
+	if err != nil {
+		return errors.Wrap(err, "failed to get default_authentication_plugin variable value")
+	}
+
+	shouldGetMasterKey := authPlugin == "caching_sha2_password"
+
 	for _, channel := range cr.Spec.PXC.ReplicationChannels {
 		if channel.IsSource {
 			continue
@@ -238,7 +245,7 @@ func (r *ReconcilePerconaXtraDBCluster) reconcileReplication(ctx context.Context
 
 		currConf := currentReplicaConfig(channel.Name, cr.Status.PXCReplication)
 
-		err = manageReplicationChannel(ctx, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]))
+		err = manageReplicationChannel(ctx, primaryDB, channel, currConf, string(sysUsersSecretObj.Data[users.Replication]), shouldGetMasterKey)
 		if err != nil {
 			return errors.Wrapf(err, "manage replication channel %s", channel.Name)
 		}
@@ -353,7 +360,7 @@ func removeOutdatedChannels(ctx context.Context, db queries.Database, currentCha
 	return nil
 }
 
-func manageReplicationChannel(ctx context.Context, primaryDB queries.Database, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string) error {
+func manageReplicationChannel(ctx context.Context, primaryDB queries.Database, channel api.ReplicationChannel, currConf api.ReplicationChannelConfig, replicaPW string, shouldGetMasterKey bool) error {
 	log := logf.FromContext(ctx)
 	currentSources, err := primaryDB.ReplicationChannelSources(channel.Name)
 	if err != nil && err != queries.ErrNotFound {
@@ -419,7 +426,7 @@ func manageReplicationChannel(ctx context.Context, primaryDB queries.Database, c
 		SSL:                channel.Config.SSL,
 		SSLSkipVerify:      channel.Config.SSLSkipVerify,
 		CA:                 channel.Config.CA,
-	})
+	}, shouldGetMasterKey)
 }
 
 func isSourcesChanged(new []api.ReplicationSource, old []queries.ReplicationChannelSource) bool {
@@ -524,11 +531,20 @@ func NewExposedPXCService(svcName string, cr *api.PerconaXtraDBCluster) *corev1.
 
 	if cr.Spec.PXC.Expose.Type == corev1.ServiceTypeNodePort ||
 		cr.Spec.PXC.Expose.Type == corev1.ServiceTypeLoadBalancer {
-		switch cr.Spec.PXC.Expose.TrafficPolicy {
-		case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
-			svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.TrafficPolicy
-		default:
-			svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			switch cr.Spec.PXC.Expose.ExternalTrafficPolicy {
+			case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
+				svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.ExternalTrafficPolicy
+			default:
+				svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
+		} else {
+			switch cr.Spec.PXC.Expose.TrafficPolicy {
+			case corev1.ServiceExternalTrafficPolicyTypeLocal, corev1.ServiceExternalTrafficPolicyTypeCluster:
+				svc.Spec.ExternalTrafficPolicy = cr.Spec.PXC.Expose.TrafficPolicy
+			default:
+				svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+			}
 		}
 	}
 

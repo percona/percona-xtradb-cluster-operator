@@ -208,6 +208,10 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		})
 	}
 
+	if cr.Spec.HAProxy != nil && (cr.Spec.HAProxy.Lifecycle.PostStart != nil || cr.Spec.HAProxy.Lifecycle.PreStop != nil) {
+		appc.Lifecycle = &cr.Spec.HAProxy.Lifecycle
+	}
+
 	return appc, nil
 }
 

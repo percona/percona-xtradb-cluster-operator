@@ -1285,3 +1285,144 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 		})
 	})
 })
+
+var _ = Describe("PostStart/PreStop lifecycle hooks", Ordered, func() {
+	ctx := context.Background()
+
+	const ns = "lifecycle"
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ns,
+			Namespace: ns,
+		},
+	}
+
+	BeforeAll(func() {
+		By("Creating the Namespace to perform the tests")
+		err := k8sClient.Create(ctx, namespace)
+		Expect(err).To(Not(HaveOccurred()))
+	})
+
+	AfterAll(func() {
+		By("Deleting the Namespace to perform the tests")
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	checkLifecycleHooks := func(crName, component string) {
+		sts := appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      crName + "-" + component,
+				Namespace: ns,
+			},
+		}
+		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&sts), &sts)
+		Expect(err).NotTo(HaveOccurred())
+
+		for _, c := range sts.Spec.Template.Spec.Containers {
+			if c.Name == component {
+				Expect(c.Lifecycle.PostStart).ShouldNot(BeNil())
+				Expect(c.Lifecycle.PostStart.Exec).ShouldNot(BeNil())
+				Expect(c.Lifecycle.PostStart.Exec.Command).Should(Equal([]string{"echo", "poststart"}))
+
+				Expect(c.Lifecycle.PreStop).ShouldNot(BeNil())
+				Expect(c.Lifecycle.PreStop.Exec).ShouldNot(BeNil())
+				Expect(c.Lifecycle.PreStop.Exec.Command).Should(Equal([]string{"echo", "prestop"}))
+			}
+		}
+	}
+
+	Context("Cluster is deployed with ProxySQL", Ordered, func() {
+		const crName = "proxysql-lifecycle"
+		crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster with PXC and ProxySQL container lifecycle hooks", func() {
+			cr.Spec.HAProxy.Enabled = false
+			cr.Spec.ProxySQL.Enabled = true
+
+			cr.Spec.PXC.Lifecycle = corev1.Lifecycle{
+				PostStart: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "poststart"},
+					},
+				},
+				PreStop: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "prestop"},
+					},
+				},
+			}
+
+			cr.Spec.ProxySQL.Lifecycle = corev1.Lifecycle{
+				PostStart: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "poststart"},
+					},
+				},
+				PreStop: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "prestop"},
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("pxc container should have poststart and prestop hooks set", func() {
+			checkLifecycleHooks(crName, "pxc")
+		})
+
+		It("proxysql container should have poststart and prestop hooks set", func() {
+			checkLifecycleHooks(crName, "proxysql")
+		})
+	})
+
+	Context("Cluster is deployed with HAProxy", Ordered, func() {
+		const crName = "haproxy-lifecycle"
+		crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster with HAProxy container lifecycle hooks", func() {
+			cr.Spec.HAProxy.Enabled = true
+			cr.Spec.ProxySQL.Enabled = false
+
+			cr.Spec.HAProxy.Lifecycle = corev1.Lifecycle{
+				PostStart: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "poststart"},
+					},
+				},
+				PreStop: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "prestop"},
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("haproxy container should have poststart and prestop hooks set", func() {
+			checkLifecycleHooks(crName, "haproxy")
+		})
+	})
+})

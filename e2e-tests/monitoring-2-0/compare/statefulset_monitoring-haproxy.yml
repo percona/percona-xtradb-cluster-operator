@@ -120,6 +120,10 @@ spec:
               value: "5"
             - name: PMM_AGENT_PATHS_TEMPDIR
               value: /tmp
+          envFrom:
+            - secretRef:
+                name: my-env-var-secrets
+                optional: true
           imagePullPolicy: Always
           lifecycle:
             preStop:
@@ -175,7 +179,7 @@ spec:
               value: "1"
           envFrom:
             - secretRef:
-                name: monitoring-env-vars-haproxy
+                name: my-env-var-secrets
                 optional: true
           imagePullPolicy: Always
           livenessProbe:
@@ -227,7 +231,7 @@ spec:
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
             - mountPath: /etc/mysql/haproxy-env-secret
-              name: monitoring-env-vars-haproxy
+              name: my-env-var-secrets
         - args:
             - /usr/bin/peer-list
             - -on-change=/usr/bin/add_pxc_nodes.sh
@@ -237,7 +241,7 @@ spec:
               value: monitoring-pxc
           envFrom:
             - secretRef:
-                name: monitoring-env-vars-haproxy
+                name: my-env-var-secrets
                 optional: true
           imagePullPolicy: Always
           name: pxc-monit
@@ -252,7 +256,7 @@ spec:
             - mountPath: /etc/mysql/mysql-users-secret
               name: mysql-users-secret-file
             - mountPath: /etc/mysql/haproxy-env-secret
-              name: monitoring-env-vars-haproxy
+              name: my-env-var-secrets
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -287,11 +291,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-monitoring
-        - name: monitoring-env-vars-haproxy
+        - name: my-env-var-secrets
           secret:
             defaultMode: 420
             optional: true
-            secretName: monitoring-env-vars-haproxy
+            secretName: my-env-var-secrets
         - emptyDir: {}
           name: bin
   updateStrategy:

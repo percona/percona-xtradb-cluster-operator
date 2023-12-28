@@ -19,6 +19,7 @@ spec:
             storage: 2Gi
     affinity:
       antiAffinityTopologyKey: none
+    envVarsSecret: my-env-var-secrets
   haproxy:
     enabled: true
     size: 1
@@ -29,6 +30,7 @@ spec:
         cpu: 300m
     affinity:
       antiAffinityTopologyKey: none
+    envVarsSecret: my-env-var-secrets
   pmm:
     enabled: true
     image: -pmm

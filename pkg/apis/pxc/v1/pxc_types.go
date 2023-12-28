@@ -637,6 +637,14 @@ type BackupStorageS3Spec struct {
 	EndpointURL       string `json:"endpointUrl,omitempty"`
 }
 
+// BucketAndPrefix returns bucket name and backup prefix from Bucket.
+// BackupStorageS3Spec.Bucket can contain backup path in format `<bucket-name>/<backup-prefix>`.
+func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string) {
+	destination := strings.TrimPrefix(b.Bucket, AwsBlobStoragePrefix)
+	bucket, prefix, _ := strings.Cut(destination, "/")
+	return bucket, prefix
+}
+
 type BackupStorageAzureSpec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
 	ContainerPath     string `json:"container"`

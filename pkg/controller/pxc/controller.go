@@ -429,6 +429,11 @@ func (r *ReconcilePerconaXtraDBCluster) Reconcile(ctx context.Context, request r
 		return reconcile.Result{}, err
 	}
 
+	err = backup.UpdatePITRTimeline(ctx, r.client, r.clientcmd, o)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	if err := r.fetchVersionFromPXC(ctx, o, pxcSet); err != nil {
 		return rr, errors.Wrap(err, "update CR version")
 	}

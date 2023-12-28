@@ -199,6 +199,9 @@ spec:
               lastscheduled:
                 format: date-time
                 type: string
+              latestRestorableTime:
+                format: date-time
+                type: string
               s3:
                 properties:
                   bucket:
@@ -343,6 +346,9 @@ spec:
                   image:
                     type: string
                   lastscheduled:
+                    format: date-time
+                    type: string
+                  latestRestorableTime:
                     format: date-time
                     type: string
                   s3:
@@ -508,6 +514,9 @@ spec:
                       image:
                         type: string
                       lastscheduled:
+                        format: date-time
+                        type: string
+                      latestRestorableTime:
                         format: date-time
                         type: string
                       s3:

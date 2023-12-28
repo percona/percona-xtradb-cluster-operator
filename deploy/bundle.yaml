@@ -2287,6 +2287,60 @@ spec:
                     type: boolean
                   envVarsSecret:
                     type: string
+                  exposePrimary:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        type: boolean
+                      externalTrafficPolicy:
+                        type: string
+                      internalTrafficPolicy:
+                        type: string
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      loadBalancerIP:
+                        type: string
+                      loadBalancerSourceRanges:
+                        items:
+                          type: string
+                        type: array
+                      trafficPolicy:
+                        type: string
+                      type:
+                        type: string
+                    type: object
+                  exposeReplicas:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        type: boolean
+                      externalTrafficPolicy:
+                        type: string
+                      internalTrafficPolicy:
+                        type: string
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      loadBalancerIP:
+                        type: string
+                      loadBalancerSourceRanges:
+                        items:
+                          type: string
+                        type: array
+                      trafficPolicy:
+                        type: string
+                      type:
+                        type: string
+                    type: object
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:
@@ -2310,6 +2364,109 @@ spec:
                   labels:
                     additionalProperties:
                       type: string
+                    type: object
+                  lifecycle:
+                    properties:
+                      postStart:
+                        properties:
+                          exec:
+                            properties:
+                              command:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          httpGet:
+                            properties:
+                              host:
+                                type: string
+                              httpHeaders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    value:
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                type: array
+                              path:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                              scheme:
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          tcpSocket:
+                            properties:
+                              host:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - port
+                            type: object
+                        type: object
+                      preStop:
+                        properties:
+                          exec:
+                            properties:
+                              command:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          httpGet:
+                            properties:
+                              host:
+                                type: string
+                              httpHeaders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    value:
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                type: array
+                              path:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                              scheme:
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          tcpSocket:
+                            properties:
+                              host:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - port
+                            type: object
+                        type: object
                     type: object
                   livenessDelaySec:
                     format: int32
@@ -5019,6 +5176,33 @@ spec:
                     type: boolean
                   envVarsSecret:
                     type: string
+                  expose:
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      enabled:
+                        type: boolean
+                      externalTrafficPolicy:
+                        type: string
+                      internalTrafficPolicy:
+                        type: string
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      loadBalancerIP:
+                        type: string
+                      loadBalancerSourceRanges:
+                        items:
+                          type: string
+                        type: array
+                      trafficPolicy:
+                        type: string
+                      type:
+                        type: string
+                    type: object
                   externalTrafficPolicy:
                     type: string
                   forceUnsafeBootstrap:
@@ -5042,6 +5226,109 @@ spec:
                   labels:
                     additionalProperties:
                       type: string
+                    type: object
+                  lifecycle:
+                    properties:
+                      postStart:
+                        properties:
+                          exec:
+                            properties:
+                              command:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          httpGet:
+                            properties:
+                              host:
+                                type: string
+                              httpHeaders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    value:
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                type: array
+                              path:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                              scheme:
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          tcpSocket:
+                            properties:
+                              host:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - port
+                            type: object
+                        type: object
+                      preStop:
+                        properties:
+                          exec:
+                            properties:
+                              command:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          httpGet:
+                            properties:
+                              host:
+                                type: string
+                              httpHeaders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    value:
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                type: array
+                              path:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                              scheme:
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          tcpSocket:
+                            properties:
+                              host:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - port
+                            type: object
+                        type: object
                     type: object
                   livenessDelaySec:
                     format: int32
@@ -7483,6 +7770,16 @@ spec:
                         type: object
                       enabled:
                         type: boolean
+                      externalTrafficPolicy:
+                        type: string
+                      internalTrafficPolicy:
+                        type: string
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      loadBalancerIP:
+                        type: string
                       loadBalancerSourceRanges:
                         items:
                           type: string
@@ -7515,6 +7812,109 @@ spec:
                   labels:
                     additionalProperties:
                       type: string
+                    type: object
+                  lifecycle:
+                    properties:
+                      postStart:
+                        properties:
+                          exec:
+                            properties:
+                              command:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          httpGet:
+                            properties:
+                              host:
+                                type: string
+                              httpHeaders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    value:
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                type: array
+                              path:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                              scheme:
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          tcpSocket:
+                            properties:
+                              host:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - port
+                            type: object
+                        type: object
+                      preStop:
+                        properties:
+                          exec:
+                            properties:
+                              command:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          httpGet:
+                            properties:
+                              host:
+                                type: string
+                              httpHeaders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    value:
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                type: array
+                              path:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                              scheme:
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          tcpSocket:
+                            properties:
+                              host:
+                                type: string
+                              port:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                x-kubernetes-int-or-string: true
+                            required:
+                            - port
+                            type: object
+                        type: object
                     type: object
                   livenessDelaySec:
                     format: int32

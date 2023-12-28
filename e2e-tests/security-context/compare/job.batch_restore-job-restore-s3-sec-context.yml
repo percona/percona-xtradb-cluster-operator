@@ -40,7 +40,7 @@ spec:
             - name: VERIFY_TLS
               value: "true"
             - name: ENDPOINT
-              value: http://minio-service:9000/
+              value: http://minio-service.namespace:9000/
             - name: DEFAULT_REGION
               value: us-east-1
             - name: ACCESS_KEY_ID

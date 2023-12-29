@@ -187,7 +187,7 @@ spec:
             storage: 6G
     gracePeriod: 600
   haproxy:
-    enabled: false
+    enabled: true
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    imagePullPolicy: Always
@@ -352,7 +352,7 @@ spec:
 #      minAvailable: 0
     gracePeriod: 30
   proxysql:
-    enabled: true
+    enabled: false
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always

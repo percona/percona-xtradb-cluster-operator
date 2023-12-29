@@ -206,6 +206,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, sfs api.S
 	currentSet.Spec.Template.Spec.Containers = newContainers
 	currentSet.Spec.Template.Spec.InitContainers = newInitContainers
 	currentSet.Spec.Template.Spec.Affinity = pxc.PodAffinity(podSpec.Affinity, sfs)
+	currentSet.Spec.Template.Spec.TopologySpreadConstraints = pxc.PodTopologySpreadConstraints(podSpec.TopologySpreadConstraints, sfs.Labels())
 	if sfsVolume != nil && sfsVolume.Volumes != nil {
 		currentSet.Spec.Template.Spec.Volumes = sfsVolume.Volumes
 	}

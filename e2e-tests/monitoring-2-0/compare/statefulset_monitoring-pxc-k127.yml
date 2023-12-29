@@ -116,9 +116,11 @@ spec:
               value: "true"
             - name: PMM_AGENT_SIDECAR_SLEEP
               value: "5"
+            - name: PMM_AGENT_PATHS_TEMPDIR
+              value: /tmp
           envFrom:
             - secretRef:
-                name: monitoring-env-vars-pxc
+                name: my-env-var-secrets
                 optional: true
           imagePullPolicy: Always
           lifecycle:
@@ -203,7 +205,7 @@ spec:
               value: caching_sha2_password
           envFrom:
             - secretRef:
-                name: monitoring-env-vars-pxc
+                name: my-env-var-secrets
                 optional: true
           imagePullPolicy: Always
           livenessProbe:

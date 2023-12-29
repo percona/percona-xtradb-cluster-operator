@@ -249,6 +249,10 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 		})
 	}
 
+	if cr.Spec.PXC != nil && (cr.Spec.PXC.Lifecycle.PostStart != nil || cr.Spec.PXC.Lifecycle.PreStop != nil) {
+		appc.Lifecycle = &cr.Spec.PXC.Lifecycle
+	}
+
 	return appc, nil
 }
 
@@ -451,6 +455,18 @@ func (c *Node) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.Pe
 			{
 				Name:  "PMM_AGENT_SIDECAR_SLEEP",
 				Value: "5",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+		// but it doesn't work on OpenShift so we set it back to /tmp
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_PATHS_TEMPDIR",
+				Value: "/tmp",
 			},
 		}
 		ct.Env = append(ct.Env, sidecarEnvs...)

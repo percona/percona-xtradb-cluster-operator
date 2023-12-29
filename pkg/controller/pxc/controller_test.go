@@ -671,7 +671,7 @@ var _ = Describe("Authentication policy", Ordered, func() {
 
 			It("should NOT reconcile", func() {
 				_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
-				Expect(err).To(MatchError("failed to enable ProxySQL: you can't switch from HAProxy to ProxySQL on the fly"))
+				Expect(err).To(MatchError("failed to enable ProxySQL: for mysql version 8.0 you can't switch from HAProxy to ProxySQL"))
 			})
 		})
 	})
@@ -805,11 +805,11 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			cr.Spec.HAProxy.ServiceAnnotations = make(map[string]string)
-			cr.Spec.HAProxy.ServiceLabels = make(map[string]string)
+			cr.Spec.HAProxy.ExposePrimary.Annotations = make(map[string]string)
+			cr.Spec.HAProxy.ExposePrimary.Labels = make(map[string]string)
 
-			cr.Spec.HAProxy.ServiceAnnotations["crAnnotation"] = "true"
-			cr.Spec.HAProxy.ServiceLabels["crLabel"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Annotations["crAnnotation"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Labels["crLabel"] = "true"
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -845,8 +845,8 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			delete(cr.Spec.HAProxy.ServiceAnnotations, "crAnnotation")
-			delete(cr.Spec.HAProxy.ServiceLabels, "crLabel")
+			delete(cr.Spec.HAProxy.ExposePrimary.Annotations, "crAnnotation")
+			delete(cr.Spec.HAProxy.ExposePrimary.Labels, "crLabel")
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -880,14 +880,14 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			cr.Spec.HAProxy.ServiceAnnotations = make(map[string]string)
-			cr.Spec.HAProxy.ServiceLabels = make(map[string]string)
+			cr.Spec.HAProxy.ExposePrimary.Annotations = make(map[string]string)
+			cr.Spec.HAProxy.ExposePrimary.Labels = make(map[string]string)
 
-			cr.Spec.HAProxy.ServiceAnnotations["secondCrAnnotation"] = "true"
-			cr.Spec.HAProxy.ServiceAnnotations["thirdCrAnnotation"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Annotations["secondCrAnnotation"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Annotations["thirdCrAnnotation"] = "true"
 
-			cr.Spec.HAProxy.ServiceLabels["secondCrLabel"] = "true"
-			cr.Spec.HAProxy.ServiceLabels["thirdCrLabel"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Labels["secondCrLabel"] = "true"
+			cr.Spec.HAProxy.ExposePrimary.Labels["thirdCrLabel"] = "true"
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -925,8 +925,8 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			delete(cr.Spec.HAProxy.ServiceAnnotations, "secondCrAnnotation")
-			delete(cr.Spec.HAProxy.ServiceLabels, "secondCrLabel")
+			delete(cr.Spec.HAProxy.ExposePrimary.Annotations, "secondCrAnnotation")
+			delete(cr.Spec.HAProxy.ExposePrimary.Labels, "secondCrLabel")
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -1098,11 +1098,11 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			cr.Spec.ProxySQL.ServiceAnnotations = make(map[string]string)
-			cr.Spec.ProxySQL.ServiceLabels = make(map[string]string)
+			cr.Spec.ProxySQL.Expose.Annotations = make(map[string]string)
+			cr.Spec.ProxySQL.Expose.Labels = make(map[string]string)
 
-			cr.Spec.ProxySQL.ServiceAnnotations["crAnnotation"] = "true"
-			cr.Spec.ProxySQL.ServiceLabels["crLabel"] = "true"
+			cr.Spec.ProxySQL.Expose.Annotations["crAnnotation"] = "true"
+			cr.Spec.ProxySQL.Expose.Labels["crLabel"] = "true"
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -1138,8 +1138,8 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			delete(cr.Spec.ProxySQL.ServiceAnnotations, "crAnnotation")
-			delete(cr.Spec.ProxySQL.ServiceLabels, "crLabel")
+			delete(cr.Spec.ProxySQL.Expose.Annotations, "crAnnotation")
+			delete(cr.Spec.ProxySQL.Expose.Labels, "crLabel")
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -1173,14 +1173,14 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			cr.Spec.ProxySQL.ServiceAnnotations = make(map[string]string)
-			cr.Spec.ProxySQL.ServiceLabels = make(map[string]string)
+			cr.Spec.ProxySQL.Expose.Annotations = make(map[string]string)
+			cr.Spec.ProxySQL.Expose.Labels = make(map[string]string)
 
-			cr.Spec.ProxySQL.ServiceAnnotations["secondCrAnnotation"] = "true"
-			cr.Spec.ProxySQL.ServiceAnnotations["thirdCrAnnotation"] = "true"
+			cr.Spec.ProxySQL.Expose.Annotations["secondCrAnnotation"] = "true"
+			cr.Spec.ProxySQL.Expose.Annotations["thirdCrAnnotation"] = "true"
 
-			cr.Spec.ProxySQL.ServiceLabels["secondCrLabel"] = "true"
-			cr.Spec.ProxySQL.ServiceLabels["thirdCrLabel"] = "true"
+			cr.Spec.ProxySQL.Expose.Labels["secondCrLabel"] = "true"
+			cr.Spec.ProxySQL.Expose.Labels["thirdCrLabel"] = "true"
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -1218,8 +1218,8 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			orig := cr.DeepCopy()
 
-			delete(cr.Spec.ProxySQL.ServiceAnnotations, "secondCrAnnotation")
-			delete(cr.Spec.ProxySQL.ServiceLabels, "secondCrLabel")
+			delete(cr.Spec.ProxySQL.Expose.Annotations, "secondCrAnnotation")
+			delete(cr.Spec.ProxySQL.Expose.Labels, "secondCrLabel")
 
 			err = k8sClient.Patch(ctx, cr, client.MergeFrom(orig))
 			Expect(err).NotTo(HaveOccurred())
@@ -1282,6 +1282,147 @@ var _ = Describe("Ignore labels and annotations", Ordered, func() {
 
 			Expect(svc.ObjectMeta.Labels).To(HaveKey("thirdCrLabel"))
 			Expect(svc.ObjectMeta.Labels).ToNot(HaveKey("ignoredLabel"))
+		})
+	})
+})
+
+var _ = Describe("PostStart/PreStop lifecycle hooks", Ordered, func() {
+	ctx := context.Background()
+
+	const ns = "lifecycle"
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ns,
+			Namespace: ns,
+		},
+	}
+
+	BeforeAll(func() {
+		By("Creating the Namespace to perform the tests")
+		err := k8sClient.Create(ctx, namespace)
+		Expect(err).To(Not(HaveOccurred()))
+	})
+
+	AfterAll(func() {
+		By("Deleting the Namespace to perform the tests")
+		_ = k8sClient.Delete(ctx, namespace)
+	})
+
+	checkLifecycleHooks := func(crName, component string) {
+		sts := appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      crName + "-" + component,
+				Namespace: ns,
+			},
+		}
+		err := k8sClient.Get(ctx, client.ObjectKeyFromObject(&sts), &sts)
+		Expect(err).NotTo(HaveOccurred())
+
+		for _, c := range sts.Spec.Template.Spec.Containers {
+			if c.Name == component {
+				Expect(c.Lifecycle.PostStart).ShouldNot(BeNil())
+				Expect(c.Lifecycle.PostStart.Exec).ShouldNot(BeNil())
+				Expect(c.Lifecycle.PostStart.Exec.Command).Should(Equal([]string{"echo", "poststart"}))
+
+				Expect(c.Lifecycle.PreStop).ShouldNot(BeNil())
+				Expect(c.Lifecycle.PreStop.Exec).ShouldNot(BeNil())
+				Expect(c.Lifecycle.PreStop.Exec.Command).Should(Equal([]string{"echo", "prestop"}))
+			}
+		}
+	}
+
+	Context("Cluster is deployed with ProxySQL", Ordered, func() {
+		const crName = "proxysql-lifecycle"
+		crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster with PXC and ProxySQL container lifecycle hooks", func() {
+			cr.Spec.HAProxy.Enabled = false
+			cr.Spec.ProxySQL.Enabled = true
+
+			cr.Spec.PXC.Lifecycle = corev1.Lifecycle{
+				PostStart: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "poststart"},
+					},
+				},
+				PreStop: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "prestop"},
+					},
+				},
+			}
+
+			cr.Spec.ProxySQL.Lifecycle = corev1.Lifecycle{
+				PostStart: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "poststart"},
+					},
+				},
+				PreStop: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "prestop"},
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("pxc container should have poststart and prestop hooks set", func() {
+			checkLifecycleHooks(crName, "pxc")
+		})
+
+		It("proxysql container should have poststart and prestop hooks set", func() {
+			checkLifecycleHooks(crName, "proxysql")
+		})
+	})
+
+	Context("Cluster is deployed with HAProxy", Ordered, func() {
+		const crName = "haproxy-lifecycle"
+		crNamespacedName := types.NamespacedName{Name: crName, Namespace: ns}
+
+		cr, err := readDefaultCR(crName, ns)
+		It("should read default cr.yaml", func() {
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create PerconaXtraDBCluster with HAProxy container lifecycle hooks", func() {
+			cr.Spec.HAProxy.Enabled = true
+			cr.Spec.ProxySQL.Enabled = false
+
+			cr.Spec.HAProxy.Lifecycle = corev1.Lifecycle{
+				PostStart: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "poststart"},
+					},
+				},
+				PreStop: &corev1.LifecycleHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"echo", "prestop"},
+					},
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, cr)).Should(Succeed())
+		})
+
+		It("should reconcile", func() {
+			_, err := reconciler().Reconcile(ctx, ctrl.Request{NamespacedName: crNamespacedName})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("haproxy container should have poststart and prestop hooks set", func() {
+			checkLifecycleHooks(crName, "haproxy")
 		})
 	})
 })

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -91,6 +93,67 @@ func CheckPITRErrors(ctx context.Context, cl client.Client, clcmd *clientcmd.Cli
 			return errors.Wrap(err, "remove gap file")
 		}
 	}
+
+	return nil
+}
+
+func UpdatePITRTimeline(ctx context.Context, cl client.Client, clcmd *clientcmd.Client, cr *api.PerconaXtraDBCluster) error {
+	log := logf.FromContext(ctx)
+
+	if cr.Spec.Backup == nil || !cr.Spec.Backup.PITR.Enabled {
+		return nil
+	}
+
+	backup, err := getLatestSuccessfulBackup(ctx, cl, cr)
+	if err != nil {
+		if errors.Is(err, ErrNoBackups) {
+			return nil
+		}
+		return errors.Wrap(err, "get latest successful backup")
+	}
+
+	err = cl.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: deployment.GetBinlogCollectorDeploymentName(cr)}, new(appsv1.Deployment))
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Wrap(err, "get binlog collector deployment")
+	}
+
+	collectorPod, err := deployment.GetBinlogCollectorPod(ctx, cl, cr)
+	if err != nil {
+		return errors.Wrap(err, "get binlog collector pod")
+	}
+
+	stdoutBuf := &bytes.Buffer{}
+	stderrBuf := &bytes.Buffer{}
+	err = clcmd.Exec(collectorPod, "pitr", []string{"/bin/bash", "-c", "cat /tmp/pitr-timeline"}, nil, stdoutBuf, stderrBuf, false)
+	if err != nil {
+		if strings.Contains(stderrBuf.String(), "No such file or directory") {
+			return nil
+		}
+		return errors.Wrapf(err, "check binlog gaps in pod %s", collectorPod.Name)
+	}
+
+	timelines := strings.Split(stdoutBuf.String(), "\n")
+
+	latest, err := strconv.ParseInt(timelines[1], 10, 64)
+	if err != nil {
+		return errors.Wrapf(err, "parse latest timeline %s", timelines[1])
+	}
+	latestTm := time.Unix(latest, 0)
+
+	if backup.Status.LatestRestorableTime != nil && backup.Status.LatestRestorableTime.Time.Equal(latestTm) {
+		return nil
+	}
+
+	backup.Status.LatestRestorableTime = &metav1.Time{Time: latestTm}
+
+	if err := cl.Status().Update(ctx, backup); err != nil {
+		return errors.Wrap(err, "update backup status")
+	}
+
+	log.Info("Updated PITR timelines", "latest", backup.Status.LatestRestorableTime, "lastBackup", backup.Name)
 
 	return nil
 }

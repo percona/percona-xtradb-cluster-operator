@@ -42,15 +42,33 @@ func newCR(name, namespace string) *api.PerconaXtraDBCluster {
 					Enabled: true,
 					Size:    3,
 				},
+				Expose: api.ServiceExpose{
+					Enabled: false,
+					Type:    corev1.ServiceTypeClusterIP,
+				},
 			},
 			HAProxy: &api.HAProxySpec{
 				PodSpec: api.PodSpec{
 					Enabled: true,
 					Size:    3,
 				},
+				ExposePrimary: api.ServiceExpose{
+					Enabled: false,
+					Type:    corev1.ServiceTypeClusterIP,
+				},
+				ExposeReplicas: &api.ServiceExpose{
+					Enabled: false,
+					Type:    corev1.ServiceTypeClusterIP,
+				},
 			},
-			ProxySQL: &api.PodSpec{
-				Enabled: false,
+			ProxySQL: &api.ProxySQLSpec{
+				PodSpec: api.PodSpec{
+					Enabled: false,
+				},
+				Expose: api.ServiceExpose{
+					Enabled: false,
+					Type:    corev1.ServiceTypeClusterIP,
+				},
 			},
 		},
 		Status: api.PerconaXtraDBClusterStatus{},
@@ -218,7 +236,7 @@ func TestAppHostNoLoadBalancer(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs})
 
-	host, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec)
+	host, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
 	if err != nil {
 		t.Error(err)
 	}
@@ -231,17 +249,18 @@ func TestAppHostNoLoadBalancer(t *testing.T) {
 
 func TestAppHostLoadBalancerNoSvc(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+	cr.Spec.CRVersion = "1.14.0"
 
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()
 
 	haproxy := statefulset.NewHAProxy(cr)
 	haproxySfs := haproxy.StatefulSet()
-	cr.Spec.HAProxy.ServiceType = corev1.ServiceTypeLoadBalancer
+	cr.Spec.HAProxy.ExposePrimary.Type = corev1.ServiceTypeLoadBalancer
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs})
 
-	_, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec)
+	_, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
 	if err == nil {
 		t.Error("want err, got nil")
 	}
@@ -249,13 +268,14 @@ func TestAppHostLoadBalancerNoSvc(t *testing.T) {
 
 func TestAppHostLoadBalancerOnlyIP(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+	cr.Spec.CRVersion = "1.14.0"
 
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()
 
 	haproxy := statefulset.NewHAProxy(cr)
 	haproxySfs := haproxy.StatefulSet()
-	cr.Spec.HAProxy.ServiceType = corev1.ServiceTypeLoadBalancer
+	cr.Spec.HAProxy.ExposePrimary.Type = corev1.ServiceTypeLoadBalancer
 	ip := "99.99.99.99"
 	haproxySvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -271,7 +291,7 @@ func TestAppHostLoadBalancerOnlyIP(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs, haproxySvc})
 
-	host, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec)
+	host, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
 	if err != nil {
 		t.Error(err)
 	}
@@ -283,13 +303,14 @@ func TestAppHostLoadBalancerOnlyIP(t *testing.T) {
 
 func TestAppHostLoadBalancerWithHostname(t *testing.T) {
 	cr := newCR("cr-mock", "pxc")
+	cr.Spec.CRVersion = "1.14.0"
 
 	pxc := statefulset.NewNode(cr)
 	pxcSfs := pxc.StatefulSet()
 
 	haproxy := statefulset.NewHAProxy(cr)
 	haproxySfs := haproxy.StatefulSet()
-	cr.Spec.HAProxy.ServiceType = corev1.ServiceTypeLoadBalancer
+	cr.Spec.HAProxy.ExposePrimary.Type = corev1.ServiceTypeLoadBalancer
 	wantHost := "cr-mock.haproxy.test"
 	haproxySvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -305,7 +326,7 @@ func TestAppHostLoadBalancerWithHostname(t *testing.T) {
 
 	r := buildFakeClient([]runtime.Object{cr, pxcSfs, haproxySfs, haproxySvc})
 
-	gotHost, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec)
+	gotHost, err := r.appHost(cr, haproxy, &cr.Spec.HAProxy.PodSpec, &cr.Spec.HAProxy.ExposePrimary)
 	if err != nil {
 		t.Error(err)
 	}

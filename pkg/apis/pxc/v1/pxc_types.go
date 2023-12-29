@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/util"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -35,7 +36,7 @@ type PerconaXtraDBClusterSpec struct {
 	LogCollectorSecretName string                               `json:"logCollectorSecretName,omitempty"`
 	TLS                    *TLSSpec                             `json:"tls,omitempty"`
 	PXC                    *PXCSpec                             `json:"pxc,omitempty"`
-	ProxySQL               *PodSpec                             `json:"proxysql,omitempty"`
+	ProxySQL               *ProxySQLSpec                        `json:"proxysql,omitempty"`
 	HAProxy                *HAProxySpec                         `json:"haproxy,omitempty"`
 	PMM                    *PMMSpec                             `json:"pmm,omitempty"`
 	LogCollector           *LogCollectorSpec                    `json:"logcollector,omitempty"`
@@ -69,8 +70,14 @@ type ServiceExpose struct {
 	Enabled                  bool                                    `json:"enabled,omitempty"`
 	Type                     corev1.ServiceType                      `json:"type,omitempty"`
 	LoadBalancerSourceRanges []string                                `json:"loadBalancerSourceRanges,omitempty"`
+	LoadBalancerIP           string                                  `json:"loadBalancerIP,omitempty"`
 	Annotations              map[string]string                       `json:"annotations,omitempty"`
-	TrafficPolicy            corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
+	Labels                   map[string]string                       `json:"labels,omitempty"`
+	ExternalTrafficPolicy    corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	InternalTrafficPolicy    corev1.ServiceInternalTrafficPolicy     `json:"internalTrafficPolicy,omitempty"`
+
+	// Deprecated: Use ExternalTrafficPolicy instead
+	TrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"trafficPolicy,omitempty"`
 }
 
 type ReplicationChannel struct {
@@ -152,9 +159,12 @@ type PITRSpec struct {
 }
 
 type PXCScheduledBackupSchedule struct {
-	Name        string `json:"name,omitempty"`
-	Schedule    string `json:"schedule,omitempty"`
-	Keep        int    `json:"keep,omitempty"`
+	// +kubebuilder:validation:Required
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:Required
+	Schedule string `json:"schedule,omitempty"`
+	Keep     int    `json:"keep,omitempty"`
+	// +kubebuilder:validation:Required
 	StorageName string `json:"storageName,omitempty"`
 }
 type AppState string
@@ -399,58 +409,83 @@ func (list *PerconaXtraDBClusterList) HasUnfinishedFinalizers() bool {
 }
 
 type PodSpec struct {
-	Enabled                       bool                                    `json:"enabled,omitempty"`
-	Size                          int32                                   `json:"size,omitempty"`
-	Image                         string                                  `json:"image,omitempty"`
-	Resources                     corev1.ResourceRequirements             `json:"resources,omitempty"`
-	SidecarResources              corev1.ResourceRequirements             `json:"sidecarResources,omitempty"`
-	VolumeSpec                    *VolumeSpec                             `json:"volumeSpec,omitempty"`
-	Affinity                      *PodAffinity                            `json:"affinity,omitempty"`
-	NodeSelector                  map[string]string                       `json:"nodeSelector,omitempty"`
-	Tolerations                   []corev1.Toleration                     `json:"tolerations,omitempty"`
-	PriorityClassName             string                                  `json:"priorityClassName,omitempty"`
-	Annotations                   map[string]string                       `json:"annotations,omitempty"`
-	Labels                        map[string]string                       `json:"labels,omitempty"`
-	ImagePullSecrets              []corev1.LocalObjectReference           `json:"imagePullSecrets,omitempty"`
-	Configuration                 string                                  `json:"configuration,omitempty"`
-	PodDisruptionBudget           *PodDisruptionBudgetSpec                `json:"podDisruptionBudget,omitempty"`
-	VaultSecretName               string                                  `json:"vaultSecretName,omitempty"`
-	SSLSecretName                 string                                  `json:"sslSecretName,omitempty"`
-	SSLInternalSecretName         string                                  `json:"sslInternalSecretName,omitempty"`
-	EnvVarsSecretName             string                                  `json:"envVarsSecret,omitempty"`
-	TerminationGracePeriodSeconds *int64                                  `json:"gracePeriod,omitempty"`
-	ForceUnsafeBootstrap          bool                                    `json:"forceUnsafeBootstrap,omitempty"`
-	ServiceType                   corev1.ServiceType                      `json:"serviceType,omitempty"`
-	ReplicasServiceType           corev1.ServiceType                      `json:"replicasServiceType,omitempty"`
-	ExternalTrafficPolicy         corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	Enabled                       bool                          `json:"enabled,omitempty"`
+	Size                          int32                         `json:"size,omitempty"`
+	Image                         string                        `json:"image,omitempty"`
+	Resources                     corev1.ResourceRequirements   `json:"resources,omitempty"`
+	SidecarResources              corev1.ResourceRequirements   `json:"sidecarResources,omitempty"`
+	VolumeSpec                    *VolumeSpec                   `json:"volumeSpec,omitempty"`
+	Affinity                      *PodAffinity                  `json:"affinity,omitempty"`
+	NodeSelector                  map[string]string             `json:"nodeSelector,omitempty"`
+	Tolerations                   []corev1.Toleration           `json:"tolerations,omitempty"`
+	PriorityClassName             string                        `json:"priorityClassName,omitempty"`
+	Annotations                   map[string]string             `json:"annotations,omitempty"`
+	Labels                        map[string]string             `json:"labels,omitempty"`
+	ImagePullSecrets              []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	Configuration                 string                        `json:"configuration,omitempty"`
+	PodDisruptionBudget           *PodDisruptionBudgetSpec      `json:"podDisruptionBudget,omitempty"`
+	VaultSecretName               string                        `json:"vaultSecretName,omitempty"`
+	SSLSecretName                 string                        `json:"sslSecretName,omitempty"`
+	SSLInternalSecretName         string                        `json:"sslInternalSecretName,omitempty"`
+	EnvVarsSecretName             string                        `json:"envVarsSecret,omitempty"`
+	TerminationGracePeriodSeconds *int64                        `json:"gracePeriod,omitempty"`
+	ForceUnsafeBootstrap          bool                          `json:"forceUnsafeBootstrap,omitempty"`
+
+	// Deprecated: Use ServiceExpose.Type instead
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+	// Deprecated: Use ServiceExpose.Type instead
+	ReplicasServiceType corev1.ServiceType `json:"replicasServiceType,omitempty"`
+	// Deprecated: Use ServiceExpose.ExternalTrafficPolicy instead
+	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	// Deprecated: Use ServiceExpose.ExternalTrafficPolicy instead
 	ReplicasExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"replicasExternalTrafficPolicy,omitempty"`
-	LoadBalancerSourceRanges      []string                                `json:"loadBalancerSourceRanges,omitempty"`
-	LoadBalancerIP                string                                  `json:"loadBalancerIP,omitempty"`
-	ServiceAnnotations            map[string]string                       `json:"serviceAnnotations,omitempty"`
-	ServiceLabels                 map[string]string                       `json:"serviceLabels,omitempty"`
-	ReplicasServiceAnnotations    map[string]string                       `json:"replicasServiceAnnotations,omitempty"`
-	ReplicasServiceLabels         map[string]string                       `json:"replicasServiceLabels,omitempty"`
-	SchedulerName                 string                                  `json:"schedulerName,omitempty"`
-	ReadinessInitialDelaySeconds  *int32                                  `json:"readinessDelaySec,omitempty"`
-	ReadinessProbes               corev1.Probe                            `json:"readinessProbes,omitempty"`
-	LivenessInitialDelaySeconds   *int32                                  `json:"livenessDelaySec,omitempty"`
-	LivenessProbes                corev1.Probe                            `json:"livenessProbes,omitempty"`
-	PodSecurityContext            *corev1.PodSecurityContext              `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext      *corev1.SecurityContext                 `json:"containerSecurityContext,omitempty"`
-	ServiceAccountName            string                                  `json:"serviceAccountName,omitempty"`
-	ImagePullPolicy               corev1.PullPolicy                       `json:"imagePullPolicy,omitempty"`
-	Sidecars                      []corev1.Container                      `json:"sidecars,omitempty"`
-	SidecarVolumes                []corev1.Volume                         `json:"sidecarVolumes,omitempty"`
-	SidecarPVCs                   []corev1.PersistentVolumeClaim          `json:"sidecarPVCs,omitempty"`
-	RuntimeClassName              *string                                 `json:"runtimeClassName,omitempty"`
-	HookScript                    string                                  `json:"hookScript,omitempty"`
+	// Deprecated: Use ServiceExpose.LoadBalancerSourceRanges instead
+	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
+	// Deprecated: Use ServiceExpose.LoadBalancerIP instead
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
+	// Deprecated: Use ServiceExpose.Annotations instead
+	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
+	// Deprecated: Use ServiceExpose.Labels instead
+	ServiceLabels map[string]string `json:"serviceLabels,omitempty"`
+	// Deprecated: Use ServiceExpose.Annotations instead
+	ReplicasServiceAnnotations map[string]string `json:"replicasServiceAnnotations,omitempty"`
+	// Deprecated: Use ServiceExpose.Labels instead
+	ReplicasServiceLabels map[string]string `json:"replicasServiceLabels,omitempty"`
+
+	SchedulerName                string                            `json:"schedulerName,omitempty"`
+	ReadinessInitialDelaySeconds *int32                            `json:"readinessDelaySec,omitempty"`
+	ReadinessProbes              corev1.Probe                      `json:"readinessProbes,omitempty"`
+	LivenessInitialDelaySeconds  *int32                            `json:"livenessDelaySec,omitempty"`
+	LivenessProbes               corev1.Probe                      `json:"livenessProbes,omitempty"`
+	PodSecurityContext           *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext     *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
+	ServiceAccountName           string                            `json:"serviceAccountName,omitempty"`
+	ImagePullPolicy              corev1.PullPolicy                 `json:"imagePullPolicy,omitempty"`
+	Sidecars                     []corev1.Container                `json:"sidecars,omitempty"`
+	SidecarVolumes               []corev1.Volume                   `json:"sidecarVolumes,omitempty"`
+	SidecarPVCs                  []corev1.PersistentVolumeClaim    `json:"sidecarPVCs,omitempty"`
+	RuntimeClassName             *string                           `json:"runtimeClassName,omitempty"`
+	HookScript                   string                            `json:"hookScript,omitempty"`
+	Lifecycle                    corev1.Lifecycle                  `json:"lifecycle,omitempty"`
+	TopologySpreadConstraints    []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+}
+
+type ProxySQLSpec struct {
+	PodSpec `json:",inline"`
+	Expose  ServiceExpose `json:"expose,omitempty"`
 }
 
 type HAProxySpec struct {
-	PodSpec                          `json:",inline"`
-	ReplicasServiceEnabled           *bool    `json:"replicasServiceEnabled,omitempty"`
+	PodSpec        `json:",inline"`
+	ExposePrimary  ServiceExpose  `json:"exposePrimary,omitempty"`
+	ExposeReplicas *ServiceExpose `json:"exposeReplicas,omitempty"`
+
+	// Deprecated: Use ExposeReplica.Enabled instead
+	ReplicasServiceEnabled *bool `json:"replicasServiceEnabled,omitempty"`
+	// Deprecated: Use ExposeReplica.LoadBalancerSourceRanges instead
 	ReplicasLoadBalancerSourceRanges []string `json:"replicasLoadBalancerSourceRanges,omitempty"`
-	ReplicasLoadBalancerIP           string   `json:"replicasLoadBalancerIP,omitempty"`
+	// Deprecated: Use ExposeReplica.LoadBalancerIP instead
+	ReplicasLoadBalancerIP string `json:"replicasLoadBalancerIP,omitempty"`
 }
 
 type PodDisruptionBudgetSpec struct {
@@ -510,22 +545,77 @@ func (spec *PMMSpec) UseAPI(secret *corev1.Secret) bool {
 }
 
 type BackupStorageSpec struct {
-	Type                     BackupStorageType           `json:"type"`
-	S3                       *BackupStorageS3Spec        `json:"s3,omitempty"`
-	Azure                    *BackupStorageAzureSpec     `json:"azure,omitempty"`
-	Volume                   *VolumeSpec                 `json:"volume,omitempty"`
-	NodeSelector             map[string]string           `json:"nodeSelector,omitempty"`
-	Resources                corev1.ResourceRequirements `json:"resources,omitempty"`
-	Affinity                 *corev1.Affinity            `json:"affinity,omitempty"`
-	Tolerations              []corev1.Toleration         `json:"tolerations,omitempty"`
-	Annotations              map[string]string           `json:"annotations,omitempty"`
-	Labels                   map[string]string           `json:"labels,omitempty"`
-	SchedulerName            string                      `json:"schedulerName,omitempty"`
-	PriorityClassName        string                      `json:"priorityClassName,omitempty"`
-	PodSecurityContext       *corev1.PodSecurityContext  `json:"podSecurityContext,omitempty"`
-	ContainerSecurityContext *corev1.SecurityContext     `json:"containerSecurityContext,omitempty"`
-	RuntimeClassName         *string                     `json:"runtimeClassName,omitempty"`
-	VerifyTLS                *bool                       `json:"verifyTLS,omitempty"`
+	Type                      BackupStorageType                 `json:"type"`
+	S3                        *BackupStorageS3Spec              `json:"s3,omitempty"`
+	Azure                     *BackupStorageAzureSpec           `json:"azure,omitempty"`
+	Volume                    *VolumeSpec                       `json:"volume,omitempty"`
+	NodeSelector              map[string]string                 `json:"nodeSelector,omitempty"`
+	Resources                 corev1.ResourceRequirements       `json:"resources,omitempty"`
+	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	Tolerations               []corev1.Toleration               `json:"tolerations,omitempty"`
+	Annotations               map[string]string                 `json:"annotations,omitempty"`
+	Labels                    map[string]string                 `json:"labels,omitempty"`
+	SchedulerName             string                            `json:"schedulerName,omitempty"`
+	PriorityClassName         string                            `json:"priorityClassName,omitempty"`
+	PodSecurityContext        *corev1.PodSecurityContext        `json:"podSecurityContext,omitempty"`
+	ContainerSecurityContext  *corev1.SecurityContext           `json:"containerSecurityContext,omitempty"`
+	RuntimeClassName          *string                           `json:"runtimeClassName,omitempty"`
+	VerifyTLS                 *bool                             `json:"verifyTLS,omitempty"`
+	ContainerOptions          *BackupContainerOptions           `json:"containerOptions,omitempty"`
+}
+
+type BackupContainerOptions struct {
+	Env  []corev1.EnvVar     `json:"env,omitempty"`
+	Args BackupContainerArgs `json:"args,omitempty"`
+}
+
+func (b *BackupContainerOptions) GetEnv() []corev1.EnvVar {
+	return util.MergeEnvLists(b.Env, b.Args.Env())
+}
+
+func (b *BackupContainerOptions) GetEnvVar(cluster *PerconaXtraDBCluster, storageName string) []corev1.EnvVar {
+	if b != nil {
+		return util.MergeEnvLists(b.Args.Env(), b.Env)
+	}
+	if cluster == nil {
+		return nil
+	}
+
+	storage, ok := cluster.Spec.Backup.Storages[storageName]
+	if !ok || storage.ContainerOptions == nil {
+		return nil
+	}
+	return storage.ContainerOptions.GetEnvVar(nil, "")
+}
+
+type BackupContainerArgs struct {
+	Xtrabackup []string `json:"xtrabackup,omitempty"`
+	Xbcloud    []string `json:"xbcloud,omitempty"`
+	Xbstream   []string `json:"xbstream,omitempty"`
+}
+
+func (b *BackupContainerArgs) Env() []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
+	if len(b.Xtrabackup) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XB_EXTRA_ARGS",
+			Value: strings.Join(b.Xtrabackup, " "),
+		})
+	}
+	if len(b.Xbcloud) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XBCLOUD_EXTRA_ARGS",
+			Value: strings.Join(b.Xbcloud, " "),
+		})
+	}
+	if len(b.Xbstream) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "XBSTREAM_EXTRA_ARGS",
+			Value: strings.Join(b.Xbstream, " "),
+		})
+	}
+	return envs
 }
 
 type BackupStorageType string
@@ -545,6 +635,14 @@ type BackupStorageS3Spec struct {
 	CredentialsSecret string `json:"credentialsSecret"`
 	Region            string `json:"region,omitempty"`
 	EndpointURL       string `json:"endpointUrl,omitempty"`
+}
+
+// BucketAndPrefix returns bucket name and backup prefix from Bucket.
+// BackupStorageS3Spec.Bucket can contain backup path in format `<bucket-name>/<backup-prefix>`.
+func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string) {
+	destination := strings.TrimPrefix(b.Bucket, AwsBlobStoragePrefix)
+	bucket, prefix, _ := strings.Cut(destination, "/")
+	return bucket, prefix
 }
 
 type BackupStorageAzureSpec struct {
@@ -780,9 +878,17 @@ func (cr *PerconaXtraDBCluster) CheckNSetDefaults(serverVersion *version.ServerV
 	}
 
 	if c.HAProxyEnabled() {
-		if c.HAProxy.ReplicasServiceEnabled == nil {
-			t := true
-			c.HAProxy.ReplicasServiceEnabled = &t
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			if c.HAProxy.ExposeReplicas == nil {
+				c.HAProxy.ExposeReplicas = &ServiceExpose{
+					Enabled: true,
+				}
+			}
+		} else {
+			if c.HAProxy.ReplicasServiceEnabled == nil {
+				t := true
+				c.HAProxy.ReplicasServiceEnabled = &t
+			}
 		}
 
 		if len(c.HAProxy.ImagePullPolicy) == 0 {
@@ -1085,7 +1191,7 @@ var affinityValidTopologyKeys = map[string]struct{}{
 	"topology.kubernetes.io/region":            {},
 }
 
-var defaultAffinityTopologyKey = "kubernetes.io/hostname"
+var DefaultAffinityTopologyKey = "kubernetes.io/hostname"
 
 // reconcileAffinityOpts ensures that the affinity is set to the valid values.
 // - if the affinity doesn't set at all - set topology key to `defaultAffinityTopologyKey`
@@ -1096,18 +1202,18 @@ func (p *PodSpec) reconcileAffinityOpts() {
 	switch {
 	case p.Affinity == nil:
 		p.Affinity = &PodAffinity{
-			TopologyKey: &defaultAffinityTopologyKey,
+			TopologyKey: &DefaultAffinityTopologyKey,
 		}
 
 	case p.Affinity.TopologyKey == nil:
-		p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+		p.Affinity.TopologyKey = &DefaultAffinityTopologyKey
 
 	case p.Affinity.Advanced != nil:
 		p.Affinity.TopologyKey = nil
 
 	case p.Affinity != nil && p.Affinity.TopologyKey != nil:
 		if _, ok := affinityValidTopologyKeys[*p.Affinity.TopologyKey]; !ok {
-			p.Affinity.TopologyKey = &defaultAffinityTopologyKey
+			p.Affinity.TopologyKey = &DefaultAffinityTopologyKey
 		}
 	}
 }
@@ -1258,7 +1364,11 @@ func (cr *PerconaXtraDBCluster) HAProxyEnabled() bool {
 }
 
 func (cr *PerconaXtraDBCluster) HAProxyReplicasServiceEnabled() bool {
-	return *cr.Spec.HAProxy.ReplicasServiceEnabled
+	if cr.CompareVersionWith("1.14.0") < 0 {
+		return *cr.Spec.HAProxy.ReplicasServiceEnabled
+	}
+
+	return cr.Spec.HAProxy.ExposeReplicas.Enabled
 }
 
 func (cr *PerconaXtraDBCluster) ProxySQLEnabled() bool {

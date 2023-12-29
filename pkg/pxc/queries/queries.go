@@ -157,7 +157,7 @@ func (d *Database) ChangeChannelPassword(ctx context.Context, channel, password 
 	return nil
 }
 
-func (d *Database) ReplicationStatus(ctx context.Context, channel string) (ReplicationStatus, error) {
+func (d *Database) ShowReplicaStatus(ctx context.Context, channel string) (map[string]string, error) {
 	rows := []*struct {
 		IORunning  string `csv:"Replica_IO_Running"`
 		SQLRunning string `csv:"Replica_SQL_Running"`
@@ -167,21 +167,93 @@ func (d *Database) ReplicationStatus(ctx context.Context, channel string) (Repli
 	q := fmt.Sprintf("SHOW REPLICA STATUS FOR CHANNEL '%s'", channel)
 	err := d.Query(ctx, q, &rows)
 	if err != nil {
+		return nil, err
+	}
+
+	// ioRunning := rows[0].IORunning == "Yes"
+	// sqlRunning := rows[0].SQLRunning == "Yes"
+	// lastErrNo := rows[0].LastErrNo
+
+	return nil, nil
+
+	// defer rows.Close()
+	// columns, err := rows.Columns()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// ok := rows.Next()
+	// if !ok {
+	// 	return make(map[string]string), nil
+	// }
+
+	// values := make([]any, 0, len(columns))
+	// for range columns {
+	// 	values = append(values, new([]byte))
+	// }
+	// status := make(map[string]string, len(columns))
+
+	// if err := rows.Scan(values...); err != nil {
+	// 	return nil, err
+	// }
+
+	// for i, name := range columns {
+	// 	ptr, ok := values[i].(*[]byte)
+	// 	if !ok {
+	// 		return nil, errors.Errorf("failed to convert %T to *[]byte: %s", values[i], name)
+	// 	}
+	// 	status[name] = string(*ptr)
+	// }
+
+	// return status, nil
+}
+
+// func (p *Database) ReplicationStatus(ctx context.Context, channel string) (ReplicationStatus, error) {
+// 	statusMap, err := p.ShowReplicaStatus(ctx, channel)
+// 	if err != nil {
+// 		if strings.HasSuffix(err.Error(), "does not exist.") || errors.Is(err, sql.ErrNoRows) {
+// 			return ReplicationStatusNotInitiated, nil
+// 		}
+// 		return ReplicationStatusError, errors.Wrap(err, "select replication status")
+// 	}
+
+// <<<<<<< HEAD
+// 	ioRunning := rows[0].IORunning == "Yes"
+// 	sqlRunning := rows[0].SQLRunning == "Yes"
+// 	lastErrNo := rows[0].LastErrNo
+
+// 	if ioRunning && sqlRunning {
+// =======
+// 	IORunning := statusMap["Replica_IO_Running"]
+// 	SQLRunning := statusMap["Replica_SQL_Running"]
+// 	LastErrNo := statusMap["Last_Errno"]
+// 	if IORunning == "Yes" && SQLRunning == "Yes" {
+// >>>>>>> main
+// 		return ReplicationStatusActive, nil
+// 	}
+
+// 	if !ioRunning && !sqlRunning && lastErrNo == 0 {
+// 		return ReplicationStatusNotInitiated, nil
+// 	}
+
+//		return ReplicationStatusError, nil
+//	}
+func (d *Database) ReplicationStatus(ctx context.Context, channel string) (ReplicationStatus, error) {
+	statusMap, err := d.ShowReplicaStatus(ctx, channel)
+	if err != nil {
 		if strings.HasSuffix(err.Error(), "does not exist.") || errors.Is(err, sql.ErrNoRows) {
 			return ReplicationStatusNotInitiated, nil
 		}
-		return ReplicationStatusError, errors.Wrap(err, "select replication status")
+		return ReplicationStatusError, errors.Wrap(err, "get current replica status")
 	}
 
-	ioRunning := rows[0].IORunning == "Yes"
-	sqlRunning := rows[0].SQLRunning == "Yes"
-	lastErrNo := rows[0].LastErrNo
-
-	if ioRunning && sqlRunning {
+	IORunning := statusMap["Replica_IO_Running"]
+	SQLRunning := statusMap["Replica_SQL_Running"]
+	LastErrNo := statusMap["Last_Errno"]
+	if IORunning == "Yes" && SQLRunning == "Yes" {
 		return ReplicationStatusActive, nil
 	}
 
-	if !ioRunning && !sqlRunning && lastErrNo == 0 {
+	if IORunning == "No" && SQLRunning == "No" && LastErrNo == "0" {
 		return ReplicationStatusNotInitiated, nil
 	}
 
@@ -258,7 +330,7 @@ func (p *Database) IsReadonlyExec(ctx context.Context) (bool, error) {
 	return rows[0].ReadOnly == 1, nil
 }
 
-func (d *Database) StartReplication(ctx context.Context, replicaPass string, config ReplicationConfig) error {
+func (d *Database) StartReplication(ctx context.Context, replicaPass string, config ReplicationConfig, shouldGetMasterKey bool) error {
 	var ca string
 	var ssl int
 	if config.SSL {
@@ -293,11 +365,19 @@ func (d *Database) StartReplication(ctx context.Context, replicaPass string, con
 		return errors.Wrapf(err, "change source for channel %s", config.Source.Name)
 	}
 
+	if shouldGetMasterKey {
+		outb.Reset()
+		errb.Reset()
+		err = d.Exec(ctx, fmt.Sprintf(`CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1 FOR CHANNEL '%s'`, config.Source.Name), &outb, &errb)
+		if err != nil {
+			return errors.Wrapf(err, "change master to GET_MASTER_PUBLIC_KEY for channel %s", config.Source.Name)
+		}
+	}
+
 	outb.Reset()
 	errb.Reset()
 	err = d.Exec(ctx, fmt.Sprintf(`START REPLICA FOR CHANNEL '%s'`, config.Source.Name), &outb, &errb)
 	return errors.Wrapf(err, "start replica for source %s", config.Source.Name)
-
 }
 
 func (d *Database) DeleteReplicationSource(ctx context.Context, name, host string, port int) error {
@@ -421,4 +501,21 @@ func (d *Database) Version(ctx context.Context) (string, error) {
 	}
 
 	return rows[0].Version, nil
+}
+
+func (d *Database) ReadVariable(ctx context.Context, variable string) (string, error) {
+	rows := []*struct {
+		VarName string `csv:"Variable_name"`
+		Value   string `csv:"Value"`
+	}{}
+
+	err := d.Query(ctx, fmt.Sprintf("SHOW VARIABLES LIKE '%s';", variable), &rows)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("variable was not found")
+		}
+		return "", err
+	}
+
+	return rows[0].Value, nil
 }

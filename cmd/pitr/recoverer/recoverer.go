@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 
 	"github.com/pkg/errors"
 )

@@ -53,11 +53,15 @@ spec:
 #    expose:
 #      enabled: true
 #      type: LoadBalancer
-#      trafficPolicy: Local
+#      externalTrafficPolicy: Local
+#      internalTrafficPolicy: Local
 #      loadBalancerSourceRanges:
 #        - 10.0.0.0/8
+#      loadBalancerIP: 127.0.01
 #      annotations:
 #        networking.gke.io/load-balancer-type: "Internal"
+#      labels:
+#        rack: rack-22
 #    replicationChannels:
 #    - name: pxc1_to_pxc2
 #      isSource: true
@@ -94,6 +98,10 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
+#    serviceAnnotations:
+#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+#    serviceLabels:
+#      rack: rack-23
 #    readinessProbes:
 #      initialDelaySeconds: 15
 #      timeoutSeconds: 15
@@ -139,6 +147,13 @@ spec:
 #        ephemeral-storage: 1G
 #    nodeSelector:
 #      disktype: ssd
+#    topologySpreadConstraints:
+#    - labelSelector:
+#        matchLabels:
+#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#      maxSkew: 1
+#      topologyKey: kubernetes.io/hostname
+#      whenUnsatisfiable: DoNotSchedule
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -172,7 +187,7 @@ spec:
             storage: 6G
     gracePeriod: 600
   haproxy:
-    enabled: true
+    enabled: false
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-haproxy
 #    imagePullPolicy: Always
@@ -246,25 +261,30 @@ spec:
 #      periodSeconds: 30
 #      successThreshold: 1
 #      failureThreshold: 4
-#    serviceType: ClusterIP
-#    externalTrafficPolicy: Cluster
-#    loadBalancerSourceRanges:
-#      - 10.0.0.0/8
-#    loadBalancerIP: 127.0.0.1
-#    serviceAnnotations:
-#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
-#    serviceLabels:
-#      rack: rack-23
-#    replicasServiceEnabled: false
-#    replicasLoadBalancerSourceRanges:
-#      - 10.0.0.0/8
-#    replicasLoadBalancerIP: 127.0.0.1
-#    replicasServiceType: ClusterIP
-#    replicasExternalTrafficPolicy: Cluster
-#    replicasServiceAnnotations:
-#      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
-#    replicasServiceLabels:
-#      rack: rack-23
+#    exposePrimary:
+#      enabled: false
+#      type: ClusterIP
+#      annotations:
+#        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+#      externalTrafficPolicy: Cluster
+#      internalTrafficPolicy: Cluster
+#      labels:
+#        rack: rack-22
+#      loadBalancerSourceRanges:
+#        - 10.0.0.0/8
+#      loadBalancerIP: 127.0.0.1
+#    exposeReplicas:
+#      enabled: false
+#      type: ClusterIP
+#      annotations:
+#        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+#      externalTrafficPolicy: Cluster
+#      internalTrafficPolicy: Cluster
+#      labels:
+#        rack: rack-22
+#      loadBalancerSourceRanges:
+#        - 10.0.0.0/8
+#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -303,6 +323,13 @@ spec:
 #      runAsGroup: 1001
 #      supplementalGroups: [1001]
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
+#    topologySpreadConstraints:
+#    - labelSelector:
+#        matchLabels:
+#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#      maxSkew: 1
+#      topologyKey: kubernetes.io/hostname
+#      whenUnsatisfiable: DoNotSchedule
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -325,7 +352,7 @@ spec:
 #      minAvailable: 0
     gracePeriod: 30
   proxysql:
-    enabled: false
+    enabled: true
     size: 3
     image: perconalab/percona-xtradb-cluster-operator:main-proxysql
 #    imagePullPolicy: Always
@@ -389,11 +416,18 @@ spec:
 #      iam.amazonaws.com/role: role-arn
 #    labels:
 #      rack: rack-22
-#    serviceType: ClusterIP
-#    loadBalancerSourceRanges:
-#      - 10.0.0.0/8
-#    loadBalancerIP: 127.0.0.1
-#    externalTrafficPolicy: Cluster
+#    expose:
+#      enabled: false
+#      type: ClusterIP
+#      annotations:
+#        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+#      externalTrafficPolicy: Cluster
+#      internalTrafficPolicy: Cluster
+#      labels:
+#        rack: rack-22
+#      loadBalancerSourceRanges:
+#        - 10.0.0.0/8
+#      loadBalancerIP: 127.0.0.1
 #    runtimeClassName: image-rc
 #    sidecars:
 #    - image: busybox
@@ -432,6 +466,13 @@ spec:
 #      runAsGroup: 1001
 #      supplementalGroups: [1001]
 #    serviceAccountName: percona-xtradb-cluster-operator-workload
+#    topologySpreadConstraints:
+#    - labelSelector:
+#        matchLabels:
+#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#      maxSkew: 1
+#      topologyKey: kubernetes.io/hostname
+#      whenUnsatisfiable: DoNotSchedule
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
 #      advanced:
@@ -526,6 +567,13 @@ spec:
 #          requests:
 #            memory: 1G
 #            cpu: 600m
+#        topologySpreadConstraints:
+#        - labelSelector:
+#            matchLabels:
+#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          maxSkew: 1
+#          topologyKey: kubernetes.io/hostname
+#          whenUnsatisfiable: DoNotSchedule
 #        affinity:
 #          nodeAffinity:
 #            requiredDuringSchedulingIgnoredDuringExecution:
@@ -551,6 +599,17 @@ spec:
 #        podSecurityContext:
 #          fsGroup: 1001
 #          supplementalGroups: [1001, 1002, 1003]
+#        containerOptions:
+#          env:
+#          - name: VERIFY_TLS
+#            value: "false"
+#          args:
+#            xtrabackup:
+#            - "--someflag=abc"
+#            xbcloud:
+#            - "--someflag=abc"
+#            xbstream:
+#            - "--someflag=abc"
         s3:
           bucket: S3-BACKUP-BUCKET-NAME-HERE
           credentialsSecret: my-cluster-name-backup-s3
@@ -571,6 +630,13 @@ spec:
 #          requests:
 #            memory: 1G
 #            cpu: 600m
+#        topologySpreadConstraints:
+#        - labelSelector:
+#            matchLabels:
+#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          maxSkew: 1
+#          topologyKey: kubernetes.io/hostname
+#          whenUnsatisfiable: DoNotSchedule
 #        affinity:
 #          nodeAffinity:
 #            requiredDuringSchedulingIgnoredDuringExecution:

@@ -27,6 +27,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app/statefulset"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -53,10 +54,11 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	}
 
 	return &ReconcilePerconaXtraDBClusterRestore{
-		client:        mgr.GetClient(),
-		clientcmd:     cli,
-		scheme:        mgr.GetScheme(),
-		serverVersion: sv,
+		client:               mgr.GetClient(),
+		clientcmd:            cli,
+		scheme:               mgr.GetScheme(),
+		serverVersion:        sv,
+		newStorageClientFunc: storage.NewClient,
 	}, nil
 }
 
@@ -79,6 +81,8 @@ type ReconcilePerconaXtraDBClusterRestore struct {
 	scheme    *runtime.Scheme
 
 	serverVersion *version.ServerVersion
+
+	newStorageClientFunc storage.NewClientFunc
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterRestore object and makes changes based on the state read
@@ -166,7 +170,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		return reconcile.Result{}, err
 	}
 
-	bcp, err := r.getBackup(cr)
+	bcp, err := r.getBackup(ctx, cr)
 	if err != nil {
 		return rr, errors.Wrap(err, "get backup")
 	}
@@ -178,6 +182,12 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		msg := fmt.Sprintf("Backup doesn't guarantee consistent recovery with PITR. Annotate PerconaXtraDBClusterRestore with %s to force it.", api.AnnotationUnsafePITR)
 		err = errors.New(msg)
 		return reconcile.Result{}, nil
+	}
+
+	err = r.validate(ctx, cr, bcp, cluster)
+	if err != nil {
+		err = errors.Wrap(err, "failed to validate restore job")
+		return rr, err
 	}
 
 	log.Info("stopping cluster", "cluster", cr.Spec.PXCCluster)
@@ -198,7 +208,8 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 		err = errors.Wrap(err, "set status")
 		return rr, err
 	}
-	err = r.restore(cr, bcp, cluster)
+
+	err = r.restore(ctx, cr, bcp, cluster)
 	if err != nil {
 		err = errors.Wrap(err, "run restore")
 		return rr, err
@@ -227,13 +238,20 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			return rr, errors.Wrap(err, "set status")
 		}
 
-		err = r.pitr(cr, bcp, cluster)
+		err = r.pitr(ctx, cr, bcp, cluster)
 		if err != nil {
 			return rr, errors.Wrap(err, "run pitr")
 		}
 
 		cluster.Spec.PXC.Size = oldSize
 		cluster.Spec.AllowUnsafeConfig = oldUnsafe
+
+		log.Info("starting cluster", "cluster", cr.Spec.PXCCluster)
+		err = r.setStatus(cr, api.RestoreStartCluster, "")
+		if err != nil {
+			err = errors.Wrap(err, "set status")
+			return rr, err
+		}
 	}
 
 	err = r.startCluster(clusterOrig)
@@ -247,7 +265,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 	return rr, err
 }
 
-func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
+func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(ctx context.Context, cr *api.PerconaXtraDBClusterRestore) (*api.PerconaXtraDBClusterBackup, error) {
 	if cr.Spec.BackupSource != nil {
 		status := cr.Spec.BackupSource.DeepCopy()
 		status.State = api.BackupSucceeded
@@ -267,7 +285,7 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getBackup(cr *api.PerconaXtraDBCl
 	}
 
 	bcp := &api.PerconaXtraDBClusterBackup{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
+	err := r.client.Get(ctx, types.NamespacedName{Name: cr.Spec.BackupName, Namespace: cr.Namespace}, bcp)
 	if err != nil {
 		err = errors.Wrapf(err, "get backup %s", cr.Spec.BackupName)
 		return bcp, err

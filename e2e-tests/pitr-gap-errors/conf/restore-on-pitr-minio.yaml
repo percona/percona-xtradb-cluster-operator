@@ -10,7 +10,7 @@ spec:
     s3:
       bucket: operator-testing
       credentialsSecret: minio-secret
-      endpointUrl: https://minio-service:9000
+      endpointUrl: https://minio-service.#namespace:9000/
       region: us-east-1
   pitr:
     type: latest
@@ -19,6 +19,6 @@ spec:
       s3:
         bucket: operator-testing/binlogs
         credentialsSecret: minio-secret
-        endpointUrl: https://minio-service:9000
+        endpointUrl: https://minio-service.#namespace:9000/
         region: us-east-1
 

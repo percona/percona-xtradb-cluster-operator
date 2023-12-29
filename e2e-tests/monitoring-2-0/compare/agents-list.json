@@ -1,12 +1,12 @@
 [
   {
     "service_type": "haproxy",
+    "service_name": "pxc-prefix-monitoring-haproxy-0",
     "node_name": "monitoring-haproxy-0",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "agents": [
       {
-        "agent_type": "external-exporter",
-        "status": "DONE"
+        "agent_type": "external-exporter"
       },
       {
         "agent_type": "pmm-agent",
@@ -21,12 +21,12 @@
   },
   {
     "service_type": "haproxy",
+    "service_name": "pxc-prefix-monitoring-haproxy-1",
     "node_name": "monitoring-haproxy-1",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "agents": [
       {
-        "agent_type": "external-exporter",
-        "status": "DONE"
+        "agent_type": "external-exporter"
       },
       {
         "agent_type": "pmm-agent",
@@ -41,8 +41,9 @@
   },
   {
     "service_type": "mysql",
+    "service_name": "pxc-prefix-monitoring-pxc-0",
     "node_name": "monitoring-pxc-0",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "address": "monitoring-pxc-0",
     "port": 33062,
     "agents": [
@@ -67,8 +68,9 @@
   },
   {
     "service_type": "mysql",
+    "service_name": "pxc-prefix-monitoring-pxc-1",
     "node_name": "monitoring-pxc-1",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "address": "monitoring-pxc-1",
     "port": 33062,
     "agents": [
@@ -93,8 +95,9 @@
   },
   {
     "service_type": "mysql",
+    "service_name": "pxc-prefix-monitoring-pxc-2",
     "node_name": "monitoring-pxc-2",
-    "cluster": "monitoring",
+    "cluster": "pxc-prefix-monitoring",
     "address": "monitoring-pxc-2",
     "port": 33062,
     "agents": [
@@ -119,6 +122,7 @@
   },
   {
     "service_type": "postgresql",
+    "service_name": "pmm-server-postgresql",
     "database_name": "postgres",
     "node_name": "pmm-server",
     "address": "127.0.0.1",

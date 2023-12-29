@@ -22,12 +22,10 @@ const (
 	ProxyAdmin   = "proxyadmin"
 	PMMServer    = "pmmserver"
 	PMMServerKey = "pmmserverkey"
-	Clustercheck = "clustercheck"
 )
 
-var UserNames = []string{Root, Operator, Monitor,
-	Xtrabackup, Replication, ProxyAdmin,
-	Clustercheck, PMMServer, PMMServerKey}
+var UserNames = []string{Root, Operator, Monitor, Xtrabackup,
+	Replication, ProxyAdmin, PMMServer, PMMServerKey}
 
 type SysUser struct {
 	Name  string   `yaml:"username"`
@@ -211,19 +209,11 @@ func (m *Manager) Update170XtrabackupUser(ctx context.Context, pass string) (err
 	return nil
 }
 
-// Update1100SystemUserPrivilege grants system_user privilege for monitor and clustercheck users
-func (m *Manager) Update1100SystemUserPrivilege(ctx context.Context, user *SysUser) (err error) {
-	switch user.Name {
-	case Monitor:
-		var errb, outb bytes.Buffer
-		if err := m.db.Exec(ctx, "GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'", &outb, &errb); err != nil {
-			return errors.Wrap(err, "monitor user")
-		}
-	case Clustercheck:
-		var errb, outb bytes.Buffer
-		if err := m.db.Exec(ctx, "GRANT SYSTEM_USER ON *.* TO 'clustercheck'@'localhost'", &outb, &errb); err != nil {
-			return errors.Wrap(err, "clustercheck user")
-		}
+// Update1100MonitorUserPrivilege grants system_user privilege for monitor
+func (m *Manager) Update1100MonitorUserPrivilege(ctx context.Context) (err error) {
+	var errb, outb bytes.Buffer
+	if err := m.db.Exec(ctx, "GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'", &outb, &errb); err != nil {
+		return errors.Wrap(err, "monitor user")
 	}
 
 	return nil

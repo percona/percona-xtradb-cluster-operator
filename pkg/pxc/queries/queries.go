@@ -162,6 +162,7 @@ func (d *Database) ShowReplicaStatus(ctx context.Context, channel string) (map[s
 		IORunning  string `csv:"Replica_IO_Running"`
 		SQLRunning string `csv:"Replica_SQL_Running"`
 		LastErrNo  int    `csv:"Last_Errno"`
+		LastIOErr  string `csv:"Last_IO_Err"`
 	}{}
 
 	q := fmt.Sprintf("SHOW REPLICA STATUS FOR CHANNEL '%s'", channel)
@@ -170,73 +171,15 @@ func (d *Database) ShowReplicaStatus(ctx context.Context, channel string) (map[s
 		return nil, err
 	}
 
-	// ioRunning := rows[0].IORunning == "Yes"
-	// sqlRunning := rows[0].SQLRunning == "Yes"
-	// lastErrNo := rows[0].LastErrNo
+	status := make(map[string]string, 4)
+	status["Replica_IO_Running"] = rows[0].IORunning
+	status["Replica_SQL_Running"] = rows[0].SQLRunning
+	status["Last_Errno"] = fmt.Sprintf("%d", rows[0].LastErrNo)
+	status["Last_IO_Err"] = rows[0].LastIOErr
 
-	return nil, nil
-
-	// defer rows.Close()
-	// columns, err := rows.Columns()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// ok := rows.Next()
-	// if !ok {
-	// 	return make(map[string]string), nil
-	// }
-
-	// values := make([]any, 0, len(columns))
-	// for range columns {
-	// 	values = append(values, new([]byte))
-	// }
-	// status := make(map[string]string, len(columns))
-
-	// if err := rows.Scan(values...); err != nil {
-	// 	return nil, err
-	// }
-
-	// for i, name := range columns {
-	// 	ptr, ok := values[i].(*[]byte)
-	// 	if !ok {
-	// 		return nil, errors.Errorf("failed to convert %T to *[]byte: %s", values[i], name)
-	// 	}
-	// 	status[name] = string(*ptr)
-	// }
-
-	// return status, nil
+	return status, nil
 }
 
-// func (p *Database) ReplicationStatus(ctx context.Context, channel string) (ReplicationStatus, error) {
-// 	statusMap, err := p.ShowReplicaStatus(ctx, channel)
-// 	if err != nil {
-// 		if strings.HasSuffix(err.Error(), "does not exist.") || errors.Is(err, sql.ErrNoRows) {
-// 			return ReplicationStatusNotInitiated, nil
-// 		}
-// 		return ReplicationStatusError, errors.Wrap(err, "select replication status")
-// 	}
-
-// <<<<<<< HEAD
-// 	ioRunning := rows[0].IORunning == "Yes"
-// 	sqlRunning := rows[0].SQLRunning == "Yes"
-// 	lastErrNo := rows[0].LastErrNo
-
-// 	if ioRunning && sqlRunning {
-// =======
-// 	IORunning := statusMap["Replica_IO_Running"]
-// 	SQLRunning := statusMap["Replica_SQL_Running"]
-// 	LastErrNo := statusMap["Last_Errno"]
-// 	if IORunning == "Yes" && SQLRunning == "Yes" {
-// >>>>>>> main
-// 		return ReplicationStatusActive, nil
-// 	}
-
-// 	if !ioRunning && !sqlRunning && lastErrNo == 0 {
-// 		return ReplicationStatusNotInitiated, nil
-// 	}
-
-//		return ReplicationStatusError, nil
-//	}
 func (d *Database) ReplicationStatus(ctx context.Context, channel string) (ReplicationStatus, error) {
 	statusMap, err := d.ShowReplicaStatus(ctx, channel)
 	if err != nil {

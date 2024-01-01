@@ -64,6 +64,7 @@ type PXCBackupStatus struct {
 	VaultSecretName       string                  `json:"vaultSecretName,omitempty"`
 	Conditions            []metav1.Condition      `json:"conditions,omitempty"`
 	VerifyTLS             *bool                   `json:"verifyTLS,omitempty"`
+	LatestRestorableTime  *metav1.Time            `json:"latestRestorableTime,omitempty"`
 }
 
 func (status *PXCBackupStatus) GetStorageType(cluster *PerconaXtraDBCluster) BackupStorageType {

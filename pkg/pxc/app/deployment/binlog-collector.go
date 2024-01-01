@@ -295,3 +295,16 @@ func RemoveGapFile(ctx context.Context, c *clientcmd.Client, pod *corev1.Pod) er
 
 	return nil
 }
+
+func RemoveTimelineFile(ctx context.Context, c *clientcmd.Client, pod *corev1.Pod) error {
+	stderrBuf := &bytes.Buffer{}
+	err := c.Exec(pod, "pitr", []string{"/bin/bash", "-c", "rm /tmp/pitr-timeline"}, nil, nil, stderrBuf, false)
+	if err != nil {
+		if strings.Contains(stderrBuf.String(), "No such file or directory") {
+			return nil
+		}
+		return errors.Wrapf(err, "delete timeline file in collector pod %s", pod.Name)
+	}
+
+	return nil
+}

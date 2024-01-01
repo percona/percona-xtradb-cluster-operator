@@ -14,33 +14,6 @@ if [[ $IMAGE_PXC =~ 5\.7 ]]; then
 	exit 0
 fi
 
-run_recovery_check_pitr() {
-	local cluster=$1
-	local restore=$2
-	local backup=$3
-	local compare=$4
-	local time_now=$5
-	local dest=$6
-	local gtid=$7
-
-	desc 'recover backup' $restore
-	cat "$test_dir/conf/${restore}.yaml" \
-		| $sed -e "s/<datetime>/${time_now}/g" \
-		| $sed -e "s/<destination>/${dest}/g" \
-		| $sed -e "s/<gtid>/${gtid}/g" \
-		| kubectl_bin apply -f -
-	wait_backup_restore ${backup}
-	kubectl_bin logs job/restore-job-${backup}-${cluster}
-	wait_for_running "$cluster-proxysql" 2
-	wait_for_running "$cluster-pxc" 3
-	wait_cluster_consistency "$cluster" 3 2
-	desc 'check data after backup' $restore
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-0.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-1.$cluster-pxc -uroot -proot_password"
-	compare_mysql_cmd $compare "SELECT * from test.test;" "-h $cluster-pxc-2.$cluster-pxc -uroot -proot_password"
-	kubectl_bin delete -f "$test_dir/conf/${restore}.yaml"
-}
-
 write_test_data() {
 	local cluster=$1
 	local config=$2
@@ -79,6 +52,19 @@ write_data_for_pitr() {
 	run_mysql \
 		'INSERT test.test (id) VALUES (100503); INSERT test.test (id) VALUES (100504); INSERT test.test (id) VALUES (100505);' \
 		"-h $proxy -uroot -proot_password"
+}
+
+check_latest_restorable_time() {
+	local backup=$1
+
+	desc 'check latest restorable time'
+	latest_restorable_time=$(kubectl_bin get pxc-backup ${backup} -o jsonpath='{.status.latestRestorableTime}')
+	if [[ ${latest_restorable_time} =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+		echo "Latest restorable time is ${latest_restorable_time}"
+	else
+		echo "Latest restorable time is not set"
+		exit 1
+	fi
 }
 
 main() {
@@ -126,6 +112,7 @@ main() {
 
 	write_data_for_pitr "$cluster"
 	sleep 120 # need to wait while collector catch new data
+	check_latest_restorable_time "on-pitr-minio"
 
 	timeout=60
 	binlogs_exist=0

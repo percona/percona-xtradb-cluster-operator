@@ -1,0 +1,4 @@
+linters-settings:
+  staticcheck:
+    checks:
+      - "-SA1019"

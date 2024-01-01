@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/md5"
@@ -13,13 +14,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/go-sql-driver/mysql"
-	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
 type Collector struct {
@@ -61,8 +60,9 @@ type BackupAzure struct {
 }
 
 const (
-	lastSetFilePrefix string = "last-binlog-set-" // filename prefix for object where the last binlog set will stored
-	gtidPostfix       string = "-gtid-set"        // filename postfix for files with GTID set
+	lastSetFilePrefix string = "last-binlog-set-"   // filename prefix for object where the last binlog set will stored
+	gtidPostfix       string = "-gtid-set"          // filename postfix for files with GTID set
+	timelinePath      string = "/tmp/pitr-timeline" // path to file with timeline
 )
 
 func New(c Config) (*Collector, error) {
@@ -123,13 +123,13 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 	// get last binlog set stored on S3
 	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+suffix)
 	if err != nil {
-		if bloberror.HasCode(errors.Cause(err), bloberror.BlobNotFound) {
+		if err == storage.ErrObjectNotFound {
 			return pxc.GTIDSet{}, nil
 		}
 		return pxc.GTIDSet{}, errors.Wrap(err, "get last set content")
 	}
 	lastSet, err := io.ReadAll(lastSetObject)
-	if err != nil && minio.ToErrorResponse(errors.Cause(err)).Code != "NoSuchKey" {
+	if err != nil {
 		return pxc.GTIDSet{}, errors.Wrap(err, "read last gtid set")
 	}
 	return pxc.NewGTIDSet(string(lastSet)), nil
@@ -214,6 +214,70 @@ func createGapFile(gtidSet pxc.GTIDSet) error {
 	_, err = f.WriteString(gtidSet.Raw())
 	if err != nil {
 		return errors.Wrapf(err, "write GTID set to %s", p)
+	}
+
+	return nil
+}
+
+func fileExists(name string) (bool, error) {
+	_, err := os.Stat(name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "os stat")
+	}
+	return true, nil
+}
+
+func createTimelineFile(firstTs string) error {
+	f, err := os.Create(timelinePath)
+	if err != nil {
+		return errors.Wrapf(err, "create %s", timelinePath)
+	}
+
+	_, err = f.WriteString(firstTs)
+	if err != nil {
+		return errors.Wrap(err, "write first timestamp to timeline file")
+	}
+
+	return nil
+}
+
+func updateTimelineFile(lastTs string) error {
+	f, err := os.OpenFile(timelinePath, os.O_RDWR, 0644)
+	if err != nil {
+		return errors.Wrapf(err, "open %s", timelinePath)
+	}
+	defer f.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		return errors.Wrapf(err, "scan %s", timelinePath)
+	}
+
+	if len(lines) > 1 {
+		lines[len(lines)-1] = lastTs
+	} else {
+		lines = append(lines, lastTs)
+	}
+
+	if _, err := f.Seek(0, 0); err != nil {
+		return errors.Wrapf(err, "seek %s", timelinePath)
+	}
+
+	if err := f.Truncate(0); err != nil {
+		return errors.Wrapf(err, "truncate %s", timelinePath)
+	}
+
+	_, err = f.WriteString(strings.Join(lines, "\n"))
+	if err != nil {
+		return errors.Wrap(err, "write last timestamp to timeline file")
 	}
 
 	return nil
@@ -316,10 +380,30 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		return nil
 	}
 
+	if exists, err := fileExists(timelinePath); !exists && err == nil {
+		firstTs, err := c.db.GetBinLogFirstTimestamp(ctx, list[0].Name)
+		if err != nil {
+			return errors.Wrap(err, "get first timestamp")
+		}
+
+		if err := createTimelineFile(firstTs); err != nil {
+			return errors.Wrap(err, "create timeline file")
+		}
+	}
+
 	for _, binlog := range list {
 		err = c.manageBinlog(ctx, binlog)
 		if err != nil {
 			return errors.Wrap(err, "manage binlog")
+		}
+
+		lastTs, err := c.db.GetBinLogLastTimestamp(ctx, binlog.Name)
+		if err != nil {
+			return errors.Wrap(err, "get last timestamp")
+		}
+
+		if err := updateTimelineFile(lastTs); err != nil {
+			return errors.Wrap(err, "update timeline file")
 		}
 	}
 	return nil
@@ -356,7 +440,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrap(err, "remove temp file")
 	}
 
-	err = syscall.Mkfifo(tmpDir+binlog.Name, 0666)
+	err = syscall.Mkfifo(tmpDir+binlog.Name, 0o666)
 	if err != nil {
 		return errors.Wrap(err, "make named pipe file error")
 	}
@@ -429,7 +513,7 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 }
 
 func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlogName string) {
-	b := make([]byte, 10485760) //alloc buffer for 10mb
+	b := make([]byte, 10485760) // alloc buffer for 10mb
 
 	// in case of binlog is slow and hasn't written anything to the file yet
 	// we have to skip this error and try to read again until some data appears

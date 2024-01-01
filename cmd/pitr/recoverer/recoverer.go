@@ -362,11 +362,11 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 		}
 	}
 
-	log.Printf("Sending interrupt signal to mysql")
+	// log.Printf("Sending interrupt signal to mysql")
 
-	if err := mysqlCmd.Process.Signal(os.Interrupt); err != nil {
-		return errors.Wrap(err, "send interrupt signal to mysql")
-	}
+	// if err := mysqlCmd.Process.Signal(os.Interrupt); err != nil {
+	// 	return errors.Wrap(err, "send interrupt signal to mysql")
+	// }
 
 	if err := binlogStdout.Close(); err != nil {
 		return errors.Wrap(err, "close binlog stdout")

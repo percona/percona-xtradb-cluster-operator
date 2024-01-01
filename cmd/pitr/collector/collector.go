@@ -123,11 +123,13 @@ func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet
 	// get last binlog set stored on S3
 	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+suffix)
 	if err != nil {
+		log.Printf("ERROR: Get last set content: %v\n", err)
 		if err == storage.ErrObjectNotFound {
 			return pxc.GTIDSet{}, nil
 		}
 		return pxc.GTIDSet{}, errors.Wrap(err, "get last set content")
 	}
+	log.Println("Successfully read last set from s3")
 	lastSet, err := io.ReadAll(lastSetObject)
 	if err != nil {
 		return pxc.GTIDSet{}, errors.Wrap(err, "read last gtid set")

@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: sec-context-pxc
   ownerReferences:
@@ -76,6 +75,8 @@ spec:
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: mysql_native_password
           envFrom:
             - secretRef:
                 name: sec-context-env-vars-pxc
@@ -155,11 +156,8 @@ spec:
           name: pxc-init
           resources:
             limits:
-              cpu: "1"
-              memory: 1G
-            requests:
-              cpu: 100m
-              memory: 100M
+              cpu: 50m
+              memory: 50M
           securityContext:
             privileged: false
           terminationMessagePath: /dev/termination-log

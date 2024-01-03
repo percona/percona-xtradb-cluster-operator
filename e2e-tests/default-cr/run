@@ -1,11 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 deploy_dir=$(realpath $(dirname $0)/../../deploy)
 . ${test_dir}/../functions
+
+set_debug
 
 function stop_cluster() {
 	local cluster_name=$1
@@ -19,7 +20,7 @@ function stop_cluster() {
 	until [[ $(kubectl_bin get pxc ${cluster_name} -o jsonpath='{.status.ready}') -le 0 ]]; do
 		echo -n .
 		let passed_time="${passed_time}+${sleep_time}"
-		sleep ${passed_time}
+		sleep ${sleep_time}
 		if [[ ${passed_time} -gt ${max_wait_time} ]]; then
 			echo "We've been waiting for cluster stop for too long. Exiting..."
 			exit 1
@@ -63,24 +64,8 @@ function main() {
 	compare_kubectl service/$(get_proxy ${cluster})
 	compare_kubectl service/$(get_proxy ${cluster})-replicas
 
-	desc 'starting PMM up'
-	platform=kubernetes
-	helm uninstall monitoring || :
-	if [ ! -z "$OPENSHIFT" ]; then
-		platform=openshift
-		oc create sa pmm-server
-		oc adm policy add-scc-to-user privileged -z pmm-server
-		if [ -n "$OPERATOR_NS" ]; then
-			oc create clusterrolebinding pmm-pxc-operator-cluster-wide --clusterrole=percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
-			oc patch clusterrole/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]' ${OPERATOR_NS:+-n $OPERATOR_NS}
-		else
-			oc create rolebinding pmm-pxc-operator-namespace-only --role percona-xtradb-cluster-operator --serviceaccount=$namespace:pmm-server
-			oc patch role/percona-xtradb-cluster-operator --type json -p='[{"op":"add","path": "/rules/-","value":{"apiGroups":["security.openshift.io"],"resources":["securitycontextconstraints"],"verbs":["use"],"resourceNames":["privileged"]}}]'
-		fi
-		retry 10 60 helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform --set sa=pmm-server --set supresshttp2=false https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
-	else
-		helm install monitoring --set imageTag=$IMAGE_PMM_SERVER_TAG --set imageRepo=$IMAGE_PMM_SERVER_REPO --set platform=$platform https://percona-charts.storage.googleapis.com/pmm-server-${PMM_SERVER_VER}.tgz
-	fi
+	desc 'install PMM Server'
+	deploy_pmm_server
 	sleep 120
 	ADMIN_PASSWORD=$(kubectl_bin exec monitoring-0 -- bash -c "printenv | grep ADMIN_PASSWORD | cut -d '=' -f2")
 	MONITORING_ENDPOINT=$(get_service_endpoint monitoring-service)
@@ -89,6 +74,7 @@ function main() {
 	kubectl_bin patch secret ${cluster}-secrets --type merge --patch '{"stringData": {"pmmserverkey": '$API_KEY'}}'
 
 	sleep 20
+	desc "enable pmm"
 	kubectl_bin patch pxc/${cluster} --type=merge --patch '{
 			"spec": {"pmm":{"enabled":true}}
 		}'
@@ -96,6 +82,7 @@ function main() {
 	# since pxc cluster won't work without pmm server running consistency check would be enough
 	wait_cluster_consistency ${cluster} ${pxc_size} ${proxy_size}
 
+	desc "disable pmm"
 	kubectl_bin patch pxc/${cluster} --type=merge --patch '{
 			"spec": {"pmm":{"enabled":false}}
 		}'
@@ -115,17 +102,19 @@ function main() {
 	for i in $(seq 0 $((pxc_size - 1))); do
 		compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
 	done
-
+	desc "stop cluster"
 	stop_cluster ${cluster}
+	desc "start cluster"
 	start_cluster ${cluster}
 	wait_cluster_consistency ${cluster} ${pxc_size} ${proxy_size}
 
+	desc "compare data"
 	for i in $(seq 0 $((pxc_size - 1))); do
 		compare_mysql_cmd "select-2" "SELECT * from myApp.myApp;" "-h ${cluster}-pxc-${i}.${cluster}-pxc -uroot -proot_password"
 	done
 
 	kubectl_bin delete -f ${deploy_dir}/cr.yaml
-
+	desc "run cr-minimal"
 	cluster="$(yq eval '.metadata.name' ${deploy_dir}/cr-minimal.yaml)"
 	kubectl_bin apply -f ${deploy_dir}/cr-minimal.yaml
 
@@ -144,6 +133,7 @@ function main() {
 	compare_kubectl service/$(get_proxy ${cluster})-replicas
 
 	destroy $namespace
+	desc "test passed"
 }
 
 main

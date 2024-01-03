@@ -3,6 +3,7 @@ package pxc
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -16,63 +17,90 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sretry "k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	apiv1 "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
-var versionNotReadyErr = errors.New("not ready to fetch version")
-
-func (r *ReconcilePerconaXtraDBCluster) deleteEnsureVersion(jobName string) {
-	r.crons.crons.Remove(cron.EntryID(r.crons.ensureVersionJobs[jobName].ID))
-	delete(r.crons.ensureVersionJobs, jobName)
+type Schedule struct {
+	ID           cron.EntryID
+	CronSchedule string
 }
 
-func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
-	jn := jobName(cr)
-	schedule, ok := r.crons.ensureVersionJobs[jn]
-	if cr.Spec.UpgradeOptions.Schedule == "" || !(versionUpgradeEnabled(cr) || telemetryEnabled()) {
-		if ok {
-			r.deleteEnsureVersion(jn)
-		}
-		return nil
-	}
+var versionNotReadyErr = errors.New("not ready to fetch version")
 
-	if ok && schedule.CronSchedule == cr.Spec.UpgradeOptions.Schedule {
-		return nil
-	}
-
-	log := r.logger(cr.Name, cr.Namespace)
-
-	if ok {
-		log.Info("remove job because of new", "old", schedule.CronSchedule, "new", cr.Spec.UpgradeOptions.Schedule)
-		r.deleteEnsureVersion(jn)
-	}
-
+func versionJobName(cr *apiv1.PerconaXtraDBCluster) string {
+	jobName := "ensure-version"
 	nn := types.NamespacedName{
 		Name:      cr.Name,
 		Namespace: cr.Namespace,
 	}
+	return fmt.Sprintf("%s/%s", jobName, nn.String())
+}
 
-	l := r.lockers.LoadOrCreate(nn.String())
+func telemetryJobName(cr *apiv1.PerconaXtraDBCluster) string {
+	jobName := "telemetry"
+	nn := types.NamespacedName{
+		Name:      cr.Name,
+		Namespace: cr.Namespace,
+	}
+	return fmt.Sprintf("%s/%s", jobName, nn.String())
+}
 
-	log.Info("add new job", "schedule", cr.Spec.UpgradeOptions.Schedule)
-	id, err := r.crons.AddFuncWithSeconds(cr.Spec.UpgradeOptions.Schedule, func() {
-		l.statusMutex.Lock()
-		defer l.statusMutex.Unlock()
+func (r *ReconcilePerconaXtraDBCluster) deleteCronJob(jobName string) {
+	job, ok := r.crons.ensureVersionJobs.LoadAndDelete(jobName)
+	if !ok {
+		return
+	}
+	r.crons.crons.Remove(job.(Schedule).ID)
+}
 
-		if !atomic.CompareAndSwapInt32(l.updateSync, updateDone, updateWait) {
-			return
+func (r *ReconcilePerconaXtraDBCluster) scheduleTelemetryRequests(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+	log := logf.FromContext(ctx)
+
+	jn := telemetryJobName(cr)
+	scheduleRaw, ok := r.crons.ensureVersionJobs.Load(jn)
+	if !telemetryEnabled() {
+		if ok {
+			r.deleteCronJob(jn)
 		}
+		return nil
+	}
 
+	schedule := Schedule{}
+	if ok {
+		schedule = scheduleRaw.(Schedule)
+	}
+
+	sch, found := os.LookupEnv("TELEMETRY_SCHEDULE")
+	if !found {
+		sch = fmt.Sprintf("%d * * * *", rand.Intn(60))
+	}
+
+	if ok && !found {
+		return nil
+	}
+
+	if found && schedule.CronSchedule == sch {
+		return nil
+	}
+
+	if ok {
+		log.Info("remove job because of new", "old", schedule.CronSchedule, "new", sch)
+		r.deleteCronJob(jn)
+	}
+
+	id, err := r.crons.AddFuncWithSeconds(sch, func() {
 		localCr := &apiv1.PerconaXtraDBCluster{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		err := r.client.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if k8serrors.IsNotFound(err) {
 			log.Info("cluster is not found, deleting the job",
-				"job name", jobName, "cluster", cr.Name, "namespace", cr.Namespace)
-			r.deleteEnsureVersion(jn)
+				"name", jn, "cluster", cr.Name, "namespace", cr.Namespace)
+			r.deleteCronJob(jn)
 			return
 		}
 		if err != nil {
@@ -85,13 +113,103 @@ func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(cr *apiv1.Perco
 			return
 		}
 
-		err = localCr.CheckNSetDefaults(r.serverVersion, r.logger(cr.Name, cr.Namespace))
+		err = localCr.CheckNSetDefaults(r.serverVersion, log)
 		if err != nil {
 			log.Error(err, "failed to set defaults for CR")
 			return
 		}
 
-		err = r.ensurePXCVersion(localCr, vs)
+		_, err = r.getNewVersions(ctx, localCr, vs)
+		if err != nil {
+			log.Error(err, "failed to send telemetry")
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Info("add new job", "name", jn, "schedule", sch)
+
+	r.crons.ensureVersionJobs.Store(jn, Schedule{
+		ID:           id,
+		CronSchedule: sch,
+	})
+
+	// send telemetry on startup
+	_, err = r.getNewVersions(ctx, cr, vs)
+	if err != nil {
+		log.Error(err, "failed to send telemetry")
+	}
+
+	return nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+	log := logf.FromContext(ctx)
+
+	jn := versionJobName(cr)
+	scheduleRaw, ok := r.crons.ensureVersionJobs.Load(jn)
+	if cr.Spec.UpgradeOptions.Schedule == "" || !(versionUpgradeEnabled(cr) || telemetryEnabled()) {
+		if ok {
+			r.deleteCronJob(jn)
+		}
+		return nil
+	}
+
+	schedule := Schedule{}
+	if ok {
+		schedule = scheduleRaw.(Schedule)
+	}
+
+	if ok && schedule.CronSchedule == cr.Spec.UpgradeOptions.Schedule {
+		return nil
+	}
+
+	if ok {
+		log.Info("remove job because of new", "old", schedule.CronSchedule, "new", cr.Spec.UpgradeOptions.Schedule)
+		r.deleteCronJob(jn)
+	}
+
+	nn := types.NamespacedName{
+		Name:      cr.Name,
+		Namespace: cr.Namespace,
+	}
+
+	l := r.lockers.LoadOrCreate(nn.String())
+
+	id, err := r.crons.AddFuncWithSeconds(cr.Spec.UpgradeOptions.Schedule, func() {
+		l.statusMutex.Lock()
+		defer l.statusMutex.Unlock()
+
+		if !atomic.CompareAndSwapInt32(l.updateSync, updateDone, updateWait) {
+			return
+		}
+
+		localCr := &apiv1.PerconaXtraDBCluster{}
+		err := r.client.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		if k8serrors.IsNotFound(err) {
+			log.Info("cluster is not found, deleting the job",
+				"name", jn, "cluster", cr.Name, "namespace", cr.Namespace)
+			r.deleteCronJob(jn)
+			return
+		}
+		if err != nil {
+			log.Error(err, "failed to get CR")
+			return
+		}
+
+		if localCr.Status.Status != apiv1.AppStateReady {
+			log.Info("cluster is not ready")
+			return
+		}
+
+		err = localCr.CheckNSetDefaults(r.serverVersion, log)
+		if err != nil {
+			log.Error(err, "failed to set defaults for CR")
+			return
+		}
+
+		err = r.ensurePXCVersion(ctx, localCr, vs)
 		if err != nil {
 			log.Error(err, "failed to ensure version")
 		}
@@ -102,35 +220,20 @@ func (r *ReconcilePerconaXtraDBCluster) scheduleEnsurePXCVersion(cr *apiv1.Perco
 
 	log.Info("add new job", "name", jn, "schedule", cr.Spec.UpgradeOptions.Schedule)
 
-	r.crons.ensureVersionJobs[jn] = Schedule{
-		ID:           int(id),
+	r.crons.ensureVersionJobs.Store(jn, Schedule{
+		ID:           id,
 		CronSchedule: cr.Spec.UpgradeOptions.Schedule,
-	}
+	})
 
 	return nil
 }
 
-func jobName(cr *apiv1.PerconaXtraDBCluster) string {
-	jobName := "ensure-version"
-	nn := types.NamespacedName{
-		Name:      cr.Name,
-		Namespace: cr.Namespace,
-	}
-	return fmt.Sprintf("%s/%s", jobName, nn.String())
-}
-
-func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
-	if !(versionUpgradeEnabled(cr) || telemetryEnabled()) {
-		return nil
-	}
-
-	if cr.Status.Status != apiv1.AppStateReady && cr.Status.PXC.Version != "" {
-		return errors.New("cluster is not ready")
-	}
+func (r *ReconcilePerconaXtraDBCluster) getNewVersions(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) (DepVersion, error) {
+	log := logf.FromContext(ctx)
 
 	watchNs, err := k8s.GetWatchNamespace()
 	if err != nil {
-		return errors.Wrap(err, "get WATCH_NAMESPACE env variable")
+		return DepVersion{}, errors.Wrap(err, "get WATCH_NAMESPACE env variable")
 	}
 
 	vm := versionMeta{
@@ -146,22 +249,40 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 		CRUID:               string(cr.GetUID()),
 		ClusterWideEnabled:  watchNs == "",
 	}
-	log := r.logger(cr.Name, cr.Namespace)
+
+	endpoint := apiv1.GetDefaultVersionServiceEndpoint()
+	log.V(1).Info("Use version service endpoint", "endpoint", endpoint)
 
 	if telemetryEnabled() && (!versionUpgradeEnabled(cr) || cr.Spec.UpgradeOptions.VersionServiceEndpoint != apiv1.GetDefaultVersionServiceEndpoint()) {
-		_, err := vs.GetExactVersion(cr, apiv1.GetDefaultVersionServiceEndpoint(), vm)
+		_, err := vs.GetExactVersion(cr, endpoint, vm)
 		if err != nil {
 			log.Error(err, "failed to send telemetry to "+apiv1.GetDefaultVersionServiceEndpoint())
 		}
+		return DepVersion{}, nil
+	}
+
+	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, vm)
+	if err != nil {
+		return DepVersion{}, errors.Wrap(err, "failed to check version")
+	}
+
+	return newVersion, nil
+}
+
+func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, vs VersionService) error {
+	log := logf.FromContext(ctx)
+
+	if cr.Status.Status != apiv1.AppStateReady && cr.Status.PXC.Version != "" {
+		return errors.New("cluster is not ready")
 	}
 
 	if !versionUpgradeEnabled(cr) {
 		return nil
 	}
 
-	newVersion, err := vs.GetExactVersion(cr, cr.Spec.UpgradeOptions.VersionServiceEndpoint, vm)
+	newVersion, err := r.getNewVersions(ctx, cr, vs)
 	if err != nil {
-		return errors.Wrap(err, "failed to check version")
+		return errors.Wrap(err, "failed to get new versions")
 	}
 
 	patch := client.MergeFrom(cr.DeepCopy())
@@ -236,14 +357,14 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		localCr := &apiv1.PerconaXtraDBCluster{}
 
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		err := r.client.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if err != nil {
 			return err
 		}
 
 		localCr.Status = cr.Status
 
-		return r.client.Status().Update(context.TODO(), localCr)
+		return r.client.Status().Update(ctx, localCr)
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to update CR status")
@@ -254,7 +375,9 @@ func (r *ReconcilePerconaXtraDBCluster) ensurePXCVersion(cr *apiv1.PerconaXtraDB
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {
+func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) (string, error) {
+	log := logf.FromContext(ctx)
+
 	if cr.Status.PXC.Ready < 1 {
 		return "", versionNotReadyErr
 	}
@@ -276,7 +399,7 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 	}
 
 	list := corev1.PodList{}
-	if err := r.client.List(context.TODO(),
+	if err := r.client.List(ctx,
 		&list,
 		&client.ListOptions{
 			Namespace:     sfs.StatefulSet().Namespace,
@@ -286,7 +409,6 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 		return "", errors.Wrap(err, "get pod list")
 	}
 
-	user := "root"
 	port := int32(3306)
 	secrets := cr.Spec.SecretsName
 	if cr.CompareVersionWith("1.6.0") >= 0 {
@@ -294,14 +416,12 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 		secrets = "internal-" + cr.Name
 	}
 
-	log := r.logger(cr.Name, cr.Namespace)
-
 	for _, pod := range list.Items {
 		if !isPodReady(pod) {
 			continue
 		}
 
-		database, err := queries.New(r.client, cr.Namespace, secrets, user, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 		if err != nil {
 			log.Error(err, "failed to create db instance")
 			continue
@@ -321,14 +441,14 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(cr *apiv1.PerconaXtraDBClus
 	return "", errors.New("failed to reach any pod")
 }
 
-func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(ctx context.Context, cr *apiv1.PerconaXtraDBCluster, sfs apiv1.StatefulApp) error {
+	log := logf.FromContext(ctx)
 
 	if cr.Status.PXC.Status != apiv1.AppStateReady {
 		return nil
 	}
 
-	version, err := r.mysqlVersion(cr, sfs)
+	version, err := r.mysqlVersion(ctx, cr, sfs)
 	if err != nil {
 		if errors.Is(err, versionNotReadyErr) {
 			return nil
@@ -344,14 +464,14 @@ func (r *ReconcilePerconaXtraDBCluster) fetchVersionFromPXC(cr *apiv1.PerconaXtr
 	err = k8sretry.RetryOnConflict(k8sretry.DefaultRetry, func() error {
 		localCr := &apiv1.PerconaXtraDBCluster{}
 
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
+		err := r.client.Get(ctx, types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}, localCr)
 		if err != nil {
 			return err
 		}
 
 		localCr.Status = cr.Status
 
-		return r.client.Status().Update(context.TODO(), localCr)
+		return r.client.Status().Update(ctx, localCr)
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to update CR")
@@ -387,7 +507,7 @@ func (r *ReconcilePerconaXtraDBCluster) setCRVersion(ctx context.Context, cr *ap
 		return errors.Wrap(err, "patch CR")
 	}
 
-	r.logger(cr.Name, cr.Namespace).Info("Set CR version", "version", cr.Spec.CRVersion)
+	logf.FromContext(ctx).Info("Set CR version", "version", cr.Spec.CRVersion)
 
 	return nil
 }

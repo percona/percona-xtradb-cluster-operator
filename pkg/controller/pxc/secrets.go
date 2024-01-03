@@ -14,6 +14,7 @@ import (
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
@@ -21,8 +22,8 @@ import (
 
 const internalSecretsPrefix = "internal-"
 
-func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(cr *api.PerconaXtraDBCluster) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) reconcileUsersSecret(ctx context.Context, cr *api.PerconaXtraDBCluster) error {
+	log := logf.FromContext(ctx)
 
 	secretObj := new(corev1.Secret)
 	err := r.client.Get(context.TODO(),
@@ -77,7 +78,7 @@ func setUserSecretDefaults(secret *corev1.Secret) (isChanged bool, err error) {
 	if secret.Data == nil {
 		secret.Data = make(map[string][]byte)
 	}
-	users := []string{"root", "xtrabackup", "monitor", "clustercheck", "proxyadmin", "operator", "replication"}
+	users := []string{users.Root, users.Xtrabackup, users.Monitor, users.ProxyAdmin, users.Operator, users.Replication}
 	for _, user := range users {
 		if pass, ok := secret.Data[user]; !ok || len(pass) == 0 {
 			secret.Data[user], err = generatePass()

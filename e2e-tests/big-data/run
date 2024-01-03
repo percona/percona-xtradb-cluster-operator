@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 main() {
 	if [ -n "$SKIP_REMOTE_BACKUPS" ]; then
@@ -26,18 +27,17 @@ main() {
 		kubectl_bin apply -f "${test_dir}/conf/restore-backup-57.yml"
 	fi
 	sleep 10
-
-	wait_backup_restore "restore1"
-
+	wait_backup_restore "restore1" "Succeeded" 1500
 	wait_for_running "$cluster-proxysql" 1
 	wait_for_running "$cluster-pxc" 3
-
+	desc "delete pvc and pod for pxc-2"
 	kubectl_bin delete pvc/"datadir-$cluster-pxc-2" pod/"$cluster-pxc-2"
 	sleep 1
 	kubectl_bin delete pod/"$cluster-pxc-2"
 
 	wait_for_running "$cluster-pxc" 3 800
 	destroy $namespace
+	desc "test passed"
 }
 
 main

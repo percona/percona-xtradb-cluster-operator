@@ -1,11 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . "${test_dir}"/../functions
 cluster="self-healing-advanced"
+
+set_debug
 
 crash_cluster_with_kubectl() {
 	# run chaos for Pods
@@ -58,8 +59,9 @@ main() {
 		| sed -e 's/autoRecovery: false/autoRecovery: true/' \
 		| kubectl apply -f-
 
-	wait_for_running $cluster-pxc 3
 	sleep 240
+	wait_for_running $cluster-pxc 3
+	wait_cluster_consistency "$cluster" 3 2
 
 	desc 'check if full cluster crash repaired'
 	check_if_cluster_restored
@@ -67,13 +69,15 @@ main() {
 	desc 'crash all pxc pods with chaos mesh'
 	crash_cluster_with_chaos_mesh
 
-	wait_for_running $cluster-pxc 3
 	sleep 240
+	wait_for_running $cluster-pxc 3
+	wait_cluster_consistency "$cluster" 3 2
 	desc 'check if full cluster crash repaired'
 	check_if_cluster_restored
 
 	destroy_chaos_mesh
 	destroy "$namespace"
+	desc "test passed"
 }
 
 main

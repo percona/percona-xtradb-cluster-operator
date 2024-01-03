@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -15,7 +14,7 @@ import (
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 
 	"github.com/pkg/errors"
 )
@@ -339,7 +338,7 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 			return errors.Wrap(err, "set mysql pwd env var")
 		}
 
-		cmdString := "mysqlbinlog --disable-log-bin" + r.recoverFlag + " - | mysql -h" + r.db.GetHost() + " -u" + r.pxcUser
+		cmdString := "mysqlbinlog --disable-log-bin" + r.recoverFlag + " - | mysql -h" + r.db.GetHost() + " -P 33062 -u" + r.pxcUser
 		cmd := exec.CommandContext(ctx, "sh", "-c", cmdString)
 
 		cmd.Stdin = binlogObj
@@ -443,7 +442,7 @@ func getDecompressedContent(ctx context.Context, infoObj io.Reader, filename str
 		return nil, errors.Errorf("run xbstream error: %s", &errb)
 	}
 
-	decContent, err := ioutil.ReadFile(tmpDir + "/" + filename)
+	decContent, err := os.ReadFile(tmpDir + "/" + filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "read xtrabackup_info file")
 	}
@@ -469,7 +468,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 			log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
 			continue
 		}
-		content, err := ioutil.ReadAll(infoObj)
+		content, err := io.ReadAll(infoObj)
 		if err != nil {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}

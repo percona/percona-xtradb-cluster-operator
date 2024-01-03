@@ -3,11 +3,13 @@ package statefulset
 import (
 	"errors"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const (
@@ -54,7 +56,8 @@ func (c *Proxy) Name() string {
 }
 
 func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
-	availableVolumes []corev1.Volume) (corev1.Container, error) {
+	availableVolumes []corev1.Volume,
+) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            proxyName,
 		Image:           spec.Image,
@@ -91,23 +94,23 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Root),
 				},
 			},
 			{
 				Name:  "PROXY_ADMIN_USER",
-				Value: "proxyadmin",
+				Value: users.ProxyAdmin,
 			},
 			{
 				Name: "PROXY_ADMIN_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.ProxyAdmin),
 				},
 			},
 			{
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 				},
 			},
 		},
@@ -140,7 +143,7 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 		appc.Env[1] = corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
 			},
 		}
 	}
@@ -151,6 +154,11 @@ func (c *Proxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaX
 			MountPath: "/opt/percona/hookscript",
 		})
 	}
+
+	if cr.Spec.ProxySQL != nil && (cr.Spec.ProxySQL.Lifecycle.PostStart != nil || cr.Spec.ProxySQL.Lifecycle.PreStop != nil) {
+		appc.Lifecycle = &cr.Spec.ProxySQL.Lifecycle
+	}
+
 	return appc, nil
 }
 
@@ -173,23 +181,23 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Root),
 				},
 			},
 			{
 				Name:  "PROXY_ADMIN_USER",
-				Value: "proxyadmin",
+				Value: users.ProxyAdmin,
 			},
 			{
 				Name: "PROXY_ADMIN_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.ProxyAdmin),
 				},
 			},
 			{
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 				},
 			},
 		},
@@ -213,23 +221,23 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 			{
 				Name: "MYSQL_ROOT_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "root"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Root),
 				},
 			},
 			{
 				Name:  "PROXY_ADMIN_USER",
-				Value: "proxyadmin",
+				Value: users.ProxyAdmin,
 			},
 			{
 				Name: "PROXY_ADMIN_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "proxyadmin"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.ProxyAdmin),
 				},
 			},
 			{
 				Name: "MONITOR_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+					SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 				},
 			},
 		},
@@ -261,7 +269,7 @@ func (c *Proxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.Per
 		operEnv := corev1.EnvVar{
 			Name: "OPERATOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "operator"),
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Operator),
 			},
 		}
 		pxcMonit.Env[1] = operEnv
@@ -276,7 +284,7 @@ func (c *Proxy) LogCollectorContainer(_ *api.LogCollectorSpec, _ string, _ strin
 }
 
 func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.PerconaXtraDBCluster) (*corev1.Container, error) {
-	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
+	ct := app.PMMClient(cr, spec, secret)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -285,12 +293,12 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.P
 		},
 		{
 			Name:  "MONITOR_USER",
-			Value: "monitor",
+			Value: users.Monitor,
 		},
 		{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
 			},
 		},
 	}
@@ -298,12 +306,12 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.P
 	dbEnvs := []corev1.EnvVar{
 		{
 			Name:  "DB_USER",
-			Value: "monitor",
+			Value: users.Monitor,
 		},
 		{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
 			},
 		},
 		{
@@ -365,7 +373,7 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.P
 			},
 		}
 		ct.Env = append(ct.Env, clusterPmmEnvs...)
-		pmmAgentScriptEnv := app.PMMAgentScript("proxysql")
+		pmmAgentScriptEnv := app.PMMAgentScript(cr, "proxysql")
 		ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 	}
 
@@ -381,6 +389,18 @@ func (c *Proxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api.P
 			{
 				Name:  "PMM_AGENT_SIDECAR_SLEEP",
 				Value: "5",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+		// but it doesn't work on OpenShift so we set it back to /tmp
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_PATHS_TEMPDIR",
+				Value: "/tmp",
 			},
 		}
 		ct.Env = append(ct.Env, sidecarEnvs...)
@@ -409,6 +429,16 @@ func (c *Proxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg a
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.ProxySQL != nil && cr.Spec.ProxySQL.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
 			app.GetConfigVolumes("hookscript", ls["app.kubernetes.io/instance"]+"-"+ls["app.kubernetes.io/component"]+"-hookscript"))
+	}
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		vol.Volumes = append(vol.Volumes,
+			corev1.Volume{
+				Name: app.BinVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
 	}
 	return vol, nil
 }

@@ -1,7 +1,6 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  annotations: {}
   generation: 1
   name: some-name-pxc
   ownerReferences:

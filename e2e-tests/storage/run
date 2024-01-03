@@ -1,41 +1,48 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
+set_debug
+
+if [ -n "${OPENSHIFT}" ]; then
+	echo "This test is not supported on OpenShift because hostpath is not allowed by default"
+	exit 0
+fi
+
 check_cr_config() {
-    local cluster="$1"
+	local cluster="$1"
 
-    # apply cr config
-    spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+	desc "apply cr config"
+	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
 
-    # check if statefulset created with expected config
-    compare_kubectl statefulset/$cluster-pxc
-    compare_kubectl statefulset/$cluster-proxysql
+	desc "check if statefulset created with expected config"
+	compare_kubectl statefulset/$cluster-pxc
+	compare_kubectl statefulset/$cluster-proxysql
 
-    # delete cluster
-    kubectl_bin delete \
-        -f $test_dir/conf/$cluster.yml
+	desc "delete cluster"
+	kubectl_bin delete \
+		-f $test_dir/conf/$cluster.yml
 }
 
 main() {
-    create_infra $namespace
+	create_infra $namespace
 
-    apply_config "$conf_dir/client.yml"
-    kubectl_bin apply \
-        -f $conf_dir/secrets.yml \
-        -f $test_dir/conf/hostpath-helper.yml
+	apply_config "$conf_dir/client.yml"
+	kubectl_bin apply \
+		-f $conf_dir/secrets.yml \
+		-f $test_dir/conf/hostpath-helper.yml
 
-    desc 'check emptydir'
-    check_cr_config "emptydir"
+	desc 'check emptydir'
+	check_cr_config "emptydir"
 
-    desc 'check hostpath'
-    check_cr_config "hostpath"
+	desc 'check hostpath'
+	check_cr_config "hostpath"
 
-    destroy $namespace
+	destroy $namespace
+	desc "test passed"
 }
 
 main

@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 create_infra $namespace
 deploy_cert_manager
@@ -49,7 +50,9 @@ kubectl_bin config set-context "$(kubectl_bin config current-context)" --namespa
 
 desc 'run pvc restore'
 restore="restore-pvc"
-kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
+cat "$test_dir/conf/$cluster-$restore.yml" \
+	| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+	| kubectl_bin apply -f -
 wait_pod restore-src-$restore-$cluster
 kubectl_bin get -o yaml pod/restore-src-restore-pvc-sec-context
 if version_gt "1.21"; then
@@ -72,7 +75,9 @@ compare_kubectl job.batch/xb-$backup
 
 desc 'run s3 restore'
 restore="restore-s3"
-kubectl_bin apply -f "$test_dir/conf/$cluster-$restore.yml"
+cat "$test_dir/conf/$cluster-$restore.yml" \
+	| $sed -e "s~minio-service.#namespace~minio-service.$namespace~" \
+	| kubectl_bin apply -f -
 wait_backup_restore $restore
 compare_kubectl job.batch/restore-job-$restore-$cluster
 
@@ -80,3 +85,4 @@ if [[ -n ${OPENSHIFT} ]]; then
 	oc adm policy remove-scc-from-user privileged -z percona-xtradb-cluster-operator-workload
 fi
 destroy $namespace
+desc "test passed"

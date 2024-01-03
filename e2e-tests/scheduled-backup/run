@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 run_recovery_check() {
 	local cluster=$1
@@ -224,7 +225,7 @@ main() {
 
 		BACKUP_DEST_AWS=$(kubectl_bin get pxc-backup "$FIRST_AWS_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
 		BACKUP_DEST_GCP=$(kubectl_bin get pxc-backup "$FIRST_GCP_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 6-)
-		BACKUP_DEST_AZURE=$(kubectl_bin get pxc-backup "$FIRST_AZURE_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//')
+		BACKUP_DEST_AZURE=$(kubectl_bin get pxc-backup "$FIRST_AZURE_BACKUP" -o jsonpath='{.status.destination}' | sed -e 's/.json$//' | cut -c 9-)
 
 		desc "Check backup existence"
 		check_backup_existence "https://s3.amazonaws.com/${BACKUP_DEST_AWS}.sst_info/sst_info.00000000000000000000" "aws-s3"
@@ -284,6 +285,7 @@ main() {
 
 	unlabel_node
 	destroy $namespace
+	desc "test passed"
 }
 
 main

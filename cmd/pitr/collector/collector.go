@@ -1,12 +1,12 @@
 package collector
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/md5"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -14,22 +14,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
-	"github.com/minio/minio-go/v7"
+	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
 type Collector struct {
-	db             *pxc.PXC
-	storage        storage.Storage
-	lastSet        string // last uploaded binary logs set
-	pxcServiceName string // k8s service name for PXC, its for get correct host for connection
-	pxcUser        string // user for connection to PXC
-	pxcPass        string // password for connection to PXC
-	verifyTLS      bool
+	db              *pxc.PXC
+	storage         storage.Storage
+	lastUploadedSet pxc.GTIDSet // last uploaded binary logs set
+	pxcServiceName  string      // k8s service name for PXC, its for get correct host for connection
+	pxcUser         string      // user for connection to PXC
+	pxcPass         string      // password for connection to PXC
 }
 
 type Config struct {
@@ -42,6 +40,7 @@ type Config struct {
 	BufferSize         int64   `env:"BUFFER_SIZE"`
 	CollectSpanSec     float64 `env:"COLLECT_SPAN_SEC" envDefault:"60"`
 	VerifyTLS          bool    `env:"VERIFY_TLS" envDefault:"true"`
+	TimeoutSeconds     float64 `env:"TIMEOUT_SECONDS" envDefault:"60"`
 }
 
 type BackupS3 struct {
@@ -61,8 +60,9 @@ type BackupAzure struct {
 }
 
 const (
-	lastSetFilePrefix string = "last-binlog-set-" // filename prefix for object where the last binlog set will stored
-	gtidPostfix       string = "-gtid-set"        // filename postfix for files with GTID set
+	lastSetFilePrefix string = "last-binlog-set-"   // filename prefix for object where the last binlog set will stored
+	gtidPostfix       string = "-gtid-set"          // filename postfix for files with GTID set
+	timelinePath      string = "/tmp/pitr-timeline" // path to file with timeline
 )
 
 func New(c Config) (*Collector, error) {
@@ -97,7 +97,6 @@ func New(c Config) (*Collector, error) {
 		storage:        s,
 		pxcUser:        c.PXCUser,
 		pxcServiceName: c.PXCServiceName,
-		verifyTLS:      c.VerifyTLS,
 	}, nil
 }
 
@@ -110,7 +109,7 @@ func (c *Collector) Run(ctx context.Context) error {
 
 	// remove last set because we always
 	// read it from aws file
-	c.lastSet = ""
+	c.lastUploadedSet = pxc.NewGTIDSet("")
 
 	err = c.CollectBinLogs(ctx)
 	if err != nil {
@@ -120,20 +119,20 @@ func (c *Collector) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collector) lastGTIDSet(ctx context.Context, sourceID string) (string, error) {
+func (c *Collector) lastGTIDSet(ctx context.Context, suffix string) (pxc.GTIDSet, error) {
 	// get last binlog set stored on S3
-	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+sourceID)
+	lastSetObject, err := c.storage.GetObject(ctx, lastSetFilePrefix+suffix)
 	if err != nil {
-		if bloberror.HasCode(errors.Cause(err), bloberror.BlobNotFound) {
-			return "", nil
+		if err == storage.ErrObjectNotFound {
+			return pxc.GTIDSet{}, nil
 		}
-		return "", errors.Wrap(err, "get last set content")
+		return pxc.GTIDSet{}, errors.Wrap(err, "get last set content")
 	}
-	lastSet, err := ioutil.ReadAll(lastSetObject)
-	if err != nil && minio.ToErrorResponse(errors.Cause(err)).Code != "NoSuchKey" {
-		return "", errors.Wrap(err, "read last gtid set")
+	lastSet, err := io.ReadAll(lastSetObject)
+	if err != nil {
+		return pxc.GTIDSet{}, errors.Wrap(err, "read last gtid set")
 	}
-	return string(lastSet), nil
+	return pxc.NewGTIDSet(string(lastSet)), nil
 }
 
 func (c *Collector) newDB(ctx context.Context) error {
@@ -141,7 +140,7 @@ func (c *Collector) newDB(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "open file")
 	}
-	pxcPass, err := ioutil.ReadAll(file)
+	pxcPass, err := io.ReadAll(file)
 	if err != nil {
 		return errors.Wrap(err, "read password")
 	}
@@ -166,31 +165,10 @@ func (c *Collector) close() error {
 	return c.db.Close()
 }
 
-func (c *Collector) CurrentSourceID(ctx context.Context, logs []pxc.Binlog) (string, error) {
-	var (
-		gtidSet string
-		err     error
-	)
-	for i := len(logs) - 1; i >= 0 && gtidSet == ""; i-- {
-		gtidSet, err = c.db.GetGTIDSet(ctx, logs[i].Name)
-		if err != nil {
-			return gtidSet, err
-		}
-	}
-	return strings.Split(gtidSet, ":")[0], nil
-}
-
 func (c *Collector) removeEmptyBinlogs(ctx context.Context, logs []pxc.Binlog) ([]pxc.Binlog, error) {
 	result := make([]pxc.Binlog, 0)
 	for _, v := range logs {
-		set, err := c.db.GetGTIDSet(ctx, v.Name)
-		if err != nil {
-			return nil, errors.Wrap(err, "get GTID set")
-		}
-		// we don't upload binlog without gtid
-		// because it is empty and doesn't have any information
-		if set != "" {
-			v.GTIDSet = set
+		if !v.GTIDSet.IsEmpty() {
 			result = append(result, v)
 		}
 	}
@@ -219,25 +197,104 @@ func (c *Collector) filterBinLogs(ctx context.Context, logs []pxc.Binlog, lastBi
 	}
 	// we don't need to reupload last file
 	// if gtid set is not changed
-	if set == c.lastSet {
+	if set == c.lastUploadedSet.Raw() {
 		startIndex++
 	}
 
 	return c.removeEmptyBinlogs(ctx, logs[startIndex:])
 }
 
-func createGapFile(gtidSet string) error {
+func createGapFile(gtidSet pxc.GTIDSet) error {
 	p := "/tmp/gap-detected"
 	f, err := os.Create(p)
 	if err != nil {
 		return errors.Wrapf(err, "create %s", p)
 	}
 
-	_, err = f.WriteString(gtidSet)
+	_, err = f.WriteString(gtidSet.Raw())
 	if err != nil {
 		return errors.Wrapf(err, "write GTID set to %s", p)
 	}
 
+	return nil
+}
+
+func fileExists(name string) (bool, error) {
+	_, err := os.Stat(name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "os stat")
+	}
+	return true, nil
+}
+
+func createTimelineFile(firstTs string) error {
+	f, err := os.Create(timelinePath)
+	if err != nil {
+		return errors.Wrapf(err, "create %s", timelinePath)
+	}
+
+	_, err = f.WriteString(firstTs)
+	if err != nil {
+		return errors.Wrap(err, "write first timestamp to timeline file")
+	}
+
+	return nil
+}
+
+func updateTimelineFile(lastTs string) error {
+	f, err := os.OpenFile(timelinePath, os.O_RDWR, 0644)
+	if err != nil {
+		return errors.Wrapf(err, "open %s", timelinePath)
+	}
+	defer f.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		return errors.Wrapf(err, "scan %s", timelinePath)
+	}
+
+	if len(lines) > 1 {
+		lines[len(lines)-1] = lastTs
+	} else {
+		lines = append(lines, lastTs)
+	}
+
+	if _, err := f.Seek(0, 0); err != nil {
+		return errors.Wrapf(err, "seek %s", timelinePath)
+	}
+
+	if err := f.Truncate(0); err != nil {
+		return errors.Wrapf(err, "truncate %s", timelinePath)
+	}
+
+	_, err = f.WriteString(strings.Join(lines, "\n"))
+	if err != nil {
+		return errors.Wrap(err, "write last timestamp to timeline file")
+	}
+
+	return nil
+}
+
+func (c *Collector) addGTIDSets(ctx context.Context, logs []pxc.Binlog) error {
+	for i, v := range logs {
+		set, err := c.db.GetGTIDSet(ctx, v.Name)
+		if err != nil {
+			if errors.Is(err, &mysql.MySQLError{Number: 3200}) {
+				log.Printf("ERROR: Binlog file %s is invalid on host %s: %s\n", v.Name, c.db.GetHost(), err.Error())
+				continue
+			}
+			return errors.Wrap(err, "get GTID set")
+		}
+		logs[i].GTIDSet = pxc.NewGTIDSet(set)
+	}
 	return nil
 }
 
@@ -246,35 +303,68 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "get binlog list")
 	}
-
-	sourceID, err := c.CurrentSourceID(ctx, list)
+	err = c.addGTIDSets(ctx, list)
 	if err != nil {
-		return errors.Wrap(err, "get current source id")
+		return errors.Wrap(err, "get GTID sets")
+	}
+	var lastGTIDSetList []string
+	for i := len(list) - 1; i >= 0 && len(lastGTIDSetList) == 0; i-- {
+		gtidSetList := list[i].GTIDSet.List()
+		if gtidSetList == nil {
+			continue
+		}
+		lastGTIDSetList = gtidSetList
 	}
 
-	if sourceID == "" {
+	if len(lastGTIDSetList) == 0 {
 		log.Println("No binlogs to upload")
 		return nil
 	}
 
-	c.lastSet, err = c.lastGTIDSet(ctx, sourceID)
-	if err != nil {
-		return errors.Wrap(err, "get last uploaded gtid set")
+	for _, gtidSet := range lastGTIDSetList {
+		sourceID := strings.Split(gtidSet, ":")[0]
+		c.lastUploadedSet, err = c.lastGTIDSet(ctx, sourceID)
+		if err != nil {
+			return errors.Wrap(err, "get last uploaded gtid set")
+		}
+		if !c.lastUploadedSet.IsEmpty() {
+			break
+		}
 	}
 
 	lastUploadedBinlogName := ""
 
-	if c.lastSet != "" {
-		// get last uploaded binlog file name
-		lastUploadedBinlogName, err = c.db.GetBinLogName(ctx, c.lastSet)
-		if err != nil {
-			return errors.Wrap(err, "get last uploaded binlog name by gtid set")
+	if !c.lastUploadedSet.IsEmpty() {
+		for i := len(list) - 1; i >= 0 && lastUploadedBinlogName == ""; i-- {
+			for _, gtidSet := range list[i].GTIDSet.List() {
+				if lastUploadedBinlogName != "" {
+					break
+				}
+				for _, lastUploaded := range c.lastUploadedSet.List() {
+					isSubset, err := c.db.GTIDSubset(ctx, lastUploaded, gtidSet)
+					if err != nil {
+						return errors.Wrap(err, "check if gtid set is subset")
+					}
+					if isSubset {
+						lastUploadedBinlogName = list[i].Name
+						break
+					}
+					isSubset, err = c.db.GTIDSubset(ctx, gtidSet, lastUploaded)
+					if err != nil {
+						return errors.Wrap(err, "check if gtid set is subset")
+					}
+					if isSubset {
+						lastUploadedBinlogName = list[i].Name
+						break
+					}
+				}
+			}
 		}
 
 		if lastUploadedBinlogName == "" {
-			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastSet)
+			log.Println("ERROR: Couldn't find the binlog that contains GTID set:", c.lastUploadedSet.Raw())
 			log.Println("ERROR: Gap detected in the binary logs. Binary logs will be uploaded anyway, but full backup needed for consistent recovery.")
-			if err := createGapFile(c.lastSet); err != nil {
+			if err := createGapFile(c.lastUploadedSet); err != nil {
 				return errors.Wrap(err, "create gap file")
 			}
 		}
@@ -290,10 +380,30 @@ func (c *Collector) CollectBinLogs(ctx context.Context) error {
 		return nil
 	}
 
+	if exists, err := fileExists(timelinePath); !exists && err == nil {
+		firstTs, err := c.db.GetBinLogFirstTimestamp(ctx, list[0].Name)
+		if err != nil {
+			return errors.Wrap(err, "get first timestamp")
+		}
+
+		if err := createTimelineFile(firstTs); err != nil {
+			return errors.Wrap(err, "create timeline file")
+		}
+	}
+
 	for _, binlog := range list {
 		err = c.manageBinlog(ctx, binlog)
 		if err != nil {
 			return errors.Wrap(err, "manage binlog")
+		}
+
+		lastTs, err := c.db.GetBinLogLastTimestamp(ctx, binlog.Name)
+		if err != nil {
+			return errors.Wrap(err, "get last timestamp")
+		}
+
+		if err := updateTimelineFile(lastTs); err != nil {
+			return errors.Wrap(err, "update timeline file")
 		}
 	}
 	return nil
@@ -316,12 +426,12 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrapf(err, "get first timestamp for %s", binlog.Name)
 	}
 
-	binlogName := fmt.Sprintf("binlog_%s_%x", binlogTmstmp, md5.Sum([]byte(binlog.GTIDSet)))
+	binlogName := fmt.Sprintf("binlog_%s_%x", binlogTmstmp, md5.Sum([]byte(binlog.GTIDSet.Raw())))
 
 	var setBuffer bytes.Buffer
 	// no error handling because WriteString() always return nil error
 	// nolint:errcheck
-	setBuffer.WriteString(binlog.GTIDSet)
+	setBuffer.WriteString(binlog.GTIDSet.Raw())
 
 	tmpDir := os.TempDir() + "/"
 
@@ -330,13 +440,13 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 		return errors.Wrap(err, "remove temp file")
 	}
 
-	err = syscall.Mkfifo(tmpDir+binlog.Name, 0666)
+	err = syscall.Mkfifo(tmpDir+binlog.Name, 0o666)
 	if err != nil {
 		return errors.Wrap(err, "make named pipe file error")
 	}
 
 	errBuf := &bytes.Buffer{}
-	cmd := exec.CommandContext(ctx, "mysqlbinlog", "-R", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, binlog.Name)
+	cmd := exec.CommandContext(ctx, "mysqlbinlog", "-R", "-P", "33062", "--raw", "-h"+c.db.GetHost(), "-u"+c.pxcUser, binlog.Name)
 	cmd.Env = append(cmd.Env, "MYSQL_PWD="+c.pxcPass)
 	cmd.Dir = os.TempDir()
 	cmd.Stderr = errBuf
@@ -387,21 +497,23 @@ func (c *Collector) manageBinlog(ctx context.Context, binlog pxc.Binlog) (err er
 	if err != nil {
 		return errors.Wrap(err, "put gtid-set object")
 	}
-	// no error handling because WriteString() always return nil error
-	// nolint:errcheck
-	setBuffer.WriteString(binlog.GTIDSet)
+	for _, gtidSet := range binlog.GTIDSet.List() {
+		// no error handling because WriteString() always return nil error
+		// nolint:errcheck
+		setBuffer.WriteString(binlog.GTIDSet.Raw())
 
-	err = c.storage.PutObject(ctx, lastSetFilePrefix+strings.Split(binlog.GTIDSet, ":")[0], &setBuffer, int64(setBuffer.Len()))
-	if err != nil {
-		return errors.Wrap(err, "put last-set object")
+		err = c.storage.PutObject(ctx, lastSetFilePrefix+strings.Split(gtidSet, ":")[0], &setBuffer, int64(setBuffer.Len()))
+		if err != nil {
+			return errors.Wrap(err, "put last-set object")
+		}
 	}
-	c.lastSet = binlog.GTIDSet
+	c.lastUploadedSet = binlog.GTIDSet
 
 	return nil
 }
 
 func readBinlog(file *os.File, pipe *io.PipeWriter, errBuf *bytes.Buffer, binlogName string) {
-	b := make([]byte, 10485760) //alloc buffer for 10mb
+	b := make([]byte, 10485760) // alloc buffer for 10mb
 
 	// in case of binlog is slow and hasn't written anything to the file yet
 	// we have to skip this error and try to read again until some data appears

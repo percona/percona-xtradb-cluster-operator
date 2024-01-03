@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 2
   name: no-limits-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: no-limits-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: no-limits
@@ -109,14 +107,13 @@ spec:
               value: no-limits
             - name: PMM_ADMIN_CUSTOM_PARAMS
             - name: PMM_AGENT_PRERUN_SCRIPT
-              value: |-
-                pmm-admin status --wait=10s;
-                pmm-admin add $(DB_TYPE) $(PMM_ADMIN_CUSTOM_PARAMS) --skip-connection-check --metrics-mode=push --username=$(DB_USER) --password=$(DB_PASSWORD) --cluster=$(CLUSTER_NAME) --service-name=$(PMM_AGENT_SETUP_NODE_NAME) --host=$(POD_NAME) --port=$(DB_PORT) $(DB_ARGS);
-                pmm-admin annotate --service-name=$(PMM_AGENT_SETUP_NODE_NAME) 'Service restarted'
+              value: /var/lib/mysql/pmm-prerun.sh
             - name: PMM_AGENT_SIDECAR
               value: "true"
             - name: PMM_AGENT_SIDECAR_SLEEP
               value: "5"
+            - name: PMM_AGENT_PATHS_TEMPDIR
+              value: /tmp
           envFrom:
             - secretRef:
                 name: no-limits-env-vars-pxc
@@ -128,7 +125,7 @@ spec:
                 command:
                   - bash
                   - -c
-                  - pmm-admin inventory remove node --force $(pmm-admin status --json | python -c "import sys, json; print(json.load(sys.stdin)['pmm_agent_status']['node_id'])")
+                  - pmm-admin unregister --force
           livenessProbe:
             failureThreshold: 3
             httpGet:
@@ -194,6 +191,8 @@ spec:
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: mysql_native_password
           envFrom:
             - secretRef:
                 name: no-limits-env-vars-pxc
@@ -267,9 +266,9 @@ spec:
           imagePullPolicy: IfNotPresent
           name: pxc-init
           resources:
-            requests:
-              cpu: 600m
-              memory: 1G
+            limits:
+              cpu: 50m
+              memory: 50M
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           volumeMounts:

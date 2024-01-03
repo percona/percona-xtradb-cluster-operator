@@ -3,7 +3,9 @@ kind: Job
 metadata:
   annotations:
     openshift.io/scc: privileged
+  generation: 1
   labels:
+    backup-name: on-demand-backup-s3
     cluster: sec-context
     job-name: xb-on-demand-backup-s3
     type: xtrabackup
@@ -14,19 +16,23 @@ metadata:
       name: on-demand-backup-s3
 spec:
   backoffLimit: 10
+  completionMode: NonIndexed
   completions: 1
   manualSelector: true
   parallelism: 1
   selector:
     matchLabels:
+      backup-name: on-demand-backup-s3
       cluster: sec-context
       job-name: xb-on-demand-backup-s3
       type: xtrabackup
+  suspend: false
   template:
     metadata:
       annotations:
         openshift.io/scc: privileged
       labels:
+        backup-name: on-demand-backup-s3
         cluster: sec-context
         job-name: xb-on-demand-backup-s3
         type: xtrabackup
@@ -60,7 +66,7 @@ spec:
             - name: DEFAULT_REGION
               value: us-east-1
             - name: ENDPOINT
-              value: http://minio-service:9000/
+              value: http://minio-service.namespace:9000/
             - name: S3_BUCKET
               value: operator-testing
           imagePullPolicy: Always
@@ -89,6 +95,16 @@ spec:
       serviceAccount: percona-xtradb-cluster-operator-workload
       serviceAccountName: percona-xtradb-cluster-operator-workload
       terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - labelSelector:
+            matchLabels:
+              backup-name: on-demand-backup-s3
+              cluster: sec-context
+              job-name: xb-on-demand-backup-s3
+              type: xtrabackup
+          maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
       volumes:
         - name: ssl
           secret:

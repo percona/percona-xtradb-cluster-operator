@@ -1,0 +1,81 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generation: 1
+  labels:
+    job-name: restore-job-on-demand-backup-azure-demand-backup-cloud
+  name: restore-job-on-demand-backup-azure-demand-backup-cloud
+  ownerReferences:
+    - controller: true
+      kind: PerconaXtraDBClusterRestore
+      name: on-demand-backup-azure
+spec:
+  backoffLimit: 4
+  completionMode: NonIndexed
+  completions: 1
+  parallelism: 1
+  selector:
+    matchLabels: {}
+  suspend: false
+  template:
+    metadata:
+      labels:
+        job-name: restore-job-on-demand-backup-azure-demand-backup-cloud
+    spec:
+      containers:
+        - command:
+            - recovery-cloud.sh
+          env:
+            - name: PXC_SERVICE
+              value: demand-backup-cloud-pxc
+            - name: PXC_USER
+              value: xtrabackup
+            - name: PXC_PASS
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup
+                  name: my-cluster-secrets
+            - name: VERIFY_TLS
+              value: "true"
+            - name: AZURE_STORAGE_ACCOUNT
+              valueFrom:
+                secretKeyRef:
+                  key: AZURE_STORAGE_ACCOUNT_NAME
+                  name: azure-secret
+            - name: AZURE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: AZURE_STORAGE_ACCOUNT_KEY
+                  name: azure-secret
+            - name: AZURE_ENDPOINT
+            - name: AZURE_STORAGE_CLASS
+            - name: XB_USE_MEMORY
+              value: 100MB
+          imagePullPolicy: Always
+          name: xtrabackup
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /datadir
+              name: datadir
+            - mountPath: /etc/mysql/vault-keyring-secret
+              name: vault-keyring-secret
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext:
+        supplementalGroups:
+          - 1001
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: datadir
+          persistentVolumeClaim:
+            claimName: datadir-demand-backup-cloud-pxc-0
+        - name: vault-keyring-secret
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: some-name-vault

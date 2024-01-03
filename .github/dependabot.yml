@@ -4,6 +4,8 @@ updates:
     directory: /
     schedule:
       interval: monthly
+      day: "thursday"
+      time: "01:00"
     reviewers: 
       - hors 
       - egegunes
@@ -16,7 +18,9 @@ updates:
       prefix: "CLOUD-727"
     directory: /build/
     schedule:
-      interval: monthly
+      interval: "monthly"
+      day: "thursday"
+      time: "01:00"
     reviewers:
       - hors
       - tplavcic
@@ -38,4 +42,6 @@ updates:
     labels:
       - "dependencies"
     schedule:
-      interval: monthly
+      interval: weekly
+      day: "thursday"
+      time: "01:00"

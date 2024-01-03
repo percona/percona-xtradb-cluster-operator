@@ -1,10 +1,12 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
+
 cluster="auto-tuning"
 
 does_autotune_cm_exists() {
@@ -17,7 +19,7 @@ does_autotune_cm_exists() {
 }
 
 get_variable_from_cm() {
-	kubectl_bin get configmap auto-${cluster}-pxc -o yaml | grep -oP "$1 = \K[0-9]+"
+	kubectl_bin get configmap auto-${cluster}-pxc -o yaml | grep -oE "$1 = [0-9]+" | awk '{print $3}'
 }
 
 create_infra $namespace
@@ -30,19 +32,19 @@ INNODB_SIZE=$(run_mysql \
 CONNECTIONS=$(run_mysql \
 	'SELECT @@max_connections;' \
 	"-h $cluster-pxc -uroot -proot_password")
-
+desc "get cm_buffer_size"
 cm_buffer_size=$(get_variable_from_cm innodb_buffer_pool_size)
 if [[ ${INNODB_SIZE} != ${cm_buffer_size} ]]; then
 	echo "with-limits: innodb_buffer_pool_size is set to ${INNODB_SIZE}, which does not correlate with configmap value: ${cm_buffer_size}"
 	exit 1
 fi
-
+desc "get cm_max_connections"
 cm_max_connections=$(get_variable_from_cm max_connections)
 if [[ ${CONNECTIONS} != ${cm_max_connections} ]]; then
 	echo "with-limits: max_connections is set to ${CONNECTIONS}, which does not correlate with configmap value: ${cm_max_connections}"
 	exit 1
 fi
-
+desc "with-requests: apply config and wait cluster consistency"
 apply_config "${test_dir}/conf/${cluster}-with-requests.yml"
 wait_cluster_consistency "$cluster" 3
 
@@ -50,6 +52,8 @@ if does_autotune_cm_exists; then
 	echo "with-requests: Operator shouldn't create autotune configmap just with resource requests"
 	exit 1
 fi
+
+desc "with-custom-config: apply config and wait cluster consistency"
 
 apply_config "${test_dir}/conf/${cluster}-with-custom-config.yml"
 wait_cluster_consistency "$cluster" 3
@@ -71,6 +75,7 @@ if [[ ${CONNECTIONS} != 200 ]]; then
 	exit 1
 fi
 
+desc "with-template: apply config  and wait cluster consistency"
 apply_config "${test_dir}/conf/${cluster}-with-template.yml"
 wait_cluster_consistency "$cluster" 3
 
@@ -90,7 +95,7 @@ if [[ ${CONNECTIONS} != 200 ]]; then
 	echo "with-template: max_connections ${CONNECTIONS} should be 200"
 	exit 1
 fi
-
+desc "with-template-transform: apply config and wait cluster consistency"
 apply_config "${test_dir}/conf/${cluster}-with-template-transform.yml"
 wait_cluster_consistency "$cluster" 3
 
@@ -112,3 +117,4 @@ if [[ ${CONNECTIONS} != 200 ]]; then
 fi
 
 destroy $namespace
+desc "test passed"

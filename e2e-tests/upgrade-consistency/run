@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 cluster='some-name'
 
@@ -37,48 +38,59 @@ main() {
 	kubectl_bin apply \
 		-f "$test_dir/conf/secrets.yml"
 	cat_config "$conf_dir/$cluster.yml" \
-		| yq eval '.spec.crVersion = "1.10.0"' - \
+		| yq eval '.spec.crVersion = "1.11.0"' - \
 		| kubectl_bin apply -f -
 
-	# test 1.10.0
-	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "1" "1"
-	compare_kubectl service/$cluster-pxc "-1100"
-	compare_kubectl service/$cluster-proxysql "-1100"
-	compare_kubectl statefulset/$cluster-pxc "-1100"
-	compare_kubectl statefulset/$cluster-proxysql "-1100"
-
+	desc "test 1.11.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.11.0"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "2" "1"
+	wait_for_sts_generation "$cluster-pxc" "1" "1"
+	desc "compare k8s objects"
 	compare_kubectl service/$cluster-pxc "-1110"
 	compare_kubectl service/$cluster-proxysql "-1110"
 	compare_kubectl statefulset/$cluster-pxc "-1110"
 	compare_kubectl statefulset/$cluster-proxysql "-1110"
 
+	desc "test 1.12.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.12.0"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "3" "1"
+	wait_for_sts_generation "$cluster-pxc" "2" "1"
+	desc "compare k8s objects"
 	compare_kubectl service/$cluster-pxc "-1120"
 	compare_kubectl service/$cluster-proxysql "-1120"
 	compare_kubectl statefulset/$cluster-pxc "-1120"
 	compare_kubectl statefulset/$cluster-proxysql "-1120"
 
+	desc "test 1.13.0"
 	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
         "spec": {"crVersion":"1.13.0"}
     }'
 	wait_cluster_consistency "$cluster" 3 2
-	wait_for_sts_generation "$cluster-pxc" "4" "1"
+	wait_for_sts_generation "$cluster-pxc" "3" "1"
+	desc "compare k8s objects"
 	compare_kubectl service/$cluster-pxc "-1130"
 	compare_kubectl service/$cluster-proxysql "-1130"
 	compare_kubectl statefulset/$cluster-pxc "-1130"
 	compare_kubectl statefulset/$cluster-proxysql "-1130"
 
+	desc "test 1.14.0"
+	kubectl_bin patch pxc "$cluster" --type=merge --patch '{
+        "spec": {"crVersion":"1.14.0"}
+    }'
+	wait_cluster_consistency "$cluster" 3 2
+	wait_for_sts_generation "$cluster-pxc" "4" "1"
+	desc "compare k8s objects"
+	compare_kubectl service/$cluster-pxc "-1140"
+	compare_kubectl service/$cluster-proxysql "-1140"
+	compare_kubectl statefulset/$cluster-pxc "-1140"
+	compare_kubectl statefulset/$cluster-proxysql "-1140"
+
 	destroy "${namespace}"
+	desc "test passed"
 }
 
 main

@@ -38,7 +38,7 @@ Contributions to the source tree should follow the workflow described below:
    ```
    git add .
    git commit -m "K8SPXC-622 fixed by ......"
-   git push -u origin K8SPXC-622-fix-feature X
+   git push -u origin K8SPXC-622-fix-feature-X
    ```
 
 3. Create a pull request to the main repository on GitHub.
@@ -48,13 +48,24 @@ Contributions to the source tree should follow the workflow described below:
 
 ### 2. Contributing to documentation
 
-The workflow for documentation is similar. Please take into account a few things:
+The workflow for documentation is similar, but we store source code for the Percona Operator for MySQL documentation in a [separate repository](https://github.com/percona/k8spxc-docs). See the [Documentation Contribution Guide](https://github.com/percona/k8spxc-docs/blob/main/CONTRIBUTING.md) for more information.
 
-1. All documentation is written using the [Sphinx engine markup language](https://www.sphinx-doc.org/). Sphinx allows easy publishing of various output formats such as HTML, LaTeX (for PDF), ePub, Texinfo, etc.
-2. We store the documentation as *.rst files in the [pxc-docs](https://github.com/percona/percona-xtradb-cluster-operator/tree/pxc-docs) branch of the Operator GitHub repository. The documentation is licensed under the [Attribution 4.0 International license (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+### 3. Container images
 
-After [installing Sphinx](https://www.sphinx-doc.org/en/master/usage/installation.html) you can use `make html` or `make latexpdf` commands having the documentation branch as your current directory to build HTML and PDF versions of the documentation respectively.
+Find Operator Dockerfile in [build folder](build).
 
+Our Operator uses various container images - databases, proxies, other. You can find the Dockerfiles in [percona-docker](https://github.com/percona/percona-docker) repository.
+
+* Percona XtraDB Cluster 8.0
+  * [PXC](https://github.com/percona/percona-docker/tree/main/percona-xtradb-cluster-8.0)
+  * [Percona XtraBackup](https://github.com/percona/percona-docker/tree/main/percona-xtradb-cluster-8.0-backup)
+* Percona XtraDB Cluster 5.7
+  * [PXC](https://github.com/percona/percona-docker/tree/main/percona-xtradb-cluster-5.7)
+  * [Percona XtraBackup](https://github.com/percona/percona-docker/tree/main/percona-xtradb-cluster-5.7-backup)
+* [ProxySQL](https://github.com/percona/percona-docker/tree/main/proxysql)
+* [HAProxy](https://github.com/percona/percona-docker/tree/main/haproxy)
+* [LogCollector](https://github.com/percona/percona-docker/tree/main/fluentbit)
+ 
 ## Code review
 
 ### 1. Automated code review

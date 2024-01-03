@@ -5,6 +5,14 @@ metadata:
   finalizers:
     - delete-pxc-pods-in-order
 spec:
+  initContainer:
+    resources:
+      requests:
+        memory: 0.2G
+        cpu: 300m
+      limits:
+        memory: 0.5G
+        cpu: "1"
   secretsName: my-cluster-secrets
   vaultSecretName: haproxy-vault
   pause: false

@@ -3,12 +3,14 @@ package statefulset
 import (
 	"fmt"
 
-	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
-	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
+	app "github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/app"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
 const (
@@ -57,7 +59,8 @@ func (c *HAProxy) Name() string {
 }
 
 func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXtraDBCluster,
-	_ []corev1.Volume) (corev1.Container, error) {
+	_ []corev1.Volume,
+) (corev1.Container, error) {
 	appc := corev1.Container{
 		Name:            haproxyName,
 		Image:           spec.Image,
@@ -100,7 +103,7 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		appc.Env = append(appc.Env, corev1.EnvVar{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 			},
 		})
 	}
@@ -205,6 +208,10 @@ func (c *HAProxy) AppContainer(spec *api.PodSpec, secrets string, cr *api.Percon
 		})
 	}
 
+	if cr.Spec.HAProxy != nil && (cr.Spec.HAProxy.Lifecycle.PostStart != nil || cr.Spec.HAProxy.Lifecycle.PreStop != nil) {
+		appc.Lifecycle = &cr.Spec.HAProxy.Lifecycle
+	}
+
 	return appc, nil
 }
 
@@ -252,7 +259,7 @@ func (c *HAProxy) SidecarContainers(spec *api.PodSpec, secrets string, cr *api.P
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secrets, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secrets, users.Monitor),
 			},
 		})
 	}
@@ -292,7 +299,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 		return nil, nil
 	}
 
-	ct := app.PMMClient(spec, secret, cr.CompareVersionWith("1.2.0") >= 0, cr.CompareVersionWith("1.7.0") >= 0)
+	ct := app.PMMClient(cr, spec, secret)
 
 	pmmEnvs := []corev1.EnvVar{
 		{
@@ -301,22 +308,22 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 		},
 		{
 			Name:  "MONITOR_USER",
-			Value: "monitor",
+			Value: users.Monitor,
 		},
 		{
 			Name: "MONITOR_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
 			},
 		},
 		{
 			Name:  "DB_USER",
-			Value: "monitor",
+			Value: users.Monitor,
 		},
 		{
 			Name: "DB_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: app.SecretKeySelector(secret.Name, "monitor"),
+				SecretKeyRef: app.SecretKeySelector(secret.Name, users.Monitor),
 			},
 		},
 		{
@@ -342,7 +349,7 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 	}
 	ct.Env = append(ct.Env, pmmEnvs...)
 
-	pmmAgentScriptEnv := app.PMMAgentScript("haproxy")
+	pmmAgentScriptEnv := app.PMMAgentScript(cr, "haproxy")
 	ct.Env = append(ct.Env, pmmAgentScriptEnv...)
 
 	if cr.CompareVersionWith("1.10.0") >= 0 {
@@ -360,6 +367,30 @@ func (c *HAProxy) PMMContainer(spec *api.PMMSpec, secret *corev1.Secret, cr *api
 			},
 		}
 		ct.Env = append(ct.Env, sidecarEnvs...)
+	}
+
+	if cr.CompareVersionWith("1.14.0") >= 0 {
+		// PMM team moved temp directory to /usr/local/percona/pmm2/tmp
+		// but it doesn't work on OpenShift so we set it back to /tmp
+		sidecarEnvs := []corev1.EnvVar{
+			{
+				Name:  "PMM_AGENT_PATHS_TEMPDIR",
+				Value: "/tmp",
+			},
+		}
+		ct.Env = append(ct.Env, sidecarEnvs...)
+
+		fvar := true
+		ct.EnvFrom = []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.HAProxy.EnvVarsSecretName,
+					},
+					Optional: &fvar,
+				},
+			},
+		}
 	}
 
 	ct.Resources = spec.Resources
@@ -387,6 +418,16 @@ func (c *HAProxy) Volumes(podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, vg
 	if cr.CompareVersionWith("1.11.0") >= 0 && cr.Spec.HAProxy != nil && cr.Spec.HAProxy.HookScript != "" {
 		vol.Volumes = append(vol.Volumes,
 			app.GetConfigVolumes("hookscript", c.labels["app.kubernetes.io/instance"]+"-"+c.labels["app.kubernetes.io/component"]+"-hookscript"))
+	}
+	if cr.CompareVersionWith("1.13.0") >= 0 {
+		vol.Volumes = append(vol.Volumes,
+			corev1.Volume{
+				Name: app.BinVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
 	}
 	return vol, nil
 }

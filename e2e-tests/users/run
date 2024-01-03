@@ -1,10 +1,11 @@
 #!/bin/bash
 
 set -o errexit
-set -o xtrace
 
 test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
+
+set_debug
 
 is_password_updated() {
 	local username=$1
@@ -84,12 +85,6 @@ sleep 15
 wait_cluster_consistency "$cluster" 3 2
 compare_mysql_cmd_local "select-3" "SHOW DATABASES;" "-h 127.0.0.1 -uxtrabackup -p'$newpass'" "$cluster-pxc-0" "" 'pxc'
 
-desc 'test clustercheck'
-patch_secret "my-cluster-secrets" "clustercheck" "$newpassencrypted"
-sleep 15
-wait_cluster_consistency "$cluster" 3 2
-compare_mysql_cmd_local "select-5" "SHOW DATABASES;" "-h 127.0.0.1 -uclustercheck -p'$newpass'" "$cluster-pxc-0" "" 'pxc'
-
 desc 'test monitor'
 patch_secret "my-cluster-secrets" "monitor" "$newpassencrypted"
 wait_for_password_propagation "my-cluster-secrets" "monitor"
@@ -146,3 +141,4 @@ wait_cluster_consistency "$cluster" 3 3
 compare_mysql_cmd "select-3" "SHOW DATABASES;" "-h $cluster-haproxy -umonitor -p'$newpass'"
 
 destroy "${namespace}"
+desc "test passed"

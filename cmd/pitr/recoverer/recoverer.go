@@ -342,7 +342,8 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 				return errors.Wrap(err, "get binlog time")
 			}
 			if binlogTime > r.recoverEndTime.Unix() {
-				return nil
+				log.Printf("Stopping at %s because it's after the recovery time (%d > %d)", binlog, binlogTime, r.recoverEndTime.Unix())
+				break
 			}
 		}
 

@@ -533,6 +533,8 @@ spec:
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
+#    containerSecurityContext:
+#      privileged: false
     resources:
       requests:
         memory: 150M

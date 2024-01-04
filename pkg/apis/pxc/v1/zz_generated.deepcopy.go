@@ -1079,6 +1079,7 @@ func (in *PodSpec) DeepCopyInto(out *PodSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	in.Lifecycle.DeepCopyInto(&out.Lifecycle)
 	if in.TopologySpreadConstraints != nil {
 		in, out := &in.TopologySpreadConstraints, &out.TopologySpreadConstraints
 		*out = make([]corev1.TopologySpreadConstraint, len(*in))

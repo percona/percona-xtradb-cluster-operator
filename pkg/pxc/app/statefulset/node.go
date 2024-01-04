@@ -254,7 +254,7 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			Name:      "mysql-init-file",
 			MountPath: "/etc/mysql/init-file",
 		})
-        }
+	}
 
 	if cr.Spec.PXC != nil && (cr.Spec.PXC.Lifecycle.PostStart != nil || cr.Spec.PXC.Lifecycle.PreStop != nil) {
 		appc.Lifecycle = &cr.Spec.PXC.Lifecycle

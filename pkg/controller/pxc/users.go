@@ -1164,7 +1164,7 @@ func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context,
 
 	opResult, err := controllerutil.CreateOrUpdate(ctx, r.client, secret, func() error {
 		secret.Data = make(map[string][]byte)
-		secret.Data["init.sql"] = []byte(fmt.Sprintf("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n"))
+		secret.Data["init.sql"] = []byte("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n")
 		secret.Data["init.sql"] = append(secret.Data["init.sql"], []byte(strings.Join(statements, ""))...)
 		return nil
 	})

@@ -290,7 +290,6 @@ func checkReadonlyStatus(ctx context.Context, channels []api.ReplicationChannel,
 		}
 
 		if isReplica && readonly || (!isReplica && !readonly) {
-			log.V(1).Info("Read only status is correct", "pod", pod.Name, "isReplica", isReplica, "readonly", readonly)
 			continue
 		}
 

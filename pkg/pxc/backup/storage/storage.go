@@ -90,10 +90,21 @@ func (s *S3) GetObject(ctx context.Context, objectName string) (io.ReadCloser, e
 	objPath := path.Join(s.prefix, objectName)
 	oldObj, err := s.client.GetObject(ctx, s.bucketName, objPath, minio.GetObjectOptions{})
 	if err != nil {
+		return nil, errors.Wrapf(err, "get object %s", objPath)
+	}
+
+	// minio client returns error only on Read() method, so we need to call it to see if object exists
+	_, err = oldObj.Read([]byte{})
+	if err != nil {
 		if minio.ToErrorResponse(errors.Cause(err)).Code == "NoSuchKey" {
 			return nil, ErrObjectNotFound
 		}
-		return nil, errors.Wrapf(err, "get object %s", objPath)
+		return nil, errors.Wrapf(err, "read object %s", objPath)
+	}
+
+	_, err = oldObj.Seek(0, 0)
+	if err != nil {
+		return nil, errors.Wrapf(err, "seek object %s", objPath)
 	}
 
 	return oldObj, nil
@@ -114,7 +125,7 @@ func (s *S3) ListObjects(ctx context.Context, prefix string) ([]string, error) {
 	opts := minio.ListObjectsOptions{
 		UseV1:     true,
 		Recursive: true,
-		Prefix:    path.Join(s.prefix, prefix) + "/",
+		Prefix:    s.prefix + prefix,
 	}
 	list := []string{}
 

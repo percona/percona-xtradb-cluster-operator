@@ -29,6 +29,10 @@ main() {
 	kubectl logs "$backup_job_name" | egrep "xbcloud put --storage=s3 --parallel=4 --md5 --insecure (--curl-retriable-errors=7 )?--parallel=2 --curl-retriable-errors=8"
 	kubectl logs "$backup_job_name" | grep "xbstream -x -C /tmp --parallel=2"
 
+	new_pass=$(echo -n "newpass" | base64)
+	kubectl_bin patch secret my-cluster-secrets -p="{\"data\":{\"xtrabackup\": \"${new_pass}\", \"root\": \"${new_pass}\", \"monitor\": \"${new_pass}\"}}"
+	wait_cluster_consistency ${cluster} 3 2
+
 	run_recovery_check "$cluster" "on-demand-backup-minio"
 	compare_kubectl job/restore-job-on-demand-backup-minio-demand-backup
 	restore_job_name=$(kubectl get pod -l job-name=restore-job-on-demand-backup-minio-demand-backup -o jsonpath='{.items[].metadata.name}')

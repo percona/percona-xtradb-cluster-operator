@@ -166,7 +166,7 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string, useAPI bool) []c
 		},
 		{
 			Name:  "PMM_AGENT_SETUP_NODE_NAME",
-			Value: "$(POD_NAMESPASE)-$(POD_NAME)",
+			Value: "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)",
 		},
 		{
 			Name:  "PMM_AGENT_SETUP_METRICS_MODE",

@@ -66,7 +66,21 @@ func PMMClient(cr *api.PerconaXtraDBCluster, spec *api.PMMSpec, secret *corev1.S
 				},
 			},
 		}
-		container.Env = append(container.Env, pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secret.Name, spec.UseAPI(secret))...)
+
+		pmmAgentEnvs := pmmAgentEnvs(spec.ServerHost, spec.ServerUser, secret.Name, spec.UseAPI(secret))
+		if cr.CompareVersionWith("1.14.0") >= 0 {
+			pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
+				Name:  "PMM_AGENT_SETUP_NODE_NAME",
+				Value: "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)",
+			})
+		} else {
+			pmmAgentEnvs = append(pmmAgentEnvs, corev1.EnvVar{
+				Name:  "PMM_AGENT_SETUP_NODE_NAME",
+				Value: "$(POD_NAMESPASE)-$(POD_NAME)",
+			})
+		}
+
+		container.Env = append(container.Env, pmmAgentEnvs...)
 		container.Lifecycle = &corev1.Lifecycle{
 			PreStop: &corev1.LifecycleHandler{
 				Exec: &corev1.ExecAction{
@@ -163,10 +177,6 @@ func pmmAgentEnvs(pmmServerHost, pmmServerUser, secrets string, useAPI bool) []c
 		{
 			Name:  "PMM_AGENT_LISTEN_ADDRESS",
 			Value: "0.0.0.0",
-		},
-		{
-			Name:  "PMM_AGENT_SETUP_NODE_NAME",
-			Value: "$(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)",
 		},
 		{
 			Name:  "PMM_AGENT_SETUP_METRICS_MODE",

@@ -80,7 +80,7 @@ spec:
             - name: PMM_AGENT_LISTEN_ADDRESS
               value: 0.0.0.0
             - name: PMM_AGENT_SETUP_NODE_NAME
-              value: $(POD_NAMESPASE)-$(POD_NAME)
+              value: $(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)
             - name: PMM_AGENT_SETUP_METRICS_MODE
               value: push
             - name: PMM_AGENT_SETUP

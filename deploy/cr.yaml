@@ -186,6 +186,13 @@ spec:
           requests:
             storage: 6G
     gracePeriod: 600
+#    lifecycle:
+#      preStop:
+#        exec:
+#          command: [ "/bin/true" ]
+#      postStart:
+#        exec:
+#          command: [ "/bin/true" ]
   haproxy:
     enabled: true
     size: 3

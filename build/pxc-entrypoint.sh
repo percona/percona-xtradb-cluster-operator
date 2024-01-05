@@ -648,4 +648,10 @@ fi
 
 test -e /opt/percona/hookscript/hook.sh && source /opt/percona/hookscript/hook.sh
 
-exec "$@" $wsrep_start_position_opt
+init_opt=""
+if [[ -f /etc/mysql/init-file/init.sql ]]; then
+	init_opt="--init-file=/etc/mysql/init-file/init.sql"
+	echo "Using init-file: /etc/mysql/init-file/init.sql"
+fi
+
+exec "$@" ${wsrep_start_position_opt} ${init_opt}

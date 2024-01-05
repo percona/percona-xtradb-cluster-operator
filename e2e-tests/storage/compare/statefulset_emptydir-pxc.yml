@@ -140,6 +140,8 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -199,6 +201,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-emptydir
+        - name: mysql-init-file
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: emptydir-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0

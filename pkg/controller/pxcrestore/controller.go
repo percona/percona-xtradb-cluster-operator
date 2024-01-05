@@ -135,7 +135,10 @@ func (r *ReconcilePerconaXtraDBClusterRestore) Reconcile(ctx context.Context, re
 			status = api.RestoreFailed
 			returnMsg = err.Error()
 		}
-		r.setStatus(cr, status, returnMsg)
+		err := r.setStatus(cr, status, returnMsg)
+		if err != nil {
+			return
+		}
 	}()
 
 	for _, j := range rJobsList.Items {

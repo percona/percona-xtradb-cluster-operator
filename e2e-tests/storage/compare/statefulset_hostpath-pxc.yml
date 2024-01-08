@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  annotations: {}
   generation: 1
   name: hostpath-pxc
   ownerReferences:
@@ -22,7 +21,6 @@ spec:
   serviceName: hostpath-pxc
   template:
     metadata:
-      annotations: {}
       labels:
         app.kubernetes.io/component: pxc
         app.kubernetes.io/instance: hostpath
@@ -75,6 +73,8 @@ spec:
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
               value: "15"
+            - name: DEFAULT_AUTHENTICATION_PLUGIN
+              value: mysql_native_password
           envFrom:
             - secretRef:
                 name: hostpath-env-vars-pxc
@@ -140,13 +140,18 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
             - /pxc-init-entrypoint.sh
           imagePullPolicy: Always
           name: pxc-init
-          resources: {}
+          resources:
+            limits:
+              cpu: 50m
+              memory: 50M
           securityContext:
             privileged: false
           terminationMessagePath: /dev/termination-log
@@ -201,6 +206,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-hostpath
+        - name: mysql-init-file
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: hostpath-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0

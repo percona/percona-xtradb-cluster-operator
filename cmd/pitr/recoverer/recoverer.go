@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -15,7 +14,7 @@ import (
 	"time"
 
 	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/pxc"
-	"github.com/percona/percona-xtradb-cluster-operator/cmd/pitr/storage"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 
 	"github.com/pkg/errors"
 )
@@ -282,11 +281,11 @@ func (r *Recoverer) Run(ctx context.Context) error {
 
 	switch r.recoverType {
 	case Skip:
-		r.recoverFlag = " --exclude-gtids=" + r.gtid
+		r.recoverFlag = "--exclude-gtids=" + r.gtid
 	case Transaction:
-		r.recoverFlag = " --exclude-gtids=" + r.gtidSet
+		r.recoverFlag = "--exclude-gtids=" + r.gtidSet
 	case Date:
-		r.recoverFlag = ` --stop-datetime="` + r.recoverTime + `"`
+		r.recoverFlag = `--stop-datetime="` + r.recoverTime + `"`
 
 		const format = "2006-01-02 15:04:05"
 		endTime, err := time.Parse(format, r.recoverTime)
@@ -312,6 +311,24 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "drop collector funcs")
 	}
+
+	err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))
+	if err != nil {
+		return errors.Wrap(err, "set mysql pwd env var")
+	}
+
+	mysqlStdin, binlogStdout := io.Pipe()
+	defer mysqlStdin.Close()
+
+	mysqlCmd := exec.CommandContext(ctx, "mysql", "-h", r.db.GetHost(), "-P", "33062", "-u", r.pxcUser)
+	log.Printf("Running %s", mysqlCmd.String())
+	mysqlCmd.Stdin = mysqlStdin
+	mysqlCmd.Stderr = os.Stderr
+	mysqlCmd.Stdout = os.Stdout
+	if err := mysqlCmd.Start(); err != nil {
+		return errors.Wrap(err, "start mysql")
+	}
+
 	for i, binlog := range r.binlogs {
 		remaining := len(r.binlogs) - i
 		log.Printf("working with %s, %d out of %d remaining\n", binlog, remaining, len(r.binlogs))
@@ -325,7 +342,8 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 				return errors.Wrap(err, "get binlog time")
 			}
 			if binlogTime > r.recoverEndTime.Unix() {
-				return nil
+				log.Printf("Stopping at %s because it's after the recovery time (%d > %d)", binlog, binlogTime, r.recoverEndTime.Unix())
+				break
 			}
 		}
 
@@ -334,23 +352,28 @@ func (r *Recoverer) recover(ctx context.Context) (err error) {
 			return errors.Wrap(err, "get obj")
 		}
 
-		err = os.Setenv("MYSQL_PWD", os.Getenv("PXC_PASS"))
-		if err != nil {
-			return errors.Wrap(err, "set mysql pwd env var")
-		}
-
-		cmdString := "mysqlbinlog --disable-log-bin" + r.recoverFlag + " - | mysql -h" + r.db.GetHost() + " -u" + r.pxcUser
-		cmd := exec.CommandContext(ctx, "sh", "-c", cmdString)
-
+		cmd := exec.CommandContext(ctx, "sh", "-c", "mysqlbinlog --disable-log-bin "+r.recoverFlag+" -")
+		log.Printf("Running %s", cmd.String())
 		cmd.Stdin = binlogObj
-		var outb, errb bytes.Buffer
-		cmd.Stdout = &outb
-		cmd.Stderr = &errb
+		cmd.Stdout = binlogStdout
+		cmd.Stderr = os.Stderr
 		err = cmd.Run()
 		if err != nil {
-			return errors.Wrapf(err, "cmd run. stderr: %s, stdout: %s", errb.String(), outb.String())
+			return errors.Wrapf(err, "run mysqlbinlog")
 		}
 	}
+
+	if err := binlogStdout.Close(); err != nil {
+		return errors.Wrap(err, "close binlog stdout")
+	}
+
+	log.Printf("Waiting for mysql to finish")
+
+	if err := mysqlCmd.Wait(); err != nil {
+		return errors.Wrap(err, "wait mysql")
+	}
+
+	log.Printf("Finished")
 
 	return nil
 }
@@ -443,7 +466,7 @@ func getDecompressedContent(ctx context.Context, infoObj io.Reader, filename str
 		return nil, errors.Errorf("run xbstream error: %s", &errb)
 	}
 
-	decContent, err := ioutil.ReadFile(tmpDir + "/" + filename)
+	decContent, err := os.ReadFile(tmpDir + "/" + filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "read xtrabackup_info file")
 	}
@@ -469,7 +492,7 @@ func (r *Recoverer) setBinlogs(ctx context.Context) error {
 			log.Println("Can't get binlog object with gtid set. Name:", binlog, "error", err)
 			continue
 		}
-		content, err := ioutil.ReadAll(infoObj)
+		content, err := io.ReadAll(infoObj)
 		if err != nil {
 			return errors.Wrapf(err, "read %s gtid-set object", binlog)
 		}

@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
-
 	"github.com/pkg/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -20,13 +18,17 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/users"
 )
 
-func (r *ReconcilePerconaXtraDBCluster) updatePod(stsApp api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
+func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, stsApp api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
+	log := logf.FromContext(ctx)
+
 	currentSet := stsApp.StatefulSet()
 	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
@@ -150,15 +152,27 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(stsApp api.StatefulApp, podSpe
 		return nil
 	}
 
-	return r.smartUpdate(stsApp, cr)
+	return r.smartUpdate(ctx, stsApp, cr)
 }
 
-func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {
+func (r *ReconcilePerconaXtraDBCluster) smartUpdate(ctx context.Context, sfs api.StatefulApp, cr *api.PerconaXtraDBCluster) error {
+	log := logf.FromContext(ctx)
+
 	if !isPXC(sfs) {
 		return nil
 	}
 
 	if cr.Spec.Pause {
+		return nil
+	}
+
+	if cr.HAProxyEnabled() && cr.Status.HAProxy.Status != api.AppStateReady {
+		log.Info("Waiting for HAProxy to be ready before smart update")
+		return nil
+	}
+
+	if cr.ProxySQLEnabled() && cr.Status.ProxySQL.Status != api.AppStateReady {
+		log.Info("Waiting for ProxySQL to be ready before smart update")
 		return nil
 	}
 
@@ -194,8 +208,6 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	if !statefulSetChanged {
 		return nil
 	}
-
-	log := r.logger(cr.Name, cr.Namespace)
 
 	log.Info("statefulSet was changed, run smart update")
 
@@ -243,14 +255,14 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 			primaryPod = pod
 		} else {
 			log.Info("apply changes to secondary pod", "pod name", pod.Name)
-			if err := r.applyNWait(cr, currentSet, &pod, waitLimit); err != nil {
+			if err := r.applyNWait(ctx, cr, currentSet, &pod, waitLimit); err != nil {
 				return errors.Wrap(err, "failed to apply changes")
 			}
 		}
 	}
 
 	log.Info("apply changes to primary pod", "pod name", primaryPod.Name)
-	if err := r.applyNWait(cr, currentSet, &primaryPod, waitLimit); err != nil {
+	if err := r.applyNWait(ctx, cr, currentSet, &primaryPod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to apply changes")
 	}
 
@@ -259,8 +271,8 @@ func (r *ReconcilePerconaXtraDBCluster) smartUpdate(sfs api.StatefulApp, cr *api
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster, sfs *appsv1.StatefulSet, pod *corev1.Pod, waitLimit int) error {
-	log := r.logger(cr.Name, cr.Namespace)
+func (r *ReconcilePerconaXtraDBCluster) applyNWait(ctx context.Context, cr *api.PerconaXtraDBCluster, sfs *appsv1.StatefulSet, pod *corev1.Pod, waitLimit int) error {
+	log := logf.FromContext(ctx)
 
 	if pod.ObjectMeta.Labels["controller-revision-hash"] == sfs.Status.UpdateRevision {
 		log.Info("pod already updated", "pod name", pod.Name)
@@ -279,7 +291,7 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return nil
 	}
 
-	if err := r.waitPodRestart(cr, sfs.Status.UpdateRevision, pod, waitLimit, log); err != nil {
+	if err := r.waitPodRestart(ctx, cr, sfs.Status.UpdateRevision, pod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait pod")
 	}
 
@@ -287,11 +299,11 @@ func (r *ReconcilePerconaXtraDBCluster) applyNWait(cr *api.PerconaXtraDBCluster,
 		return errors.Wrap(err, "failed to wait pxc sync")
 	}
 
-	if err := r.waitHostgroups(cr, sfs.Name, pod, waitLimit, log); err != nil {
+	if err := r.waitHostgroups(ctx, cr, sfs.Name, pod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait hostgroups status")
 	}
 
-	if err := r.waitUntilOnline(cr, sfs.Name, pod, waitLimit, log); err != nil {
+	if err := r.waitUntilOnline(ctx, cr, sfs.Name, pod, waitLimit); err != nil {
 		return errors.Wrap(err, "failed to wait pxc status")
 	}
 
@@ -302,7 +314,7 @@ func getPodOrderInSts(stsName string, podName string) (int, error) {
 	return strconv.Atoi(podName[len(stsName)+1:])
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(ctx context.Context, cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int) error {
 	if !cr.Spec.ProxySQLEnabled() {
 		return nil
 	}
@@ -326,12 +338,12 @@ func (r *ReconcilePerconaXtraDBCluster) waitHostgroups(cr *api.PerconaXtraDBClus
 				return false, nil
 			}
 
-			logger.Info("pod present in hostgroups", "pod name", pod.Name)
+			logf.FromContext(ctx).Info("pod present in hostgroups", "pod name", pod.Name)
 			return true, nil
 		})
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(ctx context.Context, cr *api.PerconaXtraDBCluster, sfsName string, pod *corev1.Pod, waitLimit int) error {
 	if !cr.Spec.ProxySQLEnabled() {
 		return nil
 	}
@@ -358,7 +370,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitUntilOnline(cr *api.PerconaXtraDBClu
 				}
 			}
 
-			logger.Info("pod is online", "pod name", pod.Name)
+			logf.FromContext(ctx).Info("pod is online", "pod name", pod.Name)
 			return true, nil
 		})
 }
@@ -403,12 +415,12 @@ func (r *ReconcilePerconaXtraDBCluster) connectProxy(cr *api.PerconaXtraDBCluste
 	var port, proxySize int32
 
 	if cr.ProxySQLEnabled() {
-		user = "proxyadmin"
+		user = users.ProxyAdmin
 		host = fmt.Sprintf("%s-proxysql-unready.%s", cr.ObjectMeta.Name, cr.Namespace)
 		proxySize = cr.Spec.ProxySQL.Size
 		port = 6032
 	} else if cr.HAProxyEnabled() {
-		user = "monitor"
+		user = users.Monitor
 		host = fmt.Sprintf("%s-haproxy.%s", cr.Name, cr.Namespace)
 		proxySize = cr.Spec.HAProxy.Size
 
@@ -465,7 +477,6 @@ func (r *ReconcilePerconaXtraDBCluster) getPrimaryPod(cr *api.PerconaXtraDBClust
 }
 
 func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBCluster, host string, waitLimit int) error {
-	user := "root"
 	secrets := cr.Spec.SecretsName
 	port := int32(3306)
 	if cr.CompareVersionWith("1.6.0") >= 0 {
@@ -473,7 +484,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		port = int32(33062)
 	}
 
-	database, err := queries.New(r.client, cr.Namespace, secrets, user, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+	database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, host, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
 	if err != nil {
 		return errors.Wrap(err, "failed to access PXC database")
 	}
@@ -495,7 +506,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPXCSynced(cr *api.PerconaXtraDBClust
 		})
 }
 
-func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int, logger logr.Logger) error {
+func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(ctx context.Context, cr *api.PerconaXtraDBCluster, updateRevision string, pod *corev1.Pod, waitLimit int) error {
 	return retry(time.Second*10, time.Duration(waitLimit)*time.Second,
 		func() (bool, error) {
 			err := r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
@@ -512,6 +523,15 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(cr *api.PerconaXtraDBClus
 			for _, container := range pod.Status.ContainerStatuses {
 				if container.Name == "pxc" {
 					ready = container.Ready
+
+					if container.State.Waiting != nil {
+						switch container.State.Waiting.Reason {
+						case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff":
+							return false, errors.Errorf("pod %s is in %s state", pod.Name, container.State.Waiting.Reason)
+						default:
+							logf.FromContext(ctx).Info("pod is waiting", "pod name", pod.Name, "reason", container.State.Waiting.Reason)
+						}
+					}
 				}
 			}
 
@@ -520,7 +540,7 @@ func (r *ReconcilePerconaXtraDBCluster) waitPodRestart(cr *api.PerconaXtraDBClus
 			}
 
 			if pod.Status.Phase == corev1.PodRunning && pod.ObjectMeta.Labels["controller-revision-hash"] == updateRevision && ready {
-				logger.Info("pod is running", "pod name", pod.Name)
+				logf.FromContext(ctx).Info("pod is running", "pod name", pod.Name)
 				return true, nil
 			}
 
@@ -642,6 +662,9 @@ func (r *ReconcilePerconaXtraDBCluster) getFirstExisting(name types.NamespacedNa
 }
 
 func (r *ReconcilePerconaXtraDBCluster) getSecretHash(cr *api.PerconaXtraDBCluster, secretName string, allowNonExistingSecret bool) (string, error) {
+	if allowNonExistingSecret && secretName == "" {
+		return "", nil
+	}
 	secretObj := corev1.Secret{}
 	if err := r.client.Get(context.TODO(),
 		types.NamespacedName{

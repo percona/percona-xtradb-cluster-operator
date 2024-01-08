@@ -58,6 +58,84 @@ spec:
             type: string
           spec:
             properties:
+              containerOptions:
+                properties:
+                  args:
+                    properties:
+                      xbcloud:
+                        items:
+                          type: string
+                        type: array
+                      xbstream:
+                        items:
+                          type: string
+                        type: array
+                      xtrabackup:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  env:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        value:
+                          type: string
+                        valueFrom:
+                          properties:
+                            configMapKeyRef:
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                                optional:
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                            fieldRef:
+                              properties:
+                                apiVersion:
+                                  type: string
+                                fieldPath:
+                                  type: string
+                              required:
+                              - fieldPath
+                              type: object
+                            resourceFieldRef:
+                              properties:
+                                containerName:
+                                  type: string
+                                divisor:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                resource:
+                                  type: string
+                              required:
+                              - resource
+                              type: object
+                            secretKeyRef:
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                                optional:
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                          type: object
+                      required:
+                      - name
+                      type: object
+                    type: array
+                type: object
               pxcCluster:
                 type: string
               storageName:
@@ -122,6 +200,9 @@ spec:
               lastscheduled:
                 format: date-time
                 type: string
+              latestRestorableTime:
+                format: date-time
+                type: string
               s3:
                 properties:
                   bucket:
@@ -145,6 +226,8 @@ spec:
                 type: string
               vaultSecretName:
                 type: string
+              verifyTLS:
+                type: boolean
             type: object
         type: object
     served: true

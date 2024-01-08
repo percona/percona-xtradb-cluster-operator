@@ -17,6 +17,10 @@ spec:
       runAsUser: 1001
       fsGroup: 1001
       supplementalGroups: [1001]
+    topologySpreadConstraints:
+      - whenUnsatisfiable: ScheduleAnyway
+        maxSkew: 0
+        topologyKey: ""
     size: 3
     image: -pxc
     serviceAccountName: percona-xtradb-cluster-operator-workload
@@ -35,6 +39,10 @@ spec:
     affinity:
       antiAffinityTopologyKey: "kubernetes.io/hostname"
   proxysql:
+    topologySpreadConstraints:
+      - whenUnsatisfiable: ScheduleAnyway
+        maxSkew: 0
+        topologyKey: ""
     enabled: true
     containerSecurityContext:
       privileged: true
@@ -83,12 +91,16 @@ spec:
         podSecurityContext:
           fsGroup: 1001
           supplementalGroups: [1001, 1002, 1003]
+        topologySpreadConstraints:
+          - whenUnsatisfiable: ScheduleAnyway
+            maxSkew: 0
+            topologyKey: ""
         type: s3
         s3:
           credentialsSecret: minio-secret
           region: us-east-1
           bucket: operator-testing
-          endpointUrl: http://minio-service:9000/
+          endpointUrl: http://minio-service.#namespace:9000/
     schedule:
       - name: each-hour-pvc
         schedule: "0 */1 * * *"

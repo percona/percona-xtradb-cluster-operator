@@ -9,10 +9,12 @@ set_debug
 
 main() {
 	create_infra $namespace
-	start_minio
 
 	cluster="demand-backup"
 	spinup_pxc "$cluster" "$test_dir/conf/$cluster.yml"
+
+	# We are using minio with tls enabled to check if `verifyTLS: false` works fine
+	start_minio "demand-backup-ssl"
 
 	run_backup "$cluster" "on-demand-backup-pvc"
 	run_recovery_check "$cluster" "on-demand-backup-pvc"
@@ -22,14 +24,26 @@ main() {
 	run_recovery_check "$cluster" "on-demand-backup-pvc-bsource"
 
 	run_backup "$cluster" "on-demand-backup-minio"
+	compare_kubectl job/xb-on-demand-backup-minio
+	backup_job_name=$(kubectl get pod -l job-name=xb-on-demand-backup-minio -o jsonpath='{.items[].metadata.name}')
+	kubectl logs "$backup_job_name" | egrep "xbcloud put --storage=s3 --parallel=4 --md5 --insecure (--curl-retriable-errors=7 )?--parallel=2 --curl-retriable-errors=8"
+	kubectl logs "$backup_job_name" | grep "xbstream -x -C /tmp --parallel=2"
+
 	run_recovery_check "$cluster" "on-demand-backup-minio"
+	compare_kubectl job/restore-job-on-demand-backup-minio-demand-backup
+	restore_job_name=$(kubectl get pod -l job-name=restore-job-on-demand-backup-minio-demand-backup -o jsonpath='{.items[].metadata.name}')
+	kubectl logs "$restore_job_name" | grep "xtrabackup --defaults-group=mysqld --datadir=/datadir --move-back --parallel=3"
+	kubectl logs "$restore_job_name" | grep "xtrabackup --use-memory=1500000000 --prepare --parallel=3"
+	kubectl logs "$restore_job_name" | egrep "(xbcloud get --parallel=4 --insecure --curl-retriable-errors=7 --parallel=3|xbcloud get --parallel=4 --insecure --parallel=3)"
+	kubectl logs "$restore_job_name" | grep "xbstream -x -C .* --parallel=4 --parallel=3"
+    kubectl logs "$restore_job_name" | egrep "(xbstream --decompress -x -C .* --parallel=4 --parallel=3|xbstream -x -C .* --parallel=4 --parallel=3)"
 
 	desc "Check backup deletion"
 	kubectl_bin delete pxc-backup --all
 	backup_exists=$(
-		kubectl run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
+		kubectl_bin run -n "${NAMESPACE}" -i --rm aws-cli --image=perconalab/awscli --restart=Never -- \
 			/usr/bin/env AWS_ACCESS_KEY_ID=some-access-key AWS_SECRET_ACCESS_KEY=some-secret-key AWS_DEFAULT_REGION=us-east-1 \
-			/usr/bin/aws --endpoint-url http://minio-service:9000 s3 ls operator-testing/ | grep -c "demand-backup" | cat
+			/usr/bin/aws --endpoint-url https://minio-service:9000 --no-verify-ssl s3 ls operator-testing/ | grep -c "demand-backup" | cat
 		exit "${PIPESTATUS[0]}"
 	)
 	if [[ $backup_exists -ne 0 ]]; then

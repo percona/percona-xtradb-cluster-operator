@@ -3,18 +3,19 @@
 set -o errexit
 
 test_default_replicas_service() {
-	kpatch_delete_field pxc $1 "/spec/haproxy/replicasServiceEnabled" && sleep 1
+	kpatch_delete_field pxc $1 "/spec/haproxy/exposeReplicas" && sleep 1
 	compare_kubectl "service/$1-haproxy-replicas"
 }
 
 test_disable_replicas_service() {
-	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" false && sleep 1
+	kpatch_set_field pxc $1 "/spec/haproxy/exposeReplicas" {} && sleep 1
+	kpatch_set_field pxc $1 "/spec/haproxy/exposeReplicas/enabled" false && sleep 1
 	wait_for_delete "svc/$1-haproxy-replicas"
 	(kubectl_bin get svc "$1-haproxy-replicas" || :) 2>&1 | grep -e "not found$" >/dev/null
 }
 
 test_enable_replicas_service() {
-	kpatch_set_field pxc $1 "/spec/haproxy/replicasServiceEnabled" true && sleep 1
+	kpatch_set_field pxc $1 "/spec/haproxy/exposeReplicas/enabled" true && sleep 1
 	compare_kubectl "service/$1-haproxy-replicas"
 }
 
@@ -22,6 +23,19 @@ test_dir=$(realpath $(dirname $0))
 . ${test_dir}/../functions
 
 set_debug
+
+fail_pod() {
+	local pod=$1
+
+	yq eval '
+		.metadata.name = "chaos-pod-failure" |
+		del(.spec.selector.pods.test-namespace) |
+		.spec.selector.pods.'$namespace'[0] = "'$pod'"' $conf_dir/chaos-pod-failure.yml \
+		| kubectl apply -f -
+
+	sleep 20
+
+}
 
 check_haproxy_writer() {
 	for i in $(seq 0 2); do
@@ -35,6 +49,7 @@ check_haproxy_writer() {
 
 main() {
 	create_infra $namespace
+	deploy_chaos_mesh $namespace
 
 	if version_gt "1.24"; then
 		apply_config "$test_dir/conf/container-rc.yaml"
@@ -52,11 +67,15 @@ main() {
 	wait_for_running "$cluster-pxc" 3
 	check_haproxy_writer
 
+	desc 'check for passwords leak'
+	check_passwords_leak
+
 	desc 'delete active writer and checking all haproxy pods still point to the same writer'
-	kubectl_bin delete pod $cluster-pxc-0
-	sleep 3
+	desc 'fail pxc-pod-0 pod for 60s'
+	fail_pod $cluster-pxc-0
 	kubectl_bin get pods
 	check_haproxy_writer
+	wait_for_running "$cluster-pxc" 3
 
 	desc 'check advanced options are enabled in haproxy statefulset'
 	compare_kubectl pdb/$cluster-haproxy
@@ -71,29 +90,8 @@ main() {
 	desc 'enable haproxy-replicas service'
 	test_enable_replicas_service $cluster
 
-	desc 'enable proxy-sql'
-	apply_config "$test_dir/conf/$cluster-proxysql.yml"
-	wait_for_running "$cluster-proxysql" 2
-	compare_kubectl statefulset/$cluster-proxysql
-	compare_kubectl service/$cluster-proxysql
-
-	compare_mysql_cmd_local "ping_timeout_server" \
-		"SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
-		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "" 'proxysql'
-	apply_config "$test_dir/conf/config-secret-proxysql.yaml"
-	wait_cluster_consistency "$cluster" 3 2
-	compare_kubectl statefulset/$cluster-proxysql "-secret"
-	compare_mysql_cmd_local "ping_timeout_server" \
-		"SELECT * FROM global_variables WHERE variable_name = '\''mysql-ping_timeout_server'\'';" \
-		"-h127.0.0.1 -P6032 -uproxyadmin -padmin_password" "$cluster-proxysql-0" "-secret" 'proxysql'
-	wait_cluster_consistency "$cluster" 3 2
-
-	desc 're-enable haproxy'
-	apply_config "$test_dir/conf/$cluster.yml"
 	wait_for_running "$cluster-haproxy" 3
-	compare_kubectl statefulset/$cluster-haproxy
-	compare_kubectl service/$cluster-haproxy
-	compare_kubectl pdb/$cluster-haproxy
+
 	kubectl_bin exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
 		| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn.txt
@@ -104,7 +102,9 @@ main() {
 	kubectl_bin exec haproxy-haproxy-0 -c haproxy -it -- bash -c 'echo "show info" | socat stdio unix-connect:/etc/haproxy/pxc/haproxy.sock' \
 		| grep "Maxconn:" >"$tmp_dir"/haproxy_maxconn.txt
 	diff --strip-trailing-cr "$tmp_dir"/haproxy_maxconn.txt "$test_dir"/compare/haproxy_maxconn-secret.txt
+
 	desc 'clean up'
+	destroy_chaos_mesh
 	destroy $namespace
 	desc "test passed"
 }

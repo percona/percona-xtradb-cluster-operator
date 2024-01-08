@@ -30,8 +30,10 @@ main() {
 	kubectl logs "$backup_job_name" | grep "xbstream -x -C /tmp --parallel=2"
 
 	new_pass=$(echo -n "newpass" | base64)
-	kubectl_bin patch secret my-cluster-secrets -p="{\"data\":{\"xtrabackup\": \"${new_pass}\", \"root\": \"${new_pass}\", \"monitor\": \"${new_pass}\"}}"
+	kubectl_bin patch secret my-cluster-secrets -p="{\"data\":{\"xtrabackup\": \"${new_pass}\", \"monitor\": \"${new_pass}\"}}"
 	wait_cluster_consistency ${cluster} 3 2
+
+	compare_kubectl secret/${cluster}-mysql-init
 
 	run_recovery_check "$cluster" "on-demand-backup-minio"
 	compare_kubectl job/restore-job-on-demand-backup-minio-demand-backup

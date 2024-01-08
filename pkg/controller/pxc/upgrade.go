@@ -27,8 +27,6 @@ import (
 )
 
 func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, stsApp api.StatefulApp, podSpec *api.PodSpec, cr *api.PerconaXtraDBCluster, initContainers []corev1.Container) error {
-	log := logf.FromContext(ctx)
-
 	currentSet := stsApp.StatefulSet()
 	newAnnotations := currentSet.Spec.Template.Annotations // need this step to save all new annotations that was set to currentSet in this reconcile loop
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: currentSet.Name, Namespace: currentSet.Namespace}, currentSet)
@@ -49,7 +47,7 @@ func (r *ReconcilePerconaXtraDBCluster) updatePod(ctx context.Context, stsApp ap
 		return errors.Wrap(err, "get internal secret")
 	}
 
-	sts, err := pxc.StatefulSet(stsApp, podSpec, cr, secret, initContainers, r.logger(cr.Name, cr.Namespace), r.getConfigVolume)
+	sts, err := pxc.StatefulSet(ctx, stsApp, podSpec, cr, secret, initContainers, r.getConfigVolume)
 	if err != nil {
 		return errors.Wrap(err, "pxc statefulset")
 	}

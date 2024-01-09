@@ -8,6 +8,9 @@ metadata:
       kind: PerconaXtraDBCluster
       name: hostpath
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 3
   revisionHistoryLimit: 10

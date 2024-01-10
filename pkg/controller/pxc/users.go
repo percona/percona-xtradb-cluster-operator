@@ -1156,6 +1156,12 @@ func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context,
 			Namespace: cr.Namespace,
 		},
 	}
+	data := map[string][]byte{
+		"init.sql": []byte("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n"),
+	}
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err == nil {
+		data = secret.Data
+	}
 
 	statements := make([]string, 0)
 	for _, host := range user.Hosts {
@@ -1163,9 +1169,8 @@ func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context,
 	}
 
 	opResult, err := controllerutil.CreateOrUpdate(ctx, r.client, secret, func() error {
-		secret.Data = make(map[string][]byte)
-		secret.Data["init.sql"] = []byte("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n")
-		secret.Data["init.sql"] = append(secret.Data["init.sql"], []byte(strings.Join(statements, ""))...)
+		data["init.sql"] = append(data["init.sql"], []byte(strings.Join(statements, ""))...)
+		secret.Data = data
 		return nil
 	})
 

@@ -27,7 +27,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/apis"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/controller"
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/k8s"
-	"github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
+	hook "github.com/percona/percona-xtradb-cluster-operator/pkg/webhook"
 	"github.com/percona/percona-xtradb-cluster-operator/version"
 )
 
@@ -146,10 +146,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = webhook.SetupWebhook(mgr)
-	if err != nil {
-		setupLog.Error(err, "set up validation webhook")
-		os.Exit(1)
+	if _, found := os.LookupEnv("DISABLE_WEBHOOK"); !found {
+		err = hook.SetupWebhook(mgr)
+		if err != nil {
+			setupLog.Error(err, "set up validation webhook")
+			os.Exit(1)
+		}
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

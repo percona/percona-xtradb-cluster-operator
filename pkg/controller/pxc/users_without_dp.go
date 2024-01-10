@@ -80,7 +80,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Cont
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update root users pass")
 	}
@@ -93,7 +93,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Cont
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
+	err = r.client.Patch(ctx, internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal secrets root user password")
 	}
@@ -132,7 +132,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update operator users pass")
 	}
@@ -140,7 +140,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
+	err = r.client.Patch(ctx, internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets operator user password")
 	}
@@ -164,11 +164,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 			return err
 		}
 
-		um, err := getUserManager(cr, internalSecrets)
+		um, err := r.getUserManager(ctx, cr, internalSecrets)
 		if err != nil {
 			return err
 		}
-		defer um.Close()
 
 		if cr.CompareVersionWith("1.6.0") >= 0 {
 			err := r.updateMonitorUserGrant(ctx, cr, internalSecrets, um)
@@ -215,14 +214,14 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update monitor users pass")
 	}
 	log.Info("User password updated", "user", user.Name)
 
 	if cr.Spec.ProxySQLEnabled() {
-		err := r.updateProxyUser(cr, internalSecrets, user)
+		err := r.updateProxyUser(ctx, cr, internalSecrets, user)
 		if err != nil {
 			return errors.Wrap(err, "update monitor users pass")
 		}
@@ -236,7 +235,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
+	err = r.client.Patch(ctx, internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets monitor user password")
 	}
@@ -282,7 +281,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update xtrabackup users pass")
 	}
@@ -290,7 +289,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
+	err = r.client.Patch(ctx, internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets xtrabackup user password")
 	}
@@ -338,7 +337,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateUserPassWithoutDP(cr, secrets, internalSecrets, user)
+	err := r.updateUserPassWithoutDP(ctx, cr, secrets, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update replication users pass")
 	}
@@ -346,7 +345,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
+	err = r.client.Patch(ctx, internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets replication user password")
 	}
@@ -382,7 +381,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 
 	log.Info("Password changed, updating user", "user", user.Name)
 
-	err := r.updateProxyUser(cr, internalSecrets, user)
+	err := r.updateProxyUser(ctx, cr, internalSecrets, user)
 	if err != nil {
 		return errors.Wrap(err, "update Proxy users")
 	}
@@ -390,7 +389,7 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
-	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
+	err = r.client.Patch(ctx, internalSecrets, client.MergeFrom(orig))
 	if err != nil {
 		return errors.Wrap(err, "update internal users secrets proxyadmin user password")
 	}
@@ -401,14 +400,13 @@ func (r *ReconcilePerconaXtraDBCluster) handleProxyadminUserWithoutDP(ctx contex
 	return nil
 }
 
-func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithoutDP(cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
-	um, err := getUserManager(cr, internalSecrets)
+func (r *ReconcilePerconaXtraDBCluster) updateUserPassWithoutDP(ctx context.Context, cr *api.PerconaXtraDBCluster, secrets, internalSecrets *corev1.Secret, user *users.SysUser) error {
+	um, err := r.getUserManager(ctx, cr, internalSecrets)
 	if err != nil {
 		return err
 	}
-	defer um.Close()
 
-	err = um.UpdateUserPassWithoutDP(user)
+	err = um.UpdateUserPassWithoutDP(ctx, user)
 	if err != nil {
 		return errors.Wrap(err, "update user pass")
 	}

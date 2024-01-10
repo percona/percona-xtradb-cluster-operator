@@ -1,11 +1,16 @@
 package users
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+
+	"github.com/percona/percona-xtradb-cluster-operator/clientcmd"
+	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/queries"
 )
 
 const (
@@ -22,55 +27,38 @@ const (
 var UserNames = []string{Root, Operator, Monitor, Xtrabackup,
 	Replication, ProxyAdmin, PMMServer, PMMServerKey}
 
-type Manager struct {
-	db *sql.DB
-}
-
 type SysUser struct {
 	Name  string   `yaml:"username"`
 	Pass  string   `yaml:"password"`
 	Hosts []string `yaml:"hosts"`
 }
 
-func NewManager(addr string, user, pass string, timeout int32) (Manager, error) {
-	var um Manager
-
-	timeoutStr := fmt.Sprintf("%ds", timeout)
-	config := mysql.NewConfig()
-	config.User = user
-	config.Passwd = pass
-	config.Net = "tcp"
-	config.Addr = addr
-	config.DBName = "mysql"
-	config.Params = map[string]string{
-		"interpolateParams": "true",
-		"timeout":           timeoutStr,
-		"readTimeout":       timeoutStr,
-		"writeTimeout":      timeoutStr,
-		"tls":               "preferred",
-	}
-
-	mysqlDB, err := sql.Open("mysql", config.FormatDSN())
-	if err != nil {
-		return um, errors.Wrap(err, "cannot connect to any host")
-	}
-
-	um.db = mysqlDB
-
-	return um, nil
+type Manager struct {
+	db *queries.Database
 }
 
-func (u *Manager) Close() error {
-	return u.db.Close()
+// NewPXCManager creates a new Manager for a given PXC pod
+func NewPXCManager(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass, host string) *Manager {
+	return &Manager{db: queries.NewPXC(pod, cliCmd, user, pass, host)}
 }
 
-func (u *Manager) CreateOperatorUser(pass string) error {
-	_, err := u.db.Exec("CREATE USER IF NOT EXISTS 'operator'@'%' IDENTIFIED BY ?", pass)
+// NewProxySQLManager creates a new Manager for a given ProxySQL pod
+func NewProxySQLManager(pod *corev1.Pod, cliCmd *clientcmd.Client, user, pass string) *Manager {
+	return &Manager{db: queries.NewProxySQL(pod, cliCmd, user, pass)}
+}
+
+func (m *Manager) CreateOperatorUser(ctx context.Context, pass string) error {
+	var errb, outb bytes.Buffer
+
+	q := fmt.Sprintf("CREATE USER IF NOT EXISTS 'operator'@'%%' IDENTIFIED BY '%s'", pass)
+	err := m.db.Exec(ctx, q, &outb, &errb)
 	if err != nil {
 		return errors.Wrap(err, "create operator user")
 	}
 
-	_, err = u.db.Exec("GRANT ALL ON *.* TO 'operator'@'%' WITH GRANT OPTION")
+	outb.Reset()
+	errb.Reset()
+	err = m.db.Exec(ctx, "GRANT ALL ON *.* TO 'operator'@'%' WITH GRANT OPTION", &outb, &errb)
 	if err != nil {
 		return errors.Wrap(err, "grant operator user")
 	}
@@ -78,15 +66,17 @@ func (u *Manager) CreateOperatorUser(pass string) error {
 	return nil
 }
 
-// UpdateUserPassWithoutDP updates user pass without Dual Password
+// UpdateUserPassWithoutDPExec updates user pass without Dual Password
 // feature introduced in MsSQL 8
-func (u *Manager) UpdateUserPassWithoutDP(user *SysUser) error {
+func (m *Manager) UpdateUserPassWithoutDP(ctx context.Context, user *SysUser) error {
 	if user == nil {
 		return nil
 	}
 
+	var errb, outb bytes.Buffer
 	for _, host := range user.Hosts {
-		_, err := u.db.Exec("ALTER USER ?@? IDENTIFIED BY ?", user.Name, host, user.Pass)
+		q := fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s'", user.Name, host, user.Pass)
+		err := m.db.Exec(ctx, q, &outb, &errb)
 		if err != nil {
 			return errors.Wrap(err, "update password")
 		}
@@ -97,73 +87,48 @@ func (u *Manager) UpdateUserPassWithoutDP(user *SysUser) error {
 
 // UpdateUserPass updates user passwords but retains the current password
 // using Dual Password feature of MySQL 8.
-func (m *Manager) UpdateUserPass(user *SysUser) error {
+func (m *Manager) UpdateUserPass(ctx context.Context, user *SysUser) error {
 	if user == nil {
 		return nil
 	}
 
-	tx, err := m.db.Begin()
-	if err != nil {
-		return errors.Wrap(err, "begin transaction")
-	}
-
 	for _, host := range user.Hosts {
-		_, err = tx.Exec("ALTER USER ?@? IDENTIFIED BY ? RETAIN CURRENT PASSWORD", user.Name, host, user.Pass)
+		var errb, outb bytes.Buffer
+		q := fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s' RETAIN CURRENT PASSWORD", user.Name, host, user.Pass)
+		err := m.db.Exec(ctx, q, &outb, &errb)
 		if err != nil {
-			err = errors.Wrap(err, "alter user")
-
-			if errT := tx.Rollback(); errT != nil {
-				return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
-			}
-
 			return err
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return errors.Wrap(err, "commit transaction")
 	}
 
 	return nil
 }
 
 // DiscardOldPassword discards old passwords of given users
-func (m *Manager) DiscardOldPassword(user *SysUser) error {
+func (m *Manager) DiscardOldPassword(ctx context.Context, user *SysUser) error {
 	if user == nil {
 		return nil
 	}
 
-	tx, err := m.db.Begin()
-	if err != nil {
-		return errors.Wrap(err, "begin transaction")
-	}
-
 	for _, host := range user.Hosts {
-		_, err = tx.Exec("ALTER USER ?@? DISCARD OLD PASSWORD", user.Name, host)
+		var errb, outb bytes.Buffer
+		q := fmt.Sprintf("ALTER USER '%s'@'%s' DISCARD OLD PASSWORD", user.Name, host)
+		err := m.db.Exec(ctx, q, &outb, &errb)
 		if err != nil {
-			err = errors.Wrap(err, "alter user")
-
-			if errT := tx.Rollback(); errT != nil {
-				return errors.Wrap(errors.Wrap(errT, "rollback"), err.Error())
-			}
-
 			return err
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return errors.Wrap(err, "commit transaction")
 	}
 
 	return nil
 }
 
-// DiscardOldPassword discards old passwords of given users
-func (m *Manager) IsOldPassDiscarded(user *SysUser) (bool, error) {
-	var attributes sql.NullString
-	r := m.db.QueryRow("SELECT User_attributes FROM mysql.user WHERE user=?", user.Name)
+// IsOldPassDiscarded checks if old password is discarded
+func (m *Manager) IsOldPassDiscarded(ctx context.Context, user *SysUser) (bool, error) {
+	rows := []*struct {
+		HasAttr int `csv:"has_attr"`
+	}{}
 
-	err := r.Scan(&attributes)
+	err := m.db.Query(ctx, fmt.Sprintf("SELECT IF(User_attributes IS NULL, TRUE, FALSE) AS has_attr FROM mysql.user WHERE user='%s'", user.Name), &rows)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return true, nil
@@ -171,46 +136,40 @@ func (m *Manager) IsOldPassDiscarded(user *SysUser) (bool, error) {
 		return false, errors.Wrap(err, "select User_attributes field")
 	}
 
-	if attributes.Valid {
+	if rows[0].HasAttr == 0 {
 		return false, nil
 	}
 
 	return true, nil
 }
 
-func (u *Manager) UpdateProxyUser(user *SysUser) error {
+// UpdateProxyUser updates proxy admin and monitor user passwords within ProxySQL
+func (m *Manager) UpdateProxyUser(ctx context.Context, user *SysUser) error {
 	switch user.Name {
 	case ProxyAdmin:
-		_, err := u.db.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='admin-admin_credentials'", "proxyadmin:"+user.Pass)
-		if err != nil {
-			return errors.Wrap(err, "update proxy admin password")
-		}
-		_, err = u.db.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='admin-cluster_password'", user.Pass)
-		if err != nil {
-			return errors.Wrap(err, "update proxy admin password")
-		}
-		_, err = u.db.Exec("LOAD ADMIN VARIABLES TO RUNTIME")
-		if err != nil {
-			return errors.Wrap(err, "load to runtime")
-		}
+		q := fmt.Sprintf(`
+			UPDATE global_variables SET variable_value='%s' WHERE variable_name='admin-admin_credentials';
+			UPDATE global_variables SET variable_value='%s' WHERE variable_name='admin-cluster_password';
+			LOAD ADMIN VARIABLES TO RUNTIME;
+			SAVE ADMIN VARIABLES TO DISK;	
+		`, "proxyadmin:"+user.Pass, user.Pass)
 
-		_, err = u.db.Exec("SAVE ADMIN VARIABLES TO DISK")
+		var errb, outb bytes.Buffer
+		err := m.db.Exec(ctx, q, &outb, &errb)
 		if err != nil {
-			return errors.Wrap(err, "save to disk")
+			return errors.Wrap(err, "update proxy admin password")
 		}
 	case Monitor:
-		_, err := u.db.Exec("UPDATE global_variables SET variable_value=? WHERE variable_name='mysql-monitor_password'", user.Pass)
+		q := fmt.Sprintf(`
+			UPDATE global_variables SET variable_value='%s' WHERE variable_name='mysql-monitor_password';
+			LOAD MYSQL VARIABLES TO RUNTIME;
+			SAVE MYSQL VARIABLES TO DISK;
+		`, user.Pass)
+
+		var errb, outb bytes.Buffer
+		err := m.db.Exec(ctx, q, &outb, &errb)
 		if err != nil {
 			return errors.Wrap(err, "update proxy monitor password")
-		}
-		_, err = u.db.Exec("LOAD MYSQL VARIABLES TO RUNTIME")
-		if err != nil {
-			return errors.Wrap(err, "load to runtime")
-		}
-
-		_, err = u.db.Exec("SAVE MYSQL VARIABLES TO DISK")
-		if err != nil {
-			return errors.Wrap(err, "save to disk")
 		}
 	}
 
@@ -219,74 +178,71 @@ func (u *Manager) UpdateProxyUser(user *SysUser) error {
 
 // Update160MonitorUserGrant grants SERVICE_CONNECTION_ADMIN rights to the monitor user
 // if pxc version is 8 or more and sets the MAX_USER_CONNECTIONS parameter to 100 (empirically determined)
-func (u *Manager) Update160MonitorUserGrant(pass string) (err error) {
+func (m *Manager) Update160MonitorUserGrant(ctx context.Context, pass string) (err error) {
+	q := fmt.Sprintf(`
+		CREATE USER IF NOT EXISTS 'monitor'@'%%' IDENTIFIED BY '%s';
+		/*!80015 GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%%' */;
+		ALTER USER 'monitor'@'%%' WITH MAX_USER_CONNECTIONS 100;
+	`, pass)
 
-	_, err = u.db.Exec("CREATE USER IF NOT EXISTS 'monitor'@'%' IDENTIFIED BY ?", pass)
+	var errb, outb bytes.Buffer
+	err = m.db.Exec(ctx, q, &outb, &errb)
 	if err != nil {
-		return errors.Wrap(err, "create operator user")
-	}
-
-	_, err = u.db.Exec("/*!80015 GRANT SERVICE_CONNECTION_ADMIN ON *.* TO 'monitor'@'%' */")
-	if err != nil {
-		return errors.Wrapf(err, "grant service_connection to user monitor")
-	}
-
-	_, err = u.db.Exec("ALTER USER 'monitor'@'%' WITH MAX_USER_CONNECTIONS 100")
-	if err != nil {
-		return errors.Wrapf(err, "set max connections to user monitor")
+		return errors.Wrap(err, "update monitor user grants")
 	}
 
 	return nil
 }
 
 // Update170XtrabackupUser grants all needed rights to the xtrabackup user
-func (u *Manager) Update170XtrabackupUser(pass string) (err error) {
-
-	_, err = u.db.Exec("CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY ?", pass)
+func (m *Manager) Update170XtrabackupUser(ctx context.Context, pass string) (err error) {
+	q := fmt.Sprintf(`
+		CREATE USER IF NOT EXISTS 'xtrabackup'@'%%' IDENTIFIED BY '%s';
+		GRANT ALL ON *.* TO 'xtrabackup'@'%%';
+	`, pass)
+	var errb, outb bytes.Buffer
+	err = m.db.Exec(ctx, q, &outb, &errb)
 	if err != nil {
-		return errors.Wrap(err, "create operator user")
-	}
-
-	_, err = u.db.Exec("GRANT ALL ON *.* TO 'xtrabackup'@'%'")
-	if err != nil {
-		return errors.Wrapf(err, "grant privileges to user xtrabackup")
+		return errors.Wrap(err, "update xtrabackup user grants")
 	}
 
 	return nil
 }
 
-// Update1100MonitorUserPrivilege grants system_user privilege for monitor 
-func (u *Manager) Update1100MonitorUserPrivilege() (err error) {
-	if _, err := u.db.Exec("GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'"); err != nil {
+// Update1100MonitorUserPrivilege grants system_user privilege for monitor
+func (m *Manager) Update1100MonitorUserPrivilege(ctx context.Context) (err error) {
+	var errb, outb bytes.Buffer
+	if err := m.db.Exec(ctx, "GRANT SYSTEM_USER ON *.* TO 'monitor'@'%'", &outb, &errb); err != nil {
 		return errors.Wrap(err, "monitor user")
 	}
 
 	return nil
 }
 
-func (u *Manager) CreateReplicationUser(password string) error {
-
-	_, err := u.db.Exec("CREATE USER IF NOT EXISTS 'replication'@'%' IDENTIFIED BY ?", password)
+func (m *Manager) CreateReplicationUser(ctx context.Context, password string) error {
+	q := fmt.Sprintf(`
+		CREATE USER IF NOT EXISTS 'replication'@'%%' IDENTIFIED BY '%s';
+		GRANT REPLICATION SLAVE ON *.* to 'replication'@'%%';
+	`, password)
+	var errb, outb bytes.Buffer
+	err := m.db.Exec(ctx, q, &outb, &errb)
 	if err != nil {
 		return errors.Wrap(err, "create replication user")
-	}
-
-	_, err = u.db.Exec("GRANT REPLICATION SLAVE ON *.* to 'replication'@'%'")
-	if err != nil {
-		return errors.Wrap(err, "grant replication user")
 	}
 
 	return nil
 }
 
 // UpdatePassExpirationPolicy sets user password expiration policy to never
-func (u *Manager) UpdatePassExpirationPolicy(user *SysUser) error {
+func (m *Manager) UpdatePassExpirationPolicy(ctx context.Context, user *SysUser) error {
 	if user == nil {
 		return nil
 	}
 
 	for _, host := range user.Hosts {
-		_, err := u.db.Exec("ALTER USER ?@? PASSWORD EXPIRE NEVER", user.Name, host)
+		var errb, outb bytes.Buffer
+		q := fmt.Sprintf("ALTER USER '%s'@'%s' PASSWORD EXPIRE NEVER", user.Name, host)
+		err := m.db.Exec(ctx, q, &outb, &errb)
 		if err != nil {
 			return err
 		}

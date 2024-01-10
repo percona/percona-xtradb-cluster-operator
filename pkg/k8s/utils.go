@@ -6,7 +6,10 @@ import (
 	"strings"
 )
 
-const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
+const (
+	WatchNamespaceEnvVar    = "WATCH_NAMESPACE"
+	OperatorNamespaceEnbVar = "OPERATOR_NAMESPACE"
+)
 
 // GetWatchNamespace returns the namespace the operator should be watching for changes
 func GetWatchNamespace() (string, error) {
@@ -19,6 +22,11 @@ func GetWatchNamespace() (string, error) {
 
 // GetOperatorNamespace returns the namespace of the operator pod
 func GetOperatorNamespace() (string, error) {
+	ns, found := os.LookupEnv(OperatorNamespaceEnbVar)
+	if found {
+		return ns, nil
+	}
+
 	nsBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		return "", err

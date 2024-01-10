@@ -409,27 +409,18 @@ func (r *ReconcilePerconaXtraDBCluster) mysqlVersion(ctx context.Context, cr *ap
 		return "", errors.Wrap(err, "get pod list")
 	}
 
-	port := int32(3306)
-	secrets := cr.Spec.SecretsName
-	if cr.CompareVersionWith("1.6.0") >= 0 {
-		port = int32(33062)
-		secrets = "internal-" + cr.Name
-	}
-
 	for _, pod := range list.Items {
 		if !isPodReady(pod) {
 			continue
 		}
 
-		database, err := queries.New(r.client, cr.Namespace, secrets, users.Root, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace, port, cr.Spec.PXC.ReadinessProbes.TimeoutSeconds)
+		pass, err := r.getUserPass(ctx, cr, users.Operator)
 		if err != nil {
-			log.Error(err, "failed to create db instance")
-			continue
+			return "", errors.Wrap(err, "failed to get operator password")
 		}
+		database := queries.NewPXC(&pod, r.clientcmd, users.Operator, pass, pod.Name+"."+cr.Name+"-pxc."+cr.Namespace)
 
-		defer database.Close()
-
-		version, err := database.Version()
+		version, err := database.Version(ctx)
 		if err != nil {
 			log.Error(err, "failed to get pxc version")
 			continue

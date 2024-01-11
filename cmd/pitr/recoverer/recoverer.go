@@ -228,6 +228,12 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 	}
 	sort.Strings(sstInfo)
 
+	log.Printf("AAAAA SST info files\n")
+	for _, sstInfoFile := range sstInfo {
+		log.Printf("AAAAA SST info file: %s\n", sstInfoFile)
+	}
+	log.Printf("AAAAA First SST info file: :%s\n", sstInfo[0])
+
 	sstInfoObj, err := s.GetObject(ctx, sstInfo[0])
 	if err != nil {
 		return "", errors.Wrapf(err, "get object")
@@ -239,6 +245,13 @@ func getStartGTIDSet(ctx context.Context, s storage.Storage) (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "list objects")
 	}
+
+	log.Printf("BBBBB xtrabackup info files:\n")
+	for _, x := range xtrabackupInfo {
+		log.Printf("BBBB xtrabackup info file: %s\n", x)
+	}
+	log.Printf("BBBB First xtrabackup info file: :%s\n", xtrabackupInfo[0])
+
 	if len(xtrabackupInfo) == 0 {
 		return "", errors.New("no info files in backup")
 	}

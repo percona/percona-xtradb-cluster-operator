@@ -86,6 +86,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUserWithoutDP(ctx context.Cont
 	}
 	log.Info("User password updated", "user", user.Name)
 
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
+
 	err = r.syncPXCUsersWithProxySQL(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "sync users")
@@ -137,6 +141,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUserWithoutDP(ctx context.
 		return errors.Wrap(err, "update operator users pass")
 	}
 	log.Info("User password updated", "user", user.Name)
+
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -221,6 +229,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUserWithoutDP(ctx context.C
 	}
 	log.Info("User password updated", "user", user.Name)
 
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
+
 	if cr.Spec.ProxySQLEnabled() {
 		err := r.updateProxyUser(cr, internalSecrets, user)
 		if err != nil {
@@ -288,6 +300,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUserWithoutDP(ctx contex
 	}
 	log.Info("User password updated", "user", user.Name)
 
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
+
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
 	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
@@ -343,6 +359,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUserWithoutDP(ctx conte
 		return errors.Wrap(err, "update replication users pass")
 	}
 	log.Info("User password updated", "user", user.Name)
+
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]

@@ -3,6 +3,7 @@ package pxcrestore
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -88,14 +89,20 @@ func (s *s3) Validate(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
+
 	dest := s.bcp.Status.Destination
+	log.Printf("AAAAAAAAA backup dest %s", dest)
 	dest = strings.TrimPrefix(dest, api.AwsBlobStoragePrefix)
+	log.Printf("BBBBBBb backup dest %s", dest)
 	dest = strings.TrimPrefix(dest, bucket+"/")
+	log.Printf("CCCCCC backup dest %s", dest)
+
 	if prefix != "" {
 		dest = strings.TrimPrefix(dest, prefix)
 		dest = strings.TrimPrefix(dest, "/")
 	}
 	dest = strings.TrimSuffix(dest, "/") + "/"
+	log.Printf("DDDDDD backup dest %s", dest)
 
 	objs, err := s3cli.ListObjects(ctx, dest)
 	if err != nil {

@@ -19,19 +19,19 @@ kubectl_bin patch pxc "$cluster" --type=merge --patch '{
 wait_cluster_consistency "$cluster" 3 2
 
 for pvc in $(kubectl_bin get pvc -l app.kubernetes.io/component=pxc -o name); do
-    retry=0
-    until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
+	retry=0
+	until [[ $(kubectl_bin get ${pvc} -o jsonpath={.status.capacity.storage}) == "4Gi" ]]; do
 		if [[ $retry -ge 60 ]]; then
-            echo "PVC ${pvc} was not resized, max retries exceeded"
-            exit 1
-        fi
+			echo "PVC ${pvc} was not resized, max retries exceeded"
+			exit 1
+		fi
 
-        echo "Waiting for PVC ${pvc} to be resized"
-        sleep 5
+		echo "Waiting for PVC ${pvc} to be resized"
+		sleep 5
 
-        retry=$((retry+1))
-    done
-    echo "PVC ${pvc} was resized"
+		retry=$((retry + 1))
+	done
+	echo "PVC ${pvc} was resized"
 done
 
 destroy "${namespace}"

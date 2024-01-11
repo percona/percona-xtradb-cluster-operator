@@ -1260,7 +1260,7 @@ start_minio() {
 		--set "users[0].secretKey=some-secret-key"
 		--set "users[0].policy=consoleAdmin"
 		--set service.type=ClusterIP
-		--set configPathmc=/tmp/.minio/
+		--set configPathmc=/tmp/
 		--set securityContext.enabled=false
 		--set persistence.size=2G
 	)

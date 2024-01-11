@@ -1,29 +1,32 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  generation: 1
-  name: cluster1-pxc
+  generation: 2
+  name: upgrade-haproxy-pxc
   ownerReferences:
     - controller: true
       kind: PerconaXtraDBCluster
-      name: cluster1
+      name: upgrade-haproxy
 spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   podManagementPolicy: OrderedReady
   replicas: 3
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       app.kubernetes.io/component: pxc
-      app.kubernetes.io/instance: cluster1
+      app.kubernetes.io/instance: upgrade-haproxy
       app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
       app.kubernetes.io/name: percona-xtradb-cluster
       app.kubernetes.io/part-of: percona-xtradb-cluster
-  serviceName: cluster1-pxc
+  serviceName: upgrade-haproxy-pxc
   template:
     metadata:
       labels:
         app.kubernetes.io/component: pxc
-        app.kubernetes.io/instance: cluster1
+        app.kubernetes.io/instance: upgrade-haproxy
         app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
         app.kubernetes.io/name: percona-xtradb-cluster
         app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -34,7 +37,7 @@ spec:
             - labelSelector:
                 matchLabels:
                   app.kubernetes.io/component: pxc
-                  app.kubernetes.io/instance: cluster1
+                  app.kubernetes.io/instance: upgrade-haproxy
                   app.kubernetes.io/managed-by: percona-xtradb-cluster-operator
                   app.kubernetes.io/name: percona-xtradb-cluster
                   app.kubernetes.io/part-of: percona-xtradb-cluster
@@ -55,7 +58,7 @@ spec:
                   fieldPath: metadata.name
           envFrom:
             - secretRef:
-                name: cluster1-log-collector
+                name: upgrade-haproxy-log-collector
                 optional: true
           imagePullPolicy: Always
           name: logs
@@ -77,7 +80,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-cluster1
+                  name: internal-upgrade-haproxy
           imagePullPolicy: Always
           name: logrotate
           resources:
@@ -95,24 +98,24 @@ spec:
             - /var/lib/mysql/pxc-entrypoint.sh
           env:
             - name: PXC_SERVICE
-              value: cluster1-pxc-unready
+              value: upgrade-haproxy-pxc-unready
             - name: MONITOR_HOST
               value: '%'
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: root
-                  name: internal-cluster1
+                  name: internal-upgrade-haproxy
             - name: XTRABACKUP_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: xtrabackup
-                  name: internal-cluster1
+                  name: internal-upgrade-haproxy
             - name: MONITOR_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: monitor
-                  name: internal-cluster1
+                  name: internal-upgrade-haproxy
             - name: LOG_DATA_DIR
               value: /var/lib/mysql
             - name: IS_LOGCOLLECTOR
@@ -121,7 +124,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: operator
-                  name: internal-cluster1
+                  name: internal-upgrade-haproxy
             - name: LIVENESS_CHECK_TIMEOUT
               value: "5"
             - name: READINESS_CHECK_TIMEOUT
@@ -130,7 +133,7 @@ spec:
               value: caching_sha2_password
           envFrom:
             - secretRef:
-                name: cluster1-env-vars-pxc
+                name: upgrade-haproxy-env-vars-pxc
                 optional: true
           imagePullPolicy: Always
           livenessProbe:
@@ -214,7 +217,6 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
-        fsGroup: 1001
         supplementalGroups:
           - 1001
       serviceAccount: default
@@ -225,39 +227,39 @@ spec:
           name: tmp
         - configMap:
             defaultMode: 420
-            name: cluster1-pxc
+            name: upgrade-haproxy-pxc
             optional: true
           name: config
         - name: ssl-internal
           secret:
             defaultMode: 420
             optional: true
-            secretName: cluster1-ssl-internal
+            secretName: some-name-ssl-internal
         - name: ssl
           secret:
             defaultMode: 420
             optional: false
-            secretName: cluster1-ssl
+            secretName: some-name-ssl
         - configMap:
             defaultMode: 420
-            name: auto-cluster1-pxc
+            name: auto-upgrade-haproxy-pxc
             optional: true
           name: auto-config
         - name: vault-keyring-secret
           secret:
             defaultMode: 420
             optional: true
-            secretName: cluster1-vault
+            secretName: some-name-vault
         - name: mysql-users-secret-file
           secret:
             defaultMode: 420
             optional: false
-            secretName: internal-cluster1
+            secretName: internal-upgrade-haproxy
         - name: mysql-init-file
           secret:
             defaultMode: 420
             optional: true
-            secretName: cluster1-mysql-init
+            secretName: upgrade-haproxy-mysql-init
   updateStrategy:
     type: OnDelete
   volumeClaimTemplates:

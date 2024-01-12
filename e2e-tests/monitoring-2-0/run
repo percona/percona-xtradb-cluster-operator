@@ -102,12 +102,12 @@ API_KEY=$(getSecretData "my-cluster-secrets" "pmmserverkey")
 diff -u ${test_dir}/compare/agents-list.json $(get_mgmnt_service_list ${API_KEY} $(get_service_endpoint monitoring-service) ${namespace})
 
 desc 'check mysql metrics'
-get_metric_values node_boot_time_seconds $namespace-$cluster-pxc-0 admin:admin
-get_metric_values mysql_global_status_uptime $namespace-$cluster-pxc-0 admin:admin
+get_metric_values node_boot_time_seconds pxc-prefix-$namespace-$cluster-pxc-0 admin:admin
+get_metric_values mysql_global_status_uptime pxc-prefix-$namespace-$cluster-pxc-0 admin:admin
 
 desc 'check haproxy metrics'
-get_metric_values haproxy_backend_status $namespace-$cluster-haproxy-0 admin:admin
-get_metric_values haproxy_backend_active_servers $namespace-$cluster-haproxy-0 admin:admin
+get_metric_values haproxy_backend_status pxc-prefix-$namespace-$cluster-haproxy-0 admin:admin
+get_metric_values haproxy_backend_active_servers pxc-prefix-$namespace-$cluster-haproxy-0 admin:admin
 
 desc 'check QAN data'
 get_qan20_values $cluster-pxc-0 admin:admin

@@ -79,8 +79,6 @@ spec:
               value: "1"
             - name: PMM_AGENT_LISTEN_ADDRESS
               value: 0.0.0.0
-            - name: PMM_AGENT_SETUP_NODE_NAME
-              value: $(POD_NAMESPASE)-$(POD_NAME)
             - name: PMM_AGENT_SETUP_METRICS_MODE
               value: push
             - name: PMM_AGENT_SETUP
@@ -89,6 +87,8 @@ spec:
               value: "1"
             - name: PMM_AGENT_SETUP_NODE_TYPE
               value: container
+            - name: PMM_AGENT_SETUP_NODE_NAME
+              value: $(PMM_PREFIX)$(POD_NAMESPASE)-$(POD_NAME)
             - name: DB_TYPE
               value: mysql
             - name: DB_USER
@@ -262,6 +262,8 @@ spec:
               name: auto-config
             - mountPath: /etc/mysql/vault-keyring-secret
               name: vault-keyring-secret
+            - mountPath: /etc/mysql/init-file
+              name: mysql-init-file
       dnsPolicy: ClusterFirst
       initContainers:
         - command:
@@ -319,6 +321,11 @@ spec:
             defaultMode: 420
             optional: false
             secretName: internal-no-limits
+        - name: mysql-init-file
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: no-limits-mysql-init
   updateStrategy:
     rollingUpdate:
       partition: 0

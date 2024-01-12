@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
@@ -233,6 +234,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleRootUser(ctx context.Context, cr *
 	}
 	log.Info("Password updated", "user", user.Name)
 
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
+
 	err = r.syncPXCUsersWithProxySQL(ctx, cr)
 	if err != nil {
 		return errors.Wrap(err, "sync users")
@@ -305,6 +310,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleOperatorUser(ctx context.Context, 
 		return errors.Wrap(err, "update operator users pass")
 	}
 	log.Info("Password updated", "user", user.Name)
+
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -478,6 +487,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleMonitorUser(ctx context.Context, c
 	}
 	log.Info("Password updated", "user", user.Name)
 
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
+
 	if cr.Spec.ProxySQLEnabled() {
 		err := r.updateProxyUser(cr, internalSecrets, user)
 		if err != nil {
@@ -601,6 +614,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleXtrabackupUser(ctx context.Context
 	}
 	log.Info("Password updated", "user", user.Name)
 
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
+
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
 	err = r.client.Patch(context.TODO(), internalSecrets, client.MergeFrom(orig))
@@ -706,6 +723,10 @@ func (r *ReconcilePerconaXtraDBCluster) handleReplicationUser(ctx context.Contex
 		return errors.Wrap(err, "update replication users pass")
 	}
 	log.Info("Password updated", "user", user.Name)
+
+	if err := r.updateMySQLInitFile(ctx, cr, internalSecrets, user); err != nil {
+		return errors.Wrap(err, "update mysql init file")
+	}
 
 	orig := internalSecrets.DeepCopy()
 	internalSecrets.Data[user.Name] = secrets.Data[user.Name]
@@ -1124,4 +1145,36 @@ func (r *ReconcilePerconaXtraDBCluster) invalidPasswordApplied(status api.Percon
 	}
 
 	return false
+}
+
+func (r *ReconcilePerconaXtraDBCluster) updateMySQLInitFile(ctx context.Context, cr *api.PerconaXtraDBCluster, internalSecret *corev1.Secret, user *users.SysUser) error {
+	log := logf.FromContext(ctx)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-mysql-init",
+			Namespace: cr.Namespace,
+		},
+	}
+	data := map[string][]byte{
+		"init.sql": []byte("SET SESSION wsrep_on=OFF;\nSET SESSION sql_log_bin=0;\n"),
+	}
+	if err := r.client.Get(ctx, client.ObjectKeyFromObject(secret), secret); err == nil {
+		data = secret.Data
+	}
+
+	statements := make([]string, 0)
+	for _, host := range user.Hosts {
+		statements = append(statements, fmt.Sprintf("ALTER USER '%s'@'%s' IDENTIFIED BY '%s';\n", user.Name, host, user.Pass))
+	}
+
+	opResult, err := controllerutil.CreateOrUpdate(ctx, r.client, secret, func() error {
+		data["init.sql"] = append(data["init.sql"], []byte(strings.Join(statements, ""))...)
+		secret.Data = data
+		return nil
+	})
+
+	log.Info(fmt.Sprintf("MySQL init secret %s", opResult), "secret", secret.Name, "user", user.Name)
+
+	return err
 }

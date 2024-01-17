@@ -186,6 +186,13 @@ spec:
           requests:
             storage: 6G
     gracePeriod: 600
+#    lifecycle:
+#      preStop:
+#        exec:
+#          command: [ "/bin/true" ]
+#      postStart:
+#        exec:
+#          command: [ "/bin/true" ]
   haproxy:
     enabled: true
     size: 3
@@ -351,6 +358,13 @@ spec:
       maxUnavailable: 1
 #      minAvailable: 0
     gracePeriod: 30
+#    lifecycle:
+#      preStop:
+#        exec:
+#          command: [ "/bin/true" ]
+#      postStart:
+#        exec:
+#          command: [ "/bin/true" ]
   proxysql:
     enabled: false
     size: 3
@@ -505,12 +519,15 @@ spec:
       maxUnavailable: 1
 #      minAvailable: 0
     gracePeriod: 30
+#    lifecycle:
+#      preStop:
+#        exec:
+#          command: [ "/bin/true" ]
+#      postStart:
+#        exec:
+#          command: [ "/bin/true" ]
 #   loadBalancerSourceRanges:
 #     - 10.0.0.0/8
-#   serviceAnnotations:
-#     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
-#   serviceLabels:
-#     rack: rack-23
   logcollector:
     enabled: true
     image: perconalab/percona-xtradb-cluster-operator:main-logcollector
@@ -533,6 +550,8 @@ spec:
 #    serverUser: admin
 #    pxcParams: "--disable-tablestats-limit=2000"
 #    proxysqlParams: "--custom-labels=CUSTOM-LABELS"
+#    containerSecurityContext:
+#      privileged: false
     resources:
       requests:
         memory: 150M

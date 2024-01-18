@@ -65,6 +65,7 @@ main() {
 
 	desc 'checking all haproxy pods point to the same writer'
 	wait_for_running "$cluster-pxc" 3
+	wait_cluster_consistency "$cluster" 3 3
 	check_haproxy_writer
 
 	desc 'check for passwords leak'

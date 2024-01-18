@@ -27,7 +27,7 @@ func TestValidate(t *testing.T) {
 	cluster := readDefaultCR(t, clusterName, namespace)
 	s3Bcp := readDefaultBackup(t, backupName, namespace)
 	s3Bcp.Spec.StorageName = "s3-us-west"
-	s3Bcp.Status.Destination = api.AwsBlobStoragePrefix + "some-dest/dest"
+	s3Bcp.Status.Destination.SetS3Destination("some-dest", "dest")
 	s3Bcp.Status.S3 = &api.BackupStorageS3Spec{
 		Bucket:            "some-bucket",
 		CredentialsSecret: s3SecretName,

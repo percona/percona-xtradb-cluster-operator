@@ -16,10 +16,10 @@ type Options interface {
 }
 
 func GetOptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.PerconaXtraDBCluster, backup *api.PerconaXtraDBClusterBackup) (Options, error) {
-	switch backup.Status.StorageType {
-	case api.BackupStorageS3:
+	switch {
+	case backup.Status.S3 != nil:
 		return getS3Options(ctx, cl, cluster, backup)
-	case api.BackupStorageAzure:
+	case backup.Status.Azure != nil:
 		return getAzureOptions(ctx, cl, backup)
 	default:
 		return nil, errors.Errorf("unknown storage type %s", backup.Status.StorageType)

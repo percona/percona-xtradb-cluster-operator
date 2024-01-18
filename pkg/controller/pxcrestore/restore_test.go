@@ -32,14 +32,17 @@ func TestValidate(t *testing.T) {
 		Bucket:            "some-bucket",
 		CredentialsSecret: s3SecretName,
 	}
+	s3Bcp.Status.State = api.BackupSucceeded
 	azureBcp := readDefaultBackup(t, backupName, namespace)
 	azureBcp.Spec.StorageName = "azure-blob"
-	azureBcp.Status.Destination = "some-dest/dest"
+	azureBcp.Status.Destination.SetAzureDestination("some-dest", "dest")
 	azureBcp.Status.Azure = &api.BackupStorageAzureSpec{
 		ContainerPath:     "some-bucket",
 		CredentialsSecret: azureSecretName,
 	}
+	azureBcp.Status.State = api.BackupSucceeded
 	cr := readDefaultRestore(t, restoreName, namespace)
+	cr.Spec.BackupName = backupName
 	crSecret := readDefaultCRSecret(t, clusterName+"-secrets", namespace)
 	s3Secret := readDefaultS3Secret(t, s3SecretName, namespace)
 	azureSecret := readDefaultAzureSecret(t, azureSecretName, namespace)
@@ -95,6 +98,24 @@ func TestValidate(t *testing.T) {
 			},
 			fakeStorageClientFunc: func(opts storage.Options) (storage.Storage, error) {
 				return &fakeStorageClient{failListObjects: true}, nil
+			},
+		},
+		{
+			name: "s3 without provided bucket",
+			cr: updateResource(cr, func(cr *api.PerconaXtraDBClusterRestore) {
+				cr.Spec.BackupName = ""
+				cr.Spec.BackupSource = &api.PXCBackupStatus{
+					Destination: s3Bcp.Status.Destination,
+					StorageType: api.BackupStorageS3,
+					S3:          s3Bcp.Status.S3,
+				}
+				cr.Spec.BackupSource.S3.Bucket = ""
+			},
+			),
+			cluster: cluster.DeepCopy(),
+			objects: []runtime.Object{
+				crSecret,
+				s3Secret,
 			},
 		},
 		{
@@ -185,6 +206,24 @@ func TestValidate(t *testing.T) {
 			},
 		},
 		{
+			name: "azure without provided bucket",
+			cr: updateResource(cr, func(cr *api.PerconaXtraDBClusterRestore) {
+				cr.Spec.BackupName = ""
+				cr.Spec.BackupSource = &api.PXCBackupStatus{
+					Destination: azureBcp.Status.Destination,
+					StorageType: api.BackupStorageAzure,
+					Azure:       azureBcp.Status.Azure,
+				}
+				cr.Spec.BackupSource.Azure.ContainerPath = ""
+			},
+			),
+			cluster: cluster.DeepCopy(),
+			objects: []runtime.Object{
+				crSecret,
+				azureSecret,
+			},
+		},
+		{
 			name:        "azure with empty bucket",
 			cr:          cr.DeepCopy(),
 			cluster:     cluster.DeepCopy(),
@@ -218,13 +257,20 @@ func TestValidate(t *testing.T) {
 			if err := tt.cluster.CheckNSetDefaults(new(version.ServerVersion), logf.FromContext(ctx)); err != nil {
 				t.Fatal(err)
 			}
-			tt.objects = append(tt.objects, tt.cr, tt.bcp, tt.cluster)
+			if tt.bcp != nil {
+				tt.objects = append(tt.objects, tt.bcp)
+			}
+			tt.objects = append(tt.objects, tt.cr, tt.cluster)
 
 			cl := buildFakeClient(tt.objects...)
 			r := reconciler(cl)
 			r.newStorageClientFunc = tt.fakeStorageClientFunc
 
-			err := r.validate(ctx, tt.cr, tt.bcp, tt.cluster)
+			bcp, err := r.getBackup(ctx, tt.cr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = r.validate(ctx, tt.cr, bcp, tt.cluster)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()

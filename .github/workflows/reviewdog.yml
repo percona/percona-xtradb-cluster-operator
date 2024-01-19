@@ -77,3 +77,12 @@ jobs:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-review
           level: info
+
+  manifests:
+    name: runner / manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          make generate manifests VERSION=main
+          git diff --exit-code

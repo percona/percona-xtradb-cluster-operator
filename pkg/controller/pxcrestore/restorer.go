@@ -54,36 +54,11 @@ func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {
 }
 
 func (s *s3) Validate(ctx context.Context) error {
-	sec := corev1.Secret{}
-	err := s.k8sClient.Get(ctx,
-		types.NamespacedName{Name: s.bcp.Status.S3.CredentialsSecret, Namespace: s.bcp.Namespace}, &sec)
-	if client.IgnoreNotFound(err) != nil {
-		return errors.Wrap(err, "failed to get secret")
+	opts, err := storage.GetOptionsFromBackup(ctx, s.k8sClient, s.cluster, s.bcp)
+	if err != nil {
+		return errors.Wrap(err, "failed to get storage options")
 	}
-
-	accessKeyID := string(sec.Data["AWS_ACCESS_KEY_ID"])
-	secretAccessKey := string(sec.Data["AWS_SECRET_ACCESS_KEY"])
-	ep := s.bcp.Status.S3.EndpointURL
-	bucket, prefix := s.bcp.Status.S3.BucketAndPrefix()
-	verifyTLS := true
-	if s.bcp.Status.VerifyTLS != nil && !*s.bcp.Status.VerifyTLS {
-		verifyTLS = false
-	}
-	if s.cluster.Spec.Backup != nil && len(s.cluster.Spec.Backup.Storages) > 0 {
-		storage, ok := s.cluster.Spec.Backup.Storages[s.bcp.Spec.StorageName]
-		if ok && storage.VerifyTLS != nil {
-			verifyTLS = *storage.VerifyTLS
-		}
-	}
-	s3cli, err := s.newStorageClient(&storage.S3Options{
-		Endpoint:        ep,
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-		BucketName:      bucket,
-		Prefix:          prefix,
-		Region:          s.bcp.Status.S3.Region,
-		VerifyTLS:       verifyTLS,
-	})
+	s3cli, err := s.newStorageClient(opts)
 	if err != nil {
 		return errors.Wrap(err, "failed to create s3 client")
 	}

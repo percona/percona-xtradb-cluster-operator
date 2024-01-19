@@ -136,7 +136,7 @@ func PVCRestorePod(cr *api.PerconaXtraDBClusterRestore, bcpStorageName, pvcName 
 	}, nil
 }
 
-func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination api.PXCDestination, pitr bool) (*batchv1.Job, error) {
+func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination api.PXCBackupDestination, pitr bool) (*batchv1.Job, error) {
 	switch bcp.Status.GetStorageType(cluster) {
 	case api.BackupStorageAzure:
 		if bcp.Status.Azure == nil {
@@ -254,7 +254,7 @@ func RestoreJob(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClust
 	return job, nil
 }
 
-func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, destination api.PXCDestination, pitr bool) ([]corev1.EnvVar, error) {
+func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBClusterRestore, cluster *api.PerconaXtraDBCluster, destination api.PXCBackupDestination, pitr bool) ([]corev1.EnvVar, error) {
 	if bcp.Status.GetStorageType(cluster) == api.BackupStorageFilesystem {
 		return util.MergeEnvLists(
 			[]corev1.EnvVar{
@@ -356,7 +356,7 @@ func restoreJobEnvs(bcp *api.PerconaXtraDBClusterBackup, cr *api.PerconaXtraDBCl
 	), nil
 }
 
-func azureEnvs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination api.PXCDestination, pitr bool) ([]corev1.EnvVar, error) {
+func azureEnvs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination api.PXCBackupDestination, pitr bool) ([]corev1.EnvVar, error) {
 	azure := bcp.Status.Azure
 	container, prefix := azure.ContainerAndPrefix()
 	if container == "" {
@@ -443,7 +443,7 @@ func azureEnvs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBCluste
 	return envs, nil
 }
 
-func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination api.PXCDestination, pitr bool) ([]corev1.EnvVar, error) {
+func s3Envs(cr *api.PerconaXtraDBClusterRestore, bcp *api.PerconaXtraDBClusterBackup, cluster *api.PerconaXtraDBCluster, destination api.PXCBackupDestination, pitr bool) ([]corev1.EnvVar, error) {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "S3_BUCKET_URL",

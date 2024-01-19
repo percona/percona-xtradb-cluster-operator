@@ -69,13 +69,12 @@ func newReconciler(mgr manager.Manager) (reconcile.Reconciler, error) {
 	}
 
 	return &ReconcilePerconaXtraDBClusterBackup{
-		client:               mgr.GetClient(),
-		scheme:               mgr.GetScheme(),
-		serverVersion:        sv,
-		clientcmd:            cli,
-		chLimit:              make(chan struct{}, limit),
-		bcpDeleteInProgress:  new(sync.Map),
-		newStorageClientFunc: storage.NewClient,
+		client:              mgr.GetClient(),
+		scheme:              mgr.GetScheme(),
+		serverVersion:       sv,
+		clientcmd:           cli,
+		chLimit:             make(chan struct{}, limit),
+		bcpDeleteInProgress: new(sync.Map),
 	}, nil
 }
 
@@ -100,8 +99,6 @@ type ReconcilePerconaXtraDBClusterBackup struct {
 	clientcmd           *clientcmd.Client
 	chLimit             chan struct{}
 	bcpDeleteInProgress *sync.Map
-
-	newStorageClientFunc storage.NewClientFunc
 }
 
 // Reconcile reads that state of the cluster for a PerconaXtraDBClusterBackup object and makes changes based on the state read
@@ -359,7 +356,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(ctx context.C
 	if err != nil {
 		return errors.Wrap(err, "get storage options")
 	}
-	storage, err := r.newStorageClientFunc(opts)
+	storage, err := storage.NewClient(opts)
 	if err != nil {
 		return errors.Wrap(err, "new s3 storage")
 	}
@@ -384,7 +381,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 	if err != nil {
 		return errors.Wrap(err, "get storage options")
 	}
-	azureStorage, err := r.newStorageClientFunc(opts)
+	azureStorage, err := storage.NewClient(opts)
 	if err != nil {
 		return errors.Wrap(err, "new azure storage")
 	}

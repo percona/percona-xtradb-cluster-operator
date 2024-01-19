@@ -56,7 +56,7 @@ type PXCBackupStatus struct {
 	State                 PXCBackupState          `json:"state,omitempty"`
 	CompletedAt           *metav1.Time            `json:"completed,omitempty"`
 	LastScheduled         *metav1.Time            `json:"lastscheduled,omitempty"`
-	Destination           PXCDestination          `json:"destination,omitempty"`
+	Destination           PXCBackupDestination    `json:"destination,omitempty"`
 	StorageName           string                  `json:"storageName,omitempty"`
 	S3                    *BackupStorageS3Spec    `json:"s3,omitempty"`
 	Azure                 *BackupStorageAzureSpec `json:"azure,omitempty"`
@@ -70,35 +70,35 @@ type PXCBackupStatus struct {
 	LatestRestorableTime  *metav1.Time            `json:"latestRestorableTime,omitempty"`
 }
 
-type PXCDestination string
+type PXCBackupDestination string
 
-func (dest *PXCDestination) set(value string) {
+func (dest *PXCBackupDestination) set(value string) {
 	if dest == nil {
 		return
 	}
-	*dest = PXCDestination(value)
+	*dest = PXCBackupDestination(value)
 }
 
-func (dest *PXCDestination) SetPVCDestination(backupName string) {
+func (dest *PXCBackupDestination) SetPVCDestination(backupName string) {
 	dest.set(PVCStoragePrefix + backupName)
 }
 
-func (dest *PXCDestination) SetS3Destination(bucket, backupName string) {
+func (dest *PXCBackupDestination) SetS3Destination(bucket, backupName string) {
 	dest.set(AwsBlobStoragePrefix + bucket + "/" + backupName)
 }
 
-func (dest *PXCDestination) SetAzureDestination(container, backupName string) {
+func (dest *PXCBackupDestination) SetAzureDestination(container, backupName string) {
 	dest.set(AzureBlobStoragePrefix + container + "/" + backupName)
 }
 
-func (dest *PXCDestination) String() string {
+func (dest *PXCBackupDestination) String() string {
 	if dest == nil {
 		return ""
 	}
 	return string(*dest)
 }
 
-func (dest *PXCDestination) StorageTypePrefix() string {
+func (dest *PXCBackupDestination) StorageTypePrefix() string {
 	for _, p := range []string{AwsBlobStoragePrefix, AzureBlobStoragePrefix, PVCStoragePrefix} {
 		if strings.HasPrefix(dest.String(), p) {
 			return p
@@ -107,7 +107,7 @@ func (dest *PXCDestination) StorageTypePrefix() string {
 	return ""
 }
 
-func (dest *PXCDestination) BucketAndPrefix() (string, string) {
+func (dest *PXCBackupDestination) BucketAndPrefix() (string, string) {
 	d := strings.TrimPrefix(dest.String(), dest.StorageTypePrefix())
 	bucket, left, _ := strings.Cut(d, "/")
 
@@ -121,7 +121,7 @@ func (dest *PXCDestination) BucketAndPrefix() (string, string) {
 	return bucket, prefix
 }
 
-func (dest *PXCDestination) BackupName() string {
+func (dest *PXCBackupDestination) BackupName() string {
 	if dest.StorageTypePrefix() == PVCStoragePrefix {
 		return strings.TrimPrefix(dest.String(), dest.StorageTypePrefix())
 	}

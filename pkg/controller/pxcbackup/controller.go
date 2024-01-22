@@ -356,7 +356,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runS3BackupFinalizer(ctx context.C
 	if err != nil {
 		return errors.Wrap(err, "get storage options")
 	}
-	storage, err := storage.NewClient(opts)
+	storage, err := storage.NewClient(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "new s3 storage")
 	}
@@ -381,7 +381,7 @@ func (r *ReconcilePerconaXtraDBClusterBackup) runAzureBackupFinalizer(ctx contex
 	if err != nil {
 		return errors.Wrap(err, "get storage options")
 	}
-	azureStorage, err := storage.NewClient(opts)
+	azureStorage, err := storage.NewClient(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "new azure storage")
 	}

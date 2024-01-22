@@ -58,7 +58,7 @@ func (s *s3) Validate(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get storage options")
 	}
-	s3cli, err := s.newStorageClient(opts)
+	s3cli, err := s.newStorageClient(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
@@ -200,7 +200,7 @@ func (s *azure) Validate(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get storage options")
 	}
-	azurecli, err := s.newStorageClient(opts)
+	azurecli, err := s.newStorageClient(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "failed to create s3 client")
 	}

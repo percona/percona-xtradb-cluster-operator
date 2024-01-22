@@ -96,7 +96,7 @@ func TestValidate(t *testing.T) {
 				crSecret,
 				s3Secret,
 			},
-			fakeStorageClientFunc: func(opts storage.Options) (storage.Storage, error) {
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
 				return &fakeStorageClient{failListObjects: true}, nil
 			},
 		},
@@ -128,7 +128,7 @@ func TestValidate(t *testing.T) {
 				crSecret,
 				s3Secret,
 			},
-			fakeStorageClientFunc: func(opts storage.Options) (storage.Storage, error) {
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
 				return &fakeStorageClient{emptyListObjects: true}, nil
 			},
 		},
@@ -201,7 +201,7 @@ func TestValidate(t *testing.T) {
 				crSecret,
 				azureSecret,
 			},
-			fakeStorageClientFunc: func(opts storage.Options) (storage.Storage, error) {
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
 				return &fakeStorageClient{failListObjects: true}, nil
 			},
 		},
@@ -233,7 +233,7 @@ func TestValidate(t *testing.T) {
 				crSecret,
 				azureSecret,
 			},
-			fakeStorageClientFunc: func(opts storage.Options) (storage.Storage, error) {
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
 				return &fakeStorageClient{emptyListObjects: true}, nil
 			},
 		},
@@ -242,8 +242,8 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.fakeStorageClientFunc == nil {
-				tt.fakeStorageClientFunc = func(opts storage.Options) (storage.Storage, error) {
-					defaultFakeClient, err := fakestorage.NewFakeClient(opts)
+				tt.fakeStorageClientFunc = func(ctx context.Context, opts storage.Options) (storage.Storage, error) {
+					defaultFakeClient, err := fakestorage.NewFakeClient(ctx, opts)
 					if err != nil {
 						return nil, err
 					}

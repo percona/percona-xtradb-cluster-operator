@@ -8,7 +8,7 @@ import (
 	"github.com/percona/percona-xtradb-cluster-operator/pkg/pxc/backup/storage"
 )
 
-func NewFakeClient(opts storage.Options) (storage.Storage, error) {
+func NewFakeClient(ctx context.Context, opts storage.Options) (storage.Storage, error) {
 	switch opts := opts.(type) {
 	case *storage.S3Options:
 		if opts.BucketName == "" {

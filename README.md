@@ -9,9 +9,9 @@
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/percona/percona-xtradb-cluster-operator)
 [![Go Report Card](https://goreportcard.com/badge/github.com/percona/percona-xtradb-cluster-operator)](https://goreportcard.com/report/github.com/percona/percona-xtradb-cluster-operator)
 
-[Percona XtraDB Cluster](https://www.percona.com/software/mysql-database/percona-xtradb-cluster) (PXC) is an open-source enterprise MySQL solution that helps you to ensure data availability for your applications while improving security and simplifying the development of new applications in the most demanding public, private, and hybrid cloud environments.
+[Percona Operator for MySQL based on Percona XtraDB Cluster](https://docs.percona.com/percona-operator-for-mysql/pxc/index.html) (PXC) automates the creation and management of highly available, enterprise-ready MySQL database clusters on Kubernetes.
 
-Based on our best practices for deployment and configuration, [Percona Operator for MySQL based on Percona XtraDB Cluster](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html) contains everything you need to quickly and consistently deploy and scale Percona XtraDB Cluster instances in a Kubernetes-based environment on-premises or in the cloud. It provides the following capabilities:
+[Percona Operator for MySQL based on Percona XtraDB Cluster](https://www.percona.com/doc/kubernetes-operator-for-pxc/index.html) is based on our best practices for deployment and configuration Percona XtraDB Cluster instances in a Kubernetes-based environment on-premises or in the cloud. It provides the following capabilities to keep the cluster healthy:
 
 * Easy deployment with no single point of failure
 * Load balancing and proxy service with either HAProxy or ProxySQL
@@ -21,44 +21,34 @@ Based on our best practices for deployment and configuration, [Percona Operator 
 * Automated Password Rotation – use the standard Kubernetes API to enforce password rotation policies for system user
 * Private container image registries
 
+You interact with Percona Operator mostly via the command line tool. If you feel more comfortable with operating the Operator and database clusters via the web interface, there is [Percona Everest](https://docs.percona.com/everest/index.html) - an open-source web-based database provisioning tool available for you. It automates day-to-day database management operations for you, reducing the overall administrative overhead. [Get started with Percona Everest](https://docs.percona.com/everest/quickstart-guide/quick-install.html).
+
+
 # Architecture
 
 Percona Operators are based on the [Operator SDK](https://github.com/operator-framework/operator-sdk) and leverage Kubernetes primitives to follow best CNCF practices. 
 
-Please read more about architecture and design decisions [here](https://www.percona.com/doc/kubernetes-operator-for-pxc/architecture.html).
+Please read more about [architecture and design decisions](https://www.percona.com/doc/kubernetes-operator-for-pxc/architecture.html).
+
+## Documentation
+
+To learn more about the Operator, check the [Percona Operator for MySQL based on Percona XtraDB Cluster documentation](https://docs.percona.com/percona-operator-for-mysql/pxc/index.html).
 
 # Quickstart installation
 
-## Helm
+Ready to try out the Operator? Check the [Quickstart tutorial](https://docs.percona.com/percona-operator-for-mysql/pxc/quickstart.html) for easy-to follow steps. 
 
-Install the Operator:
-
-```sh
-helm install my-op percona/pxc-operator
-```
-
-Install Percona XtraDB Cluster:
-```sh
-helm install my-db percona/pxc-db
-```
-
-See more details in:
-- [Helm installation documentation](https://www.percona.com/doc/kubernetes-operator-for-pxc/helm.html)
-- [Operator helm chart parameter reference](https://github.com/percona/percona-helm-charts/tree/main/charts/pxc-operator)
-- [Percona XtraDB Cluster helm chart parameters reference](https://github.com/percona/percona-helm-charts/tree/main/charts/pxc-db)
-
+Below is one of the ways to deploy the Operator using `kubectl`.
 
 ## kubectl
 
-It usually takes two steps to deploy Percona XtraDB Cluster on Kubernetes.
-
-Deploy the Operator from `deploy/bundle.yaml`:
+1. Deploy the Operator from `deploy/bundle.yaml`:
 
 ```sh
 kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/bundle.yaml
 ```
 
-Deploy the database cluster itself from `deploy/cr.yaml`:
+2. Deploy the database cluster itself from `deploy/cr.yaml`:
 
 ```sh
 kubectl apply -f https://raw.githubusercontent.com/percona/percona-xtradb-cluster-operator/main/deploy/cr.yaml
@@ -71,7 +61,11 @@ See full documentation with examples and various advanced cases on [percona.com]
 
 Percona welcomes and encourages community contributions to help improve Percona Operator for MySQL.
 
-See the [Contribution Guide](CONTRIBUTING.md) and [Building and Testing Guide](e2e-tests/README.md) for more information.
+See the [Contribution Guide](CONTRIBUTING.md) and [Building and Testing Guide](e2e-tests/README.md) for more information on how you can contribute.
+
+## Communication
+
+We would love to hear from you! Reach out to us on [Forum](https://forums.percona.com/c/mysql-mariadb/percona-kubernetes-operator-for-mysql/28) with your questions, feedback and ideas
 
 # Join Percona Kubernetes Squad!                                                                              
 ```                                                                                     
@@ -99,5 +93,7 @@ We have an experimental public roadmap which can be found [here](https://github.
  
 # Submitting Bug Reports
 
-If you find a bug in Percona Docker Images or in one of the related projects, please submit a report to that project's [JIRA](https://jira.percona.com/browse/K8SPXC) issue tracker. Learn more about submitting bugs, new features ideas and improvements in the [Contribution Guide](CONTRIBUTING.md).
+If you find a bug in Percona Docker Images or in one of the related projects, please submit a report to that project's [JIRA](https://jira.percona.com/browse/K8SPXC) issue tracker or [create a GitHub issue](https://docs.github.com/en/issues/tracking-your-work-with-issues/creating-an-issue#creating-an-issue-from-a-repository) in this repository. 
+
+Learn more about submitting bugs, new features ideas and improvements in the [Contribution Guide](CONTRIBUTING.md).
 

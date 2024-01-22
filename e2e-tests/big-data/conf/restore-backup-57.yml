@@ -9,4 +9,4 @@ spec:
     s3:
       credentialsSecret: aws-s3-secret
       region: us-east-1
-      endpointUrl: https://s3.us-east-1.amazonaws.com
+      endpointUrl: https://s3.amazonaws.com

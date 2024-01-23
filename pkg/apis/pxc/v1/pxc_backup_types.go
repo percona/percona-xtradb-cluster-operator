@@ -115,9 +115,9 @@ func (dest *PXCBackupDestination) BucketAndPrefix() (string, string) {
 	prefix := ""
 	if len(spl) > 1 {
 		prefix = path.Join(spl[:len(spl)-1]...)
+		prefix = strings.TrimSuffix(prefix, "/")
+		prefix += "/"
 	}
-	prefix = strings.TrimSuffix(prefix, "/")
-	prefix += "/"
 	return bucket, prefix
 }
 

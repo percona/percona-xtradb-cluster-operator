@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"fmt"
 
 	api "github.com/percona/percona-xtradb-cluster-operator/pkg/apis/pxc/v1"
 	"github.com/pkg/errors"
@@ -28,45 +27,55 @@ func GetOptionsFromBackup(ctx context.Context, cl client.Client, cluster *api.Pe
 
 func getAzureOptions(ctx context.Context, cl client.Client, backup *api.PerconaXtraDBClusterBackup) (*AzureOptions, error) {
 	secret := new(corev1.Secret)
-	err := cl.Get(ctx, types.NamespacedName{Name: backup.Status.Azure.CredentialsSecret, Namespace: backup.Namespace}, secret)
+	err := cl.Get(ctx, types.NamespacedName{
+		Name:      backup.Status.Azure.CredentialsSecret,
+		Namespace: backup.Namespace,
+	}, secret)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get secret")
 	}
 	accountName := string(secret.Data["AZURE_STORAGE_ACCOUNT_NAME"])
 	accountKey := string(secret.Data["AZURE_STORAGE_ACCOUNT_KEY"])
 
-	endpoint := fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
-	if backup.Status.Azure.Endpoint != "" {
-		endpoint = backup.Status.Azure.Endpoint
-	}
 	container, prefix := backup.Status.Azure.ContainerAndPrefix()
 	if container == "" {
 		container, prefix = backup.Status.Destination.BucketAndPrefix()
 	}
+
+	if container == "" {
+		return nil, errors.New("container name is not set")
+	}
+
 	return &AzureOptions{
 		StorageAccount: accountName,
 		AccessKey:      accountKey,
-		Endpoint:       endpoint,
+		Endpoint:       backup.Status.Azure.Endpoint,
 		Container:      container,
 		Prefix:         prefix,
 	}, nil
 }
 
 func getS3Options(ctx context.Context, cl client.Client, cluster *api.PerconaXtraDBCluster, backup *api.PerconaXtraDBClusterBackup) (*S3Options, error) {
-	sec := corev1.Secret{}
-	err := cl.Get(ctx,
-		types.NamespacedName{Name: backup.Status.S3.CredentialsSecret, Namespace: backup.Namespace}, &sec)
+	secret := new(corev1.Secret)
+	err := cl.Get(ctx, types.NamespacedName{
+		Name:      backup.Status.S3.CredentialsSecret,
+		Namespace: backup.Namespace,
+	}, secret)
 	if client.IgnoreNotFound(err) != nil {
 		return nil, errors.Wrap(err, "failed to get secret")
 	}
+	accessKeyID := string(secret.Data["AWS_ACCESS_KEY_ID"])
+	secretAccessKey := string(secret.Data["AWS_SECRET_ACCESS_KEY"])
 
-	accessKeyID := string(sec.Data["AWS_ACCESS_KEY_ID"])
-	secretAccessKey := string(sec.Data["AWS_SECRET_ACCESS_KEY"])
-	ep := backup.Status.S3.EndpointURL
 	bucket, prefix := backup.Status.S3.BucketAndPrefix()
 	if bucket == "" {
 		bucket, prefix = backup.Status.Destination.BucketAndPrefix()
 	}
+
+	if bucket == "" {
+		return nil, errors.New("bucket name is not set")
+	}
+
 	verifyTLS := true
 	if backup.Status.VerifyTLS != nil && !*backup.Status.VerifyTLS {
 		verifyTLS = false
@@ -77,8 +86,9 @@ func getS3Options(ctx context.Context, cl client.Client, cluster *api.PerconaXtr
 			verifyTLS = *storage.VerifyTLS
 		}
 	}
+
 	return &S3Options{
-		Endpoint:        ep,
+		Endpoint:        backup.Status.S3.EndpointURL,
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: secretAccessKey,
 		BucketName:      bucket,

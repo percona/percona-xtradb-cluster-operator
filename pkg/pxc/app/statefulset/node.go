@@ -254,6 +254,9 @@ func (c *Node) AppContainer(spec *api.PodSpec, secrets string, cr *api.PerconaXt
 			Name:      "mysql-init-file",
 			MountPath: "/etc/mysql/init-file",
 		})
+
+		appc.ReadinessProbe = app.Probe(&cr.Spec.PXC.ReadinessProbes, "/var/lib/mysql/readiness-check.sh")
+		appc.LivenessProbe = app.Probe(&cr.Spec.PXC.LivenessProbes, "/var/lib/mysql/liveness-check.sh")
 	}
 
 	if cr.Spec.PXC != nil && (cr.Spec.PXC.Lifecycle.PostStart != nil || cr.Spec.PXC.Lifecycle.PreStop != nil) {

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask a question about Percona Operator for MySQL or get support
+    url: https://forums.percona.com/c/mysql-mariadb/percona-kubernetes-operator-for-mysql/28
+    about: Ask a question or request support for using Percona Operator for MySQL
+  - name: Report vulnerability or security concern
+    url: https://www.percona.com/security
+    about: For any security issues or concerns

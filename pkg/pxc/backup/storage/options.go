@@ -76,6 +76,11 @@ func getS3Options(ctx context.Context, cl client.Client, cluster *api.PerconaXtr
 		return nil, errors.New("bucket name is not set")
 	}
 
+	region := backup.Status.S3.Region
+	if region == "" {
+		region = "us-east-1"
+	}
+
 	verifyTLS := true
 	if backup.Status.VerifyTLS != nil && !*backup.Status.VerifyTLS {
 		verifyTLS = false
@@ -93,7 +98,7 @@ func getS3Options(ctx context.Context, cl client.Client, cluster *api.PerconaXtr
 		SecretAccessKey: secretAccessKey,
 		BucketName:      bucket,
 		Prefix:          prefix,
-		Region:          backup.Status.S3.Region,
+		Region:          region,
 		VerifyTLS:       verifyTLS,
 	}, nil
 }

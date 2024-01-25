@@ -61,6 +61,7 @@ func TestGetS3Options(t *testing.T) {
 				AccessKeyID:     accessKeyID,
 				SecretAccessKey: secretAccessKey,
 				VerifyTLS:       true,
+				Region:          "us-east-1",
 			},
 		},
 		{
@@ -69,6 +70,7 @@ func TestGetS3Options(t *testing.T) {
 			expected: &S3Options{
 				BucketName: "my-bucket",
 				VerifyTLS:  true,
+				Region:     "us-east-1",
 			},
 		},
 		{
@@ -78,6 +80,7 @@ func TestGetS3Options(t *testing.T) {
 				BucketName: "my-bucket",
 				Prefix:     "prefix/",
 				VerifyTLS:  true,
+				Region:     "us-east-1",
 			},
 		},
 		{
@@ -87,6 +90,7 @@ func TestGetS3Options(t *testing.T) {
 			expected: &S3Options{
 				BucketName: "my-bucket",
 				VerifyTLS:  true,
+				Region:     "us-east-1",
 			},
 		},
 		{
@@ -95,6 +99,7 @@ func TestGetS3Options(t *testing.T) {
 			expected: &S3Options{
 				BucketName: "destination-bucket",
 				VerifyTLS:  true,
+				Region:     "us-east-1",
 			},
 		},
 		{
@@ -104,6 +109,7 @@ func TestGetS3Options(t *testing.T) {
 				BucketName: "destination-bucket",
 				Prefix:     "prefix/",
 				VerifyTLS:  true,
+				Region:     "us-east-1",
 			},
 		},
 		{
@@ -117,6 +123,7 @@ func TestGetS3Options(t *testing.T) {
 			expected: &S3Options{
 				BucketName: "somebucket",
 				VerifyTLS:  false,
+				Region:     "us-east-1",
 			},
 		},
 		{
@@ -129,6 +136,7 @@ func TestGetS3Options(t *testing.T) {
 			expected: &S3Options{
 				BucketName: "somebucket",
 				VerifyTLS:  false,
+				Region:     "us-east-1",
 			},
 		},
 	}

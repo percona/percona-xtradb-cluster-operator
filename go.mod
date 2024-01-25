@@ -14,21 +14,21 @@ require (
 	github.com/go-openapi/errors v0.21.0
 	github.com/go-openapi/runtime v0.26.2
 	github.com/go-openapi/strfmt v0.22.0
-	github.com/go-openapi/swag v0.22.7
+	github.com/go-openapi/swag v0.22.8
 	github.com/go-openapi/validate v0.22.6
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-version v1.6.0
 	github.com/minio/minio-go/v7 v7.0.66
-	github.com/onsi/ginkgo/v2 v2.14.0
-	github.com/onsi/gomega v1.30.0
+	github.com/onsi/ginkgo/v2 v2.15.0
+	github.com/onsi/gomega v1.31.1
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
 	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.6.0
-	k8s.io/api v0.29.0
-	k8s.io/apimachinery v0.29.0
-	k8s.io/client-go v0.29.0
+	k8s.io/api v0.29.1
+	k8s.io/apimachinery v0.29.1
+	k8s.io/client-go v0.29.1
 	k8s.io/klog/v2 v2.120.0
 	sigs.k8s.io/controller-runtime v0.17.0
 )
@@ -57,7 +57,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
+	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect

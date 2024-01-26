@@ -150,7 +150,7 @@ spec:
 #    topologySpreadConstraints:
 #    - labelSelector:
 #        matchLabels:
-#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          app.kubernetes.io/name: percona-xtradb-cluster
 #      maxSkew: 1
 #      topologyKey: kubernetes.io/hostname
 #      whenUnsatisfiable: DoNotSchedule
@@ -336,7 +336,7 @@ spec:
 #    topologySpreadConstraints:
 #    - labelSelector:
 #        matchLabels:
-#          app.kubernetes.io/name: percona-xtradb-cluster-operator
+#          app.kubernetes.io/name: percona-xtradb-cluster
 #      maxSkew: 1
 #      topologyKey: kubernetes.io/hostname
 #      whenUnsatisfiable: DoNotSchedule
@@ -592,7 +592,7 @@ spec:
 #        topologySpreadConstraints:
 #        - labelSelector:
 #            matchLabels:
-#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#              app.kubernetes.io/name: percona-xtradb-cluster
 #          maxSkew: 1
 #          topologyKey: kubernetes.io/hostname
 #          whenUnsatisfiable: DoNotSchedule
@@ -655,7 +655,7 @@ spec:
 #        topologySpreadConstraints:
 #        - labelSelector:
 #            matchLabels:
-#              app.kubernetes.io/name: percona-xtradb-cluster-operator
+#              app.kubernetes.io/name: percona-xtradb-cluster
 #          maxSkew: 1
 #          topologyKey: kubernetes.io/hostname
 #          whenUnsatisfiable: DoNotSchedule

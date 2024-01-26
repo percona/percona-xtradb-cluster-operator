@@ -1,9 +1,8 @@
 package backup
 
 import (
-	"net/url"
+	"path"
 	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 	batchv1 "k8s.io/api/batch/v1"
@@ -216,7 +215,12 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 			SecretKeyRef: app.SecretKeySelector(azure.CredentialsSecret, "AZURE_STORAGE_ACCOUNT_KEY"),
 		},
 	}
-	container, _ := azure.ContainerAndPrefix()
+	container, prefix := azure.ContainerAndPrefix()
+	if container == "" {
+		container, prefix = cr.Status.Destination.BucketAndPrefix()
+	}
+	bucketPath := path.Join(prefix, cr.Status.Destination.BackupName())
+
 	containerName := corev1.EnvVar{
 		Name:  "AZURE_CONTAINER_NAME",
 		Value: container,
@@ -231,7 +235,7 @@ func SetStorageAzure(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) e
 	}
 	backupPath := corev1.EnvVar{
 		Name:  "BACKUP_PATH",
-		Value: strings.TrimPrefix(cr.Status.Destination, container+"/"),
+		Value: bucketPath,
 	}
 	if len(job.Template.Spec.Containers) == 0 {
 		return errors.New("no containers in job spec")
@@ -281,37 +285,30 @@ func SetStorageS3(job *batchv1.JobSpec, cr *api.PerconaXtraDBClusterBackup) erro
 	}
 	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, accessKey, secretKey, region, endpoint)
 
-	u, err := parseS3URL(cr.Status.Destination)
-	if err != nil {
-		return errors.Wrap(err, "failed to create job")
+	bucket, prefix := s3.BucketAndPrefix()
+	if bucket == "" {
+		bucket, prefix = cr.Status.Destination.BucketAndPrefix()
 	}
-	bucket := corev1.EnvVar{
+	bucketPath := path.Join(prefix, cr.Status.Destination.BackupName())
+
+	bucketEnv := corev1.EnvVar{
 		Name:  "S3_BUCKET",
-		Value: u.Host,
+		Value: bucket,
 	}
-	bucketPath := corev1.EnvVar{
+	bucketPathEnv := corev1.EnvVar{
 		Name:  "S3_BUCKET_PATH",
-		Value: strings.TrimLeft(u.Path, "/"),
+		Value: bucketPath,
 	}
-	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucket, bucketPath)
+	job.Template.Spec.Containers[0].Env = append(job.Template.Spec.Containers[0].Env, bucketEnv, bucketPathEnv)
 
 	// add SSL volumes
 	job.Template.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{}
 	job.Template.Spec.Volumes = []corev1.Volume{}
 
-	err = appendStorageSecret(job, cr)
+	err := appendStorageSecret(job, cr)
 	if err != nil {
 		return errors.Wrap(err, "failed to append storage secrets")
 	}
 
 	return nil
-}
-
-func parseS3URL(bucketURL string) (*url.URL, error) {
-	u, err := url.Parse(bucketURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse s3 URL")
-	}
-
-	return u, nil
 }

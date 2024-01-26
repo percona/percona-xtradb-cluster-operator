@@ -65,7 +65,7 @@ const (
 	timelinePath      string = "/tmp/pitr-timeline" // path to file with timeline
 )
 
-func New(c Config) (*Collector, error) {
+func New(ctx context.Context, c Config) (*Collector, error) {
 	var s storage.Storage
 	var err error
 	switch c.StorageType {
@@ -76,7 +76,7 @@ func New(c Config) (*Collector, error) {
 		if len(bucketArr) > 1 {
 			prefix = strings.TrimPrefix(c.BackupStorageS3.BucketURL, bucketArr[0]+"/") + "/"
 		}
-		s, err = storage.NewS3(c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS)
+		s, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucketArr[0], prefix, c.BackupStorageS3.Region, c.VerifyTLS)
 		if err != nil {
 			return nil, errors.Wrap(err, "new storage manager")
 		}
@@ -245,7 +245,7 @@ func createTimelineFile(firstTs string) error {
 }
 
 func updateTimelineFile(lastTs string) error {
-	f, err := os.OpenFile(timelinePath, os.O_RDWR, 0644)
+	f, err := os.OpenFile(timelinePath, os.O_RDWR, 0o644)
 	if err != nil {
 		return errors.Wrapf(err, "open %s", timelinePath)
 	}

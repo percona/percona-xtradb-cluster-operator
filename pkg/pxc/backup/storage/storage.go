@@ -30,16 +30,16 @@ type Storage interface {
 	GetPrefix() string
 }
 
-type NewClientFunc func(Options) (Storage, error)
+type NewClientFunc func(context.Context, Options) (Storage, error)
 
-func NewClient(opts Options) (Storage, error) {
+func NewClient(ctx context.Context, opts Options) (Storage, error) {
 	switch opts.Type() {
 	case api.BackupStorageS3:
 		opts, ok := opts.(*S3Options)
 		if !ok {
 			return nil, errors.New("invalid options type")
 		}
-		return NewS3(opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS)
+		return NewS3(ctx, opts.Endpoint, opts.AccessKeyID, opts.SecretAccessKey, opts.BucketName, opts.Prefix, opts.Region, opts.VerifyTLS)
 	case api.BackupStorageAzure:
 		opts, ok := opts.(*AzureOptions)
 		if !ok {
@@ -58,9 +58,14 @@ type S3 struct {
 }
 
 // NewS3 return new Manager, useSSL using ssl for connection with storage
-func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, verifyTLS bool) (Storage, error) {
+func NewS3(ctx context.Context, endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region string, verifyTLS bool) (Storage, error) {
 	if endpoint == "" {
 		endpoint = "https://s3.amazonaws.com"
+		// We can't use default endpoint if region is not us-east-1
+		// More info: https://docs.aws.amazon.com/general/latest/gr/s3.html
+		if region != "" && region != "us-east-1" {
+			endpoint = fmt.Sprintf("https://s3.%s.amazonaws.com", region)
+		}
 	}
 	useSSL := strings.Contains(endpoint, "https")
 	endpoint = strings.TrimPrefix(strings.TrimPrefix(endpoint, "https://"), "http://")
@@ -76,6 +81,17 @@ func NewS3(endpoint, accessKeyID, secretAccessKey, bucketName, prefix, region st
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "new minio client")
+	}
+
+	bucketExists, err := minioClient.BucketExists(ctx, bucketName)
+	if err != nil {
+		if merr, ok := err.(minio.ErrorResponse); ok && merr.Code == "301 Moved Permanently" {
+			return nil, errors.Errorf("%s region: %s bucket: %s", merr.Code, merr.Region, merr.BucketName)
+		}
+		return nil, errors.Wrap(err, "failed to check if bucket exists")
+	}
+	if !bucketExists {
+		return nil, errors.Errorf("bucket %s does not exist", bucketName)
 	}
 
 	return &S3{

@@ -27,19 +27,22 @@ func TestValidate(t *testing.T) {
 	cluster := readDefaultCR(t, clusterName, namespace)
 	s3Bcp := readDefaultBackup(t, backupName, namespace)
 	s3Bcp.Spec.StorageName = "s3-us-west"
-	s3Bcp.Status.Destination = api.AwsBlobStoragePrefix + "some-dest/dest"
+	s3Bcp.Status.Destination.SetS3Destination("some-dest", "dest")
 	s3Bcp.Status.S3 = &api.BackupStorageS3Spec{
 		Bucket:            "some-bucket",
 		CredentialsSecret: s3SecretName,
 	}
+	s3Bcp.Status.State = api.BackupSucceeded
 	azureBcp := readDefaultBackup(t, backupName, namespace)
 	azureBcp.Spec.StorageName = "azure-blob"
-	azureBcp.Status.Destination = "some-dest/dest"
+	azureBcp.Status.Destination.SetAzureDestination("some-dest", "dest")
 	azureBcp.Status.Azure = &api.BackupStorageAzureSpec{
 		ContainerPath:     "some-bucket",
 		CredentialsSecret: azureSecretName,
 	}
+	azureBcp.Status.State = api.BackupSucceeded
 	cr := readDefaultRestore(t, restoreName, namespace)
+	cr.Spec.BackupName = backupName
 	crSecret := readDefaultCRSecret(t, clusterName+"-secrets", namespace)
 	s3Secret := readDefaultS3Secret(t, s3SecretName, namespace)
 	azureSecret := readDefaultAzureSecret(t, azureSecretName, namespace)
@@ -93,8 +96,26 @@ func TestValidate(t *testing.T) {
 				crSecret,
 				s3Secret,
 			},
-			fakeStorageClientFunc: func(opts storage.Options) (storage.Storage, error) {
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
 				return &fakeStorageClient{failListObjects: true}, nil
+			},
+		},
+		{
+			name: "s3 without provided bucket",
+			cr: updateResource(cr, func(cr *api.PerconaXtraDBClusterRestore) {
+				cr.Spec.BackupName = ""
+				cr.Spec.BackupSource = &api.PXCBackupStatus{
+					Destination: s3Bcp.Status.Destination,
+					StorageType: api.BackupStorageS3,
+					S3:          s3Bcp.Status.S3,
+				}
+				cr.Spec.BackupSource.S3.Bucket = ""
+			},
+			),
+			cluster: cluster.DeepCopy(),
+			objects: []runtime.Object{
+				crSecret,
+				s3Secret,
 			},
 		},
 		{
@@ -107,7 +128,7 @@ func TestValidate(t *testing.T) {
 				crSecret,
 				s3Secret,
 			},
-			fakeStorageClientFunc: func(opts storage.Options) (storage.Storage, error) {
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
 				return &fakeStorageClient{emptyListObjects: true}, nil
 			},
 		},
@@ -180,8 +201,26 @@ func TestValidate(t *testing.T) {
 				crSecret,
 				azureSecret,
 			},
-			fakeStorageClientFunc: func(opts storage.Options) (storage.Storage, error) {
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
 				return &fakeStorageClient{failListObjects: true}, nil
+			},
+		},
+		{
+			name: "azure without provided bucket",
+			cr: updateResource(cr, func(cr *api.PerconaXtraDBClusterRestore) {
+				cr.Spec.BackupName = ""
+				cr.Spec.BackupSource = &api.PXCBackupStatus{
+					Destination: azureBcp.Status.Destination,
+					StorageType: api.BackupStorageAzure,
+					Azure:       azureBcp.Status.Azure,
+				}
+				cr.Spec.BackupSource.Azure.ContainerPath = ""
+			},
+			),
+			cluster: cluster.DeepCopy(),
+			objects: []runtime.Object{
+				crSecret,
+				azureSecret,
 			},
 		},
 		{
@@ -194,7 +233,7 @@ func TestValidate(t *testing.T) {
 				crSecret,
 				azureSecret,
 			},
-			fakeStorageClientFunc: func(opts storage.Options) (storage.Storage, error) {
+			fakeStorageClientFunc: func(_ context.Context, opts storage.Options) (storage.Storage, error) {
 				return &fakeStorageClient{emptyListObjects: true}, nil
 			},
 		},
@@ -203,8 +242,8 @@ func TestValidate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.fakeStorageClientFunc == nil {
-				tt.fakeStorageClientFunc = func(opts storage.Options) (storage.Storage, error) {
-					defaultFakeClient, err := fakestorage.NewFakeClient(opts)
+				tt.fakeStorageClientFunc = func(ctx context.Context, opts storage.Options) (storage.Storage, error) {
+					defaultFakeClient, err := fakestorage.NewFakeClient(ctx, opts)
 					if err != nil {
 						return nil, err
 					}
@@ -218,13 +257,20 @@ func TestValidate(t *testing.T) {
 			if err := tt.cluster.CheckNSetDefaults(new(version.ServerVersion), logf.FromContext(ctx)); err != nil {
 				t.Fatal(err)
 			}
-			tt.objects = append(tt.objects, tt.cr, tt.bcp, tt.cluster)
+			if tt.bcp != nil {
+				tt.objects = append(tt.objects, tt.bcp)
+			}
+			tt.objects = append(tt.objects, tt.cr, tt.cluster)
 
 			cl := buildFakeClient(tt.objects...)
 			r := reconciler(cl)
 			r.newStorageClientFunc = tt.fakeStorageClientFunc
 
-			err := r.validate(ctx, tt.cr, tt.bcp, tt.cluster)
+			bcp, err := r.getBackup(ctx, tt.cr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = r.validate(ctx, tt.cr, bcp, tt.cluster)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()

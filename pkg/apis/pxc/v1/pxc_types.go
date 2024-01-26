@@ -640,8 +640,13 @@ type BackupStorageS3Spec struct {
 // BucketAndPrefix returns bucket name and backup prefix from Bucket.
 // BackupStorageS3Spec.Bucket can contain backup path in format `<bucket-name>/<backup-prefix>`.
 func (b *BackupStorageS3Spec) BucketAndPrefix() (string, string) {
-	destination := strings.TrimPrefix(b.Bucket, AwsBlobStoragePrefix)
-	bucket, prefix, _ := strings.Cut(destination, "/")
+	bucket, prefix, _ := strings.Cut(b.Bucket, "/")
+
+	if prefix != "" {
+		prefix = strings.TrimSuffix(prefix, "/")
+		prefix += "/"
+	}
+
 	return bucket, prefix
 }
 
@@ -655,13 +660,19 @@ type BackupStorageAzureSpec struct {
 const (
 	AzureBlobStoragePrefix string = "azure://"
 	AwsBlobStoragePrefix   string = "s3://"
+	PVCStoragePrefix       string = "pvc/"
 )
 
 // ContainerAndPrefix returns container name and backup prefix from ContainerPath.
 // BackupStorageAzureSpec.ContainerPath can contain backup path in format `<container-name>/<backup-prefix>`.
 func (b *BackupStorageAzureSpec) ContainerAndPrefix() (string, string) {
-	destination := strings.TrimPrefix(b.ContainerPath, AzureBlobStoragePrefix)
-	container, prefix, _ := strings.Cut(destination, "/")
+	container, prefix, _ := strings.Cut(b.ContainerPath, "/")
+
+	if prefix != "" {
+		prefix = strings.TrimSuffix(prefix, "/")
+		prefix += "/"
+	}
+
 	return container, prefix
 }
 
@@ -1054,7 +1065,13 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 		cr.Spec.PXC.LivenessProbes.TimeoutSeconds = 5
 	}
 
-	cr.Spec.PXC.LivenessProbes.SuccessThreshold = 1
+	if cr.Spec.PXC.LivenessProbes.FailureThreshold == 0 {
+		cr.Spec.PXC.LivenessProbes.FailureThreshold = 3
+	}
+
+	if cr.Spec.PXC.LivenessProbes.SuccessThreshold == 0 {
+		cr.Spec.PXC.LivenessProbes.SuccessThreshold = 1
+	}
 
 	if cr.Spec.PXC.ReadinessInitialDelaySeconds != nil {
 		cr.Spec.PXC.ReadinessProbes.InitialDelaySeconds = *cr.Spec.PXC.ReadinessInitialDelaySeconds
@@ -1069,6 +1086,11 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 	if cr.Spec.PXC.ReadinessProbes.FailureThreshold == 0 {
 		cr.Spec.PXC.ReadinessProbes.FailureThreshold = 5
 	}
+
+	if cr.Spec.PXC.ReadinessProbes.SuccessThreshold == 0 {
+		cr.Spec.PXC.ReadinessProbes.SuccessThreshold = 1
+	}
+
 	if cr.Spec.PXC.ReadinessProbes.TimeoutSeconds == 0 {
 		cr.Spec.PXC.ReadinessProbes.TimeoutSeconds = 15
 	}
@@ -1087,6 +1109,14 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 			cr.Spec.HAProxy.ReadinessProbes.TimeoutSeconds = 1
 		}
 
+		if cr.Spec.HAProxy.ReadinessProbes.SuccessThreshold == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.SuccessThreshold = 1
+		}
+
+		if cr.Spec.HAProxy.ReadinessProbes.FailureThreshold == 0 {
+			cr.Spec.HAProxy.ReadinessProbes.FailureThreshold = 3
+		}
+
 		if cr.Spec.HAProxy.LivenessInitialDelaySeconds != nil {
 			cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds = *cr.Spec.HAProxy.LivenessInitialDelaySeconds
 		} else if cr.Spec.HAProxy.LivenessProbes.InitialDelaySeconds == 0 {
@@ -1103,8 +1133,9 @@ func (cr *PerconaXtraDBCluster) setProbesDefaults() {
 			cr.Spec.HAProxy.LivenessProbes.PeriodSeconds = 30
 		}
 
-		cr.Spec.HAProxy.LivenessProbes.SuccessThreshold = 1
-
+		if cr.Spec.HAProxy.LivenessProbes.SuccessThreshold == 0 {
+			cr.Spec.HAProxy.LivenessProbes.SuccessThreshold = 1
+		}
 	}
 }
 

@@ -1,0 +1,53 @@
+name: Report a bug 🐛
+description: Create a report to help us improve
+labels: "bug"
+body:
+- type: markdown
+  attributes:
+    value: |
+      ## Self-help
+      Thank you for considering to open a bug report!
+
+      Before you do, however, make sure to check our existing resources to see if it has already been discussed/reported:
+      - [Reported bugs](https://github.com/percona/percona-xtradb-cluster-operator/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Abug)
+      - [JIRA bugs](https://perconadev.atlassian.net/issues/?jql=project%20%3D%20%22Percona%20Operator%20for%20MySQL%20based%20on%20Percona%20XtraDB%20Cluster%22%20and%20issuetype%20%3D%20Bug%20and%20resolution%20%3D%20unresolved%20order%20BY%20created%20DESC)
+      - [Percona Operator for MySQL forum](https://forums.percona.com/c/mysql-mariadb/percona-kubernetes-operator-for-mysql/28)
+- type: textarea
+  attributes:
+    label: Report
+    description: "What bug have you encountered?"
+    placeholder: "A clear and concise description of what the bug is."
+  validations:
+    required: true  
+- type: textarea
+  attributes:
+    label: More about the problem
+    description: What do you see happening
+    placeholder: Logs, expected behavior, other
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Steps to reproduce
+    description: "Tell us how to reproduce the problem" 
+    value: |
+      1. 
+      2. 
+      3. 
+  validations:
+    required: true
+- type: textarea
+  attributes:
+    label: Versions
+    description: "Tell us which versions do you use" 
+    value: |
+      1. Kubernetes
+      2. Operator
+      3. Database
+  validations:
+    required: true
+- type: textarea
+  id: anything-else
+  attributes:
+    label: Anything else?
+    description: "Let us know if you have anything else to share"

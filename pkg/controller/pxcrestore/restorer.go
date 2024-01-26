@@ -2,7 +2,6 @@ package pxcrestore
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -36,11 +35,11 @@ func (s *s3) Init(context.Context) error     { return nil }
 func (s *s3) Finalize(context.Context) error { return nil }
 
 func (s *s3) Job() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), false)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, false)
 }
 
 func (s *s3) PITRJob() (*batchv1.Job, error) {
-	return backup.RestoreJob(s.cr, s.bcp, s.cluster, strings.TrimPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix), true)
+	return backup.RestoreJob(s.cr, s.bcp, s.cluster, s.bcp.Status.Destination, true)
 }
 
 func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {
@@ -55,49 +54,17 @@ func (s *s3) ValidateJob(ctx context.Context, job *batchv1.Job) error {
 }
 
 func (s *s3) Validate(ctx context.Context) error {
-	sec := corev1.Secret{}
-	err := s.k8sClient.Get(ctx,
-		types.NamespacedName{Name: s.bcp.Status.S3.CredentialsSecret, Namespace: s.bcp.Namespace}, &sec)
-	if client.IgnoreNotFound(err) != nil {
-		return errors.Wrap(err, "failed to get secret")
+	opts, err := storage.GetOptionsFromBackup(ctx, s.k8sClient, s.cluster, s.bcp)
+	if err != nil {
+		return errors.Wrap(err, "failed to get storage options")
 	}
-
-	accessKeyID := string(sec.Data["AWS_ACCESS_KEY_ID"])
-	secretAccessKey := string(sec.Data["AWS_SECRET_ACCESS_KEY"])
-	ep := s.bcp.Status.S3.EndpointURL
-	bucket, prefix := s.bcp.Status.S3.BucketAndPrefix()
-	verifyTLS := true
-	if s.bcp.Status.VerifyTLS != nil && !*s.bcp.Status.VerifyTLS {
-		verifyTLS = false
-	}
-	if s.cluster.Spec.Backup != nil && len(s.cluster.Spec.Backup.Storages) > 0 {
-		storage, ok := s.cluster.Spec.Backup.Storages[s.bcp.Spec.StorageName]
-		if ok && storage.VerifyTLS != nil {
-			verifyTLS = *storage.VerifyTLS
-		}
-	}
-	s3cli, err := s.newStorageClient(&storage.S3Options{
-		Endpoint:        ep,
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-		BucketName:      bucket,
-		Prefix:          prefix,
-		Region:          s.bcp.Status.S3.Region,
-		VerifyTLS:       verifyTLS,
-	})
+	s3cli, err := s.newStorageClient(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
-	dest := s.bcp.Status.Destination
-	dest = strings.TrimPrefix(dest, api.AwsBlobStoragePrefix)
-	dest = strings.TrimPrefix(dest, bucket+"/")
-	if prefix != "" {
-		dest = strings.TrimPrefix(dest, prefix)
-		dest = strings.TrimPrefix(dest, "/")
-	}
-	dest = strings.TrimSuffix(dest, "/") + "/"
 
-	objs, err := s3cli.ListObjects(ctx, dest)
+	backupName := s.bcp.Status.Destination.BackupName() + "/"
+	objs, err := s3cli.ListObjects(ctx, backupName)
 	if err != nil {
 		return errors.Wrap(err, "failed to list objects")
 	}
@@ -113,7 +80,7 @@ type pvc struct{ *restorerOptions }
 func (s *pvc) Validate(ctx context.Context) error {
 	destination := s.bcp.Status.Destination
 
-	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, strings.TrimPrefix(destination, "pvc/"), s.cluster)
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster)
 	if err != nil {
 		return errors.Wrap(err, "restore pod")
 	}
@@ -164,7 +131,7 @@ func (s *pvc) Init(ctx context.Context) error {
 	if err := k8s.SetControllerReference(s.cr, svc, s.scheme); err != nil {
 		return err
 	}
-	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, strings.TrimPrefix(destination, "pvc/"), s.cluster)
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, destination.BackupName(), s.cluster)
 	if err != nil {
 		return errors.Wrap(err, "restore pod")
 	}
@@ -205,7 +172,7 @@ func (s *pvc) Finalize(ctx context.Context) error {
 	if err := s.k8sClient.Delete(ctx, svc); err != nil {
 		return errors.Wrap(err, "failed to delete pvc service")
 	}
-	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, strings.TrimPrefix(s.bcp.Status.Destination, "pvc/"), s.cluster)
+	pod, err := backup.PVCRestorePod(s.cr, s.bcp.Status.StorageName, s.bcp.Status.Destination.BackupName(), s.cluster)
 	if err != nil {
 		return err
 	}
@@ -229,40 +196,17 @@ func (s *azure) PITRJob() (*batchv1.Job, error) {
 }
 
 func (s *azure) Validate(ctx context.Context) error {
-	secret := new(corev1.Secret)
-	err := s.k8sClient.Get(ctx, types.NamespacedName{Name: s.bcp.Status.Azure.CredentialsSecret, Namespace: s.bcp.Namespace}, secret)
+	opts, err := storage.GetOptionsFromBackup(ctx, s.k8sClient, s.cluster, s.bcp)
 	if err != nil {
-		return errors.Wrap(err, "failed to get secret")
+		return errors.Wrap(err, "failed to get storage options")
 	}
-	accountName := string(secret.Data["AZURE_STORAGE_ACCOUNT_NAME"])
-	accountKey := string(secret.Data["AZURE_STORAGE_ACCOUNT_KEY"])
-
-	endpoint := fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
-	if s.bcp.Status.Azure.Endpoint != "" {
-		endpoint = s.bcp.Status.Azure.Endpoint
-	}
-	container, prefix := s.bcp.Status.Azure.ContainerAndPrefix()
-	azurecli, err := s.newStorageClient(&storage.AzureOptions{
-		StorageAccount: accountName,
-		AccessKey:      accountKey,
-		Endpoint:       endpoint,
-		Container:      container,
-		Prefix:         prefix,
-	})
+	azurecli, err := s.newStorageClient(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "failed to create s3 client")
 	}
 
-	dest := s.bcp.Status.Destination
-	dest = strings.TrimPrefix(dest, api.AzureBlobStoragePrefix)
-	dest = strings.TrimPrefix(dest, container+"/")
-	if prefix != "" {
-		dest = strings.TrimPrefix(dest, prefix)
-		dest = strings.TrimPrefix(dest, "/")
-	}
-	dest = strings.TrimSuffix(dest, "/") + "/"
-
-	blobs, err := azurecli.ListObjects(ctx, dest)
+	backupName := s.bcp.Status.Destination.BackupName() + "/"
+	blobs, err := azurecli.ListObjects(ctx, backupName)
 	if err != nil {
 		return errors.Wrap(err, "list blobs")
 	}
@@ -286,14 +230,14 @@ func (r *ReconcilePerconaXtraDBClusterRestore) getRestorer(
 		scheme:           r.scheme,
 		newStorageClient: r.newStorageClientFunc,
 	}
-	switch {
-	case strings.HasPrefix(s.bcp.Status.Destination, "pvc/"):
+	switch s.bcp.Status.Destination.StorageTypePrefix() {
+	case api.PVCStoragePrefix:
 		sr := pvc{&s}
 		return &sr, nil
-	case strings.HasPrefix(s.bcp.Status.Destination, api.AwsBlobStoragePrefix):
+	case api.AwsBlobStoragePrefix:
 		sr := s3{&s}
 		return &sr, nil
-	case s.bcp.Status.Azure != nil:
+	case api.AzureBlobStoragePrefix:
 		sr := azure{&s}
 		return &sr, nil
 	}

@@ -51,7 +51,7 @@ type Config struct {
 	BinlogStorageAzure BinlogAzure
 }
 
-func (c Config) storages() (storage.Storage, storage.Storage, error) {
+func (c Config) storages(ctx context.Context) (storage.Storage, storage.Storage, error) {
 	var binlogStorage, defaultStorage storage.Storage
 	switch c.StorageType {
 	case "s3":
@@ -59,7 +59,7 @@ func (c Config) storages() (storage.Storage, storage.Storage, error) {
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
-		binlogStorage, err = storage.NewS3(c.BinlogStorageS3.Endpoint, c.BinlogStorageS3.AccessKeyID, c.BinlogStorageS3.AccessKey, bucket, prefix, c.BinlogStorageS3.Region, c.VerifyTLS)
+		binlogStorage, err = storage.NewS3(ctx, c.BinlogStorageS3.Endpoint, c.BinlogStorageS3.AccessKeyID, c.BinlogStorageS3.AccessKey, bucket, prefix, c.BinlogStorageS3.Region, c.VerifyTLS)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new s3 storage")
 		}
@@ -69,7 +69,7 @@ func (c Config) storages() (storage.Storage, storage.Storage, error) {
 			return nil, nil, errors.Wrap(err, "get bucket and prefix")
 		}
 		prefix = prefix[:len(prefix)-1]
-		defaultStorage, err = storage.NewS3(c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucket, prefix+".sst_info/", c.BackupStorageS3.Region, c.VerifyTLS)
+		defaultStorage, err = storage.NewS3(ctx, c.BackupStorageS3.Endpoint, c.BackupStorageS3.AccessKeyID, c.BackupStorageS3.AccessKey, bucket, prefix+".sst_info/", c.BackupStorageS3.Region, c.VerifyTLS)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "new storage manager")
 		}
@@ -137,7 +137,7 @@ type RecoverType string
 func New(ctx context.Context, c Config) (*Recoverer, error) {
 	c.Verify()
 
-	binlogStorage, storage, err := c.storages()
+	binlogStorage, storage, err := c.storages(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "new binlog storage manager")
 	}
